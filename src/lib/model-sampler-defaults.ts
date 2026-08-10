@@ -9,12 +9,13 @@ import type { WorkflowParamValues } from './comfyui-config';
 import { isQwenRapidAioModel, isWanRapidAioModel } from './model-denoise-defaults';
 import { isWanLightningModel } from './model-sampling-patch';
 
-function isLightningModelId(model: string): boolean {
+export function isLightningModelId(model: string): boolean {
   const id = model.trim();
   if (!id) {
     return false;
   }
-  if (id === 'z-image-turbo' || id === 'boogu-image-turbo') {
+  // Native turbo ids: CFG-1 style-LoRA neutralization only — not Lightning LoRA slots.
+  if (id === 'z-image-turbo' || id === 'boogu-image-turbo' || id === 'boogu-image-edit-turbo') {
     return true;
   }
   if (COMFY_MODEL_IDS.has(id)) {
@@ -22,6 +23,18 @@ function isLightningModelId(model: string): boolean {
     return id.includes('lightning-');
   }
   return /lightning-(4|8)\b/.test(id);
+}
+
+/** CFG-1 distilled stacks — sidebar/catalog style LoRAs cause melt and banding. */
+export function shouldNeutralizeStyleLorasAtQueue(model?: string | null): boolean {
+  const id = String(model ?? '').trim();
+  if (!id) {
+    return false;
+  }
+  if (id === 'flux-schnell') {
+    return true;
+  }
+  return isLightningModelId(id);
 }
 
 export type ModelSamplerPresetTier = 'base' | 'optimized' | 'maxCompatible' | 'max';
@@ -170,14 +183,15 @@ const Z_IMAGE_BASE_SAMPLER: Pick<ModelSamplerDefaults, 'samplerName' | 'schedule
   scheduler: 'sgm_uniform',
 };
 
-const BOOGU_EDIT_SAMPLER: Pick<ModelSamplerDefaults, 'samplerName' | 'scheduler'> = {
+const BOOGU_BASE_SAMPLER: Pick<ModelSamplerDefaults, 'samplerName' | 'scheduler'> = {
   samplerName: 'res_multistep',
   scheduler: 'sgm_uniform',
 };
 
-const BOOGU_EDIT_TURBO_SAMPLER: Pick<ModelSamplerDefaults, 'samplerName' | 'scheduler' | 'cfg'> = {
+/** Official Boogu Turbo: euler / sgm_uniform / 4 steps / CFG 1 — not Base res_multistep. */
+const BOOGU_TURBO_SAMPLER: Pick<ModelSamplerDefaults, 'samplerName' | 'scheduler' | 'cfg'> = {
   cfg: 1,
-  samplerName: 'res_multistep',
+  samplerName: 'euler',
   scheduler: 'sgm_uniform',
 };
 
@@ -307,19 +321,19 @@ const MODEL_SAMPLER_PRESETS: ModelSamplerPresetMap = {
     max: { steps: 50, cfg: 3.5, ...Z_IMAGE_BASE_SAMPLER },
   },
   'boogu-image': {
-    base: { steps: 25, cfg: 4, ...BOOGU_EDIT_SAMPLER },
-    optimized: { steps: 35, cfg: 4, ...BOOGU_EDIT_SAMPLER },
-    maxCompatible: { steps: 45, cfg: 3.5, ...BOOGU_EDIT_SAMPLER },
-    max: { steps: 50, cfg: 3.5, ...BOOGU_EDIT_SAMPLER },
+    base: { steps: 25, cfg: 4, ...BOOGU_BASE_SAMPLER },
+    optimized: { steps: 35, cfg: 4, ...BOOGU_BASE_SAMPLER },
+    maxCompatible: { steps: 45, cfg: 3.5, ...BOOGU_BASE_SAMPLER },
+    max: { steps: 50, cfg: 3.5, ...BOOGU_BASE_SAMPLER },
   },
-  'boogu-image-turbo': fixedSamplerPresets({ steps: 4, ...BOOGU_EDIT_TURBO_SAMPLER }),
+  'boogu-image-turbo': fixedSamplerPresets({ steps: 4, ...BOOGU_TURBO_SAMPLER }),
   'boogu-image-edit': {
-    base: { steps: 25, cfg: 5, ...BOOGU_EDIT_SAMPLER },
-    optimized: { steps: 35, cfg: 5, ...BOOGU_EDIT_SAMPLER },
-    maxCompatible: { steps: 45, cfg: 4.5, ...BOOGU_EDIT_SAMPLER },
-    max: { steps: 50, cfg: 4, ...BOOGU_EDIT_SAMPLER },
+    base: { steps: 25, cfg: 5, ...BOOGU_BASE_SAMPLER },
+    optimized: { steps: 35, cfg: 5, ...BOOGU_BASE_SAMPLER },
+    maxCompatible: { steps: 45, cfg: 4.5, ...BOOGU_BASE_SAMPLER },
+    max: { steps: 50, cfg: 4, ...BOOGU_BASE_SAMPLER },
   },
-  'boogu-image-edit-turbo': fixedSamplerPresets({ steps: 4, ...BOOGU_EDIT_TURBO_SAMPLER }),
+  'boogu-image-edit-turbo': fixedSamplerPresets({ steps: 4, ...BOOGU_TURBO_SAMPLER }),
   'flux-2-klein': kleinBaseSamplerPresets(),
   'flux-2-klein-4b-distilled': kleinDistilledSamplerPresets(),
   'flux-2-klein-9b': kleinBaseSamplerPresets(),

@@ -57,7 +57,13 @@ export function buildModelClarityAddendum(detail: DetailLevel, model: ComfyImage
   if (!isCfg1DistilledModelId(model)) {
     return base;
   }
-  return `${base} CFG-1 distilled stack: prefer dense scene-specific nouns (garments, materials, colors, pose, props) over generic quality tags or atmosphere boilerplate. Do not pad with empty lighting filler.`;
+  if (/^boogu-image/i.test(model)) {
+    return `${base} CFG-1 Boogu Turbo: keep prompts short — one subject, simple pose, plain wardrobe. Avoid intricate lattice/mesh harnesses, multi-figure layouts, and crowded props; 4-step distillation hallucinates complex patterns and extra limbs.`;
+  }
+  if (model === 'z-image-turbo') {
+    return `${base} CFG-1 Z-Image Turbo: one subject, simple scene — avoid ornate repeating patterns, multi-panel layouts, and dense prop lists at few steps.`;
+  }
+  return `${base} CFG-1 distilled stack: prefer scene-specific nouns (garments, materials, colors, pose) over generic quality tags. Do not pad with empty lighting filler.`;
 }
 
 export function buildModelUserDirective(detail: DetailLevel, model: ComfyImageModel): string {

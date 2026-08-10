@@ -25,6 +25,7 @@ import {
   resolveModelSamplingParams,
 } from './model-sampling-patch';
 import {
+  isDistilledFewStepImageModel,
   normalizeQueueQualityProfile,
   profileSkipsOutputUpscaleForModel,
   profileUsesUpscaleEnrich,
@@ -560,7 +561,8 @@ export function optimizeWorkflowForQueue(input: {
   workflow = JSON.parse(workflowJson) as Record<string, unknown>;
 
   // Lightning uses the early-return path above (Lanczos-only for Final/Max).
-  const shouldEnrichGraph = enrichGraph && !isQwenLightningModel(input.model);
+  const shouldEnrichGraph =
+    enrichGraph && !isQwenLightningModel(input.model) && !isDistilledFewStepImageModel(input.model);
 
   // Batch queue: when bindings are stable and enrich markers already exist, skip re-enrich.
   const skipEnrich =

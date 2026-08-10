@@ -533,8 +533,8 @@ export const COMFY_IMAGE_MODELS: ComfyImageModelDefinition[] = [
     comfyNode: 'CLIP Text Encode (Prompt)',
     comfyClass: 'BooguImageTurbo',
     description:
-      'Boogu-Image-0.1-Turbo — 4-step distilled T2I with rank-128 LoRA. cfg 1; official default for fast photoreal generation.',
-    profile: 'generic_nlp',
+      'Boogu-Image-0.1-Turbo — native 4-step distilled T2I. euler / sgm_uniform, cfg 1, 4 steps; no Lightning LoRA required.',
+    profile: 'flux_schnell',
     referenceTokenLimit: 512,
     limitsByDetail: PROFILE_LIMITS.flux_schnell,
     unetHint: 'boogu_image_turbo_bf16.safetensors',

@@ -253,8 +253,16 @@ describe("queue-quality-profile", () => {
       1.35,
     );
     assert.equal(
-      profileSkipsOutputUpscaleForModel("final", { model: "flux-2-klein-9b" }),
+      profileSkipsOutputUpscaleForModel("max", { model: "flux-2-klein-9b" }),
       true,
+    );
+    assert.equal(
+      profileSkipsOutputUpscaleForModel("final", { model: "boogu-image-turbo" }),
+      true,
+    );
+    assert.equal(
+      profileUsesNeuralUpscaleEnrich("max", { model: "boogu-image-turbo" }),
+      false,
     );
     assert.equal(
       profileUsesNeuralUpscaleEnrich("max", { model: "flux-2-klein-9b" }),

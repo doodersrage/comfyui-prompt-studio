@@ -1,4 +1,5 @@
 import type { WorkflowDirectPatchCounts } from './workflow-direct-patch';
+import { isBooguTurboModel, isZImageTurboModel } from './model-denoise-defaults';
 
 const LORA_LOADER_TYPES = new Set([
   'LoraLoader',
@@ -26,7 +27,7 @@ export function isLoraLoaderClassType(classType: string | undefined | null): boo
 }
 
 function isUnresolvedWorkflowPlaceholder(value: unknown): boolean {
-  return typeof value === 'string' && /^\{\{[A-Z0-9_]+\}\}$/.test(value.trim());
+  return typeof value === 'string' && /^\{\{[A-Z0-9_-]+\}\}$/.test(value.trim());
 }
 
 export function isConcreteLoraFilename(value: unknown): boolean {
@@ -37,9 +38,21 @@ export function isConcreteLoraFilename(value: unknown): boolean {
   );
 }
 
-const LIGHTNING_LORA_FILENAME_HINT = /lightning|lightx2v|boogu_image_turbo_lora/i;
+const LIGHTNING_LORA_FILENAME_HINT = /lightning|lightx2v/i;
 
 export const LIGHTNING_LORA_TOKEN = '{{LORA_LIGHTNING}}';
+
+/** Library ids like LIGHTNING-2 become {{LORA_LIGHTNING-2}} — still lightning slots. */
+export function isLightningFamilyLoraToken(token: string): boolean {
+  const trimmed = token.trim();
+  return (
+    trimmed === LIGHTNING_LORA_TOKEN ||
+    /^\{\{LORA_LIGHTNING[\w-]*\}\}$/i.test(trimmed) ||
+    /^\{\{LORA_.*(LIGHTNING|LIGHTX2V).*\}\}$/i.test(trimmed)
+  );
+}
+
+export const LORA_PLACEHOLDER_TOKEN_PATTERN = /^\{\{LORA_[A-Z0-9_-]+\}\}$/;
 
 /** Preferred WAN 2.2 Lightning LoRA for 4-step video scaffolds. */
 export const WAN_LIGHTNING_LOW_NOISE_LORA = 'Wan2.2-Lightning-low_noise_model.safetensors';
@@ -71,10 +84,7 @@ export function loraNameIsLightningSlot(
 ): boolean {
   if (typeof loraName === 'string') {
     const trimmed = loraName.trim();
-    if (
-      trimmed === LIGHTNING_LORA_TOKEN ||
-      /^\{\{LORA_.*(LIGHTNING|LIGHTX2V).*\}\}$/i.test(trimmed)
-    ) {
+    if (isLightningFamilyLoraToken(trimmed)) {
       return true;
     }
   }
@@ -183,7 +193,6 @@ function scoreLightningLoraCandidate(name: string, model?: string): number {
   const modelId = model?.trim().toLowerCase() ?? '';
   const wantsWan = /wan/.test(modelId);
   const wantsEdit = /edit/.test(modelId);
-  const wantsBooguTurbo = modelId === 'boogu-image-turbo';
   const wants2511 = /2511/.test(modelId);
   const want4 = /lightning-4|lightning_4/.test(modelId);
   const want8 = /lightning-8|lightning_8/.test(modelId);
@@ -205,19 +214,6 @@ function scoreLightningLoraCandidate(name: string, model?: string): number {
     }
     if (want4 && /(4[\s-]?step|4steps)/i.test(lower)) {
       score += 2;
-    }
-    return score;
-  }
-
-  if (wantsBooguTurbo) {
-    if (/boogu_image_turbo_lora/i.test(lower)) {
-      score += 30;
-    }
-    if (/boogu/.test(lower) && !/edit/.test(lower)) {
-      score += 8;
-    }
-    if (/edit|lightx2v|qwen|2511|2512/.test(lower)) {
-      score -= 15;
     }
     return score;
   }
@@ -296,10 +292,10 @@ function inferLightningLoraFilenameFromTokens(
   for (const entry of customTokens) {
     const token = entry.token.trim();
     const value = entry.value?.trim();
-    if (!value || !token.startsWith('{{LORA_')) {
+    if (!value || !isLightningFamilyLoraToken(token)) {
       continue;
     }
-    if (/lightning|lightx2v/i.test(token) && loraFilenameImpliesLightning(value)) {
+    if (loraFilenameImpliesLightning(value)) {
       if (!stepMatch || stepMatch.test(value)) {
         fromLightningTokens.push(value);
       }
@@ -340,12 +336,6 @@ export function lightningLoraMatchesModel(filename: string, model?: string): boo
     return true;
   }
   const lower = filename.toLowerCase();
-  if (modelId === 'boogu-image-turbo') {
-    return /boogu_image_turbo_lora/i.test(lower);
-  }
-  if (/boogu_image_turbo_lora/i.test(lower)) {
-    return false;
-  }
   if (/wan/.test(modelId)) {
     // Prefer WAN Lightning LoRAs; reject obvious Qwen/LightX2V packs.
     if (/qwen|lightx2v|2512|2511/.test(lower) && !/wan/.test(lower)) {
@@ -361,35 +351,66 @@ export function lightningLoraMatchesModel(filename: string, model?: string): boo
   return modelWantsEdit === loraIsEdit;
 }
 
-/** Resolve {{LORA_LIGHTNING}} and related placeholders from custom tokens / LoRA library / inventory. */
+function pickCanonicalLightningLoraFilename(
+  map: Record<string, string>,
+  customTokens: Array<{ token: string; value: string }>,
+  model?: string,
+  availableLoras?: string[]
+): string | undefined {
+  const existing = map[LIGHTNING_LORA_TOKEN]?.trim();
+  if (existing && lightningLoraMatchesModel(existing, model)) {
+    return existing;
+  }
+
+  const inferred = inferLightningLoraFilenameFromTokens(customTokens, model);
+  if (inferred && lightningLoraMatchesModel(inferred, model)) {
+    return inferred;
+  }
+
+  const fromInventory = inferLightningLoraFromInventory(availableLoras, model);
+  if (fromInventory && lightningLoraMatchesModel(fromInventory, model)) {
+    return fromInventory;
+  }
+
+  return undefined;
+}
+
+/** True for natively distilled turbo stacks that must not resolve Lightning LoRA slots. */
+export function isNativeTurboModel(model?: string | null): boolean {
+  return isBooguTurboModel(model) || isZImageTurboModel(model);
+}
+
+/** Resolve {{LORA_LIGHTNING}} and alias {{LORA_LIGHTNING-2}} / library variants. */
 export function buildLightningLoraFilenameMap(
   customTokens: Array<{ token: string; value: string }> = [],
   model?: string,
   availableLoras?: string[]
 ): Record<string, string> {
   const map = buildLoraFilenameMapFromCustomTokens(customTokens);
-  const existing = map[LIGHTNING_LORA_TOKEN]?.trim();
-  if (existing && lightningLoraMatchesModel(existing, model)) {
+  if (isNativeTurboModel(model)) {
+    for (const token of Object.keys(map)) {
+      if (isLightningFamilyLoraToken(token)) {
+        delete map[token];
+      }
+    }
     return map;
   }
+  const canonical = pickCanonicalLightningLoraFilename(map, customTokens, model, availableLoras);
 
-  const inferred = inferLightningLoraFilenameFromTokens(customTokens, model);
-  if (inferred && lightningLoraMatchesModel(inferred, model)) {
-    map[LIGHTNING_LORA_TOKEN] = inferred;
-    return map;
-  }
-
-  const fromInventory = inferLightningLoraFromInventory(availableLoras, model);
-  if (fromInventory) {
-    map[LIGHTNING_LORA_TOKEN] = fromInventory;
-    return map;
-  }
-
-  // Keep a mismatched library mapping only when nothing better is available.
-  if (existing) {
-    map[LIGHTNING_LORA_TOKEN] = existing;
-  } else if (inferred) {
-    map[LIGHTNING_LORA_TOKEN] = inferred;
+  if (canonical) {
+    map[LIGHTNING_LORA_TOKEN] = canonical;
+    for (const entry of customTokens) {
+      const token = entry.token.trim();
+      if (!isLightningFamilyLoraToken(token)) {
+        continue;
+      }
+      const value = entry.value?.trim();
+      if (value && lightningLoraMatchesModel(value, model)) {
+        map[token] = canonical;
+      }
+    }
+  } else {
+    delete map[LIGHTNING_LORA_TOKEN];
   }
 
   return map;

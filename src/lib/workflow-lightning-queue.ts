@@ -1,5 +1,5 @@
 import { isQwenLightningModel, QWEN_LIGHTNING_SHIFT_DEFAULT } from './model-sampling-patch';
-import { isBooguEditModel, isEditCapableModel } from './model-denoise-defaults';
+import { isBooguEditModel, isBooguTurboModel, isEditCapableModel } from './model-denoise-defaults';
 import {
   filenameLooksLikeCheckpointOnly,
   isVaeFilenameIncompatibleWithModel,
@@ -19,6 +19,7 @@ import {
   qwenEdit2511UnetFilename,
   qwenUnetFamilyFromFilename,
 } from './model-loader-precision';
+import { isLightningModelId, shouldNeutralizeStyleLorasAtQueue } from './model-sampler-defaults';
 import {
   isLatentSizeNode,
   normalizeEmptyLatentForModel,
@@ -32,6 +33,7 @@ import {
   loraNameIsLightningSlot,
   LIGHTNING_LORA_TOKEN,
   alignLightningLoraFamilyInWorkflow,
+  lightningLoraMatchesModel,
   patchLoraNodesInWorkflow,
   resolveLoraLoaderFilename,
 } from './workflow-lora-patch';
@@ -913,7 +915,7 @@ function loraStrengthIsActive(value: unknown): boolean {
   return !Number.isFinite(strength) || strength > 0;
 }
 
-/** Disable style/NSFW LoRAs stacked on Lightning workflows — they cause banding and soft output. */
+/** Disable style/NSFW LoRAs stacked on CFG-1 distilled workflows — they cause banding and melt. */
 export function neutralizeNonLightningLoras(
   workflow: Record<string, unknown>,
   model?: string,
@@ -922,11 +924,19 @@ export function neutralizeNonLightningLoras(
   workflow: Record<string, unknown>;
   neutralizedNodeIds: string[];
 } {
-  if (!isQwenLightningModel(model)) {
+  if (!shouldNeutralizeStyleLorasAtQueue(model)) {
     return { workflow, neutralizedNodeIds: [] };
   }
 
-  if (!workflowHasLightningLora(workflow, loraFilenames)) {
+  if (isQwenLightningModel(model) && !workflowHasLightningLora(workflow, loraFilenames)) {
+    return { workflow, neutralizedNodeIds: [] };
+  }
+
+  if (
+    isLightningModelId(String(model ?? '')) &&
+    !isQwenLightningModel(model) &&
+    !workflowHasLoraLoader(workflow)
+  ) {
     return { workflow, neutralizedNodeIds: [] };
   }
 
@@ -2179,6 +2189,65 @@ export function prepareLightningWorkflowForQueue(
   return finishLightningGraph(neutralized);
 }
 
+const AURA_FLOW_CLASS = 'ModelSamplingAuraFlow';
+const CONDITIONING_ZERO_OUT = 'ConditioningZeroOut';
+
+/**
+ * Official Boogu Turbo: CFG 1, empty negative via ConditioningZeroOut, no AuraFlow shift.
+ * Pack/scaffold graphs that CLIP-encode negatives or insert ModelSamplingAuraFlow over-cook.
+ */
+export function prepareBooguTurboWorkflowForQueue(
+  workflow: Record<string, unknown>,
+  model?: string
+): Record<string, unknown> {
+  if (!isBooguTurboModel(model)) {
+    return workflow;
+  }
+
+  const next = JSON.parse(JSON.stringify(workflow)) as Record<string, WorkflowNodeRecord>;
+
+  for (const node of Object.values(next)) {
+    if (node?.class_type === 'TextEncodeBooguEdit' && node.inputs) {
+      node.inputs.negative_prompt = '';
+    }
+  }
+
+  for (const node of Object.values(next)) {
+    if (!node?.inputs || !isSamplerNode(node.class_type, node.inputs)) {
+      continue;
+    }
+    if (!isMainGenerateSampler(node.inputs)) {
+      continue;
+    }
+
+    const positiveRef = node.inputs.positive;
+    if (Array.isArray(positiveRef) && positiveRef.length >= 2) {
+      const zeroId = nextWorkflowNodeId(next);
+      next[zeroId] = {
+        class_type: CONDITIONING_ZERO_OUT,
+        inputs: { conditioning: [String(positiveRef[0]), Number(positiveRef[1])] },
+        _meta: { title: 'Boogu Turbo — zero negative' },
+      };
+      node.inputs.negative = [zeroId, 0];
+    }
+
+    const modelNodeId = getLinkedNodeId(node.inputs.model);
+    if (!modelNodeId) {
+      continue;
+    }
+    const modelNode = next[modelNodeId];
+    if (modelNode?.class_type !== AURA_FLOW_CLASS) {
+      continue;
+    }
+    const bypassRef = modelNode.inputs?.model;
+    if (Array.isArray(bypassRef) && bypassRef.length >= 2) {
+      node.inputs.model = [String(bypassRef[0]), Number(bypassRef[1])];
+    }
+  }
+
+  return next;
+}
+
 function readEmptyLatentSize(
   workflow: Record<string, unknown>
 ): { width: number; height: number } | null {
@@ -2207,6 +2276,104 @@ export type LightningWorkflowAuditIssue = {
   severity: 'error' | 'warn';
   message: string;
 };
+
+/** Native turbo stacks (Boogu / Z-Image) — warn on harmful Lightning LoRA stacking, validate UNET. */
+export function auditDistilledTurboWorkflowIssues(input: {
+  workflowJson?: string;
+  workflow?: Record<string, unknown> | null;
+  model?: string;
+  loraFilenames?: Record<string, string>;
+}): LightningWorkflowAuditIssue[] {
+  const modelId = String(input.model ?? '').trim();
+  if (!/^boogu-image(?:-edit)?-turbo$|^z-image-turbo$/i.test(modelId)) {
+    return [];
+  }
+
+  type TurboNode = {
+    class_type?: string;
+    inputs?: Record<string, unknown>;
+  };
+  let parsed: Record<string, TurboNode> | null = null;
+  if (input.workflow && typeof input.workflow === 'object') {
+    parsed = input.workflow as Record<string, TurboNode>;
+  } else if (input.workflowJson?.trim()) {
+    try {
+      parsed = JSON.parse(input.workflowJson) as Record<string, TurboNode>;
+    } catch {
+      return [];
+    }
+  }
+  if (!parsed) {
+    return [];
+  }
+
+  const issues: LightningWorkflowAuditIssue[] = [];
+  const loraFilenames = input.loraFilenames ?? {};
+
+  for (const node of Object.values(parsed)) {
+    if (!node?.inputs || !isLoraLoaderClassType(node.class_type)) {
+      continue;
+    }
+    const loraName = node.inputs.lora_name;
+    const filename = resolveLoraLoaderFilename(loraName, loraFilenames)?.trim();
+    if (!filename) {
+      if (
+        typeof loraName === 'string' &&
+        /^\{\{LORA_.*(LIGHTNING|LIGHTX2V).*\}\}$/i.test(loraName.trim())
+      ) {
+        issues.push({
+          severity: 'warn',
+          message:
+            'Native turbo model with unresolved {{LORA_LIGHTNING}} — turbo UNETs are already distilled; bypass or remove the LoRA loader instead of mapping a Lightning LoRA.',
+        });
+      }
+      continue;
+    }
+    const lower = filename.toLowerCase();
+    if (
+      /lightx2v|qwen[-_.\s]*image[-_.\s]*lightning|lightning[-_.\s]*8\s*step|lightning[-_.\s]*4\s*step/.test(
+        lower
+      )
+    ) {
+      issues.push({
+        severity: 'error',
+        message: `Lightning acceleration LoRA (${filename}) stacked on ${modelId} — turbo models are natively distilled; remove this LoRA to avoid over-processing and anatomy melt.`,
+      });
+    }
+  }
+
+  for (const node of Object.values(parsed)) {
+    if (node?.class_type !== 'UNETLoader' || typeof node.inputs?.unet_name !== 'string') {
+      continue;
+    }
+    const unet = node.inputs.unet_name.trim().toLowerCase();
+    if (!/boogu_image/.test(unet)) {
+      continue;
+    }
+    const wantsTurbo = /turbo/i.test(modelId);
+    const wantsEdit = /edit/i.test(modelId);
+    if (wantsTurbo && !/turbo/.test(unet)) {
+      issues.push({
+        severity: 'error',
+        message: `Boogu Turbo is loading non-turbo UNET “${node.inputs.unet_name}” — use boogu_image_turbo_bf16.safetensors (T2I) or boogu_image_edit_turbo_bf16.safetensors (Edit).`,
+      });
+    }
+    if (wantsEdit && !/edit/.test(unet)) {
+      issues.push({
+        severity: 'error',
+        message: `Boogu Edit Turbo is loading T2I UNET “${node.inputs.unet_name}” — use boogu_image_edit_turbo_bf16.safetensors.`,
+      });
+    }
+    if (!wantsEdit && /edit/.test(unet) && wantsTurbo) {
+      issues.push({
+        severity: 'error',
+        message: `Boogu Image Turbo is loading Edit UNET “${node.inputs.unet_name}” — use boogu_image_turbo_bf16.safetensors.`,
+      });
+    }
+  }
+
+  return issues;
+}
 
 export function auditLightningWorkflowIssues(input: {
   workflowJson?: string;

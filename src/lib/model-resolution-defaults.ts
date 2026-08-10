@@ -468,6 +468,20 @@ const MODEL_RESOLUTION_PRESETS: ModelResolutionPresetMap = {
       max: { width: 1152, height: 896 },
     },
   },
+  'boogu-image-turbo': {
+    square: {
+      medium: { width: 1024, height: 1024 },
+      max: { width: 1024, height: 1024 },
+    },
+    portrait: {
+      medium: { width: 896, height: 1152 },
+      max: { width: 896, height: 1152 },
+    },
+    landscape: {
+      medium: { width: 1152, height: 896 },
+      max: { width: 1152, height: 896 },
+    },
+  },
   'flux-2-klein': {
     square: {
       medium: { width: 1024, height: 1024 },

@@ -151,12 +151,15 @@ describe("workflow scaffold", () => {
     assert.match(result.notes.join(" "), /Boogu Image Base/i);
   });
 
-  it("builds Boogu Image Turbo scaffold with Turbo LoRA slot", () => {
+  it("builds Boogu Image Turbo scaffold without Lightning LoRA slot", () => {
     const result = buildWorkflowScaffoldForModel("boogu-image-turbo");
-    assert.match(result.json, /LoraLoaderModelOnly/);
-    assert.match(result.json, /\{\{LORA_LIGHTNING\}\}/);
+    assert.doesNotMatch(result.json, /LoraLoaderModelOnly/);
+    assert.doesNotMatch(result.json, /\{\{LORA_LIGHTNING\}\}/);
     assert.match(result.json, /"type": "boogu"/);
-    assert.match(result.notes.join(" "), /Turbo LoRA/i);
+    assert.match(result.json, /ConditioningZeroOut/);
+    assert.doesNotMatch(result.json, /ModelSamplingAuraFlow/);
+    assert.doesNotMatch(result.json, /Negative Prompt/);
+    assert.match(result.notes.join(" "), /ConditioningZeroOut/i);
   });
 
   it("builds Boogu Edit scaffold with TextEncodeBooguEdit", () => {
@@ -166,6 +169,17 @@ describe("workflow scaffold", () => {
     assert.match(result.json, /EmptyLatentImage/);
     assert.match(result.json, /ModelSamplingAuraFlow/);
     assert.match(result.notes.join(" "), /TextEncodeBooguEdit/i);
+  });
+
+  it("builds Boogu Edit Turbo scaffold without LoRA or AuraFlow", () => {
+    const result = buildWorkflowScaffoldForModel("boogu-image-edit-turbo", undefined, {
+      tool: "refine",
+    });
+    assert.match(result.json, /TextEncodeBooguEdit/);
+    assert.doesNotMatch(result.json, /LoraLoaderModelOnly/);
+    assert.doesNotMatch(result.json, /ModelSamplingAuraFlow/);
+    assert.match(result.json, /"negative_prompt": ""/);
+    assert.match(result.notes.join(" "), /distilled/i);
   });
 
   it("builds Boogu Edit Compose scaffold with multi Figure LoadImages", () => {

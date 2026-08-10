@@ -280,7 +280,7 @@ export const COMFY_ASSET_CATALOG: ComfyCatalogAsset[] = [
     url: 'https://huggingface.co/Comfy-Org/Boogu-Image/resolve/main/diffusion_models/boogu_image_turbo_bf16.safetensors',
     bytes: 20600000000,
     modelIds: ['boogu-image-turbo'],
-    notes: 'Distilled T2I turbo UNET — pair with Turbo LoRA below.',
+    notes: 'Distilled T2I turbo UNET — 4 steps, cfg 1; no LoRA required.',
   },
   {
     id: 'boogu-turbo-fp8',
@@ -300,7 +300,8 @@ export const COMFY_ASSET_CATALOG: ComfyCatalogAsset[] = [
     url: 'https://huggingface.co/Comfy-Org/Boogu-Image/resolve/main/loras/boogu_image_turbo_lora_rank_128_bf16.safetensors',
     bytes: 268435456,
     modelIds: ['boogu-image-turbo'],
-    notes: 'Required rank-128 LoRA for Boogu Image Turbo T2I — maps to {{LORA_LIGHTNING}}.',
+    notes:
+      'Optional — distilled delta between Boogu base and turbo; use on base/edit to approximate turbo speeds, not required for native Boogu Turbo UNET.',
   },
 
   // ── Boogu Image Edit ──────────────────────────────────────────────

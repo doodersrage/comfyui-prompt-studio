@@ -15,9 +15,13 @@ import {
   DEFAULT_CONTROLNET_MODEL_TOKEN,
   DEFAULT_CONTROL_IMAGE_TOKEN,
 } from './model-controlnet-map';
-import { LIGHTNING_LORA_TOKEN } from './workflow-lora-patch';
+import {
+  LIGHTNING_LORA_TOKEN,
+  LORA_PLACEHOLDER_TOKEN_PATTERN,
+  isLightningFamilyLoraToken,
+} from './workflow-lora-patch';
 
-const LORA_TOKEN_PATTERN = /^\{\{LORA_[A-Z0-9_]+\}\}$/;
+const LORA_TOKEN_PATTERN = LORA_PLACEHOLDER_TOKEN_PATTERN;
 
 const PLACEHOLDER_PATTERN = /\{\{[A-Z0-9_]+\}\}/g;
 
@@ -148,12 +152,11 @@ export function auditWorkflowPreviewIssues(input: {
     }
 
     if (LORA_TOKEN_PATTERN.test(token)) {
-      const isLightningToken =
-        token === LIGHTNING_LORA_TOKEN || /^\{\{LORA_.*(LIGHTNING|LIGHTX2V).*\}\}$/i.test(token);
+      const isLightningToken = isLightningFamilyLoraToken(token);
       issues.push({
         severity: isLightningToken ? 'error' : 'warn',
         message: isLightningToken
-          ? `Unresolved ${token} — set Lightning LoRA on this workflow’s token overrides (or Settings → LoRA library as ID “LIGHTNING”), then Save. Missing LoRA softens faces/hands.`
+          ? `Unresolved ${token} — map a LightX2V / Lightning .safetensors on this workflow’s token overrides (or Settings → LoRA library as ID “LIGHTNING”). Native turbo models (Boogu/Z-Image Turbo) do not use Lightning LoRAs.`
           : `Unresolved ${token} — add LoRA to library or bind LoRA loader in workflow.`,
       });
       continue;

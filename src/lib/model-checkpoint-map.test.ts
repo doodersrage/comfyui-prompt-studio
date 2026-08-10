@@ -59,10 +59,15 @@ describe("model checkpoint map", () => {
     assert.equal(base.vae, "ae.safetensors");
 
     const turbo = resolveLoaderFilenamesForModel("boogu-image-turbo", {
-      availableVaes: ["flux1_vae_bf16.safetensors"],
+      availableVaes: ["flux1_vae_bf16.safetensors", "ae.safetensors"],
     });
     assert.equal(turbo.unet, "boogu_image_turbo_bf16.safetensors");
     assert.equal(turbo.vae, "flux1_vae_bf16.safetensors");
+
+    const turboFluxOnly = resolveLoaderFilenamesForModel("boogu-image-turbo", {
+      availableVaes: ["flux1_vae_bf16.safetensors"],
+    });
+    assert.equal(turboFluxOnly.vae, "flux1_vae_bf16.safetensors");
   });
 
   it("prefers Boogu Flux VAE from inventory with ae.safetensors fallback", () => {
@@ -77,8 +82,15 @@ describe("model checkpoint map", () => {
       ]),
       "flux1_vae_bf16.safetensors",
     );
+    assert.equal(
+      pickBooguVaeFromInventory(
+        ["flux1_vae_bf16.safetensors", "ae.safetensors"],
+        { model: "boogu-image-turbo" },
+      ),
+      "flux1_vae_bf16.safetensors",
+    );
     const turbo = resolveLoaderFilenamesForModel("boogu-image-edit-turbo", {
-      availableVaes: ["flux1_vae_bf16.safetensors"],
+      availableVaes: ["flux1_vae_bf16.safetensors", "ae.safetensors"],
     });
     assert.equal(turbo.unet, "boogu_image_edit_turbo_bf16.safetensors");
     assert.equal(turbo.vae, "flux1_vae_bf16.safetensors");

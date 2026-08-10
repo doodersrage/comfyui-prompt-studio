@@ -48,6 +48,19 @@ describe("model sampler defaults", () => {
     });
   });
 
+  it("uses official euler turbo sampler for Boogu Image Turbo", () => {
+    assert.deepEqual(getModelSamplerDefaults("boogu-image-turbo", "base"), {
+      steps: 4,
+      cfg: 1,
+      samplerName: "euler",
+      scheduler: "sgm_uniform",
+    });
+    assert.deepEqual(
+      ensureLightningSamplerParams({ cfg: 7, steps: 28 }, "boogu-image-turbo").cfg,
+      1,
+    );
+  });
+
   it("resolves queue params from optimized model defaults", () => {
     assert.deepEqual(resolveModelSamplerParams("qwen-image-2512", "optimized"), {
       steps: 30,

@@ -6,16 +6,23 @@ import {
 } from './workflow-enrich-markers';
 import {
   prepareLightningWorkflowForQueue,
+  prepareBooguTurboWorkflowForQueue,
   prepareQwenEditReferenceImagesForQueue,
+  neutralizeNonLightningLoras,
   resolveLightningBf16Loaders,
 } from './workflow-lightning-queue';
 import {
+  isBooguTurboModel,
   isEditCapableModel,
   isFlux1FamilyModel,
   isQwenRapidAioModel,
   resolveDistilledQueueDenoise,
 } from './model-denoise-defaults';
-import { buildLightningLoraFilenameMap, loraFilenameImpliesLightning } from './workflow-lora-patch';
+import {
+  buildLightningLoraFilenameMap,
+  loraFilenameImpliesLightning,
+  LORA_PLACEHOLDER_TOKEN_PATTERN,
+} from './workflow-lora-patch';
 import {
   normalizeLoraLibrary,
   applyLoraStackToWorkflow,
@@ -93,6 +100,8 @@ import {
   resolveModelSamplerParams,
   ensureDistilledSamplerParams,
   resolveUserSamplerDenoiseOverride,
+  isLightningModelId,
+  shouldNeutralizeStyleLorasAtQueue,
   type ModelSamplerPresetTier,
 } from './model-sampler-defaults';
 import {
@@ -617,7 +626,7 @@ export function resolveQueueInjectionContext(input: {
   }
 
   if (model?.toLowerCase().startsWith('boogu-image') && input.availableVaes?.length) {
-    const booguVae = pickBooguVaeFromInventory(input.availableVaes);
+    const booguVae = pickBooguVaeFromInventory(input.availableVaes, { model });
     loaders.vae = booguVae;
     params.vaeFilename = booguVae;
   }
@@ -717,7 +726,7 @@ export function parseWorkflowJson(raw?: string): Record<string, unknown> | null 
 export function findUnresolvedLoaderPlaceholders(workflow: Record<string, unknown>): string[] {
   const unresolved = new Set<string>();
   const loaderTokens = [DEFAULT_UNET_TOKEN, DEFAULT_VAE_TOKEN, DEFAULT_CHECKPOINT_TOKEN];
-  const loraTokenPattern = /^\{\{LORA_[A-Z0-9_]+\}\}$/;
+  const loraTokenPattern = LORA_PLACEHOLDER_TOKEN_PATTERN;
 
   for (const node of Object.values(workflow)) {
     if (!node || typeof node !== 'object') {
@@ -1376,7 +1385,11 @@ export function injectPromptsWithFallbacks(
     samplerOverrides?: import('./model-sampler-defaults').ModelSamplerOverrideFields;
   }
 ): WorkflowInjectionResult {
-  const loaderMerged = mergeLoaderTokensIntoCustomTokens(input.params, input.customTokens);
+  const promptInput = isBooguTurboModel(options?.model) ? { ...input, negative: undefined } : input;
+  const loaderMerged = mergeLoaderTokensIntoCustomTokens(
+    promptInput.params,
+    promptInput.customTokens
+  );
   // Fill {{LORA_LIGHTNING}} from workflow tokens / LoRA library / ComfyUI inventory
   // before string injection so unresolved placeholders cannot survive into preflight.
   const lightningMap = buildLightningLoraFilenameMap(
@@ -1411,12 +1424,12 @@ export function injectPromptsWithFallbacks(
   });
   let injected = injectWorkflowPlaceholders(
     workflow,
-    { ...input, customTokens: mergedCustomTokens },
+    { ...promptInput, customTokens: mergedCustomTokens },
     tokens
   );
   injected = tryAlternatePromptTokens(
     injected.workflow,
-    { positive: input.positive, negative: input.negative },
+    { positive: promptInput.positive, negative: promptInput.negative },
     tokens,
     injected
   );
@@ -1470,6 +1483,12 @@ export function injectPromptsWithFallbacks(
   }
 
   const isLightning = isQwenLightningModel(options?.model);
+
+  const queueLightningMap = buildLightningLoraFilenameMap(
+    mergedCustomTokens ?? [],
+    options?.model,
+    options?.availableLoras ?? undefined
+  );
 
   if (isLightning) {
     // Native Lightning graphs: do not rewrite concrete loaders / latent sizes.
@@ -1556,20 +1575,21 @@ export function injectPromptsWithFallbacks(
     };
   }
 
-  nextWorkflow = prepareLightningWorkflowForQueue(
-    nextWorkflow,
-    options?.model,
-    buildLightningLoraFilenameMap(
-      mergedCustomTokens ?? [],
+  nextWorkflow = prepareLightningWorkflowForQueue(nextWorkflow, options?.model, queueLightningMap, {
+    params: input.params,
+    loaders,
+    syncLoadersToModel: isLightning ? false : options?.syncWorkflowLoadersToModel,
+  });
+
+  nextWorkflow = prepareBooguTurboWorkflowForQueue(nextWorkflow, options?.model);
+
+  if (shouldNeutralizeStyleLorasAtQueue(options?.model)) {
+    nextWorkflow = neutralizeNonLightningLoras(
+      nextWorkflow,
       options?.model,
-      options?.availableLoras ?? undefined
-    ),
-    {
-      params: input.params,
-      loaders,
-      syncLoadersToModel: isLightning ? false : options?.syncWorkflowLoadersToModel,
-    }
-  );
+      queueLightningMap
+    ).workflow;
+  }
 
   // Lightning prep zeros baked-in pack style LoRAs. Re-apply the session/Settings
   // stack afterward so sidebar picks still load (on neutralized anchors or after
@@ -1604,7 +1624,7 @@ export function injectPromptsWithFallbacks(
   const distilledModelId = options?.model;
   if (
     distilledModelId &&
-    (isQwenLightningModel(distilledModelId) || isQwenRapidAioModel(distilledModelId))
+    (isLightningModelId(distilledModelId) || isQwenRapidAioModel(distilledModelId))
   ) {
     const distilledTier = resolveEffectiveSamplerPreset(
       options?.samplerPresetTier,

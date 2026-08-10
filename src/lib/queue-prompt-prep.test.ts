@@ -136,4 +136,44 @@ describe("queue-prompt-prep Rapid AIO / Lightning", () => {
     assert.match(result.positive ?? "", /visible knuckles|clear wrists and elbows/i);
     assert.match(result.positive ?? "", /d1g1cam/i);
   });
+
+  it("applies CFG-1 photo + anatomy steering for Boogu Image Turbo", () => {
+    const result = applyQueuePromptSteering({
+      positive: "A woman on wet rocks by the ocean",
+      negative: "blurry",
+      model: "boogu-image-turbo",
+      realismMode: "realistic",
+      anatomyMode: "standard",
+    });
+    assert.match(result.positive ?? "", /natural photograph|realistic skin texture/i);
+    assert.match(result.positive ?? "", /single subject|five distinct fingers/i);
+    assert.equal(/photorealistic, cinematic depth of field/i.test(result.positive ?? ""), false);
+    assert.equal(result.negative, undefined);
+  });
+
+  it("drops long auto-negatives for Boogu Image Turbo", async () => {
+    const { prepareQueuePrompts } = await import("./queue-prompt-prep");
+    const longNegative = "a".repeat(200);
+    const result = await prepareQueuePrompts({
+      model: "boogu-image-turbo",
+      positive: "portrait on a beach",
+      explicitNegative: longNegative,
+      realismMode: "off",
+      anatomyMode: "off",
+    });
+    assert.equal(result.negative, undefined);
+  });
+
+  it("drops negatives for Boogu Edit Turbo", async () => {
+    const { prepareQueuePrompts } = await import("./queue-prompt-prep");
+    const result = await prepareQueuePrompts({
+      model: "boogu-image-edit-turbo",
+      positive: "warm sunset tones",
+      explicitNegative: "blurry, bad anatomy",
+      realismMode: "realistic",
+      anatomyMode: "standard",
+    });
+    assert.equal(result.negative, undefined);
+    assert.match(result.positive ?? "", /natural photograph/i);
+  });
 });

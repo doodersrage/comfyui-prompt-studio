@@ -21,7 +21,12 @@ import { resolveQueueNegativePromptRaw } from './queue-negative';
 import { isQwenLightningModel, isWanLightningModel } from './model-sampling-patch';
 import { isQwenRapidAioModel, isWanRapidAioModel } from './model-denoise-defaults';
 import { isFluxFineTuneCheckpointModel } from './model-checkpoint-map';
-import { isKleinBaseModel, isKleinDistilledModel } from './model-sampler-defaults';
+import {
+  isKleinBaseModel,
+  isKleinDistilledModel,
+  isLightningModelId,
+} from './model-sampler-defaults';
+import { isBooguTurboModel } from './model-denoise-defaults';
 import { ensureUltraRealAmplifierTriggerInPrompt } from './ultrareal-amplifier-lora';
 import { ensureKleinRealisticDetailTriggerInPrompt } from './klein-realistic-detail-lora';
 import { expandWildcardText } from './wildcard-expand';
@@ -83,6 +88,13 @@ export const QWEN_LIGHTNING_PHOTO_POSITIVE =
 export const QWEN_LIGHTNING_PHOTO_NEGATIVE =
   'illustration, drawing, cartoon, anime, painting, CGI, plastic skin, airbrushed, painterly';
 
+/** CFG-1 T2I (Boogu/Z-Image Turbo, Schnell): short anatomy + anti-halo cues — not long auto-neg lists. */
+export const CFG1_T2I_ANATOMY_POSITIVE =
+  'single subject, natural limb count, five distinct fingers, coherent hands and wrists';
+
+export const CFG1_T2I_ARTIFACT_NEGATIVE =
+  'extra limbs, duplicate hands, fused fingers, bad anatomy, oversaturated, oversharpened halos, plastic skin, moire, grid artifacts';
+
 export const QWEN_LIGHTNING_HYPER_PHOTO_POSITIVE =
   'natural photograph, lifelike skin pores, camera realism, soft natural light';
 
@@ -100,6 +112,47 @@ function appendUniqueCsv(base: string | undefined, extra: string): string {
     return existing;
   }
   return `${existing}, ${missing.join(', ')}`;
+}
+
+function isCfg1DistilledStillImageModel(model: ComfyImageModel | string): boolean {
+  return isLightningModelId(model) && !isQwenLightningModel(model) && !isWanLightningModel(model);
+}
+
+function steeringForCfg1DistilledStillImage(input: {
+  positive: string;
+  negative?: string;
+  model: ComfyImageModel | string;
+  realismMode: RenderRealismMode;
+  anatomyMode: AnatomyGuardMode;
+}): { positive: string; negative?: string } {
+  const explicit = input.negative?.trim();
+  const shortExplicit =
+    explicit && explicit.length <= LIGHTNING_MAX_EXPLICIT_NEGATIVE_CHARS ? explicit : undefined;
+  let positive = input.positive;
+  if (input.realismMode === 'realistic' || input.realismMode === 'hyper-realistic') {
+    positive = appendUniqueCsv(
+      positive,
+      input.realismMode === 'hyper-realistic'
+        ? QWEN_LIGHTNING_HYPER_PHOTO_POSITIVE
+        : QWEN_LIGHTNING_PHOTO_POSITIVE
+    );
+  }
+  if (
+    input.anatomyMode !== 'off' &&
+    /\b(?:person|people|woman|man|girl|boy|figure|model|portrait|hand|hands|finger|limb|subject)\b/i.test(
+      positive
+    )
+  ) {
+    positive = appendUniqueCsv(positive, CFG1_T2I_ANATOMY_POSITIVE);
+  }
+  // Official Boogu Turbo: ConditioningZeroOut / empty encode — never steer a negative.
+  if (isBooguTurboModel(input.model)) {
+    return { positive, negative: undefined };
+  }
+  return {
+    positive,
+    negative: appendUniqueCsv(shortExplicit, CFG1_T2I_ARTIFACT_NEGATIVE),
+  };
 }
 
 export function applyQueuePromptSteering(input: {
@@ -156,6 +209,16 @@ export function applyQueuePromptSteering(input: {
       positive: appendUniqueCsv(input.positive, RAPID_AIO_MOIRE_POSITIVE),
       negative: appendUniqueCsv(shortExplicit, RAPID_AIO_MOIRE_NEGATIVE),
     };
+  }
+
+  if (isCfg1DistilledStillImageModel(input.model)) {
+    return steeringForCfg1DistilledStillImage({
+      positive: input.positive,
+      negative: input.negative,
+      model: input.model,
+      realismMode,
+      anatomyMode,
+    });
   }
 
   const suffixBudget = maxQueuePositiveSuffixChars(input.model);
@@ -276,14 +339,15 @@ export async function prepareQueuePrompts(input: {
 
   let negative: string | undefined;
   const distilledCfg1 =
-    isQwenLightningModel(input.model) ||
+    isLightningModelId(input.model) ||
     isWanLightningModel(input.model) ||
     isWanRapidAioModel(input.model) ||
     isQwenRapidAioModel(input.model);
   if (distilledCfg1) {
     // Skip auto-negative profiles — they fight CFG-1 distillation.
     // WAN Lightning gets a short artifact pack in applyQueuePromptSteering.
-    negative = explicitNegative?.trim() || undefined;
+    // Boogu Turbo uses ConditioningZeroOut / empty encode — drop explicit negatives too.
+    negative = isBooguTurboModel(input.model) ? undefined : explicitNegative?.trim() || undefined;
   } else if (modelUsesNegativePrompt(input.model)) {
     negative = await resolveQueueNegativePromptRaw({
       model: input.model,

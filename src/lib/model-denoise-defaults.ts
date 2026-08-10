@@ -113,6 +113,11 @@ export function isBooguEditTurboModel(model: ComfyImageModel | string | null | u
   return String(model ?? '').trim() === 'boogu-image-edit-turbo';
 }
 
+/** T2I or Edit distilled turbo — CFG 1, empty negative, no AuraFlow. */
+export function isBooguTurboModel(model: ComfyImageModel | string | null | undefined): boolean {
+  return isBooguImageTurboModel(model) || isBooguEditTurboModel(model);
+}
+
 export function isBooguFamilyModel(model: ComfyImageModel | string | null | undefined): boolean {
   return /^boogu-image/i.test(String(model ?? '').trim());
 }

@@ -361,6 +361,69 @@ describe("workflow-lightning-queue", () => {
     );
   });
 
+  it("neutralizes sidebar style LoRAs on Boogu Image Turbo", () => {
+    const workflow = {
+      "1": {
+        class_type: "UNETLoader",
+        inputs: { unet_name: "boogu_image_turbo_bf16.safetensors" },
+      },
+      "8": {
+        class_type: "LoraLoaderModelOnly",
+        inputs: {
+          model: ["1", 0],
+          lora_name: "fantasy_texture_v2.safetensors",
+          strength_model: 0.85,
+        },
+      },
+    };
+    const result = neutralizeNonLightningLoras(workflow, "boogu-image-turbo");
+    assert.deepEqual(result.neutralizedNodeIds, ["8"]);
+    assert.equal(
+      (result.workflow["8"] as { inputs: { strength_model: number } }).inputs.strength_model,
+      0,
+    );
+  });
+
+  it("errors when Qwen Lightning LoRA is stacked on Boogu Turbo", async () => {
+    const { auditDistilledTurboWorkflowIssues } = await import("./workflow-lightning-queue");
+    const issues = auditDistilledTurboWorkflowIssues({
+      model: "boogu-image-turbo",
+      workflow: {
+        "1": {
+          class_type: "UNETLoader",
+          inputs: { unet_name: "boogu_image_turbo_bf16.safetensors" },
+        },
+        "7": {
+          class_type: "LoraLoaderModelOnly",
+          inputs: {
+            lora_name: "Qwen-Image-Lightning-8steps-V2.0.safetensors",
+            strength_model: 1,
+          },
+        },
+      },
+    });
+    assert.equal(issues.some((issue) => issue.severity === "error"), true);
+    assert.match(issues[0]?.message ?? "", /Lightning acceleration LoRA/i);
+  });
+
+  it("does not require a LoRA slot on Boogu Turbo scaffolds", async () => {
+    const { auditDistilledTurboWorkflowIssues } = await import("./workflow-lightning-queue");
+    const issues = auditDistilledTurboWorkflowIssues({
+      model: "boogu-image-turbo",
+      workflow: {
+        "1": {
+          class_type: "UNETLoader",
+          inputs: { unet_name: "boogu_image_turbo_bf16.safetensors" },
+        },
+        "8": {
+          class_type: "KSampler",
+          inputs: { model: ["1", 0], steps: 4, cfg: 1 },
+        },
+      },
+    });
+    assert.equal(issues.some((issue) => issue.severity === "error"), false);
+  });
+
   it("turns off Power Lora style slots while keeping Edit Lightning slots", () => {
     const workflow = {
       "9": {
@@ -1091,6 +1154,65 @@ describe("qwen edit reference image prep", () => {
       inputImageFilename: "a.png",
     });
     assert.deepEqual(next, workflow);
+  });
+
+  it("rewires Boogu Turbo pack graphs to ConditioningZeroOut and bypasses AuraFlow", async () => {
+    const { prepareBooguTurboWorkflowForQueue } = await import("./workflow-lightning-queue");
+    const workflow = {
+      "1": { class_type: "UNETLoader", inputs: { unet_name: "boogu_image_turbo_bf16.safetensors" } },
+      "4": { class_type: "CLIPTextEncode", inputs: { text: "pos", clip: ["2", 0] } },
+      "5": { class_type: "CLIPTextEncode", inputs: { text: "neg", clip: ["2", 0] } },
+      "7": { class_type: "LoraLoaderModelOnly", inputs: { model: ["1", 0], lora_name: "x.safetensors" } },
+      "11": { class_type: "ModelSamplingAuraFlow", inputs: { model: ["7", 0], shift: 3 } },
+      "8": {
+        class_type: "KSampler",
+        inputs: {
+          model: ["11", 0],
+          positive: ["4", 0],
+          negative: ["5", 0],
+          latent_image: ["6", 0],
+          denoise: 1,
+        },
+      },
+    };
+    const next = prepareBooguTurboWorkflowForQueue(workflow, "boogu-image-turbo");
+    const sampler = next["8"] as {
+      inputs: { model: [string, number]; negative: [string, number] };
+    };
+    assert.deepEqual(sampler.inputs.model, ["7", 0]);
+    const zeroId = sampler.inputs.negative[0];
+    assert.equal((next[zeroId] as { class_type?: string }).class_type, "ConditioningZeroOut");
+  });
+
+  it("clears TextEncodeBooguEdit negative_prompt for Edit Turbo packs", async () => {
+    const { prepareBooguTurboWorkflowForQueue } = await import("./workflow-lightning-queue");
+    const workflow = {
+      "4": {
+        class_type: "TextEncodeBooguEdit",
+        inputs: {
+          prompt: "warm light",
+          negative_prompt: "bad hands, blurry",
+          clip: ["2", 0],
+          vae: ["3", 0],
+        },
+      },
+      "7": { class_type: "ModelSamplingAuraFlow", inputs: { model: ["1", 0], shift: 3 } },
+      "8": {
+        class_type: "KSampler",
+        inputs: {
+          model: ["7", 0],
+          positive: ["4", 0],
+          negative: ["4", 1],
+          latent_image: ["6", 0],
+          denoise: 1,
+        },
+      },
+    };
+    const next = prepareBooguTurboWorkflowForQueue(workflow, "boogu-image-edit-turbo");
+    const encode = next["4"] as { inputs: { negative_prompt?: string } };
+    assert.equal(encode.inputs.negative_prompt, "");
+    const sampler = next["8"] as { inputs: { model: [string, number] } };
+    assert.deepEqual(sampler.inputs.model, ["1", 0]);
   });
 
   it("leaves Z-Image img2img scaffold on VAEEncode (no ReferenceLatent)", async () => {

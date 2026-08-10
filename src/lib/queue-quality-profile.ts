@@ -13,6 +13,12 @@ import {
 import { loadSettingsCache } from './settings-cache';
 import { isFluxFineTuneCheckpointModel } from './model-checkpoint-map';
 
+/** CFG-1 few-step T2I stacks (Boogu/Z-Image Turbo, etc.) — post upscale/sharpen over-cooks output. */
+export function isDistilledFewStepImageModel(model?: string | null): boolean {
+  const id = String(model ?? '').trim();
+  return /^(z-image-turbo|boogu-image-turbo|boogu-image-edit-turbo|flux-schnell)$/i.test(id);
+}
+
 export type QueueQualityProfile = 'followSettings' | 'draft' | 'final' | 'max';
 
 export const DEFAULT_QUEUE_QUALITY_PROFILE: QueueQualityProfile = 'followSettings';
@@ -157,6 +163,7 @@ export function formatQueueQualityProfileHint(
   const isWanRapid = /wan.*rapid[\s_-]*aio/i.test(model) || model === 'wan-video-rapid-aio';
   const isWanLightning = /wan.*lightning-(4|8)\b/i.test(model);
   const isLightning = /lightning-(4|8)\b/i.test(model) && !isWanLightning;
+  const isDistilledTurbo = isDistilledFewStepImageModel(model);
   // Rapid T2I clamps Max→medium at queue time — don't advertise "max resolution".
   let effectiveSize = resolveEffectiveResolutionSizeTier(userSizeTier, profile);
   if (isRapid && effectiveSize === 'max') {
@@ -181,6 +188,11 @@ export function formatQueueQualityProfileHint(
         : ' · CFG-1 short negatives';
   } else if (isWanLightning || isWanRapid) {
     upscaleNote = ' · CFG-1 short temporal negatives · simple motion prompts';
+  } else if (isDistilledTurbo) {
+    upscaleNote =
+      profile === 'final' || profile === 'max'
+        ? ' · native decode (no Lanczos) · CFG-1 distilled'
+        : ' · CFG-1 distilled';
   } else if (isLightning) {
     upscaleNote =
       profile === 'final' || profile === 'max'
@@ -485,6 +497,10 @@ export function profileSkipsOutputUpscaleForModel(
   if (/qwen-image-2512-lightning/i.test(model) && options?.hasInputImage !== true) {
     return true;
   }
+  // Boogu / Z-Image Turbo: Final/Max Lanczos + neural upscale over-sharpens 4-step output.
+  if (isDistilledFewStepImageModel(model)) {
+    return true;
+  }
   return false;
 }
 
@@ -508,6 +524,9 @@ export function upscaleScaleForProfile(
   // so Max does not balloon past ~1.5k on a 1328 canvas.
   if (options?.model && /lightning-(4|8)\b/i.test(options.model)) {
     return mode === 'max' ? 1.12 : 1.08;
+  }
+  if (options?.model && isDistilledFewStepImageModel(options.model)) {
+    return 1;
   }
   // UltraReal Max: mild neural target — enough to recover soft VAE decode without
   // the old 1.5× Lanczos mush.
@@ -614,6 +633,9 @@ export function profileUsesNeuralUpscaleEnrich(
   if (options?.model && /lightning-(4|8)\b/i.test(options.model)) {
     return false;
   }
+  if (options?.model && isDistilledFewStepImageModel(options.model)) {
+    return false;
+  }
   // Vanilla 2512 / 2.0: Lanczos only on Final and Max — neural 4× pushes chroma and
   // can amplify any residual anatomy noise after latent-detail was disabled.
   if (
@@ -651,6 +673,9 @@ export function profileUsesNeuralUpscalePolish(
   options?: { model?: string }
 ): boolean {
   if (options?.model && /lightning-(4|8)\b/i.test(options.model)) {
+    return false;
+  }
+  if (options?.model && isDistilledFewStepImageModel(options.model)) {
     return false;
   }
   if (isFluxFineTuneCheckpointModel(options?.model)) {
@@ -772,6 +797,9 @@ export function profileUsesSharpenAfterNeuralUpscale(
   }
   const model = options?.model?.trim() ?? '';
   if (/lightning-(4|8)\b/i.test(model) || /^qwen-rapid-aio-/i.test(model)) {
+    return false;
+  }
+  if (isDistilledFewStepImageModel(model)) {
     return false;
   }
   return true;

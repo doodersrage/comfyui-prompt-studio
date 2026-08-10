@@ -78,9 +78,7 @@ const MODEL_SHIFT_OVERRIDES: Partial<Record<ComfyImageModel, number>> = {
   'z-image': 3,
   'z-image-turbo': 3,
   'boogu-image': 3,
-  'boogu-image-turbo': 3,
   'boogu-image-edit': 3,
-  'boogu-image-edit-turbo': 3,
 };
 
 const FLUX_SAMPLING_DEFAULTS: Pick<ModelSamplingPatchValues, 'fluxMaxShift' | 'fluxBaseShift'> = {

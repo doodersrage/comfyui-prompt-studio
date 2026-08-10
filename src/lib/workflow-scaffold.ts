@@ -29,6 +29,7 @@ import {
 } from './comfy-models';
 import {
   isBooguEditModel,
+  isBooguEditTurboModel,
   isBooguImageModel,
   isBooguImageTurboModel,
   isEditCapableModel,
@@ -571,29 +572,10 @@ function booguImageTurboScaffold(tokens: WorkflowPlaceholderTokens): Record<stri
       inputs: { text: tokens.positive, clip: ['2', 0] },
       _meta: { title: 'Positive Prompt' },
     },
-    '5': {
-      class_type: 'CLIPTextEncode',
-      inputs: { text: tokens.negative, clip: ['2', 0] },
-      _meta: { title: 'Negative Prompt' },
-    },
     '6': {
       class_type: 'EmptyLatentImage',
       inputs: { width: tokens.width, height: tokens.height, batch_size: 1 },
       _meta: { title: 'Empty Latent' },
-    },
-    '7': {
-      class_type: 'LoraLoaderModelOnly',
-      inputs: {
-        model: ['1', 0],
-        lora_name: LIGHTNING_LORA_TOKEN,
-        strength_model: 1,
-      },
-      _meta: { title: 'Boogu Turbo LoRA' },
-    },
-    '11': {
-      class_type: 'ModelSamplingAuraFlow',
-      inputs: { model: ['7', 0], shift: tokens.shift },
-      _meta: { title: 'ModelSamplingAuraFlow' },
     },
     '8': {
       class_type: 'KSampler',
@@ -604,12 +586,17 @@ function booguImageTurboScaffold(tokens: WorkflowPlaceholderTokens): Record<stri
         sampler_name: tokens.sampler,
         scheduler: tokens.scheduler,
         denoise: tokens.denoise,
-        model: ['11', 0],
+        model: ['1', 0],
         positive: ['4', 0],
-        negative: ['5', 0],
+        negative: ['12', 0],
         latent_image: ['6', 0],
       },
       _meta: { title: 'KSampler' },
+    },
+    '12': {
+      class_type: 'ConditioningZeroOut',
+      inputs: { conditioning: ['4', 0] },
+      _meta: { title: 'Boogu Turbo — zero negative' },
     },
     '9': {
       class_type: 'VAEDecode',
@@ -626,9 +613,10 @@ function booguImageTurboScaffold(tokens: WorkflowPlaceholderTokens): Record<stri
 
 function booguEditScaffold(
   tokens: WorkflowPlaceholderTokens,
-  options?: { compose?: boolean }
+  options?: { compose?: boolean; turbo?: boolean }
 ): Record<string, unknown> {
   const loaders = booguLoaderFilenames();
+  const turbo = options?.turbo === true;
   const figureTokens = [
     tokens.inputImage?.trim() || DEFAULT_INPUT_IMAGE_TOKEN,
     DEFAULT_INPUT_IMAGE_2_TOKEN,
@@ -640,7 +628,7 @@ function booguEditScaffold(
     '1': {
       class_type: 'UNETLoader',
       inputs: { unet_name: loaders.unetToken, weight_dtype: 'default' },
-      _meta: { title: 'Load Boogu UNET' },
+      _meta: { title: turbo ? 'Load Boogu Edit Turbo UNET' : 'Load Boogu UNET' },
     },
     '2': {
       class_type: 'CLIPLoader',
@@ -659,7 +647,7 @@ function booguEditScaffold(
       class_type: 'TextEncodeBooguEdit',
       inputs: {
         prompt: tokens.positive,
-        negative_prompt: tokens.negative,
+        negative_prompt: turbo ? '' : tokens.negative,
         clip: ['2', 0],
         vae: ['3', 0],
       },
@@ -670,11 +658,15 @@ function booguEditScaffold(
       inputs: { width: tokens.width, height: tokens.height, batch_size: 1 },
       _meta: { title: 'Empty Latent' },
     },
-    '7': {
-      class_type: 'ModelSamplingAuraFlow',
-      inputs: { model: ['1', 0], shift: tokens.shift },
-      _meta: { title: 'ModelSamplingAuraFlow' },
-    },
+    ...(turbo
+      ? {}
+      : {
+          '7': {
+            class_type: 'ModelSamplingAuraFlow',
+            inputs: { model: ['1', 0], shift: tokens.shift },
+            _meta: { title: 'ModelSamplingAuraFlow' },
+          },
+        }),
     '8': {
       class_type: 'KSampler',
       inputs: {
@@ -684,7 +676,7 @@ function booguEditScaffold(
         sampler_name: tokens.sampler,
         scheduler: tokens.scheduler,
         denoise: tokens.denoise,
-        model: ['7', 0],
+        model: turbo ? ['1', 0] : ['7', 0],
         positive: ['4', 0],
         negative: ['4', 1],
         latent_image: ['6', 0],
@@ -1631,7 +1623,7 @@ function editScaffold(
   model: ComfyImageModel | string
 ): Record<string, unknown> {
   if (isBooguEditModel(model)) {
-    return booguEditScaffold(tokens);
+    return booguEditScaffold(tokens, { turbo: isBooguEditTurboModel(model) });
   }
   if (isQwenEditModel(model)) {
     return qwenEditImg2imgScaffold(tokens, model);
@@ -2212,7 +2204,10 @@ export function buildWorkflowScaffoldForModel(
   const graph = useKleinComposeScaffold
     ? fluxKleinEditScaffold(resolvedTokens, model)
     : useBooguComposeScaffold
-      ? booguEditScaffold(resolvedTokens, { compose: true })
+      ? booguEditScaffold(resolvedTokens, {
+          compose: true,
+          turbo: isBooguEditTurboModel(model),
+        })
       : useZImageImg2imgScaffold
         ? zImageImg2imgScaffold(resolvedTokens, {
             multiFigure: options?.tool === 'compose',
@@ -2222,7 +2217,7 @@ export function buildWorkflowScaffoldForModel(
           : useEditScaffold
             ? editScaffold(resolvedTokens, category, model)
             : isBooguEditModel(model)
-              ? booguEditScaffold(resolvedTokens)
+              ? booguEditScaffold(resolvedTokens, { turbo: isBooguEditTurboModel(model) })
               : isBooguImageTurboModel(model)
                 ? booguImageTurboScaffold(resolvedTokens)
                 : isBooguImageModel(model)
@@ -2259,7 +2254,9 @@ export function buildWorkflowScaffoldForModel(
             ? 'Qwen Edit Compose scaffold uses EmptySD3LatentImage + TextEncodeQwenImageEditPlus (no encode VAE). Figure 1–4 attach via ReferenceLatent + external VAEEncode at queue time — denoise 1.'
             : useEditScaffold
               ? isBooguEditModel(model)
-                ? 'Boogu Edit scaffold uses TextEncodeBooguEdit + EmptyLatentImage (denoise 1). Wire Figure 1 via images.image_1 at queue time — reference latents preserve identity under CFG.'
+                ? isBooguEditTurboModel(model)
+                  ? 'Boogu Edit Turbo uses TextEncodeBooguEdit (empty negative) — UNET-only, no AuraFlow (CFG 1, 4 steps). Do not stack Lightning or turbo-distillation LoRAs; the Edit Turbo weights are already distilled.'
+                  : 'Boogu Edit scaffold uses TextEncodeBooguEdit + EmptyLatentImage (denoise 1). Wire Figure 1 via images.image_1 at queue time — reference latents preserve identity under CFG.'
                 : isQwenEditModel(model)
                   ? isQwenLightningModel(model)
                     ? 'Lightning edit scaffold uses TextEncodeQwenImageEditPlus + EmptyLatent + Lightning LoRA (denoise 1). Figure 1–4 LoadImages use {{INPUT_IMAGE}}…{{INPUT_IMAGE_4}} but encode slots stay empty for Generate; Compose/Refine queue wires refs when you upload sources.'
@@ -2288,7 +2285,7 @@ export function buildWorkflowScaffoldForModel(
                       : category === 'mesh'
                         ? 'Mesh scaffold wires {{INPUT_IMAGE}} + Checkpoint + CLIP + KSampler + SaveImage with {{MESH_RESOLUTION}} on the Note node. Prefer importing Hunyuan3D / image-to-mesh pack graphs when available.'
                         : isBooguImageTurboModel(model)
-                          ? 'Boogu Image Turbo scaffold uses UNETLoader + Turbo LoRA ({{LORA_LIGHTNING}} → boogu_image_turbo_lora_rank_128_bf16.safetensors) + CLIPLoader type boogu + flux1_vae_bf16 — 4 steps, cfg 1.'
+                          ? 'Boogu Image Turbo uses UNETLoader + ConditioningZeroOut (CFG 1, no negative encode, no AuraFlow). Native 4-step distilled weights — no Lightning LoRA required.'
                           : isBooguImageModel(model)
                             ? 'Boogu Image Base scaffold uses UNETLoader + CLIPLoader (type boogu, qwen3vl_8b) + flux1_vae_bf16 + ModelSamplingAuraFlow — ~25–50 steps, cfg ~4.'
                             : isZImageModel(model)

@@ -175,7 +175,8 @@ export function normalizeLoraLibrary(library: LoraLibraryEntry[] | undefined): L
 }
 
 export function isLightningLibraryEntry(entry: LoraLibraryEntry): boolean {
-  if (entry.id.trim().toUpperCase() === 'LIGHTNING') {
+  const id = entry.id.trim().toUpperCase();
+  if (id === 'LIGHTNING' || /^LIGHTNING-\d+$/.test(id)) {
     return true;
   }
   return loraFilenameImpliesLightning(entry.tokenValue ?? '');

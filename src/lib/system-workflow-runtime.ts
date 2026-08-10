@@ -40,6 +40,7 @@ import {
   DEFAULT_MODEL_SAMPLER_PRESET_TIER,
   isKleinBaseModel,
   isKleinDistilledModel,
+  isLightningModelId,
   normalizeModelSamplerPresetTier,
   resolveModelSamplerParams,
 } from './model-sampler-defaults';
@@ -264,11 +265,42 @@ function loaderStemWithoutPrecision(filename: string): string {
     .replace(/[-_]?(bf16|fp16|fp8_scaled|fp8|e4m3fn|q[2-8]_k[_-][a-z]|q[2-8]_0)/gi, '');
 }
 
+function filterBooguUnetInventoryForModel(
+  model: ComfyImageModel | string,
+  pool: string[]
+): string[] {
+  const id = String(model ?? '')
+    .trim()
+    .toLowerCase();
+  if (!id.startsWith('boogu-image')) {
+    return pool;
+  }
+  const wantsTurbo = id.includes('turbo');
+  const wantsEdit = id.includes('edit');
+  const filtered = pool.filter(name => {
+    const lower = name.toLowerCase();
+    if (!/boogu_image/.test(lower)) {
+      return false;
+    }
+    if (wantsTurbo !== /turbo/.test(lower)) {
+      return false;
+    }
+    if (wantsEdit !== /edit/.test(lower)) {
+      return false;
+    }
+    return true;
+  });
+  return filtered.length > 0 ? filtered : pool;
+}
+
 function resolveInventoryUnetForModel(
   model: ComfyImageModel,
   inventory: ComfyUiModelLists
 ): string | undefined {
-  const pool = filterKleinUnetInventoryForModel(model, inventory.unets);
+  const pool = filterBooguUnetInventoryForModel(
+    model,
+    filterKleinUnetInventoryForModel(model, inventory.unets)
+  );
   const preferred =
     SUGGESTED_MODEL_CHECKPOINT_MAP[model] ?? getComfyModelDefinition(model)?.unetHint;
   const matched = matchInventoryFilename(preferred, pool);
@@ -891,9 +923,10 @@ export function softBindScaffoldFromInventory(
     }
   }
 
-  const lightningLora = isLightningDistilledModel(model)
-    ? pickLightningLoraFromInventory(model, inventory.loras)
-    : undefined;
+  const lightningLora =
+    isLightningDistilledModel(model) || isLightningModelId(model) || model === 'flux-schnell'
+      ? pickLightningLoraFromInventory(model, inventory.loras)
+      : undefined;
 
   return {
     workflowJson: JSON.stringify(graph, null, 2),
@@ -1363,7 +1396,7 @@ function softFillLightningTokenForGraph(
   tokens: CustomWorkflowToken[],
   inventory?: ComfyUiModelLists | null
 ): CustomWorkflowToken[] {
-  if (!isLightningDistilledModel(model)) {
+  if (!isLightningDistilledModel(model) && !isLightningModelId(model) && model !== 'flux-schnell') {
     return tokens;
   }
   if (hasMatchingBoundLightningToken(tokens, model)) {

@@ -5,7 +5,10 @@ import { auditWorkflowPreviewIssues } from './workflow-placeholder-audit';
 import { auditWorkflowNodeTypes } from './workflow-node-type-audit';
 import { auditDualClipNodesInWorkflow } from './workflow-dual-clip-audit';
 import type { ComfyUiModelLists } from './comfyui-object-info';
-import { auditLightningWorkflowIssues } from './workflow-lightning-queue';
+import {
+  auditLightningWorkflowIssues,
+  auditDistilledTurboWorkflowIssues,
+} from './workflow-lightning-queue';
 import { auditLoaderFilenamesInWorkflow } from './workflow-loader-filename-audit';
 import { buildLightningLoraFilenameMap } from './workflow-lora-patch';
 import { resolveWorkflowGraphInput } from './workflow-graph-input';
@@ -80,6 +83,15 @@ export function collectWorkflowGraphPreflightIssues(
       model: input.model,
       loraFilenames,
       alreadyPrepared: input.lightningAlreadyPrepared === true,
+    })
+  );
+
+  issues.push(
+    ...auditDistilledTurboWorkflowIssues({
+      workflowJson,
+      workflow,
+      model: input.model,
+      loraFilenames,
     })
   );
 

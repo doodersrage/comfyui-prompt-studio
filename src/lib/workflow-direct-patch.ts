@@ -1,4 +1,5 @@
 import { isQwenLightningModel } from './model-sampling-patch';
+import { shouldNeutralizeStyleLorasAtQueue } from './model-sampler-defaults';
 import type { WorkflowParamValues } from './comfyui-config';
 import { COMFY_MODEL_IDS, getComfyModelDefinition, type ComfyImageModel } from './comfy-models';
 import { isFlux1FamilyModel, isFluxKleinModel } from './model-denoise-defaults';
@@ -18,6 +19,7 @@ import {
 import { DEFAULT_UPSCALE_MODEL_TOKEN, SUGGESTED_MODEL_UPSCALE_MAP } from './model-upscale-map';
 import {
   buildLoraFilenameMapFromCustomTokens,
+  buildLightningLoraFilenameMap,
   patchLoraNodesInWorkflow,
 } from './workflow-lora-patch';
 import { applyLoraStackToWorkflow, type LoraLibraryEntry } from './lora-stack';
@@ -1593,13 +1595,16 @@ export function patchWorkflowDirectParams(
     availableUnets: input.availableUnets,
     model: input.model,
   });
-  const loraPatch = patchLoraNodesInWorkflow(
-    loaderPatch.workflow,
-    buildLoraFilenameMapFromCustomTokens(input.customTokens ?? [])
-  );
-  const loraStackPatch = applyLoraStackToWorkflow(loraPatch.workflow, input.loraLibrary, {
-    prompt: input.prompt,
-  });
+  const loraFilenames = {
+    ...buildLoraFilenameMapFromCustomTokens(input.customTokens ?? []),
+    ...buildLightningLoraFilenameMap(input.customTokens ?? [], input.model),
+  };
+  const loraPatch = patchLoraNodesInWorkflow(loaderPatch.workflow, loraFilenames);
+  const loraStackPatch = shouldNeutralizeStyleLorasAtQueue(input.model)
+    ? { workflow: loraPatch.workflow, patched: {} as WorkflowDirectPatchCounts }
+    : applyLoraStackToWorkflow(loraPatch.workflow, input.loraLibrary, {
+        prompt: input.prompt,
+      });
   const kleinFigures = normalizeInputImageFilenames(
     input.params?.inputImageFilename,
     input.params?.inputImageFilenames

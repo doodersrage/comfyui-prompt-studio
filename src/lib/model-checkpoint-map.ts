@@ -427,7 +427,7 @@ function inferBooguLoaderHints(modelId: string): ModelLoaderFilenames {
   if (!id.startsWith('boogu-image')) {
     return {};
   }
-  const vae = pickBooguVaeFromInventory(null);
+  const vae = pickBooguVaeFromInventory(null, { model: modelId });
   const isEdit = id.includes('edit');
   const isTurbo = id.includes('turbo');
   if (isEdit && isTurbo) {
@@ -445,14 +445,21 @@ function inferBooguLoaderHints(modelId: string): ModelLoaderFilenames {
 /** Comfy-Org Boogu repack name first; ae.safetensors from Z-Image/FLUX also works. */
 export const BOOGU_VAE_CANDIDATES = ['flux1_vae_bf16.safetensors', 'ae.safetensors'] as const;
 
-export function pickBooguVaeFromInventory(vaes?: string[] | null): string {
+export const BOOGU_TURBO_VAE_CANDIDATES = ['flux1_vae_bf16.safetensors', 'ae.safetensors'] as const;
+
+export function pickBooguVaeFromInventory(
+  vaes?: string[] | null,
+  options?: { model?: string }
+): string {
   const inventory = (vaes ?? []).map(name => name.trim()).filter(Boolean);
-  for (const candidate of BOOGU_VAE_CANDIDATES) {
+  const isTurbo = /boogu-image.*turbo/i.test(String(options?.model ?? '').trim());
+  const candidates = isTurbo ? BOOGU_TURBO_VAE_CANDIDATES : BOOGU_VAE_CANDIDATES;
+  for (const candidate of candidates) {
     if (inventory.includes(candidate)) {
       return candidate;
     }
   }
-  return BOOGU_VAE_CANDIDATES[0];
+  return candidates[0];
 }
 
 /**
@@ -670,7 +677,7 @@ export function resolveLoaderFilenamesForModel(
     trimFilename(def?.vaeHint) ??
     suggestedVaeFilenameForModel(model);
   const resolvedVae = String(model).toLowerCase().startsWith('boogu-image')
-    ? pickBooguVaeFromInventory(options?.availableVaes)
+    ? pickBooguVaeFromInventory(options?.availableVaes, { model: String(model) })
     : vae;
 
   const effectiveTier = precisionHintFromFilename(unet ?? checkpoint ?? '') ?? workflowTier ?? tier;

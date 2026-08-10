@@ -93,6 +93,25 @@ describe("workflow-lora-patch", () => {
     );
   });
 
+  it("does not resolve Lightning LoRA tokens for native turbo models", () => {
+    const map = buildLightningLoraFilenameMap(
+      [
+        {
+          token: "{{LORA_LIGHTNING}}",
+          value: "Qwen-Image-Lightning-8steps-V2.0.safetensors",
+        },
+        {
+          token: "{{LORA_LIGHTNING-2}}",
+          value: "boogu_image_turbo_lora_rank_128_bf16.safetensors",
+        },
+      ],
+      "boogu-image-turbo",
+      ["Qwen-Image-Lightning-8steps-V2.0.safetensors"],
+    );
+    assert.equal(map["{{LORA_LIGHTNING}}"], undefined);
+    assert.equal(map["{{LORA_LIGHTNING-2}}"], undefined);
+  });
+
   it("prefers Wan2.2-Lightning-low_noise_model for WAN Lightning", () => {
     const map = buildLightningLoraFilenameMap(
       [],
