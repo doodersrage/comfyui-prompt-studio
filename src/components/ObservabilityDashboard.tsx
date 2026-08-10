@@ -21,6 +21,14 @@ type UsageResponse = {
     rateLimited: number;
     avgDurationMs: number;
   };
+  llm?: {
+    total: number;
+    last24h: number;
+    last24hTokens: number;
+    avgDurationMs: number;
+    visionRank24h?: number;
+    bestOfNRank24h?: number;
+  };
   entries?: UsageEntry[];
 };
 
@@ -74,6 +82,15 @@ export default function ObservabilityDashboard() {
           <Metric label="Last hour" value={String(data.summary.lastHour)} />
           <Metric label="Rate limited" value={String(data.summary.rateLimited)} />
           <Metric label="Avg duration" value={`${data.summary.avgDurationMs}ms`} />
+        </div>
+      ) : null}
+
+      {data?.llm ? (
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Metric label="LLM calls (24h)" value={String(data.llm.last24h)} />
+          <Metric label="Vision ranks (24h)" value={String(data.llm.visionRank24h ?? 0)} />
+          <Metric label="Text best-of-N (24h)" value={String(data.llm.bestOfNRank24h ?? 0)} />
+          <Metric label="LLM avg duration" value={`${data.llm.avgDurationMs}ms`} />
         </div>
       ) : null}
 
