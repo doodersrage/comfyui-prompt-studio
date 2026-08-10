@@ -46,8 +46,10 @@ import {
   conceptWildnessLabel,
   rollVariationLabel,
 } from '@/lib/tool-ui-labels';
+import ToolSetupBanner from '@/components/ToolSetupBanner';
 import {
   ToolBadge,
+  CollapsibleSection,
   ToolLayout,
   ToolSection,
   accentFocusClass,
@@ -258,14 +260,8 @@ export default function FantasyTool() {
     <ToolLayout
       accent={ACCENT}
       badge={<ToolBadge accent={ACCENT}>Fantasy scene · {selectedModel.comfyNode}</ToolBadge>}
-      title="Fantasy Scene Generator"
-      description={
-        <>
-          Builds detailed fantasy prompts for characters, creatures, ensembles, or pure
-          environments. Use presets and options for subgenre, magic, setting, and camera—or add
-          freeform hints and pin a place with <code className="text-violet-300">location: …</code>.
-        </>
-      }
+      title="Fantasy"
+      description="Fantasy characters, creatures, or environments. Add hints and generate."
       sidebar={
         <SharedToolControls
           shared={shared}
@@ -293,31 +289,36 @@ export default function FantasyTool() {
         />
       }
     >
-      <ToolSection
-        title="Scene setup"
-        description="Pick a preset, refine options, then add freeform hints before generating."
-      >
-        <FantasyPresetChips
-          selectedId={toolSettings.fantasyPresetId}
-          category={toolSettings.presetCategory ?? 'all'}
-          onCategoryChange={category => updateToolSettings({ presetCategory: category })}
-          onSelect={preset => {
-            updateToolSettings({
-              hints: preset.hints,
-              fantasyPresetId: preset.id,
-              presetCategory: preset.category,
-              ...(preset.presetOptions ?? {}),
-            });
-          }}
-        />
+      <ToolSetupBanner toolLabel="Fantasy" />
+      <ToolSection title="Scene setup" description="Presets, hints, then generate.">
+        <CollapsibleSection
+          title="Fantasy presets"
+          summary="Starter chips and subgenre, magic, and camera options."
+          defaultOpen={false}
+          persistKey="fantasy-presets"
+        >
+          <FantasyPresetChips
+            selectedId={toolSettings.fantasyPresetId}
+            category={toolSettings.presetCategory ?? 'all'}
+            onCategoryChange={category => updateToolSettings({ presetCategory: category })}
+            onSelect={preset => {
+              updateToolSettings({
+                hints: preset.hints,
+                fantasyPresetId: preset.id,
+                presetCategory: preset.category,
+                ...(preset.presetOptions ?? {}),
+              });
+            }}
+          />
 
-        <FieldDivider />
+          <FieldDivider />
 
-        <FantasyPresetControls
-          mounted={mounted}
-          settings={toolSettings}
-          onChange={patch => updateToolSettings({ ...patch, fantasyPresetId: undefined })}
-        />
+          <FantasyPresetControls
+            mounted={mounted}
+            settings={toolSettings}
+            onChange={patch => updateToolSettings({ ...patch, fantasyPresetId: undefined })}
+          />
+        </CollapsibleSection>
 
         <FieldDivider />
 

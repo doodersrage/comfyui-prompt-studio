@@ -51,6 +51,13 @@ describe("model denoise defaults", () => {
       0.65,
     );
     assert.equal(
+      resolveDenoiseForModel("z-image-turbo", {
+        tool: "compose",
+        hasInputImage: true,
+      }),
+      0.42,
+    );
+    assert.equal(
       isInstructionEditDenoiseContext("z-image-turbo", {
         tool: "refine",
         hasInputImage: true,

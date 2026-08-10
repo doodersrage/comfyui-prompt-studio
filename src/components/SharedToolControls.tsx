@@ -75,7 +75,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import { isBrowserStorageReady, whenBrowserStorageReady } from '@/lib/browser-storage';
 import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
-import { workspaceControlsDefaultOpen, workspaceShowsAdvancedControls } from '@/lib/workspace-mode';
+import { workspaceControlsDefaultOpen } from '@/lib/workspace-mode';
 import { resolveModelStackFamily } from '@/lib/workflow-stack-fingerprint';
 import { isQwenLightningModel } from '@/lib/model-sampling-patch';
 import { expandWildcardText, textHasWildcardTokens } from '@/lib/wildcard-expand';
@@ -171,6 +171,8 @@ type SharedToolControlsProps = {
   /** When set, enables a per-tool queue quality override below the global profile. */
   toolId?: string;
   onSharedSettingsChange?: (partial: Partial<SharedToolSettings>) => void;
+  /** Generate: model + detail only; workflow/queue/LoRA live under Advanced. */
+  controlsVariant?: 'default' | 'essential';
 };
 
 export default function SharedToolControls({
@@ -200,9 +202,9 @@ export default function SharedToolControls({
   wildcardPreviewText,
   toolId,
   onSharedSettingsChange,
+  controlsVariant = 'default',
 }: SharedToolControlsProps) {
   const workspaceMode = useWorkspaceMode();
-  const showAdvancedInline = workspaceShowsAdvancedControls(workspaceMode);
   const advancedOpenByDefault = workspaceControlsDefaultOpen(workspaceMode);
   const selectedModel = getComfyModelDefinition(shared.model);
   const activeLimits = getDetailLimits(shared.detail, shared.model);
@@ -999,55 +1001,6 @@ export default function SharedToolControls({
             onChange={handleModelChange}
           />
         )}
-        {systemPathActive ? (
-          <div className="space-y-2">
-            <FieldLabel hint="Steps, resolution, and polish scale with this choice.">
-              Queue quality
-            </FieldLabel>
-            <div className="flex flex-wrap gap-2">
-              {(
-                [
-                  { id: 'draft' as const, label: 'Draft' },
-                  { id: 'final' as const, label: 'Final' },
-                  { id: 'max' as const, label: 'Max' },
-                ] as const
-              ).map(option => (
-                <ChipButton
-                  key={option.id}
-                  active={queueQualityProfile === option.id}
-                  onClick={() => handleQueueQualityProfileChange(option.id)}
-                >
-                  {option.label}
-                </ChipButton>
-              ))}
-            </div>
-            {systemQualityHint ? (
-              <p className="text-xs leading-relaxed text-zinc-500">{systemQualityHint}</p>
-            ) : null}
-            {systemWorkflowChoice ? (
-              <p className="text-xs leading-relaxed text-zinc-500">
-                Graph: <span className="text-zinc-300">{systemWorkflowChoice.display}</span>
-              </p>
-            ) : null}
-            <QueueRecipesPanel
-              toolId={toolId}
-              shared={recipesShared}
-              qualityProfile={queueQualityProfile}
-              orientation={resolutionOrientation}
-              sizeTier={resolutionSizeTier}
-              systemWorkflowSource={systemWorkflowChoice?.source}
-              onApplied={handleRecipesApplied}
-            />
-            {shared.inferenceEngine === 'diffusers' ? (
-              <DiffusersSamplingReadout
-                model={shared.model}
-                checkpointMap={shared.modelCheckpointMap}
-                toolId={toolId ?? 'generate'}
-                workshopCrop={shared.diffusersWorkshopCrop ?? 'auto'}
-              />
-            ) : null}
-          </div>
-        ) : null}
         {toolId === 'generate' && /qwen-image-edit-2511-lightning/i.test(shared.model) ? (
           <div className="space-y-2 rounded-xl border border-amber-500/25 bg-amber-500/5 px-3 py-2.5">
             <p className="text-xs leading-relaxed text-amber-100/85">
@@ -1107,32 +1060,85 @@ export default function SharedToolControls({
         </div>
       </div>
 
-      {onWorkflowPresetChange &&
-        workflowSelection.mounted &&
-        !usesSystemWorkflowPath(shared, shared.model) && (
-          <ComfyWorkflowSelector
-            selectedId={selectedWorkflowId}
-            defaultLabel={workflowSelection.defaultLabel}
-            localFiles={workflowSelection.localFiles}
-            serverFiles={workflowSelection.serverFiles}
-            helpText={
-              shared.useSystemWorkflows === true
-                ? 'This model is outside the system-workflow families — pick a library graph (or map one in Settings).'
-                : shared.autoSelectWorkflowForModel !== false
-                  ? 'Your picker choice is used at queue time unless Settings → model→workflow map assigns a file for this model.'
-                  : undefined
-            }
-            onChange={fileId => {
-              workflowManualOverrideRef.current = true;
-              workflowSelection.setSelectedId(fileId);
-              onWorkflowPresetChange(fileId);
-            }}
-          />
-        )}
-
       {(() => {
+        const queueQualityBlock = systemPathActive ? (
+          <div className="space-y-2">
+            <FieldLabel hint="Steps, resolution, and polish scale with this choice.">
+              Queue quality
+            </FieldLabel>
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  { id: 'draft' as const, label: 'Draft' },
+                  { id: 'final' as const, label: 'Final' },
+                  { id: 'max' as const, label: 'Max' },
+                ] as const
+              ).map(option => (
+                <ChipButton
+                  key={option.id}
+                  active={queueQualityProfile === option.id}
+                  onClick={() => handleQueueQualityProfileChange(option.id)}
+                >
+                  {option.label}
+                </ChipButton>
+              ))}
+            </div>
+            {systemQualityHint ? (
+              <p className="text-xs leading-relaxed text-zinc-500">{systemQualityHint}</p>
+            ) : null}
+            {systemWorkflowChoice ? (
+              <p className="text-xs leading-relaxed text-zinc-500">
+                Graph: <span className="text-zinc-300">{systemWorkflowChoice.display}</span>
+              </p>
+            ) : null}
+            <QueueRecipesPanel
+              toolId={toolId}
+              shared={recipesShared}
+              qualityProfile={queueQualityProfile}
+              orientation={resolutionOrientation}
+              sizeTier={resolutionSizeTier}
+              systemWorkflowSource={systemWorkflowChoice?.source}
+              onApplied={handleRecipesApplied}
+            />
+            {shared.inferenceEngine === 'diffusers' ? (
+              <DiffusersSamplingReadout
+                model={shared.model}
+                checkpointMap={shared.modelCheckpointMap}
+                toolId={toolId ?? 'generate'}
+                workshopCrop={shared.diffusersWorkshopCrop ?? 'auto'}
+              />
+            ) : null}
+          </div>
+        ) : null;
+
+        const workflowBlock =
+          onWorkflowPresetChange &&
+          workflowSelection.mounted &&
+          !usesSystemWorkflowPath(shared, shared.model) ? (
+            <ComfyWorkflowSelector
+              selectedId={selectedWorkflowId}
+              defaultLabel={workflowSelection.defaultLabel}
+              localFiles={workflowSelection.localFiles}
+              serverFiles={workflowSelection.serverFiles}
+              helpText={
+                shared.useSystemWorkflows === true
+                  ? 'This model is outside the system-workflow families — pick a library graph (or map one in Settings).'
+                  : shared.autoSelectWorkflowForModel !== false
+                    ? 'Your picker choice is used at queue time unless Settings → model→workflow map assigns a file for this model.'
+                    : undefined
+              }
+              onChange={fileId => {
+                workflowManualOverrideRef.current = true;
+                workflowSelection.setSelectedId(fileId);
+                onWorkflowPresetChange(fileId);
+              }}
+            />
+          ) : null;
+
         const advancedSections = (
           <>
+            {queueQualityBlock}
+            {workflowBlock}
             <CollapsibleSection
               title="LoRA stack"
               summary={
@@ -1500,19 +1506,16 @@ export default function SharedToolControls({
           </>
         );
 
-        if (!showAdvancedInline) {
-          return (
-            <CollapsibleSection
-              title="Advanced controls"
-              summary="LoRA, sampling, wildcards, pins, and automation."
-              defaultOpen={false}
-              persistKey="shared-advanced-simple"
-            >
-              {advancedSections}
-            </CollapsibleSection>
-          );
-        }
-        return advancedSections;
+        return (
+          <CollapsibleSection
+            title="Advanced settings"
+            summary="Queue quality, workflow, LoRA, sampling, wildcards, and automation."
+            defaultOpen={false}
+            persistKey="shared-advanced-settings"
+          >
+            {advancedSections}
+          </CollapsibleSection>
+        );
       })()}
     </div>
   );

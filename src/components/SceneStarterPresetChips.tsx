@@ -302,7 +302,7 @@ export default function SceneStarterPresetChips({
         ) : null}
       </div>
 
-      <div className="ui-surface-inset max-h-56 space-y-2 overflow-y-auto p-2">
+      <div className="ui-scroll-region sidebar-scroll max-h-56 space-y-2 overflow-y-auto">
         {filtered.length === 0 ? (
           <EmptyState
             compact

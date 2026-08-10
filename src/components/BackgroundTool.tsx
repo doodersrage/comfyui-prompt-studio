@@ -30,8 +30,10 @@ import {
 import { avoidedTokensRequestBody } from '@/lib/avoided-tokens';
 import { DEFAULT_BACKGROUND_TOOL_CACHE } from '@/lib/settings-cache';
 import type { EnrichedToolGenerateResult } from '@/lib/specialized/types';
+import ToolSetupBanner from '@/components/ToolSetupBanner';
 import {
   ToolBadge,
+  CollapsibleSection,
   ToolLayout,
   ToolSection,
   accentFocusClass,
@@ -163,14 +165,8 @@ export default function BackgroundTool() {
     <ToolLayout
       accent={ACCENT}
       badge={<ToolBadge accent={ACCENT}>Background · {selectedModel.comfyNode}</ToolBadge>}
-      title="Background Generator"
-      description={
-        <>
-          Generates a detailed environment-only prompt—architecture, landscape, weather, materials,
-          and light—with no people or figures. Expand optional presets for perspective, depth,
-          lighting, and surface textures.
-        </>
-      }
+      title="Background"
+      description="Environment-only prompts — no people. Add tags or presets, then generate."
       sidebar={
         <SharedToolControls
           shared={shared}
@@ -185,9 +181,10 @@ export default function BackgroundTool() {
         />
       }
     >
+      <ToolSetupBanner toolLabel="Background" />
       <ToolSection
         title="Environment setup"
-        description="Optional quick tags and structured presets—no people or figures."
+        description="Quick tags and optional presets — no people."
       >
         <HistoryHintSeedPanel
           tool="background"
@@ -226,9 +223,12 @@ export default function BackgroundTool() {
         />
 
         {hintSource !== 'random' ? (
-          <>
-            <FieldDivider />
-
+          <CollapsibleSection
+            title="Environment presets"
+            summary="Quick tags and structured lighting, depth, and surface options."
+            defaultOpen={false}
+            persistKey="background-presets"
+          >
             <SceneQuickTags
               settingType={toolSettings.settingType ?? ''}
               timeOfDay={toolSettings.timeOfDay ?? ''}
@@ -238,16 +238,16 @@ export default function BackgroundTool() {
               onMoodChange={value => updateToolSettings({ mood: value })}
               inputClassName={accentFocusClass(ACCENT)}
             />
-          </>
+
+            <FieldDivider />
+
+            <BackgroundPresetControls
+              mounted={mounted}
+              settings={toolSettings}
+              onChange={updateToolSettings}
+            />
+          </CollapsibleSection>
         ) : null}
-
-        <FieldDivider />
-
-        <BackgroundPresetControls
-          mounted={mounted}
-          settings={toolSettings}
-          onChange={updateToolSettings}
-        />
 
         <SceneGenerateFooter
           accent={ACCENT}

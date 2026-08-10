@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ChipButton, FieldDivider, FieldLabel, TextInput } from '@/components/ui/Field';
 import { Button } from '@/components/ui/Button';
+import { CollapsibleSection } from '@/components/ui/ToolPageShell';
 import {
   countHistorySeedCandidates,
   listHistoryHintSuggestions,
@@ -18,6 +19,7 @@ import {
   type SceneHintSource,
 } from '@/lib/scene-hint-source';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
+import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
 
 const HISTORY_EMPTY_GUIDANCE: Partial<
   Record<HistorySeedTool, { message: string; href: string; linkLabel: string }>
@@ -72,6 +74,8 @@ type HistoryHintSeedPanelProps = {
   onRandomThemeChange: (theme: string) => void;
   onHistorySeedApplied: (result: HistoryHintSeedResult) => void;
   accentFocusClassName?: string;
+  /** When true, hide History/Random chips until expanded — keywords-first layout. Auto on in Simple workspace. */
+  compact?: boolean;
 };
 
 export function HistoryHintSeedPanel({
@@ -87,7 +91,10 @@ export function HistoryHintSeedPanel({
   onRandomThemeChange,
   onHistorySeedApplied,
   accentFocusClassName = '',
+  compact: compactProp,
 }: HistoryHintSeedPanelProps) {
+  const workspaceMode = useWorkspaceMode();
+  const compact = compactProp ?? workspaceMode === 'simple';
   const [historyStatus, setHistoryStatus] = useState<string | null>(null);
   const candidateCount = useMemo(
     () => countHistorySeedCandidates(tool, historySeedScope),
@@ -150,7 +157,7 @@ export function HistoryHintSeedPanel({
 
   const emptyGuidance = HISTORY_EMPTY_GUIDANCE[tool];
 
-  return (
+  const hintSourcePicker = (
     <>
       <FieldLabel hint="Choose how scene hints are filled before generation.">
         Hint source
@@ -167,6 +174,32 @@ export function HistoryHintSeedPanel({
         ))}
       </div>
       {activeSource ? <p className="type-caption">{activeSource.description}</p> : null}
+    </>
+  );
+
+  return (
+    <>
+      {compact && hintSource === 'manual' ? (
+        <CollapsibleSection
+          title="More input modes"
+          summary="Seed from history or roll a random surprise scene."
+          defaultOpen={false}
+          persistKey={`hint-source-alt-${tool}`}
+        >
+          {hintSourcePicker}
+        </CollapsibleSection>
+      ) : compact && hintSource !== 'manual' ? (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="type-caption text-[var(--text-secondary)]">
+            Input mode: <span className="text-[var(--text-primary)]">{activeSource?.label}</span>
+          </p>
+          <Button variant="ghost" size="sm" onClick={() => onHintSourceChange('manual')}>
+            Back to keywords
+          </Button>
+        </div>
+      ) : (
+        hintSourcePicker
+      )}
 
       {hintSource === 'history' ? (
         <>

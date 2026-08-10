@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { memo } from 'react';
+import { TOOL_SIDEBAR_DESCRIPTION, TOOL_SIDEBAR_TITLE } from '@/lib/tool-page-chrome';
 import { ROUTE_TINT_CLASSES, type ToolAccent } from '@/lib/tool-theme';
 
 export type ToolPageWidth = 'default' | 'wide' | 'full';
@@ -271,8 +272,8 @@ export const ToolLayout = memo(function ToolLayout({
   title,
   description,
   sidebar,
-  sidebarTitle = 'Shared settings',
-  sidebarDescription = 'Model, detail, wardrobe, and workflow selection persist across tools.',
+  sidebarTitle = TOOL_SIDEBAR_TITLE,
+  sidebarDescription = TOOL_SIDEBAR_DESCRIPTION,
   children,
 }: {
   accent?: ToolAccent;

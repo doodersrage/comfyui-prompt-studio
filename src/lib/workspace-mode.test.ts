@@ -70,8 +70,8 @@ describe("workspace-mode", () => {
     withMockLocalStorage(() => resetBrowserStorageCache());
   });
 
-  it("normalizes unknown modes to studio", () => {
-    assert.equal(normalizeWorkspaceMode("nope"), "studio");
+  it("normalizes unknown modes to simple", () => {
+    assert.equal(normalizeWorkspaceMode("nope"), "simple");
     assert.equal(normalizeWorkspaceMode("simple"), "simple");
   });
 

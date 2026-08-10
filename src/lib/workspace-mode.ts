@@ -51,12 +51,12 @@ export function normalizeWorkspaceMode(value: unknown): WorkspaceMode {
   if (value === 'simple' || value === 'studio' || value === 'full') {
     return value;
   }
-  return 'studio';
+  return 'simple';
 }
 
 export function loadWorkspaceMode(): WorkspaceMode {
   if (typeof window === 'undefined') {
-    return 'studio';
+    return 'simple';
   }
   return normalizeWorkspaceMode(readBrowserString(MODE_KEY));
 }

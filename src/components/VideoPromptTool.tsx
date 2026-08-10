@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
 import SharedToolControls from '@/components/SharedToolControls';
+import ToolSetupBanner from '@/components/ToolSetupBanner';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import ComfyPackImportControl from '@/components/ComfyPackImportControl';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
@@ -438,8 +439,8 @@ export default function VideoPromptTool() {
     <ToolLayout
       accent={ACCENT}
       badge={<ToolBadge accent={ACCENT}>Video · motion prompts</ToolBadge>}
-      title="Video prompt builder"
-      description="Compose motion, camera, and continuity prompts for WAN / Hunyuan Video. Prefer WAN Video (not Lightning) for people and complex motion. Text-to-video by default; add an init image for image-to-video (requires WanImageToVideo or HunyuanImageToVideo in ComfyUI)."
+      title="Video"
+      description="Motion and camera prompts for WAN / Hunyuan Video. Add an init image for image-to-video."
       sidebar={
         <SharedToolControls
           shared={controlsShared}
@@ -454,6 +455,7 @@ export default function VideoPromptTool() {
         />
       }
     >
+      <ToolSetupBanner toolLabel="Video" />
       <ToolSection>
         {workflowStatus ? (
           <p className="mb-3 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">

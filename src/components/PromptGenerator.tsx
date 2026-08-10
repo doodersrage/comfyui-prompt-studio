@@ -64,6 +64,8 @@ import {
   TextInput,
 } from '@/components/ui/Field';
 import { markOnboardingFirstGenerate } from '@/lib/onboarding-hooks';
+import ToolSetupBanner from '@/components/ToolSetupBanner';
+import { markComfyQueueIntent } from '@/lib/comfy-setup-intent';
 import { Button, PrimaryButton } from '@/components/ui/Button';
 
 const SceneStarterPresetChips = dynamic(() => import('@/components/SceneStarterPresetChips'), {
@@ -78,10 +80,6 @@ const SharedToolControls = dynamic(() => import('@/components/SharedToolControls
   loading: () => (
     <div className="h-40 animate-pulse rounded-2xl bg-[var(--surface-muted)]/50" aria-hidden />
   ),
-});
-const SetupReadinessBanner = dynamic(() => import('@/components/SetupReadinessBanner'), {
-  ssr: false,
-  loading: () => null,
 });
 
 const ACCENT = 'violet' as const;
@@ -516,22 +514,14 @@ export default function PromptGenerator() {
     <ToolLayout
       accent={ACCENT}
       badge={<ToolBadge accent={ACCENT}>ComfyUI · {selectedModel.comfyNode}</ToolBadge>}
-      title="ComfyUI Image Prompt Generator"
-      description={
-        <>
-          Enter a topic or keywords. The generator formats natural-language prompts for your chosen
-          ComfyUI image model—{' '}
-          <code className="rounded bg-zinc-800 px-1.5 py-0.5 text-sm text-violet-300">
-            {selectedModel.comfyNode}
-          </code>
-          , ready to paste and run.
-        </>
-      }
-      sidebarTitle="Generation settings"
-      sidebarDescription="Model, detail, and wardrobe options for this run."
+      title="Generate"
+      description="Describe a scene or roll a random one. Pick model and detail in the sidebar, then generate a ComfyUI-ready prompt."
+      sidebarTitle="Settings"
+      sidebarDescription="Model and detail for this run. Queue quality and LoRA live under Advanced."
       sidebar={
         <SharedToolControls
           toolId="generate"
+          controlsVariant="essential"
           shared={shared}
           onSharedSettingsChange={updateShared}
           onModelChange={setQueueModel}
@@ -554,13 +544,11 @@ export default function PromptGenerator() {
         />
       }
     >
-      <SetupReadinessBanner toolLabel="Generate" />
-      <ToolSection
-        title="Scene setup"
-        description="Describe what you want to generate, or roll a random surprise scene."
-      >
+      <ToolSetupBanner toolLabel="Generate" />
+      <ToolSection title="Scene setup" description="Keywords or a random scene — then generate.">
         <HistoryHintSeedPanel
           tool="generate"
+          compact
           hintSource={hintSource}
           historySeedScope={historySeedScope}
           hints={input}
@@ -739,13 +727,46 @@ export default function PromptGenerator() {
 
             <FieldDivider />
 
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <label
-                htmlFor="edit-input"
-                className="text-sm font-medium text-[var(--text-primary)]"
-              >
-                Scene idea or keywords
-              </label>
+            {mode === 'positive' ? (
+              <>
+                <label
+                  htmlFor="edit-input"
+                  className="text-sm font-medium text-[var(--text-primary)]"
+                >
+                  Scene idea or keywords
+                </label>
+
+                <TextArea
+                  id="edit-input"
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  onKeyDown={e => {
+                    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                      e.preventDefault();
+                      void generate();
+                    }
+                  }}
+                  placeholder="e.g. neon alley, rain, black cat — any topic or words to paint into a scene"
+                  rows={5}
+                  className={`text-base ${accentFocusClass(ACCENT)}`}
+                />
+
+                {modelUsesTagAssist(queueModel) ? (
+                  <TagAssistToolbar value={input} onChange={setInput} textareaId="edit-input" />
+                ) : null}
+              </>
+            ) : null}
+
+            <CollapsibleSection
+              title="Negative / preserve mode"
+              summary={
+                mode === 'negative'
+                  ? 'Active — writing keep/don’t-change lists for edit workflows'
+                  : 'Optional — switch from positive scene prompts'
+              }
+              defaultOpen={mode === 'negative'}
+              persistKey="generate-negative-mode"
+            >
               <SegmentedControl
                 aria-label="Prompt mode"
                 value={mode}
@@ -755,30 +776,37 @@ export default function PromptGenerator() {
                   { value: 'negative', label: 'Negative / Preserve', tone: 'danger' },
                 ]}
               />
-            </div>
 
-            <TextArea
-              id="edit-input"
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => {
-                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-                  e.preventDefault();
-                  void generate();
-                }
-              }}
-              placeholder={
-                mode === 'positive'
-                  ? 'e.g. neon alley, rain, black cat — any topic or words to paint into a scene'
-                  : 'e.g. do not change face, skin tone, or pose'
-              }
-              rows={5}
-              className={`text-base ${accentFocusClass(ACCENT)}`}
-            />
-
-            {modelUsesTagAssist(queueModel) ? (
-              <TagAssistToolbar value={input} onChange={setInput} textareaId="edit-input" />
-            ) : null}
+              {mode === 'negative' ? (
+                <>
+                  <label
+                    htmlFor="edit-input-negative"
+                    className="mt-3 block text-sm font-medium text-[var(--text-primary)]"
+                  >
+                    Preserve / negative prompt
+                  </label>
+                  <TextArea
+                    id="edit-input-negative"
+                    value={input}
+                    onChange={e => setInput(e.target.value)}
+                    onKeyDown={e => {
+                      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                        e.preventDefault();
+                        void generate();
+                      }
+                    }}
+                    placeholder="e.g. do not change face, skin tone, or pose"
+                    rows={5}
+                    className={`text-base ${accentFocusClass(ACCENT)}`}
+                  />
+                </>
+              ) : (
+                <p className="type-caption text-[var(--text-muted)]">
+                  Use Negative when you need a preserve list for edit or img2img workflows instead
+                  of a full scene description.
+                </p>
+              )}
+            </CollapsibleSection>
           </>
         )}
 
@@ -807,6 +835,7 @@ export default function PromptGenerator() {
 
       {output && (hintSource === 'random' || mode === 'positive') && (
         <EnhancedPromptResult
+          compactActions
           output={output}
           provider={provider}
           comfyNode={resultMeta?.comfyNode ?? selectedModel.comfyNode}
@@ -910,9 +939,14 @@ export default function PromptGenerator() {
         </p>
       )}
 
-      <ToolSection className="text-sm text-zinc-500">
-        <h3 className="font-medium text-zinc-300">How it works</h3>
-        <ul className="mt-3 list-inside list-disc space-y-2 leading-relaxed">
+      <CollapsibleSection
+        title="How it works"
+        summary="Model-specific prompt tips and variation controls."
+        defaultOpen={false}
+        persistKey="generate-how-it-works"
+        className="text-sm text-zinc-500"
+      >
+        <ul className="mt-1 list-inside list-disc space-y-2 leading-relaxed">
           <li>
             Pick your <strong className="font-medium text-zinc-400">target model</strong>
             —SD1.5, SDXL, SD3, Flux, Qwen Image, Hunyuan, PixArt, and more—each uses a prompt style
@@ -959,12 +993,15 @@ export default function PromptGenerator() {
             are repainted in words.
           </li>
         </ul>
-      </ToolSection>
+      </CollapsibleSection>
       <MobileStickyQueueBar
         disabled={!output.trim()}
         label="Queue generate"
         status={actions.comfyUiStatus}
-        onQueue={() => void actions.sendComfyUi(output)}
+        onQueue={() => {
+          markComfyQueueIntent();
+          void actions.sendComfyUi(output);
+        }}
       />
     </ToolLayout>
   );

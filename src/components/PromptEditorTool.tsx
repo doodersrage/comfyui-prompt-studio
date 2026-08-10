@@ -7,6 +7,9 @@ import PromptDiagnosticsPanel from '@/components/PromptDiagnosticsPanel';
 import SharedToolControls from '@/components/SharedToolControls';
 import SidecarImportButton from '@/components/SidecarImportButton';
 import PromptWeightInspector from '@/components/PromptWeightInspector';
+import ToolSetupBanner from '@/components/ToolSetupBanner';
+import { FieldLabel, TextArea } from '@/components/ui/Field';
+import { PrimaryButton } from '@/components/ui/Button';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
 import {
@@ -23,13 +26,12 @@ import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-t
 import { DEFAULT_PROMPT_EDITOR_TOOL_CACHE } from '@/lib/settings-cache';
 import {
   ToolBadge,
+  CollapsibleSection,
   ToolLayout,
   ToolSection,
   accentButtonClass,
   accentFocusClass,
 } from '@/components/ui/ToolPageShell';
-import { FieldLabel, TextArea } from '@/components/ui/Field';
-import { PrimaryButton } from '@/components/ui/Button';
 
 const ACCENT = 'sky' as const;
 
@@ -166,14 +168,10 @@ export default function PromptEditorTool() {
       accent={ACCENT}
       badge={<ToolBadge accent={ACCENT}>Manual edit · {selectedModel.comfyNode}</ToolBadge>}
       title="Prompt Editor"
-      description={
-        <>
-          Edit positive and negative prompts by hand, run lint and optimization, then copy a pair or
-          send to ComfyUI. Open from gallery or history to tweak an existing generation.
-        </>
-      }
+      description="Edit positive and negative prompts, lint, and queue to ComfyUI."
       sidebar={
         <SharedToolControls
+          toolId="prompt-editor"
           shared={shared}
           onModelChange={model => updateShared({ model })}
           onDetailChange={detail => updateShared({ detail })}
@@ -182,6 +180,7 @@ export default function PromptEditorTool() {
         />
       }
     >
+      <ToolSetupBanner toolLabel="Prompt Editor" />
       {sourceMeta ? (
         <ToolSection>
           <div className="flex flex-wrap items-start gap-4 rounded-2xl border border-sky-800/35 bg-gradient-to-br from-sky-950/30 to-zinc-950/40 p-4 shadow-[inset_0_1px_0_rgba(125,211,252,0.06)]">
@@ -245,7 +244,12 @@ export default function PromptEditorTool() {
         />
 
         {usesNegative ? (
-          <>
+          <CollapsibleSection
+            title="Negative prompt"
+            summary="Optional — auto-generate or paste a negative for queue."
+            defaultOpen={Boolean(negative.trim())}
+            persistKey="prompt-editor-negative"
+          >
             <div className="flex flex-wrap items-end justify-between gap-3">
               <FieldLabel>Negative prompt</FieldLabel>
               <button
@@ -265,7 +269,7 @@ export default function PromptEditorTool() {
               className={`font-mono text-rose-200/90 ${accentFocusClass(ACCENT)}`}
             />
             {negativeStatus ? <p className="text-xs text-zinc-500">{negativeStatus}</p> : null}
-          </>
+          </CollapsibleSection>
         ) : (
           <p className="text-xs text-zinc-500">
             {selectedModel.comfyNode} ignores separate negatives — fold exclusions into the positive
@@ -308,18 +312,35 @@ export default function PromptEditorTool() {
         {importStatus ? <p className="text-xs text-zinc-500">{importStatus}</p> : null}
 
         {positive.trim() ? (
-          <PromptWeightInspector
-            prompt={positive}
-            model={shared.model}
-            onChange={setPositive}
-            textareaId="prompt-editor-positive"
-          />
+          <CollapsibleSection
+            title="Weight inspector"
+            summary="Adjust emphasis weights in the prompt."
+            defaultOpen={false}
+            persistKey="prompt-editor-weights"
+          >
+            <PromptWeightInspector
+              prompt={positive}
+              model={shared.model}
+              onChange={setPositive}
+              textareaId="prompt-editor-positive"
+            />
+          </CollapsibleSection>
         ) : null}
       </ToolSection>
 
-      <PromptDiagnosticsPanel diagnostics={actions.diagnostics} />
+      {actions.diagnostics ? (
+        <CollapsibleSection
+          title="Lint diagnostics"
+          summary="Sport, duo, and rule checks from the last lint run."
+          defaultOpen={false}
+          persistKey="prompt-editor-diagnostics"
+        >
+          <PromptDiagnosticsPanel diagnostics={actions.diagnostics} />
+        </CollapsibleSection>
+      ) : null}
 
       <EnhancedPromptResult
+        showWeightInspector={false}
         output={positive}
         onOutputChange={setPositive}
         provider={actions.diagnostics ? 'rules' : null}

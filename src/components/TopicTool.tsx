@@ -41,8 +41,10 @@ import { resolveQueueParams } from '@/lib/queue-params-settings';
 import { registerComfyGalleryJob } from '@/lib/comfyui-gallery-client';
 import { scheduleComfyGalleryPoll } from '@/lib/comfyui-gallery-poller';
 import { postComfyUiPrompt } from '@/lib/comfyui-queue-request';
+import ToolSetupBanner from '@/components/ToolSetupBanner';
 import {
   ToolBadge,
+  CollapsibleSection,
   ToolBlockGroup,
   ToolContentPanel,
   ToolLayout,
@@ -448,13 +450,8 @@ export default function TopicTool() {
     <ToolLayout
       accent={ACCENT}
       badge={<ToolBadge accent={ACCENT}>Topic ideas</ToolBadge>}
-      title="Topic Generator"
-      description={
-        <>
-          Produces a list of image prompt topics—great for batch runs, mood boards, or finding a
-          direction. Send any topic to Generate or Duo, or batch-build full prompts in one click.
-        </>
-      }
+      title="Topics"
+      description="Generate topic lists, batch-build prompts, or queue in bulk."
       sidebar={
         <SharedToolControls
           shared={shared}
@@ -473,6 +470,7 @@ export default function TopicTool() {
         />
       }
     >
+      <ToolSetupBanner toolLabel="Topics" />
       <ToolSection>
         <HistoryHintSeedPanel
           tool="generate"
@@ -510,7 +508,7 @@ export default function TopicTool() {
 
         <FieldDivider />
 
-        <FieldLabel>Starting theme (optional)</FieldLabel>
+        <FieldLabel>Starting theme</FieldLabel>
         <TextArea
           value={toolSettings.seedTopic ?? ''}
           onChange={e => {
@@ -651,92 +649,106 @@ export default function TopicTool() {
           </ToolBlockGroup>
 
           {batchResults.length > 0 && (
-            <div className="mt-[var(--group-gap)] space-y-3">
-              <BatchLintGatePanel
-                summary={lintSummary}
-                loading={lintLoading}
-                onFixAll={() => {
-                  void batchFixPrompts(pendingQueuePrompts, toolSettings.seedTopic).then(fixed => {
-                    setPendingQueuePrompts(fixed);
-                    setBatchResults(previous =>
-                      previous.map((entry, index) => ({
-                        ...entry,
-                        prompt: fixed[index] ?? entry.prompt,
-                      }))
+            <CollapsibleSection
+              title="Batch queue options"
+              summary="Lint gate, readiness filter, and queue controls."
+              defaultOpen={false}
+              persistKey="topics-batch-queue"
+              className="mt-[var(--group-gap)]"
+            >
+              <div className="space-y-3">
+                <BatchLintGatePanel
+                  summary={lintSummary}
+                  loading={lintLoading}
+                  onFixAll={() => {
+                    void batchFixPrompts(pendingQueuePrompts, toolSettings.seedTopic).then(
+                      fixed => {
+                        setPendingQueuePrompts(fixed);
+                        setBatchResults(previous =>
+                          previous.map((entry, index) => ({
+                            ...entry,
+                            prompt: fixed[index] ?? entry.prompt,
+                          }))
+                        );
+                        setLintSummary(null);
+                        void runBatchLintGate(
+                          fixed.map((prompt, index) => ({
+                            prompt,
+                            topic: batchResults[index]?.topic,
+                          })),
+                          toolSettings.seedTopic
+                        ).then(setLintSummary);
+                      }
                     );
-                    setLintSummary(null);
-                    void runBatchLintGate(
-                      fixed.map((prompt, index) => ({
-                        prompt,
-                        topic: batchResults[index]?.topic,
+                  }}
+                  onContinue={() => {
+                    let prompts =
+                      lintSummary && lintSummary.blockedIndexes.length > 0
+                        ? filterBatchByLintIndexes(pendingQueuePrompts, lintSummary.blockedIndexes)
+                        : pendingQueuePrompts;
+                    prompts = applyReadinessFilterToPrompts(
+                      prompts,
+                      batchResults.map(entry => ({
+                        prompt: entry.prompt,
+                        label: entry.topic,
+                        hints: toolSettings.seedTopic,
                       })),
-                      toolSettings.seedTopic
-                    ).then(setLintSummary);
-                  });
-                }}
-                onContinue={() => {
-                  let prompts =
-                    lintSummary && lintSummary.blockedIndexes.length > 0
-                      ? filterBatchByLintIndexes(pendingQueuePrompts, lintSummary.blockedIndexes)
-                      : pendingQueuePrompts;
-                  prompts = applyReadinessFilterToPrompts(
-                    prompts,
-                    batchResults.map(entry => ({
-                      prompt: entry.prompt,
-                      label: entry.topic,
-                      hints: toolSettings.seedTopic,
-                    })),
-                    shared.model,
-                    shared.detail,
-                    readyOnly
-                  );
-                  void executeComfyQueue(prompts);
-                }}
-                onCancel={() => {
-                  setLintSummary(null);
-                  setPendingQueuePrompts([]);
-                }}
-              />
-              <BatchReadinessPanel
-                rows={batchResults.map(entry => ({
-                  prompt: entry.prompt,
-                  label: entry.topic,
-                  hints: toolSettings.seedTopic,
-                }))}
-                model={shared.model}
-                detail={shared.detail}
-                onFilterReadyOnlyChange={setReadyOnly}
-              />
-              <BatchQueueProgress progress={queueProgress} />
-              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                <Button
-                  variant="secondary"
-                  className="w-full sm:w-auto"
-                  onClick={() =>
-                    void copyTopics(
-                      batchResults.map(entry => entry.prompt).join('\n\n---\n\n'),
-                      'batch'
-                    )
-                  }
-                >
-                  {copiedIndex === 'batch' ? 'Copied prompts!' : 'Copy all prompts'}
-                </Button>
-                <Button variant="secondary" className="w-full sm:w-auto" onClick={sendToVariations}>
-                  Send to Variations
-                </Button>
-                <Button
-                  variant="accent-outline"
-                  className="w-full sm:w-auto"
-                  onClick={() => void queueBatchComfyUi()}
-                  disabled={lintLoading}
-                >
-                  {lintLoading ? 'Linting batch…' : 'Queue batch to ComfyUI'}
-                </Button>
-                {comfyBatchStatus ? (
-                  <p className="w-full text-xs text-violet-300/90">{comfyBatchStatus}</p>
-                ) : null}
+                      shared.model,
+                      shared.detail,
+                      readyOnly
+                    );
+                    void executeComfyQueue(prompts);
+                  }}
+                  onCancel={() => {
+                    setLintSummary(null);
+                    setPendingQueuePrompts([]);
+                  }}
+                />
+                <BatchReadinessPanel
+                  rows={batchResults.map(entry => ({
+                    prompt: entry.prompt,
+                    label: entry.topic,
+                    hints: toolSettings.seedTopic,
+                  }))}
+                  model={shared.model}
+                  detail={shared.detail}
+                  onFilterReadyOnlyChange={setReadyOnly}
+                />
+                <BatchQueueProgress progress={queueProgress} />
+                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                  <Button
+                    variant="secondary"
+                    className="w-full sm:w-auto"
+                    onClick={() =>
+                      void copyTopics(
+                        batchResults.map(entry => entry.prompt).join('\n\n---\n\n'),
+                        'batch'
+                      )
+                    }
+                  >
+                    {copiedIndex === 'batch' ? 'Copied prompts!' : 'Copy all prompts'}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className="w-full sm:w-auto"
+                    onClick={sendToVariations}
+                  >
+                    Send to Variations
+                  </Button>
+                  <Button
+                    variant="accent-outline"
+                    className="w-full sm:w-auto"
+                    onClick={() => void queueBatchComfyUi()}
+                    disabled={lintLoading}
+                  >
+                    {lintLoading ? 'Linting batch…' : 'Queue batch to ComfyUI'}
+                  </Button>
+                  {comfyBatchStatus ? (
+                    <p className="w-full text-xs text-violet-300/90">{comfyBatchStatus}</p>
+                  ) : null}
+                </div>
               </div>
-            </div>
+            </CollapsibleSection>
           )}
         </ToolSection>
       )}

@@ -16,11 +16,13 @@ import { rememberDraftFields } from '@/lib/remember-draft-fields';
 import { DEFAULT_LINT_TOOL_CACHE } from '@/lib/settings-cache';
 import {
   ToolBadge,
+  CollapsibleSection,
   ToolLayout,
   ToolSection,
   accentButtonClass,
   accentFocusClass,
 } from '@/components/ui/ToolPageShell';
+import ToolSetupBanner from '@/components/ToolSetupBanner';
 import { FieldLabel, TextArea } from '@/components/ui/Field';
 import { PrimaryButton } from '@/components/ui/Button';
 import PromptWeightInspector from '@/components/PromptWeightInspector';
@@ -100,15 +102,11 @@ export default function LintTool() {
     <ToolLayout
       accent={ACCENT}
       badge={<ToolBadge accent={ACCENT}>Lint playground · {selectedModel.comfyNode}</ToolBadge>}
-      title="Prompt Lint & Fix"
-      description={
-        <>
-          Paste hints and a finished prompt to run sport/duo/helmet diagnostics, apply rule fixes,
-          compact to model limits, or copy a prompt pair — without generating a new scene.
-        </>
-      }
+      title="Lint"
+      description="Paste a prompt, run lint and fixes, then queue."
       sidebar={
         <SharedToolControls
+          toolId="lint"
           shared={shared}
           onModelChange={model => updateShared({ model })}
           onDetailChange={detail => updateShared({ detail })}
@@ -117,6 +115,7 @@ export default function LintTool() {
         />
       }
     >
+      <ToolSetupBanner toolLabel="Lint" />
       <ToolSection>
         <FieldLabel>Hints</FieldLabel>
         <TextArea
@@ -169,18 +168,35 @@ export default function LintTool() {
         {importStatus && <p className="text-xs text-zinc-500">{importStatus}</p>}
 
         {prompt.trim() ? (
-          <PromptWeightInspector
-            prompt={prompt}
-            model={shared.model}
-            onChange={setPrompt}
-            textareaId="lint-prompt-editor"
-          />
+          <CollapsibleSection
+            title="Weight inspector"
+            summary="Adjust emphasis weights in the prompt."
+            defaultOpen={false}
+            persistKey="lint-weights"
+          >
+            <PromptWeightInspector
+              prompt={prompt}
+              model={shared.model}
+              onChange={setPrompt}
+              textareaId="lint-prompt-editor"
+            />
+          </CollapsibleSection>
         ) : null}
       </ToolSection>
 
-      <PromptDiagnosticsPanel diagnostics={actions.diagnostics} />
+      {actions.diagnostics ? (
+        <CollapsibleSection
+          title="Lint diagnostics"
+          summary="Issues found in the last lint run."
+          defaultOpen={false}
+          persistKey="lint-diagnostics"
+        >
+          <PromptDiagnosticsPanel diagnostics={actions.diagnostics} />
+        </CollapsibleSection>
+      ) : null}
 
       <EnhancedPromptResult
+        showWeightInspector={false}
         output={prompt}
         onOutputChange={setPrompt}
         provider={actions.diagnostics ? 'rules' : null}

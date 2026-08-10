@@ -7,11 +7,13 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
+import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
 import { loadSettingsCache } from '@/lib/settings-cache';
 import { enableSystemWorkflowsAndHeal } from '@/lib/first-run-setup';
 import { settingsTabHref } from '@/lib/settings-nav';
 import { settingsComfyUiSectionHref } from '@/lib/settings-comfyui-nav';
 import { Button } from '@/components/ui/Button';
+import { COMFY_QUEUE_INTENT_EVENT, hasComfyQueueIntent } from '@/lib/comfy-setup-intent';
 import { readBrowserValue, writeBrowserValue } from '@/lib/browser-storage';
 
 const DISMISS_KEY = 'comfy-setup-readiness-dismiss-v1';
@@ -21,11 +23,33 @@ type Readiness = {
   systemWorkflows: boolean;
 };
 
-export default function SetupReadinessBanner({ toolLabel = 'Generate' }: { toolLabel?: string }) {
+export default function SetupReadinessBanner({
+  toolLabel = 'Generate',
+  deferUntilQueueIntent: deferUntilQueueIntentProp,
+}: {
+  toolLabel?: string;
+  /** Hide until the user tries to queue. Auto on in Simple workspace. */
+  deferUntilQueueIntent?: boolean;
+}) {
+  const workspaceMode = useWorkspaceMode();
+  const deferUntilQueueIntent = deferUntilQueueIntentProp ?? workspaceMode === 'simple';
   const [readiness, setReadiness] = useState<Readiness | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [queueIntent, setQueueIntent] = useState(false);
+
+  useEffect(() => {
+    if (!deferUntilQueueIntent) {
+      return;
+    }
+    scheduleAfterCommit(() => {
+      setQueueIntent(hasComfyQueueIntent());
+    });
+    const onIntent = () => setQueueIntent(true);
+    window.addEventListener(COMFY_QUEUE_INTENT_EVENT, onIntent);
+    return () => window.removeEventListener(COMFY_QUEUE_INTENT_EVENT, onIntent);
+  }, [deferUntilQueueIntent]);
 
   useEffect(() => {
     scheduleAfterCommit(() => {
@@ -64,7 +88,7 @@ export default function SetupReadinessBanner({ toolLabel = 'Generate' }: { toolL
     };
   }, []);
 
-  if (dismissed || !readiness) {
+  if (dismissed || !readiness || (deferUntilQueueIntent && !queueIntent)) {
     return null;
   }
 

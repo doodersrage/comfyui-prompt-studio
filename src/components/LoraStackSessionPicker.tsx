@@ -118,7 +118,7 @@ export default function LoraStackSessionPicker({
       {modelDefaultLabels !== null ? (
         <p className="type-caption text-zinc-500">Using model defaults: {modelDefaultLabels}</p>
       ) : null}
-      <ul className="max-h-56 space-y-2 overflow-y-auto pr-1">
+      <ul className="ui-scroll-region sidebar-scroll max-h-56 space-y-2 overflow-y-auto pr-1">
         {selectable.map(entry => {
           const checked = activeSet.has(entry.id);
           return (

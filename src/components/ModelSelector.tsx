@@ -130,7 +130,7 @@ export default function ModelSelector({
         Selected: <span className="text-[var(--text-secondary)]">{selected.label}</span>
       </p>
 
-      <div className="sidebar-scroll max-h-80 space-y-2 overflow-y-auto pr-1">
+      <div className="ui-scroll-region sidebar-scroll max-h-80 space-y-2 overflow-y-auto pr-1">
         {filteredModels.length === 0 ? (
           <EmptyState
             compact

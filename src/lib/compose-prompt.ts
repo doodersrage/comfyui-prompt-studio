@@ -20,8 +20,10 @@ import {
 const KLEIN_MODIFY_PRESERVE_PREFIX =
   'Keep the subject’s pose and framing unchanged unless asked otherwise.';
 
-const Z_IMAGE_MODIFY_PRESERVE_PREFIX =
-  'Edit Image 1 via img2img. Keep pose and framing unless the prompt says otherwise.';
+const Z_IMAGE_IDENTITY_ANCHOR =
+  'Preserve facial identity, gender presentation, and likeness from Image 1';
+
+const Z_IMAGE_MODIFY_PRESERVE_PREFIX = `Edit Image 1 via img2img. ${Z_IMAGE_IDENTITY_ANCHOR}. Keep pose and framing unless the prompt says otherwise.`;
 
 /** Qwen Edit VL maps "Image 1"…"Image 4" to the multi-input image stack (image1–4). */
 export const QWEN_EDIT_IMAGE_REF_PREFIX = 'Image' as const;
@@ -1345,7 +1347,7 @@ export function buildComposeInstruction(input: {
       { length: Math.min(input.figureCount, MAX_COMPOSE_FIGURES) },
       (_, i) => `${QWEN_EDIT_IMAGE_REF_PREFIX} ${i + 1}`
     ).join(', ');
-    return `Image 1 is the img2img base. Using ${labels} in the prompt: ${transferText}`;
+    return `Image 1 is the img2img base — ${Z_IMAGE_IDENTITY_ANCHOR.toLowerCase()}. Using ${labels} in the prompt: ${transferText}`;
   }
 
   const labels = Array.from(

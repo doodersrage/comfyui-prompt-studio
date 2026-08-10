@@ -6,6 +6,7 @@ import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
 import InpaintMaskEditor from '@/components/InpaintMaskEditor';
 import RegionalEditPanel, { regionalSlotsQueueExtras } from '@/components/RegionalEditPanel';
 import SharedToolControls from '@/components/SharedToolControls';
+import ToolSetupBanner from '@/components/ToolSetupBanner';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
@@ -312,13 +313,8 @@ export default function RefineTool() {
     <ToolLayout
       accent={ACCENT}
       badge={<ToolBadge accent={ACCENT}>Refine · {selectedModel.comfyNode}</ToolBadge>}
-      title="Prompt Refine"
-      description={
-        <>
-          Upload a reference image and refine an existing prompt (or write one from scratch) against
-          your intent — ideal for edit workflows and fixing vision captions.
-        </>
-      }
+      title="Refine"
+      description="Upload a reference image and refine a prompt against your intent."
       sidebar={
         <SharedToolControls
           toolId="refine"
@@ -331,6 +327,7 @@ export default function RefineTool() {
         />
       }
     >
+      <ToolSetupBanner toolLabel="Refine" />
       <ToolSection>
         {isBooguEditModel(shared.model) ? (
           <p className="mb-4 text-xs leading-relaxed text-zinc-500">

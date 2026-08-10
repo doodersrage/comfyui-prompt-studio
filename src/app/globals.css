@@ -790,6 +790,10 @@ html[data-theme='light'] kbd.rounded.bg-zinc-900 {
 .ui-list-scroll {
   max-height: 22rem;
   overflow-y: auto;
+  background: color-mix(in oklab, var(--bg-muted) 88%, var(--bg-base));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.04),
+    inset 0 12px 20px -16px rgb(0 0 0 / 0.5);
 }
 
 .ui-list-row {
@@ -839,6 +843,25 @@ html[data-theme='light'] kbd.rounded.bg-zinc-900 {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   background: var(--bg-muted);
+}
+
+/** Recessed wells for overflow lists (model picker, LoRA stack, preset chips). */
+.ui-scroll-region {
+  padding: var(--space-2);
+  border: 1px solid color-mix(in oklab, var(--border-default) 75%, transparent);
+  border-radius: var(--radius-lg);
+  background: color-mix(in oklab, var(--bg-muted) 88%, var(--bg-base));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.04),
+    inset 0 12px 20px -16px rgb(0 0 0 / 0.5);
+}
+
+.ui-scroll-region:focus-within {
+  border-color: color-mix(in oklab, var(--accent-border) 50%, var(--border-default));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.04),
+    inset 0 12px 20px -16px rgb(0 0 0 / 0.5),
+    0 0 0 1px color-mix(in oklab, var(--accent-border) 22%, transparent);
 }
 
 .ui-media-card {

@@ -37,8 +37,10 @@ import {
 import { normalizeHistorySeedScope, normalizeSceneHintSource } from '@/lib/scene-hint-source';
 import { countHistorySeedCandidates } from '@/lib/history-hint-seed';
 import { ROLL_VARIATION_LABEL, rollVariationLabel } from '@/lib/tool-ui-labels';
+import ToolSetupBanner from '@/components/ToolSetupBanner';
 import {
   ToolBadge,
+  CollapsibleSection,
   ToolLayout,
   ToolSection,
   accentFocusClass,
@@ -197,15 +199,8 @@ export default function PetTool() {
     <ToolLayout
       accent={ACCENT}
       badge={<ToolBadge accent={ACCENT}>Pet scene · {selectedModel.comfyNode}</ToolBadge>}
-      title="Pet Scene Generator"
-      description={
-        <>
-          Builds a detailed animal-focused prompt for dogs, cats, birds, rabbits, and more. The pet
-          is the hero subject—no people or human hands. Add breed or species in hints, pin a place
-          with <code className="text-rose-300">location: …</code>, or start from a preset chip
-          below.
-        </>
-      }
+      title="Pet"
+      description="Animal-focused scene prompts. Add breed or species in hints, then generate."
       sidebar={
         <SharedToolControls
           shared={shared}
@@ -223,32 +218,37 @@ export default function PetTool() {
         />
       }
     >
-      <ToolSection
-        title="Scene setup"
-        description="Pick a preset, refine options, then add freeform hints before generating."
-      >
-        <PetPresetChips
-          selectedId={toolSettings.petPresetId}
-          category={toolSettings.presetCategory ?? 'all'}
-          onCategoryChange={category => updateToolSettings({ presetCategory: category })}
-          onSelect={preset => {
-            updateToolSettings({
-              hints: preset.hints,
-              portraitStyle: preset.portraitStyle ?? 'portrait',
-              petPresetId: preset.id,
-              presetCategory: preset.category,
-              ...(preset.presetOptions ?? {}),
-            });
-          }}
-        />
+      <ToolSetupBanner toolLabel="Pet" />
+      <ToolSection title="Scene setup" description="Presets, hints, then generate.">
+        <CollapsibleSection
+          title="Pet presets"
+          summary="Starter chips and species, pose, and setting options."
+          defaultOpen={false}
+          persistKey="pet-presets"
+        >
+          <PetPresetChips
+            selectedId={toolSettings.petPresetId}
+            category={toolSettings.presetCategory ?? 'all'}
+            onCategoryChange={category => updateToolSettings({ presetCategory: category })}
+            onSelect={preset => {
+              updateToolSettings({
+                hints: preset.hints,
+                portraitStyle: preset.portraitStyle ?? 'portrait',
+                petPresetId: preset.id,
+                presetCategory: preset.category,
+                ...(preset.presetOptions ?? {}),
+              });
+            }}
+          />
 
-        <FieldDivider />
+          <FieldDivider />
 
-        <PetPresetControls
-          mounted={mounted}
-          settings={toolSettings}
-          onChange={patch => updateToolSettings({ ...patch, petPresetId: undefined })}
-        />
+          <PetPresetControls
+            mounted={mounted}
+            settings={toolSettings}
+            onChange={patch => updateToolSettings({ ...patch, petPresetId: undefined })}
+          />
+        </CollapsibleSection>
 
         <FieldDivider />
 

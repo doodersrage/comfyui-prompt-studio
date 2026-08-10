@@ -3,6 +3,7 @@
 import { useCallback, useState } from 'react';
 import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
 import SharedToolControls from '@/components/SharedToolControls';
+import ToolSetupBanner from '@/components/ToolSetupBanner';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
 import { useGalleryHandoff } from '@/hooks/useGalleryHandoff';
@@ -247,8 +248,8 @@ export default function ControlNetTool() {
     <ToolLayout
       accent={ACCENT}
       badge={<ToolBadge accent={ACCENT}>ControlNet</ToolBadge>}
-      title="ControlNet prompt builder"
-      description="Structure-focused prompts for depth, pose, canny, normal, and lineart conditioning. Upload a reference image for vision-assisted structure extraction."
+      title="ControlNet"
+      description="Structure-focused prompts for depth, pose, canny, and lineart conditioning."
       sidebar={
         <SharedToolControls
           toolId="controlnet"
@@ -262,6 +263,7 @@ export default function ControlNetTool() {
         />
       }
     >
+      <ToolSetupBanner toolLabel="ControlNet" />
       <ToolSection title="Conditioning mode">
         <div className="flex flex-wrap gap-2">
           {MODES.map(entry => (

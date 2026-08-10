@@ -8,6 +8,7 @@ import BatchReadinessPanel, {
 } from '@/components/BatchReadinessPanel';
 import BatchQueueProgress, { type BatchQueueProgressState } from '@/components/BatchQueueProgress';
 import SharedToolControls from '@/components/SharedToolControls';
+import ToolSetupBanner from '@/components/ToolSetupBanner';
 import SportPresetChips from '@/components/SportPresetChips';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
@@ -798,17 +799,8 @@ export default function VariationGridTool() {
       accent={ACCENT}
       width="wide"
       badge={<ToolBadge accent={ACCENT}>Variation grid</ToolBadge>}
-      title="Variation Grid"
-      description={
-        <>
-          Roll several prompt variations from the same hints, then batch-queue them to ComfyUI with
-          unique seeds per job. Track outputs in the{' '}
-          <Link href="/gallery" className="text-violet-300 hover:text-violet-200">
-            gallery
-          </Link>
-          .
-        </>
-      }
+      title="Variations"
+      description="Roll prompt variations from the same hints, then batch-queue with unique seeds."
       sidebar={
         <SharedToolControls
           toolId="variations"
@@ -828,6 +820,7 @@ export default function VariationGridTool() {
         />
       }
     >
+      <ToolSetupBanner toolLabel="Variations" />
       <ToolSection>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-1">

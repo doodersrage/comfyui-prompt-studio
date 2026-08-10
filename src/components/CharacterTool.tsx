@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import BackgroundPresetControls from '@/components/BackgroundPresetControls';
 import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
@@ -55,7 +55,13 @@ import { downloadTextFile } from '@/lib/prompt-pair';
 import { applyShareableSceneParams, parseScenePresetFromSearch } from '@/lib/scene-preset-url';
 import { getSportPreset, isSportStarterPreset } from '@/lib/sport-presets';
 import { accentFocusClass, accentRingClass, type ToolAccent } from '@/lib/tool-theme';
-import { ToolBadge, ToolLayout, ToolSection } from '@/components/ui/ToolPageShell';
+import {
+  ToolBadge,
+  CollapsibleSection,
+  ToolLayout,
+  ToolSection,
+} from '@/components/ui/ToolPageShell';
+import ToolSetupBanner from '@/components/ToolSetupBanner';
 import { ChipButton, FieldDivider, FieldLabel } from '@/components/ui/Field';
 import { Button } from '@/components/ui/Button';
 
@@ -214,16 +220,6 @@ export default function CharacterTool() {
   const selectedModel = getComfyModelDefinition(shared.model);
   const inferredSport = result?.diagnostics?.inferred.sport ?? null;
   const variationSeed = readVariationSeedFromResult(result ?? {});
-
-  const modeDescription = useMemo(() => {
-    if (sceneMode === 'duo') {
-      return 'Two-person action scenes with sport-aware wardrobe, competition kits, helmets, and distinct identities.';
-    }
-    if (sceneMode === 'compose') {
-      return 'Generates a subject and background prompt, then merges them into one scene-ready block.';
-    }
-    return 'Builds a detailed single-person prompt—face, hair, clothing, pose, and expression.';
-  }, [sceneMode]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -456,14 +452,8 @@ export default function CharacterTool() {
     <ToolLayout
       accent={accent}
       badge={<ToolBadge accent={accent}>Character · {selectedModel.comfyNode}</ToolBadge>}
-      title="Character Generator"
-      description={
-        <>
-          {modeDescription} Include sex/gender and age in hints when relevant. Add a place with{' '}
-          <code className="text-sky-300">in/at/on …</code> or{' '}
-          <code className="text-sky-300">location: …</code>.
-        </>
-      }
+      title="Character"
+      description="Solo, duo, or character-with-background prompts. Add hints and generate."
       sidebar={
         <SharedToolControls
           toolId="character"
@@ -500,10 +490,8 @@ export default function CharacterTool() {
         />
       }
     >
-      <ToolSection
-        title="Scene setup"
-        description="Choose a mode, refine presets, add hints, then generate."
-      >
+      <ToolSetupBanner toolLabel="Character" />
+      <ToolSection title="Scene setup" description="Pick a mode, add hints, then generate.">
         <FieldLabel>Scene mode</FieldLabel>
         <div className="flex flex-wrap gap-2">
           {SCENE_MODE_OPTIONS.map(option => (
@@ -524,129 +512,136 @@ export default function CharacterTool() {
 
         <FieldDivider />
 
-        {sceneMode === 'solo' ? (
-          <SceneStarterPresetChips
-            mode="solo"
-            accent={accent}
-            currentHints={toolSettings.hints ?? ''}
-            variationsTarget="character"
-            category={toolSettings.sceneStarterCategory ?? 'all'}
-            onCategoryChange={category => updateToolSettings({ sceneStarterCategory: category })}
-            filterState={{
-              category: toolSettings.sceneStarterCategory ?? 'all',
-              framing: toolSettings.sceneStarterFraming ?? 'all',
-              query: toolSettings.sceneStarterQuery ?? '',
-              tags: toolSettings.sceneStarterTags ?? [],
-            }}
-            onFilterChange={filter =>
-              updateToolSettings({
-                sceneStarterCategory: filter.category,
-                sceneStarterFraming: filter.framing,
-                sceneStarterQuery: filter.query,
-                sceneStarterTags: filter.tags,
-              })
-            }
-            selectedId={toolSettings.sceneStarterPresetId}
-            onSelect={preset => {
-              updateToolSettings({
-                sceneStarterPresetId: preset.id,
-                hints: preset.hints,
-                portraitStyle: preset.portraitStyle ?? 'portrait',
-                sportPresetId: undefined,
-                hintSource: 'manual',
-              });
-              applySceneStarterWorkflowHints(preset, updateShared);
-            }}
-          />
-        ) : null}
-
-        {sceneMode === 'duo' ? (
-          <SceneStarterPresetChips
-            mode="duo"
-            accent={accent}
-            currentHints={toolSettings.hints ?? ''}
-            variationsTarget="duo"
-            category={toolSettings.sceneStarterCategory ?? 'all'}
-            onCategoryChange={category => updateToolSettings({ sceneStarterCategory: category })}
-            filterState={{
-              category: toolSettings.sceneStarterCategory ?? 'all',
-              framing: toolSettings.sceneStarterFraming ?? 'all',
-              query: toolSettings.sceneStarterQuery ?? '',
-              tags: toolSettings.sceneStarterTags ?? [],
-            }}
-            onFilterChange={filter =>
-              updateToolSettings({
-                sceneStarterCategory: filter.category,
-                sceneStarterFraming: filter.framing,
-                sceneStarterQuery: filter.query,
-                sceneStarterTags: filter.tags,
-              })
-            }
-            selectedId={toolSettings.sceneStarterPresetId ?? toolSettings.sportPresetId}
-            onSelect={preset => {
-              updateToolSettings({
-                sceneStarterPresetId: preset.id,
-                sportPresetId: isSportStarterPreset(preset.id) ? preset.id : undefined,
-                hints: preset.hints,
-                portraitStyle: preset.portraitStyle ?? 'action',
-                teamKit: preset.teamKit ?? false,
-                hintSource: 'manual',
-              });
-              applySceneStarterWorkflowHints(preset, updateShared);
-            }}
-          />
-        ) : null}
-
-        {sceneMode === 'compose' ? (
-          <>
-            <FieldLabel>Subject in scene</FieldLabel>
-            <div className="flex flex-wrap gap-2">
-              {(
-                [
-                  { label: 'Solo character', value: 'character' },
-                  { label: 'Duo / sport', value: 'duo' },
-                ] as const
-              ).map(option => (
-                <ChipButton
-                  key={option.value}
-                  active={(toolSettings.composeSubjectMode ?? 'duo') === option.value}
-                  onClick={() => updateToolSettings({ composeSubjectMode: option.value })}
-                >
-                  {option.label}
-                </ChipButton>
-              ))}
-            </div>
-
-            <FieldDivider />
-
-            <SceneQuickTags
-              settingType={toolSettings.settingType ?? ''}
-              timeOfDay={toolSettings.timeOfDay ?? ''}
-              mood={toolSettings.mood ?? ''}
-              onSettingTypeChange={value => updateToolSettings({ settingType: value })}
-              onTimeOfDayChange={value => updateToolSettings({ timeOfDay: value })}
-              onMoodChange={value => updateToolSettings({ mood: value })}
-              inputClassName={accentFocusClass(accent)}
+        <CollapsibleSection
+          title="Presets & options"
+          summary="Scene starters, character options, environment, and framing."
+          defaultOpen={false}
+          persistKey="character-presets"
+        >
+          {sceneMode === 'solo' ? (
+            <SceneStarterPresetChips
+              mode="solo"
+              accent={accent}
+              currentHints={toolSettings.hints ?? ''}
+              variationsTarget="character"
+              category={toolSettings.sceneStarterCategory ?? 'all'}
+              onCategoryChange={category => updateToolSettings({ sceneStarterCategory: category })}
+              filterState={{
+                category: toolSettings.sceneStarterCategory ?? 'all',
+                framing: toolSettings.sceneStarterFraming ?? 'all',
+                query: toolSettings.sceneStarterQuery ?? '',
+                tags: toolSettings.sceneStarterTags ?? [],
+              }}
+              onFilterChange={filter =>
+                updateToolSettings({
+                  sceneStarterCategory: filter.category,
+                  sceneStarterFraming: filter.framing,
+                  sceneStarterQuery: filter.query,
+                  sceneStarterTags: filter.tags,
+                })
+              }
+              selectedId={toolSettings.sceneStarterPresetId}
+              onSelect={preset => {
+                updateToolSettings({
+                  sceneStarterPresetId: preset.id,
+                  hints: preset.hints,
+                  portraitStyle: preset.portraitStyle ?? 'portrait',
+                  sportPresetId: undefined,
+                  hintSource: 'manual',
+                });
+                applySceneStarterWorkflowHints(preset, updateShared);
+              }}
             />
+          ) : null}
 
-            <BackgroundPresetControls
-              mounted={mounted}
-              settings={toolSettings}
-              onChange={patch => updateToolSettings(patch as Partial<typeof toolSettings>)}
+          {sceneMode === 'duo' ? (
+            <SceneStarterPresetChips
+              mode="duo"
+              accent={accent}
+              currentHints={toolSettings.hints ?? ''}
+              variationsTarget="duo"
+              category={toolSettings.sceneStarterCategory ?? 'all'}
+              onCategoryChange={category => updateToolSettings({ sceneStarterCategory: category })}
+              filterState={{
+                category: toolSettings.sceneStarterCategory ?? 'all',
+                framing: toolSettings.sceneStarterFraming ?? 'all',
+                query: toolSettings.sceneStarterQuery ?? '',
+                tags: toolSettings.sceneStarterTags ?? [],
+              }}
+              onFilterChange={filter =>
+                updateToolSettings({
+                  sceneStarterCategory: filter.category,
+                  sceneStarterFraming: filter.framing,
+                  sceneStarterQuery: filter.query,
+                  sceneStarterTags: filter.tags,
+                })
+              }
+              selectedId={toolSettings.sceneStarterPresetId ?? toolSettings.sportPresetId}
+              onSelect={preset => {
+                updateToolSettings({
+                  sceneStarterPresetId: preset.id,
+                  sportPresetId: isSportStarterPreset(preset.id) ? preset.id : undefined,
+                  hints: preset.hints,
+                  portraitStyle: preset.portraitStyle ?? 'action',
+                  teamKit: preset.teamKit ?? false,
+                  hintSource: 'manual',
+                });
+                applySceneStarterWorkflowHints(preset, updateShared);
+              }}
             />
+          ) : null}
 
-            <FieldDivider />
-          </>
-        ) : null}
+          {sceneMode === 'compose' ? (
+            <>
+              <FieldLabel>Subject in scene</FieldLabel>
+              <div className="flex flex-wrap gap-2">
+                {(
+                  [
+                    { label: 'Solo character', value: 'character' },
+                    { label: 'Duo / sport', value: 'duo' },
+                  ] as const
+                ).map(option => (
+                  <ChipButton
+                    key={option.value}
+                    active={(toolSettings.composeSubjectMode ?? 'duo') === option.value}
+                    onClick={() => updateToolSettings({ composeSubjectMode: option.value })}
+                  >
+                    {option.label}
+                  </ChipButton>
+                ))}
+              </div>
 
-        {(sceneMode === 'solo' || sceneMode === 'duo') && <FieldDivider />}
+              <FieldDivider />
 
-        <CharacterPresetControls
-          mounted={mounted}
-          settings={toolSettings}
-          onChange={updateToolSettings}
-          variant={presetVariantForSceneMode(sceneMode)}
-        />
+              <SceneQuickTags
+                settingType={toolSettings.settingType ?? ''}
+                timeOfDay={toolSettings.timeOfDay ?? ''}
+                mood={toolSettings.mood ?? ''}
+                onSettingTypeChange={value => updateToolSettings({ settingType: value })}
+                onTimeOfDayChange={value => updateToolSettings({ timeOfDay: value })}
+                onMoodChange={value => updateToolSettings({ mood: value })}
+                inputClassName={accentFocusClass(accent)}
+              />
+
+              <BackgroundPresetControls
+                mounted={mounted}
+                settings={toolSettings}
+                onChange={patch => updateToolSettings(patch as Partial<typeof toolSettings>)}
+              />
+
+              <FieldDivider />
+            </>
+          ) : null}
+
+          {(sceneMode === 'solo' || sceneMode === 'duo') && <FieldDivider />}
+
+          <CharacterPresetControls
+            mounted={mounted}
+            settings={toolSettings}
+            onChange={updateToolSettings}
+            variant={presetVariantForSceneMode(sceneMode)}
+          />
+        </CollapsibleSection>
 
         <FieldDivider />
 
@@ -706,92 +701,98 @@ export default function CharacterTool() {
         ) : null}
 
         {hintSource !== 'random' ? (
-          <RegionalPromptBuilderPanel
-            accentClassName={accentFocusClass(accent)}
-            segments={toolSettings.regionalSegments}
-            onSegmentsChange={(segments: RegionalPromptSegment[]) =>
-              updateToolSettings({ regionalSegments: segments })
-            }
-            onApply={prompt =>
-              updateToolSettings({
-                hints: toolSettings.hints?.trim()
-                  ? `${toolSettings.hints.trim()}. ${prompt}`
-                  : prompt,
-              })
-            }
-          />
-        ) : null}
+          <CollapsibleSection
+            title="Advanced scene options"
+            summary="Regional prompts, duo batch, shot scale, and merge style."
+            defaultOpen={false}
+            persistKey="character-advanced"
+          >
+            <RegionalPromptBuilderPanel
+              accentClassName={accentFocusClass(accent)}
+              segments={toolSettings.regionalSegments}
+              onSegmentsChange={(segments: RegionalPromptSegment[]) =>
+                updateToolSettings({ regionalSegments: segments })
+              }
+              onApply={prompt =>
+                updateToolSettings({
+                  hints: toolSettings.hints?.trim()
+                    ? `${toolSettings.hints.trim()}. ${prompt}`
+                    : prompt,
+                })
+              }
+            />
 
-        {sceneMode === 'duo' || sceneMode === 'compose' ? (
-          <>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-zinc-800 p-3">
-                <input
-                  type="checkbox"
-                  checked={toolSettings.teamKit === true}
-                  onChange={event => updateToolSettings({ teamKit: event.target.checked })}
-                  className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentRingClass(accent)}`}
-                />
-                <span className="space-y-1">
-                  <span className="text-sm font-medium text-zinc-200">Team kit</span>
-                  <span className="block text-xs text-zinc-500">
-                    Identical kits for both athletes. Off = rival accent colors.
-                  </span>
-                </span>
-              </label>
+            {sceneMode === 'duo' || sceneMode === 'compose' ? (
+              <>
+                <FieldDivider />
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-zinc-800 p-3">
+                    <input
+                      type="checkbox"
+                      checked={toolSettings.teamKit === true}
+                      onChange={event => updateToolSettings({ teamKit: event.target.checked })}
+                      className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentRingClass(accent)}`}
+                    />
+                    <span className="space-y-1">
+                      <span className="text-sm font-medium text-zinc-200">Team kit</span>
+                      <span className="block text-xs text-zinc-500">
+                        Identical kits for both athletes. Off = rival accent colors.
+                      </span>
+                    </span>
+                  </label>
 
-              {sceneMode === 'duo' ? (
-                <div className="space-y-2">
-                  <FieldLabel htmlFor="batch-count">Batch count</FieldLabel>
-                  <input
-                    id="batch-count"
-                    type="number"
-                    min={1}
-                    max={12}
-                    value={toolSettings.batchCount ?? 3}
-                    onChange={event =>
-                      updateToolSettings({
-                        batchCount: Math.min(12, Math.max(1, Number(event.target.value) || 3)),
-                      })
-                    }
-                    className="ui-input w-full px-4 py-2 text-sm"
-                  />
+                  {sceneMode === 'duo' ? (
+                    <div className="space-y-2">
+                      <FieldLabel htmlFor="batch-count">Batch count</FieldLabel>
+                      <input
+                        id="batch-count"
+                        type="number"
+                        min={1}
+                        max={12}
+                        value={toolSettings.batchCount ?? 3}
+                        onChange={event =>
+                          updateToolSettings({
+                            batchCount: Math.min(12, Math.max(1, Number(event.target.value) || 3)),
+                          })
+                        }
+                        className="ui-input w-full px-4 py-2 text-sm"
+                      />
+                    </div>
+                  ) : null}
                 </div>
-              ) : null}
-            </div>
+              </>
+            ) : null}
 
             <FieldDivider />
-          </>
-        ) : null}
 
-        <FieldDivider />
+            <SubjectShotScaleControl
+              value={portraitStyle}
+              onChange={value => updateToolSettings({ portraitStyle: value })}
+            />
 
-        <SubjectShotScaleControl
-          value={portraitStyle}
-          onChange={value => updateToolSettings({ portraitStyle: value })}
-        />
-
-        {sceneMode === 'compose' ? (
-          <>
-            <FieldDivider />
-            <FieldLabel>Merge style</FieldLabel>
-            <div className="flex flex-wrap gap-2">
-              {(
-                [
-                  { label: 'Layered sections', value: 'layered' },
-                  { label: 'Inline prose', value: 'inline' },
-                ] as const
-              ).map(option => (
-                <ChipButton
-                  key={option.value}
-                  active={(toolSettings.composeStyle ?? 'layered') === option.value}
-                  onClick={() => updateToolSettings({ composeStyle: option.value })}
-                >
-                  {option.label}
-                </ChipButton>
-              ))}
-            </div>
-          </>
+            {sceneMode === 'compose' ? (
+              <>
+                <FieldDivider />
+                <FieldLabel>Merge style</FieldLabel>
+                <div className="flex flex-wrap gap-2">
+                  {(
+                    [
+                      { label: 'Layered sections', value: 'layered' },
+                      { label: 'Inline prose', value: 'inline' },
+                    ] as const
+                  ).map(option => (
+                    <ChipButton
+                      key={option.value}
+                      active={(toolSettings.composeStyle ?? 'layered') === option.value}
+                      onClick={() => updateToolSettings({ composeStyle: option.value })}
+                    >
+                      {option.label}
+                    </ChipButton>
+                  ))}
+                </div>
+              </>
+            ) : null}
+          </CollapsibleSection>
         ) : null}
 
         <FieldDivider />

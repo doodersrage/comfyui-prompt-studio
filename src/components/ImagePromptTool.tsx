@@ -5,6 +5,7 @@ import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
 import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
 import { readRawPrompt } from '@/lib/raw-prompt';
 import SharedToolControls from '@/components/SharedToolControls';
+import ToolSetupBanner from '@/components/ToolSetupBanner';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
 import { useGalleryHandoff } from '@/hooks/useGalleryHandoff';
@@ -328,13 +329,7 @@ export default function ImagePromptTool() {
       accent={ACCENT}
       badge={<ToolBadge accent={ACCENT}>Vision · {selectedModel.comfyNode}</ToolBadge>}
       title="Image → Prompt"
-      description={
-        <>
-          Upload a reference image and convert it into a model-ready prompt using a vision-capable
-          LLM (`LLM_VISION_MODEL`). Standard mode now asks for pose, facing, limb positions, and
-          frame placement by default.
-        </>
-      }
+      description="Upload a reference image and convert it into a model-ready prompt."
       sidebar={
         <SharedToolControls
           toolId="imagePrompt"
@@ -348,6 +343,7 @@ export default function ImagePromptTool() {
         />
       }
     >
+      <ToolSetupBanner toolLabel="Image → Prompt" />
       <ToolSection>
         {isBooguEditModel(shared.model) ? (
           <p className="mb-4 text-xs leading-relaxed text-zinc-500">

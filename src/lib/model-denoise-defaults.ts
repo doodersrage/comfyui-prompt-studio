@@ -3,6 +3,9 @@ import { isQwenLightningModel, isWanLightningModel } from './model-sampling-patc
 
 export const DEFAULT_EDIT_DENOISE = 0.65;
 
+/** Z-Image Turbo Compose — Figure 1 VAEEncode img2img; lower denoise reduces identity drift. */
+export const DEFAULT_Z_IMAGE_TURBO_COMPOSE_DENOISE = 0.42;
+
 export const DEFAULT_INPAINT_DENOISE = 0.75;
 
 /**
@@ -377,6 +380,10 @@ export function resolveDenoiseForModel(
 
   if (isInpaintModel(model) || options?.hasMaskImage || options?.tool === 'outpaint') {
     return options?.tool === 'outpaint' ? DEFAULT_OUTPAINT_DENOISE : DEFAULT_INPAINT_DENOISE;
+  }
+
+  if (isZImageTurboModel(model) && options?.tool === 'compose') {
+    return DEFAULT_Z_IMAGE_TURBO_COMPOSE_DENOISE;
   }
 
   return DEFAULT_EDIT_DENOISE;

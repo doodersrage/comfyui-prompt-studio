@@ -302,7 +302,7 @@ export default function DiffusersCheckpointSelector({
       {error ? (
         <EmptyState compact icon="alert" title="Diffusers unreachable" description={error} />
       ) : (
-        <div className="sidebar-scroll max-h-80 space-y-2 overflow-y-auto pr-1">
+        <div className="ui-scroll-region sidebar-scroll max-h-80 space-y-2 overflow-y-auto pr-1">
           {!loading && filtered.length === 0 ? (
             <EmptyState
               compact

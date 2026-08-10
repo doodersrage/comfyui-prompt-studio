@@ -343,6 +343,7 @@ describe("compose instruction builder", () => {
       model: "z-image-turbo",
     });
     assert.match(built, /Edit Image 1 via img2img/i);
+    assert.match(built, /facial identity, gender presentation, and likeness/i);
     assert.match(built, /warmer golden-hour light/);
   });
 
@@ -354,6 +355,7 @@ describe("compose instruction builder", () => {
       model: "z-image",
     });
     assert.match(built, /Image 1 is the img2img base/i);
+    assert.match(built, /facial identity, gender presentation, and likeness/i);
     assert.match(built, /Image 1, Image 2/i);
     assert.match(built, /swap the jacket/);
   });

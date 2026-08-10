@@ -27,6 +27,8 @@ import type { PromptReadinessResult } from '@/lib/prompt-readiness';
 import { readRawPrompt } from '@/lib/raw-prompt';
 import { loadSettingsCache } from '@/lib/settings-cache';
 import { usesSystemWorkflowPath } from '@/lib/system-workflow-runtime';
+import { markComfyQueueIntent } from '@/lib/comfy-setup-intent';
+import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
 
 const WorkflowPreviewPanel = dynamic(() => import('@/components/WorkflowPreviewPanel'), {
   ssr: false,
@@ -149,6 +151,8 @@ type EnhancedPromptResultProps = {
   onOutputChange?: (value: string) => void;
   /** Pre-optimize LLM/template draft shown in a collapsed block. */
   rawPrompt?: string;
+  /** Generate: primary Queue / Copy / Save row; secondary actions stay collapsed. Auto on in Simple workspace. */
+  compactActions?: boolean;
   /** When set, batch prompt cards become editable. */
   onBatchPromptChange?: (index: number, value: string) => void;
 };
@@ -199,8 +203,11 @@ export default function EnhancedPromptResult({
   onOutputChange,
   rawPrompt,
   onBatchPromptChange,
+  compactActions: compactActionsProp,
   ...panelProps
 }: EnhancedPromptResultProps) {
+  const workspaceMode = useWorkspaceMode();
+  const compactActions = compactActionsProp ?? workspaceMode === 'simple';
   const workflowSelection = useComfyWorkflowSelection();
   const sharedSettings = loadSettingsCache().shared;
   const showComfyActions = Boolean(onSendComfyUi || onQueueBatchComfyUi || onPreviewWorkflow);
@@ -241,6 +248,7 @@ export default function EnhancedPromptResult({
         return;
       }
     }
+    markComfyQueueIntent();
     onSendComfyUi();
   }, [onSendComfyUi, readinessGateEnabled, readinessMinScore, readinessResult]);
 
@@ -444,21 +452,43 @@ export default function EnhancedPromptResult({
       <PromptDiagnosticsPanel diagnostics={diagnostics ?? null} />
 
       {panelProps.output.trim() && readinessModel && readinessDetail ? (
-        <ReadinessBadge
-          prompt={panelProps.output}
-          model={readinessModel}
-          detail={readinessDetail}
-          hints={readinessHints}
-          negativePrompt={negativePrompt}
-          minScore={readinessMinScore}
-          onResult={setReadinessResult}
-          onCompact={onCompact}
-          onFixRules={onFixPrompt}
-          onReformat={onReformat}
-        />
+        compactActions ? (
+          <CollapsibleSection
+            title="Prompt readiness"
+            summary="Score, quick fixes, and reformat suggestions."
+            defaultOpen={false}
+            persistKey="result-readiness-compact"
+          >
+            <ReadinessBadge
+              prompt={panelProps.output}
+              model={readinessModel}
+              detail={readinessDetail}
+              hints={readinessHints}
+              negativePrompt={negativePrompt}
+              minScore={readinessMinScore}
+              onResult={setReadinessResult}
+              onCompact={onCompact}
+              onFixRules={onFixPrompt}
+              onReformat={onReformat}
+            />
+          </CollapsibleSection>
+        ) : (
+          <ReadinessBadge
+            prompt={panelProps.output}
+            model={readinessModel}
+            detail={readinessDetail}
+            hints={readinessHints}
+            negativePrompt={negativePrompt}
+            minScore={readinessMinScore}
+            onResult={setReadinessResult}
+            onCompact={onCompact}
+            onFixRules={onFixPrompt}
+            onReformat={onReformat}
+          />
+        )
       ) : null}
 
-      {showWeightInspector && panelProps.output.trim() && readinessModel ? (
+      {showWeightInspector && !compactActions && panelProps.output.trim() && readinessModel ? (
         <PromptWeightInspector
           prompt={panelProps.output}
           model={readinessModel}
@@ -467,7 +497,7 @@ export default function EnhancedPromptResult({
         />
       ) : null}
 
-      {panelProps.output.trim() && (onSendComfyUi || onQueueBatchComfyUi) ? (
+      {panelProps.output.trim() && (onSendComfyUi || onQueueBatchComfyUi) && !compactActions ? (
         <ResultQuickActions
           prompt={panelProps.output}
           negativePrompt={negativePrompt}
@@ -491,12 +521,43 @@ export default function EnhancedPromptResult({
         onEditPrompt) &&
         showSingleActions && (
           <ToolSection className="space-y-5">
+            {compactActions && (onSendComfyUi || panelProps.onCopy || onSaveHistory) ? (
+              <ToolActionRow className="gap-3">
+                {onSendComfyUi ? (
+                  <Button
+                    variant="primary"
+                    onClick={handleSendComfyUi}
+                    data-action="send-comfyui"
+                    className={!queueReadinessAllowed ? 'border-amber-500/50' : undefined}
+                  >
+                    {queueReadinessAllowed ? 'Queue generate' : 'Queue generate (below readiness)'}
+                  </Button>
+                ) : null}
+                {panelProps.onCopy ? (
+                  <Button variant="secondary" onClick={panelProps.onCopy} data-action="copy-prompt">
+                    {panelProps.copied ? 'Copied!' : 'Copy for ComfyUI'}
+                  </Button>
+                ) : null}
+                {onSaveHistory ? (
+                  <Button variant="secondary" onClick={onSaveHistory}>
+                    {historySaved ? 'Saved to history' : 'Save to history'}
+                  </Button>
+                ) : null}
+              </ToolActionRow>
+            ) : null}
+
             {showComfyActions && (
               <CollapsibleSection
-                title="Queue overrides"
-                summary="Workflow picker and advanced queue params — model/detail live in Shared settings."
+                title={compactActions ? 'Queue options' : 'Queue overrides'}
+                summary={
+                  compactActions
+                    ? 'Workflow picker and advanced queue params.'
+                    : 'Workflow picker and advanced queue params — model/detail live in Shared settings.'
+                }
                 defaultOpen={false}
-                persistKey="result-queue-overrides"
+                persistKey={
+                  compactActions ? 'result-queue-options-compact' : 'result-queue-overrides'
+                }
               >
                 {showWorkflowSelector ? (
                   <ComfyWorkflowSelector
@@ -513,7 +574,7 @@ export default function EnhancedPromptResult({
               </CollapsibleSection>
             )}
 
-            {(onSendComfyUi || onCopyPair) && (
+            {!compactActions && (onSendComfyUi || onCopyPair) && (
               <ToolActionRow className="gap-3">
                 {onSendComfyUi && (
                   <Button
@@ -546,12 +607,16 @@ export default function EnhancedPromptResult({
               onExportSidecar) && (
               <CollapsibleSection
                 title="More actions"
-                summary="Prepare, compact, reformat, lock seed, fix, history, preview, improve, and export."
+                summary={
+                  compactActions
+                    ? 'Compact, reformat, fix, export, and edit tools.'
+                    : 'Prepare, compact, reformat, lock seed, fix, history, preview, improve, and export.'
+                }
                 defaultOpen={false}
-                persistKey="result-more-actions"
+                persistKey={compactActions ? 'result-more-actions-compact' : 'result-more-actions'}
               >
                 <ToolActionRow>
-                  {onRunPipeline && (
+                  {!compactActions && onRunPipeline && (
                     <Button variant="info" onClick={onRunPipeline}>
                       Prepare for ComfyUI
                     </Button>
@@ -578,9 +643,14 @@ export default function EnhancedPromptResult({
                       Fix prompt (rules)
                     </Button>
                   )}
-                  {onSaveHistory && (
+                  {!compactActions && onSaveHistory && (
                     <Button variant="secondary" onClick={onSaveHistory}>
                       {historySaved ? 'Saved to history' : 'Save to history'}
+                    </Button>
+                  )}
+                  {onCopyPair && (
+                    <Button variant="secondary" onClick={onCopyPair} data-action="copy-pair">
+                      {pairCopied ? 'Pair copied!' : 'Copy prompt pair'}
                     </Button>
                   )}
                   {onPreviewWorkflow && (
@@ -606,6 +676,11 @@ export default function EnhancedPromptResult({
                   {onExportSidecar && (
                     <Button variant="secondary" onClick={onExportSidecar}>
                       Export sidecar JSON
+                    </Button>
+                  )}
+                  {compactActions && onRunPipeline && (
+                    <Button variant="info" onClick={onRunPipeline}>
+                      Prepare for ComfyUI
                     </Button>
                   )}
                 </ToolActionRow>

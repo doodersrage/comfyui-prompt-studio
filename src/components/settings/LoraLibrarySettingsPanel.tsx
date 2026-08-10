@@ -181,7 +181,7 @@ export default function LoraLibrarySettingsPanel({
                 : 'All inventory LoRAs are already in the library.'}
           </p>
         ) : (
-          <ul className="ui-surface-inset max-h-56 space-y-1 overflow-y-auto p-2">
+          <ul className="ui-scroll-region sidebar-scroll max-h-56 space-y-1 overflow-y-auto">
             {availableToAdd.map(filename => (
               <li
                 key={filename}

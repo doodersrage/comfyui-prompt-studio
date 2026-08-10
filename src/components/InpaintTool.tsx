@@ -6,6 +6,7 @@ import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
 import InpaintMaskEditor from '@/components/InpaintMaskEditor';
 import RegionalEditPanel, { regionalSlotsQueueExtras } from '@/components/RegionalEditPanel';
 import SharedToolControls from '@/components/SharedToolControls';
+import ToolSetupBanner from '@/components/ToolSetupBanner';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
 import { useGalleryHandoff } from '@/hooks/useGalleryHandoff';
@@ -261,21 +262,8 @@ export default function InpaintTool() {
     <ToolLayout
       accent={ACCENT}
       badge={<ToolBadge accent={ACCENT}>Inpaint · {selectedModel.comfyNode}</ToolBadge>}
-      title="FLUX Inpaint"
-      description={
-        anatomyRepairMode ? (
-          <>
-            Paint over the broken arm, leg, or hand, then queue. Only the masked region is
-            regenerated with anatomy-focused inpaint (denoise ~0.45). Unmasked areas stay as-is.
-          </>
-        ) : (
-          <>
-            Upload a source image, paint the edit region, and describe what belongs inside the mask
-            only. Queue uses <code>{`{{INPUT_IMAGE}}`}</code> and <code>{`{{MASK_IMAGE}}`}</code>{' '}
-            when your workflow is bound.
-          </>
-        )
-      }
+      title="Inpaint"
+      description="Paint a mask and describe what belongs inside it. Queue regenerates only the masked region."
       sidebar={
         <SharedToolControls
           toolId="inpaint"
@@ -287,6 +275,7 @@ export default function InpaintTool() {
         />
       }
     >
+      <ToolSetupBanner toolLabel="Inpaint" />
       <ToolSection>
         {anatomyRepairMode ? (
           <p className="mb-4 rounded-xl border border-rose-500/25 bg-rose-500/[0.06] px-3.5 py-3 text-sm leading-relaxed text-rose-100/90">

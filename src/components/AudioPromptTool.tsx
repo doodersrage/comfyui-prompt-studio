@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
 import SharedToolControls from '@/components/SharedToolControls';
+import ToolSetupBanner from '@/components/ToolSetupBanner';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import ComfyPackImportControl from '@/components/ComfyPackImportControl';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
@@ -136,6 +137,7 @@ export default function AudioPromptTool() {
         />
       }
     >
+      <ToolSetupBanner toolLabel="Audio" />
       <ToolSection>
         {workflowStatus ? (
           <p className="mb-3 rounded-xl border border-sky-500/25 bg-sky-500/10 px-3 py-2 text-xs text-sky-100">

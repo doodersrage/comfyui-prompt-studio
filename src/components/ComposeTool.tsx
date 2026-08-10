@@ -8,6 +8,7 @@ import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import InpaintMaskEditor from '@/components/InpaintMaskEditor';
 import RegionalEditPanel, { regionalSlotsQueueExtras } from '@/components/RegionalEditPanel';
 import SharedToolControls from '@/components/SharedToolControls';
+import ToolSetupBanner from '@/components/ToolSetupBanner';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
 import { useGalleryHandoff } from '@/hooks/useGalleryHandoff';
@@ -399,16 +400,8 @@ export default function ComposeTool() {
     <ToolLayout
       accent={ACCENT}
       badge={<ToolBadge accent={ACCENT}>Compose · {selectedModel.comfyNode}</ToolBadge>}
-      title="Compose / Transfer"
-      description={
-        <>
-          Upload up to four reference images and describe a transfer or single-image edit. Defaults
-          to Qwen Edit 2511 Lightning 8 with optional mask on Image 1. Prompts should reference{' '}
-          <strong className="font-medium text-zinc-300">Image 1</strong>,{' '}
-          <strong className="font-medium text-zinc-300">Image 2</strong>, etc. — Qwen VL maps those
-          to the multi-input stack.
-        </>
-      }
+      title="Compose"
+      description="Multi-image transfer or single-image edits. Reference Image 1, Image 2, etc. in your prompt."
       sidebar={
         <SharedToolControls
           toolId="compose"
@@ -421,6 +414,7 @@ export default function ComposeTool() {
         />
       }
     >
+      <ToolSetupBanner toolLabel="Compose" />
       <CollabPresenceBar tool="compose" draft={instruction} />
       <ToolSection>
         <FieldLabel>Mode</FieldLabel>

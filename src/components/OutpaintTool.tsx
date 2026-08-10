@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import SharedToolControls from '@/components/SharedToolControls';
+import ToolSetupBanner from '@/components/ToolSetupBanner';
 import { Button, PrimaryButton } from '@/components/ui/Button';
 import { FieldError, FieldLabel, TextInput, TextArea } from '@/components/ui/Field';
 import {
@@ -234,6 +235,7 @@ export default function OutpaintTool() {
         />
       }
     >
+      <ToolSetupBanner toolLabel="Outpaint" />
       <ToolSection title="Source">
         <FieldLabel>Image</FieldLabel>
         <input

@@ -3,6 +3,7 @@
 import { useCallback, useState } from 'react';
 import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
 import SharedToolControls from '@/components/SharedToolControls';
+import ToolSetupBanner from '@/components/ToolSetupBanner';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
 import { usePromptResultActions } from '@/hooks/usePromptResultActions';
@@ -126,13 +127,8 @@ export default function NegativeTool() {
     <ToolLayout
       accent={ACCENT}
       badge={<ToolBadge accent={ACCENT}>Negative / preserve</ToolBadge>}
-      title="Negative Prompt Builder"
-      description={
-        <>
-          Sport-aware negative prompts for SD-family models. Use preserve mode when refining an
-          existing subject in Qwen edit workflows.
-        </>
-      }
+      title="Negative"
+      description="Sport-aware negatives for SD-family models, or preserve lists for edit workflows."
       sidebar={
         <SharedToolControls
           shared={shared}
@@ -146,6 +142,7 @@ export default function NegativeTool() {
         />
       }
     >
+      <ToolSetupBanner toolLabel="Negative" />
       <ToolSection>
         <FieldLabel>Sport context</FieldLabel>
         <select
