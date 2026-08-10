@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
 from typing import Any, Callable
 
 from PIL import Image
@@ -9,6 +11,9 @@ from PIL import Image
 from app.asset_inventory import resolve_asset_file
 from app.comfy_graph import CompiledWorkflow
 from app.pipeline import MOCK_MODE, pipeline_holder
+
+ROOT = Path(__file__).resolve().parents[1]
+INPUT_DIR = Path(os.environ.get("DIFFUSERS_INPUT_DIR", str(ROOT / "inputs"))).resolve()
 
 
 def _resolve_required(name: str | None, *buckets: str) -> str:
@@ -20,6 +25,25 @@ def _resolve_required(name: str | None, *buckets: str) -> str:
     return str(path)
 
 
+def _resolve_input_image(name: str | None) -> str:
+    if not name or name.startswith("{{"):
+        raise FileNotFoundError(f"Unresolved input image token: {name!r}")
+    needle = Path(name).name
+    direct = INPUT_DIR / needle
+    if direct.exists():
+        return str(direct)
+    resolved = resolve_asset_file(needle, "input")
+    if resolved is not None and resolved.exists():
+        return str(resolved)
+    comfy_root = os.environ.get("COMFYUI_ROOT", "").strip()
+    if comfy_root:
+        for sub in ("input", "output"):
+            candidate = Path(comfy_root) / sub / needle
+            if candidate.exists():
+                return str(candidate.resolve())
+    raise FileNotFoundError(f"Input image not found: {name}")
+
+
 def execute_compiled(
     compiled: CompiledWorkflow,
     *,
@@ -28,6 +52,13 @@ def execute_compiled(
     if MOCK_MODE:
         image = Image.new("RGB", (compiled.width, compiled.height), (32, 36, 48))
         return image
+
+    init_image_path = (
+        _resolve_input_image(compiled.init_image) if compiled.init_image else None
+    )
+    mask_image_path = (
+        _resolve_input_image(compiled.mask_image) if compiled.mask_image else None
+    )
 
     if compiled.family == "sdxl":
         ckpt = _resolve_required(compiled.checkpoint, "checkpoints")
@@ -47,6 +78,10 @@ def execute_compiled(
             guidance_scale=compiled.cfg,
             seed=compiled.seed,
             on_step=on_step,
+            init_image_path=init_image_path,
+            mask_image_path=mask_image_path,
+            img2img_mode=compiled.img2img_mode,
+            denoise=compiled.denoise,
         )
 
     if compiled.family == "flux":
@@ -71,6 +106,8 @@ def execute_compiled(
             max_shift=compiled.flux_max_shift,
             base_shift=compiled.flux_base_shift,
             on_step=on_step,
+            init_image_path=init_image_path,
+            denoise=compiled.denoise,
         )
 
     if compiled.family == "qwen":
@@ -104,6 +141,8 @@ def execute_compiled(
             guidance_scale=compiled.cfg,
             seed=compiled.seed,
             on_step=on_step,
+            init_image_path=init_image_path,
+            denoise=compiled.denoise,
         )
 
     raise RuntimeError(f"Unsupported compiled family: {compiled.family}")
@@ -124,4 +163,7 @@ def assets_preview(compiled: CompiledWorkflow | None) -> dict[str, Any]:
         "aura_shift": compiled.aura_shift,
         "flux_max_shift": compiled.flux_max_shift,
         "flux_base_shift": compiled.flux_base_shift,
+        "init_image": compiled.init_image,
+        "mask_image": compiled.mask_image,
+        "img2img_mode": compiled.img2img_mode,
     }

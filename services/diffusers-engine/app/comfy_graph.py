@@ -16,12 +16,17 @@ _LORA_OK = frozenset(
     }
 )
 
+_IMG2IMG_OK = frozenset({"LoadImage", "VAEEncode"})
+_INPAINT_OK = frozenset({"LoadImage", "LoadImageMask", "InpaintModelConditioning", "VAEEncode"})
+
 _SDXL_OK = frozenset(
     {
         "CheckpointLoaderSimple",
         "CheckpointLoader",
         "VAELoader",
         *_LORA_OK,
+        *_IMG2IMG_OK,
+        *_INPAINT_OK,
         "CLIPTextEncode",
         "EmptyLatentImage",
         "KSampler",
@@ -38,6 +43,8 @@ _FLUX_OK = frozenset(
         "VAELoader",
         "ModelSamplingFlux",
         *_LORA_OK,
+        *_IMG2IMG_OK,
+        *_INPAINT_OK,
         "CLIPTextEncode",
         "EmptyLatentImage",
         "KSampler",
@@ -55,6 +62,7 @@ _QWEN_OK = frozenset(
         "VAELoader",
         "ModelSamplingAuraFlow",
         *_LORA_OK,
+        *_IMG2IMG_OK,
         "CLIPTextEncode",
         "EmptyLatentImage",
         "EmptySD3LatentImage",
@@ -118,6 +126,9 @@ class CompiledWorkflow:
     flux_max_shift: float | None = None
     flux_base_shift: float | None = None
     aura_shift: float | None = None
+    init_image: str | None = None
+    mask_image: str | None = None
+    img2img_mode: Literal["txt2img", "img2img", "inpaint"] = "txt2img"
 
 
 @dataclass(frozen=True)
@@ -244,6 +255,52 @@ def _collect_loras(nodes: dict[str, dict[str, Any]]) -> list[CompiledLora]:
     return loras
 
 
+def _resolve_load_image_name(
+    nodes: dict[str, dict[str, Any]], node_id: str | None
+) -> str | None:
+    if not node_id:
+        return None
+    node = nodes.get(node_id)
+    if not node or node["class_type"] != "LoadImage":
+        return None
+    name = _as_str(node["inputs"].get("image")).strip()
+    if not name or name.startswith("{{"):
+        return None
+    return name
+
+
+def _trace_img2img_assets(
+    nodes: dict[str, dict[str, Any]], latent_id: str | None
+) -> tuple[str | None, str | None, Literal["txt2img", "img2img", "inpaint"]]:
+    if not latent_id:
+        return None, None, "txt2img"
+    node = nodes.get(latent_id)
+    if not node:
+        return None, None, "txt2img"
+
+    ctype = node["class_type"]
+    inputs = node["inputs"]
+
+    if ctype == "VAEEncode":
+        init = _resolve_load_image_name(nodes, _link_id(inputs.get("pixels")))
+        if init:
+            return init, None, "img2img"
+        return None, None, "txt2img"
+
+    if ctype == "InpaintModelConditioning":
+        init = _resolve_load_image_name(nodes, _link_id(inputs.get("pixels")))
+        mask = _resolve_load_image_name(nodes, _link_id(inputs.get("mask")))
+        if not mask:
+            mask_node = nodes.get(_link_id(inputs.get("mask")) or "", {})
+            if mask_node.get("class_type") == "LoadImageMask":
+                mask = _as_str(mask_node["inputs"].get("image")).strip() or None
+        if init:
+            return init, mask, "inpaint" if mask else "img2img"
+        return None, None, "txt2img"
+
+    return None, None, "txt2img"
+
+
 def compile_workflow(graph: dict[str, Any]) -> ClassifyResult:
     nodes = _nodes(graph)
     if not nodes:
@@ -304,11 +361,18 @@ def compile_workflow(graph: dict[str, Any]) -> ClassifyResult:
     cfg = _as_float(sampler["inputs"].get("cfg"), 3.5 if family != "sdxl" else 5.5)
     seed = _as_int(sampler["inputs"].get("seed"), 0)
     denoise = _as_float(sampler["inputs"].get("denoise"), 1.0)
-    if denoise < 0.999:
+    init_image, mask_image, img2img_mode = _trace_img2img_assets(nodes, latent_id)
+    if denoise < 0.999 and not init_image:
         return ClassifyResult(
             supported=False,
             family=family,
-            reason="img2img/inpaint denoise < 1 not supported natively yet.",
+            reason="img2img/inpaint denoise < 1 requires LoadImage → VAEEncode (or inpaint conditioning).",
+        )
+    if img2img_mode == "inpaint" and family != "sdxl":
+        return ClassifyResult(
+            supported=False,
+            family=family,
+            reason="Native inpaint is supported for SDXL graphs only.",
         )
 
     checkpoint = None
@@ -378,6 +442,9 @@ def compile_workflow(graph: dict[str, Any]) -> ClassifyResult:
         flux_max_shift=flux_max_shift,
         flux_base_shift=flux_base_shift,
         aura_shift=aura_shift,
+        init_image=init_image,
+        mask_image=mask_image,
+        img2img_mode=img2img_mode if denoise < 0.999 else "txt2img",
     )
     return ClassifyResult(
         supported=True,

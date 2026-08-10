@@ -252,6 +252,26 @@ describe("workflow scaffold", () => {
     assert.match(result.json, /"900"/);
   });
 
+  it("builds SDXL scaffold for sdxl models", () => {
+    const result = buildWorkflowScaffoldForModel("sdxl");
+    assert.equal(result.category, "sdxl");
+    assert.match(result.json, /CheckpointLoaderSimple/);
+    assert.match(result.json, /EmptyLatentImage/);
+    assert.doesNotMatch(result.json, /UNETLoader/);
+    assert.match(result.notes.join(" "), /SDXL scaffold/i);
+  });
+
+  it("builds Hunyuan still-image scaffold for hunyuan-dit and hunyuan-image-2.1", () => {
+    for (const model of ["hunyuan-dit", "hunyuan-image-2.1"] as const) {
+      const result = buildWorkflowScaffoldForModel(model);
+      assert.equal(result.category, "hunyuan");
+      assert.match(result.json, /CheckpointLoaderSimple/);
+      assert.match(result.json, /EmptyLatentImage/);
+      assert.match(result.json, /PromptStudio-hunyuan/);
+      assert.doesNotMatch(result.json, /EmptyHunyuanLatentVideo/);
+    }
+  });
+
   it("builds lightning edit scaffold with EmptyLatent + LoRA (not VAEEncode)", () => {
     const result = buildWorkflowScaffoldForModel("qwen-image-edit-2511-lightning-8");
     assert.match(result.json, /TextEncodeQwenImageEditPlus/);

@@ -1878,6 +1878,124 @@ export function buildIdentityWorkflowScaffold(
   };
 }
 
+function sdxlScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknown> {
+  return {
+    '1': {
+      class_type: 'CheckpointLoaderSimple',
+      inputs: { ckpt_name: '{{CHECKPOINT}}' },
+      _meta: { title: 'Load SDXL Checkpoint' },
+    },
+    '2': {
+      class_type: 'CLIPTextEncode',
+      inputs: { text: tokens.positive, clip: ['1', 1] },
+      _meta: { title: 'Positive Prompt' },
+    },
+    '3': {
+      class_type: 'CLIPTextEncode',
+      inputs: { text: tokens.negative, clip: ['1', 1] },
+      _meta: { title: 'Negative Prompt' },
+    },
+    '4': {
+      class_type: 'EmptyLatentImage',
+      inputs: { width: tokens.width, height: tokens.height, batch_size: 1 },
+      _meta: { title: 'Empty Latent' },
+    },
+    '5': {
+      class_type: 'KSampler',
+      inputs: {
+        seed: tokens.seed,
+        steps: tokens.steps,
+        cfg: tokens.cfg,
+        sampler_name: tokens.sampler,
+        scheduler: tokens.scheduler,
+        denoise: tokens.denoise,
+        model: ['1', 0],
+        positive: ['2', 0],
+        negative: ['3', 0],
+        latent_image: ['4', 0],
+      },
+      _meta: { title: 'KSampler' },
+    },
+    '6': {
+      class_type: 'VAEDecode',
+      inputs: { samples: ['5', 0], vae: ['1', 2] },
+      _meta: { title: 'VAE Decode' },
+    },
+    '7': {
+      class_type: 'SaveImage',
+      inputs: { images: ['6', 0], filename_prefix: 'PromptStudio' },
+      _meta: { title: 'Save Image' },
+    },
+  };
+}
+
+function hunyuanImageScaffold(
+  tokens: WorkflowPlaceholderTokens,
+  model: ComfyImageModel | string = 'hunyuan-dit'
+): Record<string, unknown> {
+  const isImage21 = /image-?2\.?1|image21/i.test(String(model));
+  const latentWidth = isImage21 ? tokens.width : Math.max(1024, tokens.width);
+  const latentHeight = isImage21 ? tokens.height : Math.max(1024, tokens.height);
+
+  return {
+    '1': {
+      class_type: 'CheckpointLoaderSimple',
+      inputs: { ckpt_name: '{{CHECKPOINT}}' },
+      _meta: { title: 'Load Hunyuan Checkpoint' },
+    },
+    '2': {
+      class_type: 'CLIPTextEncode',
+      inputs: { text: tokens.positive, clip: ['1', 1] },
+      _meta: { title: 'Positive Prompt' },
+    },
+    '3': {
+      class_type: 'CLIPTextEncode',
+      inputs: { text: tokens.negative, clip: ['1', 1] },
+      _meta: { title: 'Negative Prompt' },
+    },
+    '4': {
+      class_type: 'EmptyLatentImage',
+      inputs: { width: latentWidth, height: latentHeight, batch_size: 1 },
+      _meta: { title: 'Empty Latent (Hunyuan T2I)' },
+    },
+    '5': {
+      class_type: 'KSampler',
+      inputs: {
+        seed: tokens.seed,
+        steps: tokens.steps,
+        cfg: tokens.cfg,
+        sampler_name: tokens.sampler,
+        scheduler: tokens.scheduler,
+        denoise: tokens.denoise,
+        model: ['1', 0],
+        positive: ['2', 0],
+        negative: ['3', 0],
+        latent_image: ['4', 0],
+      },
+      _meta: { title: 'KSampler' },
+    },
+    '6': {
+      class_type: 'VAEDecode',
+      inputs: { samples: ['5', 0], vae: ['1', 2] },
+      _meta: { title: 'VAE Decode' },
+    },
+    '7': {
+      class_type: 'SaveImage',
+      inputs: { images: ['6', 0], filename_prefix: 'PromptStudio-hunyuan' },
+      _meta: { title: 'Save Image' },
+    },
+    '8': {
+      class_type: 'Note',
+      inputs: {
+        text: isImage21
+          ? 'Hunyuan Image 2.1 starter — import your pack-accurate graph when available; map {{CHECKPOINT}} under Settings.'
+          : 'Hunyuan DiT starter — replace with HyDiT / pack nodes if your Comfy install uses custom loaders.',
+      },
+      _meta: { title: 'Hunyuan scaffold note' },
+    },
+  };
+}
+
 function genericScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknown> {
   return {
     '1': {
@@ -2234,11 +2352,15 @@ export function buildWorkflowScaffoldForModel(
                             ? qwenScaffold(resolvedTokens)
                             : category === 'video'
                               ? videoScaffold(resolvedTokens, model)
-                              : category === 'audio'
-                                ? audioScaffold(resolvedTokens)
-                                : category === 'mesh'
-                                  ? meshScaffold(resolvedTokens)
-                                  : genericScaffold(resolvedTokens);
+                              : category === 'sdxl'
+                                ? sdxlScaffold(resolvedTokens)
+                                : category === 'hunyuan'
+                                  ? hunyuanImageScaffold(resolvedTokens, model)
+                                  : category === 'audio'
+                                    ? audioScaffold(resolvedTokens)
+                                    : category === 'mesh'
+                                      ? meshScaffold(resolvedTokens)
+                                      : genericScaffold(resolvedTokens);
   const videoLatentClass = category === 'video' ? resolveVideoLatentClass(model) : null;
   const notes = [
     'Starter graph with app placeholders — verify loader filenames match your ComfyUI models folder.',
@@ -2280,17 +2402,21 @@ export function buildWorkflowScaffoldForModel(
                     ? isWanLightningModel(model)
                       ? 'WAN Lightning scaffold uses CheckpointLoader + LoraLoaderModelOnly ({{LORA_LIGHTNING}} → Wan2.2-Lightning-low_noise_model) + EmptyHunyuanLatentVideo + SaveAnimatedWEBP. Map the low-noise Lightning LoRA in Settings → LoRA library or keep it in ComfyUI’s loras folder.'
                       : `Video scaffold uses ${videoLatentClass} ({{VIDEO_FRAMES}} length) + SaveAnimatedWEBP ({{VIDEO_FPS}}). Prefer importing a pack-accurate WAN/Hunyuan/LTX workflow when you have one. {{INIT_IMAGE}} is optional — WAN/Hunyuan queues with an init image auto-wire WanImageToVideo/HunyuanImageToVideo; LTX I2V needs a custom pack with LTXVImgToVideo.`
-                    : category === 'audio'
-                      ? 'Audio scaffold is a Stable-Audio-oriented starter (Checkpoint + CLIP + KSampler + SaveAudio) with {{AUDIO_SECONDS}} on the Note node. Prefer importing your pack’s Stable Audio / music graph when you have one — then map it under Settings → model→workflow.'
-                      : category === 'mesh'
-                        ? 'Mesh scaffold wires {{INPUT_IMAGE}} + Checkpoint + CLIP + KSampler + SaveImage with {{MESH_RESOLUTION}} on the Note node. Prefer importing Hunyuan3D / image-to-mesh pack graphs when available.'
-                        : isBooguImageTurboModel(model)
-                          ? 'Boogu Image Turbo uses UNETLoader + ConditioningZeroOut (CFG 1, no negative encode, no AuraFlow). Native 4-step distilled weights — no Lightning LoRA required.'
-                          : isBooguImageModel(model)
-                            ? 'Boogu Image Base scaffold uses UNETLoader + CLIPLoader (type boogu, qwen3vl_8b) + flux1_vae_bf16 + ModelSamplingAuraFlow — ~25–50 steps, cfg ~4.'
-                            : isZImageModel(model)
-                              ? 'Z-Image scaffold uses UNETLoader + CLIPLoader (type lumina2, qwen_3_4b) + ae.safetensors VAE + ModelSamplingAuraFlow. Turbo: 6–8 steps, cfg 1; Base: ~30–50 steps, cfg 3–5.'
-                              : 'Use Settings → model checkpoint map so Send to ComfyUI can patch loader nodes automatically.',
+                    : category === 'sdxl'
+                      ? 'SDXL scaffold uses CheckpointLoaderSimple + dual CLIPTextEncode + EmptyLatentImage + KSampler — map {{CHECKPOINT}} under Settings → model checkpoint map.'
+                      : category === 'hunyuan'
+                        ? 'Hunyuan still-image scaffold uses CheckpointLoader + EmptyLatentImage — import pack-accurate HyDiT / Hunyuan Image 2.1 graphs when available.'
+                        : category === 'audio'
+                          ? 'Audio scaffold is a Stable-Audio-oriented starter (Checkpoint + CLIP + KSampler + SaveAudio) with {{AUDIO_SECONDS}} on the Note node. Prefer importing your pack’s Stable Audio / music graph when you have one — then map it under Settings → model→workflow.'
+                          : category === 'mesh'
+                            ? 'Mesh scaffold wires {{INPUT_IMAGE}} + Checkpoint + CLIP + KSampler + SaveImage with {{MESH_RESOLUTION}} on the Note node. Prefer importing Hunyuan3D / image-to-mesh pack graphs when available.'
+                            : isBooguImageTurboModel(model)
+                              ? 'Boogu Image Turbo uses UNETLoader + ConditioningZeroOut (CFG 1, no negative encode, no AuraFlow). Native 4-step distilled weights — no Lightning LoRA required.'
+                              : isBooguImageModel(model)
+                                ? 'Boogu Image Base scaffold uses UNETLoader + CLIPLoader (type boogu, qwen3vl_8b) + flux1_vae_bf16 + ModelSamplingAuraFlow — ~25–50 steps, cfg ~4.'
+                                : isZImageModel(model)
+                                  ? 'Z-Image scaffold uses UNETLoader + CLIPLoader (type lumina2, qwen_3_4b) + ae.safetensors VAE + ModelSamplingAuraFlow. Turbo: 6–8 steps, cfg 1; Base: ~30–50 steps, cfg 3–5.'
+                                  : 'Use Settings → model checkpoint map so Send to ComfyUI can patch loader nodes automatically.',
   ];
 
   return {

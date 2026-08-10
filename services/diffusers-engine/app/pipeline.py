@@ -1911,6 +1911,10 @@ class PipelineHolder:
         seed: int,
         on_step: Callable[[int, int], None] | None = None,
         workshop_crop: bool | None = None,
+        init_image_path: str | None = None,
+        mask_image_path: str | None = None,
+        img2img_mode: str = "txt2img",
+        denoise: float = 1.0,
     ) -> Image.Image:
         """
         Native SDXL from a Comfy graph — same quality stack as txt2img
@@ -2020,6 +2024,74 @@ class PipelineHolder:
         if on_step:
             on_step(1, plan.steps)
 
+        encode_kwargs = encode_sdxl_prompts(
+            pipe,
+            prompt=prompt,
+            negative_prompt=plan.negative_prompt,
+            device=device_for_gen,
+            workshop_crop=workshop_crop,
+        )
+
+        strength = max(0.01, min(1.0, float(denoise)))
+        use_img2img = init_image_path is not None and strength < 0.999
+
+        if use_img2img:
+            from diffusers import (
+                StableDiffusionXLImg2ImgPipeline,
+                StableDiffusionXLInpaintPipeline,
+            )
+
+            init = Image.open(init_image_path).convert("RGB")
+            init = init.resize((gen_width, gen_height), Image.Resampling.LANCZOS)
+            i2i_kwargs: dict[str, Any] = {
+                "image": init,
+                "strength": strength,
+                "num_inference_steps": plan.steps,
+                "guidance_scale": plan.guidance_scale,
+                "generator": generator,
+                "guidance_rescale": 0.7,
+            }
+            i2i_kwargs.update(encode_kwargs)
+            if img2img_mode == "inpaint" and mask_image_path:
+                mask = Image.open(mask_image_path).convert("L")
+                mask = mask.resize((gen_width, gen_height), Image.Resampling.LANCZOS)
+                i2i_pipe = StableDiffusionXLInpaintPipeline.from_pipe(pipe)
+                i2i_kwargs["mask_image"] = mask
+                mode_label = "inpaint"
+            else:
+                i2i_pipe = StableDiffusionXLImg2ImgPipeline.from_pipe(pipe)
+                mode_label = "img2img"
+            i2i_pipe = self._place_compiled_pipe(i2i_pipe, torch.float16)
+            print(
+                f"[diffusers] compiled-sdxl {mode_label} model={path.name} "
+                f"{gen_width}x{gen_height} steps={plan.steps} "
+                f"cfg={plan.guidance_scale} strength={strength:.2f}",
+                flush=True,
+            )
+            try:
+                with _silence_model_warnings():
+                    result = i2i_pipe(**i2i_kwargs)
+                image = result.images[0]
+            except torch.cuda.OutOfMemoryError:
+                self._empty_cuda()
+                i2i_kwargs["generator"] = torch.Generator(device=device_for_gen).manual_seed(
+                    int(seed) & 0xFFFFFFFF
+                )
+                init_small = init.resize((768, 768), Image.Resampling.LANCZOS)
+                i2i_kwargs["image"] = init_small
+                if "mask_image" in i2i_kwargs:
+                    i2i_kwargs["mask_image"] = i2i_kwargs["mask_image"].resize(
+                        (768, 768), Image.Resampling.LANCZOS
+                    )
+                with _silence_model_warnings():
+                    result = i2i_pipe(**i2i_kwargs)
+                image = result.images[0]
+            finally:
+                self._empty_cuda()
+            if on_step:
+                on_step(plan.steps, plan.steps)
+            return image
+
         run_kwargs: dict[str, Any] = {
             "width": gen_width,
             "height": gen_height,
@@ -2029,15 +2101,7 @@ class PipelineHolder:
             "output_type": "latent",
             "guidance_rescale": 0.7,
         }
-        run_kwargs.update(
-            encode_sdxl_prompts(
-                pipe,
-                prompt=prompt,
-                negative_prompt=plan.negative_prompt,
-                device=device_for_gen,
-                workshop_crop=workshop_crop,
-            )
-        )
+        run_kwargs.update(encode_kwargs)
         print(
             f"[diffusers] compiled-sdxl model={path.name} "
             f"{gen_width}x{gen_height} steps={plan.steps} "
@@ -2972,6 +3036,8 @@ class PipelineHolder:
         max_shift: float,
         base_shift: float,
         on_step: Callable[[int, int], None] | None = None,
+        init_image_path: str | None = None,
+        denoise: float = 1.0,
     ) -> Image.Image:
         """Native Flux / Flux2-Klein from drop-in UNET + TE + VAE (+ LoRA)."""
         import torch
@@ -3089,6 +3155,13 @@ class PipelineHolder:
 
             callback_on_step_end = _cb
 
+        strength = max(0.01, min(1.0, float(denoise)))
+        use_img2img = init_image_path is not None and strength < 0.999
+        init_image: Image.Image | None = None
+        if use_img2img:
+            init_image = Image.open(init_image_path).convert("RGB")
+            init_image = init_image.resize((int(width), int(height)), Image.Resampling.LANCZOS)
+
         kwargs: dict[str, Any] = {
             "prompt": shaped_prompt,
             "width": int(width),
@@ -3096,6 +3169,9 @@ class PipelineHolder:
             "num_inference_steps": step_count,
             "generator": generator,
         }
+        if init_image is not None:
+            kwargs["image"] = init_image
+            kwargs["strength"] = strength
         # guidance_scale / true_cfg differ by pipeline class.
         try:
             import inspect
@@ -3109,6 +3185,12 @@ class PipelineHolder:
                 kwargs["callback_on_step_end"] = callback_on_step_end
             if shaped_negative.strip() and "negative_prompt" in sig.parameters:
                 kwargs["negative_prompt"] = shaped_negative
+            if init_image is not None and "image" not in sig.parameters:
+                raise RuntimeError(
+                    "Flux img2img requires a pipeline that accepts image+strength."
+                )
+        except RuntimeError:
+            raise
         except Exception:
             kwargs["guidance_scale"] = cfg
             if callback_on_step_end is not None:
@@ -3116,9 +3198,11 @@ class PipelineHolder:
             if shaped_negative.strip():
                 kwargs["negative_prompt"] = shaped_negative
 
+        mode_label = "img2img" if init_image is not None else "txt2img"
         print(
-            f"[diffusers] compiled-flux model={Path(unet_path).name} "
-            f"{width}x{height} steps={step_count} cfg={cfg} type={clip_type}",
+            f"[diffusers] compiled-flux {mode_label} model={Path(unet_path).name} "
+            f"{width}x{height} steps={step_count} cfg={cfg} type={clip_type}"
+            + (f" strength={strength:.2f}" if init_image is not None else ""),
             flush=True,
         )
         try:
@@ -3153,6 +3237,8 @@ class PipelineHolder:
         is_rapid_aio: bool = False,
         on_step: Callable[[int, int], None] | None = None,
         on_status: Callable[[str], None] | None = None,
+        init_image_path: str | None = None,
+        denoise: float = 1.0,
     ) -> Image.Image:
         """Native Qwen-Image from drop-in weights (+ optional VAE/Lightning LoRA)."""
         import torch
@@ -3323,6 +3409,15 @@ class PipelineHolder:
 
             callback_on_step_end = _cb
 
+        strength = max(0.01, min(1.0, float(denoise)))
+        use_img2img = init_image_path is not None and strength < 0.999
+        init_image: Image.Image | None = None
+        if use_img2img:
+            init_image = Image.open(init_image_path).convert("RGB")
+            init_image = init_image.resize(
+                (gen_width, gen_height), Image.Resampling.LANCZOS
+            )
+
         kwargs: dict[str, Any] = {
             "width": gen_width,
             "height": gen_height,
@@ -3330,6 +3425,9 @@ class PipelineHolder:
             "generator": generator,
             "callback_on_step_end": callback_on_step_end,
         }
+        if init_image is not None:
+            kwargs["image"] = init_image
+            kwargs["strength"] = strength
         # Qwen-Image uses true_cfg_scale; fall back to guidance_scale if needed.
         try:
             import inspect
@@ -3339,6 +3437,12 @@ class PipelineHolder:
                 kwargs["true_cfg_scale"] = cfg
             else:
                 kwargs["guidance_scale"] = cfg
+            if init_image is not None and "image" not in sig.parameters:
+                raise RuntimeError(
+                    "Qwen img2img requires a pipeline that accepts image+strength."
+                )
+        except RuntimeError:
+            raise
         except Exception:
             kwargs["true_cfg_scale"] = cfg
 
@@ -3474,10 +3578,12 @@ class PipelineHolder:
                     pipe, num_blocks=want, pixel_count=pixels
                 )
 
+        qwen_mode = "img2img" if init_image is not None else "txt2img"
         print(
-            f"[diffusers] compiled-qwen model={Path(model_path).name} "
+            f"[diffusers] compiled-qwen {qwen_mode} model={Path(model_path).name} "
             f"{gen_width}x{gen_height} steps={step_count} cfg={cfg} "
-            f"loras={len(loras)} embeds={used_embeds} "
+            + (f"strength={strength:.2f} " if init_image is not None else "")
+            + f"loras={len(loras)} embeds={used_embeds} "
             f"place={'unet-resident' if self._unet_resident else 'offload'} "
             f"free≈{self._cuda_free_mb():.0f}MiB",
             flush=True,

@@ -414,12 +414,61 @@ class ComfyGraphTests(unittest.TestCase):
         self.assertFalse(result.supported)
         self.assertIn("ControlNetApplyAdvanced", result.unsupported_nodes)
 
-    def test_denoise_img2img_unsupported(self) -> None:
+    def test_denoise_without_init_unsupported(self) -> None:
         graph = _sdxl_graph()
         graph["5"]["inputs"]["denoise"] = 0.65
         result = compile_workflow(graph)
         self.assertFalse(result.supported)
         self.assertIn("denoise", result.reason.lower())
+
+    def test_compiles_sdxl_img2img(self) -> None:
+        graph = _sdxl_graph()
+        graph["20"] = {
+            "class_type": "LoadImage",
+            "inputs": {"image": "source.png"},
+        }
+        graph["21"] = {
+            "class_type": "VAEEncode",
+            "inputs": {"pixels": ["20", 0], "vae": ["1", 2]},
+        }
+        graph["5"]["inputs"]["latent_image"] = ["21", 0]
+        graph["5"]["inputs"]["denoise"] = 0.65
+        result = compile_workflow(graph)
+        self.assertTrue(result.supported, result.reason)
+        assert result.compiled is not None
+        self.assertEqual(result.compiled.init_image, "source.png")
+        self.assertEqual(result.compiled.img2img_mode, "img2img")
+        self.assertAlmostEqual(result.compiled.denoise, 0.65)
+
+    def test_compiles_sdxl_inpaint(self) -> None:
+        graph = _sdxl_graph()
+        graph["20"] = {
+            "class_type": "LoadImage",
+            "inputs": {"image": "source.png"},
+        }
+        graph["21"] = {
+            "class_type": "LoadImage",
+            "inputs": {"image": "mask.png"},
+        }
+        graph["22"] = {
+            "class_type": "InpaintModelConditioning",
+            "inputs": {
+                "positive": ["2", 0],
+                "negative": ["3", 0],
+                "vae": ["1", 2],
+                "pixels": ["20", 0],
+                "mask": ["21", 0],
+            },
+        }
+        graph["5"]["inputs"]["positive"] = ["22", 0]
+        graph["5"]["inputs"]["negative"] = ["22", 1]
+        graph["5"]["inputs"]["latent_image"] = ["22", 2]
+        graph["5"]["inputs"]["denoise"] = 0.75
+        result = compile_workflow(graph)
+        self.assertTrue(result.supported, result.reason)
+        assert result.compiled is not None
+        self.assertEqual(result.compiled.img2img_mode, "inpaint")
+        self.assertEqual(result.compiled.mask_image, "mask.png")
 
 
 if __name__ == "__main__":
