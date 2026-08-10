@@ -2,7 +2,8 @@ import { runServerScheduledBatch } from './server-scheduled-batch';
 import { rankPromptsWithLlm } from './best-of-n-rank-server';
 import type { UserScheduledCampaign } from './auth/types';
 
-export { rankPromptsWithLlm } from './best-of-n-rank-server';
+export { rankPromptsWithLlm, rankImagesWithVision } from './best-of-n-rank-server';
+export type { BestOfNImageCandidate } from './best-of-n-rank-server';
 
 export async function runUserCampaignWithBestOfN(
   campaign: UserScheduledCampaign

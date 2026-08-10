@@ -1,4 +1,11 @@
 import { chatCompletion } from './llm-client';
+import { rankBestOfN, type BestOfNCandidate } from './best-of-n-campaign';
+
+export type BestOfNImageCandidate = {
+  id: string;
+  prompt: string;
+  imageDataUrl: string;
+};
 
 /** Server-only LLM prompt ranking (uses llm-client / Ollama). */
 export async function rankPromptsWithLlm(prompts: string[], keep: number): Promise<string[]> {
@@ -41,4 +48,28 @@ export async function rankPromptsWithLlm(prompts: string[], keep: number): Promi
   }
 
   return picked.length > 0 ? picked : prompts.slice(0, keep);
+}
+
+/** Vision-model ranking for generated images (requires LLM_VISION_MODEL). */
+export async function rankImagesWithVision(
+  candidates: BestOfNImageCandidate[],
+  keep: number
+): Promise<BestOfNImageCandidate[]> {
+  if (candidates.length <= keep) {
+    return candidates;
+  }
+
+  const ranked = await rankBestOfN(
+    candidates.map((candidate): BestOfNCandidate => ({
+      id: candidate.id,
+      prompt: candidate.prompt,
+      imageDataUrl: candidate.imageDataUrl,
+    }))
+  );
+
+  return ranked.slice(0, keep).map(entry => ({
+    id: entry.id,
+    prompt: entry.prompt,
+    imageDataUrl: entry.imageDataUrl,
+  }));
 }

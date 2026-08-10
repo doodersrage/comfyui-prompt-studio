@@ -1796,75 +1796,181 @@ export function buildFaceDetailerWorkflowScaffold(): WorkflowScaffoldResult {
 }
 
 /**
- * InstantID / PuLID bring-your-own scaffold — LoadImage identity ref + save stub.
- * Replace the middle with your InstantID/PuLID node pack, then import into the library.
+ * InstantID / PuLID first-class scaffold — identity ref, apply chain, KSampler, save.
+ * Queue-time auto-insert still runs when nodes are installed; this graph is import-ready.
  */
 export function buildIdentityWorkflowScaffold(
   kind: 'instantid' | 'pulid' = 'instantid'
 ): WorkflowScaffoldResult {
   const label = kind === 'pulid' ? 'PuLID' : 'InstantID';
-  const workflow = {
-    '1': {
-      class_type: 'CheckpointLoaderSimple',
-      inputs: { ckpt_name: '{{CHECKPOINT}}' },
-      _meta: { title: `Load Checkpoint (${label})` },
-    },
-    '2': {
-      class_type: 'LoadImage',
-      inputs: { image: '{{IPADAPTER_IMAGE}}' },
-      _meta: { title: `${label} identity reference` },
-    },
-    '3': {
-      class_type: 'CLIPTextEncode',
-      inputs: { text: '{{POSITIVE}}', clip: ['1', 1] },
-      _meta: { title: 'Positive Prompt' },
-    },
-    '4': {
-      class_type: 'CLIPTextEncode',
-      inputs: { text: '{{NEGATIVE}}', clip: ['1', 1] },
-      _meta: { title: 'Negative Prompt' },
-    },
-    '5': {
-      class_type: 'EmptyLatentImage',
-      inputs: {
-        width: '{{WIDTH}}',
-        height: '{{HEIGHT}}',
-        batch_size: 1,
-      },
-      _meta: { title: 'Empty Latent' },
-    },
-    '6': {
-      class_type: 'KSampler',
-      inputs: {
-        seed: '{{SEED}}',
-        steps: '{{STEPS}}',
-        cfg: '{{CFG}}',
-        sampler_name: '{{SAMPLER}}',
-        scheduler: '{{SCHEDULER}}',
-        denoise: '{{DENOISE}}',
-        model: ['1', 0],
-        positive: ['3', 0],
-        negative: ['4', 0],
-        latent_image: ['5', 0],
-      },
-      _meta: {
-        title: `KSampler — insert ${label} apply between checkpoint and sampler`,
-      },
-    },
-    '7': {
-      class_type: 'VAEDecode',
-      inputs: { samples: ['6', 0], vae: ['1', 2] },
-      _meta: { title: 'VAE Decode' },
-    },
-    '8': {
-      class_type: 'SaveImage',
-      inputs: {
-        filename_prefix: `PromptStudio-${kind}`,
-        images: ['7', 0],
-      },
-      _meta: { title: 'Save Image' },
-    },
-  };
+  const workflow =
+    kind === 'pulid'
+      ? {
+          '1': {
+            class_type: 'CheckpointLoaderSimple',
+            inputs: { ckpt_name: '{{CHECKPOINT}}' },
+            _meta: { title: 'Load Checkpoint (PuLID)' },
+          },
+          '2': {
+            class_type: 'LoadImage',
+            inputs: { image: '{{IPADAPTER_IMAGE}}' },
+            _meta: { title: 'PuLID identity reference' },
+          },
+          '3': {
+            class_type: 'CLIPTextEncode',
+            inputs: { text: '{{POSITIVE}}', clip: ['1', 1] },
+            _meta: { title: 'Positive Prompt' },
+          },
+          '4': {
+            class_type: 'CLIPTextEncode',
+            inputs: { text: '{{NEGATIVE}}', clip: ['1', 1] },
+            _meta: { title: 'Negative Prompt' },
+          },
+          '5': {
+            class_type: 'EmptyLatentImage',
+            inputs: {
+              width: '{{WIDTH}}',
+              height: '{{HEIGHT}}',
+              batch_size: 1,
+            },
+            _meta: { title: 'Empty Latent' },
+          },
+          '6': {
+            class_type: 'PulidEvaClipLoader',
+            inputs: {},
+            _meta: { title: 'PuLID EVA CLIP' },
+          },
+          '7': {
+            class_type: 'PulidModelLoader',
+            inputs: { pulid_file: 'pulid_v1.1.safetensors' },
+            _meta: { title: 'PuLID model' },
+          },
+          '8': {
+            class_type: 'ApplyPulid',
+            inputs: {
+              model: ['1', 0],
+              pulid: ['7', 0],
+              eva_clip: ['6', 0],
+              image: ['2', 0],
+              weight: '{{IPADAPTER_STRENGTH}}',
+              start_at: 0,
+              end_at: 1,
+            },
+            _meta: { title: 'Apply PuLID' },
+          },
+          '9': {
+            class_type: 'KSampler',
+            inputs: {
+              seed: '{{SEED}}',
+              steps: '{{STEPS}}',
+              cfg: '{{CFG}}',
+              sampler_name: '{{SAMPLER}}',
+              scheduler: '{{SCHEDULER}}',
+              denoise: '{{DENOISE}}',
+              model: ['8', 0],
+              positive: ['3', 0],
+              negative: ['4', 0],
+              latent_image: ['5', 0],
+            },
+            _meta: { title: 'KSampler' },
+          },
+          '10': {
+            class_type: 'VAEDecode',
+            inputs: { samples: ['9', 0], vae: ['1', 2] },
+            _meta: { title: 'VAE Decode' },
+          },
+          '11': {
+            class_type: 'SaveImage',
+            inputs: {
+              filename_prefix: 'PromptStudio-pulid',
+              images: ['10', 0],
+            },
+            _meta: { title: 'Save Image' },
+          },
+        }
+      : {
+          '1': {
+            class_type: 'CheckpointLoaderSimple',
+            inputs: { ckpt_name: '{{CHECKPOINT}}' },
+            _meta: { title: 'Load Checkpoint (InstantID)' },
+          },
+          '2': {
+            class_type: 'LoadImage',
+            inputs: { image: '{{IPADAPTER_IMAGE}}' },
+            _meta: { title: 'InstantID identity reference' },
+          },
+          '3': {
+            class_type: 'CLIPTextEncode',
+            inputs: { text: '{{POSITIVE}}', clip: ['1', 1] },
+            _meta: { title: 'Positive Prompt' },
+          },
+          '4': {
+            class_type: 'CLIPTextEncode',
+            inputs: { text: '{{NEGATIVE}}', clip: ['1', 1] },
+            _meta: { title: 'Negative Prompt' },
+          },
+          '5': {
+            class_type: 'EmptyLatentImage',
+            inputs: {
+              width: '{{WIDTH}}',
+              height: '{{HEIGHT}}',
+              batch_size: 1,
+            },
+            _meta: { title: 'Empty Latent' },
+          },
+          '6': {
+            class_type: 'InstantIDFaceAnalysis',
+            inputs: { provider: 'CPU' },
+            _meta: { title: 'InstantID face analysis' },
+          },
+          '7': {
+            class_type: 'InstantIDModelLoader',
+            inputs: { instantid_file: 'ip-adapter.bin' },
+            _meta: { title: 'InstantID model' },
+          },
+          '8': {
+            class_type: 'ApplyInstantID',
+            inputs: {
+              model: ['1', 0],
+              instantid: ['7', 0],
+              insightface: ['6', 0],
+              image: ['2', 0],
+              weight: '{{IPADAPTER_STRENGTH}}',
+              start_at: 0,
+              end_at: 1,
+            },
+            _meta: { title: 'Apply InstantID' },
+          },
+          '9': {
+            class_type: 'KSampler',
+            inputs: {
+              seed: '{{SEED}}',
+              steps: '{{STEPS}}',
+              cfg: '{{CFG}}',
+              sampler_name: '{{SAMPLER}}',
+              scheduler: '{{SCHEDULER}}',
+              denoise: '{{DENOISE}}',
+              model: ['8', 0],
+              positive: ['3', 0],
+              negative: ['4', 0],
+              latent_image: ['5', 0],
+            },
+            _meta: { title: 'KSampler' },
+          },
+          '10': {
+            class_type: 'VAEDecode',
+            inputs: { samples: ['9', 0], vae: ['1', 2] },
+            _meta: { title: 'VAE Decode' },
+          },
+          '11': {
+            class_type: 'SaveImage',
+            inputs: {
+              filename_prefix: 'PromptStudio-instantid',
+              images: ['10', 0],
+            },
+            _meta: { title: 'Save Image' },
+          },
+        };
   return {
     json: JSON.stringify(workflow, null, 2),
     source: 'template',
@@ -1872,8 +1978,8 @@ export function buildIdentityWorkflowScaffold(
     category: 'sdxl',
     bindingChanges: 0,
     notes: [
-      `${label} BYO scaffold — identity image uses {{IPADAPTER_IMAGE}}. At queue time Studio may also auto-insert InstantID/PuLID when IP-Adapter Plus is absent and those nodes are installed.`,
-      `Wire your ComfyUI ${label} apply node between checkpoint and KSampler, keep the identity LoadImage, then import this JSON into the workflow library.`,
+      `${label} scaffold with Apply${label === 'PuLID' ? 'Pulid' : 'InstantID'} wired between checkpoint and KSampler.`,
+      `Identity image uses {{IPADAPTER_IMAGE}}; strength uses {{IPADAPTER_STRENGTH}}. Adjust model loader filenames for your ComfyUI install, then import into the workflow library.`,
     ],
   };
 }
@@ -2064,7 +2170,7 @@ function resolveVideoLatentClass(model: ComfyImageModel | string): VideoLatentCl
 /**
  * Starter T2V graph for video models. Node "900" (LoadImage, title "Init Image")
  * is recognized by queue-time `patchVideoImageToVideoWiringInWorkflow` for WAN/Hunyuan I2V.
- * LTX scaffolds use EmptyLTXVLatentVideo; I2V auto-splice stays WAN/Hunyuan-only.
+ * LTX scaffolds use EmptyLTXVLatentVideo; I2V auto-splice wires LTXVImgToVideo at queue time.
  * WAN Lightning adds LoraLoaderModelOnly ({{LORA_LIGHTNING}}) between checkpoint and KSampler.
  */
 function videoScaffold(
@@ -2075,7 +2181,7 @@ function videoScaffold(
   const useLightning = isWanLightningModel(model);
   const i2vHint =
     latentClass === 'EmptyLTXVLatentVideo'
-      ? 'Init Image (optional — import an LTX I2V graph for image-to-video; auto-splice is WAN/Hunyuan only)'
+      ? 'Init Image (optional — auto-wired into LTXVImgToVideo at queue time)'
       : 'Init Image (optional — auto-wired into WanImageToVideo/HunyuanImageToVideo at queue time)';
 
   const graph: Record<string, unknown> = {
@@ -2401,7 +2507,7 @@ export function buildWorkflowScaffoldForModel(
                   : category === 'video'
                     ? isWanLightningModel(model)
                       ? 'WAN Lightning scaffold uses CheckpointLoader + LoraLoaderModelOnly ({{LORA_LIGHTNING}} → Wan2.2-Lightning-low_noise_model) + EmptyHunyuanLatentVideo + SaveAnimatedWEBP. Map the low-noise Lightning LoRA in Settings → LoRA library or keep it in ComfyUI’s loras folder.'
-                      : `Video scaffold uses ${videoLatentClass} ({{VIDEO_FRAMES}} length) + SaveAnimatedWEBP ({{VIDEO_FPS}}). Prefer importing a pack-accurate WAN/Hunyuan/LTX workflow when you have one. {{INIT_IMAGE}} is optional — WAN/Hunyuan queues with an init image auto-wire WanImageToVideo/HunyuanImageToVideo; LTX I2V needs a custom pack with LTXVImgToVideo.`
+                      : `Video scaffold uses ${videoLatentClass} ({{VIDEO_FRAMES}} length) + SaveAnimatedWEBP ({{VIDEO_FPS}}). Prefer importing a pack-accurate WAN/Hunyuan/LTX workflow when you have one. {{INIT_IMAGE}} is optional — queues with an init image auto-wire WanImageToVideo, HunyuanImageToVideo, or LTXVImgToVideo.`
                     : category === 'sdxl'
                       ? 'SDXL scaffold uses CheckpointLoaderSimple + dual CLIPTextEncode + EmptyLatentImage + KSampler — map {{CHECKPOINT}} under Settings → model checkpoint map.'
                       : category === 'hunyuan'

@@ -729,7 +729,7 @@ describe("video I2V auto-wiring (patchVideoImageToVideoWiringInWorkflow)", () =>
     );
   });
 
-  it("hard-fails LTX Video I2V on the system scaffold with a pack-import hint", () => {
+  it("auto-wires LTX Video I2V on the system scaffold", () => {
     const scaffold = buildWorkflowScaffoldForModel("ltx-video");
     const workflow = JSON.parse(scaffold.json) as Record<string, unknown>;
 
@@ -739,9 +739,14 @@ describe("video I2V auto-wiring (patchVideoImageToVideoWiringInWorkflow)", () =>
       params: { width: 768, height: 512, videoFrames: 97 },
     });
 
-    assert.equal(result.patched.videoImageToVideoWired, undefined);
-    assert.match(result.error ?? "", /LTX Video I2V needs an imported pack/i);
-    assert.match(result.error ?? "", /LTXVImgToVideo/);
+    assert.equal(result.patched.videoImageToVideoWired, 1);
+    assert.equal(result.error, undefined);
+    assert.equal(
+      Object.values(result.workflow).some(
+        (node) => (node as AnyNode).class_type === "LTXVImgToVideo",
+      ),
+      true,
+    );
   });
 
   it("respects an already-wired LTXVImgToVideo pack instead of failing", () => {

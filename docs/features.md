@@ -236,7 +236,7 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 - **Webhook templates** — Discord/Slack rich payload formats in Settings
 - **Scheduled batch** — Settings configures periodic random-scene/topics generation (+ optional ComfyUI queue)
 - **Server scheduled batch** — `SERVER_SCHEDULED_BATCH=true` or manual `POST /api/scheduled-batch/run`
-- **Best-of-N campaigns** — scheduled profile or Automation tab runs optionally over-generate (2–4×) and LLM-rank prompts by text quality before queue (not vision/image scoring)
+- **Best-of-N campaigns** — scheduled profile or Automation tab runs optionally over-generate (2–4×) and LLM-rank prompts by text quality before queue; `/api/best-of-n/rank-images` ranks generated images with `LLM_VISION_MODEL` when vision scoring is needed
 - **Email notifications** — SMTP alerts for batch/campaign completion and password changes (Profile → Email)
 - **Docker Compose** — `docker compose up` for app + Ollama (+ optional ComfyUI profile)
 - **GitHub Actions CI** — runs unit tests, build, and Playwright smoke on push/PR

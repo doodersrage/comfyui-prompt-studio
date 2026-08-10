@@ -5,26 +5,15 @@ import {
   type CollabDraftPayload,
   type CollabPresencePeer,
 } from '@/lib/collab-presence';
+import {
+  broadcastCollabRoom,
+  getCollabRoom,
+  subscribeCollabRoom,
+  updateCollabRoom,
+} from '@/lib/collab-store';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-type RoomState = {
-  peers: CollabPresencePeer[];
-  draft?: CollabDraftPayload;
-};
-
-const rooms = new Map<string, RoomState>();
-
-function getRoom(projectId: string): RoomState {
-  const key = projectId.trim() || 'default';
-  let room = rooms.get(key);
-  if (!room) {
-    room = { peers: [] };
-    rooms.set(key, room);
-  }
-  return room;
-}
 
 /** GET SSE stream — presence snapshots every few seconds + draft pushes. */
 export async function GET(request: Request) {
@@ -33,27 +22,28 @@ export async function GET(request: Request) {
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
-    start(controller) {
+    async start(controller) {
       const send = (event: string, data: unknown) => {
         controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
       };
 
-      const room = getRoom(projectId);
-      room.peers = pruneStalePeers(room.peers);
-      send('presence', { peers: room.peers });
+      const room = await getCollabRoom(projectId);
+      send('presence', { peers: pruneStalePeers(room.peers) });
       if (room.draft) {
         send('draft', room.draft);
       }
 
-      const timer = setInterval(() => {
-        const current = getRoom(projectId);
-        current.peers = pruneStalePeers(current.peers);
-        send('presence', { peers: current.peers });
+      const unsubscribe = subscribeCollabRoom(projectId, send);
+
+      const timer = setInterval(async () => {
+        const current = await getCollabRoom(projectId);
+        send('presence', { peers: pruneStalePeers(current.peers) });
         send('ping', { at: Date.now() });
       }, 4000);
 
       request.signal.addEventListener('abort', () => {
         clearInterval(timer);
+        unsubscribe();
         try {
           controller.close();
         } catch {
@@ -88,18 +78,21 @@ export async function POST(request: Request) {
     typeof record.projectId === 'string' && record.projectId.trim()
       ? record.projectId.trim()
       : 'default';
-  const room = getRoom(projectId);
 
   if (record.type === 'presence' && record.peer && typeof record.peer === 'object') {
     const peer = record.peer as CollabPresencePeer;
     if (peer.peerId && peer.displayName) {
-      room.peers = upsertPresencePeer(room.peers, {
-        ...peer,
-        projectId,
-        lastSeenAt: Date.now(),
-      });
+      const room = await updateCollabRoom(projectId, current => ({
+        ...current,
+        peers: upsertPresencePeer(current.peers, {
+          ...peer,
+          projectId,
+          lastSeenAt: Date.now(),
+        }),
+      }));
+      broadcastCollabRoom(projectId, 'presence', { peers: room.peers });
+      return NextResponse.json({ ok: true, peers: room.peers });
     }
-    return NextResponse.json({ ok: true, peers: room.peers });
   }
 
   if (record.type === 'draft' && typeof record.draft === 'string') {
@@ -110,7 +103,11 @@ export async function POST(request: Request) {
       draft: record.draft.slice(0, 20_000),
       updatedAt: Date.now(),
     };
-    room.draft = payload;
+    await updateCollabRoom(projectId, current => ({
+      ...current,
+      draft: payload,
+    }));
+    broadcastCollabRoom(projectId, 'draft', payload);
     return NextResponse.json({ ok: true, draft: payload });
   }
 

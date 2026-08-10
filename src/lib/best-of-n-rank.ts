@@ -20,3 +20,37 @@ export async function rankPromptsWithLlm(prompts: string[], keep: number): Promi
 
   return prompts.slice(0, keep);
 }
+
+export type BestOfNImageCandidate = {
+  id: string;
+  prompt: string;
+  imageDataUrl: string;
+};
+
+export async function rankImagesWithVision(
+  candidates: BestOfNImageCandidate[],
+  keep: number
+): Promise<BestOfNImageCandidate[]> {
+  if (candidates.length <= keep) {
+    return candidates.slice(0, keep);
+  }
+
+  try {
+    const response = await fetch('/api/best-of-n/rank-images', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ candidates, keep }),
+    });
+    const data = (await response.json()) as {
+      candidates?: BestOfNImageCandidate[];
+      error?: string;
+    };
+    if (response.ok && Array.isArray(data.candidates) && data.candidates.length > 0) {
+      return data.candidates.slice(0, keep);
+    }
+  } catch {
+    // fall through
+  }
+
+  return candidates.slice(0, keep);
+}

@@ -149,9 +149,6 @@ export type WorkflowDirectPatchCounts = {
 const VIDEO_I2V_WIRE_ERROR =
   'Init image was set for a video model, but I2V could not be wired. Import a WAN/Hunyuan workflow with WanImageToVideo or HunyuanImageToVideo (or a scaffold with LoadImage + Empty*LatentVideo + VAEDecode/Checkpoint VAE + KSampler), or clear the init image for text-to-video.';
 
-const LTX_I2V_WIRE_ERROR =
-  'LTX Video I2V needs an imported pack with LTXVImgToVideo — the system scaffold is T2V-only. Clear the init image for text-to-video, or import an LTX I2V workflow from your library.';
-
 function videoI2vWireError(detail: string): string {
   return `${VIDEO_I2V_WIRE_ERROR} (${detail})`;
 }
@@ -1342,14 +1339,7 @@ export function patchVideoImageToVideoWiringInWorkflow(
     return { workflow: next, patched };
   }
 
-  // LTX auto-splice is not supported — fail early with a pack-import hint.
-  if (/ltx/i.test(input.model)) {
-    return {
-      workflow: next,
-      patched,
-      error: LTX_I2V_WIRE_ERROR,
-    };
-  }
+  const isLtx = /ltx/i.test(input.model);
 
   const loadImageId = findInitImageLoadNodeId(next);
   const latentNodeId = findFirstNodeIdByClassTypes(next, VIDEO_LATENT_NODE_TYPES);
@@ -1464,14 +1454,33 @@ export function patchVideoImageToVideoWiringInWorkflow(
   const height = resolveNumericLikeField(latentInputs.height, Number(input.params?.height) || 480);
   const length = resolveNumericLikeField(
     latentInputs.length,
-    Number(input.params?.videoFrames) || (isHunyuan ? 53 : 81)
+    Number(input.params?.videoFrames) || (isHunyuan ? 53 : isLtx ? 97 : 81)
   );
   const batchSize = resolveNumericLikeField(latentInputs.batch_size, 1);
 
   const newNodeId = nextAvailableWorkflowNodeId(next);
   const startImageRef: [string, number] = [loadImageId, 0];
 
-  if (isHunyuan) {
+  if (isLtx) {
+    next[newNodeId] = {
+      class_type: 'LTXVImgToVideo',
+      inputs: {
+        positive: positiveRef,
+        negative: negativeRef ?? positiveRef,
+        vae: vaeRef,
+        image: startImageRef,
+        width,
+        height,
+        length,
+        batch_size: batchSize,
+        strength: 1,
+      },
+      _meta: { title: 'LTX Image → Video (auto-wired I2V)' },
+    };
+    samplerInputs.positive = [newNodeId, 0];
+    samplerInputs.negative = [newNodeId, 1];
+    samplerInputs.latent_image = [newNodeId, 2];
+  } else if (isHunyuan) {
     next[newNodeId] = {
       class_type: 'HunyuanImageToVideo',
       inputs: {
