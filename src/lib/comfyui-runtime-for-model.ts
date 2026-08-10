@@ -256,6 +256,12 @@ function sharedQueueFlags(
   const profile = normalizeQueueQualityProfile(shared.queueQualityProfile);
   const isMax = profile === 'max';
   const preferredComfyHost = shared.preferredComfyHost?.trim() || undefined;
+  const comfyPoolBusyThreshold =
+    typeof shared.comfyPoolBusyThreshold === 'number' &&
+    Number.isFinite(shared.comfyPoolBusyThreshold) &&
+    shared.comfyPoolBusyThreshold >= 0
+      ? shared.comfyPoolBusyThreshold
+      : undefined;
   return {
     directWorkflowPatching: shared.directWorkflowPatching !== false,
     syncWorkflowLoadersToModel: shared.syncWorkflowLoadersToModel === true,
@@ -279,6 +285,8 @@ function sharedQueueFlags(
     modelRefinerMap: shared.modelRefinerMap,
     modelUpscaleMap: shared.modelUpscaleMap,
     ...(preferredComfyHost ? { preferredComfyHost } : {}),
+    comfyPoolLoadBalance: shared.comfyPoolLoadBalance !== false,
+    ...(comfyPoolBusyThreshold != null ? { comfyPoolBusyThreshold } : {}),
     ...overrides,
   };
 }

@@ -165,7 +165,7 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 - **VRAM-aware Max → Final** — when free VRAM is under ~6 GB, Max queues downgrade to Final
 - **Hold Max until idle** — optional park for Max jobs until ComfyUI is empty; flush from Orchestration
 - **Sampler memory** — 4–5★ gallery ratings remember per-model CFG/steps/sampler/scheduler
-- **Multi-ComfyUI pool** — `COMFYUI_POOL` env for round-robin routing
+- **Multi-ComfyUI pool** — `COMFYUI_POOL` env for round-robin routing; Settings → Overview load-balances across pool hosts by queue depth (skips busy servers, rotates to the least-loaded)
 - **Queue artifacts** — optional `COMFYUI_QUEUE_EXPORT_DIR` writes JSON sidecars after queue
 - **ComfyUI job status node** — `PromptToolsJobStatus` polls `/api/comfyui/status`
 - **ComfyUI Topics Batch node** — `PromptToolsTopicsBatch` calls `/api/topics/batch`

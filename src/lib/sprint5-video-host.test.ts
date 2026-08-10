@@ -90,4 +90,20 @@ describe("sprint5 preferred ComfyUI host", () => {
     });
     assert.equal(resolved, "http://10.0.0.5:8188");
   });
+
+  it("skips busy preferred host and load-balances to a less busy pool server", () => {
+    const stats = [
+      { url: "http://10.0.0.5:8188", ok: true, vram: { free: 22e9 }, queuePending: 0 },
+      { url: "http://10.0.0.6:8188", ok: true, vram: { free: 22e9 }, queuePending: 6 },
+      { url: "http://10.0.0.7:8188", ok: true, vram: { free: 4e9 } },
+    ];
+    const resolved = resolveComfyUiUrlWithPool({
+      envUrl: "http://127.0.0.1:8188",
+      preferredComfyHost: "http://10.0.0.6:8188",
+      poolStats: stats,
+      loadBalance: true,
+      busyThreshold: 4,
+    });
+    assert.equal(resolved, "http://10.0.0.5:8188");
+  });
 });

@@ -262,6 +262,10 @@ export type ComfyUiRuntimeConfig = {
    * is in COMFYUI_POOL and healthy-ish, pool routing prefers it.
    */
   preferredComfyHost?: string;
+  /** When true (default), skip busy pool hosts and rotate to the next least-loaded server. */
+  comfyPoolLoadBalance?: boolean;
+  /** Queue depth (pending + running) above which a pool host is treated as too busy. */
+  comfyPoolBusyThreshold?: number;
 };
 
 export type WorkflowPlaceholderTokens = {
@@ -1795,6 +1799,18 @@ export function stripEmptyComfyUiRuntime(
   const preferredComfyHost = runtime.preferredComfyHost?.trim();
   if (preferredComfyHost) {
     result.preferredComfyHost = preferredComfyHost;
+  }
+
+  if (runtime.comfyPoolLoadBalance === false) {
+    result.comfyPoolLoadBalance = false;
+  }
+
+  if (
+    typeof runtime.comfyPoolBusyThreshold === 'number' &&
+    Number.isFinite(runtime.comfyPoolBusyThreshold) &&
+    runtime.comfyPoolBusyThreshold >= 0
+  ) {
+    result.comfyPoolBusyThreshold = runtime.comfyPoolBusyThreshold;
   }
 
   const workflowJson = runtime.workflowJson?.trim();

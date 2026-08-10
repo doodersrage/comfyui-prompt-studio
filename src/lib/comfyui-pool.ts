@@ -18,6 +18,44 @@ export type ComfyUiPoolEndpointStat = {
 /** Each queued/running job penalizes score by this many "free GB equivalent" units. */
 const QUEUE_LOAD_PENALTY_GB = 2;
 
+/** Default queue depth (pending + running) above which an endpoint is "too busy". */
+const DEFAULT_POOL_BUSY_THRESHOLD = 4;
+
+export type ComfyUiPoolRoutingMeta = {
+  /** Preferred host skipped because queue load exceeded the busy threshold. */
+  skippedPreferredDueToLoad?: boolean;
+  preferredHost?: string;
+  /** How the routed URL was chosen. */
+  strategy?:
+    'preferred' | 'load_balance' | 'vram_aware' | 'round_robin' | 'user' | 'client' | 'env';
+};
+
+export function getDefaultPoolBusyThreshold(): number {
+  const raw = process.env.COMFYUI_POOL_BUSY_THRESHOLD?.trim();
+  if (raw) {
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      return parsed;
+    }
+  }
+  return DEFAULT_POOL_BUSY_THRESHOLD;
+}
+
+/** Queue load metric used for busy detection and least-loaded fallback. */
+export function endpointQueueLoad(stat: ComfyUiPoolEndpointStat): number {
+  return (stat.queuePending ?? 0) + (stat.queueRunning ?? 0);
+}
+
+export function isComfyUiEndpointTooBusy(
+  stat: ComfyUiPoolEndpointStat,
+  threshold = getDefaultPoolBusyThreshold()
+): boolean {
+  if (stat.ok === false) {
+    return true;
+  }
+  return endpointQueueLoad(stat) >= threshold;
+}
+
 function normalizeUrlForCompare(url: string): string {
   return url.trim().replace(/\/+$/, '').toLowerCase();
 }
@@ -67,6 +105,118 @@ export function pickHighestScoringComfyUiEndpoint(
   return best?.url ?? null;
 }
 
+/**
+ * Picks the healthiest endpoint that is not over the busy threshold. When every
+ * endpoint is busy, falls back to the one with the lowest queue load.
+ */
+export function pickLoadBalancedComfyUiEndpoint(
+  poolUrls: string[],
+  stats: ComfyUiPoolEndpointStat[],
+  options?: { busyThreshold?: number }
+): string | null {
+  const threshold = options?.busyThreshold ?? getDefaultPoolBusyThreshold();
+  const byUrl = new Map(stats.map(stat => [normalizeUrlForCompare(stat.url), stat] as const));
+
+  let bestIdle: { url: string; score: number } | null = null;
+  let leastBusy: { url: string; load: number } | null = null;
+
+  for (const url of poolUrls) {
+    const stat = byUrl.get(normalizeUrlForCompare(url));
+    if (!stat || stat.ok === false) {
+      continue;
+    }
+    const load = endpointQueueLoad(stat);
+    if (!leastBusy || load < leastBusy.load) {
+      leastBusy = { url, load };
+    }
+    if (isComfyUiEndpointTooBusy(stat, threshold)) {
+      continue;
+    }
+    const score = scoreComfyUiPoolEndpointStat(stat);
+    if (score == null) {
+      continue;
+    }
+    if (!bestIdle || score > bestIdle.score) {
+      bestIdle = { url, score };
+    }
+  }
+
+  return bestIdle?.url ?? leastBusy?.url ?? null;
+}
+
+async function fetchComfyUiPoolEndpointStat(url: string): Promise<ComfyUiPoolEndpointStat> {
+  try {
+    const [queueResponse, statsResponse] = await Promise.all([
+      fetch(`${url}/queue`, {
+        signal: AbortSignal.timeout(3000),
+        redirect: 'manual',
+      }),
+      fetch(`${url}/system_stats`, {
+        signal: AbortSignal.timeout(3000),
+        redirect: 'manual',
+      }),
+    ]);
+
+    let ok = statsResponse.ok;
+    let queuePending: number | undefined;
+    let queueRunning: number | undefined;
+    let vram: ComfyUiPoolEndpointStat['vram'];
+
+    if (queueResponse.ok) {
+      const queue = (await queueResponse.json()) as {
+        queue_pending?: unknown[];
+        queue_running?: unknown[];
+      };
+      queuePending = queue.queue_pending?.length ?? 0;
+      queueRunning = queue.queue_running?.length ?? 0;
+    }
+
+    if (statsResponse.ok) {
+      const stats = (await statsResponse.json()) as {
+        system?: { vram?: { free?: number; total?: number } };
+      };
+      vram = stats.system?.vram;
+    } else {
+      ok = false;
+    }
+
+    return { url, ok, vram, queuePending, queueRunning };
+  } catch {
+    return { url, ok: false };
+  }
+}
+
+/** Fetches fresh queue + VRAM stats for every pool URL and updates the cache. */
+export async function refreshComfyUiPoolStats(pool?: string[]): Promise<ComfyUiPoolEndpointStat[]> {
+  const urls = pool ?? parseComfyUiPool();
+  if (urls.length === 0) {
+    return [];
+  }
+  const stats = await Promise.all(urls.map(fetchComfyUiPoolEndpointStat));
+  setComfyUiPoolStatsCache(stats);
+  return stats;
+}
+
+/**
+ * Refreshes pool stats when load balancing is enabled and the cache is stale.
+ * Safe to call before every queue — skips work when a recent snapshot exists.
+ */
+export async function ensureComfyUiPoolStatsForQueue(input?: {
+  loadBalance?: boolean;
+  maxCacheAgeMs?: number;
+}): Promise<ComfyUiPoolEndpointStat[] | null> {
+  const pool = parseComfyUiPool();
+  if (pool.length === 0 || input?.loadBalance === false) {
+    return getComfyUiPoolStatsCache();
+  }
+  const maxAge = input?.maxCacheAgeMs ?? 5_000;
+  const cached = getComfyUiPoolStatsCache(maxAge);
+  if (cached) {
+    return cached;
+  }
+  return refreshComfyUiPoolStats(pool);
+}
+
 type PoolStatsCacheEntry = { at: number; stats: ComfyUiPoolEndpointStat[] };
 let poolStatsCache: PoolStatsCacheEntry | null = null;
 /** How long a cached pool health snapshot stays usable for VRAM-aware picks. */
@@ -108,25 +258,7 @@ function refreshComfyUiPoolStatsInBackground(pool: string[]): void {
   }
   poolStatsRefreshInFlight = true;
 
-  void Promise.all(
-    pool.map(async (url): Promise<ComfyUiPoolEndpointStat> => {
-      try {
-        const response = await fetch(`${url}/system_stats`, {
-          signal: AbortSignal.timeout(3000),
-          redirect: 'manual',
-        });
-        if (!response.ok) {
-          return { url, ok: false };
-        }
-        const stats = (await response.json()) as {
-          system?: { vram?: { free?: number; total?: number } };
-        };
-        return { url, ok: true, vram: stats.system?.vram };
-      } catch {
-        return { url, ok: false };
-      }
-    })
-  )
+  void Promise.all(pool.map(fetchComfyUiPoolEndpointStat))
     .then(stats => setComfyUiPoolStatsCache(stats))
     .catch(() => {})
     .finally(() => {
@@ -204,6 +336,9 @@ export function resolvePreferredComfyUiHost(input: {
   preferredComfyHost?: string;
   poolUrls?: string[];
   poolStats?: ComfyUiPoolEndpointStat[] | null;
+  /** When true (default), skip preferred host when queue load exceeds threshold. */
+  loadBalance?: boolean;
+  busyThreshold?: number;
 }): string | null {
   const preferred = input.preferredComfyHost?.trim();
   if (!preferred) {
@@ -226,7 +361,107 @@ export function resolvePreferredComfyUiHost(input: {
   if (stat && stat.ok === false) {
     return null;
   }
+  if (
+    input.loadBalance !== false &&
+    stat &&
+    isComfyUiEndpointTooBusy(stat, input.busyThreshold ?? getDefaultPoolBusyThreshold())
+  ) {
+    return null;
+  }
   return match;
+}
+
+export function resolveComfyUiUrlWithPoolDetailed(input: {
+  userUrl?: string;
+  clientUrl?: string;
+  envUrl: string;
+  routingSeed?: string;
+  poolStats?: ComfyUiPoolEndpointStat[] | null;
+  preferredComfyHost?: string;
+  loadBalance?: boolean;
+  busyThreshold?: number;
+}): { url: string; routing?: ComfyUiPoolRoutingMeta } {
+  if (input.userUrl?.trim()) {
+    return { url: input.userUrl.trim(), routing: { strategy: 'user' } };
+  }
+  if (input.clientUrl?.trim()) {
+    return { url: input.clientUrl.trim(), routing: { strategy: 'client' } };
+  }
+
+  const pool = parseComfyUiPool();
+  const poolStats = input.poolStats ?? getComfyUiPoolStatsCache();
+  const loadBalance = input.loadBalance !== false;
+  const busyThreshold = input.busyThreshold ?? getDefaultPoolBusyThreshold();
+  const preferredHost = input.preferredComfyHost?.trim();
+
+  const preferredSkippedDueToLoad =
+    loadBalance &&
+    preferredHost &&
+    pool.length > 0 &&
+    poolStats &&
+    poolStats.length > 0 &&
+    (() => {
+      const preferredNorm = normalizeUrlForCompare(preferredHost);
+      const inPool = pool.some(url => normalizeUrlForCompare(url) === preferredNorm);
+      if (!inPool) {
+        return false;
+      }
+      const stat = poolStats.find(entry => normalizeUrlForCompare(entry.url) === preferredNorm);
+      return Boolean(stat && isComfyUiEndpointTooBusy(stat, busyThreshold));
+    })();
+
+  const preferred = resolvePreferredComfyUiHost({
+    preferredComfyHost: input.preferredComfyHost,
+    poolStats,
+    loadBalance,
+    busyThreshold,
+  });
+  if (preferred) {
+    return { url: preferred, routing: { strategy: 'preferred', preferredHost } };
+  }
+
+  if (loadBalance && pool.length > 0 && poolStats && poolStats.length > 0) {
+    const balanced = pickLoadBalancedComfyUiEndpoint(pool, poolStats, { busyThreshold });
+    if (balanced) {
+      return {
+        url: balanced,
+        routing: {
+          strategy: 'load_balance',
+          skippedPreferredDueToLoad: preferredSkippedDueToLoad || undefined,
+          preferredHost: preferredSkippedDueToLoad ? preferredHost : undefined,
+        },
+      };
+    }
+  }
+
+  const pooled = pickComfyUiFromPoolVramAware({
+    seed: input.routingSeed,
+    stats: poolStats,
+  });
+  if (pooled) {
+    return {
+      url: pooled,
+      routing: {
+        strategy: 'vram_aware',
+        skippedPreferredDueToLoad: preferredSkippedDueToLoad || undefined,
+        preferredHost: preferredSkippedDueToLoad ? preferredHost : undefined,
+      },
+    };
+  }
+
+  const roundRobin = pickComfyUiFromPool(input.routingSeed);
+  if (roundRobin) {
+    return {
+      url: roundRobin,
+      routing: {
+        strategy: 'round_robin',
+        skippedPreferredDueToLoad: preferredSkippedDueToLoad || undefined,
+        preferredHost: preferredSkippedDueToLoad ? preferredHost : undefined,
+      },
+    };
+  }
+
+  return { url: input.envUrl, routing: { strategy: 'env' } };
 }
 
 export function resolveComfyUiUrlWithPool(input: {
@@ -238,26 +473,9 @@ export function resolveComfyUiUrlWithPool(input: {
   poolStats?: ComfyUiPoolEndpointStat[] | null;
   /** Preferred pool host from SharedToolSettings — wins when in-pool and healthy-ish. */
   preferredComfyHost?: string;
+  /** When true (default), skip busy endpoints and rotate to the next least-loaded host. */
+  loadBalance?: boolean;
+  busyThreshold?: number;
 }): string {
-  if (input.userUrl?.trim()) {
-    return input.userUrl.trim();
-  }
-  if (input.clientUrl?.trim()) {
-    return input.clientUrl.trim();
-  }
-  const preferred = resolvePreferredComfyUiHost({
-    preferredComfyHost: input.preferredComfyHost,
-    poolStats: input.poolStats,
-  });
-  if (preferred) {
-    return preferred;
-  }
-  const pooled = pickComfyUiFromPoolVramAware({
-    seed: input.routingSeed,
-    stats: input.poolStats,
-  });
-  if (pooled) {
-    return pooled;
-  }
-  return input.envUrl;
+  return resolveComfyUiUrlWithPoolDetailed(input).url;
 }

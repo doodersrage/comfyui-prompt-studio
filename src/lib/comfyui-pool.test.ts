@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
 import {
+  endpointQueueLoad,
   getComfyUiPoolStatsCache,
+  isComfyUiEndpointTooBusy,
   pickComfyUiFromPoolVramAware,
   pickHighestScoringComfyUiEndpoint,
+  pickLoadBalancedComfyUiEndpoint,
   resetComfyUiPoolStatsCacheForTests,
+  resolveComfyUiUrlWithPool,
   scoreComfyUiPoolEndpointStat,
   setComfyUiPoolStatsCache,
   type ComfyUiPoolEndpointStat,
@@ -43,6 +47,52 @@ describe("scoreComfyUiPoolEndpointStat", () => {
     });
     assert.ok(idle != null && busy != null);
     assert.ok(busy! < idle!);
+  });
+});
+
+describe("endpointQueueLoad and busy detection", () => {
+  it("sums pending and running jobs", () => {
+    assert.equal(
+      endpointQueueLoad({ url: "http://a", queuePending: 2, queueRunning: 3 }),
+      5,
+    );
+  });
+
+  it("marks endpoints at or above the busy threshold", () => {
+    assert.equal(
+      isComfyUiEndpointTooBusy({ url: "http://a", ok: true, queuePending: 3, queueRunning: 1 }, 4),
+      true,
+    );
+    assert.equal(
+      isComfyUiEndpointTooBusy({ url: "http://a", ok: true, queuePending: 2, queueRunning: 1 }, 4),
+      false,
+    );
+  });
+});
+
+describe("pickLoadBalancedComfyUiEndpoint", () => {
+  const poolUrls = ["http://10.0.0.5:8188", "http://10.0.0.6:8188"];
+
+  it("skips busy endpoints and picks the best idle host", () => {
+    const stats: ComfyUiPoolEndpointStat[] = [
+      { url: "http://10.0.0.5:8188", ok: true, vram: { free: 24e9 }, queuePending: 6 },
+      { url: "http://10.0.0.6:8188", ok: true, vram: { free: 8e9 }, queuePending: 0 },
+    ];
+    assert.equal(
+      pickLoadBalancedComfyUiEndpoint(poolUrls, stats, { busyThreshold: 4 }),
+      "http://10.0.0.6:8188",
+    );
+  });
+
+  it("falls back to the least-loaded host when every endpoint is busy", () => {
+    const stats: ComfyUiPoolEndpointStat[] = [
+      { url: "http://10.0.0.5:8188", ok: true, vram: { free: 24e9 }, queuePending: 8 },
+      { url: "http://10.0.0.6:8188", ok: true, vram: { free: 8e9 }, queuePending: 5 },
+    ];
+    assert.equal(
+      pickLoadBalancedComfyUiEndpoint(poolUrls, stats, { busyThreshold: 4 }),
+      "http://10.0.0.6:8188",
+    );
   });
 });
 

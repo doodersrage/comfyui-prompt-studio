@@ -181,9 +181,63 @@ export default function SettingsOverviewTab({
               </select>
               <p className="text-[11px] leading-relaxed text-[var(--text-muted)]">
                 When the preferred host is in the pool and healthy, queues use it first. Unhealthy
-                preferred hosts fall back to VRAM-aware routing.
+                or busy preferred hosts fall back to the least-loaded pool server.
               </p>
             </div>
+            <label className="flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                checked={sharedSettings.comfyPoolLoadBalance !== false}
+                onChange={event =>
+                  updateSharedSettings({
+                    comfyPoolLoadBalance: event.target.checked,
+                  })
+                }
+                className="mt-0.5 rounded border-[var(--border-default)] bg-[var(--bg-muted)] text-[var(--text-primary)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40 active:scale-[0.98]"
+              />
+              <span className="space-y-0.5">
+                <span className="block text-sm text-[var(--text-primary)]">
+                  Load-balance across pool
+                </span>
+                <span className="block text-xs text-[var(--text-muted)]">
+                  Before each queue, refresh pool queue depth and skip hosts that exceed the busy
+                  threshold. Rotates to the next least-loaded server automatically.
+                </span>
+              </span>
+            </label>
+            {sharedSettings.comfyPoolLoadBalance !== false ? (
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="comfy-pool-busy-threshold"
+                  className="text-xs text-[var(--text-secondary)]"
+                >
+                  Busy threshold (pending + running jobs)
+                </label>
+                <input
+                  id="comfy-pool-busy-threshold"
+                  type="number"
+                  min={0}
+                  max={64}
+                  step={1}
+                  value={sharedSettings.comfyPoolBusyThreshold ?? 4}
+                  onChange={event => {
+                    const parsed = Number(event.target.value);
+                    updateSharedSettings({
+                      comfyPoolBusyThreshold:
+                        Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined,
+                    });
+                  }}
+                  className="w-full max-w-[8rem] rounded-xl border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2.5 text-sm text-[var(--text-primary)] shadow-inner shadow-[var(--shadow-surface)] transition hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40 active:border-[var(--border-strong)]"
+                />
+                <p className="text-[11px] leading-relaxed text-[var(--text-muted)]">
+                  Hosts at or above this queue depth are skipped. Override server default with{' '}
+                  <code className="rounded bg-[var(--bg-elevated)] px-1">
+                    COMFYUI_POOL_BUSY_THRESHOLD
+                  </code>
+                  .
+                </p>
+              </div>
+            ) : null}
           </div>
         ) : null}
 

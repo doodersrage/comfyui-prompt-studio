@@ -15,7 +15,13 @@ import {
 import { writeQueueArtifact } from './queue-artifacts';
 import { loadServerWorkflowJson } from './comfyui-server-workflows';
 import { applyUserComfyUiOverride } from './user-comfy-url';
-import { getComfyUiPoolStatsCache, resolveComfyUiUrlWithPool } from './comfyui-pool';
+import {
+  ensureComfyUiPoolStatsForQueue,
+  getComfyUiPoolStatsCache,
+  getDefaultPoolBusyThreshold,
+  resolveComfyUiUrlWithPoolDetailed,
+  type ComfyUiPoolRoutingMeta,
+} from './comfyui-pool';
 import {
   getComfyUiAllowedHosts,
   isComfyClientUrlAllowed,
@@ -53,6 +59,8 @@ export type ComfyQueueResult = {
   engineId?: 'comfyui' | 'diffusers';
   family?: string;
   replacements?: { positive: number; negative: number };
+  /** How a multi-host pool pick routed this queue (when COMFYUI_POOL is set). */
+  poolRouting?: ComfyUiPoolRoutingMeta;
 };
 
 /** Max prompts accepted by /api/comfyui in one request. */
@@ -66,34 +74,45 @@ function envComfyUiBaseUrl(): string {
   );
 }
 
-export function getComfyUiBaseUrl(runtime?: ComfyUiRuntimeConfig, routingSeed?: string): string {
+export function getComfyUiBaseUrlWithRouting(
+  runtime?: ComfyUiRuntimeConfig,
+  routingSeed?: string
+): { url: string; routing?: ComfyUiPoolRoutingMeta } {
   const runtimeWithUser = applyUserComfyUiOverride(runtime ?? {});
   const allowedHosts = getComfyUiAllowedHosts();
   const clientUrl = runtimeWithUser.apiUrl?.trim();
 
   if (clientUrl && isComfyClientUrlAllowed()) {
-    return normalizeSafeHttpUrl(clientUrl, {
-      allowPrivate: true,
-      allowedHosts,
-    });
+    return {
+      url: normalizeSafeHttpUrl(clientUrl, {
+        allowPrivate: true,
+        allowedHosts,
+      }),
+      routing: { strategy: 'client' },
+    };
   }
 
-  return normalizeSafeHttpUrl(
-    resolveComfyUiUrlWithPool({
-      userUrl: runtimeWithUser.apiUrl,
-      envUrl: envComfyUiBaseUrl(),
-      routingSeed,
-      // Best-effort VRAM-aware pick from the last known pool health snapshot —
-      // stays synchronous (no fetch here); the cache is refreshed by
-      // checkComfyUiPoolHealth() (health polling) and pool pick misses.
-      poolStats: getComfyUiPoolStatsCache(),
-      preferredComfyHost: runtime?.preferredComfyHost,
-    }),
-    {
+  const resolved = resolveComfyUiUrlWithPoolDetailed({
+    userUrl: runtimeWithUser.apiUrl,
+    envUrl: envComfyUiBaseUrl(),
+    routingSeed,
+    poolStats: getComfyUiPoolStatsCache(),
+    preferredComfyHost: runtime?.preferredComfyHost,
+    loadBalance: runtime?.comfyPoolLoadBalance,
+    busyThreshold: runtime?.comfyPoolBusyThreshold ?? getDefaultPoolBusyThreshold(),
+  });
+
+  return {
+    url: normalizeSafeHttpUrl(resolved.url, {
       allowPrivate: true,
       allowedHosts,
-    }
-  );
+    }),
+    routing: resolved.routing,
+  };
+}
+
+export function getComfyUiBaseUrl(runtime?: ComfyUiRuntimeConfig, routingSeed?: string): string {
+  return getComfyUiBaseUrlWithRouting(runtime, routingSeed).url;
 }
 
 function loadWorkflowFromEnv(): Record<string, unknown> | null {
@@ -117,7 +136,9 @@ function loadWorkflowFromEnv(): Record<string, unknown> | null {
   }
 }
 
-export function resolveComfyUiConfig(runtime?: ComfyUiRuntimeConfig): ResolvedComfyUiConfig {
+export function resolveComfyUiConfig(
+  runtime?: ComfyUiRuntimeConfig
+): ResolvedComfyUiConfig & { poolRouting?: ComfyUiPoolRoutingMeta } {
   const clientWorkflow = parseWorkflowJson(runtime?.workflowJson);
   const selectedServerWorkflow = runtime?.workflowFileId
     ? loadServerWorkflowJson(runtime.workflowFileId)
@@ -126,8 +147,10 @@ export function resolveComfyUiConfig(runtime?: ComfyUiRuntimeConfig): ResolvedCo
   const workflowRaw = clientWorkflow ?? envWorkflow;
   const workflow = workflowRaw ? normalizeComfyApiWorkflow(workflowRaw) : null;
 
+  const { url, routing } = getComfyUiBaseUrlWithRouting(runtime);
+
   return {
-    apiUrl: getComfyUiBaseUrl(runtime),
+    apiUrl: url,
     workflow,
     placeholderTokens: resolvePlaceholderTokens(runtime),
     legacyPositiveNodeId:
@@ -136,7 +159,17 @@ export function resolveComfyUiConfig(runtime?: ComfyUiRuntimeConfig): ResolvedCo
       undefined,
     legacyNegativeNodeId: process.env.COMFYUI_NEGATIVE_NODE_ID?.trim() || undefined,
     workflowSource: clientWorkflow ? 'client' : envWorkflow ? 'env' : 'none',
+    poolRouting: routing,
   };
+}
+
+async function resolveComfyUiConfigForQueue(
+  runtime?: ComfyUiRuntimeConfig
+): Promise<ResolvedComfyUiConfig & { poolRouting?: ComfyUiPoolRoutingMeta }> {
+  await ensureComfyUiPoolStatsForQueue({
+    loadBalance: runtime?.comfyPoolLoadBalance,
+  });
+  return resolveComfyUiConfig(runtime);
 }
 
 /** Cache optimized graphs across batch queue requests that share the same workflow object. */
@@ -349,7 +382,8 @@ export async function queuePromptToComfyUi(
     allowComfyFallback?: boolean;
   }
 ): Promise<ComfyQueueResult> {
-  const config = resolveComfyUiConfig(runtime);
+  const config = await resolveComfyUiConfigForQueue(runtime);
+  const poolRouting = config.poolRouting;
   const runPreflight = options?.preflight !== false;
   const preferDiffusers = options?.preferDiffusers === true;
   const allowComfyFallback = options?.allowComfyFallback !== false;
@@ -553,6 +587,7 @@ export async function queuePromptToComfyUi(
       workflowSource: resolvedPromptBody.workflowSource,
       engineId: 'comfyui',
       replacements: resolvedPromptBody.replacements,
+      poolRouting,
     };
   } catch (error) {
     return {
@@ -582,7 +617,7 @@ export async function queueBatchToComfyUi(
     diffusersUrl?: string;
   }
 ): Promise<ComfyBatchQueueResult> {
-  const config = resolveComfyUiConfig(runtime);
+  const config = await resolveComfyUiConfigForQueue(runtime);
   const results: ComfyQueueResult[] = [];
   const runPreflight = options?.preflight !== false;
   const objectInfo =

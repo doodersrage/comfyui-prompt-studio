@@ -275,6 +275,10 @@ export type SharedToolSettings = {
    * and healthy-ish, queue routing prefers it over VRAM-aware / round-robin picks.
    */
   preferredComfyHost?: string;
+  /** When true (default), rotate away from pool hosts whose queue exceeds the busy threshold. */
+  comfyPoolLoadBalance?: boolean;
+  /** Pending + running jobs above which a pool host is skipped (default 4). */
+  comfyPoolBusyThreshold?: number;
   /** Last-used gallery LoRA dataset export prefs (trigger + caption mode). */
   loraDatasetExportPrefs?: import('./lora-train-job').LoraDatasetExportPrefs;
   /** External LoRA trainer URL / command / output prefs (app owns the loop). */
@@ -657,6 +661,8 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
   faceDetailerDenoise: 0.35,
   promptVersioningEnabled: true,
   preferredComfyHost: undefined,
+  comfyPoolLoadBalance: true,
+  comfyPoolBusyThreshold: 4,
 };
 
 export const DEFAULT_GENERATE_TOOL_CACHE: GenerateToolCache = {
