@@ -25,7 +25,9 @@ import {
 } from '@/lib/comfyui-live-preview-store';
 import { comfyUiJobProgressPercent } from '@/lib/comfyui-job-status';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
+import { useHubPageDescription } from '@/hooks/useToolPageDescription';
 import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
+import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
 
 const ACCENT = 'violet' as const;
 
@@ -105,6 +107,7 @@ function QueueActiveJobRow({
 export default function QueueTool() {
   const workspaceMode = useWorkspaceMode();
   const isSimple = workspaceMode === 'simple';
+  const description = useHubPageDescription('queue');
   const [entries, setEntries] = useState<ComfyGalleryEntry[]>([]);
   const [queueHealth, setQueueHealth] = useState<ComfyQueueHealth | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -215,13 +218,9 @@ export default function QueueTool() {
       accent={ACCENT}
       badge={<ToolBadge accent={ACCENT}>Queue</ToolBadge>}
       title="ComfyUI job queue"
-      description={
-        isSimple
-          ? 'Active jobs at a glance — expand sections below for failed runs and recent outputs.'
-          : 'Pending and running jobs across gallery entries. Live ComfyUI queue stats refresh every few seconds.'
-      }
+      description={description}
     >
-      <ToolSetupBanner toolLabel="Queue" />
+      <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.queue} />
       {queueHealth?.ok ? (
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm text-[var(--text-muted)]">

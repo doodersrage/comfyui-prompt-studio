@@ -16,6 +16,7 @@ import { flattenAppNavLinks } from '@/lib/app-nav-catalog';
 import { buildGalleryFocusUrl, buildUseAsHintsUrlFromGallery } from '@/lib/use-as-hints-url';
 import { startPromptEditorFromGalleryEntry } from '@/lib/improve-output';
 import { usePromptHistory } from '@/hooks/usePromptHistory';
+import { useHubPageDescription, useToolSectionDescription } from '@/hooks/useToolPageDescription';
 import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
 import OnboardingChecklist from '@/components/OnboardingChecklist';
 import ConnectionHealthChip from '@/components/ConnectionHealthChip';
@@ -46,6 +47,10 @@ function labelForRoute(href: string): string {
 export default function HomeDashboard() {
   const workspaceMode = useWorkspaceMode();
   const isSimple = workspaceMode === 'simple';
+  const description = useHubPageDescription('dashboard');
+  const recentSectionDescription = useToolSectionDescription(
+    'Open a result, continue editing, or seed a new scene from its prompt.'
+  );
   const { entries } = usePromptHistory();
   const [gallery, setGallery] = useState<ReturnType<typeof loadComfyGallery>>([]);
   const [scheduled, setScheduled] = useState(loadScheduledBatchConfig());
@@ -81,8 +86,8 @@ export default function HomeDashboard() {
       gallery
         .filter(entry => entry.status === 'completed')
         .sort((a, b) => (b.completedAt ?? 0) - (a.completedAt ?? 0))
-        .slice(0, 6),
-    [gallery]
+        .slice(0, isSimple ? 4 : 6),
+    [gallery, isSimple]
   );
   const activeProject = projects.find(project => project.id === activeProjectId);
   const showContinue =
@@ -95,11 +100,7 @@ export default function HomeDashboard() {
       width="wide"
       badge={<ToolBadge accent={ACCENT}>Overview</ToolBadge>}
       title="Dashboard"
-      description={
-        isSimple
-          ? 'Queue status and recent outputs at a glance — open Generate when you are ready to create.'
-          : 'Pending ComfyUI jobs, recent outputs, queue status, and your active project — without the generator UI in the way.'
-      }
+      description={description}
     >
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <ConnectionHealthChip />
@@ -239,11 +240,10 @@ export default function HomeDashboard() {
       )}
 
       {recentCompleted.length > 0 ? (
-        <ToolSection
-          title="Recent outputs"
-          description="Open a result, continue editing, or seed a new scene from its prompt."
-        >
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <ToolSection title="Recent outputs" description={recentSectionDescription}>
+          <div
+            className={`grid gap-3 ${isSimple ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6'}`}
+          >
             {recentCompleted.map(entry => {
               const thumb = galleryEntryThumbUrls(entry)[0];
               const focusHref = buildGalleryFocusUrl(entry.id);

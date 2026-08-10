@@ -18,6 +18,7 @@ import {
   SceneQuickTags,
   VariationSliderField,
 } from '@/components/scene-tool/SceneToolSections';
+import SceneSetupSection from '@/components/scene-tool/SceneSetupSection';
 import {
   HistoryHintSeedPanel,
   resolveSceneHintsForGeneration,
@@ -500,7 +501,7 @@ export default function CharacterTool() {
       }
     >
       <ToolSetupBanner toolLabel="Character" />
-      <ToolSection title="Scene setup" description="Pick a mode, add hints, then generate.">
+      <SceneSetupSection description="Pick a mode, add hints, then generate.">
         <FieldLabel>Scene mode</FieldLabel>
         <div className="flex flex-wrap gap-2">
           {SCENE_MODE_OPTIONS.map(option => (
@@ -843,7 +844,7 @@ export default function CharacterTool() {
             </Button>
           ) : null}
         </SceneGenerateFooter>
-      </ToolSection>
+      </SceneSetupSection>
 
       <EnhancedPromptResult
         output={output}

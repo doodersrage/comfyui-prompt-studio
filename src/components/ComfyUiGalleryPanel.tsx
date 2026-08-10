@@ -32,6 +32,7 @@ import StatusToastStrip from '@/components/ui/StatusToastStrip';
 import { useGalleryReview } from '@/hooks/useGalleryReview';
 import { useGallerySelection } from '@/hooks/useGallerySelection';
 import { toneForStatusText } from '@/lib/status-progress';
+import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
 import { computeGalleryStats } from '@/lib/gallery-stats';
 import { formatMutatedJobsStatus, queueMutatedGalleryJobs } from '@/lib/gallery-mutations';
 import { queueNegativeAbTest } from '@/lib/negative-ab-queue';
@@ -126,6 +127,9 @@ export default function ComfyUiGalleryPanel({
   compact = false,
   showFilters = false,
 }: ComfyUiGalleryPanelProps) {
+  const workspaceMode = useWorkspaceMode();
+  const leanGallery = workspaceMode === 'simple' && showFilters && !compact;
+
   const {
     storeReady,
     entries,
@@ -258,6 +262,7 @@ export default function ComfyUiGalleryPanel({
   }, [resolvedProjectFilterId, setFilter]);
 
   const bulkEnabled = showFilters && !compact;
+  const leanBulkEnabled = bulkEnabled && !leanGallery;
   const paginationEnabled = showFilters && !compact && !limit;
   const galleryStats = useMemo(() => computeGalleryStats(entries), [entries]);
   const activeJobs = galleryStats.pending + galleryStats.running;
@@ -351,7 +356,7 @@ export default function ComfyUiGalleryPanel({
   const effectivePageSize = resolveGalleryPageSize(pageSize, totalFiltered);
   const showPagination =
     paginationEnabled && pageSize !== GALLERY_PAGE_SIZE_ALL && totalFiltered > effectivePageSize;
-  const lineageGrouping = galleryLineageGroupingEnabled(filter);
+  const lineageGrouping = !leanGallery && galleryLineageGroupingEnabled(filter);
   const lineageGroups = useMemo(
     () => (lineageGrouping ? buildGalleryLineageGroups(visibleEntries) : null),
     [lineageGrouping, visibleEntries]
@@ -983,8 +988,9 @@ export default function ComfyUiGalleryPanel({
           <div>
             <h2 className="type-heading text-[var(--text-primary)]">Gallery</h2>
             <p className="mt-1 text-sm text-[var(--text-muted)]">
-              Browse ComfyUI outputs, rate results, compare variants, and queue follow-up
-              experiments.
+              {leanGallery
+                ? 'Browse ComfyUI outputs and rate results.'
+                : 'Browse ComfyUI outputs, rate results, compare variants, and queue follow-up experiments.'}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -1038,7 +1044,7 @@ export default function ComfyUiGalleryPanel({
         </div>
       ) : null}
 
-      {showFilters && entries.length > 0 ? (
+      {showFilters && !leanGallery && entries.length > 0 ? (
         <GalleryStatsBar
           stats={galleryStats}
           filter={filter}
@@ -1054,6 +1060,7 @@ export default function ComfyUiGalleryPanel({
 
       {showFilters && (
         <GalleryFiltersBar
+          lean={leanGallery}
           filter={filter}
           setFilter={setFilter}
           tools={tools}
@@ -1094,7 +1101,7 @@ export default function ComfyUiGalleryPanel({
         />
       )}
 
-      {bulkEnabled && visibleEntries.length > 0 && selectedIds.length === 0 ? (
+      {leanBulkEnabled && visibleEntries.length > 0 && selectedIds.length === 0 ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/20 px-4 py-3 text-xs text-[var(--text-muted)]">
           <span>Select cards to compare, export, queue, assign projects, or remove.</span>
           <div className="flex items-center gap-2">
@@ -1117,6 +1124,7 @@ export default function ComfyUiGalleryPanel({
 
       {bulkEnabled ? (
         <GallerySelectionBar
+          lean={leanGallery}
           selectedCount={selectedIds.length}
           selectedEntries={selectedEntries}
           projects={projects}

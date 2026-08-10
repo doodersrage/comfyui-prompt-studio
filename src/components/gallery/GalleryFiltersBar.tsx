@@ -55,6 +55,8 @@ type GalleryFiltersBarProps = {
   onStartSlideshow?: () => void;
   onStartFullscreenSlideshow?: () => void;
   slideshowAvailable?: boolean;
+  /** Simple workspace — search, status, and basic sort only. */
+  lean?: boolean;
 };
 
 function FilterChip(props: {
@@ -108,6 +110,7 @@ export default function GalleryFiltersBar({
   onStartSlideshow,
   onStartFullscreenSlideshow,
   slideshowAvailable,
+  lean = false,
 }: GalleryFiltersBarProps) {
   const activeToggleCount = [
     filter.favoritesOnly,
@@ -230,7 +233,14 @@ export default function GalleryFiltersBar({
               onChange={event => setSort(event.target.value as ComfyGallerySort)}
               className="ui-input block w-full px-3 py-(--input-padding-y) type-body"
             >
-              {GALLERY_SORT_OPTIONS.map(option => (
+              {(lean
+                ? GALLERY_SORT_OPTIONS.filter(option =>
+                    ['queued-desc', 'queued-asc', 'completed-desc', 'favorites-first'].includes(
+                      option.value
+                    )
+                  )
+                : GALLERY_SORT_OPTIONS
+              ).map(option => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
@@ -239,17 +249,19 @@ export default function GalleryFiltersBar({
           </label>
         ) : null}
 
-        <div className="flex flex-wrap items-center gap-2">
-          {(['grid', 'dense', 'list'] as const).map(mode => (
-            <FilterChip
-              key={mode}
-              active={layout === mode}
-              label={mode === 'grid' ? 'Grid' : mode === 'dense' ? 'Dense' : 'List'}
-              testId={`gallery-layout-${mode}`}
-              onClick={() => setLayout(mode)}
-            />
-          ))}
-        </div>
+        {!lean ? (
+          <div className="flex flex-wrap items-center gap-2">
+            {(['grid', 'dense', 'list'] as const).map(mode => (
+              <FilterChip
+                key={mode}
+                active={layout === mode}
+                label={mode === 'grid' ? 'Grid' : mode === 'dense' ? 'Dense' : 'List'}
+                testId={`gallery-layout-${mode}`}
+                onClick={() => setLayout(mode)}
+              />
+            ))}
+          </div>
+        ) : null}
 
         <p className="shrink-0 type-caption text-[var(--text-muted)]">
           {totalFiltered} of {totalEntries}
@@ -260,254 +272,256 @@ export default function GalleryFiltersBar({
         </p>
       </div>
 
-      <CollapsibleSection
-        title="Filters"
-        summary="Tool, project, saved views, review toggles, and slideshow."
-        defaultOpen={false}
-        persistKey="gallery-advanced-filters"
-      >
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {tools.length > 0 ? (
+      {!lean ? (
+        <CollapsibleSection
+          title="Filters"
+          summary="Tool, project, saved views, review toggles, and slideshow."
+          defaultOpen={false}
+          persistKey="gallery-advanced-filters"
+        >
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {tools.length > 0 ? (
+              <label className="space-y-1.5">
+                <span className="type-caption text-[var(--text-muted)]">Tool</span>
+                <select
+                  value={filter.tool ?? ''}
+                  onChange={event =>
+                    setFilter({
+                      ...filter,
+                      tool: event.target.value || undefined,
+                    })
+                  }
+                  className="ui-input block w-full px-3 py-(--input-padding-y) type-body"
+                >
+                  <option value="">All tools</option>
+                  {tools.map(tool => (
+                    <option key={tool} value={tool}>
+                      {tool}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+
             <label className="space-y-1.5">
-              <span className="type-caption text-[var(--text-muted)]">Tool</span>
+              <span className="type-caption text-[var(--text-muted)]">Project</span>
               <select
-                value={filter.tool ?? ''}
-                onChange={event =>
+                value={projectFilterId}
+                onChange={event => setProjectFilterId(event.target.value)}
+                className="ui-input block w-full px-3 py-(--input-padding-y) type-body"
+              >
+                <option value="">All projects</option>
+                <option value="active">Active project</option>
+                {projects.map(project => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {paginationEnabled ? (
+              <label className="space-y-1.5">
+                <span className="type-caption text-[var(--text-muted)]">Per page</span>
+                <select
+                  value={pageSize}
+                  onChange={event => setPageSize(event.target.value as GalleryPageSize)}
+                  className="ui-input block w-full px-3 py-(--input-padding-y) type-body"
+                >
+                  {GALLERY_PAGE_SIZE_OPTIONS.map(size => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                  <option value={GALLERY_PAGE_SIZE_ALL}>All</option>
+                </select>
+              </label>
+            ) : null}
+          </div>
+
+          <div className="space-y-2 rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-subtle)] p-3">
+            <p className="type-caption text-[var(--text-muted)]">Saved views</p>
+            <div className="flex flex-wrap gap-2">
+              {savedViews.map(view => (
+                <span key={view.id} className="inline-flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => applySavedView(view)}
+                    className={`ui-chip rounded-xl border border-violet-500/45 bg-violet-900/20 backdrop-blur-xs transition hover:bg-violet-500/30 hover:border-violet-400/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30 text-violet-400`}
+                  >
+                    {view.name}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      deleteGallerySavedView(view.id);
+                      setSavedViews(loadGallerySavedViews());
+                    }}
+                    className={`rounded-xl px-1 text-xs border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60 transition hover:text-[var(--text-primary)] hover:border-rose-600/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30`}
+                    aria-label={`Delete saved view ${view.name}`}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="text"
+                value={viewNameDraft}
+                onChange={event => setViewNameDraft(event.target.value)}
+                placeholder="Name this filter set…"
+                className="ui-input min-w-[12rem] flex-1 px-3 py-1.5 text-sm"
+              />
+              <button
+                type="button"
+                onClick={saveCurrentView}
+                className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60 backdrop-blur-xs transition hover:bg-violet-500/25 hover:border-violet-500/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30 text-violet-400`}
+              >
+                Save current view
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <FilterChip
+              active={!filter.mediaKind || filter.mediaKind === 'all'}
+              label="All media"
+              onClick={() => setFilter({ ...filter, mediaKind: 'all' })}
+            />
+            <FilterChip
+              active={filter.mediaKind === 'image'}
+              label="Stills"
+              onClick={() => setFilter({ ...filter, mediaKind: 'image' })}
+            />
+            <FilterChip
+              active={filter.mediaKind === 'video'}
+              label="Videos"
+              onClick={() => setFilter({ ...filter, mediaKind: 'video' })}
+            />
+            <FilterChip
+              active={Boolean(filter.favoritesOnly)}
+              label="Favorites"
+              onClick={() =>
+                setFilter({ ...filter, favoritesOnly: filter.favoritesOnly ? undefined : true })
+              }
+            />
+            <FilterChip
+              active={Boolean(filter.semanticSearch)}
+              label={embeddingSearchActive ? 'Semantic ✓' : 'Semantic'}
+              onClick={() =>
+                setFilter({
+                  ...filter,
+                  semanticSearch: filter.semanticSearch ? undefined : true,
+                })
+              }
+            />
+            <FilterChip
+              active={Boolean(filter.reviewMode)}
+              label="Review mode"
+              testId="gallery-filter-review-mode"
+              onClick={() =>
+                setFilter({ ...filter, reviewMode: filter.reviewMode ? undefined : true })
+              }
+            />
+            <FilterChip
+              active={Boolean(filter.unreviewedOnly)}
+              label="Unreviewed"
+              onClick={() =>
+                setFilter({
+                  ...filter,
+                  unreviewedOnly: filter.unreviewedOnly ? undefined : true,
+                })
+              }
+            />
+            <FilterChip
+              active={Boolean(filter.visionTagsOnly)}
+              label="Vision tags"
+              onClick={() =>
+                setFilter({ ...filter, visionTagsOnly: filter.visionTagsOnly ? undefined : true })
+              }
+            />
+            <button
+              type="button"
+              disabled={backfillLoading}
+              onClick={() => void runVisionBackfill()}
+              className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-sky-600/45 bg-sky-900/20 backdrop-blur-xs transition hover:bg-sky-500/30 hover:border-sky-500/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40 disabled:opacity-40 ${
+                backfillLoading ? 'text-slate-400' : 'text-sky-400'
+              }`}
+            >
+              {backfillLoading
+                ? backfillProgress
+                  ? `Tagging ${backfillProgress.completed}/${backfillProgress.total}`
+                  : 'Tagging…'
+                : 'Tag untagged'}
+            </button>
+            {filter.semanticSearch && embeddingSearchUnavailable ? (
+              <span className="rounded-[var(--radius-full)] border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-2.5 py-1 text-[10px] text-[var(--tint-warning-text)]">
+                Semantic search needs LLM embeddings — using text match
+              </span>
+            ) : null}
+            {filter.reviewMode ? (
+              <FilterChip
+                active={Boolean(filter.reviewAutoAdvance)}
+                label="Auto-advance"
+                onClick={() =>
                   setFilter({
                     ...filter,
-                    tool: event.target.value || undefined,
+                    reviewAutoAdvance: filter.reviewAutoAdvance ? undefined : true,
                   })
                 }
-                className="ui-input block w-full px-3 py-(--input-padding-y) type-body"
+              />
+            ) : null}
+            {slideshowAvailable && onStartSlideshow ? (
+              <button
+                type="button"
+                onClick={onStartSlideshow}
+                className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-amber-600/45 bg-amber-900/15 backdrop-blur-xs transition hover:bg-amber-500/30 hover:border-amber-500/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/30 text-amber-400`}
               >
-                <option value="">All tools</option>
-                {tools.map(tool => (
-                  <option key={tool} value={tool}>
-                    {tool}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : null}
-
-          <label className="space-y-1.5">
-            <span className="type-caption text-[var(--text-muted)]">Project</span>
-            <select
-              value={projectFilterId}
-              onChange={event => setProjectFilterId(event.target.value)}
-              className="ui-input block w-full px-3 py-(--input-padding-y) type-body"
-            >
-              <option value="">All projects</option>
-              <option value="active">Active project</option>
-              {projects.map(project => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          {paginationEnabled ? (
-            <label className="space-y-1.5">
-              <span className="type-caption text-[var(--text-muted)]">Per page</span>
-              <select
-                value={pageSize}
-                onChange={event => setPageSize(event.target.value as GalleryPageSize)}
-                className="ui-input block w-full px-3 py-(--input-padding-y) type-body"
+                Slideshow
+              </button>
+            ) : null}
+            {slideshowAvailable && onStartFullscreenSlideshow ? (
+              <button
+                type="button"
+                onClick={onStartFullscreenSlideshow}
+                className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-cyan-600/45 bg-cyan-900/15 backdrop-blur-xs transition hover:bg-cyan-500/30 hover:border-cyan-500/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/30 text-cyan-400`}
               >
-                {GALLERY_PAGE_SIZE_OPTIONS.map(size => (
-                  <option key={size} value={size}>
-                    {size}
-                  </option>
-                ))}
-                <option value={GALLERY_PAGE_SIZE_ALL}>All</option>
-              </select>
-            </label>
-          ) : null}
-        </div>
-
-        <div className="space-y-2 rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-subtle)] p-3">
-          <p className="type-caption text-[var(--text-muted)]">Saved views</p>
-          <div className="flex flex-wrap gap-2">
-            {savedViews.map(view => (
-              <span key={view.id} className="inline-flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => applySavedView(view)}
-                  className={`ui-chip rounded-xl border border-violet-500/45 bg-violet-900/20 backdrop-blur-xs transition hover:bg-violet-500/30 hover:border-violet-400/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30 text-violet-400`}
-                >
-                  {view.name}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    deleteGallerySavedView(view.id);
-                    setSavedViews(loadGallerySavedViews());
-                  }}
-                  className={`rounded-xl px-1 text-xs border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60 transition hover:text-[var(--text-primary)] hover:border-rose-600/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30`}
-                  aria-label={`Delete saved view ${view.name}`}
-                >
-                  ×
-                </button>
-              </span>
-            ))}
+                Fullscreen slideshow
+              </button>
+            ) : null}
+            {activeToggleCount > 0 ? (
+              <button
+                type="button"
+                className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60 backdrop-blur-xs transition hover:bg-violet-500/20 hover:border-violet-600/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30`}
+                onClick={() =>
+                  setFilter({
+                    ...filter,
+                    favoritesOnly: undefined,
+                    semanticSearch: undefined,
+                    reviewMode: undefined,
+                    unreviewedOnly: undefined,
+                    reviewAutoAdvance: undefined,
+                    visionTagsOnly: undefined,
+                  })
+                }
+              >
+                Clear toggles
+              </button>
+            ) : null}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              type="text"
-              value={viewNameDraft}
-              onChange={event => setViewNameDraft(event.target.value)}
-              placeholder="Name this filter set…"
-              className="ui-input min-w-[12rem] flex-1 px-3 py-1.5 text-sm"
-            />
-            <button
-              type="button"
-              onClick={saveCurrentView}
-              className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60 backdrop-blur-xs transition hover:bg-violet-500/25 hover:border-violet-500/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30 text-violet-400`}
-            >
-              Save current view
-            </button>
-          </div>
-        </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <FilterChip
-            active={!filter.mediaKind || filter.mediaKind === 'all'}
-            label="All media"
-            onClick={() => setFilter({ ...filter, mediaKind: 'all' })}
-          />
-          <FilterChip
-            active={filter.mediaKind === 'image'}
-            label="Stills"
-            onClick={() => setFilter({ ...filter, mediaKind: 'image' })}
-          />
-          <FilterChip
-            active={filter.mediaKind === 'video'}
-            label="Videos"
-            onClick={() => setFilter({ ...filter, mediaKind: 'video' })}
-          />
-          <FilterChip
-            active={Boolean(filter.favoritesOnly)}
-            label="Favorites"
-            onClick={() =>
-              setFilter({ ...filter, favoritesOnly: filter.favoritesOnly ? undefined : true })
-            }
-          />
-          <FilterChip
-            active={Boolean(filter.semanticSearch)}
-            label={embeddingSearchActive ? 'Semantic ✓' : 'Semantic'}
-            onClick={() =>
-              setFilter({
-                ...filter,
-                semanticSearch: filter.semanticSearch ? undefined : true,
-              })
-            }
-          />
-          <FilterChip
-            active={Boolean(filter.reviewMode)}
-            label="Review mode"
-            testId="gallery-filter-review-mode"
-            onClick={() =>
-              setFilter({ ...filter, reviewMode: filter.reviewMode ? undefined : true })
-            }
-          />
-          <FilterChip
-            active={Boolean(filter.unreviewedOnly)}
-            label="Unreviewed"
-            onClick={() =>
-              setFilter({
-                ...filter,
-                unreviewedOnly: filter.unreviewedOnly ? undefined : true,
-              })
-            }
-          />
-          <FilterChip
-            active={Boolean(filter.visionTagsOnly)}
-            label="Vision tags"
-            onClick={() =>
-              setFilter({ ...filter, visionTagsOnly: filter.visionTagsOnly ? undefined : true })
-            }
-          />
-          <button
-            type="button"
-            disabled={backfillLoading}
-            onClick={() => void runVisionBackfill()}
-            className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-sky-600/45 bg-sky-900/20 backdrop-blur-xs transition hover:bg-sky-500/30 hover:border-sky-500/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40 disabled:opacity-40 ${
-              backfillLoading ? 'text-slate-400' : 'text-sky-400'
-            }`}
-          >
-            {backfillLoading
-              ? backfillProgress
-                ? `Tagging ${backfillProgress.completed}/${backfillProgress.total}`
-                : 'Tagging…'
-              : 'Tag untagged'}
-          </button>
-          {filter.semanticSearch && embeddingSearchUnavailable ? (
-            <span className="rounded-[var(--radius-full)] border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-2.5 py-1 text-[10px] text-[var(--tint-warning-text)]">
-              Semantic search needs LLM embeddings — using text match
-            </span>
-          ) : null}
           {filter.reviewMode ? (
-            <FilterChip
-              active={Boolean(filter.reviewAutoAdvance)}
-              label="Auto-advance"
-              onClick={() =>
-                setFilter({
-                  ...filter,
-                  reviewAutoAdvance: filter.reviewAutoAdvance ? undefined : true,
-                })
-              }
-            />
+            <p className="rounded-[var(--radius-md)] border border-[var(--accent-border)] bg-[var(--accent-muted)] px-3 py-2 text-[11px] text-[var(--accent-text)]">
+              Review shortcuts: <kbd className="rounded bg-[var(--bg-muted)] px-1">1–5</kbd> rate ·{' '}
+              <kbd className="rounded bg-[var(--bg-muted)] px-1">F</kbd> favorite ·{' '}
+              <kbd className="rounded bg-[var(--bg-muted)] px-1">N</kbd>/
+              <kbd className="rounded bg-[var(--bg-muted)] px-1">P</kbd> navigate
+              {filter.reviewAutoAdvance ? ' · auto-advance on' : ''}
+            </p>
           ) : null}
-          {slideshowAvailable && onStartSlideshow ? (
-            <button
-              type="button"
-              onClick={onStartSlideshow}
-              className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-amber-600/45 bg-amber-900/15 backdrop-blur-xs transition hover:bg-amber-500/30 hover:border-amber-500/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/30 text-amber-400`}
-            >
-              Slideshow
-            </button>
-          ) : null}
-          {slideshowAvailable && onStartFullscreenSlideshow ? (
-            <button
-              type="button"
-              onClick={onStartFullscreenSlideshow}
-              className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-cyan-600/45 bg-cyan-900/15 backdrop-blur-xs transition hover:bg-cyan-500/30 hover:border-cyan-500/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/30 text-cyan-400`}
-            >
-              Fullscreen slideshow
-            </button>
-          ) : null}
-          {activeToggleCount > 0 ? (
-            <button
-              type="button"
-              className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60 backdrop-blur-xs transition hover:bg-violet-500/20 hover:border-violet-600/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30`}
-              onClick={() =>
-                setFilter({
-                  ...filter,
-                  favoritesOnly: undefined,
-                  semanticSearch: undefined,
-                  reviewMode: undefined,
-                  unreviewedOnly: undefined,
-                  reviewAutoAdvance: undefined,
-                  visionTagsOnly: undefined,
-                })
-              }
-            >
-              Clear toggles
-            </button>
-          ) : null}
-        </div>
-
-        {filter.reviewMode ? (
-          <p className="rounded-[var(--radius-md)] border border-[var(--accent-border)] bg-[var(--accent-muted)] px-3 py-2 text-[11px] text-[var(--accent-text)]">
-            Review shortcuts: <kbd className="rounded bg-[var(--bg-muted)] px-1">1–5</kbd> rate ·{' '}
-            <kbd className="rounded bg-[var(--bg-muted)] px-1">F</kbd> favorite ·{' '}
-            <kbd className="rounded bg-[var(--bg-muted)] px-1">N</kbd>/
-            <kbd className="rounded bg-[var(--bg-muted)] px-1">P</kbd> navigate
-            {filter.reviewAutoAdvance ? ' · auto-advance on' : ''}
-          </p>
-        ) : null}
-      </CollapsibleSection>
+        </CollapsibleSection>
+      ) : null}
     </div>
   );
 }

@@ -6,7 +6,7 @@ export default function LoginPage() {
   return (
     <PageCanvas accent="violet">
       <div className="flex min-h-[70vh] items-center justify-center px-4 py-16">
-        <Suspense fallback={<div className="text-sm text-zinc-500">Loading…</div>}>
+        <Suspense fallback={<div className="text-sm text-[var(--text-muted)]">Loading…</div>}>
           <LoginForm />
         </Suspense>
       </div>

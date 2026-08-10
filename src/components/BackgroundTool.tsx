@@ -5,6 +5,7 @@ import { readRawPrompt } from '@/lib/raw-prompt';
 import { useCallback, useEffect, useState } from 'react';
 import BackgroundPresetControls from '@/components/BackgroundPresetControls';
 import { SceneGenerateFooter, SceneQuickTags } from '@/components/scene-tool/SceneToolSections';
+import SceneSetupSection from '@/components/scene-tool/SceneSetupSection';
 import {
   HistoryHintSeedPanel,
   resolveBackgroundTagsForGeneration,
@@ -188,7 +189,7 @@ export default function BackgroundTool() {
       }
     >
       <ToolSetupBanner toolLabel="Background" />
-      <ToolSection
+      <SceneSetupSection
         title="Environment setup"
         description="Quick tags and optional presets — no people."
       >
@@ -264,7 +265,7 @@ export default function BackgroundTool() {
           loadingLabel="Generating background prompt"
           error={error ?? generateDisabledReason}
         />
-      </ToolSection>
+      </SceneSetupSection>
 
       <EnhancedPromptResult
         output={output}

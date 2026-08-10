@@ -43,3 +43,28 @@ export const TOOL_PAGE_WIDTH = {
 export function descriptionForWorkspace(mode: WorkspaceMode, full: string, simple: string): string {
   return mode === 'simple' ? simple : full;
 }
+
+/** Hub page descriptions — full vs Simple workspace. */
+export const HUB_PAGE_DESCRIPTIONS = {
+  gallery: {
+    full: 'Browse outputs, review and compare variants, run experiments, and queue follow-up work from one place.',
+    simple: 'Browse and review outputs — use search and filters when you need to dig in.',
+  },
+  queue: {
+    full: 'Pending and running jobs across gallery entries. Live ComfyUI queue stats refresh every few seconds.',
+    simple: 'Active jobs at a glance — expand sections below for failed runs and recent outputs.',
+  },
+  dashboard: {
+    full: 'Pending ComfyUI jobs, recent outputs, queue status, and your active project — without the generator UI in the way.',
+    simple:
+      'Queue status and recent outputs at a glance — open Generate when you are ready to create.',
+  },
+} as const;
+
+/** Omit verbose ToolSection descriptions in Simple workspace. */
+export function sectionDescriptionForWorkspace(
+  mode: WorkspaceMode,
+  full: string
+): string | undefined {
+  return mode === 'simple' ? undefined : full;
+}

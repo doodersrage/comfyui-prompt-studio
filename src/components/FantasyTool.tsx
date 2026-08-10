@@ -35,6 +35,7 @@ import {
   SceneHintsField,
   VariationSliderField,
 } from '@/components/scene-tool/SceneToolSections';
+import SceneSetupSection from '@/components/scene-tool/SceneSetupSection';
 import {
   HistoryHintSeedPanel,
   resolveSceneHintsForGeneration,
@@ -52,7 +53,6 @@ import {
   ToolBadge,
   CollapsibleSection,
   ToolLayout,
-  ToolSection,
   accentFocusClass,
   accentRingClass,
 } from '@/components/ui/ToolPageShell';
@@ -296,7 +296,7 @@ export default function FantasyTool() {
       }
     >
       <ToolSetupBanner toolLabel="Fantasy" />
-      <ToolSection title="Scene setup" description="Presets, hints, then generate.">
+      <SceneSetupSection description="Presets, hints, then generate.">
         <CollapsibleSection
           title="Fantasy presets"
           summary="Starter chips and subgenre, magic, and camera options."
@@ -422,7 +422,7 @@ export default function FantasyTool() {
           loadingLabel="Generating fantasy scene prompt"
           error={error ?? generateDisabledReason}
         />
-      </ToolSection>
+      </SceneSetupSection>
 
       <EnhancedPromptResult
         output={output}

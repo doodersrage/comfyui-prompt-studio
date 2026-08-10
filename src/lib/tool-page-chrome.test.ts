@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  HUB_PAGE_DESCRIPTIONS,
   TOOL_SETUP_LABELS,
   TOOL_SIDEBAR_DESCRIPTION,
   TOOL_SIDEBAR_TITLE,
   descriptionForWorkspace,
+  sectionDescriptionForWorkspace,
 } from './tool-page-chrome';
 
 describe('tool-page-chrome', () => {
@@ -23,5 +25,17 @@ describe('tool-page-chrome', () => {
     assert.equal(TOOL_SETUP_LABELS.format, 'Format');
     assert.equal(TOOL_SETUP_LABELS.topics, 'Topics');
     assert.equal(TOOL_SETUP_LABELS.imagePrompt, 'Image → Prompt');
+    assert.equal(TOOL_SETUP_LABELS.gallery, 'Gallery');
+    assert.equal(TOOL_SETUP_LABELS.queue, 'Queue');
+  });
+
+  it('exposes hub page descriptions', () => {
+    assert.match(HUB_PAGE_DESCRIPTIONS.gallery.full, /experiments/);
+    assert.match(HUB_PAGE_DESCRIPTIONS.gallery.simple, /Browse/);
+  });
+
+  it('omits section descriptions in simple workspace', () => {
+    assert.equal(sectionDescriptionForWorkspace('simple', 'Verbose'), undefined);
+    assert.equal(sectionDescriptionForWorkspace('studio', 'Verbose'), 'Verbose');
   });
 });

@@ -31,6 +31,7 @@ import {
   SceneHintsField,
   VariationSliderField,
 } from '@/components/scene-tool/SceneToolSections';
+import SceneSetupSection from '@/components/scene-tool/SceneSetupSection';
 import {
   HistoryHintSeedPanel,
   resolveSceneHintsForGeneration,
@@ -43,7 +44,6 @@ import {
   ToolBadge,
   CollapsibleSection,
   ToolLayout,
-  ToolSection,
   accentFocusClass,
   accentRingClass,
 } from '@/components/ui/ToolPageShell';
@@ -225,7 +225,7 @@ export default function PetTool() {
       }
     >
       <ToolSetupBanner toolLabel="Pet" />
-      <ToolSection title="Scene setup" description="Presets, hints, then generate.">
+      <SceneSetupSection description="Presets, hints, then generate.">
         <CollapsibleSection
           title="Pet presets"
           summary="Starter chips and species, pose, and setting options."
@@ -333,7 +333,7 @@ export default function PetTool() {
           loadingLabel="Generating pet scene prompt"
           error={error ?? generateDisabledReason}
         />
-      </ToolSection>
+      </SceneSetupSection>
 
       <EnhancedPromptResult
         output={output}

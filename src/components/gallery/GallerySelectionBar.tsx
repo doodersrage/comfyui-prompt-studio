@@ -51,6 +51,8 @@ type GallerySelectionBarProps = {
   onBulkRefine: () => void;
   onBulkMoireCleanFinal: () => void;
   onBulkMoireCleanMax: () => void;
+  /** Simple workspace — compare, export essentials, and organize only. */
+  lean?: boolean;
 };
 
 function ActionMenu(props: { label: string; children: ReactNode; disabled?: boolean }) {
@@ -204,20 +206,26 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
         <ActionMenu label="Export" disabled={props.selectedCount === 0}>
           <MenuItem label="Sidecars" onClick={props.onExportSidecars} />
           <MenuItem label="Images" onClick={props.onDownloadImages} />
-          <MenuItem label="ZIP bundle" onClick={props.onExportZip} />
-          <MenuItem label="Export LoRA dataset" onClick={props.onExportLoraDataset} />
-          <MenuItem label="CSV" onClick={props.onExportCsv} />
-          <MenuItem label="JSONL" onClick={props.onExportJsonl} />
-          <MenuItem
-            label="Compare JSON"
-            disabled={!compareReady}
-            onClick={props.onExportCompareJson}
-          />
-          <MenuItem
-            label="Compare HTML"
-            disabled={!compareReady}
-            onClick={props.onExportCompareHtml}
-          />
+          {!props.lean ? <MenuItem label="ZIP bundle" onClick={props.onExportZip} /> : null}
+          {!props.lean ? (
+            <MenuItem label="Export LoRA dataset" onClick={props.onExportLoraDataset} />
+          ) : null}
+          {!props.lean ? <MenuItem label="CSV" onClick={props.onExportCsv} /> : null}
+          {!props.lean ? <MenuItem label="JSONL" onClick={props.onExportJsonl} /> : null}
+          {!props.lean ? (
+            <>
+              <MenuItem
+                label="Compare JSON"
+                disabled={!compareReady}
+                onClick={props.onExportCompareJson}
+              />
+              <MenuItem
+                label="Compare HTML"
+                disabled={!compareReady}
+                onClick={props.onExportCompareHtml}
+              />
+            </>
+          ) : null}
         </ActionMenu>
 
         <ActionMenu label="Queue" disabled={props.selectedCount === 0}>
@@ -272,41 +280,47 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
           ) : (
             <MenuItem label="Bulk new variation (randomized seeds)" onClick={props.onBulkRequeue} />
           )}
-          <MenuItem
-            label="Seed experiment → perturb seed"
-            onClick={props.onSeedExperiment}
-            disabled={!singleSelected}
-          />
-          <MenuItem
-            label={`Param experiment → sweep ${props.paramAxis}`}
-            onClick={props.onParamExperiment}
-            disabled={!singleSelected}
-          />
-          <MenuItem
-            label="Param grid (CFG×steps) → matrix"
-            onClick={props.onParamGrid}
-            disabled={!singleSelected}
-          />
-          <MenuItem
-            label="Mutate winner → text diff prompt"
-            onClick={props.onMutateWinner}
-            disabled={!singleSelected}
-          />
-          <MenuItem
-            label="Negative A/B → toggle prompt"
-            onClick={props.onNegativeAb}
-            disabled={!singleSelected}
-          />
-        </ActionMenu>
-
-        <ActionMenu label="Send" disabled={!singleSelected}>
-          <MenuItem label="Open in Variations" onClick={props.onVariations} />
-          <MenuItem label="Open in Topics" onClick={props.onTopics} />
-          <MenuItem label="Find similar" onClick={props.onFindSimilar} />
-          {props.similarSearchActive ? (
-            <MenuItem label="Clear similar filter" onClick={props.onClearSimilar} />
+          {!props.lean ? (
+            <>
+              <MenuItem
+                label="Seed experiment → perturb seed"
+                onClick={props.onSeedExperiment}
+                disabled={!singleSelected}
+              />
+              <MenuItem
+                label={`Param experiment → sweep ${props.paramAxis}`}
+                onClick={props.onParamExperiment}
+                disabled={!singleSelected}
+              />
+              <MenuItem
+                label="Param grid (CFG×steps) → matrix"
+                onClick={props.onParamGrid}
+                disabled={!singleSelected}
+              />
+              <MenuItem
+                label="Mutate winner → text diff prompt"
+                onClick={props.onMutateWinner}
+                disabled={!singleSelected}
+              />
+              <MenuItem
+                label="Negative A/B → toggle prompt"
+                onClick={props.onNegativeAb}
+                disabled={!singleSelected}
+              />
+            </>
           ) : null}
         </ActionMenu>
+
+        {!props.lean ? (
+          <ActionMenu label="Send" disabled={!singleSelected}>
+            <MenuItem label="Open in Variations" onClick={props.onVariations} />
+            <MenuItem label="Open in Topics" onClick={props.onTopics} />
+            <MenuItem label="Find similar" onClick={props.onFindSimilar} />
+            {props.similarSearchActive ? (
+              <MenuItem label="Clear similar filter" onClick={props.onClearSimilar} />
+            ) : null}
+          </ActionMenu>
+        ) : null}
 
         <ActionMenu label="Organize">
           <MenuItem label="Assign active project" onClick={props.onAssignActiveProject} />
@@ -329,19 +343,21 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
           Remove selected
         </button>
 
-        <label className="ml-auto hidden items-center gap-1 text-[11px] text-[var(--text-muted)] sm:flex">
-          Param axis
-          <select
-            value={props.paramAxis}
-            onChange={event => props.setParamAxis(event.target.value as ParamExperimentAxis)}
-            className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-muted)] px-2 py-1 text-[var(--text-secondary)]"
-          >
-            <option value="cfg">CFG</option>
-            <option value="steps">Steps</option>
-            <option value="width">Width</option>
-            <option value="seed">Seed</option>
-          </select>
-        </label>
+        {!props.lean ? (
+          <label className="ml-auto hidden items-center gap-1 text-[11px] text-[var(--text-muted)] sm:flex">
+            Param axis
+            <select
+              value={props.paramAxis}
+              onChange={event => props.setParamAxis(event.target.value as ParamExperimentAxis)}
+              className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-muted)] px-2 py-1 text-[var(--text-secondary)]"
+            >
+              <option value="cfg">CFG</option>
+              <option value="steps">Steps</option>
+              <option value="width">Width</option>
+              <option value="seed">Seed</option>
+            </select>
+          </label>
+        ) : null}
       </div>
     </div>
   );

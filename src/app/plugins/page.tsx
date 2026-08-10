@@ -234,7 +234,9 @@ export default function PluginsPage() {
           <p className="type-caption mt-2 text-[var(--text-secondary)]">{manifestStatus}</p>
         ) : null}
         {installed.length === 0 ? (
-          <p className="type-caption mt-4 text-zinc-500">No runtime plugins installed yet.</p>
+          <p className="type-caption mt-4 text-[var(--text-muted)]">
+            No runtime plugins installed yet.
+          </p>
         ) : (
           <ul className="ui-list mt-4">
             {installed.map(plugin => (
@@ -301,7 +303,7 @@ export default function PluginsPage() {
           <code className="text-violet-300">reason</code> to stop the queue.
         </p>
         {hooks.length === 0 ? (
-          <p className="type-caption text-zinc-500">No hooks configured yet.</p>
+          <p className="type-caption text-[var(--text-muted)]">No hooks configured yet.</p>
         ) : (
           <ul className="ui-list">
             {hooks.map(hook => (
