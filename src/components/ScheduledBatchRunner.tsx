@@ -6,6 +6,12 @@ import {
   saveScheduledBatchConfig,
   shouldRunScheduledBatch,
 } from '@/lib/scheduled-batch';
+import {
+  generateScheduledBatchPrompts,
+  rankScheduledBatchPrompts,
+  resolveScheduledBatchModelDetail,
+} from '@/lib/scheduled-batch-generate';
+import { retryFailedWebhookDeliveries } from '@/lib/webhook-log';
 
 export default function ScheduledBatchRunner() {
   const runningRef = useRef(false);
@@ -18,6 +24,10 @@ export default function ScheduledBatchRunner() {
         }
 
         const config = loadScheduledBatchConfig();
+        if (config.webhookAutoRetry) {
+          void retryFailedWebhookDeliveries();
+        }
+
         if (!shouldRunScheduledBatch(config)) {
           return;
         }
@@ -25,7 +35,6 @@ export default function ScheduledBatchRunner() {
         runningRef.current = true;
         try {
           const { loadSettingsCache } = await import('@/lib/settings-cache');
-          const { avoidedTokensRequestBody } = await import('@/lib/avoided-tokens');
           const { resolveQueueNegativePrompt } = await import('@/lib/queue-negative');
           const { resolveRuntimeForQueue } = await import('@/lib/comfyui-runtime-for-model');
           const { resolveQueueParams } = await import('@/lib/queue-params-settings');
@@ -36,74 +45,45 @@ export default function ScheduledBatchRunner() {
           const { dispatchWebhook } = await import('@/lib/webhook-settings');
 
           const { shared } = loadSettingsCache();
-          const prompts: string[] = [];
+          const { model, detail, qualityProfile } = resolveScheduledBatchModelDetail(config, {
+            model: shared.model,
+            detail: shared.detail,
+            queueQualityProfile: shared.queueQualityProfile,
+          });
 
-          if (config.target === 'topics') {
-            const response = await fetch('/api/topics/batch', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                topics: Array.from({ length: config.count }, (_, index) =>
-                  config.genre?.trim()
-                    ? `${config.genre.trim()} scene ${index + 1}`
-                    : `Scheduled scene ${index + 1}`
-                ),
-                target: 'generate',
-                model: shared.model,
-                detail: shared.detail,
-                ...avoidedTokensRequestBody(),
-              }),
-            });
-            const data = (await response.json()) as {
-              results?: Array<{ prompt?: string }>;
-            };
-            if (response.ok) {
-              for (const entry of data.results ?? []) {
-                if (entry.prompt?.trim()) {
-                  prompts.push(entry.prompt.trim());
-                }
-              }
-            }
+          const bestOfN = config.bestOfN ?? 1;
+          const generateCount = bestOfN > 1 ? config.count * bestOfN : config.count;
+          let prompts = await generateScheduledBatchPrompts({
+            config: { ...config, count: generateCount },
+            model,
+            detail,
+          });
+
+          if (bestOfN > 1 && prompts.length > config.count) {
+            prompts = await rankScheduledBatchPrompts(prompts, config.count, bestOfN);
           } else {
-            for (let index = 0; index < config.count; index += 1) {
-              const response = await fetch('/api/random-scene', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  model: shared.model,
-                  detail: shared.detail,
-                  genre: config.genre?.trim() || undefined,
-                  includePeople: true,
-                  wildness: 50,
-                  ...avoidedTokensRequestBody(),
-                }),
-              });
-              const data = (await response.json()) as { prompt?: string };
-              if (response.ok && data.prompt?.trim()) {
-                prompts.push(data.prompt.trim());
-              }
-            }
+            prompts = prompts.slice(0, config.count);
           }
 
           if (config.autoQueueComfyUi && prompts.length > 0) {
             const negativePrompt = await resolveQueueNegativePrompt({
-              model: shared.model,
+              model,
               hints: config.genre,
               tool: 'scheduled-batch',
             });
             const { guardQueueQualityForVram } = await import('@/lib/vram-queue-guard');
             const { maybeHoldMaxGenerateJobs } = await import('@/lib/held-max-queue');
-            const baseRuntime = resolveRuntimeForQueue(shared.model, 'scheduled-batch');
+            const baseRuntime = resolveRuntimeForQueue(model, 'scheduled-batch');
             const vramGuard = await guardQueueQualityForVram({ runtime: baseRuntime });
             const runtime = vramGuard.runtime ?? baseRuntime;
             const paramsPerPrompt = prompts.map((_, index) =>
               resolveQueueParams({
-                model: shared.model,
+                model,
                 tool: 'scheduled-batch',
                 base: {
                   seed: String(Math.floor(Math.random() * 2 ** 32) + index),
                 },
-                qualityProfile: vramGuard.profile,
+                qualityProfile: vramGuard.profile ?? qualityProfile,
               })
             );
             const held = await maybeHoldMaxGenerateJobs({
@@ -111,7 +91,7 @@ export default function ScheduledBatchRunner() {
               jobs: prompts.map((prompt, index) => ({
                 prompt,
                 negativePrompt,
-                model: shared.model,
+                model,
                 tool: 'scheduled-batch',
                 params: paramsPerPrompt[index],
                 comfy: runtime,
@@ -142,7 +122,7 @@ export default function ScheduledBatchRunner() {
                     prompt: prompts[index] ?? '',
                     negativePrompt,
                     tool: 'scheduled-batch',
-                    model: shared.model,
+                    model,
                     comfyUrl,
                     clientId: queued.clientId,
                     queueParams: paramsPerPrompt[index],
@@ -163,7 +143,7 @@ export default function ScheduledBatchRunner() {
           void dispatchWebhook({
             event: 'scheduled.batch.run',
             tool: 'scheduled-batch',
-            model: shared.model,
+            model,
             queued: prompts.length,
             completedAt: Date.now(),
             message: config.autoQueueComfyUi

@@ -226,6 +226,8 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 
 ## Automation & integrations {#automation}
 
+- **Automation hub** (Settings → Automation) — webhooks, avoided tokens, browser/server scheduled batch; links to ComfyUI notifications and Profile email campaigns
+
 - **Completion notifications** — optional browser notifications when ComfyUI jobs finish (Settings)
 - **Notification center** — in-app alerts bell in sidebar when jobs complete
 - **Webhooks** — POST queue, prompt, and session events to an external URL via server proxy (`comfyui.job.*`, `prompt.generated`, `prompt.history.saved`, `session.recipe.saved`, scheduled batch)
@@ -234,7 +236,7 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 - **Webhook templates** — Discord/Slack rich payload formats in Settings
 - **Scheduled batch** — Settings configures periodic random-scene/topics generation (+ optional ComfyUI queue)
 - **Server scheduled batch** — `SERVER_SCHEDULED_BATCH=true` or manual `POST /api/scheduled-batch/run`
-- **Best-of-N vision campaigns** — scheduled profile campaigns optionally rank N variants with vision LLM before queue
+- **Best-of-N campaigns** — scheduled profile or Automation tab runs optionally over-generate (2–4×) and LLM-rank prompts by text quality before queue (not vision/image scoring)
 - **Email notifications** — SMTP alerts for batch/campaign completion and password changes (Profile → Email)
 - **Docker Compose** — `docker compose up` for app + Ollama (+ optional ComfyUI profile)
 - **GitHub Actions CI** — runs unit tests, build, and Playwright smoke on push/PR

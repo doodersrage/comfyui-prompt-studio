@@ -82,163 +82,167 @@ export default function ExperimentDashboardPanel() {
           action={{ label: 'Open Gallery', href: '/gallery' }}
         />
       ) : (
-        <ul className="mt-4 space-y-3">
-          {groups.map(group => {
-            const winner = winners[group.id];
-            const winnerEntry = winner
-              ? group.entries.find(entry => entry.id === winner.entryId)
-              : undefined;
-            return (
-              <li
-                key={group.id}
-                className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)]/40 p-4"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-medium text-[var(--text-primary)]">{group.label}</p>
-                    <p className="mt-1 text-xs text-[var(--text-muted)]">
-                      {group.entries.length} outputs · seeds:{' '}
-                      {group.variants.seeds.join(', ') || '—'}
-                      {group.variants.cfgValues.length
-                        ? ` · CFG: ${group.variants.cfgValues.join(', ')}`
-                        : ''}
-                    </p>
-                    {winnerEntry ? (
-                      <p className="mt-1 text-xs text-emerald-300">
-                        Winner: seed {winnerEntry.queueParams?.seed ?? '—'}
-                        {winnerEntry.reviewRating ? ` · rated ${winnerEntry.reviewRating}/5` : ''}
+        <>
+          <ul className="mt-4 space-y-3">
+            {groups.map(group => {
+              const winner = winners[group.id];
+              const winnerEntry = winner
+                ? group.entries.find(entry => entry.id === winner.entryId)
+                : undefined;
+              return (
+                <li
+                  key={group.id}
+                  className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)]/40 p-4"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-[var(--text-primary)]">
+                        {group.label}
                       </p>
-                    ) : null}
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      variant="ghost"
-                      className="!min-h-8 px-2 text-xs"
-                      onClick={() =>
-                        setExpandedGroupId(previous => (previous === group.id ? null : group.id))
-                      }
-                    >
-                      {expandedGroupId === group.id ? 'Hide' : 'Expand'}
-                    </Button>
-                    <Link
-                      href={`/gallery?q=${encodeURIComponent(group.parentPrompt.slice(0, 120))}`}
-                      className="ui-btn-secondary !min-h-8 px-3 text-xs"
-                    >
-                      Open in gallery
-                    </Link>
-                  </div>
-                </div>
-
-                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {group.entries.slice(0, 4).map(entry => {
-                    const thumb = galleryEntryThumbUrls(entry)[0];
-                    const isWinner = winner?.entryId === entry.id;
-                    return (
-                      <div
-                        key={entry.id}
-                        className={`overflow-hidden rounded-lg border ${
-                          isWinner ? 'border-emerald-500/60' : 'border-[var(--border-subtle)]'
-                        }`}
+                      <p className="mt-1 text-xs text-[var(--text-muted)]">
+                        {group.entries.length} outputs · seeds:{' '}
+                        {group.variants.seeds.join(', ') || '—'}
+                        {group.variants.cfgValues.length
+                          ? ` · CFG: ${group.variants.cfgValues.join(', ')}`
+                          : ''}
+                      </p>
+                      {winnerEntry ? (
+                        <p className="mt-1 text-xs text-emerald-300">
+                          Winner: seed {winnerEntry.queueParams?.seed ?? '—'}
+                          {winnerEntry.reviewRating ? ` · rated ${winnerEntry.reviewRating}/5` : ''}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="ghost"
+                        className="!min-h-8 px-2 text-xs"
+                        onClick={() =>
+                          setExpandedGroupId(previous => (previous === group.id ? null : group.id))
+                        }
                       >
-                        {thumb ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={thumb}
-                            alt=""
-                            loading="lazy"
-                            decoding="async"
-                            className="aspect-square w-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex aspect-square items-center justify-center text-[10px] text-[var(--text-muted)]">
-                            No preview
-                          </div>
-                        )}
-                        <div className="space-y-1 p-2">
-                          <p className="text-[10px] text-[var(--text-muted)]">
-                            seed {entry.queueParams?.seed ?? '—'}
-                            {entry.reviewRating ? ` · ${entry.reviewRating}/5` : ''}
-                          </p>
-                          <button
-                            type="button"
-                            className={`w-full rounded border px-2 py-1 text-[10px] ${
-                              isWinner
-                                ? 'border-emerald-500/50 text-emerald-200'
-                                : 'border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--border-default)]'
-                            }`}
-                            onClick={() => {
-                              if (isWinner) {
-                                clearExperimentWinner(group.id);
-                              } else {
-                                markExperimentWinner(group.id, entry.id);
-                              }
-                              setWinners(loadExperimentWinners());
-                            }}
-                          >
-                            {isWinner ? 'Winner ✓' : 'Crown winner'}
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {expandedGroupId === group.id && expandedGroup?.id === group.id ? (
-                  <div className="mt-4 flex flex-wrap gap-2 border-t border-[var(--border-subtle)] pt-4">
-                    <Button
-                      variant="secondary"
-                      className="!min-h-8"
-                      disabled={group.entries.length < 2}
-                      onClick={() => downloadCompareExport(group.entries.slice(0, 4), 'html')}
-                    >
-                      Export compare HTML
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      className="!min-h-8"
-                      disabled={group.entries.length < 2}
-                      onClick={() => downloadCompareExport(group.entries.slice(0, 4), 'json')}
-                    >
-                      Export compare JSON
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      className="!min-h-8"
-                      onClick={() => {
-                        setStatus('Re-queueing experiment group…');
-                        void requeueComfyJobs(
-                          group.entries.map(entry => {
-                            const urls = resolveRequeueImageUrlsFromEntry(entry);
-                            return {
-                              prompt: entry.prompt,
-                              negativePrompt: entry.negativePrompt,
-                              model: entry.model,
-                              tool: entry.tool,
-                              queueParams: entry.queueParams,
-                              sourceImageUrl: urls.sourceImageUrl,
-                              maskImageUrl: urls.maskImageUrl,
-                              newSeed: true,
-                            };
-                          }),
-                          message => setStatus(message)
-                        ).then(({ queued, failed }) => {
-                          setStatus(`Re-queued ${queued} job(s) with new seeds.`);
-                          toastBulkQueueSummary({
-                            label: 'Experiment re-queue finished',
-                            queued,
-                            failed,
-                          });
-                        });
-                      }}
-                    >
-                      Re-queue with new seeds
-                    </Button>
+                        {expandedGroupId === group.id ? 'Hide' : 'Expand'}
+                      </Button>
+                      <Link
+                        href={`/gallery?q=${encodeURIComponent(group.parentPrompt.slice(0, 120))}`}
+                        className="ui-btn-secondary !min-h-8 px-3 text-xs"
+                      >
+                        Open in gallery
+                      </Link>
+                    </div>
                   </div>
-                ) : null}
-              </li>
-            );
-          })}
-        </ul>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {group.entries.slice(0, 4).map(entry => {
+                      const thumb = galleryEntryThumbUrls(entry)[0];
+                      const isWinner = winner?.entryId === entry.id;
+                      return (
+                        <div
+                          key={entry.id}
+                          className={`overflow-hidden rounded-lg border ${
+                            isWinner ? 'border-emerald-500/60' : 'border-[var(--border-subtle)]'
+                          }`}
+                        >
+                          {thumb ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={thumb}
+                              alt=""
+                              loading="lazy"
+                              decoding="async"
+                              className="aspect-square w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex aspect-square items-center justify-center text-[10px] text-[var(--text-muted)]">
+                              No preview
+                            </div>
+                          )}
+                          <div className="space-y-1 p-2">
+                            <p className="text-[10px] text-[var(--text-muted)]">
+                              seed {entry.queueParams?.seed ?? '—'}
+                              {entry.reviewRating ? ` · ${entry.reviewRating}/5` : ''}
+                            </p>
+                            <button
+                              type="button"
+                              className={`w-full rounded border px-2 py-1 text-[10px] ${
+                                isWinner
+                                  ? 'border-emerald-500/50 text-emerald-200'
+                                  : 'border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--border-default)]'
+                              }`}
+                              onClick={() => {
+                                if (isWinner) {
+                                  clearExperimentWinner(group.id);
+                                } else {
+                                  markExperimentWinner(group.id, entry.id);
+                                }
+                                setWinners(loadExperimentWinners());
+                              }}
+                            >
+                              {isWinner ? 'Winner ✓' : 'Crown winner'}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {expandedGroupId === group.id && expandedGroup?.id === group.id ? (
+                    <div className="mt-4 flex flex-wrap gap-2 border-t border-[var(--border-subtle)] pt-4">
+                      <Button
+                        variant="secondary"
+                        className="!min-h-8"
+                        disabled={group.entries.length < 2}
+                        onClick={() => downloadCompareExport(group.entries.slice(0, 4), 'html')}
+                      >
+                        Export compare HTML
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        className="!min-h-8"
+                        disabled={group.entries.length < 2}
+                        onClick={() => downloadCompareExport(group.entries.slice(0, 4), 'json')}
+                      >
+                        Export compare JSON
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        className="!min-h-8"
+                        onClick={() => {
+                          setStatus('Re-queueing experiment group…');
+                          void requeueComfyJobs(
+                            group.entries.map(entry => {
+                              const urls = resolveRequeueImageUrlsFromEntry(entry);
+                              return {
+                                prompt: entry.prompt,
+                                negativePrompt: entry.negativePrompt,
+                                model: entry.model,
+                                tool: entry.tool,
+                                queueParams: entry.queueParams,
+                                sourceImageUrl: urls.sourceImageUrl,
+                                maskImageUrl: urls.maskImageUrl,
+                                newSeed: true,
+                              };
+                            }),
+                            message => setStatus(message)
+                          ).then(({ queued, failed }) => {
+                            setStatus(`Re-queued ${queued} job(s) with new seeds.`);
+                            toastBulkQueueSummary({
+                              label: 'Experiment re-queue finished',
+                              queued,
+                              failed,
+                            });
+                          });
+                        }}
+                      >
+                        Re-queue with new seeds
+                      </Button>
+                    </div>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        </>
       )}
 
       {status ? <p className="mt-4 text-sm text-emerald-400">{status}</p> : null}

@@ -1,6 +1,8 @@
 import { readBrowserValue, writeBrowserValue } from './browser-storage';
+import { normalizeDetailLevel, type DetailLevel } from './detail-level';
+import { normalizeQueueQualityProfile, type QueueQualityProfile } from './queue-quality-profile';
 
-export const SCHEDULED_BATCH_KEY = 'comfy-scheduled-batch-v1';
+export const SCHEDULED_BATCH_KEY = 'comfy-scheduled-batch-v2';
 
 export type ScheduledBatchConfig = {
   enabled: boolean;
@@ -10,6 +12,15 @@ export type ScheduledBatchConfig = {
   count: number;
   autoQueueComfyUi: boolean;
   genre?: string;
+  /** When true, use model/detail/qualityProfile below instead of shared tool settings. */
+  overrideSharedSettings?: boolean;
+  model?: string;
+  detail?: DetailLevel;
+  qualityProfile?: QueueQualityProfile;
+  /** Generate count × bestOfN, LLM-rank down to count (1 = off). */
+  bestOfN?: number;
+  /** Auto-retry failed webhook deliveries with backoff (browser log). */
+  webhookAutoRetry?: boolean;
 };
 
 export const DEFAULT_SCHEDULED_BATCH: ScheduledBatchConfig = {
@@ -48,6 +59,16 @@ export function clampScheduledBatchConfig(config: ScheduledBatchConfig): Schedul
           : 'random-scene',
     autoQueueComfyUi: Boolean(config.autoQueueComfyUi),
     enabled: Boolean(config.enabled),
+    overrideSharedSettings: Boolean(config.overrideSharedSettings),
+    model: config.model?.trim() || undefined,
+    detail: config.detail ? normalizeDetailLevel(config.detail) : undefined,
+    qualityProfile: config.qualityProfile
+      ? normalizeQueueQualityProfile(config.qualityProfile)
+      : undefined,
+    bestOfN: Number.isFinite(config.bestOfN)
+      ? Math.min(4, Math.max(1, Math.floor(config.bestOfN!)))
+      : 1,
+    webhookAutoRetry: Boolean(config.webhookAutoRetry),
   };
 }
 
@@ -56,7 +77,9 @@ export function loadScheduledBatchConfig(): ScheduledBatchConfig {
     return DEFAULT_SCHEDULED_BATCH;
   }
   try {
-    const parsed = readBrowserValue<ScheduledBatchConfig>(SCHEDULED_BATCH_KEY);
+    const parsed =
+      readBrowserValue<ScheduledBatchConfig>(SCHEDULED_BATCH_KEY) ??
+      readBrowserValue<ScheduledBatchConfig>('comfy-scheduled-batch-v1');
     if (!parsed) {
       return DEFAULT_SCHEDULED_BATCH;
     }

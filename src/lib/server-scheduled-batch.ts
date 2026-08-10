@@ -110,13 +110,15 @@ export async function runServerScheduledBatch(
     ...configInput,
   });
 
+  const bestOfN = profile.bestOfN ?? 1;
+  const generateCount = bestOfN > 1 ? config.count * bestOfN : config.count;
   const prompts: string[] = [];
   const model = profile.model;
   const detail = profile.detail;
 
   if (config.target === 'topics') {
     const data = await fetchJson<{ results?: Array<{ prompt?: string }> }>('/api/topics/batch', {
-      topics: Array.from({ length: config.count }, (_, index) =>
+      topics: Array.from({ length: generateCount }, (_, index) =>
         config.genre?.trim()
           ? `${config.genre.trim()} scene ${index + 1}`
           : `Scheduled scene ${index + 1}`
@@ -131,7 +133,7 @@ export async function runServerScheduledBatch(
       }
     }
   } else if (config.target === 'nsfw-generator') {
-    for (let index = 0; index < config.count; index += 1) {
+    for (let index = 0; index < generateCount; index += 1) {
       const data = await fetchJson<{ prompt?: string }>('/api/nsfw-generate', {
         model,
         detail,
@@ -143,7 +145,7 @@ export async function runServerScheduledBatch(
       }
     }
   } else {
-    for (let index = 0; index < config.count; index += 1) {
+    for (let index = 0; index < generateCount; index += 1) {
       const data = await fetchJson<{ prompt?: string }>('/api/random-scene', {
         model,
         detail,
@@ -157,11 +159,19 @@ export async function runServerScheduledBatch(
     }
   }
 
+  let finalPrompts = prompts;
+  if (bestOfN > 1 && prompts.length > config.count) {
+    const { rankPromptsWithLlm } = await import('./best-of-n-rank-server');
+    finalPrompts = await rankPromptsWithLlm(prompts, config.count);
+  } else {
+    finalPrompts = prompts.slice(0, config.count);
+  }
+
   let queued = 0;
-  if (config.autoQueueComfyUi && prompts.length > 0) {
+  if (config.autoQueueComfyUi && finalPrompts.length > 0) {
     const { queueBatchToComfyUi } = await import('./comfyui-client');
     const { resolveQueueParams } = await import('./queue-params-settings');
-    const paramsPerPrompt = prompts.map((_, index) =>
+    const paramsPerPrompt = finalPrompts.map((_, index) =>
       resolveQueueParams({
         model,
         tool: 'scheduled-batch',
@@ -170,7 +180,7 @@ export async function runServerScheduledBatch(
       })
     );
     const batch = await queueBatchToComfyUi(
-      prompts.map((prompt, index) => ({
+      finalPrompts.map((prompt, index) => ({
         prompt,
         model,
         params: paramsPerPrompt[index],
@@ -188,7 +198,7 @@ export async function runServerScheduledBatch(
         {
           id: crypto.randomUUID(),
           promptId: result.promptId,
-          prompt: prompts[index] ?? '',
+          prompt: finalPrompts[index] ?? '',
           tool: 'scheduled-batch',
           model,
           comfyUrl: result.comfyUrl,
@@ -206,7 +216,7 @@ export async function runServerScheduledBatch(
 
   const stored = await loadStored();
   await saveStored({ ...stored, config, profile, lastRunAt: Date.now() });
-  return { prompts, queued };
+  return { prompts: finalPrompts, queued };
 }
 
 export async function notifyServerScheduledBatchComplete(result: {

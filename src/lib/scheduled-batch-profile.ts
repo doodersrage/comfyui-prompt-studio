@@ -16,6 +16,7 @@ export type ScheduledBatchProfile = {
   count: number;
   genre?: string;
   autoQueueComfyUi: boolean;
+  bestOfN?: number;
 };
 
 export const DEFAULT_SCHEDULED_BATCH_PROFILE: ScheduledBatchProfile = {
@@ -48,6 +49,10 @@ export function normalizeScheduledBatchProfile(
     count: clampedBatch.count,
     ...(genre ? { genre } : {}),
     autoQueueComfyUi: clampedBatch.autoQueueComfyUi,
+    bestOfN:
+      input?.bestOfN && Number.isFinite(input.bestOfN)
+        ? Math.min(4, Math.max(1, Math.floor(input.bestOfN)))
+        : undefined,
   };
 }
 

@@ -330,13 +330,23 @@ export default function SettingsTool() {
     }
     const timer = window.setTimeout(() => {
       void pushScheduledBatchProfile({
-        model: sharedSettings.model,
-        detail: sharedSettings.detail,
-        qualityProfile: sharedSettings.queueQualityProfile,
+        model:
+          scheduledBatch.overrideSharedSettings && scheduledBatch.model?.trim()
+            ? scheduledBatch.model.trim()
+            : sharedSettings.model,
+        detail:
+          scheduledBatch.overrideSharedSettings && scheduledBatch.detail
+            ? scheduledBatch.detail
+            : sharedSettings.detail,
+        qualityProfile:
+          scheduledBatch.overrideSharedSettings && scheduledBatch.qualityProfile
+            ? scheduledBatch.qualityProfile
+            : sharedSettings.queueQualityProfile,
         target: scheduledBatch.target,
         count: scheduledBatch.count,
         genre: scheduledBatch.genre,
         autoQueueComfyUi: scheduledBatch.autoQueueComfyUi,
+        bestOfN: scheduledBatch.bestOfN,
       }).then(result => {
         if (result) {
           setServerScheduledBatchStatus(previous => ({
@@ -358,6 +368,11 @@ export default function SettingsTool() {
     scheduledBatch.count,
     scheduledBatch.genre,
     scheduledBatch.autoQueueComfyUi,
+    scheduledBatch.overrideSharedSettings,
+    scheduledBatch.model,
+    scheduledBatch.detail,
+    scheduledBatch.qualityProfile,
+    scheduledBatch.bestOfN,
   ]);
 
   const applySuggestedLoaderMaps = useCallback(() => {
@@ -782,6 +797,7 @@ export default function SettingsTool() {
               scheduledBatch={scheduledBatch}
               setScheduledBatch={setScheduledBatch}
               serverScheduledBatchStatus={serverScheduledBatchStatus}
+              sharedSettings={sharedSettings}
               setStatus={setStatus}
             />
           )}

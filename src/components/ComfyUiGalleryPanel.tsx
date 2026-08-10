@@ -30,6 +30,8 @@ import GalleryStatsBar from '@/components/gallery/GalleryStatsBar';
 import GalleryReviewTouchBar from '@/components/gallery/GalleryReviewTouchBar';
 import GalleryPanelSkeleton from '@/components/gallery/GalleryPanelSkeleton';
 import StatusToastStrip from '@/components/ui/StatusToastStrip';
+import { assessGalleryCapWarning } from '@/lib/gallery-cap';
+import { MAX_GALLERY_ENTRIES } from '@/lib/comfyui-gallery-storage-meta';
 import { useGalleryReview } from '@/hooks/useGalleryReview';
 import { useGallerySelection } from '@/hooks/useGallerySelection';
 import { toneForStatusText } from '@/lib/status-progress';
@@ -280,6 +282,10 @@ export default function ComfyUiGalleryPanel({
   const leanBulkEnabled = bulkEnabled && !leanGallery;
   const paginationEnabled = showFilters && !compact && !limit;
   const galleryStats = useMemo(() => computeGalleryStats(entries), [entries]);
+  const galleryCapWarning = useMemo(
+    () => assessGalleryCapWarning(entries.length, MAX_GALLERY_ENTRIES),
+    [entries.length]
+  );
   const activeJobs = galleryStats.pending + galleryStats.running;
 
   const filteredSource = showFilters ? filteredEntries : entries;
@@ -1057,6 +1063,18 @@ export default function ComfyUiGalleryPanel({
             Cancel
           </ButtonLink>
         </div>
+      ) : null}
+
+      {galleryCapWarning.message ? (
+        <p
+          className={`rounded-lg border px-3 py-2 text-xs ${
+            galleryCapWarning.level === 'urgent'
+              ? 'border-rose-500/30 bg-rose-500/10 text-rose-100'
+              : 'border-amber-500/30 bg-amber-500/10 text-amber-100'
+          }`}
+        >
+          {galleryCapWarning.message}
+        </p>
       ) : null}
 
       {showFilters && !leanGallery && entries.length > 0 ? (

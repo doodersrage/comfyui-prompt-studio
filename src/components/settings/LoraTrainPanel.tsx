@@ -460,29 +460,73 @@ export default function LoraTrainPanel({ onStatus }: LoraTrainPanelProps) {
 
       {validationPrompt ? (
         <div className="ui-surface-inset space-y-2">
-          <p className="type-heading text-[var(--text-primary)]">Validation prompt (stub)</p>
+          <p className="type-heading text-[var(--text-primary)]">Validation prompt</p>
           <p className="type-caption text-[var(--text-muted)]">
-            Optional smoke-test: queue this short prompt with the new LoRA enabled to confirm the
-            trigger fires. Copy into Generate / Refine when ready.
+            Smoke-test the new LoRA with a short portrait prompt. Queue directly or copy into
+            Generate / Refine.
           </p>
           <code className="block whitespace-pre-wrap rounded-lg border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/60 px-3 py-2 text-sm text-[var(--text-primary)]">
             {validationPrompt}
           </code>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={async () => {
-              try {
-                await navigator.clipboard.writeText(validationPrompt);
-                onStatus?.('Validation prompt copied.');
-              } catch {
-                onStatus?.('Could not copy validation prompt.');
-              }
-            }}
-          >
-            Copy prompt
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="accent-outline"
+              size="sm"
+              onClick={() => {
+                void (async () => {
+                  try {
+                    const { postComfyUiPrompt } = await import('@/lib/comfyui-queue-request');
+                    const { resolveQueueNegativePrompt } = await import('@/lib/queue-negative');
+                    const { resolveQueueParams } = await import('@/lib/queue-params-settings');
+                    const { resolveRuntimeForQueue } =
+                      await import('@/lib/comfyui-runtime-for-model');
+                    const { shared } = loadSettingsCache();
+                    const negativePrompt = await resolveQueueNegativePrompt({
+                      model: shared.model,
+                      tool: 'generate',
+                    });
+                    const runtime = resolveRuntimeForQueue(shared.model, 'generate');
+                    const params = resolveQueueParams({
+                      model: shared.model,
+                      tool: 'generate',
+                    });
+                    onStatus?.('Queueing LoRA validation…');
+                    const queued = await postComfyUiPrompt({
+                      prompts: [validationPrompt],
+                      negativePrompt,
+                      paramsPerPrompt: [params],
+                      ...(runtime ? { comfy: runtime } : {}),
+                    });
+                    onStatus?.(
+                      queued.status < 400
+                        ? 'Validation queued — check Gallery for output.'
+                        : 'Validation queue failed.'
+                    );
+                  } catch (error) {
+                    onStatus?.(error instanceof Error ? error.message : 'Validation queue failed.');
+                  }
+                })();
+              }}
+            >
+              Queue validation
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(validationPrompt);
+                  onStatus?.('Validation prompt copied.');
+                } catch {
+                  onStatus?.('Could not copy validation prompt.');
+                }
+              }}
+            >
+              Copy prompt
+            </Button>
+          </div>
         </div>
       ) : null}
     </div>

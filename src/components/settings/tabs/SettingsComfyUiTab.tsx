@@ -14,6 +14,7 @@ import LoraLibrarySettingsPanel from '@/components/settings/LoraLibrarySettingsP
 import LoraTrainPanel from '@/components/settings/LoraTrainPanel';
 import QueueParamsPanel from '@/components/QueueParamsPanel';
 import WorkflowPreviewPanel from '@/components/WorkflowPreviewPanel';
+import DiffusersWorkflowSupportHint from '@/components/DiffusersWorkflowSupportHint';
 import SettingsPromptQualityPanel from '@/components/settings/SettingsPromptQualityPanel';
 import ComfyModelAssetsPanel from '@/components/settings/ComfyModelAssetsPanel';
 import {
@@ -1475,6 +1476,12 @@ export default function SettingsComfyUiTab({
                 placeholder={`Paste exported ComfyUI API JSON here.\nUse ${settings.positiveToken ?? '{{POSITIVE}}'} and ${settings.negativeToken ?? '{{NEGATIVE}}'} anywhere prompts should be injected.`}
                 className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
               />
+              {sharedSettings.inferenceEngine === 'diffusers' ? (
+                <DiffusersWorkflowSupportHint
+                  workflowJson={settings.workflowJson}
+                  className="mt-2"
+                />
+              ) : null}
               <FieldError>{workflowError}</FieldError>
               {workflowValidation && (
                 <p className="text-xs text-[var(--text-muted)]">

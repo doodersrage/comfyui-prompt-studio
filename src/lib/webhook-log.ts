@@ -73,3 +73,54 @@ export async function retryWebhookLogEntry(entry: WebhookLogEntry): Promise<bool
   });
   return ok;
 }
+
+const WEBHOOK_RETRY_BACKOFF_MS = [60_000, 5 * 60_000, 15 * 60_000] as const;
+
+function webhookRetryDelayMs(failCount: number): number {
+  const index = Math.min(failCount, WEBHOOK_RETRY_BACKOFF_MS.length - 1);
+  return WEBHOOK_RETRY_BACKOFF_MS[index] ?? WEBHOOK_RETRY_BACKOFF_MS.at(-1)!;
+}
+
+/** Retries recent failed webhook log entries with exponential backoff spacing. */
+export async function retryFailedWebhookDeliveries(now = Date.now()): Promise<number> {
+  const entries = loadWebhookLog().filter(entry => !entry.ok);
+  let retried = 0;
+  for (const entry of entries.slice(0, 3)) {
+    const failCount = Number(
+      (entry.payload as { metadata?: Record<string, unknown> }).metadata?.webhookFailCount ?? 0
+    );
+    const lastAttempt = Number(
+      (entry.payload as { metadata?: Record<string, unknown> }).metadata?.webhookLastAttemptAt ??
+        entry.timestamp
+    );
+    if (now - lastAttempt < webhookRetryDelayMs(failCount)) {
+      continue;
+    }
+    const payload = {
+      ...entry.payload,
+      metadata: {
+        ...((entry.payload as { metadata?: Record<string, unknown> }).metadata ?? {}),
+        webhookFailCount: failCount,
+        webhookLastAttemptAt: now,
+      },
+    };
+    const ok = await dispatchWebhook(payload);
+    appendWebhookLogEntry({
+      ok,
+      url: entry.url,
+      message: ok ? 'Auto-retry succeeded' : 'Auto-retry failed',
+      payload: {
+        ...payload,
+        metadata: {
+          ...payload.metadata,
+          webhookFailCount: failCount + 1,
+          webhookLastAttemptAt: now,
+        },
+      },
+    });
+    if (ok) {
+      retried += 1;
+    }
+  }
+  return retried;
+}

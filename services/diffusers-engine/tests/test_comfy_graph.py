@@ -470,6 +470,41 @@ class ComfyGraphTests(unittest.TestCase):
         self.assertEqual(result.compiled.img2img_mode, "inpaint")
         self.assertEqual(result.compiled.mask_image, "mask.png")
 
+    def test_compiles_flux_img2img(self) -> None:
+        graph = _flux_graph()
+        graph["20"] = {
+            "class_type": "LoadImage",
+            "inputs": {"image": "init.png"},
+        }
+        graph["21"] = {
+            "class_type": "VAEEncode",
+            "inputs": {"pixels": ["20", 0], "vae": ["3", 0]},
+        }
+        graph["8"]["inputs"]["latent_image"] = ["21", 0]
+        graph["8"]["inputs"]["denoise"] = 0.55
+        result = compile_workflow(graph)
+        self.assertTrue(result.supported, result.reason)
+        assert result.compiled is not None
+        self.assertEqual(result.compiled.init_image, "init.png")
+        self.assertEqual(result.compiled.img2img_mode, "img2img")
+
+    def test_compiles_qwen_img2img(self) -> None:
+        graph = _qwen_graph()
+        graph["20"] = {
+            "class_type": "LoadImage",
+            "inputs": {"image": "init.png"},
+        }
+        graph["21"] = {
+            "class_type": "VAEEncode",
+            "inputs": {"pixels": ["20", 0], "vae": ["3", 0]},
+        }
+        graph["8"]["inputs"]["latent_image"] = ["21", 0]
+        graph["8"]["inputs"]["denoise"] = 0.6
+        result = compile_workflow(graph)
+        self.assertTrue(result.supported, result.reason)
+        assert result.compiled is not None
+        self.assertEqual(result.compiled.init_image, "init.png")
+
 
 if __name__ == "__main__":
     unittest.main()

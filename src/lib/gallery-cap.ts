@@ -19,6 +19,27 @@ export type GalleryCapResult<T extends GalleryCapEntry> = {
   evicted: T[];
 };
 
+export type GalleryCapWarningLevel = 'none' | 'notice' | 'urgent';
+
+export function assessGalleryCapWarning(
+  count: number,
+  max: number
+): { level: GalleryCapWarningLevel; message: string | null } {
+  if (max <= 0 || count < max * 0.85) {
+    return { level: 'none', message: null };
+  }
+  if (count >= max) {
+    return {
+      level: 'urgent',
+      message: `Gallery at the ${max.toLocaleString()}-entry local cap. Unrated entries may be evicted on save — export or rate favorites to keep them.`,
+    };
+  }
+  return {
+    level: 'notice',
+    message: `Gallery approaching the ${max.toLocaleString()}-entry local cap (${count.toLocaleString()} stored). Server sync keeps full history when PROMPT_DATA_DIR is enabled.`,
+  };
+}
+
 /**
  * Trims `entries` down to `max` for local (browser) storage, preferring to
  * keep favorites / 4-5★ rated entries over plain unrated ones even when the
