@@ -3,12 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { ToolSection } from '@/components/ui/ToolPageShell';
-import {
-  loadPromptRecipes,
-  runPromptRecipeSteps,
-  upsertPromptRecipe,
-  type PromptRecipeStep,
-} from '@/lib/prompt-recipes';
+import { loadPromptRecipes, upsertPromptRecipe, type PromptRecipeStep } from '@/lib/prompt-recipes';
 
 const STEP_OPTIONS: PromptRecipeStep[] = ['lint', 'fix', 'compact', 'queue'];
 
@@ -87,9 +82,28 @@ export default function PromptRecipesPanel() {
                     setStatus('Enter a sample prompt below to run a recipe.');
                     return;
                   }
-                  void runPromptRecipeSteps(samplePrompt, recipe.steps, 'sdxl').then(result => {
-                    setStatus(result.log.join(' · '));
-                  });
+                  void fetch('/api/recipes/run', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      prompt: samplePrompt,
+                      model: 'sdxl',
+                      steps: recipe.steps,
+                    }),
+                  })
+                    .then(async response => {
+                      const result = (await response.json()) as {
+                        log?: string[];
+                        error?: string;
+                      };
+                      if (!response.ok) {
+                        throw new Error(result.error ?? 'Recipe run failed.');
+                      }
+                      setStatus((result.log ?? []).join(' · ') || 'Recipe finished.');
+                    })
+                    .catch(error => {
+                      setStatus(error instanceof Error ? error.message : 'Recipe run failed.');
+                    });
                 }}
               >
                 Run
