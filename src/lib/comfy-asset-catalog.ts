@@ -399,6 +399,34 @@ export const COMFY_ASSET_CATALOG: ComfyCatalogAsset[] = [
     modelIds: ['qwen-image-edit-2511-lightning-8'],
   },
 
+  // ── Qwen Rapid AIO (Phr00t checkpoint merges) ─────────────────────
+  {
+    id: 'qwen-rapid-aio-edit-checkpoint',
+    label: 'Qwen Rapid AIO Edit (v21 checkpoint)',
+    kind: 'checkpoint',
+    filename: 'Qwen-Rapid-AIO-v21.safetensors',
+    modelIds: ['qwen-rapid-aio-edit'],
+    notes:
+      'Phr00t community merge — place under models/checkpoints/. Download from the author’s Hugging Face / Civitai release; filename may differ by version.',
+  },
+  {
+    id: 'qwen-rapid-aio-sfw-checkpoint',
+    label: 'Qwen Rapid AIO SFW (v23 checkpoint)',
+    kind: 'checkpoint',
+    filename: 'Qwen-Rapid-AIO-SFW-v23.safetensors',
+    modelIds: ['qwen-rapid-aio-sfw'],
+    notes:
+      'Phr00t SFW dual-purpose T2I/edit merge — docs-only row until a stable public URL is pinned.',
+  },
+  {
+    id: 'qwen-rapid-aio-nsfw-checkpoint',
+    label: 'Qwen Rapid AIO NSFW (v23 checkpoint)',
+    kind: 'checkpoint',
+    filename: 'Qwen-Rapid-AIO-NSFW-v23.safetensors',
+    modelIds: ['qwen-rapid-aio-nsfw'],
+    notes: 'Phr00t NSFW dual-purpose T2I/edit merge — default Adult generator draft recipe target.',
+  },
+
   // ── FLUX.1 ────────────────────────────────────────────────────────
   {
     id: 'flux1-dev-unet',

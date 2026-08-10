@@ -386,6 +386,15 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         },
       });
       setHistorySaved(true);
+      void import('@/lib/webhook-settings').then(({ dispatchWebhook }) => {
+        void dispatchWebhook({
+          event: 'prompt.history.saved',
+          tool: config.tool,
+          model: config.model,
+          prompt: input.prompt.slice(0, 500),
+          completedAt: Date.now(),
+        });
+      });
       if (parentHistoryId) {
         clearLineageParent();
       }

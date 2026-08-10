@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import NsfwGeneratorPresetChips from '@/components/NsfwGeneratorPresetChips';
@@ -12,13 +12,29 @@ import { usePromptResultActions } from '@/hooks/usePromptResultActions';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { avoidedTokensRequestBody } from '@/lib/avoided-tokens';
 import { getComfyModelDefinition } from '@/lib/comfy-models/client';
+import type { NsfwGeneratorPreset } from '@/lib/nsfw-generator-presets';
+import { resolveNsfwGeneratorPreset } from '@/lib/nsfw-generator-presets';
 import { DEFAULT_NSFW_GENERATOR_TOOL_CACHE } from '@/lib/settings-cache';
 import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
 import { getReformatTargetLabel } from '@/lib/reformat-target';
 import { readRawPrompt } from '@/lib/raw-prompt';
 import type { EnrichedToolGenerateResult } from '@/lib/specialized/types';
+import { applyHintSourceFromSearchParams } from '@/lib/tool-url-params';
 import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
 import { conceptWildnessLabel, CONCEPT_WILDNESS_LABEL } from '@/lib/tool-ui-labels';
+import {
+  createUserNsfwGeneratorPreset,
+  deleteUserNsfwGeneratorPreset,
+  loadNsfwPresetPrefs,
+  loadUserNsfwGeneratorPresets,
+  pushNsfwPresetRecent,
+  toggleNsfwPresetFavorite,
+  upsertUserNsfwGeneratorPreset,
+  type UserNsfwGeneratorPreset,
+} from '@/lib/user-nsfw-generator-presets';
+import { dispatchWebhook } from '@/lib/webhook-settings';
+import { whenBrowserStorageReady } from '@/lib/browser-storage';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import {
   CollapsibleSection,
   ToolBadge,
@@ -26,6 +42,7 @@ import {
   accentFocusClass,
 } from '@/components/ui/ToolPageShell';
 import { FieldDivider } from '@/components/ui/Field';
+import { Button } from '@/components/ui/Button';
 
 const ACCENT = 'fuchsia' as const;
 const TOOL_ID = 'nsfw-generator';
@@ -44,6 +61,8 @@ export default function NsfwGeneratorTool() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [userPresets, setUserPresets] = useState<UserNsfwGeneratorPreset[]>([]);
+  const [presetPrefs, setPresetPrefs] = useState(() => loadNsfwPresetPrefs());
 
   const selectedModel = getComfyModelDefinition(shared.model);
   const actions = usePromptResultActions({
@@ -51,6 +70,97 @@ export default function NsfwGeneratorTool() {
     model: shared.model,
     hints: toolSettings.hints,
   });
+
+  useEffect(() => {
+    let cancelled = false;
+    void whenBrowserStorageReady().then(() => {
+      if (cancelled) {
+        return;
+      }
+      scheduleAfterCommit(() => {
+        setUserPresets(loadUserNsfwGeneratorPresets());
+        setPresetPrefs(loadNsfwPresetPrefs());
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    scheduleAfterCommit(() => {
+      applyHintSourceFromSearchParams(params, updateToolSettings);
+
+      const hints = params.get('hints');
+      const presetId = params.get('nsfwPresetId');
+      const model = params.get('model');
+      if (model?.trim()) {
+        updateShared({ model: model.trim() as typeof shared.model });
+      }
+      if (presetId?.trim()) {
+        const preset = resolveNsfwGeneratorPreset(presetId.trim(), loadUserNsfwGeneratorPresets());
+        if (preset) {
+          updateToolSettings({
+            nsfwPresetId: preset.id,
+            presetCategory: preset.category,
+            hints: hints?.trim() || preset.hints,
+            hintSource: 'manual',
+          });
+          return;
+        }
+        updateToolSettings({ nsfwPresetId: presetId.trim() });
+      }
+      if (hints?.trim()) {
+        updateToolSettings({
+          hints: hints.trim(),
+          ...(params.get('hintSource') === 'manual' ? { hintSource: 'manual' } : {}),
+        });
+      }
+    });
+  }, [updateShared, updateToolSettings]);
+
+  const handlePresetSelect = useCallback(
+    (preset: NsfwGeneratorPreset) => {
+      setPresetPrefs(pushNsfwPresetRecent(preset.id));
+      updateToolSettings({
+        hints: preset.hints,
+        nsfwPresetId: preset.id,
+        presetCategory: preset.category,
+      });
+    },
+    [updateToolSettings]
+  );
+
+  const saveCurrentAsPreset = useCallback(() => {
+    const hints = toolSettings.hints?.trim();
+    if (!hints) {
+      setError('Add hints before saving a custom preset.');
+      return;
+    }
+    const label =
+      window
+        .prompt('Preset name', toolSettings.nsfwPresetId ? 'My preset' : 'Custom scene')
+        ?.trim() ?? '';
+    if (!label) {
+      return;
+    }
+    const base = resolveNsfwGeneratorPreset(toolSettings.nsfwPresetId ?? '', userPresets);
+    const preset = createUserNsfwGeneratorPreset({
+      label,
+      hints,
+      category: base?.category ?? 'subject',
+      mood: base?.mood,
+      duo: base?.duo,
+    });
+    upsertUserNsfwGeneratorPreset(preset);
+    setUserPresets(loadUserNsfwGeneratorPresets());
+    updateToolSettings({ nsfwPresetId: preset.id });
+    setError(null);
+  }, [toolSettings, userPresets, updateToolSettings]);
 
   const generate = useCallback(async () => {
     setLoading(true);
@@ -77,6 +187,13 @@ export default function NsfwGeneratorTool() {
       const prompt = await actions.finalizePrompt(data.prompt, toolSettings.hints);
       setOutput(prompt);
       setResult({ ...data, prompt });
+      void dispatchWebhook({
+        event: 'prompt.generated',
+        tool: TOOL_ID,
+        model: shared.model,
+        prompt: prompt.slice(0, 500),
+        completedAt: Date.now(),
+      });
     } catch (err) {
       setOutput('');
       setResult(null);
@@ -132,18 +249,29 @@ export default function NsfwGeneratorTool() {
         defaultOpen
         persistKey="nsfw-generator-presets"
       >
-        <NsfwGeneratorPresetChips
-          selectedId={toolSettings.nsfwPresetId}
-          category={toolSettings.presetCategory ?? 'all'}
-          onCategoryChange={category => updateToolSettings({ presetCategory: category })}
-          onSelect={preset => {
-            updateToolSettings({
-              hints: preset.hints,
-              nsfwPresetId: preset.id,
-              presetCategory: preset.category,
-            });
-          }}
-        />
+        <div className="space-y-3">
+          <NsfwGeneratorPresetChips
+            selectedId={toolSettings.nsfwPresetId}
+            category={toolSettings.presetCategory ?? 'all'}
+            onCategoryChange={category => updateToolSettings({ presetCategory: category })}
+            userPresets={userPresets}
+            favoriteIds={presetPrefs.favoriteIds}
+            recentIds={presetPrefs.recentIds}
+            onToggleFavorite={id => setPresetPrefs(toggleNsfwPresetFavorite(id))}
+            onDeleteUserPreset={id => {
+              deleteUserNsfwGeneratorPreset(id);
+              setUserPresets(loadUserNsfwGeneratorPresets());
+              setPresetPrefs(loadNsfwPresetPrefs());
+              if (toolSettings.nsfwPresetId === id) {
+                updateToolSettings({ nsfwPresetId: undefined });
+              }
+            }}
+            onSelect={handlePresetSelect}
+          />
+          <Button variant="secondary" size="sm" onClick={saveCurrentAsPreset}>
+            Save current hints as preset
+          </Button>
+        </div>
       </CollapsibleSection>
 
       <FieldDivider />
@@ -198,7 +326,10 @@ export default function NsfwGeneratorTool() {
           actions.saveHistory({
             prompt: output,
             hints: toolSettings.hints,
-            metadata: result?.metadata,
+            metadata: {
+              ...(result?.metadata ?? {}),
+              nsfwPresetId: toolSettings.nsfwPresetId,
+            },
           })
         }
         onSendComfyUi={() => void actions.sendComfyUi(output)}

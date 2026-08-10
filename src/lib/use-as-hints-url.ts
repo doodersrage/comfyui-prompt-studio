@@ -20,6 +20,12 @@ export function buildUseAsHintsUrl(entry: PromptHistoryEntry): string {
     params.set('model', entry.model);
   }
 
+  const presetId =
+    typeof entry.metadata?.nsfwPresetId === 'string' ? entry.metadata.nsfwPresetId.trim() : '';
+  if (presetId) {
+    params.set('nsfwPresetId', presetId);
+  }
+
   const seed = typeof entry.metadata?.seed === 'string' ? entry.metadata.seed.trim() : '';
   if (seed) {
     params.set('seed', seed);

@@ -10,7 +10,11 @@ import {
 } from '@/lib/avoided-tokens';
 import { clearWebhookLog, retryWebhookLogEntry, type WebhookLogEntry } from '@/lib/webhook-log';
 import { saveScheduledBatchConfig, type ScheduledBatchConfig } from '@/lib/scheduled-batch';
-import { saveWebhookSettings, type WebhookSettings } from '@/lib/webhook-settings';
+import {
+  saveWebhookSettings,
+  type WebhookSettings,
+  WEBHOOK_EVENT_CATALOG,
+} from '@/lib/webhook-settings';
 import type { ScheduledBatchServerStatus } from '@/lib/scheduled-batch-profile-sync';
 import { ToolSection, accentFocusClass } from '@/components/ui/ToolPageShell';
 import { EmptyState } from '@/components/ui/ViewState';
@@ -86,8 +90,21 @@ export default function SettingsAutomationTab({
     <>
       <ToolSection title="Webhooks">
         <p className="text-sm text-[var(--text-secondary)]">
-          POST ComfyUI job completion events to an external URL (via server proxy).
+          POST queue, prompt, and session events to an external URL (via server proxy).
         </p>
+        <details className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-muted)]/30 p-3 text-xs text-[var(--text-secondary)]">
+          <summary className="cursor-pointer font-medium text-[var(--text-primary)]">
+            Supported events
+          </summary>
+          <ul className="mt-2 space-y-1.5">
+            {WEBHOOK_EVENT_CATALOG.map(item => (
+              <li key={item.event}>
+                <code className="text-[var(--text-primary)]">{item.event}</code> —{' '}
+                {item.description}
+              </li>
+            ))}
+          </ul>
+        </details>
         <label className="flex items-center gap-3 text-sm text-[var(--text-secondary)]">
           <input
             type="checkbox"

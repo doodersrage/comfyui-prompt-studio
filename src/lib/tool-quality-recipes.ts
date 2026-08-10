@@ -1,5 +1,7 @@
 import { COMFY_MODEL_IDS, type ComfyImageModel } from './comfy-models/client';
 import type { WorkflowParamValues } from './comfyui-config';
+import type { SessionLoraStrengthOverrides } from './lora-stack';
+import { normalizeSessionLoraStrengthOverrides } from './lora-stack';
 import { normalizeQueueQualityProfile, type QueueQualityProfile } from './queue-quality-profile';
 import { toolQueueQualityLabel } from './tool-quality-profiles';
 
@@ -12,6 +14,7 @@ export type ToolQualityRecipe = {
   queueQualityProfile: QueueQualityProfile;
   /** When set, replaces session LoRA picks. Omit to leave the stack alone. */
   sessionActiveLoraIds?: string[];
+  sessionLoraStrengthOverrides?: SessionLoraStrengthOverrides;
   editDenoiseStrength?: number;
   /** Built-in seeds are merged on load; user recipes with the same id win. */
   builtin?: boolean;
@@ -23,6 +26,7 @@ export type ToolQualityRecipeSharedSlice = {
   queueQualityProfile?: QueueQualityProfile;
   sessionQueueMode?: 'iterate' | 'keeper' | 'off';
   sessionActiveLoraIds?: string[];
+  sessionLoraStrengthOverrides?: SessionLoraStrengthOverrides;
   editDenoiseStrength?: number;
   toolQueueQualityProfiles?: Partial<Record<string, QueueQualityProfile>>;
 };
@@ -76,6 +80,46 @@ export const SUGGESTED_TOOL_QUALITY_RECIPES: ToolQualityRecipe[] = [
     toolIds: ['nsfw-generator'],
     model: 'qwen-rapid-aio-nsfw',
     queueQualityProfile: 'draft',
+    builtin: true,
+  },
+  {
+    id: 'nsfw-generator-keeper-rapid',
+    label: 'Adult Rapid keeper',
+    toolIds: ['nsfw-generator'],
+    model: 'qwen-rapid-aio-nsfw',
+    queueQualityProfile: 'final',
+    builtin: true,
+  },
+  {
+    id: 'nsfw-generator-draft-zimage',
+    label: 'Adult Z-Image draft',
+    toolIds: ['nsfw-generator'],
+    model: 'z-image-turbo',
+    queueQualityProfile: 'draft',
+    builtin: true,
+  },
+  {
+    id: 'nsfw-generator-keeper-zimage',
+    label: 'Adult Z-Image keeper',
+    toolIds: ['nsfw-generator'],
+    model: 'z-image-turbo',
+    queueQualityProfile: 'final',
+    builtin: true,
+  },
+  {
+    id: 'nsfw-generator-draft-boogu',
+    label: 'Adult Boogu draft',
+    toolIds: ['nsfw-generator'],
+    model: 'boogu-image-edit-turbo',
+    queueQualityProfile: 'draft',
+    builtin: true,
+  },
+  {
+    id: 'nsfw-generator-keeper-qwen',
+    label: 'Adult Qwen keeper',
+    toolIds: ['nsfw-generator'],
+    model: 'qwen-image-2512-lightning-8',
+    queueQualityProfile: 'final',
     builtin: true,
   },
   {
@@ -166,6 +210,9 @@ export function normalizeToolQualityRecipe(value: unknown): ToolQualityRecipe | 
   const model =
     modelRaw && COMFY_MODEL_IDS.has(modelRaw) ? (modelRaw as ComfyImageModel) : undefined;
   const denoise = Number(record.editDenoiseStrength);
+  const loraOverrides = normalizeSessionLoraStrengthOverrides(
+    record.sessionLoraStrengthOverrides as SessionLoraStrengthOverrides | undefined
+  );
   return {
     id,
     label: normalizeRecipeLabel(record.label, id),
@@ -173,6 +220,9 @@ export function normalizeToolQualityRecipe(value: unknown): ToolQualityRecipe | 
     model,
     queueQualityProfile: profile,
     sessionActiveLoraIds: normalizeLoraIds(record.sessionActiveLoraIds),
+    ...(Object.keys(loraOverrides).length > 0
+      ? { sessionLoraStrengthOverrides: loraOverrides }
+      : {}),
     editDenoiseStrength:
       Number.isFinite(denoise) && denoise >= 0.05 && denoise <= 1
         ? Math.round(denoise * 100) / 100
@@ -240,6 +290,9 @@ export function applyToolQualityRecipe<T extends ToolQualityRecipeSharedSlice>(
   if (recipe.sessionActiveLoraIds !== undefined) {
     next.sessionActiveLoraIds = recipe.sessionActiveLoraIds;
   }
+  if (recipe.sessionLoraStrengthOverrides !== undefined) {
+    next.sessionLoraStrengthOverrides = recipe.sessionLoraStrengthOverrides;
+  }
   if (recipe.editDenoiseStrength != null) {
     next.editDenoiseStrength = recipe.editDenoiseStrength;
   }
@@ -261,6 +314,9 @@ export function formatToolQualityRecipeHint(recipe: ToolQualityRecipe, toolId?: 
   if (recipe.sessionActiveLoraIds) {
     parts.push(`${recipe.sessionActiveLoraIds.length} LoRAs`);
   }
+  if (recipe.sessionLoraStrengthOverrides) {
+    parts.push(`${Object.keys(recipe.sessionLoraStrengthOverrides).length} tuned`);
+  }
   if (toolId && recipe.toolIds?.includes(toolId)) {
     parts.push(toolQueueQualityLabel(toolId));
   }
@@ -273,6 +329,7 @@ export type GalleryRecipeSource = {
   tool?: string;
   queueQualityProfile?: QueueQualityProfile;
   sessionActiveLoraIds?: string[];
+  sessionLoraStrengthOverrides?: SessionLoraStrengthOverrides;
   queueParams?: WorkflowParamValues;
 };
 
@@ -307,13 +364,19 @@ export function buildToolQualityRecipeFromGalleryEntry(
   const model =
     modelRaw && COMFY_MODEL_IDS.has(modelRaw) ? (modelRaw as ComfyImageModel) : undefined;
   const loras = normalizeLoraIds(entry.sessionActiveLoraIds);
+  const loraOverrides = normalizeSessionLoraStrengthOverrides(entry.sessionLoraStrengthOverrides);
   const denoise = parseDenoiseFromQueueParams(entry.queueParams);
   const toolId =
     typeof entry.tool === 'string' && entry.tool.trim()
       ? entry.tool.trim().slice(0, 32)
       : undefined;
 
-  if (!explicitProfile && !model && !(loras && loras.length > 0)) {
+  if (
+    !explicitProfile &&
+    !model &&
+    !(loras && loras.length > 0) &&
+    Object.keys(loraOverrides).length === 0
+  ) {
     return {
       ok: false,
       error: 'Winner lacks model, quality profile, and LoRA metadata — cannot save a recipe.',
@@ -336,6 +399,9 @@ export function buildToolQualityRecipeFromGalleryEntry(
       model,
       queueQualityProfile: explicitProfile ?? 'final',
       sessionActiveLoraIds: loras,
+      ...(Object.keys(loraOverrides).length > 0
+        ? { sessionLoraStrengthOverrides: loraOverrides }
+        : {}),
       editDenoiseStrength: denoise,
       builtin: false,
     },

@@ -51,6 +51,19 @@ describe("buildUseAsHintsUrl", () => {
     assert.match(url, /^\/pet\?/);
   });
 
+  it("routes nsfw-generator entries with preset id", () => {
+    const url = buildUseAsHintsUrl(
+      entry({
+        tool: "nsfw-generator",
+        hints: "candlelit bedroom",
+        metadata: { nsfwPresetId: "candlelit-bedroom" },
+      }),
+    );
+    assert.match(url, /^\/plugins\/nsfw-generator\?/);
+    assert.match(url, /nsfwPresetId=candlelit-bedroom/);
+    assert.match(url, /hints=/);
+  });
+
   it("builds gallery focus and hints urls", () => {
     assert.equal(buildGalleryFocusUrl("abc-123"), "/gallery?focus=abc-123");
     const hints = buildUseAsHintsUrlFromGallery({

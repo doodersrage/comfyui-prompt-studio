@@ -10,6 +10,10 @@ import {
   type ResolutionOrientation,
   type ResolutionSizeTier,
 } from './model-resolution-defaults';
+import {
+  normalizeSessionLoraStrengthOverrides,
+  type SessionLoraStrengthOverrides,
+} from './lora-stack';
 import { normalizeQueueQualityProfile, type QueueQualityProfile } from './queue-quality-profile';
 
 export const SESSION_RECIPES_KEY = 'comfy-prompt-session-recipes-v1';
@@ -20,6 +24,7 @@ export type SessionRecipeShared = {
   queueQualityProfile?: QueueQualityProfile;
   sessionQueueMode?: 'iterate' | 'keeper' | 'off';
   sessionActiveLoraIds?: string[];
+  sessionLoraStrengthOverrides?: SessionLoraStrengthOverrides;
   modelSamplerPreset?: ModelSamplerPresetTier;
   modelResolutionOrientation?: ResolutionOrientation;
   modelResolutionSizeTier?: ResolutionSizeTier;
@@ -73,6 +78,9 @@ export function normalizeSessionRecipe(value: unknown): SessionRecipe | null {
         .slice(0, 32)
     : undefined;
   const denoise = Number(sharedRaw.editDenoiseStrength);
+  const loraOverrides = normalizeSessionLoraStrengthOverrides(
+    sharedRaw.sessionLoraStrengthOverrides as SessionLoraStrengthOverrides | undefined
+  );
   return {
     id,
     label,
@@ -88,6 +96,9 @@ export function normalizeSessionRecipe(value: unknown): SessionRecipe | null {
         : undefined,
       sessionQueueMode: normalizeSessionMode(sharedRaw.sessionQueueMode),
       sessionActiveLoraIds: loraIds,
+      ...(Object.keys(loraOverrides).length > 0
+        ? { sessionLoraStrengthOverrides: loraOverrides }
+        : {}),
       modelSamplerPreset: sharedRaw.modelSamplerPreset
         ? normalizeModelSamplerPresetTier(sharedRaw.modelSamplerPreset)
         : undefined,
@@ -153,6 +164,15 @@ export function buildSessionRecipeFromShared(input: {
             .filter(Boolean)
             .slice(0, 32)
         : undefined,
+      ...(Object.keys(
+        normalizeSessionLoraStrengthOverrides(input.shared.sessionLoraStrengthOverrides)
+      ).length > 0
+        ? {
+            sessionLoraStrengthOverrides: normalizeSessionLoraStrengthOverrides(
+              input.shared.sessionLoraStrengthOverrides
+            ),
+          }
+        : {}),
       modelSamplerPreset: input.shared.modelSamplerPreset
         ? normalizeModelSamplerPresetTier(input.shared.modelSamplerPreset)
         : undefined,
@@ -178,6 +198,17 @@ export function pushSessionRecipe(recipe: SessionRecipe): SessionRecipe[] {
     MAX_SESSION_RECIPES
   );
   saveSessionRecipes(next);
+  if (typeof window !== 'undefined') {
+    void import('./webhook-settings').then(({ dispatchWebhook }) => {
+      void dispatchWebhook({
+        event: 'session.recipe.saved',
+        tool: recipe.toolId,
+        model: recipe.shared.model,
+        completedAt: Date.now(),
+        message: recipe.label,
+      });
+    });
+  }
   return next;
 }
 
@@ -199,6 +230,9 @@ export function applySessionRecipeShared<T extends SessionRecipeShared>(
     ...(snap.queueQualityProfile ? { queueQualityProfile: snap.queueQualityProfile } : {}),
     ...(snap.sessionQueueMode ? { sessionQueueMode: snap.sessionQueueMode } : {}),
     sessionActiveLoraIds: snap.sessionActiveLoraIds,
+    ...(snap.sessionLoraStrengthOverrides
+      ? { sessionLoraStrengthOverrides: snap.sessionLoraStrengthOverrides }
+      : {}),
     ...(snap.modelSamplerPreset ? { modelSamplerPreset: snap.modelSamplerPreset } : {}),
     ...(snap.modelResolutionOrientation
       ? { modelResolutionOrientation: snap.modelResolutionOrientation }
@@ -217,6 +251,12 @@ export function formatSessionRecipeSubtitle(recipe: SessionRecipe): string {
   }
   if (recipe.shared.sessionActiveLoraIds) {
     parts.push(`${recipe.shared.sessionActiveLoraIds.length} LoRAs`);
+  }
+  if (recipe.shared.sessionLoraStrengthOverrides) {
+    const tuned = Object.keys(recipe.shared.sessionLoraStrengthOverrides).length;
+    if (tuned > 0) {
+      parts.push(`${tuned} tuned`);
+    }
   }
   if (recipe.toolId) {
     parts.push(recipe.toolId);

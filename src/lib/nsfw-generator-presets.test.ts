@@ -4,6 +4,7 @@ import {
   NSFW_GENERATOR_PRESETS,
   getNsfwGeneratorPreset,
   nsfwPresetsForCategory,
+  filterNsfwPresetsByQuery,
 } from './nsfw-generator-presets';
 import {
   NSFW_GENERATOR_MANIFEST,
@@ -20,6 +21,12 @@ describe('nsfw-generator-presets', () => {
     const moods = nsfwPresetsForCategory('mood');
     assert.ok(moods.length >= 3);
     assert.ok(moods.every(preset => preset.category === 'mood'));
+  });
+
+  it('filters presets by query', () => {
+    const matches = filterNsfwPresetsByQuery(nsfwPresetsForCategory('mood'), 'romantic');
+    assert.ok(matches.length >= 1);
+    assert.ok(matches.every(preset => preset.category === 'mood'));
   });
 
   it('resolves presets by id', () => {

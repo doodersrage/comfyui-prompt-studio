@@ -53,6 +53,8 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 - **Wardrobe avoided tokens** — low-rated motifs filter catalog wardrobe picks across generators
 - **Catalog rating bias** — Studio catalog sorts clothing/locations by gallery review scores; click **Insert** to add to hints
 - **Rating-driven random** — history/gallery favorites and downvotes subtly adjust random-scene wildness
+- **Adult generator plugin** — env-gated `/plugins/nsfw-generator` with 120+ built-in presets, search/favorites/recent, user-saved presets, and Rapid AIO / Z-Image / Qwen quality recipes
+- **LoRA stack inline tuning** — per-run model/clip strength overrides in the sidebar (session-only; included in session recipes and compare recipes)
 
 ## Studio {#studio}
 
@@ -87,6 +89,7 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 - **Project bundles** — export/import project history + gallery JSON from Studio Projects tab
 - **History/gallery export** — CSV and JSONL export from Studio and Gallery bulk actions
 - **History batch re-queue** — re-queue saved `batchPrompts` from batch ComfyUI sends
+- **History bulk actions** — tag or delete all entries matching the current Studio history filters
 - **Semantic search** — token-overlap ranking in Studio history and Gallery filters
 - **Embedding search** — semantic history filter uses Ollama embeddings when available (`/api/search/embeddings`)
 - **Global search** — command palette (`Ctrl+K` / `Ctrl+Shift+K`) searches history, gallery, and scene presets
@@ -225,7 +228,7 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 
 - **Completion notifications** — optional browser notifications when ComfyUI jobs finish (Settings)
 - **Notification center** — in-app alerts bell in sidebar when jobs complete
-- **Webhooks** — POST job completion payloads to an external URL via server proxy
+- **Webhooks** — POST queue, prompt, and session events to an external URL via server proxy (`comfyui.job.*`, `prompt.generated`, `prompt.history.saved`, `session.recipe.saved`, scheduled batch)
 - **Webhook event log** — Settings shows recent webhook deliveries with retry
 - **Webhook log UI** — event filter and payload preview on Settings
 - **Webhook templates** — Discord/Slack rich payload formats in Settings

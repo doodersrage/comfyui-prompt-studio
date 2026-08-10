@@ -135,6 +135,37 @@ export function usePromptHistory() {
     [persist]
   );
 
+  const addTagToEntries = useCallback(
+    (ids: string[], tag: string) => {
+      const trimmed = tag.trim();
+      if (!trimmed || ids.length === 0) {
+        return;
+      }
+      const idSet = new Set(ids);
+      persist(
+        loadHistory().map(entry => {
+          if (!idSet.has(entry.id)) {
+            return entry;
+          }
+          const tags = [...new Set([...(entry.tags ?? []), trimmed])].slice(0, 12);
+          return { ...entry, tags };
+        })
+      );
+    },
+    [persist]
+  );
+
+  const removeEntries = useCallback(
+    (ids: string[]) => {
+      if (ids.length === 0) {
+        return;
+      }
+      const idSet = new Set(ids);
+      persist(loadHistory().filter(entry => !idSet.has(entry.id)));
+    },
+    [persist]
+  );
+
   return {
     mounted,
     entries,
@@ -143,7 +174,9 @@ export function usePromptHistory() {
     setRating,
     setTags,
     addTag,
+    addTagToEntries,
     removeEntry,
+    removeEntries,
     clearHistory,
     refresh,
   };

@@ -106,4 +106,26 @@ describe("session recipes", () => {
     assert.equal(applied.queueQualityProfile, "final");
     assert.deepEqual(applied.sessionActiveLoraIds, ["skin", "anypose"]);
   });
+
+  it("round-trips session LoRA strength overrides", () => {
+    const recipe = buildSessionRecipeFromShared({
+      shared: {
+        model: "qwen-image-2512",
+        sessionActiveLoraIds: ["skin"],
+        sessionLoraStrengthOverrides: { skin: { strengthModel: 0.55, strengthClip: 0.7 } },
+      },
+      toolId: "generate",
+    });
+    const normalized = normalizeSessionRecipe(recipe);
+    assert.deepEqual(normalized?.shared.sessionLoraStrengthOverrides, {
+      skin: { strengthModel: 0.55, strengthClip: 0.7 },
+    });
+    const applied = applySessionRecipeShared(
+      { model: "flux-dev", sessionActiveLoraIds: [] },
+      normalized!,
+    );
+    assert.deepEqual(applied.sessionLoraStrengthOverrides, {
+      skin: { strengthModel: 0.55, strengthClip: 0.7 },
+    });
+  });
 });

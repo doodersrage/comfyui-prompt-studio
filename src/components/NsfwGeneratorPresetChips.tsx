@@ -1,29 +1,224 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import type { NsfwGeneratorPreset, NsfwPresetCategory } from '@/lib/nsfw-generator-presets';
-import { NSFW_PRESET_CATEGORIES, nsfwPresetsForCategory } from '@/lib/nsfw-generator-presets';
+import {
+  NSFW_PRESET_CATEGORIES,
+  filterNsfwPresetsByQuery,
+  mergeNsfwPresetCatalog,
+} from '@/lib/nsfw-generator-presets';
 
 type NsfwGeneratorPresetChipsProps = {
   selectedId?: string;
   category?: NsfwPresetCategory | 'all';
   onCategoryChange?: (category: NsfwPresetCategory | 'all') => void;
   onSelect: (preset: NsfwGeneratorPreset) => void;
+  userPresets?: NsfwGeneratorPreset[];
+  favoriteIds?: string[];
+  recentIds?: string[];
+  onToggleFavorite?: (presetId: string) => void;
+  onDeleteUserPreset?: (presetId: string) => void;
 };
+
+function PresetChip({
+  preset,
+  active,
+  favorite,
+  isUser,
+  onSelect,
+  onToggleFavorite,
+  onDeleteUserPreset,
+}: {
+  preset: NsfwGeneratorPreset;
+  active: boolean;
+  favorite: boolean;
+  isUser: boolean;
+  onSelect: () => void;
+  onToggleFavorite?: () => void;
+  onDeleteUserPreset?: () => void;
+}) {
+  return (
+    <div className="group relative inline-flex max-w-full">
+      <button
+        type="button"
+        onClick={onSelect}
+        className={`max-w-full truncate rounded-lg border px-3 py-1.5 text-xs font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-fuchsia-500 ${
+          active
+            ? 'border-fuchsia-500/60 bg-fuchsia-500/15 text-fuchsia-100'
+            : 'border-[var(--border-default)] text-[var(--text-muted)] hover:border-[var(--border-default)] hover:bg-[var(--bg-muted)]/40 hover:text-[var(--text-primary)]'
+        }`}
+        title={preset.hints}
+      >
+        {isUser ? '★ ' : ''}
+        {preset.label}
+      </button>
+      {onToggleFavorite ? (
+        <button
+          type="button"
+          aria-label={favorite ? 'Remove favorite' : 'Add favorite'}
+          onClick={event => {
+            event.stopPropagation();
+            onToggleFavorite();
+          }}
+          className={`absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full border text-[10px] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-fuchsia-500 ${
+            favorite
+              ? 'border-amber-400/70 bg-amber-500/20 text-amber-100'
+              : 'border-[var(--border-subtle)] bg-[var(--bg-muted)] text-[var(--text-muted)] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
+          }`}
+        >
+          ★
+        </button>
+      ) : null}
+      {isUser && onDeleteUserPreset ? (
+        <button
+          type="button"
+          aria-label="Delete saved preset"
+          onClick={event => {
+            event.stopPropagation();
+            onDeleteUserPreset();
+          }}
+          className="absolute -right-1 -bottom-1 flex h-5 w-5 items-center justify-center rounded-full border border-rose-400/40 bg-rose-500/10 text-[10px] text-rose-200 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-fuchsia-500"
+        >
+          ×
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function PresetSection({
+  title,
+  presets,
+  selectedId,
+  favoriteIds,
+  userPresetIds,
+  onSelect,
+  onToggleFavorite,
+  onDeleteUserPreset,
+}: {
+  title: string;
+  presets: NsfwGeneratorPreset[];
+  selectedId?: string;
+  favoriteIds: Set<string>;
+  userPresetIds: Set<string>;
+  onSelect: (preset: NsfwGeneratorPreset) => void;
+  onToggleFavorite?: (presetId: string) => void;
+  onDeleteUserPreset?: (presetId: string) => void;
+}) {
+  if (presets.length === 0) {
+    return null;
+  }
+  return (
+    <div className="space-y-2">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--text-muted)]">
+        {title}
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {presets.map(preset => (
+          <PresetChip
+            key={preset.id}
+            preset={preset}
+            active={selectedId === preset.id}
+            favorite={favoriteIds.has(preset.id)}
+            isUser={userPresetIds.has(preset.id)}
+            onSelect={() => onSelect(preset)}
+            onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(preset.id) : undefined}
+            onDeleteUserPreset={
+              userPresetIds.has(preset.id) && onDeleteUserPreset
+                ? () => onDeleteUserPreset(preset.id)
+                : undefined
+            }
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function NsfwGeneratorPresetChips({
   selectedId,
   category = 'all',
   onCategoryChange,
   onSelect,
+  userPresets = [],
+  favoriteIds = [],
+  recentIds = [],
+  onToggleFavorite,
+  onDeleteUserPreset,
 }: NsfwGeneratorPresetChipsProps) {
-  const presets = nsfwPresetsForCategory(category);
+  const [query, setQuery] = useState('');
+
+  const catalog = useMemo(() => mergeNsfwPresetCatalog(userPresets), [userPresets]);
+  const favoriteSet = useMemo(() => new Set(favoriteIds), [favoriteIds]);
+  const userPresetIds = useMemo(() => new Set(userPresets.map(preset => preset.id)), [userPresets]);
+  const catalogById = useMemo(() => new Map(catalog.map(preset => [preset.id, preset])), [catalog]);
+
+  const categoryFiltered = useMemo(() => {
+    if (category === 'all') {
+      return catalog;
+    }
+    return catalog.filter(preset => preset.category === category);
+  }, [catalog, category]);
+
+  const filtered = useMemo(
+    () => filterNsfwPresetsByQuery(categoryFiltered, query),
+    [categoryFiltered, query]
+  );
+
+  const recentPresets = useMemo(
+    () =>
+      recentIds
+        .map(id => catalogById.get(id))
+        .filter((preset): preset is NsfwGeneratorPreset => Boolean(preset))
+        .filter(preset => filterNsfwPresetsByQuery([preset], query).length > 0),
+    [recentIds, catalogById, query]
+  );
+
+  const favoritePresets = useMemo(
+    () =>
+      favoriteIds
+        .map(id => catalogById.get(id))
+        .filter((preset): preset is NsfwGeneratorPreset => Boolean(preset))
+        .filter(preset => {
+          if (category !== 'all' && preset.category !== category) {
+            return false;
+          }
+          return filterNsfwPresetsByQuery([preset], query).length > 0;
+        }),
+    [favoriteIds, catalogById, category, query]
+  );
+
+  const recentIdSet = useMemo(
+    () => new Set(recentPresets.map(preset => preset.id)),
+    [recentPresets]
+  );
+  const favoriteOnlyIdSet = useMemo(
+    () => new Set(favoritePresets.map(preset => preset.id)),
+    [favoritePresets]
+  );
+
+  const mainPresets = useMemo(
+    () =>
+      filtered.filter(preset => !recentIdSet.has(preset.id) && !favoriteOnlyIdSet.has(preset.id)),
+    [filtered, recentIdSet, favoriteOnlyIdSet]
+  );
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-medium text-[var(--text-primary)]">Scene presets</p>
-        <p className="text-xs text-[var(--text-muted)]">{presets.length} starters</p>
+        <p className="text-xs text-[var(--text-muted)]">
+          {filtered.length} shown · {catalog.length} total
+        </p>
       </div>
+
+      <input
+        type="search"
+        value={query}
+        onChange={event => setQuery(event.target.value)}
+        placeholder="Search presets…"
+        className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] text-sm"
+      />
 
       <div className="flex flex-wrap gap-2">
         {NSFW_PRESET_CATEGORIES.map(item => (
@@ -42,24 +237,44 @@ export default function NsfwGeneratorPresetChips({
         ))}
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        {presets.map(preset => {
-          const active = selectedId === preset.id;
-          return (
-            <button
-              key={preset.id}
-              type="button"
-              onClick={() => onSelect(preset)}
-              className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-fuchsia-500 ${
-                active
-                  ? 'border-fuchsia-500/60 bg-fuchsia-500/15 text-fuchsia-100'
-                  : 'border-[var(--border-default)] text-[var(--text-muted)] hover:border-[var(--border-default)] hover:bg-[var(--bg-muted)]/40 hover:text-[var(--text-primary)]'
-              }`}
-            >
-              {preset.label}
-            </button>
-          );
-        })}
+      <div className="max-h-72 space-y-4 overflow-y-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-muted)]/20 p-3">
+        <PresetSection
+          title="Recent"
+          presets={recentPresets}
+          selectedId={selectedId}
+          favoriteIds={favoriteSet}
+          userPresetIds={userPresetIds}
+          onSelect={onSelect}
+          onToggleFavorite={onToggleFavorite}
+          onDeleteUserPreset={onDeleteUserPreset}
+        />
+        <PresetSection
+          title="Favorites"
+          presets={favoritePresets}
+          selectedId={selectedId}
+          favoriteIds={favoriteSet}
+          userPresetIds={userPresetIds}
+          onSelect={onSelect}
+          onToggleFavorite={onToggleFavorite}
+          onDeleteUserPreset={onDeleteUserPreset}
+        />
+        <PresetSection
+          title={
+            recentPresets.length > 0 || favoritePresets.length > 0 ? 'All matching' : 'Presets'
+          }
+          presets={mainPresets}
+          selectedId={selectedId}
+          favoriteIds={favoriteSet}
+          userPresetIds={userPresetIds}
+          onSelect={onSelect}
+          onToggleFavorite={onToggleFavorite}
+          onDeleteUserPreset={onDeleteUserPreset}
+        />
+        {filtered.length === 0 ? (
+          <p className="py-6 text-center text-sm text-[var(--text-muted)]">
+            No presets match this search.
+          </p>
+        ) : null}
       </div>
     </div>
   );

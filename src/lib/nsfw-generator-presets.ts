@@ -1048,3 +1048,36 @@ export function nsfwPresetsForCategory(
   }
   return NSFW_GENERATOR_PRESETS.filter(preset => preset.category === category);
 }
+
+export function filterNsfwPresetsByQuery(
+  presets: readonly NsfwGeneratorPreset[],
+  query: string
+): NsfwGeneratorPreset[] {
+  const needle = query.trim().toLowerCase();
+  if (!needle) {
+    return [...presets];
+  }
+  return presets.filter(preset => {
+    const haystack = [preset.label, preset.hints, preset.mood, preset.category]
+      .filter(Boolean)
+      .join('\n')
+      .toLowerCase();
+    return haystack.includes(needle);
+  });
+}
+
+export function resolveNsfwGeneratorPreset(
+  id: string,
+  userPresets: readonly NsfwGeneratorPreset[] = []
+): NsfwGeneratorPreset | undefined {
+  const key = id.trim();
+  return userPresets.find(preset => preset.id === key) ?? getNsfwGeneratorPreset(key);
+}
+
+export function mergeNsfwPresetCatalog(
+  userPresets: readonly NsfwGeneratorPreset[]
+): NsfwGeneratorPreset[] {
+  const builtinIds = new Set(NSFW_GENERATOR_PRESETS.map(preset => preset.id));
+  const extras = userPresets.filter(preset => !builtinIds.has(preset.id));
+  return [...extras, ...NSFW_GENERATOR_PRESETS];
+}

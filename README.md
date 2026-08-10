@@ -44,6 +44,7 @@ Use **Simple / Studio / Full** from the sidebar footer or **Profile → Appearan
 | **Qwen Image** | 2512, Edit-2511, Lightning, Rapid AIO, Image-2.0 | T2I on Generate; multi-ref `ReferenceLatent` on Refine / Compose / Image → Prompt |
 | **Z-Image** | Base, Turbo | T2I on Generate; Figure 1 VAEEncode img2img on Refine / Compose / Image → Prompt |
 | **Boogu Image** | Base, Turbo, Edit, Edit Turbo | T2I on Generate; instruction TI2I via `TextEncodeBooguEdit` on Refine / Compose / Image → Prompt |
+| **WAN / Hunyuan / LTX Video** | WAN 2.2, Rapid AIO, Lightning, Hunyuan, LTX | T2V / I2V on Video tool; system scaffolds + asset catalog |
 
 | Family                | Examples                                                         | Prompt style                                 |
 | --------------------- | ---------------------------------------------------------------- | -------------------------------------------- |

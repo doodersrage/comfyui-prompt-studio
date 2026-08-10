@@ -78,6 +78,8 @@ export type StudioHistoryTabProps = {
   onRate: (id: string, rating: PromptHistoryEntry['rating']) => void;
   onAddTag: (id: string, tag: string) => void;
   onRemoveEntry: (id: string) => void;
+  onRemoveEntries?: (ids: string[]) => void;
+  onAddTagToEntries?: (ids: string[], tag: string) => void;
   onClearHistory: () => void;
   onImportBackup: (file: File) => void | Promise<void>;
   onDiffLeft: (id: string) => void;
@@ -327,6 +329,8 @@ export default function StudioHistoryTab({
   onRate,
   onAddTag,
   onRemoveEntry,
+  onRemoveEntries,
+  onAddTagToEntries,
   onClearHistory,
   onImportBackup,
   onDiffLeft,
@@ -344,6 +348,7 @@ export default function StudioHistoryTab({
 
   const filterKey = useMemo(() => JSON.stringify(historyFilter), [historyFilter]);
   const [pageByFilter, setPageByFilter] = useState<Record<string, number>>({});
+  const [bulkTagDraft, setBulkTagDraft] = useState('');
 
   const page = pageByFilter[filterKey] ?? 1;
   const setPage = (next: number | ((prev: number) => number)) => {
@@ -447,6 +452,26 @@ export default function StudioHistoryTab({
                 <Button variant="ghost" size="sm" onClick={onClearHistory}>
                   Clear all
                 </Button>
+                {filteredEntries.length > 0 &&
+                filteredEntries.length !== entries.length &&
+                onRemoveEntries ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          `Delete ${filteredEntries.length} filtered entries? This cannot be undone.`
+                        )
+                      ) {
+                        onRemoveEntries(filteredEntries.map(entry => entry.id));
+                        onBackupStatusChange(`Removed ${filteredEntries.length} filtered entries.`);
+                      }
+                    }}
+                  >
+                    Delete filtered ({filteredEntries.length})
+                  </Button>
+                ) : null}
               </>
             )}
             <Button
@@ -608,6 +633,39 @@ export default function StudioHistoryTab({
               />
               Favorites only
             </label>
+            {filteredEntries.length > 0 && onAddTagToEntries ? (
+              <div className="flex flex-wrap items-end gap-2 sm:col-span-2 xl:col-span-3">
+                <div className="min-w-[10rem] flex-1 space-y-2">
+                  <FieldLabel htmlFor="history-bulk-tag">Tag filtered</FieldLabel>
+                  <input
+                    id="history-bulk-tag"
+                    value={bulkTagDraft}
+                    onChange={event => setBulkTagDraft(event.target.value)}
+                    placeholder="campaign, keeper, …"
+                    className="ui-input px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+                  />
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={!bulkTagDraft.trim()}
+                  onClick={() => {
+                    const tag = bulkTagDraft.trim();
+                    if (!tag) {
+                      return;
+                    }
+                    onAddTagToEntries(
+                      filteredEntries.map(entry => entry.id),
+                      tag
+                    );
+                    setBulkTagDraft('');
+                    onBackupStatusChange(`Tagged ${filteredEntries.length} entries “${tag}”.`);
+                  }}
+                >
+                  Apply to {filteredEntries.length}
+                </Button>
+              </div>
+            ) : null}
             <div className="space-y-2">
               <FieldLabel htmlFor="history-rating">Min rating</FieldLabel>
               <select

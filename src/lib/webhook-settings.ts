@@ -1,7 +1,6 @@
 import type { WorkflowParamValues } from './comfyui-config';
 import { appendWebhookLogEntry } from './webhook-log';
 import { readBrowserValue, writeBrowserValue } from './browser-storage';
-import { formatWebhookPayload } from './webhook-payload';
 
 export const WEBHOOK_SETTINGS_KEY = 'comfy-prompt-webhook-v1';
 
@@ -47,7 +46,25 @@ export type WebhookEvent =
   | 'comfyui.job.queued'
   | 'comfyui.batch.completed'
   | 'scheduled.batch.run'
-  | 'scheduled.batch.completed';
+  | 'scheduled.batch.completed'
+  | 'prompt.generated'
+  | 'prompt.history.saved'
+  | 'session.recipe.saved';
+
+export const WEBHOOK_EVENT_CATALOG: { event: WebhookEvent; description: string }[] = [
+  { event: 'comfyui.job.queued', description: 'A prompt was sent to the ComfyUI queue.' },
+  { event: 'comfyui.job.completed', description: 'ComfyUI finished a job successfully.' },
+  { event: 'comfyui.job.error', description: 'ComfyUI reported a queue or execution error.' },
+  { event: 'comfyui.batch.completed', description: 'A multi-prompt batch finished.' },
+  { event: 'scheduled.batch.run', description: 'Scheduled batch runner started a cycle.' },
+  { event: 'scheduled.batch.completed', description: 'Scheduled batch runner finished a cycle.' },
+  {
+    event: 'prompt.generated',
+    description: 'A tool finished LLM prompt generation (e.g. Adult generator).',
+  },
+  { event: 'prompt.history.saved', description: 'A prompt was saved to Studio history.' },
+  { event: 'session.recipe.saved', description: 'A session recipe snapshot was stored.' },
+];
 
 export type WebhookJobPayload = {
   event: WebhookEvent;

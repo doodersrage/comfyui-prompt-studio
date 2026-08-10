@@ -120,8 +120,16 @@ export default function StudioTool() {
     'studio',
     DEFAULT_STUDIO_TOOL_CACHE
   );
-  const { entries, toggleFavorite, setRating, addTag, removeEntry, clearHistory } =
-    usePromptHistory();
+  const {
+    entries,
+    toggleFavorite,
+    setRating,
+    addTag,
+    addTagToEntries,
+    removeEntry,
+    removeEntries,
+    clearHistory,
+  } = usePromptHistory();
 
   const [tab, setTab] = useState<StudioTab>('history');
   const [catalogQuery, setCatalogQuery] = useState('');
@@ -725,6 +733,8 @@ export default function StudioTool() {
               onRate={setRating}
               onAddTag={addTag}
               onRemoveEntry={removeEntry}
+              onRemoveEntries={removeEntries}
+              onAddTagToEntries={addTagToEntries}
               onClearHistory={clearHistory}
               onImportBackup={handleImportBackup}
               onDiffLeft={id => {

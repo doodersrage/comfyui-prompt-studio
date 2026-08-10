@@ -1609,12 +1609,15 @@ export default function ComfyUiGalleryPanel({
                     });
                 }}
                 onSaveWinnerRecipe={entry => {
-                  const built = buildToolQualityRecipeFromGalleryEntry(entry);
+                  const shared = loadSettingsCache().shared;
+                  const built = buildToolQualityRecipeFromGalleryEntry({
+                    ...entry,
+                    sessionLoraStrengthOverrides: shared.sessionLoraStrengthOverrides,
+                  });
                   if (!built.ok) {
                     setCompareStatus(built.error);
                     return;
                   }
-                  const shared = loadSettingsCache().shared;
                   const nextRecipes = appendUserToolQualityRecipe(
                     shared.toolQualityRecipes,
                     built.recipe

@@ -47,7 +47,11 @@ export function extractHintsFromHistoryEntry(entry: PromptHistoryEntry): string 
   if (entry.hints?.trim()) {
     return entry.hints.trim();
   }
-  if (entry.tool === 'generate' || entry.tool === 'randomScene') {
+  if (
+    entry.tool === 'generate' ||
+    entry.tool === 'randomScene' ||
+    entry.tool === 'nsfw-generator'
+  ) {
     return entry.prompt.slice(0, 500);
   }
   return entry.prompt.slice(0, 400);
