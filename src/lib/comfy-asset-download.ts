@@ -23,7 +23,10 @@ export type ComfyAssetJob = {
   bytesReceived: number;
   bytesTotal: number | null;
   error?: string;
+  /** Per-fetch retry counter within one download run. */
   attempt?: number;
+  /** Full download restarts after a terminal failure in `runDownload`. */
+  runAttempt?: number;
   destPath?: string;
   createdAt: string;
   updatedAt: string;
@@ -70,6 +73,7 @@ function getRuntime(): ComfyAssetDownloadRuntime {
 }
 
 const MAX_ATTEMPTS = 5;
+const MAX_RUN_ATTEMPTS = 8;
 const STALL_MS = 90_000;
 const CONNECT_TIMEOUT_MS = 60_000;
 const TOTAL_TIMEOUT_MS = 2 * 60 * 60 * 1000;
@@ -101,19 +105,15 @@ function rebuildDownloadParams(job: ComfyAssetJob): DownloadParams | null {
   if (!asset?.url || !isAllowlistedAssetUrl(asset.url)) {
     return null;
   }
-  const root = getComfyUiRoot();
-  if (!root || !job.destPath?.trim()) {
+  if (!job.destPath?.trim()) {
     return null;
   }
-  const { partialPath, modelsDir } = resolveAssetDestinationPath({
-    root,
-    kind: asset.kind,
-    filename: asset.filename,
-  });
+  const destPath = path.resolve(job.destPath);
+  const modelsDir = path.dirname(destPath);
   return {
     url: asset.url,
-    destPath: job.destPath,
-    partialPath,
+    destPath,
+    partialPath: `${destPath}.partial`,
     modelsDir,
     expectedSha256: asset.sha256,
     expectedBytes: asset.bytes,
@@ -190,6 +190,31 @@ function buildDownloadHeaders(): Record<string, string> {
     headers.Authorization = `Bearer ${hfToken}`;
   }
   return headers;
+}
+
+function jobRetryDelayMs(runAttempt: number): number {
+  const base = Math.min(120_000, 5_000 * 2 ** (runAttempt - 1));
+  return base + Math.floor(Math.random() * 1_000);
+}
+
+export function isRetryableDownloadError(
+  message: string,
+  err?: Pick<NodeJS.ErrnoException, 'code'>
+): boolean {
+  if (err?.code === 'EACCES' || err?.code === 'EPERM') {
+    return false;
+  }
+  if (
+    /SHA-256 mismatch|Size mismatch|Permission denied writing|Download parameters could not/i.test(
+      message
+    )
+  ) {
+    return false;
+  }
+  if (/\b403\b|\b401\b|HTTP 403|HTTP 401|requires HF_TOKEN|blocked/i.test(message)) {
+    return false;
+  }
+  return true;
 }
 
 function retryAfterMs(response: Response, attempt: number): number {
@@ -286,15 +311,26 @@ export function startComfyAssetDownload(options: StartComfyAssetDownloadOptions)
     return saveJob(existing);
   }
 
-  // Reuse an in-flight job for the same asset instead of stacking duplicates.
+  // Reuse an in-flight or failed job for the same asset instead of stacking duplicates.
   for (const existing of getRuntime().jobs.values()) {
+    if (existing.assetId !== asset.id) {
+      continue;
+    }
     if (
-      existing.assetId === asset.id &&
-      (existing.status === 'queued' ||
-        existing.status === 'downloading' ||
-        existing.status === 'verifying')
+      existing.status === 'queued' ||
+      existing.status === 'downloading' ||
+      existing.status === 'verifying'
     ) {
       return existing;
+    }
+    if (existing.status === 'error') {
+      const restarted = retryComfyAssetDownload(existing.id, {
+        deferStart: options.deferStart,
+        fetchImpl: options.fetchImpl,
+      });
+      if (restarted) {
+        return restarted;
+      }
     }
   }
 
@@ -308,6 +344,7 @@ export function startComfyAssetDownload(options: StartComfyAssetDownloadOptions)
     bytesReceived: 0,
     bytesTotal: asset.bytes ?? null,
     attempt: 0,
+    runAttempt: 1,
     destPath,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -331,6 +368,51 @@ export function startComfyAssetDownload(options: StartComfyAssetDownloadOptions)
   }
 
   return job;
+}
+
+/** Restart a failed download (same job id). */
+export function retryComfyAssetDownload(
+  jobId: string,
+  options: Pick<StartComfyAssetDownloadOptions, 'deferStart' | 'fetchImpl'> = {}
+): ComfyAssetJob | undefined {
+  const runtime = getRuntime();
+  const job = runtime.jobs.get(jobId);
+  if (!job || job.status !== 'error') {
+    return job;
+  }
+
+  const params = rebuildDownloadParams(job);
+  if (!params) {
+    saveJob({
+      ...job,
+      error: 'Download parameters could not be restored.',
+    });
+    return runtime.jobs.get(jobId);
+  }
+
+  const restarted = saveJob({
+    ...job,
+    status: 'queued',
+    progress: 0,
+    bytesReceived: 0,
+    bytesTotal: getCatalogAsset(job.assetId)?.bytes ?? job.bytesTotal,
+    error: undefined,
+    attempt: 0,
+    runAttempt: 1,
+  });
+
+  const nextParams: DownloadParams = {
+    ...params,
+    fetchImpl: options.fetchImpl ?? params.fetchImpl,
+  };
+
+  if (options.deferStart) {
+    runtime.pendingDownloadParams.set(jobId, nextParams);
+  } else {
+    scheduleComfyAssetDownloadJob(jobId, nextParams);
+  }
+
+  return restarted;
 }
 
 /** Run a previously deferred job (used with Next.js `after()`). */
@@ -569,9 +651,7 @@ async function runDownload(input: {
             } catch {
               // ignore
             }
-            throw new Error(
-              `Download stalled — no data for ${Math.round(STALL_MS / 1000)}s. Retry the install.`
-            );
+            throw new Error(`Download stalled — no data for ${Math.round(STALL_MS / 1000)}s.`);
           }
           throw error;
         } finally {
@@ -681,6 +761,29 @@ async function runDownload(input: {
           ? comfyModelsWriteErrorMessage(root)
           : 'Permission denied writing model files.';
       }
+
+      const runAttempt = failed.runAttempt ?? 1;
+      if (isRetryableDownloadError(message, err) && runAttempt < MAX_RUN_ATTEMPTS) {
+        const waitMs = jobRetryDelayMs(runAttempt);
+        const nextRunAttempt = runAttempt + 1;
+        saveJob({
+          ...failed,
+          status: 'queued',
+          bytesReceived: 0,
+          progress: 0,
+          runAttempt: nextRunAttempt,
+          error: `${message} Retrying in ${Math.ceil(waitMs / 1000)}s (run ${nextRunAttempt}/${MAX_RUN_ATTEMPTS})…`,
+        });
+        void sleep(waitMs).then(() => {
+          const waiting = getRuntime().jobs.get(input.jobId);
+          if (!waiting || waiting.status !== 'queued') {
+            return;
+          }
+          scheduleComfyAssetDownloadJob(input.jobId, input);
+        });
+        return;
+      }
+
       saveJob({
         ...failed,
         status: 'error',

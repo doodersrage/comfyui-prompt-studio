@@ -12,6 +12,8 @@ import {
 import {
   __resetComfyAssetJobsForTests,
   getComfyAssetJob,
+  isRetryableDownloadError,
+  retryComfyAssetDownload,
   runComfyAssetDownloadJob,
   startComfyAssetDownload,
 } from "./comfy-asset-download";
@@ -288,6 +290,98 @@ describe("comfy asset download", () => {
       const done = getComfyAssetJob(job.id);
       assert.equal(done?.status, "error");
       assert.match(done?.error ?? "", /403|Hugging Face/i);
+    } finally {
+      await fsp.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("classifies retryable download errors", () => {
+    assert.equal(isRetryableDownloadError("Download stalled — no data for 90s."), true);
+    assert.equal(
+      isRetryableDownloadError("Download failed with HTTP 403 Forbidden."),
+      false,
+    );
+    assert.equal(isRetryableDownloadError("SHA-256 mismatch after download."), false);
+    assert.equal(isRetryableDownloadError("Permission denied writing model files."), false);
+  });
+
+  it("queues a run-level retry after retryable HTTP failures", async () => {
+    const root = await fsp.mkdtemp(path.join(os.tmpdir(), "comfy-dl-retry-run-"));
+    try {
+      await fsp.mkdir(path.join(root, "models", "upscale_models"), {
+        recursive: true,
+      });
+      const job = startComfyAssetDownload({
+        assetId: "ultrasharp-4x",
+        root,
+        fetchImpl: async () =>
+          new Response("bad gateway", { status: 502, statusText: "Bad Gateway" }),
+      });
+      for (let i = 0; i < 50; i += 1) {
+        const current = getComfyAssetJob(job.id);
+        if (
+          (current?.status === "queued" && current.error?.includes("Retrying in")) ||
+          current?.status === "error"
+        ) {
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      const waiting = getComfyAssetJob(job.id);
+      assert.equal(waiting?.status, "queued");
+      assert.match(waiting?.error ?? "", /Retrying in/i);
+      assert.equal(waiting?.runAttempt, 2);
+    } finally {
+      await fsp.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("restarts a failed job via retryComfyAssetDownload", async () => {
+    const root = await fsp.mkdtemp(path.join(os.tmpdir(), "comfy-dl-retry-manual-"));
+    try {
+      await fsp.mkdir(path.join(root, "models", "upscale_models"), {
+        recursive: true,
+      });
+      const payload = Buffer.from("ultrasharp-bytes");
+      const job = startComfyAssetDownload({
+        assetId: "ultrasharp-4x",
+        root,
+        deferStart: true,
+        fetchImpl: async () =>
+          new Response("forbidden", { status: 403, statusText: "Forbidden" }),
+      });
+      await runComfyAssetDownloadJob(job.id);
+      for (let i = 0; i < 50; i += 1) {
+        const current = getComfyAssetJob(job.id);
+        if (current?.status === "error") {
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      const failed = getComfyAssetJob(job.id);
+      assert.equal(failed?.status, "error");
+
+      const restarted = retryComfyAssetDownload(job.id, {
+        fetchImpl: async () =>
+          new Response(payload, {
+            status: 200,
+            headers: { "content-length": String(payload.length) },
+          }),
+      });
+      assert.equal(restarted?.status, "queued");
+
+      for (let i = 0; i < 100; i += 1) {
+        const current = getComfyAssetJob(job.id);
+        if (current?.status === "complete" || current?.status === "error") {
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      const done = getComfyAssetJob(job.id);
+      assert.ok(
+        done?.status === "complete" || /SHA-256|mismatch/i.test(done?.error ?? ""),
+        done?.error,
+      );
     } finally {
       await fsp.rm(root, { recursive: true, force: true });
     }

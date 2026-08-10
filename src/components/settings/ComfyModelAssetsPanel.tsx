@@ -40,6 +40,7 @@ type AssetJob = {
   bytesTotal: number | null;
   error?: string;
   attempt?: number;
+  runAttempt?: number;
 };
 
 type AssetsResponse = {
@@ -486,9 +487,12 @@ export default function ComfyModelAssetsPanel({
                           {row.notes ? (
                             <p className="type-caption text-[var(--text-muted)]">{row.notes}</p>
                           ) : null}
-                          {job && installing ? (
+                          {job && (installing || job.status === 'queued') ? (
                             <p className="type-caption text-sky-200/90">
                               {job.status}
+                              {job.runAttempt && job.runAttempt > 1
+                                ? ` · run ${job.runAttempt}`
+                                : null}
                               {job.attempt && job.attempt > 1 ? ` · try ${job.attempt}` : ''}
                               {' · '}
                               {job.bytesTotal && job.bytesReceived <= job.bytesTotal * 1.02
@@ -519,9 +523,13 @@ export default function ComfyModelAssetsPanel({
                           >
                             {installing
                               ? 'Downloading…'
-                              : busyId === row.id
-                                ? 'Starting…'
-                                : 'Install'}
+                              : job?.status === 'error'
+                                ? busyId === row.id
+                                  ? 'Retrying…'
+                                  : 'Retry'
+                                : busyId === row.id
+                                  ? 'Starting…'
+                                  : 'Install'}
                           </Button>
                         ) : null}
                       </div>
