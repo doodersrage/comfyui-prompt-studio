@@ -4,6 +4,7 @@ import { isQueueArtifactExportEnabled } from './queue-artifacts';
 import { isServerStorageEnabled } from './server-storage';
 import { getEmailConfig, isEmailConfigured } from './email/config';
 import { isAuthExplicitlyEnabled } from './auth/config';
+import { isNsfwGeneratorEnabledServer, NSFW_GENERATOR_ENV_SERVER } from './nsfw-generator-env';
 
 export type ServerEnvField = {
   key: string;
@@ -254,6 +255,13 @@ export function getServerEnvSummary(): ServerEnvSummary {
       id: 'security',
       title: 'Security & integrations',
       fields: [
+        {
+          key: NSFW_GENERATOR_ENV_SERVER,
+          label: 'Adult generator plugin',
+          value: isNsfwGeneratorEnabledServer() ? 'true' : 'false',
+          configured: true,
+          hint: 'Also set NEXT_PUBLIC_PROMPT_NSFW_GENERATOR_ENABLED=true at build time for nav/UI.',
+        },
         {
           key: 'PROMPT_API_TOKEN',
           label: 'API bearer token',

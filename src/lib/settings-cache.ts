@@ -474,6 +474,14 @@ export type FantasyToolCache = {
     'all' | 'character' | 'creature' | 'environment' | 'epic' | 'dark' | 'fairy' | 'celestial';
 } & Partial<FantasyPresetOptions>;
 
+export type NsfwGeneratorToolCache = {
+  hints?: string;
+  hintSource?: import('./scene-hint-source').SceneHintSource;
+  wildness?: number;
+  nsfwPresetId?: string;
+  presetCategory?: 'all' | import('./nsfw-generator-presets').NsfwPresetCategory;
+};
+
 export type ImagePromptToolCache = {
   focus?: 'full' | 'subject' | 'background' | 'style';
   descriptionPreset?: import('./image-prompt-presets').ImagePromptDescriptionPreset;
@@ -544,6 +552,7 @@ export type ToolSettingsCache = {
   background?: BackgroundToolCache;
   pet?: PetToolCache;
   fantasy?: FantasyToolCache;
+  nsfwGenerator?: NsfwGeneratorToolCache;
   character?: CharacterToolCache;
   imagePrompt?: ImagePromptToolCache;
   topics?: TopicToolCache;
@@ -778,6 +787,13 @@ export const DEFAULT_FANTASY_TOOL_CACHE: FantasyToolCache = {
   portraitStyle: 'portrait',
   wildness: 65,
   variationStrength: 50,
+};
+
+export const DEFAULT_NSFW_GENERATOR_TOOL_CACHE: NsfwGeneratorToolCache = {
+  hints: '',
+  hintSource: 'manual',
+  wildness: 60,
+  presetCategory: 'all',
 };
 
 export const DEFAULT_IMAGE_PROMPT_TOOL_CACHE: ImagePromptToolCache = {

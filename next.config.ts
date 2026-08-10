@@ -5,6 +5,12 @@ const baseConfig: NextConfig = {
   output: 'standalone',
   reactStrictMode: true,
   allowedDevOrigins: ['127.0.0.1'],
+  env: {
+    NEXT_PUBLIC_PROMPT_NSFW_GENERATOR_ENABLED:
+      process.env.NEXT_PUBLIC_PROMPT_NSFW_GENERATOR_ENABLED ??
+      process.env.PROMPT_NSFW_GENERATOR_ENABLED ??
+      '',
+  },
 
   // Keep local Python engine envs and dynamic filesystem ops out of NFT / Turbopack traces.
   outputFileTracingExcludes: {

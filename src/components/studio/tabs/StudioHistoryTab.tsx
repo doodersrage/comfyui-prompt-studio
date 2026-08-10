@@ -334,7 +334,6 @@ export default function StudioHistoryTab({
   onSaveTemplateFromEntry,
   onSendBatchFavorites,
 }: StudioHistoryTabProps) {
-  const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<HistoryPageSize>(() => {
     const stored = readBrowserString('studio-history-page-size');
     const parsed = stored ? Number(stored) : DEFAULT_HISTORY_PAGE_SIZE;

@@ -5,6 +5,7 @@
 
 import type { AppNavGroup, AppNavLink } from './app-nav-catalog';
 import { APP_NAV_GROUPS, mergePluginLinksIntoNav } from './app-nav-catalog';
+import { isNsfwGeneratorPlugin, shouldExposeNsfwGeneratorPlugin } from './nsfw-generator-plugin';
 import { loadSettingsCache, saveSettingsCache } from './settings-cache';
 
 export type PluginManifestNavLink = {
@@ -176,6 +177,8 @@ export function normalizeInstalledPlugins(input: unknown): PluginManifest[] {
   return next;
 }
 
+export const PLUGIN_MANIFEST_UPDATED_EVENT = 'plugin-manifest-updated';
+
 export function loadInstalledPlugins(): PluginManifest[] {
   if (typeof window === 'undefined') {
     return [];
@@ -196,6 +199,9 @@ export function saveInstalledPlugins(plugins: PluginManifest[]): void {
     ...cache,
     installedPlugins: normalizeInstalledPlugins(plugins).slice(0, MAX_INSTALLED_PLUGINS),
   });
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(PLUGIN_MANIFEST_UPDATED_EVENT));
+  }
 }
 
 export function upsertInstalledPlugin(manifest: PluginManifest): PluginManifest[] {
@@ -248,6 +254,9 @@ export function navLinksFromInstalledPlugins(
 
   for (const plugin of plugins) {
     if (plugin.enabled === false) {
+      continue;
+    }
+    if (isNsfwGeneratorPlugin(plugin) && !shouldExposeNsfwGeneratorPlugin()) {
       continue;
     }
     if (plugin.nav?.length) {

@@ -71,6 +71,14 @@ export const SUGGESTED_TOOL_QUALITY_RECIPES: ToolQualityRecipe[] = [
     builtin: true,
   },
   {
+    id: 'nsfw-generator-rapid',
+    label: 'Adult Rapid AIO',
+    toolIds: ['nsfw-generator'],
+    model: 'qwen-rapid-aio-nsfw',
+    queueQualityProfile: 'draft',
+    builtin: true,
+  },
+  {
     id: 'video-draft',
     label: 'Video draft',
     toolIds: ['video'],

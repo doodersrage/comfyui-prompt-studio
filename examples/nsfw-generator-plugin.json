@@ -1,0 +1,20 @@
+{
+  "id": "nsfw-generator",
+  "label": "Adult generator",
+  "version": "1.0.0",
+  "enabled": true,
+  "nav": [
+    {
+      "href": "/plugins/nsfw-generator",
+      "label": "Adult generator",
+      "description": "NSFW scene prompts with presets (requires PROMPT_NSFW_GENERATOR_ENABLED)"
+    }
+  ],
+  "tools": [
+    {
+      "id": "generator",
+      "title": "Adult generator",
+      "route": "/plugins/nsfw-generator"
+    }
+  ]
+}

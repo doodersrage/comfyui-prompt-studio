@@ -33,6 +33,7 @@ export const TOOL_SETUP_LABELS = {
   workflowEditor: 'Workflow editor',
   settings: 'Settings',
   studio: 'Studio',
+  nsfwGenerator: 'Adult generator',
   dashboard: 'Dashboard',
   profile: 'Profile',
 } as const;

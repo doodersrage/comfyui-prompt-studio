@@ -22,6 +22,9 @@ import {
   navGroupsForWorkspaceMode,
   type WorkspaceMode,
 } from '@/lib/workspace-mode';
+import { PLUGIN_MANIFEST_UPDATED_EVENT } from '@/lib/plugin-manifest';
+import { NSFW_GENERATOR_NAV_LINK } from '@/lib/nsfw-generator-nav';
+import { useNsfwGeneratorEnabled } from '@/hooks/useNsfwGeneratorEnabled';
 import WorkspaceModeControl from '@/components/WorkspaceModeControl';
 import { isNavFavorite, loadNavFavorites, toggleNavFavorite } from '@/lib/nav-favorites';
 import {
@@ -150,6 +153,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const [favorites, setFavorites] = useState<string[]>([]);
   const [expandedGroups, setExpandedGroups] = useState<string[] | null>(null);
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('simple');
+  const nsfwGeneratorEnabled = useNsfwGeneratorEnabled();
 
   useEffect(() => {
     scheduleAfterCommit(() => {
@@ -190,13 +194,21 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       });
     };
 
+    window.addEventListener(PLUGIN_MANIFEST_UPDATED_EVENT, loadPlugins);
+
     if (typeof window.requestIdleCallback === 'function') {
       const idleId = window.requestIdleCallback(loadPlugins, { timeout: 5000 });
-      return () => window.cancelIdleCallback(idleId);
+      return () => {
+        window.cancelIdleCallback(idleId);
+        window.removeEventListener(PLUGIN_MANIFEST_UPDATED_EVENT, loadPlugins);
+      };
     }
 
     const timeoutId = window.setTimeout(loadPlugins, 1500);
-    return () => window.clearTimeout(timeoutId);
+    return () => {
+      window.clearTimeout(timeoutId);
+      window.removeEventListener(PLUGIN_MANIFEST_UPDATED_EVENT, loadPlugins);
+    };
   }, [isNullContext]);
 
   const visibleGroups = useMemo(() => {
@@ -211,7 +223,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       label: plugin.label,
       description: plugin.description,
     }));
-    const pluginLinks = [...bookmarkLinks, ...manifestNavLinks];
+    const envGatedLinks = nsfwGeneratorEnabled ? [NSFW_GENERATOR_NAV_LINK] : [];
+    const pluginLinks = [...bookmarkLinks, ...manifestNavLinks, ...envGatedLinks];
     const catalog = navGroupsForWorkspaceMode(
       workspaceMode,
       mergePluginLinksIntoNav(APP_NAV_GROUPS, pluginLinks)
@@ -225,7 +238,15 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         ),
       }))
       .filter(group => group.links.length > 0);
-  }, [isNullContext, allowedFeatures, loading, customPlugins, manifestNavLinks, workspaceMode]);
+  }, [
+    isNullContext,
+    allowedFeatures,
+    loading,
+    customPlugins,
+    manifestNavLinks,
+    workspaceMode,
+    nsfwGeneratorEnabled,
+  ]);
 
   const allLinks = useMemo(
     () =>

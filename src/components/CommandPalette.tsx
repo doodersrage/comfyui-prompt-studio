@@ -24,6 +24,8 @@ import {
 } from '@/lib/tool-draft-memory';
 import type { GlobalSearchResult } from '@/lib/global-search';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
+import { NSFW_GENERATOR_NAV_LINK } from '@/lib/nsfw-generator-nav';
+import { useNsfwGeneratorEnabled } from '@/hooks/useNsfwGeneratorEnabled';
 import KeyboardShortcutsHelp from '@/components/KeyboardShortcutsHelp';
 import { markOnboardingDiscoverPalette } from '@/lib/onboarding-hooks';
 
@@ -193,14 +195,28 @@ export default function CommandPalette() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [pluginNavItems, setPluginNavItems] = useState<CommandItem[]>([]);
   const listRef = useRef<HTMLUListElement | null>(null);
+  const nsfwGeneratorEnabled = useNsfwGeneratorEnabled();
 
   const catalog = useMemo(() => {
     const base = buildNavItems();
     const existing = new Set(base.map(item => item.href).filter(Boolean));
     const pluginExtras = pluginNavItems.filter(item => item.href && !existing.has(item.href));
+    const envGatedExtras =
+      nsfwGeneratorEnabled && !existing.has(NSFW_GENERATOR_NAV_LINK.href)
+        ? [
+            {
+              id: 'plugin-nav-nsfw-generator',
+              label: NSFW_GENERATOR_NAV_LINK.label,
+              subtitle: NSFW_GENERATOR_NAV_LINK.description,
+              href: NSFW_GENERATOR_NAV_LINK.href,
+              group: 'Plugins',
+            } satisfies CommandItem,
+          ]
+        : [];
     return [
       ...base,
       ...pluginExtras,
+      ...envGatedExtras,
       {
         id: 'keyboard-shortcuts',
         label: 'Keyboard shortcuts',
@@ -212,7 +228,7 @@ export default function CommandPalette() {
         },
       } satisfies CommandItem,
     ];
-  }, [pluginNavItems]);
+  }, [pluginNavItems, nsfwGeneratorEnabled]);
 
   const items = useMemo(
     () =>

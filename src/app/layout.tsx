@@ -9,6 +9,7 @@ import { AuthProvider } from '@/hooks/useAuth';
 import ComfyGalleryBackgroundPoller from '@/components/ComfyGalleryBackgroundPoller';
 import UserScopeInit from '@/components/UserScopeInit';
 import AutoStorageSyncInit from '@/components/AutoStorageSyncInit';
+import NsfwGeneratorPluginInit from '@/components/NsfwGeneratorPluginInit';
 import DeferredShellClient from '@/components/DeferredShellClient';
 import './globals.css';
 
@@ -79,6 +80,7 @@ export default function RootLayout({
             <ComfyGalleryBackgroundPoller />
             <UserScopeInit />
             <AutoStorageSyncInit />
+            <NsfwGeneratorPluginInit />
             <DeferredShellClient />
             {children}
           </div>
