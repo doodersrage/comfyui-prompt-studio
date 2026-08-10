@@ -37,7 +37,7 @@ export function isConcreteLoraFilename(value: unknown): boolean {
   );
 }
 
-const LIGHTNING_LORA_FILENAME_HINT = /lightning|lightx2v/i;
+const LIGHTNING_LORA_FILENAME_HINT = /lightning|lightx2v|boogu_image_turbo_lora/i;
 
 export const LIGHTNING_LORA_TOKEN = '{{LORA_LIGHTNING}}';
 
@@ -183,6 +183,7 @@ function scoreLightningLoraCandidate(name: string, model?: string): number {
   const modelId = model?.trim().toLowerCase() ?? '';
   const wantsWan = /wan/.test(modelId);
   const wantsEdit = /edit/.test(modelId);
+  const wantsBooguTurbo = modelId === 'boogu-image-turbo';
   const wants2511 = /2511/.test(modelId);
   const want4 = /lightning-4|lightning_4/.test(modelId);
   const want8 = /lightning-8|lightning_8/.test(modelId);
@@ -204,6 +205,19 @@ function scoreLightningLoraCandidate(name: string, model?: string): number {
     }
     if (want4 && /(4[\s-]?step|4steps)/i.test(lower)) {
       score += 2;
+    }
+    return score;
+  }
+
+  if (wantsBooguTurbo) {
+    if (/boogu_image_turbo_lora/i.test(lower)) {
+      score += 30;
+    }
+    if (/boogu/.test(lower) && !/edit/.test(lower)) {
+      score += 8;
+    }
+    if (/edit|lightx2v|qwen|2511|2512/.test(lower)) {
+      score -= 15;
     }
     return score;
   }
@@ -326,6 +340,12 @@ export function lightningLoraMatchesModel(filename: string, model?: string): boo
     return true;
   }
   const lower = filename.toLowerCase();
+  if (modelId === 'boogu-image-turbo') {
+    return /boogu_image_turbo_lora/i.test(lower);
+  }
+  if (/boogu_image_turbo_lora/i.test(lower)) {
+    return false;
+  }
   if (/wan/.test(modelId)) {
     // Prefer WAN Lightning LoRAs; reject obvious Qwen/LightX2V packs.
     if (/qwen|lightx2v|2512|2511/.test(lower) && !/wan/.test(lower)) {

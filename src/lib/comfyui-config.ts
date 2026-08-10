@@ -72,6 +72,7 @@ import {
   DEFAULT_VAE_TOKEN,
   DEFAULT_REFINER_TOKEN,
   loaderFilenameCustomTokens,
+  pickBooguVaeFromInventory,
   realignLoaderFilenamesToWorkflowPrecision,
   resolveLoaderFilenamesForModel,
   resolveRefinerFilenameForModel,
@@ -539,6 +540,7 @@ export function resolveQueueInjectionContext(input: {
   precisionTier?: LoaderPrecisionTier;
   availableCheckpoints?: string[] | null;
   availableUnets?: string[] | null;
+  availableVaes?: string[] | null;
   availableUpscaleModels?: string[] | null;
 }): {
   params: WorkflowParamValues;
@@ -565,6 +567,7 @@ export function resolveQueueInjectionContext(input: {
     workflow: input.workflow,
     availableCheckpoints: input.availableCheckpoints,
     availableUnets: input.availableUnets,
+    availableVaes: input.availableVaes,
   };
   const mergedParams = realignLoaderFilenamesToWorkflowPrecision(
     resolveQueueParams(input.runtime, input.override, { model }),
@@ -611,6 +614,12 @@ export function resolveQueueInjectionContext(input: {
   }
   if (!params.vaeFilename?.trim() && loaders.vae) {
     params.vaeFilename = loaders.vae;
+  }
+
+  if (model?.toLowerCase().startsWith('boogu-image') && input.availableVaes?.length) {
+    const booguVae = pickBooguVaeFromInventory(input.availableVaes);
+    loaders.vae = booguVae;
+    params.vaeFilename = booguVae;
   }
 
   // Always resolve an upscale filename so {{UPSCALE_MODEL}} cannot leak.

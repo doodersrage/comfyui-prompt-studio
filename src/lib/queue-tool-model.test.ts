@@ -88,6 +88,47 @@ describe("queue-tool-model", () => {
   it("recognizes txt2img models as scene generation models", () => {
     assert.equal(isSceneGenerationModel("qwen-image-2512"), true);
     assert.equal(isSceneGenerationModel("qwen-image-edit-2511"), false);
+    assert.equal(isSceneGenerationModel("boogu-image"), true);
+    assert.equal(isSceneGenerationModel("boogu-image-turbo"), true);
+    assert.equal(isSceneGenerationModel("boogu-image-edit"), false);
+    assert.equal(isSceneGenerationModel("boogu-image-edit-turbo"), false);
+  });
+
+  it("includes Boogu T2I and Edit models on refine, generate, and inpaint pickers", () => {
+    const catalog = [
+      "qwen-image-2512",
+      "boogu-image",
+      "boogu-image-turbo",
+      "boogu-image-edit",
+      "boogu-image-edit-turbo",
+      "flux-dev",
+    ] as const;
+    assert.deepEqual(filterModelsForQueueTool([...catalog], "refine"), [
+      "qwen-image-2512",
+      "boogu-image",
+      "boogu-image-turbo",
+      "boogu-image-edit",
+      "boogu-image-edit-turbo",
+      "flux-dev",
+    ]);
+    assert.deepEqual(filterModelsForQueueTool([...catalog], "inpaint"), [
+      "boogu-image-edit",
+      "boogu-image-edit-turbo",
+    ]);
+    assert.deepEqual(filterModelsForQueueTool([...catalog], "imagePrompt"), [
+      "qwen-image-2512",
+      "boogu-image",
+      "boogu-image-turbo",
+      "boogu-image-edit",
+      "boogu-image-edit-turbo",
+      "flux-dev",
+    ]);
+    assert.deepEqual(filterModelsForQueueTool([...catalog], "generate"), [
+      "qwen-image-2512",
+      "boogu-image",
+      "boogu-image-turbo",
+      "flux-dev",
+    ]);
   });
 
   it("keeps Rapid AIO SFW/NSFW in generate picker as dual-purpose T2I", () => {

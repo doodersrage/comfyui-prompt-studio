@@ -18,6 +18,7 @@ const CATEGORY_KEYWORDS: Record<ComfyModelCategory, string[]> = {
     'z-image',
     'zimage',
     'z_image',
+    'boogu',
     'omnigen',
     'kandinsky',
     'cascade',
@@ -113,6 +114,8 @@ const MODEL_WORKFLOW_KEYWORDS: Partial<Record<ComfyImageModel, string[]>> = {
   ],
   'z-image-turbo': ['z-image', 'zimage', 'z_image', 'turbo', 't2i', 'txt2img'],
   'z-image': ['z-image', 'zimage', 'z_image', 'base', 't2i', 'txt2img'],
+  'boogu-image-turbo': ['boogu', 'boogu-image', 'turbo', 't2i', 'txt2img'],
+  'boogu-image': ['boogu', 'boogu-image', 'base', 't2i', 'txt2img'],
   'boogu-image-edit-turbo': ['boogu', 'boogu-image', 'edit', 'turbo', 'ti2i', 'img2img'],
   'boogu-image-edit': ['boogu', 'boogu-image', 'edit', 'ti2i', 'img2img'],
 };
@@ -155,6 +158,8 @@ const MODEL_WORKFLOW_AVOID_KEYWORDS: Partial<Record<ComfyImageModel, string[]>> 
   'wan-video-lightning-4': ['hunyuan', 'ltx', 'rapid', 'aio', 'phr00t'],
   'z-image-turbo': ['base', 'z_image_bf16', 'edit', 'inpaint', 'controlnet'],
   'z-image': ['turbo', 'z_image_turbo', 'edit', 'inpaint', 'controlnet'],
+  'boogu-image-turbo': ['edit', 'boogu_image_edit', 'ti2i', 'img2img', 'base'],
+  'boogu-image': ['turbo', 'boogu_image_turbo', 'edit', 'ti2i', 'img2img'],
   'boogu-image-edit-turbo': ['base', 'boogu_image_base', 't2i', 'txt2img', 'turbo_t2i'],
   'boogu-image-edit': ['turbo', 'boogu_image_turbo', 't2i', 'txt2img', 'base'],
 };
@@ -385,6 +390,33 @@ export function scoreWorkflowGraphStructure(
       }
     } else if (/edit_turbo|edit turbo/i.test(workflowJson)) {
       score -= 6;
+    }
+  }
+
+  if (/^boogu-image(?!-edit)/i.test(modelId)) {
+    if (/boogu|CLIPLoader[\s\S]{0,160}"type"\s*:\s*"boogu"/i.test(workflowJson)) {
+      score += 5;
+    }
+    if (/ModelSamplingAuraFlow/.test(workflowJson)) {
+      score += 2;
+    }
+    if (/qwen3vl_8b/i.test(workflowJson)) {
+      score += 2;
+    }
+    if (!/TextEncodeBooguEdit/i.test(workflowJson)) {
+      score += 2;
+    }
+    if (modelId.includes('turbo')) {
+      if (/turbo/i.test(workflowJson) && !/edit/i.test(workflowJson)) {
+        score += 4;
+      }
+      if (/boogu_image_base/i.test(workflowJson)) {
+        score -= 4;
+      }
+    } else if (/edit/i.test(workflowJson) || /boogu_image_edit/i.test(workflowJson)) {
+      score -= 6;
+    } else if (/turbo/i.test(workflowJson) && !/base/i.test(workflowJson)) {
+      score -= 4;
     }
   }
 

@@ -12,6 +12,7 @@ import { usePromptResultActions } from '@/hooks/usePromptResultActions';
 import type { ComfyImageModel } from '@/lib/comfy-models/client';
 import type { WorkflowParamValues } from '@/lib/comfyui-config';
 import { getComfyModelDefinition } from '@/lib/comfy-models/client';
+import { isBooguEditModel, isZImageModel } from '@/lib/model-denoise-defaults';
 import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-target';
 import { DEFAULT_IMAGE_PROMPT_TOOL_CACHE } from '@/lib/settings-cache';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
@@ -348,6 +349,18 @@ export default function ImagePromptTool() {
       }
     >
       <ToolSection>
+        {isBooguEditModel(shared.model) ? (
+          <p className="mb-4 text-xs leading-relaxed text-zinc-500">
+            Boogu Edit queues as instruction TI2I (TextEncodeBooguEdit, denoise 1). Vision caption
+            above is separate from the ComfyUI edit stack — refine the prompt, then queue when
+            ready.
+          </p>
+        ) : isZImageModel(shared.model) ? (
+          <p className="mb-4 text-xs leading-relaxed text-zinc-500">
+            Z-Image queues as VAEEncode img2img (soft denoise ~0.65). Vision caption above is
+            separate from the ComfyUI stack — refine the prompt, then queue when ready.
+          </p>
+        ) : null}
         <FieldLabel>Upload images (up to 4)</FieldLabel>
         <input
           type="file"

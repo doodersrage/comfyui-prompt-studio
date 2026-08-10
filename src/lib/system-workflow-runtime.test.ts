@@ -235,6 +235,8 @@ describe("system-workflow-runtime", () => {
     assert.equal(isSystemWorkflowSupportedModel("wan-video"), true);
     assert.equal(isSystemWorkflowSupportedModel("z-image-turbo"), true);
     assert.equal(isSystemWorkflowSupportedModel("z-image"), true);
+    assert.equal(isSystemWorkflowSupportedModel("boogu-image"), true);
+    assert.equal(isSystemWorkflowSupportedModel("boogu-image-turbo"), true);
     assert.equal(isSystemWorkflowSupportedModel("boogu-image-edit"), true);
     assert.equal(isSystemWorkflowSupportedModel("boogu-image-edit-turbo"), true);
     assert.equal(isSystemWorkflowSupportedModel("sdxl"), false);
@@ -610,6 +612,12 @@ describe("system-workflow-runtime", () => {
     });
     assert.equal(zImageCompose.preferMultiRef, false);
     assert.equal(zImageCompose.preferEdit, true);
+
+    const zImageRefine = resolvePickPackOptions("z-image-turbo", {
+      tool: "refine",
+    });
+    assert.equal(zImageRefine.preferMultiRef, false);
+    assert.equal(zImageRefine.preferEdit, true);
   });
 
   it("skips T2I packs for Klein Compose so scaffold/img2img wins", () => {

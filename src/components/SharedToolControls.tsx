@@ -24,6 +24,11 @@ import {
   toolIgnoresSystemWorkflowSnap,
 } from '@/lib/queue-tool-model';
 import {
+  isBooguEditModel,
+  isComposeCapableModel,
+  isEditCapableModel,
+} from '@/lib/model-denoise-defaults';
+import {
   hasModelSamplerOverrides,
   normalizeModelSamplerPresetTier,
   pickModelSamplerOverrideFields,
@@ -311,8 +316,19 @@ export default function SharedToolControls({
     ]
   );
 
+  const scaffoldBackedModels = useMemo(
+    () =>
+      COMFY_IMAGE_MODELS.filter(
+        entry =>
+          isSystemWorkflowSupportedModel(entry.id) &&
+          (isComposeCapableModel(entry.id) || isEditCapableModel(entry.id))
+      ).map(entry => entry.id),
+    []
+  );
+
   const pickerModels = useMemo(() => {
-    const filtered = filterModelsForQueueTool(supportedModels.models, toolId, {
+    const supportedCatalog = [...new Set([...supportedModels.models, ...scaffoldBackedModels])];
+    const filtered = filterModelsForQueueTool(supportedCatalog, toolId, {
       includeEditModels: showAllModelsOverride,
     });
     const base =
@@ -343,6 +359,7 @@ export default function SharedToolControls({
     );
   }, [
     showAllModelsOverride,
+    scaffoldBackedModels,
     shared.systemWorkflowsLimitPicker,
     shared.useSystemWorkflows,
     supportedModels.models,
@@ -640,7 +657,7 @@ export default function SharedToolControls({
   const systemPathActive = usesSystemWorkflowPath(shared, shared.model);
   const modelFilterHint = systemPathActive
     ? shouldLimitSystemWorkflowPicker(shared) && !showAllModelsOverride
-      ? `System path · FLUX / Qwen / Z-Image / video (${pickerModels.length} models).`
+      ? `System path · FLUX / Qwen / Z-Image / Boogu / video (${pickerModels.length} models).`
       : `System path for this model (${pickerModels.length} in picker).`
     : shared.useSystemWorkflows === true
       ? `Hybrid · mapped/manual workflow for this model (${pickerModels.length} in picker).`
@@ -1048,6 +1065,16 @@ export default function SharedToolControls({
               Switch to{' '}
               {getComfyModelDefinition(resolveTxt2iCounterpartForGenerate(shared.model)).label}
             </Button>
+          </div>
+        ) : null}
+        {toolId === 'generate' && isBooguEditModel(shared.model) ? (
+          <div className="space-y-2 rounded-xl border border-amber-500/25 bg-amber-500/5 px-3 py-2.5">
+            <p className="text-xs leading-relaxed text-amber-100/85">
+              Boogu Edit is instruction TI2I only — upload a reference on{' '}
+              <span className="font-medium text-amber-50">Refine</span>,{' '}
+              <span className="font-medium text-amber-50">Compose</span>, or{' '}
+              <span className="font-medium text-amber-50">Image → Prompt</span> instead of Generate.
+            </p>
           </div>
         ) : null}
       </div>

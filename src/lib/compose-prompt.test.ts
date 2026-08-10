@@ -32,17 +32,23 @@ describe("compose tool defaults", () => {
     assert.equal(COMPOSE_DEFAULT_MODEL, "qwen-image-edit-2511-lightning-8");
   });
 
-  it("filters compose picker to Qwen edit models (not flux-inpaint)", () => {
+  it("filters compose picker to compose-capable models (not flux-inpaint)", () => {
     const filtered = filterModelsForQueueTool(
       [
         "qwen-image-2512",
         "qwen-image-edit-2511-lightning-8",
+        "boogu-image-edit-turbo",
+        "z-image-turbo",
         "flux-inpaint",
         "flux-dev",
       ],
       "compose",
     );
-    assert.deepEqual(filtered, ["qwen-image-edit-2511-lightning-8"]);
+    assert.deepEqual(filtered, [
+      "qwen-image-edit-2511-lightning-8",
+      "boogu-image-edit-turbo",
+      "z-image-turbo",
+    ]);
   });
 
   it("rejects flux-inpaint as compose-capable", () => {
@@ -238,13 +244,15 @@ describe("compose LoadImage bindings", () => {
     const encode = next["4"] as {
       inputs: Record<string, [string, number] | string>;
     };
-    assert.ok(Array.isArray(encode.inputs.image_1));
-    assert.ok(Array.isArray(encode.inputs.image_2));
+    assert.ok(Array.isArray(encode.inputs['images.image_1']));
+    assert.ok(Array.isArray(encode.inputs['images.image_2']));
     assert.equal(
-      (next[encode.inputs.image_1[0]] as { _meta?: { title?: string } })._meta
-        ?.title,
+      (next[(encode.inputs['images.image_1'] as [string, number])[0]] as {
+        _meta?: { title?: string };
+      })._meta?.title,
       "Figure 1",
     );
+    assert.equal(encode.inputs.image_1, undefined);
   });
 });
 
@@ -314,6 +322,17 @@ describe("compose instruction builder", () => {
     });
     assert.match(built, /Image 1 is facial identity only/i);
     assert.match(built, /Image 2 supplies the target pose/i);
+  });
+
+  it("prefixes Boogu aggressive Modify with pose-unlock guidance", () => {
+    const built = buildComposeInstruction({
+      mode: "modify",
+      instruction: "Aggressively refactor into beast-mode athletics.",
+      figureCount: 1,
+      model: "boogu-image-edit-turbo",
+    });
+    assert.match(built, /facial identity and likeness only/i);
+    assert.match(built, /beast-mode athletics/i);
   });
 
   it("prefixes Z-Image Modify with img2img preserve guidance", () => {

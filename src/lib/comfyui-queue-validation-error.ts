@@ -32,6 +32,14 @@ function summarizeNodeError(nodeId: string, nodeError: ComfyUiNodeError): string
     return `${classType}(node ${nodeId}): Qwen Image must use CLIPLoader (type qwen_image), not DualCLIPLoader — run Settings → Optimize all or queue again to auto-repair.`;
   }
 
+  if (nodeError.class_type === 'TextEncodeBooguEdit' && /^vae$/i.test(detail)) {
+    return `${classType}(node ${nodeId}): VAE link missing or invalid — ensure models/vae has flux1_vae_bf16.safetensors or ae.safetensors, then retry. If you only have one of those, restart the app so queue prep picks the installed file.`;
+  }
+
+  if (nodeError.class_type === 'VAELoader' && /vae_name|not in/i.test(detail)) {
+    return `${classType}(node ${nodeId}): ${detail} — Boogu Edit needs flux1_vae_bf16.safetensors or ae.safetensors in models/vae.`;
+  }
+
   return `${classType}(node ${nodeId}): ${detail}`;
 }
 

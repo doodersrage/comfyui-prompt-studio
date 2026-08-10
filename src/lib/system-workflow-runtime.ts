@@ -49,7 +49,9 @@ import {
   isFluxKleinModel,
   isQwenRapidAioModel,
   isZImageModel,
+  isZImageImg2imgQueueTool,
   isBooguEditModel,
+  isBooguImageModel,
 } from './model-denoise-defaults';
 import { maybeRewriteRapidAioWorkflowLoaders } from './workflow-rapid-aio-checkpoint';
 import { isLightningDistilledModel, resolveModelSamplingParams } from './model-sampling-patch';
@@ -145,7 +147,7 @@ export function isSystemWorkflowSupportedModel(model: ComfyImageModel | string):
   ) {
     return true;
   }
-  return isZImageModel(model) || isBooguEditModel(model);
+  return isZImageModel(model) || isBooguEditModel(model) || isBooguImageModel(model);
 }
 
 export function listSystemWorkflowSupportedModels(): ComfyImageModel[] {
@@ -530,8 +532,29 @@ export function pickPackWorkflowForModel(
       return null;
     }
   }
-  // Klein / Z-Image Compose must use img2img edit graphs — never a plain T2I pack.
-  if (pickOptions.tool === 'compose' && (isFluxKleinModel(model) || isZImageModel(model))) {
+  // Klein Compose must use img2img edit graphs — never a plain T2I pack.
+  if (pickOptions.tool === 'compose' && isFluxKleinModel(model)) {
+    const img2img = candidates.filter(entry =>
+      looksLikeImg2imgPackGraph(entry.file.workflowJson ?? '')
+    );
+    if (img2img.length === 0) {
+      return null;
+    }
+    if (inventory) {
+      const byFitness = [...img2img].sort((a, b) => {
+        const fitA = packInventoryFitness(a.file.workflowJson ?? '', inventory, model);
+        const fitB = packInventoryFitness(b.file.workflowJson ?? '', inventory, model);
+        if (fitB !== fitA) {
+          return fitB - fitA;
+        }
+        return b.score - a.score;
+      });
+      return byFitness[0] ?? null;
+    }
+    return img2img[0] ?? null;
+  }
+  // Z-Image Refine / Compose / Image → Prompt — img2img packs, not Qwen multi-ref.
+  if (isZImageModel(model) && isZImageImg2imgQueueTool(pickOptions.tool)) {
     const img2img = candidates.filter(entry =>
       looksLikeImg2imgPackGraph(entry.file.workflowJson ?? '')
     );
@@ -1046,7 +1069,7 @@ function resolvePreferMultiRef(model: ComfyImageModel, options?: PickPackOptions
   if (options?.preferMultiRef != null) {
     return options.preferMultiRef;
   }
-  // Klein / Z-Image Compose use img2img — not Qwen multi-ref encode packs.
+  // Klein / Z-Image img2img tools — not Qwen multi-ref encode packs.
   if (isFluxKleinModel(model) || isZImageModel(model)) {
     return false;
   }

@@ -34,7 +34,14 @@ Use **Simple / Studio / Full** from the sidebar footer or **Profile → Appearan
 
 ## Supported models
 
-**40+ ComfyUI image model targets**, grouped by architecture family:
+**40+ ComfyUI image model targets**, grouped by architecture family.
+
+**Natively supported** (built-in scaffolds, Settings → ComfyUI asset downloads, system workflow path, and full tool coverage on Generate, Refine, Compose, and Image → Prompt):
+
+| Model | Variants | Queue path |
+| ----- | -------- | ---------- |
+| **Z-Image** | Base, Turbo | T2I on Generate; Figure 1 VAEEncode img2img on Refine / Compose / Image → Prompt |
+| **Boogu Image** | Base, Turbo, Edit, Edit Turbo | T2I on Generate; instruction TI2I via `TextEncodeBooguEdit` on Refine / Compose / Image → Prompt |
 
 | Family                | Examples                                                         | Prompt style                                 |
 | --------------------- | ---------------------------------------------------------------- | -------------------------------------------- |
@@ -43,8 +50,10 @@ Use **Simple / Studio / Full** from the sidebar footer or **Profile → Appearan
 | **SD3 / AuraFlow**    | SD3 Medium/Large, SD 3.5, AuraFlow                               | Longer NLP; quote visible text in `"quotes"` |
 | **Flux / Chroma**     | FLUX Dev/Schnell/2/Klein, Chroma                                 | Subject-first photographic prose             |
 | **Qwen Image**        | Edit, Edit-2511, Image-2512, Image-2.0                           | Edit instructions or factual/rich T2I prose  |
+| **Boogu Image**       | Base, Turbo, Edit, Edit Turbo                                    | Photoreal T2I prose or short edit instructions |
+| **Z-Image**           | Base, Turbo                                                      | Photoreal T2I prose; img2img edits on Refine / Compose |
 | **Hunyuan / HiDream** | Hunyuan DiT, Hunyuan Image 2.1, HiDream                          | Descriptive unified scene prose              |
-| **Other DiT**         | PixArt, Lumina 2, Z-Image, Z-Image Turbo, OmniGen2, Kandinsky 5, Stable Cascade | Architecture-tuned NLP or instructions       |
+| **Other DiT**         | PixArt, Lumina 2, OmniGen2, Kandinsky 5, Stable Cascade         | Architecture-tuned NLP or instructions       |
 | **Instruct / Edit**   | SD1.5/SDXL InstructPix2Pix, Lotus-D                              | Short imperative edit instructions           |
 
 Audio and 3D use **Audio** (`/audio`) and **3D Mesh** (`/mesh`). **WAN / Hunyuan Video** use **Video** (`/video`).

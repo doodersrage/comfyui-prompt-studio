@@ -29,4 +29,18 @@ describe("formatComfyUiQueueValidationError", () => {
   it("returns plain text when payload is not JSON", () => {
     assert.equal(formatComfyUiQueueValidationError("ComfyUI offline"), "ComfyUI offline");
   });
+
+  it("explains Boogu Edit missing VAE links", () => {
+    const formatted = formatComfyUiQueueValidationError(
+      JSON.stringify({
+        node_errors: {
+          "4": {
+            class_type: "TextEncodeBooguEdit",
+            errors: [{ details: "vae" }],
+          },
+        },
+      }),
+    );
+    assert.match(formatted, /flux1_vae_bf16|ae\.safetensors/i);
+  });
 });

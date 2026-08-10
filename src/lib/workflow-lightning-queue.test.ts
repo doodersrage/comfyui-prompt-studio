@@ -1093,6 +1093,79 @@ describe("qwen edit reference image prep", () => {
     assert.deepEqual(next, workflow);
   });
 
+  it("leaves Z-Image img2img scaffold on VAEEncode (no ReferenceLatent)", async () => {
+    const { prepareQwenEditReferenceImagesForQueue } = await import("./workflow-lightning-queue");
+    const { buildWorkflowScaffoldForModel } = await import("./workflow-scaffold");
+    const scaffold = buildWorkflowScaffoldForModel("z-image-turbo", undefined, {
+      tool: "refine",
+    });
+    const workflow = JSON.parse(scaffold.json) as Record<string, unknown>;
+    const next = prepareQwenEditReferenceImagesForQueue(
+      workflow,
+      "z-image-turbo",
+      { inputImageFilename: "ref.png", width: 1024, height: 1024 },
+    );
+    const vaeEncodeNodes = Object.values(next).filter(
+      (node) =>
+        node &&
+        typeof node === "object" &&
+        (node as { class_type?: string }).class_type === "VAEEncode",
+    );
+    const refLatentNodes = Object.values(next).filter(
+      (node) =>
+        node &&
+        typeof node === "object" &&
+        (node as { class_type?: string }).class_type === "ReferenceLatent",
+    );
+    assert.equal(vaeEncodeNodes.length, 1);
+    assert.equal(refLatentNodes.length, 0);
+  });
+
+  it("keeps TextEncodeBooguEdit vae when wiring reference images", async () => {
+    const { prepareQwenEditReferenceImagesForQueue } = await import("./workflow-lightning-queue");
+    const workflow = {
+      "3": {
+        class_type: "VAELoader",
+        inputs: { vae_name: "flux1_vae_bf16.safetensors" },
+      },
+      "4": {
+        class_type: "TextEncodeBooguEdit",
+        inputs: {
+          prompt: "make it warmer",
+          negative_prompt: "",
+          clip: ["2", 0],
+          vae: ["3", 0],
+        },
+      },
+      "8": {
+        class_type: "KSampler",
+        inputs: {
+          model: ["1", 0],
+          positive: ["4", 0],
+          negative: ["4", 1],
+          latent_image: ["6", 0],
+        },
+      },
+    };
+    const next = prepareQwenEditReferenceImagesForQueue(
+      workflow,
+      "boogu-image-edit-turbo",
+      { inputImageFilename: "ref.png", width: 1024, height: 1024 },
+    );
+    const encode = next["4"] as {
+      inputs: Record<string, [string, number] | string | undefined>;
+    };
+    assert.deepEqual(encode.inputs.vae, ["3", 0]);
+    assert.ok(Array.isArray(encode.inputs["images.image_1"]));
+    const refLatentNodes = Object.values(next).filter(
+      (node) =>
+        node &&
+        typeof node === "object" &&
+        (node as { class_type?: string }).class_type === "ReferenceLatent",
+    );
+    assert.equal(refLatentNodes.length, 0);
+  });
+
   it("forces Qwen VAE when Lightning graph still has Flux ae.safetensors", async () => {
     const { prepareLightningWorkflowForQueue } = await import("./workflow-lightning-queue");
     const workflow = {

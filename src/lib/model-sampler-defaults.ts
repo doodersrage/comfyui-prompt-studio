@@ -14,7 +14,7 @@ function isLightningModelId(model: string): boolean {
   if (!id) {
     return false;
   }
-  if (id === 'z-image-turbo') {
+  if (id === 'z-image-turbo' || id === 'boogu-image-turbo') {
     return true;
   }
   if (COMFY_MODEL_IDS.has(id)) {
@@ -306,6 +306,13 @@ const MODEL_SAMPLER_PRESETS: ModelSamplerPresetMap = {
     maxCompatible: { steps: 45, cfg: 3.5, ...Z_IMAGE_BASE_SAMPLER },
     max: { steps: 50, cfg: 3.5, ...Z_IMAGE_BASE_SAMPLER },
   },
+  'boogu-image': {
+    base: { steps: 25, cfg: 4, ...BOOGU_EDIT_SAMPLER },
+    optimized: { steps: 35, cfg: 4, ...BOOGU_EDIT_SAMPLER },
+    maxCompatible: { steps: 45, cfg: 3.5, ...BOOGU_EDIT_SAMPLER },
+    max: { steps: 50, cfg: 3.5, ...BOOGU_EDIT_SAMPLER },
+  },
+  'boogu-image-turbo': fixedSamplerPresets({ steps: 4, ...BOOGU_EDIT_TURBO_SAMPLER }),
   'boogu-image-edit': {
     base: { steps: 25, cfg: 5, ...BOOGU_EDIT_SAMPLER },
     optimized: { steps: 35, cfg: 5, ...BOOGU_EDIT_SAMPLER },

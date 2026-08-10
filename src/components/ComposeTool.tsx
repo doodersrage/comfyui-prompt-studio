@@ -383,10 +383,11 @@ export default function ComposeTool() {
     [defaultTransferMinFigures]
   );
   const qwenEditModel = isQwenEditModel(shared.model);
+  const booguEditModel = isBooguEditModel(shared.model);
   const zImageModel = isZImageModel(shared.model);
   const aggressiveInstruction = isAggressiveComposeInstruction(instruction);
   const showPoseUnlockHint =
-    qwenEditModel &&
+    (qwenEditModel || booguEditModel) &&
     (aggressiveInstruction ||
       (mode === 'modify' && /refactor|beast mode|replace everything/i.test(instruction)));
 
@@ -453,7 +454,9 @@ export default function ComposeTool() {
 
         {showPoseUnlockHint ? (
           <div className="rounded-xl border border-amber-500/25 bg-amber-500/8 px-3.5 py-3 text-xs leading-relaxed text-amber-100/90">
-            <p className="font-medium text-amber-50/95">Qwen Edit locks Image 1 pose</p>
+            <p className="font-medium text-amber-50/95">
+              {booguEditModel ? 'Boogu Edit' : 'Qwen Edit'} locks Image 1 pose
+            </p>
             <p className="mt-1.5 text-amber-100/80">
               ReferenceLatent + vision encoding anchor Image 1&apos;s body pose and framing —
               denoise 1 is correct and won&apos;t unlock a sitting subject by itself.

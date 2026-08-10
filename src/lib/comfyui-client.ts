@@ -186,6 +186,7 @@ function injectPromptsIntoWorkflow(
   enrichInventory?: {
     availableUpscaleModels?: string[] | null;
     availableCheckpoints?: string[] | null;
+    availableVaes?: string[] | null;
     availableLoras?: string[] | null;
     supportsNeuralUpscaleTileSize?: boolean;
     availableNodeTypes?: Iterable<string> | null;
@@ -198,6 +199,7 @@ function injectPromptsIntoWorkflow(
     model: runtime?.queueTargetModel ?? request.model,
     workflow,
     availableCheckpoints: enrichInventory?.availableCheckpoints,
+    availableVaes: enrichInventory?.availableVaes,
     availableUpscaleModels: enrichInventory?.availableUpscaleModels,
   });
   const model = runtime?.queueTargetModel ?? request.model;
@@ -363,6 +365,7 @@ export async function queuePromptToComfyUi(
           const injected = injectPromptsIntoWorkflow(config.workflow, request, config, runtime, {
             availableUpscaleModels: objectInfo?.models.upscaleModels,
             availableCheckpoints: objectInfo?.models.checkpoints,
+            availableVaes: objectInfo?.models.vaes,
             availableLoras: objectInfo?.models.loras,
             supportsNeuralUpscaleTileSize: objectInfo?.supportsNeuralUpscaleTileSize,
             availableNodeTypes: objectInfo?.nodeTypes,

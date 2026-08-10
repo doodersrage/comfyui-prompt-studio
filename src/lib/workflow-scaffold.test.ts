@@ -122,6 +122,43 @@ describe("workflow scaffold", () => {
     assert.match(result.notes.join(" "), /img2img/i);
   });
 
+  it("builds Z-Image Refine scaffold as single-image img2img", () => {
+    const result = buildWorkflowScaffoldForModel("z-image-turbo", undefined, {
+      tool: "refine",
+    });
+    assert.match(result.json, /VAEEncode/);
+    assert.match(result.json, /Input Image/);
+    assert.doesNotMatch(result.json, /Figure 2/);
+    assert.doesNotMatch(result.json, /TextEncodeQwenImageEdit/);
+    assert.match(result.notes.join(" "), /Refine uses VAEEncode img2img/i);
+  });
+
+  it("builds Z-Image Image Prompt scaffold as single-image img2img", () => {
+    const result = buildWorkflowScaffoldForModel("z-image", undefined, {
+      tool: "imagePrompt",
+    });
+    assert.match(result.json, /VAEEncode/);
+    assert.match(result.json, /Input Image/);
+    assert.doesNotMatch(result.json, /EmptySD3LatentImage/);
+  });
+
+  it("builds Boogu Image T2I scaffold with CLIPTextEncode", () => {
+    const result = buildWorkflowScaffoldForModel("boogu-image");
+    assert.match(result.json, /CLIPTextEncode/);
+    assert.match(result.json, /"type": "boogu"/);
+    assert.match(result.json, /EmptyLatentImage/);
+    assert.doesNotMatch(result.json, /TextEncodeBooguEdit/);
+    assert.match(result.notes.join(" "), /Boogu Image Base/i);
+  });
+
+  it("builds Boogu Image Turbo scaffold with Turbo LoRA slot", () => {
+    const result = buildWorkflowScaffoldForModel("boogu-image-turbo");
+    assert.match(result.json, /LoraLoaderModelOnly/);
+    assert.match(result.json, /\{\{LORA_LIGHTNING\}\}/);
+    assert.match(result.json, /"type": "boogu"/);
+    assert.match(result.notes.join(" "), /Turbo LoRA/i);
+  });
+
   it("builds Boogu Edit scaffold with TextEncodeBooguEdit", () => {
     const result = buildWorkflowScaffoldForModel("boogu-image-edit");
     assert.match(result.json, /TextEncodeBooguEdit/);

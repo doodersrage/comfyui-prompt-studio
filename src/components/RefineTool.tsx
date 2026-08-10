@@ -14,7 +14,7 @@ import { usePromptResultActions } from '@/hooks/usePromptResultActions';
 import type { ComfyImageModel } from '@/lib/comfy-models/client';
 import type { WorkflowParamValues } from '@/lib/comfyui-config';
 import { getComfyModelDefinition } from '@/lib/comfy-models/client';
-import { isInpaintModel } from '@/lib/model-denoise-defaults';
+import { isInpaintModel, isBooguEditModel, isZImageModel } from '@/lib/model-denoise-defaults';
 import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-target';
 import { diffPromptWords } from '@/lib/prompt-diff';
 import { resolveParentHistoryId } from '@/lib/prompt-lineage-session';
@@ -332,6 +332,18 @@ export default function RefineTool() {
       }
     >
       <ToolSection>
+        {isBooguEditModel(shared.model) ? (
+          <p className="mb-4 text-xs leading-relaxed text-zinc-500">
+            Boogu Edit: TextEncodeBooguEdit vision-encodes your reference at denoise 1 — write
+            direct instruction edits (e.g. &quot;Replace the background with a rainy neon alley.
+            Keep the subject&apos;s pose.&quot;).
+          </p>
+        ) : isZImageModel(shared.model) ? (
+          <p className="mb-4 text-xs leading-relaxed text-zinc-500">
+            Z-Image: VAEEncode img2img on your reference (soft denoise ~0.65). Describe the edit in
+            text — no vision encode stack like Qwen or Boogu Edit.
+          </p>
+        ) : null}
         <FieldLabel>Reference image</FieldLabel>
         <input
           type="file"

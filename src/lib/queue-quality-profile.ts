@@ -694,7 +694,7 @@ export function profileUsesLatentDetailPass(
   if (
     /lightning-(4|8)\b/i.test(model) ||
     /^qwen-rapid-aio-/i.test(model) ||
-    /distilled|schnell|z-image-turbo|boogu-image-edit-turbo/i.test(model)
+    /distilled|schnell|z-image-turbo|boogu-image-turbo|boogu-image-edit-turbo/i.test(model)
   ) {
     return false;
   }

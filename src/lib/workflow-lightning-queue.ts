@@ -1,5 +1,5 @@
 import { isQwenLightningModel, QWEN_LIGHTNING_SHIFT_DEFAULT } from './model-sampling-patch';
-import { isEditCapableModel } from './model-denoise-defaults';
+import { isBooguEditModel, isEditCapableModel } from './model-denoise-defaults';
 import {
   filenameLooksLikeCheckpointOnly,
   isVaeFilenameIncompatibleWithModel,
@@ -133,10 +133,14 @@ function workflowHasReferenceLatent(workflow: Record<string, WorkflowNodeRecord>
   return Object.values(workflow).some(node => node?.class_type === 'ReferenceLatent');
 }
 
-/** Remove VAE from encode nodes — latents come from external VAEEncode + ReferenceLatent. */
+/** Remove VAE from Qwen encode nodes — latents come from external VAEEncode + ReferenceLatent. */
 function disconnectQwenEditEncodeVae(workflow: Record<string, WorkflowNodeRecord>): void {
   for (const node of Object.values(workflow)) {
-    if (!node?.inputs || !QWEN_EDIT_ENCODE_TYPES.has(node.class_type ?? '')) {
+    const classType = node?.class_type ?? '';
+    if (!node?.inputs || classType === 'TextEncodeBooguEdit') {
+      continue;
+    }
+    if (!QWEN_EDIT_ENCODE_TYPES.has(classType)) {
       continue;
     }
     if ('vae' in node.inputs) {
@@ -1567,7 +1571,13 @@ export function ensureQwenEditReferenceImagesForImg2Img(
   const wireEncodeSlots = options.wireEncodeSlots !== false;
   const next = structuredClone(workflow) as Record<string, WorkflowNodeRecord>;
   const encodeImageKeys = ['image1', 'image2', 'image3', 'image4'] as const;
-  const booguEncodeImageKeys = ['image_1', 'image_2', 'image_3', 'image_4'] as const;
+  const booguEncodeImageKeys = [
+    'images.image_1',
+    'images.image_2',
+    'images.image_3',
+    'images.image_4',
+  ] as const;
+  const legacyBooguEncodeImageKeys = ['image_1', 'image_2', 'image_3', 'image_4'] as const;
 
   const findOrCreateFigureLoader = (figureIndex: number, filename: string): string => {
     const title = `Figure ${figureIndex}`;
@@ -1652,6 +1662,12 @@ export function ensureQwenEditReferenceImagesForImg2Img(
 
     if (node.class_type === 'TextEncodeBooguEdit') {
       let changed = false;
+      for (const legacyKey of legacyBooguEncodeImageKeys) {
+        if (legacyKey in node.inputs) {
+          delete node.inputs[legacyKey];
+          changed = true;
+        }
+      }
       for (let i = 0; i < loaderIds.length && i < booguEncodeImageKeys.length; i += 1) {
         const key = booguEncodeImageKeys[i]!;
         const current = node.inputs[key];
@@ -1735,6 +1751,10 @@ export function scaleQwenEditReferenceImagesToLatentSize(
     'image_2',
     'image_3',
     'image_4',
+    'images.image_1',
+    'images.image_2',
+    'images.image_3',
+    'images.image_4',
   ] as const;
   const scaledLoaderIds = new Map<string, string>();
   let scaledSlotCount = 0;
@@ -2037,21 +2057,26 @@ export function prepareQwenEditReferenceImagesForQueue(
       inputImageFilenames: params?.inputImageFilenames,
       forceRewire: options?.forceRewire,
     }).workflow;
-    next = ensureQwenReferenceLatentWiringInWorkflow(next, {
-      inputImageFilename: params?.inputImageFilename?.toString(),
-      inputImageFilenames: params?.inputImageFilenames,
-      width: params?.width,
-      height: params?.height,
-    }).workflow;
-    const latentSize = readEmptyLatentSize(next);
-    if (latentSize) {
+
+    // Boogu builds reference latents inside TextEncodeBooguEdit (needs vae on that node).
+    if (!isBooguEditModel(modelId)) {
       next = ensureQwenReferenceLatentWiringInWorkflow(next, {
         inputImageFilename: params?.inputImageFilename?.toString(),
         inputImageFilenames: params?.inputImageFilenames,
-        width: latentSize.width,
-        height: latentSize.height,
+        width: params?.width,
+        height: params?.height,
       }).workflow;
+      const latentSize = readEmptyLatentSize(next);
+      if (latentSize) {
+        next = ensureQwenReferenceLatentWiringInWorkflow(next, {
+          inputImageFilename: params?.inputImageFilename?.toString(),
+          inputImageFilenames: params?.inputImageFilenames,
+          width: latentSize.width,
+          height: latentSize.height,
+        }).workflow;
+      }
     }
+
     next = pruneUnresolvedQwenEditFigureLoaders(next).workflow;
     return next;
   }

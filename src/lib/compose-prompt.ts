@@ -5,7 +5,12 @@ import {
   DEFAULT_INPUT_IMAGE_3_TOKEN,
   DEFAULT_INPUT_IMAGE_4_TOKEN,
 } from './comfyui-config';
-import { isFluxKleinModel, isQwenEditModel, isZImageModel } from './model-denoise-defaults';
+import {
+  isBooguEditModel,
+  isFluxKleinModel,
+  isQwenEditModel,
+  isZImageModel,
+} from './model-denoise-defaults';
 import { buildQwenEditPrompt, parseQwenEditSegments } from './qwen-edit-builder';
 import {
   MAX_INPUT_IMAGE_FILENAMES,
@@ -27,6 +32,10 @@ const QWEN_POSE_UNLOCK_MODIFY_PREFIX =
 
 const QWEN_POSE_UNLOCK_TRANSFER_PREFIX =
   'Image 1 is facial identity only — ignore Image 1 body pose and framing. Image 2 supplies the target pose, action, and body energy; use additional images for wardrobe, environment, or mood as described.';
+
+function isVisionEncodedComposeModel(model?: string): boolean {
+  return isQwenEditModel(model ?? '') || isBooguEditModel(model ?? '');
+}
 
 /** Prompts that intend to replace pose/scene, not gentle edits on Image 1 framing. */
 export function isAggressiveComposeInstruction(instruction: string): boolean {
@@ -1308,7 +1317,7 @@ export function buildComposeInstruction(input: {
       return `${Z_IMAGE_MODIFY_PRESERVE_PREFIX} ${text}`;
     }
     if (
-      isQwenEditModel(input.model ?? '') &&
+      isVisionEncodedComposeModel(input.model) &&
       isAggressiveComposeInstruction(raw) &&
       !/\bfacial identity only\b/i.test(text)
     ) {
@@ -1319,7 +1328,7 @@ export function buildComposeInstruction(input: {
 
   let transferText = raw;
   if (
-    isQwenEditModel(input.model ?? '') &&
+    isVisionEncodedComposeModel(input.model) &&
     input.figureCount >= 2 &&
     isAggressiveComposeInstruction(raw) &&
     !/\bfacial identity only\b/i.test(raw)

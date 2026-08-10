@@ -3,9 +3,12 @@ import { describe, it } from "node:test";
 import {
   isComposeCapableModel,
   isEditCapableModel,
+  isEditQueueTool,
   isFluxKleinModel,
   isInstructionEditDenoiseContext,
   isQwenEditModel,
+  isZImageImg2imgEditContext,
+  isZImageImg2imgQueueTool,
   resolveDistilledQueueDenoise,
   resolveDenoiseForModel,
   resolveQueueDenoise,
@@ -18,6 +21,42 @@ describe("model denoise defaults", () => {
     assert.equal(isEditCapableModel("qwen-rapid-aio-edit"), true);
     assert.equal(isEditCapableModel("flux-inpaint"), true);
     assert.equal(isEditCapableModel("qwen-image-2512"), false);
+    assert.equal(isEditCapableModel("boogu-image-edit"), true);
+    assert.equal(isEditCapableModel("boogu-image-edit-turbo"), true);
+  });
+
+  it("normalizes imagePrompt as an edit queue tool", () => {
+    assert.equal(isEditQueueTool("image-prompt"), true);
+    assert.equal(isEditQueueTool("imagePrompt"), true);
+    assert.equal(isEditQueueTool("generate"), false);
+  });
+
+  it("detects Z-Image img2img edit tools and soft-denoise context", () => {
+    assert.equal(isZImageImg2imgQueueTool("refine"), true);
+    assert.equal(isZImageImg2imgQueueTool("imagePrompt"), true);
+    assert.equal(isZImageImg2imgQueueTool("compose"), true);
+    assert.equal(isZImageImg2imgQueueTool("generate"), false);
+    assert.equal(
+      isZImageImg2imgEditContext("z-image-turbo", {
+        tool: "refine",
+        hasInputImage: true,
+      }),
+      true,
+    );
+    assert.equal(
+      resolveDenoiseForModel("z-image-turbo", {
+        tool: "refine",
+        hasInputImage: true,
+      }),
+      0.65,
+    );
+    assert.equal(
+      isInstructionEditDenoiseContext("z-image-turbo", {
+        tool: "refine",
+        hasInputImage: true,
+      }),
+      false,
+    );
   });
 
   it("detects qwen edit models for wired scaffolds", () => {

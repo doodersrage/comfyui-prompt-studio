@@ -81,6 +81,10 @@ const Z_IMAGE_MODELS = ['z-image', 'z-image-turbo'] as const;
 
 const BOOGU_EDIT_MODELS = ['boogu-image-edit', 'boogu-image-edit-turbo'] as const;
 
+const BOOGU_IMAGE_MODELS = ['boogu-image', 'boogu-image-turbo'] as const;
+
+const BOOGU_ALL_MODELS = [...BOOGU_IMAGE_MODELS, ...BOOGU_EDIT_MODELS] as const;
+
 /**
  * Curated weights tied to suggested loader maps / supported workflows.
  * Entries without `url` are docs-only (show expected filename, no Install).
@@ -247,6 +251,58 @@ export const COMFY_ASSET_CATALOG: ComfyCatalogAsset[] = [
     notes: 'Same Flux.1 AE VAE used by Z-Image workflows (models/vae).',
   },
 
+  // ── Boogu Image (T2I) ─────────────────────────────────────────────
+  {
+    id: 'boogu-base-bf16',
+    label: 'Boogu Image Base (bf16 UNET)',
+    kind: 'unet',
+    filename: 'boogu_image_base_bf16.safetensors',
+    url: 'https://huggingface.co/Comfy-Org/Boogu-Image/resolve/main/diffusion_models/boogu_image_base_bf16.safetensors',
+    bytes: 20600000000,
+    modelIds: ['boogu-image'],
+    notes: 'Full bf16 T2I base — ~25–50 steps, cfg ~4.',
+  },
+  {
+    id: 'boogu-base-fp8',
+    label: 'Boogu Image Base (fp8 UNET)',
+    kind: 'unet',
+    filename: 'boogu_image_base_fp8_scaled.safetensors',
+    url: 'https://huggingface.co/Comfy-Org/Boogu-Image/resolve/main/diffusion_models/boogu_image_base_fp8_scaled.safetensors',
+    bytes: 10300000000,
+    modelIds: ['boogu-image'],
+    notes: 'VRAM-friendly fp8 base weights.',
+  },
+  {
+    id: 'boogu-turbo-bf16',
+    label: 'Boogu Image Turbo (bf16 UNET)',
+    kind: 'unet',
+    filename: 'boogu_image_turbo_bf16.safetensors',
+    url: 'https://huggingface.co/Comfy-Org/Boogu-Image/resolve/main/diffusion_models/boogu_image_turbo_bf16.safetensors',
+    bytes: 20600000000,
+    modelIds: ['boogu-image-turbo'],
+    notes: 'Distilled T2I turbo UNET — pair with Turbo LoRA below.',
+  },
+  {
+    id: 'boogu-turbo-fp8',
+    label: 'Boogu Image Turbo (fp8 UNET)',
+    kind: 'unet',
+    filename: 'boogu_image_turbo_fp8_scaled.safetensors',
+    url: 'https://huggingface.co/Comfy-Org/Boogu-Image/resolve/main/diffusion_models/boogu_image_turbo_fp8_scaled.safetensors',
+    bytes: 10300000000,
+    modelIds: ['boogu-image-turbo'],
+    notes: 'VRAM-friendly fp8 turbo UNET.',
+  },
+  {
+    id: 'boogu-turbo-lora',
+    label: 'Boogu Image Turbo LoRA (rank 128)',
+    kind: 'lora',
+    filename: 'boogu_image_turbo_lora_rank_128_bf16.safetensors',
+    url: 'https://huggingface.co/Comfy-Org/Boogu-Image/resolve/main/loras/boogu_image_turbo_lora_rank_128_bf16.safetensors',
+    bytes: 268435456,
+    modelIds: ['boogu-image-turbo'],
+    notes: 'Required rank-128 LoRA for Boogu Image Turbo T2I — maps to {{LORA_LIGHTNING}}.',
+  },
+
   // ── Boogu Image Edit ──────────────────────────────────────────────
   {
     id: 'boogu-edit-bf16',
@@ -285,8 +341,8 @@ export const COMFY_ASSET_CATALOG: ComfyCatalogAsset[] = [
     filename: 'qwen3vl_8b_fp8_scaled.safetensors',
     url: 'https://huggingface.co/Comfy-Org/Boogu-Image/resolve/main/text_encoders/qwen3vl_8b_fp8_scaled.safetensors',
     bytes: 9000000000,
-    modelIds: [...BOOGU_EDIT_MODELS],
-    notes: 'CLIPLoader type boogu — shared by Boogu Edit and Edit Turbo.',
+    modelIds: [...BOOGU_ALL_MODELS],
+    notes: 'CLIPLoader type boogu — shared by Boogu T2I and Edit stacks.',
   },
   {
     id: 'boogu-flux-vae',
@@ -295,8 +351,8 @@ export const COMFY_ASSET_CATALOG: ComfyCatalogAsset[] = [
     filename: 'flux1_vae_bf16.safetensors',
     url: 'https://huggingface.co/Comfy-Org/Boogu-Image/resolve/main/vae/flux1_vae_bf16.safetensors',
     bytes: 335304388,
-    modelIds: [...BOOGU_EDIT_MODELS],
-    notes: 'Comfy-Org repack. ae.safetensors also works if you already have it from Z-Image/FLUX.',
+    modelIds: [...BOOGU_ALL_MODELS],
+    notes: 'Comfy-Org repack (preferred). ae.safetensors from Z-Image/FLUX also works.',
   },
 
   // ── Qwen Image Edit ───────────────────────────────────────────────

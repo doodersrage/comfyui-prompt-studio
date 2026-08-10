@@ -114,6 +114,9 @@ export function resolveModelStackFamily(model: ComfyImageModel | string): Workfl
   if (def.profile === 'flux_klein') {
     return 'flux-klein';
   }
+  if (/^boogu-image(?!-edit)/i.test(String(model))) {
+    return 'other';
+  }
   if (/^boogu-image-edit/i.test(String(model))) {
     return 'qwen-edit';
   }

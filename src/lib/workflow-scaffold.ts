@@ -29,9 +29,12 @@ import {
 } from './comfy-models';
 import {
   isBooguEditModel,
+  isBooguImageModel,
+  isBooguImageTurboModel,
   isEditCapableModel,
   isFluxKleinModel,
   isQwenEditModel,
+  isZImageImg2imgQueueTool,
   isZImageModel,
 } from './model-denoise-defaults';
 import { isQwenLightningModel, isWanLightningModel } from './model-sampling-patch';
@@ -352,7 +355,10 @@ function zImageScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unkno
 }
 
 /** Z-Image Compose: Figure 1 img2img via VAEEncode; Figures 2–4 are LoadImage placeholders (prompt-only). */
-function zImageComposeScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknown> {
+function zImageImg2imgScaffold(
+  tokens: WorkflowPlaceholderTokens,
+  options?: { multiFigure?: boolean }
+): Record<string, unknown> {
   const figureTokens = [
     tokens.inputImage?.trim() || DEFAULT_INPUT_IMAGE_TOKEN,
     DEFAULT_INPUT_IMAGE_2_TOKEN,
@@ -360,7 +366,7 @@ function zImageComposeScaffold(tokens: WorkflowPlaceholderTokens): Record<string
     DEFAULT_INPUT_IMAGE_4_TOKEN,
   ];
 
-  return {
+  const graph: Record<string, unknown> = {
     '1': {
       class_type: 'UNETLoader',
       inputs: { unet_name: DEFAULT_UNET_TOKEN, weight_dtype: 'default' },
@@ -397,12 +403,12 @@ function zImageComposeScaffold(tokens: WorkflowPlaceholderTokens): Record<string
     '900': {
       class_type: 'LoadImage',
       inputs: { image: figureTokens[0] },
-      _meta: { title: 'Figure 1' },
+      _meta: { title: options?.multiFigure ? 'Figure 1' : 'Input Image' },
     },
     '901': {
       class_type: 'VAEEncode',
       inputs: { pixels: ['900', 0], vae: ['3', 0] },
-      _meta: { title: 'VAE Encode Figure 1' },
+      _meta: { title: 'VAE Encode input' },
     },
     '8': {
       class_type: 'KSampler',
@@ -430,22 +436,31 @@ function zImageComposeScaffold(tokens: WorkflowPlaceholderTokens): Record<string
       inputs: { images: ['9', 0], filename_prefix: 'PromptStudio' },
       _meta: { title: 'Save Image' },
     },
-    '902': {
+  };
+
+  if (options?.multiFigure) {
+    graph['902'] = {
       class_type: 'LoadImage',
       inputs: { image: figureTokens[1] },
       _meta: { title: 'Figure 2' },
-    },
-    '903': {
+    };
+    graph['903'] = {
       class_type: 'LoadImage',
       inputs: { image: figureTokens[2] },
       _meta: { title: 'Figure 3' },
-    },
-    '904': {
+    };
+    graph['904'] = {
       class_type: 'LoadImage',
       inputs: { image: figureTokens[3] },
       _meta: { title: 'Figure 4' },
-    },
-  };
+    };
+  }
+
+  return graph;
+}
+
+function zImageComposeScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknown> {
+  return zImageImg2imgScaffold(tokens, { multiFigure: true });
 }
 
 function booguLoaderFilenames(): {
@@ -456,7 +471,156 @@ function booguLoaderFilenames(): {
   return {
     unetToken: DEFAULT_UNET_TOKEN,
     clipName: 'qwen3vl_8b_fp8_scaled.safetensors',
-    vaeName: 'ae.safetensors',
+    vaeName: 'flux1_vae_bf16.safetensors',
+  };
+}
+
+function booguImageScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknown> {
+  const loaders = booguLoaderFilenames();
+  return {
+    '1': {
+      class_type: 'UNETLoader',
+      inputs: { unet_name: loaders.unetToken, weight_dtype: 'default' },
+      _meta: { title: 'Load Boogu UNET' },
+    },
+    '2': {
+      class_type: 'CLIPLoader',
+      inputs: {
+        clip_name: loaders.clipName,
+        type: 'boogu',
+      },
+      _meta: { title: 'Load CLIP' },
+    },
+    '3': {
+      class_type: 'VAELoader',
+      inputs: { vae_name: loaders.vaeName },
+      _meta: { title: 'Load VAE' },
+    },
+    '4': {
+      class_type: 'CLIPTextEncode',
+      inputs: { text: tokens.positive, clip: ['2', 0] },
+      _meta: { title: 'Positive Prompt' },
+    },
+    '5': {
+      class_type: 'CLIPTextEncode',
+      inputs: { text: tokens.negative, clip: ['2', 0] },
+      _meta: { title: 'Negative Prompt' },
+    },
+    '6': {
+      class_type: 'EmptyLatentImage',
+      inputs: { width: tokens.width, height: tokens.height, batch_size: 1 },
+      _meta: { title: 'Empty Latent' },
+    },
+    '7': {
+      class_type: 'ModelSamplingAuraFlow',
+      inputs: { model: ['1', 0], shift: tokens.shift },
+      _meta: { title: 'ModelSamplingAuraFlow' },
+    },
+    '8': {
+      class_type: 'KSampler',
+      inputs: {
+        seed: tokens.seed,
+        steps: tokens.steps,
+        cfg: tokens.cfg,
+        sampler_name: tokens.sampler,
+        scheduler: tokens.scheduler,
+        denoise: tokens.denoise,
+        model: ['7', 0],
+        positive: ['4', 0],
+        negative: ['5', 0],
+        latent_image: ['6', 0],
+      },
+      _meta: { title: 'KSampler' },
+    },
+    '9': {
+      class_type: 'VAEDecode',
+      inputs: { samples: ['8', 0], vae: ['3', 0] },
+      _meta: { title: 'VAE Decode' },
+    },
+    '10': {
+      class_type: 'SaveImage',
+      inputs: { images: ['9', 0], filename_prefix: 'PromptStudio' },
+      _meta: { title: 'Save Image' },
+    },
+  };
+}
+
+function booguImageTurboScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknown> {
+  const loaders = booguLoaderFilenames();
+  return {
+    '1': {
+      class_type: 'UNETLoader',
+      inputs: { unet_name: loaders.unetToken, weight_dtype: 'default' },
+      _meta: { title: 'Load Boogu Turbo UNET' },
+    },
+    '2': {
+      class_type: 'CLIPLoader',
+      inputs: {
+        clip_name: loaders.clipName,
+        type: 'boogu',
+      },
+      _meta: { title: 'Load CLIP' },
+    },
+    '3': {
+      class_type: 'VAELoader',
+      inputs: { vae_name: loaders.vaeName },
+      _meta: { title: 'Load VAE' },
+    },
+    '4': {
+      class_type: 'CLIPTextEncode',
+      inputs: { text: tokens.positive, clip: ['2', 0] },
+      _meta: { title: 'Positive Prompt' },
+    },
+    '5': {
+      class_type: 'CLIPTextEncode',
+      inputs: { text: tokens.negative, clip: ['2', 0] },
+      _meta: { title: 'Negative Prompt' },
+    },
+    '6': {
+      class_type: 'EmptyLatentImage',
+      inputs: { width: tokens.width, height: tokens.height, batch_size: 1 },
+      _meta: { title: 'Empty Latent' },
+    },
+    '7': {
+      class_type: 'LoraLoaderModelOnly',
+      inputs: {
+        model: ['1', 0],
+        lora_name: LIGHTNING_LORA_TOKEN,
+        strength_model: 1,
+      },
+      _meta: { title: 'Boogu Turbo LoRA' },
+    },
+    '11': {
+      class_type: 'ModelSamplingAuraFlow',
+      inputs: { model: ['7', 0], shift: tokens.shift },
+      _meta: { title: 'ModelSamplingAuraFlow' },
+    },
+    '8': {
+      class_type: 'KSampler',
+      inputs: {
+        seed: tokens.seed,
+        steps: tokens.steps,
+        cfg: tokens.cfg,
+        sampler_name: tokens.sampler,
+        scheduler: tokens.scheduler,
+        denoise: tokens.denoise,
+        model: ['11', 0],
+        positive: ['4', 0],
+        negative: ['5', 0],
+        latent_image: ['6', 0],
+      },
+      _meta: { title: 'KSampler' },
+    },
+    '9': {
+      class_type: 'VAEDecode',
+      inputs: { samples: ['8', 0], vae: ['3', 0] },
+      _meta: { title: 'VAE Decode' },
+    },
+    '10': {
+      class_type: 'SaveImage',
+      inputs: { images: ['9', 0], filename_prefix: 'PromptStudio' },
+      _meta: { title: 'Save Image' },
+    },
   };
 }
 
@@ -2035,7 +2199,7 @@ export function buildWorkflowScaffoldForModel(
   const category = resolveScaffoldCategory(model);
   const useKleinComposeScaffold = options?.tool === 'compose' && isFluxKleinModel(model);
   const useBooguComposeScaffold = options?.tool === 'compose' && isBooguEditModel(model);
-  const useZImageComposeScaffold = options?.tool === 'compose' && isZImageModel(model);
+  const useZImageImg2imgScaffold = isZImageModel(model) && isZImageImg2imgQueueTool(options?.tool);
   const useQwenComposeScaffold =
     options?.tool === 'compose' &&
     isQwenEditModel(model) &&
@@ -2049,45 +2213,53 @@ export function buildWorkflowScaffoldForModel(
     ? fluxKleinEditScaffold(resolvedTokens, model)
     : useBooguComposeScaffold
       ? booguEditScaffold(resolvedTokens, { compose: true })
-      : useZImageComposeScaffold
-        ? zImageComposeScaffold(resolvedTokens)
+      : useZImageImg2imgScaffold
+        ? zImageImg2imgScaffold(resolvedTokens, {
+            multiFigure: options?.tool === 'compose',
+          })
         : useQwenComposeScaffold
           ? qwenEditComposeScaffold(resolvedTokens, model)
           : useEditScaffold
             ? editScaffold(resolvedTokens, category, model)
             : isBooguEditModel(model)
               ? booguEditScaffold(resolvedTokens)
-              : isZImageModel(model)
-                ? zImageScaffold(resolvedTokens)
-                : category === 'flux'
-                  ? fluxScaffold(resolvedTokens, model)
-                  : useLightningScaffold
-                    ? qwenLightningScaffold(resolvedTokens)
-                    : useCheckpointScaffold
-                      ? qwenCheckpointScaffold(resolvedTokens)
-                      : category === 'qwen'
-                        ? qwenScaffold(resolvedTokens)
-                        : category === 'video'
-                          ? videoScaffold(resolvedTokens, model)
-                          : category === 'audio'
-                            ? audioScaffold(resolvedTokens)
-                            : category === 'mesh'
-                              ? meshScaffold(resolvedTokens)
-                              : genericScaffold(resolvedTokens);
+              : isBooguImageTurboModel(model)
+                ? booguImageTurboScaffold(resolvedTokens)
+                : isBooguImageModel(model)
+                  ? booguImageScaffold(resolvedTokens)
+                  : isZImageModel(model)
+                    ? zImageScaffold(resolvedTokens)
+                    : category === 'flux'
+                      ? fluxScaffold(resolvedTokens, model)
+                      : useLightningScaffold
+                        ? qwenLightningScaffold(resolvedTokens)
+                        : useCheckpointScaffold
+                          ? qwenCheckpointScaffold(resolvedTokens)
+                          : category === 'qwen'
+                            ? qwenScaffold(resolvedTokens)
+                            : category === 'video'
+                              ? videoScaffold(resolvedTokens, model)
+                              : category === 'audio'
+                                ? audioScaffold(resolvedTokens)
+                                : category === 'mesh'
+                                  ? meshScaffold(resolvedTokens)
+                                  : genericScaffold(resolvedTokens);
   const videoLatentClass = category === 'video' ? resolveVideoLatentClass(model) : null;
   const notes = [
     'Starter graph with app placeholders — verify loader filenames match your ComfyUI models folder.',
     useKleinComposeScaffold
       ? 'Klein Compose scaffold uses EmptyFlux2LatentImage + ReferenceLatent (instruction edit, denoise 1). Figure 1–4 attach via ReferenceLatent at queue time — not soft img2img.'
       : useBooguComposeScaffold
-        ? 'Boogu Edit Compose uses TextEncodeBooguEdit + EmptyLatentImage (denoise 1). Figure 1–4 wire to image_1…image_4 at queue time — vision + reference latents.'
-        : useZImageComposeScaffold
-          ? 'Z-Image Compose uses Figure 1 img2img (VAEEncode → KSampler, soft denoise ~0.65). Figures 2–4 are prompt references only — no vision encode stack.'
+        ? 'Boogu Edit Compose uses TextEncodeBooguEdit + EmptyLatentImage (denoise 1). Figure 1–4 wire to images.image_1…images.image_4 at queue time — vision + reference latents.'
+        : useZImageImg2imgScaffold
+          ? options?.tool === 'compose'
+            ? 'Z-Image Compose uses Figure 1 img2img (VAEEncode → KSampler, soft denoise ~0.65). Figures 2–4 are prompt references only — no vision encode stack.'
+            : 'Z-Image Refine uses VAEEncode img2img (soft denoise ~0.65). Upload a reference image — instruction edits in text, not ReferenceLatent.'
           : useQwenComposeScaffold
             ? 'Qwen Edit Compose scaffold uses EmptySD3LatentImage + TextEncodeQwenImageEditPlus (no encode VAE). Figure 1–4 attach via ReferenceLatent + external VAEEncode at queue time — denoise 1.'
             : useEditScaffold
               ? isBooguEditModel(model)
-                ? 'Boogu Edit scaffold uses TextEncodeBooguEdit + EmptyLatentImage (denoise 1). Wire Figure 1 via image_1 at queue time — reference latents preserve identity under CFG.'
+                ? 'Boogu Edit scaffold uses TextEncodeBooguEdit + EmptyLatentImage (denoise 1). Wire Figure 1 via images.image_1 at queue time — reference latents preserve identity under CFG.'
                 : isQwenEditModel(model)
                   ? isQwenLightningModel(model)
                     ? 'Lightning edit scaffold uses TextEncodeQwenImageEditPlus + EmptyLatent + Lightning LoRA (denoise 1). Figure 1–4 LoadImages use {{INPUT_IMAGE}}…{{INPUT_IMAGE_4}} but encode slots stay empty for Generate; Compose/Refine queue wires refs when you upload sources.'
@@ -2115,9 +2287,13 @@ export function buildWorkflowScaffoldForModel(
                       ? 'Audio scaffold is a Stable-Audio-oriented starter (Checkpoint + CLIP + KSampler + SaveAudio) with {{AUDIO_SECONDS}} on the Note node. Prefer importing your pack’s Stable Audio / music graph when you have one — then map it under Settings → model→workflow.'
                       : category === 'mesh'
                         ? 'Mesh scaffold wires {{INPUT_IMAGE}} + Checkpoint + CLIP + KSampler + SaveImage with {{MESH_RESOLUTION}} on the Note node. Prefer importing Hunyuan3D / image-to-mesh pack graphs when available.'
-                        : isZImageModel(model)
-                          ? 'Z-Image scaffold uses UNETLoader + CLIPLoader (type lumina2, qwen_3_4b) + ae.safetensors VAE + ModelSamplingAuraFlow. Turbo: 6–8 steps, cfg 1; Base: ~30–50 steps, cfg 3–5.'
-                          : 'Use Settings → model checkpoint map so Send to ComfyUI can patch loader nodes automatically.',
+                        : isBooguImageTurboModel(model)
+                          ? 'Boogu Image Turbo scaffold uses UNETLoader + Turbo LoRA ({{LORA_LIGHTNING}} → boogu_image_turbo_lora_rank_128_bf16.safetensors) + CLIPLoader type boogu + flux1_vae_bf16 — 4 steps, cfg 1.'
+                          : isBooguImageModel(model)
+                            ? 'Boogu Image Base scaffold uses UNETLoader + CLIPLoader (type boogu, qwen3vl_8b) + flux1_vae_bf16 + ModelSamplingAuraFlow — ~25–50 steps, cfg ~4.'
+                            : isZImageModel(model)
+                              ? 'Z-Image scaffold uses UNETLoader + CLIPLoader (type lumina2, qwen_3_4b) + ae.safetensors VAE + ModelSamplingAuraFlow. Turbo: 6–8 steps, cfg 1; Base: ~30–50 steps, cfg 3–5.'
+                              : 'Use Settings → model checkpoint map so Send to ComfyUI can patch loader nodes automatically.',
   ];
 
   return {

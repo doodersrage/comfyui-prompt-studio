@@ -5,9 +5,12 @@ import {
 } from './comfy-models';
 import type { CustomWorkflowToken, WorkflowParamValues } from './comfyui-config';
 import {
+  isBooguEditModel,
+  isBooguFamilyModel,
   isFlux1FamilyModel,
   isFluxKleinModel,
   isQwenRapidAioModel,
+  isZImageModel,
 } from './model-denoise-defaults';
 import {
   defaultLoaderPrecisionTier,
@@ -72,6 +75,8 @@ export const SUGGESTED_MODEL_CHECKPOINT_MAP: ModelCheckpointMap = {
   'ltx-video': 'ltx-video-2b-v0.9.safetensors',
   'z-image': 'z_image_bf16.safetensors',
   'z-image-turbo': 'z_image_turbo_bf16.safetensors',
+  'boogu-image': 'boogu_image_base_bf16.safetensors',
+  'boogu-image-turbo': 'boogu_image_turbo_bf16.safetensors',
   'boogu-image-edit': 'boogu_image_edit_bf16.safetensors',
   'boogu-image-edit-turbo': 'boogu_image_edit_turbo_bf16.safetensors',
 };
@@ -94,8 +99,10 @@ export const SUGGESTED_MODEL_VAE_MAP: ModelVaeMap = {
   'qwen-image-edit-2509': 'qwen_image_vae.safetensors',
   'z-image': 'ae.safetensors',
   'z-image-turbo': 'ae.safetensors',
-  'boogu-image-edit': 'ae.safetensors',
-  'boogu-image-edit-turbo': 'ae.safetensors',
+  'boogu-image': 'flux1_vae_bf16.safetensors',
+  'boogu-image-turbo': 'flux1_vae_bf16.safetensors',
+  'boogu-image-edit': 'flux1_vae_bf16.safetensors',
+  'boogu-image-edit-turbo': 'flux1_vae_bf16.safetensors',
 };
 
 export const SUGGESTED_MODEL_REFINER_MAP: ModelRefinerMap = {
@@ -278,9 +285,15 @@ export function isVaeFilenameIncompatibleWithModel(
     return false;
   }
   // ae is UltraReal-only in this studio — never leave it on Klein / FLUX.2 / Qwen / etc.
-  // Check before the expected-VAE short-circuit so flux-dev (no mapped VAE) still rejects ae.
+  // Boogu Edit and Z-Image intentionally use Flux AE (ae.safetensors or flux1_vae_bf16).
   if (/^ae\.safetensors$/i.test(actual) && !isFluxFineTuneCheckpointModel(model)) {
+    if (isBooguFamilyModel(model) || isZImageModel(model)) {
+      return false;
+    }
     return true;
+  }
+  if (/^flux1_vae_bf16\.safetensors$/i.test(actual) && isBooguFamilyModel(model)) {
+    return false;
   }
   const expected = suggestedVaeFilenameForModel(model);
   if (!expected?.trim()) {
@@ -411,19 +424,35 @@ function inferZImageLoaderHints(modelId: string): ModelLoaderFilenames {
 
 function inferBooguLoaderHints(modelId: string): ModelLoaderFilenames {
   const id = modelId.toLowerCase();
-  if (!id.startsWith('boogu-image-edit')) {
+  if (!id.startsWith('boogu-image')) {
     return {};
   }
-  if (id.includes('turbo')) {
-    return {
-      unet: 'boogu_image_edit_turbo_bf16.safetensors',
-      vae: 'ae.safetensors',
-    };
+  const vae = pickBooguVaeFromInventory(null);
+  const isEdit = id.includes('edit');
+  const isTurbo = id.includes('turbo');
+  if (isEdit && isTurbo) {
+    return { unet: 'boogu_image_edit_turbo_bf16.safetensors', vae };
   }
-  return {
-    unet: 'boogu_image_edit_bf16.safetensors',
-    vae: 'ae.safetensors',
-  };
+  if (isEdit) {
+    return { unet: 'boogu_image_edit_bf16.safetensors', vae };
+  }
+  if (isTurbo) {
+    return { unet: 'boogu_image_turbo_bf16.safetensors', vae };
+  }
+  return { unet: 'boogu_image_base_bf16.safetensors', vae };
+}
+
+/** Comfy-Org Boogu repack name first; ae.safetensors from Z-Image/FLUX also works. */
+export const BOOGU_VAE_CANDIDATES = ['flux1_vae_bf16.safetensors', 'ae.safetensors'] as const;
+
+export function pickBooguVaeFromInventory(vaes?: string[] | null): string {
+  const inventory = (vaes ?? []).map(name => name.trim()).filter(Boolean);
+  for (const candidate of BOOGU_VAE_CANDIDATES) {
+    if (inventory.includes(candidate)) {
+      return candidate;
+    }
+  }
+  return BOOGU_VAE_CANDIDATES[0];
 }
 
 /**
@@ -568,6 +597,7 @@ export function resolveLoaderFilenamesForModel(
     /** When set, Klein prefers installed bf16 weights and falls back to fp8 if needed. */
     availableCheckpoints?: string[] | null;
     availableUnets?: string[] | null;
+    availableVaes?: string[] | null;
   }
 ): ModelLoaderFilenames {
   const workflowTier = options?.workflow ? detectLoaderPrecisionTier(options.workflow) : undefined;
@@ -639,6 +669,9 @@ export function resolveLoaderFilenamesForModel(
     trimFilename(options?.vaeMap?.[model]) ??
     trimFilename(def?.vaeHint) ??
     suggestedVaeFilenameForModel(model);
+  const resolvedVae = String(model).toLowerCase().startsWith('boogu-image')
+    ? pickBooguVaeFromInventory(options?.availableVaes)
+    : vae;
 
   const effectiveTier = precisionHintFromFilename(unet ?? checkpoint ?? '') ?? workflowTier ?? tier;
 
@@ -661,8 +694,8 @@ export function resolveLoaderFilenamesForModel(
         unet)
       : unet;
   }
-  if (vae) {
-    result.vae = vae;
+  if (resolvedVae) {
+    result.vae = resolvedVae;
   }
   if (model.toLowerCase().includes('qwen')) {
     result.dualClip = qwenDualClipFilename(effectiveTier);

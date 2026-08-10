@@ -20,6 +20,19 @@ const EDIT_TOOLS = new Set([
   'compose',
 ]);
 
+/** SharedToolControls uses camelCase tool ids in a few places. */
+const EDIT_TOOL_ALIASES: Record<string, string> = {
+  imagePrompt: 'image-prompt',
+};
+
+export function normalizeEditQueueToolId(tool?: string): string | undefined {
+  const id = tool?.trim();
+  if (!id) {
+    return undefined;
+  }
+  return EDIT_TOOL_ALIASES[id] ?? id;
+}
+
 export const DEFAULT_OUTPAINT_DENOISE = 0.85;
 
 function clampDenoise(value: number): number {
@@ -80,6 +93,17 @@ export function isRapidAioModel(model?: string): boolean {
   return isQwenRapidAioModel(model) || isWanRapidAioModel(model);
 }
 
+export function isBooguImageModel(model: ComfyImageModel | string | null | undefined): boolean {
+  const id = String(model ?? '').trim();
+  return id === 'boogu-image' || id === 'boogu-image-turbo';
+}
+
+export function isBooguImageTurboModel(
+  model: ComfyImageModel | string | null | undefined
+): boolean {
+  return String(model ?? '').trim() === 'boogu-image-turbo';
+}
+
 export function isBooguEditModel(model: ComfyImageModel | string | null | undefined): boolean {
   const id = String(model ?? '').trim();
   return id === 'boogu-image-edit' || id === 'boogu-image-edit-turbo';
@@ -87,6 +111,10 @@ export function isBooguEditModel(model: ComfyImageModel | string | null | undefi
 
 export function isBooguEditTurboModel(model: ComfyImageModel | string | null | undefined): boolean {
   return String(model ?? '').trim() === 'boogu-image-edit-turbo';
+}
+
+export function isBooguFamilyModel(model: ComfyImageModel | string | null | undefined): boolean {
+  return /^boogu-image/i.test(String(model ?? '').trim());
 }
 
 export function isQwenEditModel(model: ComfyImageModel | string): boolean {
@@ -113,6 +141,35 @@ export function isZImageModel(model: ComfyImageModel | string | null | undefined
 
 export function isZImageTurboModel(model: ComfyImageModel | string | null | undefined): boolean {
   return String(model ?? '').trim() === 'z-image-turbo';
+}
+
+/** Refine / Image → Prompt / Compose — Figure 1 VAEEncode img2img (not Qwen ReferenceLatent). */
+export function isZImageImg2imgQueueTool(tool?: string): boolean {
+  const normalized = normalizeEditQueueToolId(tool);
+  return normalized === 'refine' || normalized === 'image-prompt' || normalized === 'compose';
+}
+
+export function isZImageImg2imgEditContext(
+  model: ComfyImageModel | string,
+  options?: {
+    tool?: string;
+    hasInputImage?: boolean;
+    hasMaskImage?: boolean;
+  }
+): boolean {
+  if (!isZImageModel(model) || options?.hasMaskImage || isInpaintModel(model)) {
+    return false;
+  }
+  if (!isZImageImg2imgQueueTool(options?.tool)) {
+    return false;
+  }
+  const tool = normalizeEditQueueToolId(options?.tool);
+  return (
+    tool === 'compose' ||
+    tool === 'refine' ||
+    tool === 'image-prompt' ||
+    (Boolean(options?.hasInputImage) && tool != null && EDIT_TOOLS.has(tool))
+  );
 }
 
 /**
@@ -153,7 +210,8 @@ export function isInpaintModel(model: ComfyImageModel | string): boolean {
 }
 
 export function isEditQueueTool(tool?: string): boolean {
-  return Boolean(tool && EDIT_TOOLS.has(tool));
+  const normalized = normalizeEditQueueToolId(tool);
+  return Boolean(normalized && EDIT_TOOLS.has(normalized));
 }
 
 /** True when Klein Compose/Refine should use ReferenceLatent edit (denoise 1). */

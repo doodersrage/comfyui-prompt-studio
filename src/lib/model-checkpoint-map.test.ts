@@ -12,6 +12,7 @@ import {
   mergeSuggestedLoaderMaps,
   formatSuggestedLoaderMergeMessage,
   isVaeFilenameIncompatibleWithModel,
+  pickBooguVaeFromInventory,
   suggestedVaeFilenameForModel,
 } from "./model-checkpoint-map";
 
@@ -48,6 +49,50 @@ describe("model checkpoint map", () => {
     const loaders = resolveLoaderFilenamesForModel("flux-ultrareal-v4");
     assert.equal(loaders.unet, "ultrarealFineTune_v4.safetensors");
     assert.equal(loaders.vae, "ae.safetensors");
+  });
+
+  it("resolves Boogu Image T2I loader hints from inventory", () => {
+    const base = resolveLoaderFilenamesForModel("boogu-image", {
+      availableVaes: ["ae.safetensors"],
+    });
+    assert.equal(base.unet, "boogu_image_base_bf16.safetensors");
+    assert.equal(base.vae, "ae.safetensors");
+
+    const turbo = resolveLoaderFilenamesForModel("boogu-image-turbo", {
+      availableVaes: ["flux1_vae_bf16.safetensors"],
+    });
+    assert.equal(turbo.unet, "boogu_image_turbo_bf16.safetensors");
+    assert.equal(turbo.vae, "flux1_vae_bf16.safetensors");
+  });
+
+  it("prefers Boogu Flux VAE from inventory with ae.safetensors fallback", () => {
+    assert.equal(
+      pickBooguVaeFromInventory(["ae.safetensors"]),
+      "ae.safetensors",
+    );
+    assert.equal(
+      pickBooguVaeFromInventory([
+        "flux1_vae_bf16.safetensors",
+        "ae.safetensors",
+      ]),
+      "flux1_vae_bf16.safetensors",
+    );
+    const turbo = resolveLoaderFilenamesForModel("boogu-image-edit-turbo", {
+      availableVaes: ["flux1_vae_bf16.safetensors"],
+    });
+    assert.equal(turbo.unet, "boogu_image_edit_turbo_bf16.safetensors");
+    assert.equal(turbo.vae, "flux1_vae_bf16.safetensors");
+    assert.equal(
+      isVaeFilenameIncompatibleWithModel(
+        "boogu-image-edit-turbo",
+        "ae.safetensors",
+      ),
+      false,
+    );
+    assert.equal(
+      isVaeFilenameIncompatibleWithModel("z-image-turbo", "ae.safetensors"),
+      false,
+    );
   });
 
   it("uses ae.safetensors only for UltraReal; Klein keeps flux2-vae", () => {
