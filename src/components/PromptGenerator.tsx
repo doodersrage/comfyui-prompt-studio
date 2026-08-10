@@ -521,7 +521,6 @@ export default function PromptGenerator() {
       sidebar={
         <SharedToolControls
           toolId="generate"
-          controlsVariant="essential"
           shared={shared}
           onSharedSettingsChange={updateShared}
           onModelChange={setQueueModel}

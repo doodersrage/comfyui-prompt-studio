@@ -116,8 +116,11 @@ import {
   normalizeSettingsTab,
   settingsTabHref,
   SETTINGS_TABS,
+  settingsTabsForWorkspaceMode,
+  isSimpleSettingsTab,
   type SettingsTab,
 } from '@/lib/settings-nav';
+import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
 import {
   normalizeComfyUiSettingsSection,
   settingsComfyUiSectionHref,
@@ -321,6 +324,8 @@ type HealthResponse = {
 
 export default function SettingsTool() {
   const { mounted, settings, updateSettings } = useComfyUiSettings();
+  const workspaceMode = useWorkspaceMode();
+  const [showAllSettings, setShowAllSettings] = useState(false);
   const [tab, setTab] = useState<SettingsTab>('overview');
   const [comfyUiSection, setComfyUiSection] = useState<ComfyUiSettingsSectionId | null>(null);
   const [sharedSettings, setSharedSettings] = useState<SharedToolSettings>(DEFAULT_SHARED_SETTINGS);
@@ -377,6 +382,13 @@ export default function SettingsTool() {
     return webhookLog.filter(entry => entry.event === webhookEventFilter);
   }, [webhookEventFilter, webhookLog]);
 
+  const visibleSettingsTabs = useMemo(
+    () => settingsTabsForWorkspaceMode(workspaceMode, showAllSettings),
+    [workspaceMode, showAllSettings]
+  );
+
+  const slimSettings = workspaceMode === 'simple' && !showAllSettings;
+
   const webhookEventOptions = useMemo(() => {
     const events = new Set(webhookLog.map(entry => entry.event));
     return [...events].sort();
@@ -398,10 +410,14 @@ export default function SettingsTool() {
     }
     scheduleAfterCommit(() => {
       const params = new URLSearchParams(window.location.search);
-      setTab(normalizeSettingsTab(params.get('tab')));
+      const nextTab = normalizeSettingsTab(params.get('tab'));
+      setTab(nextTab);
       setComfyUiSection(normalizeComfyUiSettingsSection(params.get('section')));
+      if (workspaceMode === 'simple' && !isSimpleSettingsTab(nextTab)) {
+        setShowAllSettings(true);
+      }
     });
-  }, []);
+  }, [workspaceMode]);
 
   const scrollToComfyUiSection = useCallback((section: ComfyUiSettingsSectionId) => {
     const element = document.getElementById(COMFYUI_SECTION_ELEMENT_IDS[section]);
@@ -821,13 +837,49 @@ export default function SettingsTool() {
       title="Settings & Health"
       description={
         <>
-          Organized by area — use the tabs below. Browser overrides apply per session; server
-          defaults come from <code className="text-violet-300">.env.local</code> (see Overview).
+          {slimSettings ? (
+            <>
+              Essentials for Simple workspace — expand all settings when you need LLM, automation,
+              or admin tools.
+            </>
+          ) : (
+            <>
+              Organized by area — use the tabs below. Browser overrides apply per session; server
+              defaults come from <code className="text-violet-300">.env.local</code> (see Overview).
+            </>
+          )}
         </>
       }
     >
       <div className="md:grid md:grid-cols-[minmax(14rem,17rem)_minmax(0,1fr)] md:items-start md:gap-8">
-        <SettingsSubNav activeTab={tab} onTabChange={handleTabChange} tabs={SETTINGS_TABS} />
+        <SettingsSubNav
+          activeTab={tab}
+          onTabChange={handleTabChange}
+          tabs={visibleSettingsTabs}
+          footer={
+            slimSettings ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="mt-3 w-full justify-start"
+                onClick={() => setShowAllSettings(true)}
+              >
+                All settings…
+              </Button>
+            ) : workspaceMode === 'simple' && showAllSettings ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="mt-3 w-full justify-start"
+                onClick={() => setShowAllSettings(false)}
+              >
+                Show essentials only
+              </Button>
+            ) : null
+          }
+        />
         <div className="min-w-0 space-y-[var(--section-gap)]">
           {tab === 'overview' && (
             <>

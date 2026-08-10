@@ -14,6 +14,7 @@ import {
 } from '@/lib/onboarding-store';
 import { Button } from '@/components/ui/Button';
 import { settingsTabHref } from '@/lib/settings-nav';
+import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
 
 function StepRow({ step }: { step: OnboardingStep }) {
   const body = (
@@ -48,6 +49,8 @@ function StepRow({ step }: { step: OnboardingStep }) {
 
 export default function OnboardingChecklist() {
   const auth = useAuth();
+  const workspaceMode = useWorkspaceMode();
+  const isSimple = workspaceMode === 'simple';
   const allowedFeatures = useAllowedFeatures();
   const [steps, setSteps] = useState<OnboardingStep[]>([]);
   const [hidden, setHidden] = useState(false);
@@ -85,7 +88,7 @@ export default function OnboardingChecklist() {
   }
 
   const core = accessibleSteps.filter(step => isOnboardingCoreStep(step.id));
-  const chrome = accessibleSteps.filter(step => isOnboardingChromeStep(step.id));
+  const chrome = isSimple ? [] : accessibleSteps.filter(step => isOnboardingChromeStep(step.id));
   const nextOpen = core.find(step => !step.done);
 
   return (

@@ -1,5 +1,6 @@
 import { flattenAppNavLinks } from './app-nav-catalog';
 import { loadNavFavorites } from './nav-favorites';
+import { loadWorkspaceMode } from './workspace-mode';
 
 export type EmptyCta = {
   label: string;
@@ -19,7 +20,7 @@ const PROMPT_TOOL_PATHS = new Set([
 ]);
 
 /**
- * Prefer a pinned prompt/scene tool for empty-state CTAs; fall back to Generate.
+ * Prefer a pinned prompt/scene tool for empty-state CTAs; fall back to Generate or Dashboard.
  */
 export function resolveGenerateEmptyCta(
   fallback: EmptyCta = { label: 'Open Generate', href: '/' }
@@ -42,4 +43,15 @@ export function resolveGenerateEmptyCta(
     }
   }
   return fallback;
+}
+
+/** Post-onboarding landing — Dashboard in Simple, Generate elsewhere. */
+export function resolveWelcomeLandingCta(): EmptyCta {
+  if (typeof window === 'undefined') {
+    return { label: 'Open Dashboard', href: '/dashboard' };
+  }
+  if (loadWorkspaceMode() === 'simple') {
+    return { label: 'Open Dashboard', href: '/dashboard' };
+  }
+  return resolveGenerateEmptyCta();
 }

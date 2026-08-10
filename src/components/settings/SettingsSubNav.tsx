@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { ChipButton } from '@/components/ui/Field';
 import { SETTINGS_TABS, type SettingsTab, type SettingsTabDefinition } from '@/lib/settings-nav';
 import { ToolMetaPanel } from '@/components/ui/ToolPageShell';
@@ -8,10 +9,12 @@ export default function SettingsSubNav({
   activeTab,
   onTabChange,
   tabs = SETTINGS_TABS,
+  footer,
 }: {
   activeTab: SettingsTab;
   onTabChange: (tab: SettingsTab) => void;
   tabs?: SettingsTabDefinition[];
+  footer?: ReactNode;
 }) {
   const active = tabs.find(tab => tab.id === activeTab);
 
@@ -32,6 +35,7 @@ export default function SettingsSubNav({
             ))}
           </div>
           {active ? <p className="type-caption mt-3">{active.description}</p> : null}
+          {footer}
         </div>
 
         {/* md+: vertical side list */}
@@ -61,6 +65,7 @@ export default function SettingsSubNav({
               );
             })}
           </ul>
+          {footer}
         </div>
       </nav>
     </ToolMetaPanel>

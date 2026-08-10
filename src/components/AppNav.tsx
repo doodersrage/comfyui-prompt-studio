@@ -149,7 +149,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const [manifestNavLinks, setManifestNavLinks] = useState<AppNavLink[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [expandedGroups, setExpandedGroups] = useState<string[] | null>(null);
-  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('studio');
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('simple');
 
   useEffect(() => {
     scheduleAfterCommit(() => {
@@ -401,6 +401,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
             {visibleGroups.map(group => {
               const expanded = openGroups.includes(group.label);
+              const isMoreTools = workspaceMode === 'simple' && group.label === 'More tools';
+              const groupLabel =
+                isMoreTools && !expanded ? `${group.label} (${group.links.length})` : group.label;
               return (
                 <div key={group.label} className="space-y-2">
                   <button
@@ -409,11 +412,18 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                     aria-expanded={expanded}
                     onClick={() => handleToggleGroup(group.label)}
                   >
-                    <span className="type-overline">{group.label}</span>
+                    <span className="type-overline">{groupLabel}</span>
                     <span className="type-caption text-[var(--text-muted)]" aria-hidden>
                       {expanded ? '▾' : '▸'}
                     </span>
                   </button>
+                  {isMoreTools && !expanded ? (
+                    <p className="type-caption px-3 text-[var(--text-muted)]">
+                      Press{' '}
+                      <kbd className="rounded border border-[var(--border-default)] px-1">⌘K</kbd>{' '}
+                      to jump to any tool
+                    </p>
+                  ) : null}
                   {expanded ? (
                     <div className="space-y-1">
                       {group.links.map(link => (
@@ -445,7 +455,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             <ConnectionHealthChip compact />
           </div>
         ) : null}
-        {navReady ? (
+        {navReady && workspaceMode !== 'simple' ? (
           <WorkspaceModeControl
             variant="chips"
             onChanged={mode => {
@@ -455,10 +465,24 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             }}
           />
         ) : null}
-        <div className="px-1">
-          <ThemePreferenceControl showHint={false} />
-        </div>
-        {navReady ? (
+        {navReady && workspaceMode === 'simple' ? (
+          <p className="type-caption px-3 text-[var(--text-muted)]">
+            Simple workspace — change density in{' '}
+            <Link
+              href="/profile"
+              onClick={onNavigate}
+              className="text-[var(--accent-text)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+            >
+              Profile
+            </Link>
+          </p>
+        ) : null}
+        {workspaceMode !== 'simple' ? (
+          <div className="px-1">
+            <ThemePreferenceControl showHint={false} />
+          </div>
+        ) : null}
+        {navReady && workspaceMode !== 'simple' ? (
           <div className="flex justify-end px-1">
             <NotificationBell />
           </div>

@@ -95,6 +95,7 @@ describe("workspace-mode", () => {
         `missing essential ${href}`,
       );
     }
+    assert.ok(groups[0]!.links.some((link) => link.href === "/dashboard"));
     assert.equal(groups[1]?.label, "More tools");
     assert.ok((groups[1]?.links.length ?? 0) > 5);
     const flatCount = flattenAppNavLinks(groups).length;

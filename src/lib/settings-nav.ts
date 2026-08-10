@@ -1,5 +1,10 @@
+import type { WorkspaceMode } from './workspace-mode';
+
 export type SettingsTab =
   'overview' | 'llm' | 'comfyui' | 'automation' | 'advanced' | 'data' | 'users';
+
+/** Settings tabs shown by default in Simple workspace. */
+export const SIMPLE_SETTINGS_TAB_IDS: SettingsTab[] = ['overview', 'comfyui'];
 
 export type SettingsTabDefinition = {
   id: SettingsTab;
@@ -54,4 +59,18 @@ export function normalizeSettingsTab(value: string | null | undefined): Settings
 
 export function settingsTabHref(tab: SettingsTab): string {
   return tab === 'overview' ? '/settings' : `/settings?tab=${tab}`;
+}
+
+export function settingsTabsForWorkspaceMode(
+  mode: WorkspaceMode,
+  showAll = false
+): SettingsTabDefinition[] {
+  if (mode !== 'simple' || showAll) {
+    return SETTINGS_TABS;
+  }
+  return SETTINGS_TABS.filter(tab => SIMPLE_SETTINGS_TAB_IDS.includes(tab.id));
+}
+
+export function isSimpleSettingsTab(tab: SettingsTab): boolean {
+  return SIMPLE_SETTINGS_TAB_IDS.includes(tab);
 }

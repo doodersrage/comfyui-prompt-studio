@@ -6,7 +6,7 @@ import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 
 /** Live workspace mode for progressive disclosure in tool chrome. */
 export function useWorkspaceMode(): WorkspaceMode {
-  const [mode, setMode] = useState<WorkspaceMode>('studio');
+  const [mode, setMode] = useState<WorkspaceMode>('simple');
 
   useEffect(() => {
     scheduleAfterCommit(() => {

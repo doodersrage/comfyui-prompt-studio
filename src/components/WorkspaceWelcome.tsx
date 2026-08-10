@@ -11,7 +11,7 @@ import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { runHealAndReady } from '@/lib/first-run-setup';
 import { markOnboardingSetWorkspace } from '@/lib/onboarding-hooks';
-import { resolveGenerateEmptyCta } from '@/lib/empty-cta';
+import { resolveWelcomeLandingCta } from '@/lib/empty-cta';
 import { useAuth } from '@/hooks/useAuth';
 
 type WelcomePhase = 'workspace' | 'setup' | 'ready';
@@ -22,7 +22,7 @@ export default function WorkspaceWelcome() {
   const [phase, setPhase] = useState<WelcomePhase | null>(null);
   const [busy, setBusy] = useState(false);
   const [setupMessage, setSetupMessage] = useState<string | null>(null);
-  const [generateCta, setGenerateCta] = useState({ label: 'Open Generate', href: '/' });
+  const [generateCta, setGenerateCta] = useState({ label: 'Open Dashboard', href: '/dashboard' });
 
   useEffect(() => {
     // Playwright e2e: never block the UI with the first-run modal (matches AutoStorageSyncInit).
@@ -51,7 +51,7 @@ export default function WorkspaceWelcome() {
   }
 
   function finishWelcome() {
-    setGenerateCta(resolveGenerateEmptyCta());
+    setGenerateCta(resolveWelcomeLandingCta());
     setPhase('ready');
   }
 
@@ -105,8 +105,8 @@ export default function WorkspaceWelcome() {
               ))}
             </div>
             <div className="mt-4 flex justify-end">
-              <Button type="button" variant="ghost" size="sm" onClick={() => choose('studio')}>
-                Skip — use Studio
+              <Button type="button" variant="ghost" size="sm" onClick={() => choose('simple')}>
+                Skip — use Simple
               </Button>
             </div>
           </>
@@ -148,11 +148,13 @@ export default function WorkspaceWelcome() {
           <>
             <p className="type-overline text-[var(--text-muted)]">Ready</p>
             <h2 id="workspace-welcome-title" className="type-title mt-2 text-[var(--text-primary)]">
-              You&apos;re set to generate
+              You&apos;re set
             </h2>
             <p className="type-body mt-2 text-[var(--text-secondary)]">
               {setupMessage ??
-                "Open Generate for your first prompt, then Queue generate when you're ready."}
+                (generateCta.href === '/dashboard'
+                  ? 'Open your Dashboard for queue status and recent outputs, then Generate when you are ready.'
+                  : "Open Generate for your first prompt, then Queue generate when you're ready.")}
             </p>
             <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
               <Button type="button" variant="ghost" size="sm" onClick={() => setPhase(null)}>

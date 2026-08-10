@@ -16,6 +16,7 @@ import { flattenAppNavLinks } from '@/lib/app-nav-catalog';
 import { buildGalleryFocusUrl, buildUseAsHintsUrlFromGallery } from '@/lib/use-as-hints-url';
 import { startPromptEditorFromGalleryEntry } from '@/lib/improve-output';
 import { usePromptHistory } from '@/hooks/usePromptHistory';
+import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
 import OnboardingChecklist from '@/components/OnboardingChecklist';
 import ConnectionHealthChip from '@/components/ConnectionHealthChip';
 import { Button, ButtonLink } from '@/components/ui/Button';
@@ -43,6 +44,8 @@ function labelForRoute(href: string): string {
 }
 
 export default function HomeDashboard() {
+  const workspaceMode = useWorkspaceMode();
+  const isSimple = workspaceMode === 'simple';
   const { entries } = usePromptHistory();
   const [gallery, setGallery] = useState<ReturnType<typeof loadComfyGallery>>([]);
   const [scheduled, setScheduled] = useState(loadScheduledBatchConfig());
@@ -92,7 +95,11 @@ export default function HomeDashboard() {
       width="wide"
       badge={<ToolBadge accent={ACCENT}>Overview</ToolBadge>}
       title="Dashboard"
-      description="Pending ComfyUI jobs, recent outputs, queue status, and your active project — without the generator UI in the way."
+      description={
+        isSimple
+          ? 'Queue status and recent outputs at a glance — open Generate when you are ready to create.'
+          : 'Pending ComfyUI jobs, recent outputs, queue status, and your active project — without the generator UI in the way.'
+      }
     >
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <ConnectionHealthChip />
@@ -153,56 +160,83 @@ export default function HomeDashboard() {
           <ButtonLink href="/gallery" size="sm">
             Gallery
           </ButtonLink>
-          <ButtonLink href="/studio" size="sm">
-            Studio
-          </ButtonLink>
           <ButtonLink href="/queue" size="sm">
             Queue
           </ButtonLink>
-          <ButtonLink href="/settings" size="sm">
-            Settings
-          </ButtonLink>
+          {!isSimple ? (
+            <>
+              <ButtonLink href="/studio" size="sm">
+                Studio
+              </ButtonLink>
+              <ButtonLink href="/settings" size="sm">
+                Settings
+              </ButtonLink>
+            </>
+          ) : null}
         </ToolActionRow>
-        <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 type-caption text-[var(--text-muted)]">
-          <span>More:</span>
-          <Link
-            href="/topics"
-            className="text-[var(--text-secondary)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
-          >
-            Topics
-          </Link>
-          <Link
-            href="/variations"
-            className="text-[var(--text-secondary)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
-          >
-            Variations
-          </Link>
-          <Link
-            href="/variations?matrix=1"
-            className="text-[var(--text-secondary)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
-          >
-            Matrix
-          </Link>
-          <Link
-            href="/plugins"
-            className="text-[var(--text-secondary)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
-          >
-            Plugins
-          </Link>
-        </p>
+        {!isSimple ? (
+          <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 type-caption text-[var(--text-muted)]">
+            <span>More:</span>
+            <Link
+              href="/topics"
+              className="text-[var(--text-secondary)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+            >
+              Topics
+            </Link>
+            <Link
+              href="/variations"
+              className="text-[var(--text-secondary)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+            >
+              Variations
+            </Link>
+            <Link
+              href="/variations?matrix=1"
+              className="text-[var(--text-secondary)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+            >
+              Matrix
+            </Link>
+            <Link
+              href="/plugins"
+              className="text-[var(--text-secondary)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+            >
+              Plugins
+            </Link>
+          </p>
+        ) : null}
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div
+          className={`mt-6 grid gap-3 ${isSimple ? 'sm:grid-cols-2' : 'sm:grid-cols-2 lg:grid-cols-4'}`}
+        >
           <StatCard label="Pending ComfyUI" value={String(pending.length)} />
           <StatCard label="History entries" value={String(entries.length)} />
-          <StatCard
-            label="Scheduled batch"
-            value={scheduled.enabled ? `Every ${scheduled.intervalMinutes}m` : 'Off'}
-          />
-          <StatCard label="Active project" value={activeProject?.name ?? 'None'} />
+          {!isSimple ? (
+            <>
+              <StatCard
+                label="Scheduled batch"
+                value={scheduled.enabled ? `Every ${scheduled.intervalMinutes}m` : 'Off'}
+              />
+              <StatCard label="Active project" value={activeProject?.name ?? 'None'} />
+            </>
+          ) : null}
         </div>
       </ToolSection>
 
-      <QueueOrchestrationPanel compact />
+      {isSimple ? (
+        <ToolSection title="Queue">
+          <p className="type-caption text-[var(--text-muted)]">
+            {pending.length > 0
+              ? `${pending.length} job${pending.length === 1 ? '' : 's'} running or pending.`
+              : 'No jobs in flight right now.'}
+          </p>
+          <ToolActionRow className="mt-3">
+            <ButtonLink href="/queue" variant="primary" size="sm">
+              Open Queue
+            </ButtonLink>
+          </ToolActionRow>
+        </ToolSection>
+      ) : (
+        <QueueOrchestrationPanel compact />
+      )}
 
       {recentCompleted.length > 0 ? (
         <ToolSection

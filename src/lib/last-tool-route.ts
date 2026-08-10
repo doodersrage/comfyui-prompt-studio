@@ -6,8 +6,8 @@ const KEY = 'comfy-last-tool-route-v1';
 const BLOCKED_PREFIXES = ['/login', '/forbidden', '/api'];
 
 const FALLBACK_LANDING_CANDIDATES = [
-  '/',
   '/dashboard',
+  '/',
   '/gallery',
   '/queue',
   '/profile',

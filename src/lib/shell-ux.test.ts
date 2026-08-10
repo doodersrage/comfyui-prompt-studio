@@ -244,7 +244,7 @@ describe("last tool route", () => {
         remembered: null,
         allowedFeatures: "all",
       }),
-      "/",
+      "/dashboard",
     );
   });
 });

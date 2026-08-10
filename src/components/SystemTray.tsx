@@ -308,7 +308,7 @@ export default function SystemTray() {
   return (
     <div
       ref={rootRef}
-      className="pointer-events-none fixed bottom-4 right-4 z-[90] flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-2"
+      className="pointer-events-none fixed bottom-[max(5.5rem,calc(env(safe-area-inset-bottom)+4.5rem))] right-4 z-[90] flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-2 md:bottom-4"
       data-testid="system-tray"
       aria-live="polite"
     >

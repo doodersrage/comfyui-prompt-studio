@@ -171,8 +171,6 @@ type SharedToolControlsProps = {
   /** When set, enables a per-tool queue quality override below the global profile. */
   toolId?: string;
   onSharedSettingsChange?: (partial: Partial<SharedToolSettings>) => void;
-  /** Generate: model + detail only; workflow/queue/LoRA live under Advanced. */
-  controlsVariant?: 'default' | 'essential';
 };
 
 export default function SharedToolControls({
@@ -202,7 +200,6 @@ export default function SharedToolControls({
   wildcardPreviewText,
   toolId,
   onSharedSettingsChange,
-  controlsVariant = 'default',
 }: SharedToolControlsProps) {
   const workspaceMode = useWorkspaceMode();
   const advancedOpenByDefault = workspaceControlsDefaultOpen(workspaceMode);
