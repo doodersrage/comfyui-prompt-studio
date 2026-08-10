@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
+import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import PetPresetControls from '@/components/PetPresetControls';
 import PetPresetChips from '@/components/PetPresetChips';
 import SharedToolControls from '@/components/SharedToolControls';
@@ -387,6 +388,12 @@ export default function PetTool() {
         comfyUiPreviewUrl={actions.comfyUiPreviewUrl}
         historySaved={actions.historySaved}
         pairCopied={actions.pairCopied}
+      />
+      <MobileStickyQueueBar
+        disabled={!output.trim()}
+        label="Queue pet"
+        status={actions.comfyUiStatus}
+        onQueue={() => void actions.sendComfyUi(output)}
       />
     </ToolLayout>
   );

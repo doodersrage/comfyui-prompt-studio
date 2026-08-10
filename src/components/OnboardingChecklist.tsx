@@ -89,6 +89,9 @@ export default function OnboardingChecklist() {
 
   const core = accessibleSteps.filter(step => isOnboardingCoreStep(step.id));
   const chrome = isSimple ? [] : accessibleSteps.filter(step => isOnboardingChromeStep(step.id));
+  const simpleTips = isSimple
+    ? accessibleSteps.filter(step => step.id === 'discover-palette' || step.id === 'pin-tool')
+    : [];
   const nextOpen = core.find(step => !step.done);
 
   return (
@@ -122,6 +125,16 @@ export default function OnboardingChecklist() {
           <StepRow key={step.id} step={step} />
         ))}
       </ul>
+      {simpleTips.some(step => !step.done) ? (
+        <div className="mt-4 border-t border-[var(--border-subtle)] pt-3">
+          <p className="type-caption mb-2 text-[var(--text-muted)]">Quick tips</p>
+          <ul className="space-y-2">
+            {simpleTips.map(step => (
+              <StepRow key={step.id} step={step} />
+            ))}
+          </ul>
+        </div>
+      ) : null}
       {chrome.some(step => !step.done) ? (
         <div className="mt-4 border-t border-[var(--border-subtle)] pt-3">
           <p className="type-caption mb-2 text-[var(--text-muted)]">UI tips</p>

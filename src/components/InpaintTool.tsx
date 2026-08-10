@@ -3,6 +3,7 @@
 import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
+import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import InpaintMaskEditor from '@/components/InpaintMaskEditor';
 import RegionalEditPanel, { regionalSlotsQueueExtras } from '@/components/RegionalEditPanel';
 import SharedToolControls from '@/components/SharedToolControls';
@@ -414,6 +415,17 @@ export default function InpaintTool() {
         comfyUiPreviewUrl={actions.comfyUiPreviewUrl}
         historySaved={actions.historySaved}
         pairCopied={actions.pairCopied}
+      />
+      <MobileStickyQueueBar
+        disabled={!output.trim()}
+        label="Queue inpaint"
+        status={actions.comfyUiStatus}
+        onQueue={() => {
+          if (!assertReadyToQueue()) {
+            return;
+          }
+          void actions.sendComfyUi(output, undefined, undefined, queueImageOptions);
+        }}
       />
     </ToolLayout>
   );

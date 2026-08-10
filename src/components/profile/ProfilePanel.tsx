@@ -8,6 +8,7 @@ import { ToolSection } from '@/components/ui/ToolPageShell';
 import type { UserScheduledCampaign } from '@/lib/auth/types';
 import ProfileSecurityPanel from '@/components/profile/ProfileSecurityPanel';
 import ProfileAppearancePanel from '@/components/profile/ProfileAppearancePanel';
+import ProfileNotificationsPanel from '@/components/profile/ProfileNotificationsPanel';
 import ProfileBackupPanel from '@/components/profile/ProfileBackupPanel';
 import type { SharedPresetEntry } from '@/lib/shared-preset-store';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
@@ -135,6 +136,9 @@ export default function ProfilePanel() {
           {status}
         </p>
       ) : null}
+
+      <ProfileAppearancePanel />
+      <ProfileNotificationsPanel />
 
       <ToolSection title="Account">
         <p className="mb-4 text-sm text-zinc-400">
@@ -358,7 +362,6 @@ export default function ProfilePanel() {
         </ToolSection>
       ) : null}
 
-      <ProfileAppearancePanel />
       <ProfileBackupPanel />
       <ProfileSecurityPanel />
 

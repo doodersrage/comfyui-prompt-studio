@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
+import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
 import { readRawPrompt } from '@/lib/raw-prompt';
 import SharedToolControls from '@/components/SharedToolControls';
@@ -608,6 +609,17 @@ export default function ImagePromptTool() {
         comfyUiPreviewUrl={actions.comfyUiPreviewUrl}
         historySaved={actions.historySaved}
         pairCopied={actions.pairCopied}
+      />
+      <MobileStickyQueueBar
+        disabled={!output.trim()}
+        label="Queue image prompt"
+        status={actions.comfyUiStatus}
+        onQueue={() =>
+          void actions.sendComfyUi(output, inferredSport, undefined, {
+            inputImage: refImages[0]?.file ?? null,
+            queueParamsBase: handoffQueueParams,
+          })
+        }
       />
     </ToolLayout>
   );

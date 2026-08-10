@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import SharedToolControls from '@/components/SharedToolControls';
+import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
 import { Button, PrimaryButton } from '@/components/ui/Button';
 import { FieldError, FieldLabel, TextInput, TextArea } from '@/components/ui/Field';
@@ -311,6 +312,12 @@ export default function OutpaintTool() {
         </div>
         <FieldError>{error}</FieldError>
       </ToolSection>
+      <MobileStickyQueueBar
+        disabled={busy || !sourceUrl}
+        label="Queue outpaint"
+        status={status ?? actions.comfyUiStatus}
+        onQueue={() => void runOutpaint()}
+      />
     </ToolLayout>
   );
 }

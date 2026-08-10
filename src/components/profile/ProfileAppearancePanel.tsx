@@ -101,7 +101,7 @@ export default function ProfileAppearancePanel() {
         <p className="type-caption text-[var(--text-muted)]">
           Clears pinned tools, recent destinations, expanded nav groups, remembered collapsibles,
           per-tool model/workflow memory, last draft, and last tool route. Density returns to
-          Comfortable. Workspace returns to Studio. Theme, ambient, and toast preference stay
+          Comfortable. Workspace returns to Simple. Theme, ambient, and toast preference stay
           unchanged.
         </p>
         <Button

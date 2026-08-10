@@ -10,7 +10,7 @@ export default function GalleryReviewBanner({ filter }: GalleryReviewBannerProps
   return (
     <div
       data-testid="gallery-review-banner"
-      className="sticky top-2 z-20 rounded-2xl border border-violet-400/25 bg-violet-500/10 px-4 py-3 shadow-[0_12px_40px_-24px_rgba(109,40,217,0.45)] backdrop-blur-md"
+      className="sticky top-[calc(var(--header-offset,0px)+0.5rem)] z-20 rounded-2xl border border-violet-400/25 bg-violet-500/10 px-4 py-3 shadow-[0_12px_40px_-24px_rgba(109,40,217,0.45)] backdrop-blur-md"
       role="status"
     >
       <p className="text-sm font-medium text-violet-50">Review mode</p>

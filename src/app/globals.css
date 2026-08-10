@@ -58,6 +58,9 @@
   --space-3: 0.75rem;
   --space-4: 1rem;
   --space-5: 1.25rem;
+
+  /* Mobile sticky header (AppNav) — gallery/review bars align below it */
+  --header-offset: 3.75rem;
   --space-6: 1.5rem;
   --space-8: 2rem;
   --space-10: 2.5rem;
@@ -1583,4 +1586,10 @@ html[data-theme='light'] kbd.rounded.bg-zinc-900 {
   border-radius: var(--radius-lg);
   background: var(--bg-muted);
   padding: var(--space-5);
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --header-offset: 0px;
+  }
 }

@@ -1023,7 +1023,7 @@ export default function ComfyUiGalleryPanel({
       )}
 
       {pickFor ? (
-        <div className="sticky top-2 z-20 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-violet-400/30 bg-violet-500/10 px-4 py-3 shadow-[0_12px_40px_-20px_rgba(109,40,217,0.55)] backdrop-blur-md">
+        <div className="sticky top-[calc(var(--header-offset,0px)+0.5rem)] z-20 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-violet-400/30 bg-violet-500/10 px-4 py-3 shadow-[0_12px_40px_-20px_rgba(109,40,217,0.55)] backdrop-blur-md">
           <div className="min-w-0 space-y-0.5">
             <p className="text-sm font-medium text-violet-50">
               Choosing {galleryPickPurposeLabel(pickFor)}

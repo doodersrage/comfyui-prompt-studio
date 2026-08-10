@@ -467,7 +467,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         ) : null}
         {navReady && workspaceMode === 'simple' ? (
           <p className="type-caption px-3 text-[var(--text-muted)]">
-            Simple workspace — change density in{' '}
+            Simple workspace — theme, workspace, and alerts live in{' '}
             <Link
               href="/profile"
               onClick={onNavigate}

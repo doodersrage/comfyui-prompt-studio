@@ -12,7 +12,7 @@ import {
   flattenAppNavLinks,
 } from '@/lib/app-nav-catalog';
 import { loadWorkspaceMode, navGroupsForWorkspaceMode } from '@/lib/workspace-mode';
-import { SETTINGS_TABS, settingsTabHref } from '@/lib/settings-nav';
+import { SETTINGS_TABS, settingsTabHref, SIMPLE_SETTINGS_TAB_IDS } from '@/lib/settings-nav';
 import { studioTabHref, studioTabsForWorkspaceMode } from '@/lib/studio-nav';
 import { isNavFavorite, loadNavFavorites, toggleNavFavorite } from '@/lib/nav-favorites';
 import { loadRecentDestinations, type RecentDestination } from '@/lib/recent-destinations';
@@ -121,26 +121,25 @@ function buildNavItems(): CommandItem[] {
     href: link.href,
     group: 'Navigate',
   }));
-  const settingsTabs =
-    mode === 'simple'
-      ? []
-      : SETTINGS_TABS.map(tab => ({
-          id: `settings-${tab.id}`,
-          label: `Settings · ${tab.label}`,
-          subtitle: tab.description,
-          href: settingsTabHref(tab.id),
-          group: 'Settings',
-        }));
-  const studioTabs =
-    mode === 'simple'
-      ? []
-      : studioTabsForWorkspaceMode(mode).map(tab => ({
-          id: `studio-${tab.id}`,
-          label: `Studio · ${tab.label}`,
-          subtitle: tab.description,
-          href: studioTabHref(tab.id),
-          group: 'Studio',
-        }));
+  const settingsTabIds =
+    mode === 'simple' ? SIMPLE_SETTINGS_TAB_IDS : SETTINGS_TABS.map(tab => tab.id);
+  const settingsTabs = settingsTabIds
+    .map(id => SETTINGS_TABS.find(tab => tab.id === id))
+    .filter((tab): tab is (typeof SETTINGS_TABS)[number] => Boolean(tab))
+    .map(tab => ({
+      id: `settings-${tab.id}`,
+      label: `Settings · ${tab.label}`,
+      subtitle: tab.description,
+      href: settingsTabHref(tab.id),
+      group: 'Settings',
+    }));
+  const studioTabs = studioTabsForWorkspaceMode(mode).map(tab => ({
+    id: `studio-${tab.id}`,
+    label: `Studio · ${tab.label}`,
+    subtitle: tab.description,
+    href: studioTabHref(tab.id),
+    group: 'Studio',
+  }));
   return [
     ...nav,
     {
@@ -458,10 +457,14 @@ export default function CommandPalette() {
                 }
               }
             }}
-            placeholder="Jump to a page, Studio/Settings tab, or search…"
+            placeholder={
+              loadWorkspaceMode() === 'simple'
+                ? 'Jump to a tool, Studio tab, or search…'
+                : 'Jump to a page, Studio/Settings tab, or search…'
+            }
             className="w-full border-b border-[var(--border-subtle)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent-ring)]"
           />
-          <ul ref={listRef} className="max-h-[50vh] overflow-y-auto py-2">
+          <ul ref={listRef} className="ui-scroll-region max-h-[50vh] overflow-y-auto py-2">
             {filtered.length === 0 ? (
               <li className="px-4 py-3 text-sm text-[var(--text-muted)]">No matches.</li>
             ) : (

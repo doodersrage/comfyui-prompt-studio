@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic';
 import GalleryImportSection from '@/components/GalleryImportSection';
 import GalleryPanelSkeleton from '@/components/gallery/GalleryPanelSkeleton';
+import ToolSetupBanner from '@/components/ToolSetupBanner';
 import { ToolBadge, ToolLayout } from '@/components/ui/ToolPageShell';
 
 const ComfyUiGalleryPanel = dynamic(() => import('@/components/ComfyUiGalleryPanel'), {
@@ -21,6 +22,7 @@ export default function GalleryTool() {
       title="ComfyUI Gallery"
       description="Browse outputs, review and compare variants, run experiments, and queue follow-up work from one place."
     >
+      <ToolSetupBanner toolLabel="Gallery" />
       <ComfyUiGalleryPanel showFilters />
       <GalleryImportSection />
     </ToolLayout>

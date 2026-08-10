@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
+import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import FantasyPresetChips from '@/components/FantasyPresetChips';
 import FantasyPresetControls from '@/components/FantasyPresetControls';
 import SharedToolControls from '@/components/SharedToolControls';
@@ -476,6 +477,12 @@ export default function FantasyTool() {
         comfyUiPreviewUrl={actions.comfyUiPreviewUrl}
         historySaved={actions.historySaved}
         pairCopied={actions.pairCopied}
+      />
+      <MobileStickyQueueBar
+        disabled={!output.trim()}
+        label="Queue fantasy"
+        status={actions.comfyUiStatus}
+        onQueue={() => void actions.sendComfyUi(output)}
       />
     </ToolLayout>
   );

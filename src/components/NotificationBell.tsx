@@ -59,7 +59,7 @@ export default function NotificationBell() {
               Mark all read
             </button>
           </div>
-          <ul className="max-h-64 overflow-y-auto">
+          <ul className="ui-scroll-region max-h-64 overflow-y-auto">
             {items.length === 0 ? (
               <li className="px-4 py-5 text-center">
                 <p className="text-xs font-medium text-zinc-200">No notifications yet</p>

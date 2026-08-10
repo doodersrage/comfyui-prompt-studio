@@ -12,6 +12,7 @@ import {
 import { normalizeHistorySeedScope, normalizeSceneHintSource } from '@/lib/scene-hint-source';
 import { countHistorySeedCandidates, splitBackgroundHintSeed } from '@/lib/history-hint-seed';
 import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
+import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import SharedToolControls from '@/components/SharedToolControls';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
@@ -307,6 +308,12 @@ export default function BackgroundTool() {
         comfyUiPreviewUrl={actions.comfyUiPreviewUrl}
         historySaved={actions.historySaved}
         pairCopied={actions.pairCopied}
+      />
+      <MobileStickyQueueBar
+        disabled={!output.trim()}
+        label="Queue background"
+        status={actions.comfyUiStatus}
+        onQueue={() => void actions.sendComfyUi(output)}
       />
     </ToolLayout>
   );

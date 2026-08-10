@@ -75,7 +75,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import { isBrowserStorageReady, whenBrowserStorageReady } from '@/lib/browser-storage';
 import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
-import { workspaceControlsDefaultOpen } from '@/lib/workspace-mode';
+import { workspaceControlsDefaultOpen, workspaceShowsAdvancedControls } from '@/lib/workspace-mode';
 import { resolveModelStackFamily } from '@/lib/workflow-stack-fingerprint';
 import { isQwenLightningModel } from '@/lib/model-sampling-patch';
 import { expandWildcardText, textHasWildcardTokens } from '@/lib/wildcard-expand';
@@ -203,6 +203,7 @@ export default function SharedToolControls({
 }: SharedToolControlsProps) {
   const workspaceMode = useWorkspaceMode();
   const advancedOpenByDefault = workspaceControlsDefaultOpen(workspaceMode);
+  const showsAdvancedShell = workspaceShowsAdvancedControls(workspaceMode);
   const selectedModel = getComfyModelDefinition(shared.model);
   const activeLimits = getDetailLimits(shared.detail, shared.model);
   const workflowSelection = useComfyWorkflowSelection();
@@ -1502,6 +1503,10 @@ export default function SharedToolControls({
             )}
           </>
         );
+
+        if (!showsAdvancedShell) {
+          return advancedSections;
+        }
 
         return (
           <CollapsibleSection

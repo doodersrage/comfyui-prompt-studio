@@ -179,7 +179,7 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
         : 'border-zinc-700/70 bg-zinc-950/80 text-zinc-400 tabular-nums rounded-lg backdrop-blur-xs px-2.5 py-1 text-xs font-medium';
 
   return (
-    <div className="sticky top-[var(--header-offset,0px)] z-20 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--bg-elevated)] p-3 shadow-[var(--shadow-surface)] backdrop-blur-md">
+    <div className="sticky top-[calc(var(--header-offset,0px)+0.5rem)] z-20 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--bg-elevated)] p-3 shadow-[var(--shadow-surface)] backdrop-blur-md">
       <div className="flex flex-wrap items-center gap-2">
         <div className="mr-1 flex items-center gap-2 border-r border-[var(--border-subtle)] pr-3">
           <span className={selectionClassName}>{props.selectedCount} selected</span>
