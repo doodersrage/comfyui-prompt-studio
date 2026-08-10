@@ -242,3 +242,24 @@ export function subscribeCollabRoom(projectId: string, send: CollabSseSend): () 
     }
   };
 }
+
+export type CollabBackendStatus = {
+  redisConfigured: boolean;
+  redisConnected: boolean;
+  filePersistence: boolean;
+  backend: 'redis' | 'file' | 'memory';
+};
+
+/** Summarizes collab persistence backend for health/observability surfaces. */
+export async function getCollabBackendStatus(): Promise<CollabBackendStatus> {
+  const redisConfigured = Boolean(process.env.COLLAB_REDIS_URL?.trim());
+  const filePersistence = Boolean(process.env.PROMPT_DATA_DIR?.trim());
+  await ensureRedis();
+  const redisConnected = Boolean(redisClient);
+  const backend: CollabBackendStatus['backend'] = redisConnected
+    ? 'redis'
+    : filePersistence
+      ? 'file'
+      : 'memory';
+  return { redisConfigured, redisConnected, filePersistence, backend };
+}

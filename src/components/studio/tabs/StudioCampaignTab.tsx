@@ -205,6 +205,7 @@ export default function StudioCampaignTab({
                   hints: campaignGenre.trim() || campaignTopics.slice(0, 200),
                   bestOfN: campaignBestOfN,
                   bestOfNVision: campaignBestOfNVision,
+                  onVisionProgress: message => onCampaignStatusChange(message),
                 });
                 onCampaignResultsChange(results);
                 const queued = results.filter(step => step.queued).length;

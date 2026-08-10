@@ -21,4 +21,14 @@ test.describe('Settings automation', () => {
     await expect(page.getByRole('heading', { name: 'Webhooks' })).toBeVisible();
     await expect(page.getByLabel('Enable webhooks')).toBeVisible();
   });
+
+  test('vision-rank checkbox toggles when best-of-N is set', async ({ page }) => {
+    await gotoStable(page, '/settings?tab=automation');
+    const bestOfN = page.getByLabel(/Best-of-N ranking/i);
+    await bestOfN.fill('3');
+    const vision = page.getByLabel(/Vision-rank queued outputs/i);
+    await expect(vision).toBeEnabled();
+    await vision.check();
+    await expect(vision).toBeChecked();
+  });
 });

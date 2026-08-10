@@ -983,26 +983,42 @@ export async function visionCompletion(options: {
   temperature?: number;
   /** Request-scoped vision model override (falls back to LLM_VISION_MODEL). */
   model?: string;
+  usageContext?: LlmUsageContext;
 }): Promise<string> {
+  const started = Date.now();
+  const resolvedModel = getVisionModel(options.model);
+  let ok = false;
   try {
-    return await visionCompletionUnsafe(options);
+    const result = await visionCompletionUnsafe(options);
+    ok = true;
+    return result;
   } catch (error) {
-    if (!(error instanceof RangeError)) {
-      throw error;
+    if (error instanceof RangeError) {
+      const site =
+        error.stack
+          ?.split('\n')
+          .map(line => line.trim())
+          .find(line =>
+            /vision-image-prepare|prompt-cleanup|llm-client|JSON|parse|stringify/i.test(line)
+          ) ??
+        error.stack?.split('\n')[1]?.trim() ??
+        'unknown';
+      throw new Error(
+        `Vision model reply could not be processed (call stack limit @ ${site}). Try a smaller reference image or a different vision model.`,
+        { cause: error }
+      );
     }
-    const site =
-      error.stack
-        ?.split('\n')
-        .map(line => line.trim())
-        .find(line =>
-          /vision-image-prepare|prompt-cleanup|llm-client|JSON|parse|stringify/i.test(line)
-        ) ??
-      error.stack?.split('\n')[1]?.trim() ??
-      'unknown';
-    throw new Error(
-      `Vision model reply could not be processed (call stack limit @ ${site}). Try a smaller reference image or a different vision model.`,
-      { cause: error }
-    );
+    throw error;
+  } finally {
+    logLlmUsageSafe({
+      at: started,
+      userId: options.usageContext?.userId,
+      username: options.usageContext?.username,
+      route: options.usageContext?.route ?? 'vision',
+      model: resolvedModel,
+      durationMs: Date.now() - started,
+      ok,
+    });
   }
 }
 

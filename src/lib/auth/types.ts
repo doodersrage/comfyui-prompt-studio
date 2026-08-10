@@ -9,8 +9,10 @@ export type UserScheduledCampaign = {
   intervalMin: number;
   autoQueueComfyUi: boolean;
   lastRunAt?: number;
-  /** Vision-rank outputs and keep top N when set. */
+  /** Text-rank over-generated prompts and keep top N when set. */
   bestOfN?: number;
+  /** Vision-rank queued outputs and keep top N (requires LLM_VISION_MODEL). */
+  bestOfNVision?: boolean;
 };
 
 export type AuthUser = {

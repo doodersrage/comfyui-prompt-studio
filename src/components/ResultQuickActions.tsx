@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { CollapsibleSection } from '@/components/ui/ToolPageShell';
-import { loadPromptRecipes, runPromptRecipeSteps, type PromptRecipe } from '@/lib/prompt-recipes';
+import { loadPromptRecipes, type PromptRecipe, type PromptRecipeStep } from '@/lib/prompt-recipes';
+import { toastQueueOutcome } from '@/lib/app-toast';
 import {
   queueSameSeedShootout,
   queueFamilySameSeedShootout,
@@ -34,8 +35,24 @@ export default function ResultQuickActions({
 
   async function runRecipe(recipe: PromptRecipe) {
     setStatus(`Running ${recipe.name}…`);
-    const result = await runPromptRecipeSteps(prompt, recipe.steps, model);
-    setStatus(result.log.join(' · '));
+    try {
+      const response = await fetch('/api/recipes/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, model, steps: recipe.steps }),
+      });
+      const result = (await response.json()) as { prompt?: string; log?: string[]; error?: string };
+      if (!response.ok) {
+        throw new Error(result.error ?? 'Recipe run failed.');
+      }
+      const summary = (result.log ?? []).join(' · ') || 'Recipe finished';
+      setStatus(summary);
+      toastQueueOutcome({ ok: true, text: `${recipe.name} · ${summary}`, href: '/gallery' });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Recipe run failed.';
+      setStatus(message);
+      toastQueueOutcome({ ok: false, text: message });
+    }
   }
 
   async function runShootout() {

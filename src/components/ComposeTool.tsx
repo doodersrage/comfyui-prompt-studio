@@ -3,6 +3,7 @@
 import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
+import { resolveCollabFieldValue } from '@/lib/collab-presence';
 import CollabPresenceBar from '@/components/CollabPresenceBar';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import InpaintMaskEditor from '@/components/InpaintMaskEditor';
@@ -424,7 +425,13 @@ export default function ComposeTool() {
       <CollabPresenceBar
         tool="compose"
         draft={instruction}
-        onApplyRemoteDraft={payload => setInstruction(payload.draft)}
+        draftFields={{ instruction }}
+        onApplyRemoteDraft={payload => {
+          const next = resolveCollabFieldValue(payload, 'instruction');
+          if (next) {
+            setInstruction(next);
+          }
+        }}
       />
       <ToolSection>
         <FieldLabel>Mode</FieldLabel>

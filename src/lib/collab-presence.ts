@@ -11,11 +11,25 @@ export type CollabPresencePeer = {
   lastSeenAt: number;
 };
 
+/** Structured fields for field-level collab sync (v2). */
+export type CollabDraftFields = {
+  hints?: string;
+  model?: string;
+  detail?: string;
+  instruction?: string;
+  positive?: string;
+  negative?: string;
+};
+
 export type CollabDraftPayload = {
   projectId: string;
   peerId: string;
   tool?: string;
+  /** Legacy whole-text draft — still used when fields are absent. */
   draft: string;
+  /** Structured field patches (preferred when present). */
+  fields?: CollabDraftFields;
+  changedFields?: (keyof CollabDraftFields)[];
   updatedAt: number;
 };
 
@@ -65,4 +79,26 @@ export function shouldWarnRemoteDraft(
     return true;
   }
   return remote.updatedAt > localUpdatedAt + 250;
+}
+
+/** Resolve a collab field, falling back to the legacy draft string when appropriate. */
+export function resolveCollabFieldValue(
+  payload: CollabDraftPayload,
+  field: keyof CollabDraftFields
+): string | undefined {
+  const fromFields = payload.fields?.[field]?.trim();
+  if (fromFields) {
+    return fromFields;
+  }
+  if (field === 'hints' || field === 'instruction' || field === 'positive') {
+    return payload.draft?.trim() || undefined;
+  }
+  return undefined;
+}
+
+export function mergeCollabDraftFields(
+  base: CollabDraftFields | undefined,
+  patch: CollabDraftFields
+): CollabDraftFields {
+  return { ...base, ...patch };
 }

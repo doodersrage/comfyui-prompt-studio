@@ -9,6 +9,7 @@ import InpaintMaskEditor from '@/components/InpaintMaskEditor';
 import RegionalEditPanel, { regionalSlotsQueueExtras } from '@/components/RegionalEditPanel';
 import SharedToolControls from '@/components/SharedToolControls';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
+import { resolveCollabFieldValue } from '@/lib/collab-presence';
 import CollabPresenceBar from '@/components/CollabPresenceBar';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
@@ -339,7 +340,17 @@ export default function RefineTool() {
       <CollabPresenceBar
         tool="refine"
         draft={[intentHints, currentPrompt].filter(Boolean).join('\n\n')}
+        draftFields={{ hints: intentHints, positive: currentPrompt }}
         onApplyRemoteDraft={payload => {
+          const hints = resolveCollabFieldValue(payload, 'hints');
+          const positive = resolveCollabFieldValue(payload, 'positive');
+          if (hints || positive) {
+            updateToolSettings({
+              ...(hints ? { intentHints: hints } : {}),
+              ...(positive ? { currentPrompt: positive } : {}),
+            });
+            return;
+          }
           const parts = payload.draft.split(/\n\n+/);
           updateToolSettings({
             intentHints: parts[0] ?? payload.draft,

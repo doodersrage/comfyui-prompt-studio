@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import {
   pruneStalePeers,
   upsertPresencePeer,
+  type CollabDraftFields,
   type CollabDraftPayload,
   type CollabPresencePeer,
 } from '@/lib/collab-presence';
@@ -96,11 +97,22 @@ export async function POST(request: Request) {
   }
 
   if (record.type === 'draft' && typeof record.draft === 'string') {
+    const fields =
+      record.fields && typeof record.fields === 'object'
+        ? (record.fields as CollabDraftFields)
+        : undefined;
+    const changedFields = Array.isArray(record.changedFields)
+      ? record.changedFields.filter(
+          (entry): entry is keyof CollabDraftFields => typeof entry === 'string'
+        )
+      : undefined;
     const payload: CollabDraftPayload = {
       projectId,
       peerId: typeof record.peerId === 'string' ? record.peerId : 'unknown',
       tool: typeof record.tool === 'string' ? record.tool : undefined,
       draft: record.draft.slice(0, 20_000),
+      ...(fields ? { fields } : {}),
+      ...(changedFields?.length ? { changedFields } : {}),
       updatedAt: Date.now(),
     };
     await updateCollabRoom(projectId, current => ({

@@ -347,6 +347,7 @@ export default function SettingsTool() {
         genre: scheduledBatch.genre,
         autoQueueComfyUi: scheduledBatch.autoQueueComfyUi,
         bestOfN: scheduledBatch.bestOfN,
+        bestOfNVision: scheduledBatch.bestOfNVision,
       }).then(result => {
         if (result) {
           setServerScheduledBatchStatus(previous => ({
@@ -373,6 +374,7 @@ export default function SettingsTool() {
     scheduledBatch.detail,
     scheduledBatch.qualityProfile,
     scheduledBatch.bestOfN,
+    scheduledBatch.bestOfNVision,
   ]);
 
   const applySuggestedLoaderMaps = useCallback(() => {

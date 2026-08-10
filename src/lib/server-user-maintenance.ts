@@ -34,6 +34,10 @@ export async function runServerUserMaintenance(): Promise<{
       queued: result.queued,
       ranked: result.ranked,
       bestOfN: campaign.bestOfN,
+      bestOfNVision: campaign.bestOfNVision,
+      visionRanked: result.visionRanked,
+      visionKept: result.visionKept,
+      visionCulled: result.visionCulled,
     });
 
     updateUserProfile(user.id, {

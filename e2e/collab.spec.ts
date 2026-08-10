@@ -16,4 +16,25 @@ test.describe('Shared-project collab', () => {
     await gotoStable(page, '/compose');
     await expect(page.getByText(/Live ·/)).toBeVisible();
   });
+
+  test('collab apply draft control appears when remote draft is signaled', async ({ page }) => {
+    await gotoStable(page, '/');
+    await page.evaluate(() => {
+      const channel = new BroadcastChannel('cps-collab-default');
+      channel.postMessage({
+        type: 'draft',
+        payload: {
+          projectId: 'default',
+          peerId: 'remote-peer',
+          tool: 'generate',
+          draft: 'remote keyword draft',
+          fields: { hints: 'remote keyword draft' },
+          changedFields: ['hints'],
+          updatedAt: Date.now(),
+        },
+      });
+      channel.close();
+    });
+    await expect(page.getByRole('button', { name: 'Apply draft' })).toBeVisible();
+  });
 });

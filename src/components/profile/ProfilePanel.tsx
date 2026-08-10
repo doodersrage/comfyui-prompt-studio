@@ -321,6 +321,18 @@ export default function ProfilePanel() {
               placeholder="e.g. 3"
             />
           </label>
+          <label className="flex items-center gap-2 self-end text-sm text-[var(--text-secondary)]">
+            <input
+              type="checkbox"
+              checked={campaign.bestOfNVision ?? false}
+              onChange={event =>
+                setCampaign(prev => ({ ...prev, bestOfNVision: event.target.checked }))
+              }
+              disabled={!campaign.bestOfN || campaign.bestOfN < 2 || !campaign.autoQueueComfyUi}
+              className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500 disabled:opacity-50"
+            />
+            Vision-rank queued outputs
+          </label>
         </div>
       </ToolSection>
 

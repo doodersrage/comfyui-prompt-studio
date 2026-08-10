@@ -112,6 +112,7 @@ export async function runServerScheduledBatch(
 
   const bestOfN = profile.bestOfN ?? 1;
   const generateCount = bestOfN > 1 ? config.count * bestOfN : config.count;
+  const useVisionRank = Boolean(profile.bestOfNVision && bestOfN > 1 && config.autoQueueComfyUi);
   const prompts: string[] = [];
   const model = profile.model;
   const detail = profile.detail;
@@ -160,14 +161,20 @@ export async function runServerScheduledBatch(
   }
 
   let finalPrompts = prompts;
-  if (bestOfN > 1 && prompts.length > config.count) {
+  if (!useVisionRank && bestOfN > 1 && prompts.length > config.count) {
     const { rankPromptsWithLlm } = await import('./best-of-n-rank-server');
     finalPrompts = await rankPromptsWithLlm(prompts, config.count);
-  } else {
+  } else if (!useVisionRank) {
     finalPrompts = prompts.slice(0, config.count);
+  } else {
+    finalPrompts = prompts.slice(0, generateCount);
   }
 
   let queued = 0;
+  const queuedPromptIds: string[] = [];
+  const queuedPromptTexts: string[] = [];
+  let batchComfyUrl: string | undefined;
+
   if (config.autoQueueComfyUi && finalPrompts.length > 0) {
     const { queueBatchToComfyUi } = await import('./comfyui-client');
     const { resolveQueueParams } = await import('./queue-params-settings');
@@ -187,6 +194,7 @@ export async function runServerScheduledBatch(
       }))
     );
     queued = batch.queued;
+    batchComfyUrl = batch.comfyUrl;
 
     const { appendServerGalleryEntries } = await import('./server-gallery-storage');
     const queuedAt = Date.now();
@@ -194,6 +202,8 @@ export async function runServerScheduledBatch(
       if (!result.ok || !result.promptId) {
         return [];
       }
+      queuedPromptIds.push(result.promptId);
+      queuedPromptTexts.push(finalPrompts[index] ?? '');
       return [
         {
           id: crypto.randomUUID(),
@@ -212,6 +222,21 @@ export async function runServerScheduledBatch(
       ];
     });
     await appendServerGalleryEntries(entries);
+
+    if (useVisionRank && queuedPromptIds.length > config.count) {
+      const { runServerPostQueueVisionCull } = await import('./best-of-n-vision-server');
+      const { removeServerGalleryEntriesByPromptIds } = await import('./server-gallery-storage');
+      const cull = await runServerPostQueueVisionCull({
+        promptIds: queuedPromptIds,
+        prompts: queuedPromptTexts,
+        keep: config.count,
+        comfyUrl: batchComfyUrl,
+      });
+      if (cull.culledPromptIds.length > 0) {
+        await removeServerGalleryEntriesByPromptIds(cull.culledPromptIds);
+      }
+      finalPrompts = cull.keptCandidates.map(entry => entry.prompt);
+    }
   }
 
   const stored = await loadStored();

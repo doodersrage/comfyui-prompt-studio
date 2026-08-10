@@ -1,6 +1,11 @@
 'use client';
 
-import { galleryEntryThumbUrls, loadComfyGallery, type ComfyGalleryEntry } from './comfyui-gallery';
+import {
+  galleryEntryThumbUrls,
+  loadComfyGallery,
+  removeComfyGalleryEntries,
+  type ComfyGalleryEntry,
+} from './comfyui-gallery';
 import { rankImagesWithVision, type BestOfNImageCandidate } from './best-of-n-rank';
 import { markExperimentWinner } from './experiment-winners';
 
@@ -29,9 +34,27 @@ export async function galleryEntryToDataUrl(entry: ComfyGalleryEntry): Promise<s
   }
 }
 
+export type VisionCullProgress =
+  | { phase: 'waiting'; completed: number; total: number }
+  | { phase: 'ranking'; candidates: number }
+  | { phase: 'culling'; culled: number; kept: number }
+  | { phase: 'done'; kept: number; culled: number };
+
+export type PostQueueVisionCullOptions = {
+  timeoutMs?: number;
+  pollMs?: number;
+  onProgress?: (progress: VisionCullProgress) => void;
+  /** When true (default), remove non-winner gallery entries locally. */
+  deleteCulled?: boolean;
+};
+
 export async function waitForGalleryPromptIds(
   promptIds: string[],
-  options?: { timeoutMs?: number; pollMs?: number }
+  options?: {
+    timeoutMs?: number;
+    pollMs?: number;
+    onProgress?: (completed: number, total: number) => void;
+  }
 ): Promise<ComfyGalleryEntry[]> {
   const timeoutMs = options?.timeoutMs ?? 20 * 60_000;
   const pollMs = options?.pollMs ?? 4_000;
@@ -46,15 +69,21 @@ export async function waitForGalleryPromptIds(
     const terminal = entries.filter(
       entry => entry.status === 'completed' || entry.status === 'error'
     );
+    options?.onProgress?.(
+      entries.filter(entry => entry.status === 'completed').length,
+      wanted.size
+    );
     if (terminal.length >= wanted.size) {
       return entries.filter(entry => entry.status === 'completed');
     }
     await new Promise(resolve => window.setTimeout(resolve, pollMs));
   }
 
-  return loadComfyGallery().filter(
+  const completed = loadComfyGallery().filter(
     entry => wanted.has(entry.promptId) && entry.status === 'completed'
   );
+  options?.onProgress?.(completed.length, wanted.size);
+  return completed;
 }
 
 export async function buildVisionCandidatesFromEntries(
@@ -108,9 +137,40 @@ export async function crownBestVisionEntryForGroup(
 
 export async function runPostQueueVisionCull(
   promptIds: string[],
-  keep: number
-): Promise<{ kept: ComfyGalleryEntry[]; completed: number }> {
-  const completed = await waitForGalleryPromptIds(promptIds);
+  keep: number,
+  options?: PostQueueVisionCullOptions
+): Promise<{
+  kept: ComfyGalleryEntry[];
+  completed: ComfyGalleryEntry[];
+  culledIds: string[];
+}> {
+  const deleteCulled = options?.deleteCulled !== false;
+  const completed = await waitForGalleryPromptIds(promptIds, {
+    timeoutMs: options?.timeoutMs,
+    pollMs: options?.pollMs,
+    onProgress: (done, total) =>
+      options?.onProgress?.({ phase: 'waiting', completed: done, total }),
+  });
+
+  if (completed.length === 0) {
+    return { kept: [], completed: [], culledIds: [] };
+  }
+
+  options?.onProgress?.({ phase: 'ranking', candidates: completed.length });
   const kept = await rankGalleryEntriesWithVision(completed, keep);
-  return { kept, completed: completed.length };
+  const keptIds = new Set(kept.map(entry => entry.id));
+  const culledIds = completed.filter(entry => !keptIds.has(entry.id)).map(entry => entry.id);
+
+  if (deleteCulled && culledIds.length > 0) {
+    options?.onProgress?.({ phase: 'culling', culled: culledIds.length, kept: kept.length });
+    removeComfyGalleryEntries(culledIds);
+  }
+
+  options?.onProgress?.({
+    phase: 'done',
+    kept: kept.length,
+    culled: culledIds.length,
+  });
+
+  return { kept, completed, culledIds };
 }

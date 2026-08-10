@@ -53,6 +53,7 @@ export async function reviewGalleryImage(input: {
     // keep headroom so the JSON answer still fits in content (or reasoning fallback).
     maxTokens: 800,
     temperature: 0.2,
+    usageContext: { route: 'best-of-n-vision-rank' },
   });
 
   try {

@@ -12,6 +12,7 @@ import {
   resolveScheduledBatchModelDetail,
 } from '@/lib/scheduled-batch-generate';
 import { retryFailedWebhookDeliveries } from '@/lib/webhook-log';
+import { toastQueueOutcome } from '@/lib/app-toast';
 
 export default function ScheduledBatchRunner() {
   const runningRef = useRef(false);
@@ -145,9 +146,25 @@ export default function ScheduledBatchRunner() {
 
             if (useVisionRank && queuedPromptIds.length > 0) {
               const { runPostQueueVisionCull } = await import('@/lib/best-of-n-vision-queue');
-              const { kept, completed } = await runPostQueueVisionCull(
+              toastQueueOutcome({
+                ok: true,
+                text: `Scheduled batch · waiting for ${queuedPromptIds.length} outputs to vision-rank…`,
+                href: '/gallery',
+              });
+              const { kept, culledIds } = await runPostQueueVisionCull(
                 queuedPromptIds,
-                config.count
+                config.count,
+                {
+                  onProgress: progress => {
+                    if (progress.phase === 'waiting') {
+                      toastQueueOutcome({
+                        ok: true,
+                        text: `Vision rank · ${progress.completed}/${progress.total} outputs ready`,
+                        href: '/gallery',
+                      });
+                    }
+                  },
+                }
               );
               void dispatchWebhook({
                 event: 'scheduled.batch.run',
@@ -155,7 +172,12 @@ export default function ScheduledBatchRunner() {
                 model,
                 queued: queuedPromptIds.length,
                 completedAt: Date.now(),
-                message: `Vision-ranked ${completed} outputs → kept ${kept.length} winners`,
+                message: `Vision-ranked ${queuedPromptIds.length} outputs → kept ${kept.length} winners${culledIds.length > 0 ? ` · culled ${culledIds.length}` : ''}`,
+              });
+              toastQueueOutcome({
+                ok: true,
+                text: `Vision rank kept ${kept.length}${culledIds.length > 0 ? ` · culled ${culledIds.length}` : ''}`,
+                href: '/gallery',
               });
             }
           }

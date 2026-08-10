@@ -5,6 +5,7 @@ import {
   collabChannelName,
   createCollabPeerId,
   shouldWarnRemoteDraft,
+  type CollabDraftFields,
   type CollabDraftPayload,
   type CollabPresencePeer,
 } from '@/lib/collab-presence';
@@ -14,6 +15,7 @@ import { Button } from '@/components/ui/Button';
 type CollabPresenceBarProps = {
   tool?: string;
   draft?: string;
+  draftFields?: CollabDraftFields;
   displayName?: string;
   onApplyRemoteDraft?: (payload: CollabDraftPayload) => void;
 };
@@ -24,6 +26,7 @@ type CollabPresenceBarProps = {
 export default function CollabPresenceBar({
   tool,
   draft,
+  draftFields,
   displayName = 'You',
   onApplyRemoteDraft,
 }: CollabPresenceBarProps) {
@@ -110,16 +113,22 @@ export default function CollabPresenceBar({
   }, [displayName, peerId, projectId, tool]);
 
   useEffect(() => {
-    if (draft == null) {
+    if (draft == null && !draftFields) {
       return;
     }
     const at = Date.now();
     localDraftAtRef.current = at;
+    const changedFields = draftFields
+      ? (Object.keys(draftFields).filter(key =>
+          draftFields[key as keyof CollabDraftFields]?.trim()
+        ) as (keyof CollabDraftFields)[])
+      : undefined;
     const payload: CollabDraftPayload = {
       projectId,
       peerId,
       tool,
-      draft,
+      draft: draft ?? draftFields?.hints ?? draftFields?.instruction ?? draftFields?.positive ?? '',
+      ...(draftFields ? { fields: draftFields, changedFields } : {}),
       updatedAt: at,
     };
     try {
@@ -138,12 +147,14 @@ export default function CollabPresenceBar({
           projectId,
           peerId,
           tool,
-          draft,
+          draft: payload.draft,
+          fields: draftFields,
+          changedFields,
         }),
       }).catch(() => undefined);
     }, 400);
     return () => window.clearTimeout(handle);
-  }, [draft, peerId, projectId, tool]);
+  }, [draft, draftFields, peerId, projectId, tool]);
 
   const others = peers.filter(peer => peer.peerId !== peerId);
 

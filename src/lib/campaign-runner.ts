@@ -13,6 +13,7 @@ import { resolveQueueParams } from './queue-params-settings';
 import { guardQueueQualityForVram } from './vram-queue-guard';
 import { maybeHoldMaxGenerateJobs } from './held-max-queue';
 import { rankPromptsWithLlm } from './best-of-n-rank';
+import { toastQueueOutcome } from './app-toast';
 
 export type CampaignStepResult = {
   index: number;
@@ -33,6 +34,7 @@ export async function runPromptCampaign(input: {
   hints?: string;
   bestOfN?: number;
   bestOfNVision?: boolean;
+  onVisionProgress?: (message: string) => void;
 }): Promise<CampaignStepResult[]> {
   const model = input.model as ComfyImageModel;
   const bestOfN = Math.min(4, Math.max(1, Math.floor(input.bestOfN ?? 1)));
@@ -188,7 +190,29 @@ export async function runPromptCampaign(input: {
 
   if (useVisionRank && queuedPromptIds.length > 0) {
     const { runPostQueueVisionCull } = await import('./best-of-n-vision-queue');
-    await runPostQueueVisionCull(queuedPromptIds, count);
+    input.onVisionProgress?.('Waiting for ComfyUI outputs…');
+    const { kept, culledIds } = await runPostQueueVisionCull(queuedPromptIds, count, {
+      onProgress: progress => {
+        if (progress.phase === 'waiting') {
+          input.onVisionProgress?.(
+            `Vision rank · waiting for outputs (${progress.completed}/${progress.total})…`
+          );
+        } else if (progress.phase === 'ranking') {
+          input.onVisionProgress?.(`Vision-ranking ${progress.candidates} outputs…`);
+        } else if (progress.phase === 'culling') {
+          input.onVisionProgress?.(
+            `Vision rank · kept ${progress.kept}, removed ${progress.culled} from gallery`
+          );
+        }
+      },
+    });
+    if (kept.length > 0) {
+      toastQueueOutcome({
+        ok: true,
+        text: `Vision rank kept ${kept.length} winner${kept.length === 1 ? '' : 's'}${culledIds.length > 0 ? ` · culled ${culledIds.length}` : ''}`,
+        href: '/gallery',
+      });
+    }
   }
 
   return results;

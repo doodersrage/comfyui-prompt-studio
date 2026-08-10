@@ -1,4 +1,5 @@
 import {
+  checkCollabHealth,
   checkComfyUiPoolHealth,
   checkDiffusersHealth,
   checkLlmHealth,
@@ -38,7 +39,7 @@ export async function GET(request: Request) {
 
   const diffusersUrlHint = searchParams.get('diffusersUrl')?.trim() || undefined;
 
-  const [llm, comfyui, workflow, comfyuiPool, diffusers] = await Promise.all([
+  const [llm, comfyui, workflow, comfyuiPool, diffusers, collab] = await Promise.all([
     checkLlmHealth(),
     getExpandedComfyUiHealth(runtime),
     (async () => {
@@ -54,6 +55,7 @@ export async function GET(request: Request) {
     })(),
     checkComfyUiPoolHealth(),
     checkDiffusersHealth(diffusersUrlHint),
+    checkCollabHealth(),
   ]);
 
   return apiJson({
@@ -61,6 +63,7 @@ export async function GET(request: Request) {
     comfyui,
     comfyuiPool,
     diffusers,
+    collab,
     workflow,
     apiUsage: summarizeApiUsage(),
     storage: { enabled: isServerStorageEnabled() },

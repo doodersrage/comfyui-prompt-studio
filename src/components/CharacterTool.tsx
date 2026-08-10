@@ -60,6 +60,7 @@ import { getSportPreset, isSportStarterPreset } from '@/lib/sport-presets';
 import { accentFocusClass, accentRingClass, type ToolAccent } from '@/lib/tool-theme';
 import { ToolBadge, CollapsibleSection, ToolLayout } from '@/components/ui/ToolPageShell';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
+import { resolveCollabFieldValue } from '@/lib/collab-presence';
 import CollabPresenceBar from '@/components/CollabPresenceBar';
 import { ChipButton, FieldDivider, FieldLabel } from '@/components/ui/Field';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
@@ -502,7 +503,13 @@ export default function CharacterTool() {
       <CollabPresenceBar
         tool="character"
         draft={toolSettings.hints ?? ''}
-        onApplyRemoteDraft={payload => updateToolSettings({ hints: payload.draft })}
+        draftFields={{ hints: toolSettings.hints ?? '' }}
+        onApplyRemoteDraft={payload => {
+          const nextHints = resolveCollabFieldValue(payload, 'hints');
+          if (nextHints) {
+            updateToolSettings({ hints: nextHints });
+          }
+        }}
       />
       <SceneSetupSection description="Pick a mode, add hints, then generate.">
         <FieldLabel>Scene mode</FieldLabel>

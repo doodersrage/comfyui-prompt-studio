@@ -74,7 +74,7 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 - **Cherry-pick merge** — Studio Diff tab merges two prompts with lint checks
 - **Experiment dashboard** — Studio Experiments tab groups gallery outputs by prompt/seed variants
 - **Experiment list virtualization** — window virtualizer for large experiment group lists (48+ groups)
-- **Shared-project collab** — presence bar + draft sync via BroadcastChannel and `/api/collab` SSE; room state persists to `PROMPT_DATA_DIR/collab-rooms.json` and optional `COLLAB_REDIS_URL` for multi-node; **Apply draft** merges remote edits on Generate, Character, Refine, and Compose
+- **Shared-project collab** — presence bar + field-level draft sync (`hints`, `instruction`, `positive`, etc.) via BroadcastChannel and `/api/collab` SSE; room state persists to `PROMPT_DATA_DIR/collab-rooms.json` and optional `COLLAB_REDIS_URL` for multi-node; Settings → Overview shows collab backend health; **Apply draft** merges remote edits on Generate, Character, Refine, and Compose
 - **Experiment winner workflow** — crown winners, compare export, re-queue groups on Studio Experiments tab
 - **Style transplant** — Studio → Experiments applies lighting/camera mood from one prompt to another
 - **Duplicate detection** — Studio → Experiments finds near-identical history clusters
@@ -238,7 +238,8 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 - **Webhook templates** — Discord/Slack rich payload formats in Settings
 - **Scheduled batch** — Settings configures periodic random-scene/topics generation (+ optional ComfyUI queue)
 - **Server scheduled batch** — `SERVER_SCHEDULED_BATCH=true` or manual `POST /api/scheduled-batch/run`
-- **Best-of-N campaigns** — scheduled profile or Automation tab runs optionally over-generate (2–4×) and LLM-rank prompts by text quality before queue; `/api/best-of-n/rank-images` ranks generated images with `LLM_VISION_MODEL` when vision scoring is needed
+- **Best-of-N campaigns** — scheduled profile or Automation tab runs optionally over-generate (2–4×) and LLM-rank prompts by text quality before queue; with **Vision-rank** enabled, queues all variants then vision-scores outputs and culls losers from the gallery; Profile server campaigns and headless server batch support the same path; `/api/best-of-n/rank-images` ranks generated images with `LLM_VISION_MODEL`
+- **Prompt recipes API** — `/api/recipes/run` executes lint/fix/compact/queue chains server-side; result panels call it from Recipes & shootout shortcuts
 - **Email notifications** — SMTP alerts for batch/campaign completion and password changes (Profile → Email)
 - **Docker Compose** — `docker compose up` for app + Ollama (+ optional ComfyUI profile)
 - **GitHub Actions CI** — runs unit tests, build, and Playwright smoke on push/PR

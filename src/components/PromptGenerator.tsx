@@ -67,6 +67,7 @@ import {
 import { markOnboardingFirstGenerate } from '@/lib/onboarding-hooks';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
 import CollabPresenceBar from '@/components/CollabPresenceBar';
+import { resolveCollabFieldValue } from '@/lib/collab-presence';
 import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { markComfyQueueIntent } from '@/lib/comfy-setup-intent';
@@ -557,7 +558,13 @@ export default function PromptGenerator() {
       <CollabPresenceBar
         tool="generate"
         draft={input}
-        onApplyRemoteDraft={payload => updateToolSettings({ hints: payload.draft })}
+        draftFields={{ hints: input }}
+        onApplyRemoteDraft={payload => {
+          const hints = resolveCollabFieldValue(payload, 'hints');
+          if (hints) {
+            updateToolSettings({ hints });
+          }
+        }}
       />
       <SceneSetupSection description="Keywords or a random scene — then generate.">
         <HistoryHintSeedPanel

@@ -107,4 +107,10 @@ export type HealthResponse = {
       vram?: { free?: number; total?: number };
     }>;
   };
+  collab?: {
+    redisConfigured: boolean;
+    redisConnected: boolean;
+    filePersistence: boolean;
+    backend: 'redis' | 'file' | 'memory';
+  };
 };

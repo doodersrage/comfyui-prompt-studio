@@ -49,6 +49,13 @@ export type DiffusersHealth = {
   error?: string;
 };
 
+export type CollabHealth = {
+  redisConfigured: boolean;
+  redisConnected: boolean;
+  filePersistence: boolean;
+  backend: 'redis' | 'file' | 'memory';
+};
+
 type ComfyQueuePayload = {
   queue_pending?: unknown[];
   queue_running?: unknown[];
@@ -262,4 +269,9 @@ export async function checkComfyUiPoolHealth(): Promise<ComfyUiPoolHealth> {
   );
 
   return { enabled: true, endpoints };
+}
+
+export async function checkCollabHealth(): Promise<CollabHealth> {
+  const { getCollabBackendStatus } = await import('./collab-store');
+  return getCollabBackendStatus();
 }

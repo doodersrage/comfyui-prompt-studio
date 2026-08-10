@@ -122,6 +122,24 @@ export default function SettingsOverviewTab({
                   .join(' · ')}
               />
             ) : null}
+            {health.collab ? (
+              <HealthCard
+                title="Collab backend"
+                ok={health.collab.redisConfigured ? health.collab.redisConnected : true}
+                detail={[
+                  health.collab.backend,
+                  health.collab.redisConfigured
+                    ? health.collab.redisConnected
+                      ? 'Redis connected'
+                      : 'Redis configured but unreachable'
+                    : health.collab.filePersistence
+                      ? 'file persistence'
+                      : 'in-memory only',
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              />
+            ) : null}
           </div>
         )}
 
