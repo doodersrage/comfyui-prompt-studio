@@ -376,7 +376,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         </p>
       </div>
 
-      <div className="sidebar-scroll flex-1 space-y-4 overflow-y-auto px-2 pb-2">
+      <div className="sidebar-scroll ui-scroll-region flex-1 space-y-4 overflow-y-auto px-2 pb-2">
         {navReady ? (
           <>
             <div key="pinned" className="space-y-2">

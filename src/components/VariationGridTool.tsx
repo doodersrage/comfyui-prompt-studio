@@ -7,6 +7,7 @@ import BatchReadinessPanel, {
   applyReadinessFilterToPrompts,
 } from '@/components/BatchReadinessPanel';
 import BatchQueueProgress, { type BatchQueueProgressState } from '@/components/BatchQueueProgress';
+import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import SharedToolControls from '@/components/SharedToolControls';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
 import SportPresetChips from '@/components/SportPresetChips';
@@ -1177,6 +1178,12 @@ export default function VariationGridTool() {
           </ol>
         </ToolSection>
       )}
+      <MobileStickyQueueBar
+        disabled={results.every(entry => !entry.prompt) || queueLoading || lintLoading}
+        label="Queue grid"
+        status={queueProgress?.message ?? status}
+        onQueue={() => void queueGrid()}
+      />
     </ToolLayout>
   );
 }

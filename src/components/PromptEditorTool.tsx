@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useState } from 'react';
 import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
+import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import PromptDiagnosticsPanel from '@/components/PromptDiagnosticsPanel';
 import SharedToolControls from '@/components/SharedToolControls';
 import SidecarImportButton from '@/components/SidecarImportButton';
@@ -373,6 +374,12 @@ export default function PromptEditorTool() {
         comfyUiJob={actions.comfyUiJob}
         comfyUiPreviewUrl={actions.comfyUiPreviewUrl}
         pairCopied={actions.pairCopied}
+      />
+      <MobileStickyQueueBar
+        disabled={!positive.trim()}
+        label="Queue prompt"
+        status={actions.comfyUiStatus}
+        onQueue={() => void actions.sendComfyUi(positive, sport, undefined, queueOptions)}
       />
     </ToolLayout>
   );

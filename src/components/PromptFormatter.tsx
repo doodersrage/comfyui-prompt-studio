@@ -4,6 +4,8 @@ import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import ModelSelector from '@/components/ModelSelector';
 import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
+import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
+import ToolSetupBanner from '@/components/ToolSetupBanner';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
 import { usePromptResultActions } from '@/hooks/usePromptResultActions';
@@ -293,6 +295,7 @@ export default function PromptFormatter() {
         </>
       }
     >
+      <ToolSetupBanner toolLabel="Format" />
       <ToolSection>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <FieldLabel
@@ -426,6 +429,14 @@ export default function PromptFormatter() {
           </pre>
         </ToolSection>
       )}
+      {output && mode !== 'negative' ? (
+        <MobileStickyQueueBar
+          disabled={!output.trim()}
+          label="Queue formatted"
+          status={actions.comfyUiStatus}
+          onQueue={() => void actions.sendComfyUi(output)}
+        />
+      ) : null}
     </ToolLayout>
   );
 }

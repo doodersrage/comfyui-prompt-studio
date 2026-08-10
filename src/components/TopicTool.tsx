@@ -8,6 +8,7 @@ import BatchReadinessPanel, {
   applyReadinessFilterToPrompts,
 } from '@/components/BatchReadinessPanel';
 import BatchQueueProgress, { type BatchQueueProgressState } from '@/components/BatchQueueProgress';
+import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import SharedToolControls from '@/components/SharedToolControls';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
@@ -752,6 +753,14 @@ export default function TopicTool() {
           )}
         </ToolSection>
       )}
+      {batchResults.length > 0 ? (
+        <MobileStickyQueueBar
+          disabled={lintLoading}
+          label="Queue batch"
+          status={comfyBatchStatus ?? (lintLoading ? 'Linting batch…' : null)}
+          onQueue={() => void queueBatchComfyUi()}
+        />
+      ) : null}
     </ToolLayout>
   );
 }

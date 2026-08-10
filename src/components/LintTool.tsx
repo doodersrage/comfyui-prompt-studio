@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
+import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
 import PromptDiagnosticsPanel from '@/components/PromptDiagnosticsPanel';
 import SharedToolControls from '@/components/SharedToolControls';
@@ -232,6 +233,14 @@ export default function LintTool() {
         comfyUiJob={actions.comfyUiJob}
         comfyUiPreviewUrl={actions.comfyUiPreviewUrl}
         pairCopied={actions.pairCopied}
+      />
+      <MobileStickyQueueBar
+        disabled={!prompt.trim()}
+        label="Queue linted prompt"
+        status={actions.comfyUiStatus}
+        onQueue={() =>
+          void actions.sendComfyUi(prompt, actions.diagnostics?.inferred.sport ?? null)
+        }
       />
     </ToolLayout>
   );

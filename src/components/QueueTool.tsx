@@ -1,12 +1,16 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import dynamic from 'next/dynamic';
 import { loadComfyGallery, type ComfyGalleryEntry } from '@/lib/comfyui-gallery';
 import { galleryEntryThumbUrls } from '@/lib/comfyui-gallery';
 import { Button } from '@/components/ui/Button';
 import { EmptyState, ErrorState } from '@/components/ui/ViewState';
-import { ToolLayout, ToolSection, ToolBadge } from '@/components/ui/ToolPageShell';
+import {
+  CollapsibleSection,
+  ToolLayout,
+  ToolSection,
+  ToolBadge,
+} from '@/components/ui/ToolPageShell';
 import { toastBulkQueueSummary, toastQueueOutcome } from '@/lib/app-toast';
 import { resolveGenerateEmptyCta } from '@/lib/empty-cta';
 import { requeueComfyJobFromEntry, requeueComfyJobs } from '@/lib/comfyui-requeue';
@@ -20,11 +24,8 @@ import {
   getComfyLivePreviewUrl,
 } from '@/lib/comfyui-live-preview-store';
 import { comfyUiJobProgressPercent } from '@/lib/comfyui-job-status';
-
-const SetupReadinessBanner = dynamic(() => import('@/components/SetupReadinessBanner'), {
-  ssr: false,
-  loading: () => null,
-});
+import ToolSetupBanner from '@/components/ToolSetupBanner';
+import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
 
 type ComfyQueueHealth = {
   queueRunning?: number;
@@ -67,25 +68,27 @@ function QueueActiveJobRow({
   }, [entry.promptId, entry.clientId]);
 
   return (
-    <li className="ui-list-row items-start">
-      {previewUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={previewUrl}
-          alt=""
-          className="h-14 w-14 shrink-0 rounded-md object-cover border border-zinc-700/70"
-        />
-      ) : null}
-      <div className="ui-list-primary min-w-0 space-y-1">
-        <p className="truncate text-sm text-zinc-200">{entry.prompt}</p>
-        <p className="type-caption">
-          {entry.status}
-          {entry.queuePosition ? ` · #${entry.queuePosition}` : ''}
-          {percent != null ? ` · ${percent}%` : ''}
-          {entry.model ? ` · ${entry.model}` : ''}
-        </p>
+    <li className="ui-list-row flex-col items-stretch gap-3 sm:flex-row sm:items-start">
+      <div className="flex min-w-0 flex-1 items-start gap-3">
+        {previewUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={previewUrl}
+            alt=""
+            className="h-14 w-14 shrink-0 rounded-md border border-zinc-700/70 object-cover"
+          />
+        ) : null}
+        <div className="ui-list-primary min-w-0 space-y-1">
+          <p className="truncate text-sm text-zinc-200">{entry.prompt}</p>
+          <p className="type-caption">
+            {entry.status}
+            {entry.queuePosition ? ` · #${entry.queuePosition}` : ''}
+            {percent != null ? ` · ${percent}%` : ''}
+            {entry.model ? ` · ${entry.model}` : ''}
+          </p>
+        </div>
       </div>
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
         <Button size="sm" variant="secondary" onClick={onRetry}>
           Retry
         </Button>
@@ -98,6 +101,8 @@ function QueueActiveJobRow({
 }
 
 export default function QueueTool() {
+  const workspaceMode = useWorkspaceMode();
+  const isSimple = workspaceMode === 'simple';
   const [entries, setEntries] = useState<ComfyGalleryEntry[]>([]);
   const [queueHealth, setQueueHealth] = useState<ComfyQueueHealth | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -208,9 +213,13 @@ export default function QueueTool() {
       accent="violet"
       badge={<ToolBadge accent="violet">Queue</ToolBadge>}
       title="ComfyUI job queue"
-      description="Pending and running jobs across gallery entries. Live ComfyUI queue stats refresh every few seconds."
+      description={
+        isSimple
+          ? 'Active jobs at a glance — expand sections below for failed runs and recent outputs.'
+          : 'Pending and running jobs across gallery entries. Live ComfyUI queue stats refresh every few seconds.'
+      }
     >
-      <SetupReadinessBanner toolLabel="Queue" />
+      <ToolSetupBanner toolLabel="Queue" />
       {queueHealth?.ok ? (
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm text-zinc-400">
@@ -286,84 +295,183 @@ export default function QueueTool() {
         )}
       </ToolSection>
 
-      <ToolSection title={`Failed (${failed.length})`}>
-        {failed.length === 0 ? (
-          <EmptyState
-            compact
-            icon="inbox"
-            title="No failed jobs"
-            description="Failed gallery jobs will appear here so you can retry them in one place."
-            action={
-              pending.length === 0 && recent.length === 0
-                ? generateCta
-                : { label: 'Open Gallery', href: '/gallery' }
-            }
-          />
-        ) : (
-          <>
-            <Button variant="secondary" className="mb-3" onClick={() => void retryFailed()}>
-              Retry all failed
-            </Button>
-            <ul className="ui-list">
-              {failed.map(entry => (
-                <li key={entry.id} className="ui-list-row items-start">
-                  <div className="ui-list-primary min-w-0 space-y-1">
-                    <p className="truncate text-sm text-zinc-200">{entry.prompt}</p>
-                    <p className="type-caption text-rose-300/80">
-                      {entry.statusMessage ?? entry.status} · {entry.model}
-                    </p>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => void requeueComfyJobFromEntry(entry)}
+      {isSimple ? (
+        <CollapsibleSection
+          title={`Failed (${failed.length})`}
+          summary={
+            failed.length > 0 ? 'Retry jobs that errored in ComfyUI.' : 'No failures right now.'
+          }
+          defaultOpen={failed.length > 0}
+          persistKey="queue-failed"
+        >
+          {failed.length === 0 ? (
+            <EmptyState
+              compact
+              icon="inbox"
+              title="No failed jobs"
+              description="Failed gallery jobs will appear here so you can retry them in one place."
+              action={
+                pending.length === 0 && recent.length === 0
+                  ? generateCta
+                  : { label: 'Open Gallery', href: '/gallery' }
+              }
+            />
+          ) : (
+            <>
+              <Button variant="secondary" className="mb-3" onClick={() => void retryFailed()}>
+                Retry all failed
+              </Button>
+              <ul className="ui-list ui-scroll-region max-h-[min(24rem,50vh)] overflow-y-auto">
+                {failed.map(entry => (
+                  <li
+                    key={entry.id}
+                    className="ui-list-row flex-col items-stretch gap-2 sm:flex-row sm:items-start"
                   >
-                    Retry
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-      </ToolSection>
+                    <div className="ui-list-primary min-w-0 space-y-1">
+                      <p className="truncate text-sm text-zinc-200">{entry.prompt}</p>
+                      <p className="type-caption text-rose-300/80">
+                        {entry.statusMessage ?? entry.status} · {entry.model}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="shrink-0 self-start"
+                      onClick={() => void requeueComfyJobFromEntry(entry)}
+                    >
+                      Retry
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </CollapsibleSection>
+      ) : (
+        <ToolSection title={`Failed (${failed.length})`}>
+          {failed.length === 0 ? (
+            <EmptyState
+              compact
+              icon="inbox"
+              title="No failed jobs"
+              description="Failed gallery jobs will appear here so you can retry them in one place."
+              action={
+                pending.length === 0 && recent.length === 0
+                  ? generateCta
+                  : { label: 'Open Gallery', href: '/gallery' }
+              }
+            />
+          ) : (
+            <>
+              <Button variant="secondary" className="mb-3" onClick={() => void retryFailed()}>
+                Retry all failed
+              </Button>
+              <ul className="ui-list">
+                {failed.map(entry => (
+                  <li key={entry.id} className="ui-list-row items-start">
+                    <div className="ui-list-primary min-w-0 space-y-1">
+                      <p className="truncate text-sm text-zinc-200">{entry.prompt}</p>
+                      <p className="type-caption text-rose-300/80">
+                        {entry.statusMessage ?? entry.status} · {entry.model}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => void requeueComfyJobFromEntry(entry)}
+                    >
+                      Retry
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </ToolSection>
+      )}
 
-      <ToolSection title="Recent completed">
-        {recent.length === 0 ? (
-          <EmptyState
-            compact
-            icon="inbox"
-            title="No completed jobs yet"
-            description="Finished outputs land in Gallery — start from a prompt tool to queue your first run."
-            action={generateCta}
-          />
-        ) : (
-          <ul className="ui-list">
-            {recent.map(entry => {
-              const url = galleryEntryThumbUrls(entry)[0];
-              return (
-                <li key={entry.id} className="ui-list-row items-center gap-3">
-                  {url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={url}
-                      alt=""
-                      loading="lazy"
-                      decoding="async"
-                      className="h-12 w-12 rounded object-cover"
-                    />
-                  ) : null}
-                  <div className="ui-list-primary min-w-0">
-                    <p className="truncate text-sm text-zinc-300">{entry.prompt}</p>
-                    <p className="type-caption">
-                      {entry.status} · {entry.model}
-                    </p>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </ToolSection>
+      {isSimple ? (
+        <CollapsibleSection
+          title="Recent completed"
+          summary={`${recent.length} finished job${recent.length === 1 ? '' : 's'} in gallery.`}
+          defaultOpen={false}
+          persistKey="queue-recent"
+        >
+          {recent.length === 0 ? (
+            <EmptyState
+              compact
+              icon="inbox"
+              title="No completed jobs yet"
+              description="Finished outputs land in Gallery — start from a prompt tool to queue your first run."
+              action={generateCta}
+            />
+          ) : (
+            <ul className="ui-list ui-scroll-region max-h-[min(24rem,50vh)] overflow-y-auto">
+              {recent.map(entry => {
+                const url = galleryEntryThumbUrls(entry)[0];
+                return (
+                  <li key={entry.id} className="ui-list-row items-center gap-3">
+                    {url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={url}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        className="h-12 w-12 rounded object-cover"
+                      />
+                    ) : null}
+                    <div className="ui-list-primary min-w-0">
+                      <p className="truncate text-sm text-zinc-300">{entry.prompt}</p>
+                      <p className="type-caption">
+                        {entry.status} · {entry.model}
+                      </p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </CollapsibleSection>
+      ) : (
+        <ToolSection title="Recent completed">
+          {recent.length === 0 ? (
+            <EmptyState
+              compact
+              icon="inbox"
+              title="No completed jobs yet"
+              description="Finished outputs land in Gallery — start from a prompt tool to queue your first run."
+              action={generateCta}
+            />
+          ) : (
+            <ul className="ui-list">
+              {recent.map(entry => {
+                const url = galleryEntryThumbUrls(entry)[0];
+                return (
+                  <li key={entry.id} className="ui-list-row items-center gap-3">
+                    {url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={url}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        className="h-12 w-12 rounded object-cover"
+                      />
+                    ) : null}
+                    <div className="ui-list-primary min-w-0">
+                      <p className="truncate text-sm text-zinc-300">{entry.prompt}</p>
+                      <p className="type-caption">
+                        {entry.status} · {entry.model}
+                      </p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </ToolSection>
+      )}
 
       {status ? <p className="text-sm text-emerald-400">{status}</p> : null}
     </ToolLayout>
