@@ -130,6 +130,18 @@ export async function runServerScheduledBatch(
         prompts.push(entry.prompt.trim());
       }
     }
+  } else if (config.target === 'nsfw-generator') {
+    for (let index = 0; index < config.count; index += 1) {
+      const data = await fetchJson<{ prompt?: string }>('/api/nsfw-generate', {
+        model,
+        detail,
+        wildness: 55,
+        hints: config.genre?.trim() || undefined,
+      });
+      if (data.prompt?.trim()) {
+        prompts.push(data.prompt.trim());
+      }
+    }
   } else {
     for (let index = 0; index < config.count; index += 1) {
       const data = await fetchJson<{ prompt?: string }>('/api/random-scene', {

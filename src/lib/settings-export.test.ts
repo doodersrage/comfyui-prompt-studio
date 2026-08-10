@@ -76,6 +76,8 @@ describe("settings-export", () => {
     assert.equal(bundle.webhookSettings?.url, "https://example.com/hook");
     assert.equal(bundle.scheduledBatch?.intervalMinutes, 30);
     assert.deepEqual(bundle.avoidedTokens, ["blurry", "low quality"]);
+    assert.ok(Array.isArray(bundle.sessionRecipes));
+    assert.ok(Array.isArray(bundle.userNsfwGeneratorPresets));
   });
 
   it("round-trips through JSON via parseSettingsBundle", async () => {
@@ -90,7 +92,7 @@ describe("settings-export", () => {
   it("rejects invalid or wrong-version bundle files", async () => {
     const { parseSettingsBundle } = await import("./settings-export");
     assert.throws(() => parseSettingsBundle("not json"));
-    assert.throws(() => parseSettingsBundle(JSON.stringify({ version: 2, shared: {} })));
+    assert.throws(() => parseSettingsBundle(JSON.stringify({ version: 3, shared: {} })));
     assert.throws(() => parseSettingsBundle(JSON.stringify({ version: 1 })));
   });
 
@@ -145,7 +147,7 @@ describe("settings-export", () => {
     assert.throws(() =>
       importSettingsBundle({
         // @ts-expect-error intentionally invalid version for the test
-        version: 2,
+        version: 99,
         exportedAt: new Date().toISOString(),
         shared: loadSettingsCache().shared,
       }),

@@ -26,7 +26,11 @@ import { resolveQueueNegativePrompt } from '@/lib/queue-negative';
 import { loadActiveProjectId } from '@/lib/prompt-projects';
 import { clearLineageParent, resolveParentHistoryId } from '@/lib/prompt-lineage-session';
 import { injectLoraTriggers } from '@/lib/lora-prompt-injection';
-import { loadComfyUiSettings, resolveSharedEffectiveSessionLoraIds } from '@/lib/comfyui-settings';
+import {
+  loadComfyUiSettings,
+  resolveSharedEffectiveSessionLoraIds,
+  resolveSharedEffectiveSessionLoraStrengthOverrides,
+} from '@/lib/comfyui-settings';
 import { loadSettingsCache } from '@/lib/settings-cache';
 import { getEngineAdapter } from '@/lib/engine';
 import { loadEngineSettings } from '@/lib/engine-settings';
@@ -104,6 +108,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         /** Actual model queued (may differ from picker when Generate remaps Edit Lightning). */
         model?: ComfyImageModel;
         sessionActiveLoraIds?: string[];
+        sessionLoraStrengthOverrides?: import('@/lib/lora-stack').SessionLoraStrengthOverrides;
         engineId?: import('@/lib/engine/types').EngineId;
       },
       showPreview = true
@@ -122,6 +127,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         queueParams: input.queueParams,
         queueQualityProfile: input.queueQualityProfile,
         sessionActiveLoraIds: input.sessionActiveLoraIds,
+        sessionLoraStrengthOverrides: input.sessionLoraStrengthOverrides,
         projectId: loadActiveProjectId(),
         engineId,
       });
@@ -926,6 +932,8 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             queueQualityProfile: runtime?.queueQualityProfile,
             model: queueModel,
             sessionActiveLoraIds: resolveSharedEffectiveSessionLoraIds(queueModel),
+            sessionLoraStrengthOverrides:
+              resolveSharedEffectiveSessionLoraStrengthOverrides(queueModel),
             engineId: engineAdapter.id,
           });
           queued.releaseLiveSocket();
@@ -1163,6 +1171,8 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
                 queueQualityProfile: runtime?.queueQualityProfile,
                 model: queueModel,
                 sessionActiveLoraIds: resolveSharedEffectiveSessionLoraIds(queueModel),
+                sessionLoraStrengthOverrides:
+                  resolveSharedEffectiveSessionLoraStrengthOverrides(queueModel),
               },
               false
             );

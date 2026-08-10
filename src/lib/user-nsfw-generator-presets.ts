@@ -158,3 +158,48 @@ export function pushNsfwPresetRecent(id: string): NsfwPresetPrefs {
   saveNsfwPresetPrefs(updated);
   return updated;
 }
+
+export type UserNsfwPresetPack = {
+  version: 1;
+  exportedAt: string;
+  presets: UserNsfwGeneratorPreset[];
+  prefs?: NsfwPresetPrefs;
+};
+
+export function exportUserNsfwPresetPack(): UserNsfwPresetPack {
+  return {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    presets: loadUserNsfwGeneratorPresets(),
+    prefs: loadNsfwPresetPrefs(),
+  };
+}
+
+export function importUserNsfwPresetPack(
+  pack: UserNsfwPresetPack,
+  mode: 'merge' | 'replace' = 'merge'
+): UserNsfwGeneratorPreset[] {
+  if (!pack || pack.version !== 1 || !Array.isArray(pack.presets)) {
+    throw new Error('Invalid adult preset pack.');
+  }
+  const incoming = pack.presets
+    .map(entry => normalizeUserNsfwGeneratorPreset(entry))
+    .filter((entry): entry is UserNsfwGeneratorPreset => Boolean(entry));
+  const next =
+    mode === 'replace'
+      ? incoming
+      : [
+          ...incoming,
+          ...loadUserNsfwGeneratorPresets().filter(
+            existing => !incoming.some(entry => entry.id === existing.id)
+          ),
+        ];
+  saveUserNsfwGeneratorPresets(next.slice(0, MAX_USER_NSFW_PRESETS));
+  if (pack.prefs) {
+    saveNsfwPresetPrefs({
+      favoriteIds: pack.prefs.favoriteIds ?? [],
+      recentIds: pack.prefs.recentIds ?? [],
+    });
+  }
+  return loadUserNsfwGeneratorPresets();
+}

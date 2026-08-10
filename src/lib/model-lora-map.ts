@@ -13,7 +13,13 @@ import { ULTRAREAL_AMPLIFIER_LORA_ID } from './ultrareal-amplifier-lora';
 export type ModelLoraMap = Partial<Record<string, string>>;
 
 /** Explicit session LoRA picks keyed by model id (including empty stacks). */
+import type { SessionLoraStrengthOverrides } from './lora-stack';
+import { normalizeSessionLoraStrengthOverrides } from './lora-stack';
+
 export type SessionActiveLoraIdsByModel = Partial<Record<string, string[]>>;
+export type SessionLoraStrengthOverridesByModel = Partial<
+  Record<string, SessionLoraStrengthOverrides>
+>;
 
 /** Companion realism LoRAs that stay on even when the session stack was cleared. */
 export function companionRealismLoraIdsForModel(model: string | undefined): string[] {
@@ -135,6 +141,49 @@ export function setSessionLoraIdsForModel(
     next[modelId] = ids;
   }
   return next;
+}
+
+export function hasSessionLoraStrengthOverridesForModel(
+  byModel: SessionLoraStrengthOverridesByModel | undefined,
+  model: string | undefined
+): boolean {
+  const modelId = model?.trim();
+  return Boolean(modelId && byModel && Object.prototype.hasOwnProperty.call(byModel, modelId));
+}
+
+export function setSessionLoraStrengthOverridesForModel(
+  byModel: SessionLoraStrengthOverridesByModel | undefined,
+  model: string,
+  overrides: SessionLoraStrengthOverrides | undefined
+): SessionLoraStrengthOverridesByModel {
+  const modelId = model.trim();
+  const next: SessionLoraStrengthOverridesByModel = { ...(byModel ?? {}) };
+  if (!modelId) {
+    return next;
+  }
+  const normalized = normalizeSessionLoraStrengthOverrides(overrides);
+  if (Object.keys(normalized).length === 0) {
+    delete next[modelId];
+  } else {
+    next[modelId] = normalized;
+  }
+  return next;
+}
+
+export function resolveEffectiveSessionLoraStrengthOverrides(
+  model: string | undefined,
+  legacyGlobal: SessionLoraStrengthOverrides | undefined,
+  byModel?: SessionLoraStrengthOverridesByModel
+): SessionLoraStrengthOverrides {
+  const modelId = model?.trim();
+  if (modelId && byModel && Object.prototype.hasOwnProperty.call(byModel, modelId)) {
+    return normalizeSessionLoraStrengthOverrides(byModel[modelId]);
+  }
+  const byModelEmpty = !byModel || Object.keys(byModel).length === 0;
+  if (byModelEmpty && legacyGlobal) {
+    return normalizeSessionLoraStrengthOverrides(legacyGlobal);
+  }
+  return {};
 }
 
 export type ResolveEffectiveSessionLoraIdsOptions = {

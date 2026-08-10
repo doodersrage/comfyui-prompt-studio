@@ -1,5 +1,6 @@
 import type { PromptHistoryEntry } from '@/hooks/usePromptHistory';
 import { filterBySemanticQuery } from './semantic-search';
+import { getComfyModelDefinition } from './comfy-models/client';
 
 export type HistoryFilter = {
   tool?: string;
@@ -9,6 +10,8 @@ export type HistoryFilter = {
   query?: string;
   tag?: string;
   semanticSearch?: boolean;
+  /** Match video tool outputs or video-category models. */
+  videoOnly?: boolean;
 };
 
 export function filterHistoryEntries(
@@ -41,6 +44,12 @@ export function filterHistoryEntries(
     if (filter.tag?.trim()) {
       const needle = filter.tag.trim().toLowerCase();
       if (!(entry.tags ?? []).some(tag => tag.toLowerCase() === needle)) {
+        return false;
+      }
+    }
+    if (filter.videoOnly) {
+      const def = getComfyModelDefinition(entry.model);
+      if (entry.tool !== 'video' && def?.category !== 'video') {
         return false;
       }
     }

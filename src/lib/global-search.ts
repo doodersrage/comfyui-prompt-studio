@@ -1,13 +1,15 @@
 import { loadPromptHistoryStore } from './prompt-history';
 import { loadComfyGallery } from './comfyui-gallery';
 import { loadScenePresets } from './scene-presets';
+import { mergeNsfwPresetCatalog } from './nsfw-generator-presets';
+import { loadUserNsfwGeneratorPresets } from './user-nsfw-generator-presets';
 
 export type GlobalSearchResult = {
   id: string;
   label: string;
   subtitle: string;
   href: string;
-  group: 'History' | 'Gallery' | 'Presets';
+  group: 'History' | 'Gallery' | 'Presets' | 'Adult presets';
   score: number;
 };
 
@@ -79,6 +81,25 @@ export function searchGlobal(query: string, limit = 12): GlobalSearchResult[] {
         subtitle: (preset.hints ?? '').slice(0, 60),
         href: `/?scene=${encodeURIComponent(preset.id)}`,
         group: 'Presets',
+        score,
+      });
+    }
+  }
+
+  for (const preset of mergeNsfwPresetCatalog(loadUserNsfwGeneratorPresets()).slice(0, 160)) {
+    const score = Math.max(
+      matchScore(preset.label, q),
+      matchScore(preset.hints, q),
+      matchScore(preset.category, q),
+      matchScore(preset.mood ?? '', q)
+    );
+    if (score > 0) {
+      results.push({
+        id: `nsfw-preset-${preset.id}`,
+        label: preset.label,
+        subtitle: preset.hints.slice(0, 60),
+        href: `/plugins/nsfw-generator?nsfwPresetId=${encodeURIComponent(preset.id)}`,
+        group: 'Adult presets',
         score,
       });
     }

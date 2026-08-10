@@ -1081,3 +1081,20 @@ export function mergeNsfwPresetCatalog(
   const extras = userPresets.filter(preset => !builtinIds.has(preset.id));
   return [...extras, ...NSFW_GENERATOR_PRESETS];
 }
+
+export function pickRandomNsfwGeneratorPreset(
+  userPresets: readonly NsfwGeneratorPreset[] = [],
+  options?: { category?: NsfwPresetCategory | 'all'; duoOnly?: boolean }
+): NsfwGeneratorPreset | undefined {
+  let pool = mergeNsfwPresetCatalog(userPresets);
+  if (options?.category && options.category !== 'all') {
+    pool = pool.filter(preset => preset.category === options.category);
+  }
+  if (options?.duoOnly) {
+    pool = pool.filter(preset => preset.duo === true);
+  }
+  if (pool.length === 0) {
+    return undefined;
+  }
+  return pool[Math.floor(Math.random() * pool.length)];
+}

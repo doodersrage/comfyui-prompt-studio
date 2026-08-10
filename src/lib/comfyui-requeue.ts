@@ -1,7 +1,7 @@
 'use client';
 
 import type { ComfyImageModel } from './comfy-models/client';
-import { registerComfyGalleryJob } from './comfyui-gallery-client';
+import { registerComfyGalleryJob, inheritGallerySessionFields } from './comfyui-gallery-client';
 import { scheduleComfyGalleryPoll } from './comfyui-gallery-poller';
 import { getEngineAdapter } from './engine';
 import { scheduleRefineAfterUpscaleComplete } from './gallery-pending-actions';
@@ -396,6 +396,7 @@ export async function requeueUpscaleFromGalleryEntry(
       parentGalleryEntryId: entry.id,
       derivedKind: 'upscale',
       historyId: entry.historyId,
+      ...inheritGallerySessionFields(entry),
     });
     if (options.refineAfterComplete && !isLightning) {
       scheduleRefineAfterUpscaleComplete(queued.promptId, options.refineAfterComplete);
@@ -528,6 +529,7 @@ export async function requeueMoireCleanFromGalleryEntry(
     parentGalleryEntryId: entry.id,
     derivedKind: 'moire-clean',
     historyId: entry.historyId,
+    ...inheritGallerySessionFields(entry),
   });
   void scheduleComfyGalleryPoll(queued.promptId, {
     comfyUrl: queued.engineUrl ?? entry.comfyUrl ?? 'http://127.0.0.1:8188',
@@ -673,6 +675,7 @@ export async function requeueRefineFromGalleryEntry(
     queueQualityProfile: profile,
     parentGalleryEntryId: entry.id,
     derivedKind: mode === 'soft' ? 'soft-pass' : 'refine',
+    ...inheritGallerySessionFields(entry),
   });
   void scheduleComfyGalleryPoll(queued.promptId, {
     comfyUrl: queued.engineUrl ?? entry.comfyUrl ?? 'http://127.0.0.1:8188',
@@ -829,6 +832,7 @@ export async function requeueFaceDetailFromGalleryEntry(
     parentGalleryEntryId: entry.id,
     derivedKind: 'face-detail',
     historyId: entry.historyId,
+    ...inheritGallerySessionFields(entry),
   });
   void scheduleComfyGalleryPoll(queued.promptId, {
     comfyUrl: queued.engineUrl ?? entry.comfyUrl ?? 'http://127.0.0.1:8188',

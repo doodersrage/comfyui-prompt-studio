@@ -4,42 +4,6 @@ import { readBrowserValue, writeBrowserValue } from './browser-storage';
 
 export const WEBHOOK_SETTINGS_KEY = 'comfy-prompt-webhook-v1';
 
-export type WebhookSettings = {
-  enabled: boolean;
-  url?: string;
-  secret?: string;
-  template?: import('./webhook-payload').WebhookTemplate;
-};
-
-export const DEFAULT_WEBHOOK_SETTINGS: WebhookSettings = {
-  enabled: false,
-  url: '',
-  secret: '',
-  template: 'generic',
-};
-
-export function loadWebhookSettings(): WebhookSettings {
-  if (typeof window === 'undefined') {
-    return DEFAULT_WEBHOOK_SETTINGS;
-  }
-  try {
-    const parsed = readBrowserValue<WebhookSettings>(WEBHOOK_SETTINGS_KEY);
-    if (!parsed) {
-      return DEFAULT_WEBHOOK_SETTINGS;
-    }
-    return { ...DEFAULT_WEBHOOK_SETTINGS, ...parsed };
-  } catch {
-    return DEFAULT_WEBHOOK_SETTINGS;
-  }
-}
-
-export function saveWebhookSettings(settings: WebhookSettings): void {
-  if (typeof window === 'undefined') {
-    return;
-  }
-  writeBrowserValue(WEBHOOK_SETTINGS_KEY, settings);
-}
-
 export type WebhookEvent =
   | 'comfyui.job.completed'
   | 'comfyui.job.error'
@@ -66,6 +30,79 @@ export const WEBHOOK_EVENT_CATALOG: { event: WebhookEvent; description: string }
   { event: 'session.recipe.saved', description: 'A session recipe snapshot was stored.' },
 ];
 
+export type WebhookSettings = {
+  enabled: boolean;
+  url?: string;
+  secret?: string;
+  template?: import('./webhook-payload').WebhookTemplate;
+  /** When set, only these events are dispatched. Omit = all events; empty array = none. */
+  enabledEvents?: WebhookEvent[];
+};
+
+export const DEFAULT_WEBHOOK_SETTINGS: WebhookSettings = {
+  enabled: false,
+  url: '',
+  secret: '',
+  template: 'generic',
+};
+
+export function isWebhookEventEnabled(settings: WebhookSettings, event: WebhookEvent): boolean {
+  const list = settings.enabledEvents;
+  if (list === undefined) {
+    return true;
+  }
+  if (list.length === 0) {
+    return false;
+  }
+  return list.includes(event);
+}
+
+export function normalizeWebhookEnabledEvents(
+  events: WebhookEvent[] | undefined
+): WebhookEvent[] | undefined {
+  if (events === undefined) {
+    return undefined;
+  }
+  if (events.length === 0) {
+    return [];
+  }
+  const allowed = new Set(WEBHOOK_EVENT_CATALOG.map(item => item.event));
+  const next = events.filter(event => allowed.has(event));
+  if (next.length === 0) {
+    return [];
+  }
+  if (next.length === WEBHOOK_EVENT_CATALOG.length) {
+    return undefined;
+  }
+  return next;
+}
+
+export function loadWebhookSettings(): WebhookSettings {
+  if (typeof window === 'undefined') {
+    return DEFAULT_WEBHOOK_SETTINGS;
+  }
+  try {
+    const parsed = readBrowserValue<WebhookSettings>(WEBHOOK_SETTINGS_KEY);
+    if (!parsed) {
+      return DEFAULT_WEBHOOK_SETTINGS;
+    }
+    return {
+      ...DEFAULT_WEBHOOK_SETTINGS,
+      ...parsed,
+      enabledEvents: normalizeWebhookEnabledEvents(parsed.enabledEvents),
+    };
+  } catch {
+    return DEFAULT_WEBHOOK_SETTINGS;
+  }
+}
+
+export function saveWebhookSettings(settings: WebhookSettings): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  writeBrowserValue(WEBHOOK_SETTINGS_KEY, settings);
+}
+
 export type WebhookJobPayload = {
   event: WebhookEvent;
   promptId?: string;
@@ -85,6 +122,9 @@ export type WebhookJobPayload = {
 export async function dispatchWebhook(payload: WebhookJobPayload): Promise<boolean> {
   const settings = loadWebhookSettings();
   if (!settings.enabled || !settings.url?.trim()) {
+    return false;
+  }
+  if (!isWebhookEventEnabled(settings, payload.event)) {
     return false;
   }
 

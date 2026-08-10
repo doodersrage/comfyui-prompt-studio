@@ -12,8 +12,11 @@ import { clearWebhookLog, retryWebhookLogEntry, type WebhookLogEntry } from '@/l
 import { saveScheduledBatchConfig, type ScheduledBatchConfig } from '@/lib/scheduled-batch';
 import {
   saveWebhookSettings,
-  type WebhookSettings,
   WEBHOOK_EVENT_CATALOG,
+  isWebhookEventEnabled,
+  normalizeWebhookEnabledEvents,
+  type WebhookEvent,
+  type WebhookSettings,
 } from '@/lib/webhook-settings';
 import type { ScheduledBatchServerStatus } from '@/lib/scheduled-batch-profile-sync';
 import { ToolSection, accentFocusClass } from '@/components/ui/ToolPageShell';
@@ -159,6 +162,47 @@ export default function SettingsAutomationTab({
           <option value="discord">Discord embed</option>
           <option value="slack">Slack blocks</option>
         </select>
+        <p className="mt-3 text-xs text-[var(--text-muted)]">
+          Leave all unchecked to receive every event. Check only the events you want dispatched.
+        </p>
+        <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+          {WEBHOOK_EVENT_CATALOG.map(item => {
+            const checked = isWebhookEventEnabled(webhookSettings, item.event);
+            return (
+              <li key={item.event}>
+                <label className="flex items-start gap-2 text-xs text-[var(--text-secondary)]">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={event => {
+                      const allEvents = WEBHOOK_EVENT_CATALOG.map(entry => entry.event);
+                      const current =
+                        webhookSettings.enabledEvents === undefined
+                          ? allEvents
+                          : [...webhookSettings.enabledEvents];
+                      const nextEvents = event.target.checked
+                        ? [...new Set([...current, item.event])]
+                        : current.filter(entry => entry !== item.event);
+                      const next = {
+                        ...webhookSettings,
+                        enabledEvents: normalizeWebhookEnabledEvents(nextEvents),
+                      };
+                      setWebhookSettings(next);
+                      saveWebhookSettings(next);
+                    }}
+                    className={`mt-0.5 h-4 w-4 rounded ${accentFocusClass()}`}
+                  />
+                  <span>
+                    <code className="text-[var(--text-primary)]">{item.event}</code>
+                    <span className="mt-0.5 block text-[var(--text-muted)]">
+                      {item.description}
+                    </span>
+                  </span>
+                </label>
+              </li>
+            );
+          })}
+        </ul>
       </ToolSection>
 
       <ToolSection title="Avoided tokens">
@@ -528,6 +572,7 @@ export default function SettingsAutomationTab({
         >
           <option value="random-scene">Random scene</option>
           <option value="topics">Topics batch</option>
+          <option value="nsfw-generator">Adult generator</option>
         </select>
         <label className="mt-3 flex items-center gap-3 text-sm text-[var(--text-secondary)]">
           <input

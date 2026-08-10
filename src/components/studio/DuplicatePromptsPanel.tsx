@@ -6,9 +6,10 @@ import { findDuplicatePrompts } from '@/lib/prompt-duplicate-detection';
 import { ToolSection } from '@/components/ui/ToolPageShell';
 import { EmptyState } from '@/components/ui/ViewState';
 import { resolveGenerateEmptyCta } from '@/lib/empty-cta';
+import { Button } from '@/components/ui/Button';
 
 export default function DuplicatePromptsPanel() {
-  const { entries } = usePromptHistory();
+  const { entries, removeEntries } = usePromptHistory();
   const [threshold, setThreshold] = useState(0.85);
   const groups = useMemo(
     () =>
@@ -55,9 +56,26 @@ export default function DuplicatePromptsPanel() {
               key={group.ids.join('-')}
               className="rounded-xl border border-[var(--border-subtle)] px-3 py-2 text-sm"
             >
-              <p className="text-[var(--text-muted)]">
-                {group.ids.length} entries · {Math.round(group.similarity * 100)}% similar
-              </p>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <p className="text-[var(--text-muted)]">
+                  {group.ids.length} entries · {Math.round(group.similarity * 100)}% similar
+                </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        `Delete ${group.ids.length} near-duplicate entries? This cannot be undone.`
+                      )
+                    ) {
+                      removeEntries(group.ids);
+                    }
+                  }}
+                >
+                  Delete cluster
+                </Button>
+              </div>
               <p className="mt-1 line-clamp-2 text-[var(--text-secondary)]">{group.prompt}</p>
             </li>
           ))}

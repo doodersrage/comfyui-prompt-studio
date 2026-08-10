@@ -7,8 +7,17 @@ import {
   type ScheduledBatchConfig,
 } from './scheduled-batch';
 import { exportAvoidedTokenList, saveAvoidedTokens } from './avoided-tokens';
+import { loadSessionRecipes, saveSessionRecipes, type SessionRecipe } from './session-recipes';
+import {
+  loadNsfwPresetPrefs,
+  loadUserNsfwGeneratorPresets,
+  saveNsfwPresetPrefs,
+  saveUserNsfwGeneratorPresets,
+  type NsfwPresetPrefs,
+  type UserNsfwGeneratorPreset,
+} from './user-nsfw-generator-presets';
 
-export const SETTINGS_BUNDLE_VERSION = 1;
+export const SETTINGS_BUNDLE_VERSION = 2;
 
 /**
  * Lightweight "settings only" export/import — no history, gallery, presets, or
@@ -24,9 +33,16 @@ export type SettingsBundleV1 = {
   avoidedTokens?: string[];
 };
 
-export type SettingsBundle = SettingsBundleV1;
+export type SettingsBundleV2 = Omit<SettingsBundleV1, 'version'> & {
+  version: 2;
+  sessionRecipes?: SessionRecipe[];
+  userNsfwGeneratorPresets?: UserNsfwGeneratorPreset[];
+  nsfwPresetPrefs?: NsfwPresetPrefs;
+};
 
-export function exportSettingsBundle(): SettingsBundle {
+export type SettingsBundle = SettingsBundleV1 | SettingsBundleV2;
+
+export function exportSettingsBundle(): SettingsBundleV2 {
   return {
     version: SETTINGS_BUNDLE_VERSION,
     exportedAt: new Date().toISOString(),
@@ -35,6 +51,9 @@ export function exportSettingsBundle(): SettingsBundle {
     webhookSettings: loadWebhookSettings(),
     scheduledBatch: loadScheduledBatchConfig(),
     avoidedTokens: exportAvoidedTokenList(),
+    sessionRecipes: loadSessionRecipes(),
+    userNsfwGeneratorPresets: loadUserNsfwGeneratorPresets(),
+    nsfwPresetPrefs: loadNsfwPresetPrefs(),
   };
 }
 
@@ -42,7 +61,7 @@ export function parseSettingsBundle(json: string): SettingsBundle {
   const parsed = JSON.parse(json) as Partial<SettingsBundle> | null;
   if (
     !parsed ||
-    parsed.version !== SETTINGS_BUNDLE_VERSION ||
+    (parsed.version !== 1 && parsed.version !== SETTINGS_BUNDLE_VERSION) ||
     !parsed.shared ||
     typeof parsed.shared !== 'object'
   ) {
@@ -52,7 +71,7 @@ export function parseSettingsBundle(json: string): SettingsBundle {
 }
 
 export function importSettingsBundle(data: SettingsBundle): void {
-  if (data.version !== SETTINGS_BUNDLE_VERSION) {
+  if (data.version !== 1 && data.version !== SETTINGS_BUNDLE_VERSION) {
     throw new Error('Unsupported settings bundle version.');
   }
 
@@ -73,6 +92,18 @@ export function importSettingsBundle(data: SettingsBundle): void {
   }
   if (data.avoidedTokens) {
     saveAvoidedTokens(data.avoidedTokens);
+  }
+
+  if (data.version === SETTINGS_BUNDLE_VERSION) {
+    if (data.sessionRecipes) {
+      saveSessionRecipes(data.sessionRecipes);
+    }
+    if (data.userNsfwGeneratorPresets) {
+      saveUserNsfwGeneratorPresets(data.userNsfwGeneratorPresets);
+    }
+    if (data.nsfwPresetPrefs) {
+      saveNsfwPresetPrefs(data.nsfwPresetPrefs);
+    }
   }
 }
 

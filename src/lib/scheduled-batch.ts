@@ -6,7 +6,7 @@ export type ScheduledBatchConfig = {
   enabled: boolean;
   intervalMinutes: number;
   lastRunAt?: number;
-  target: 'random-scene' | 'topics';
+  target: 'random-scene' | 'topics' | 'nsfw-generator';
   count: number;
   autoQueueComfyUi: boolean;
   genre?: string;
@@ -40,7 +40,12 @@ export function clampScheduledBatchConfig(config: ScheduledBatchConfig): Schedul
     ...config,
     count,
     intervalMinutes,
-    target: config.target === 'topics' ? 'topics' : 'random-scene',
+    target:
+      config.target === 'topics'
+        ? 'topics'
+        : config.target === 'nsfw-generator'
+          ? 'nsfw-generator'
+          : 'random-scene',
     autoQueueComfyUi: Boolean(config.autoQueueComfyUi),
     enabled: Boolean(config.enabled),
   };

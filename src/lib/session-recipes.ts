@@ -14,6 +14,11 @@ import {
   normalizeSessionLoraStrengthOverrides,
   type SessionLoraStrengthOverrides,
 } from './lora-stack';
+import {
+  resolveEffectiveSessionLoraStrengthOverrides,
+  setSessionLoraIdsForModel,
+  setSessionLoraStrengthOverridesForModel,
+} from './model-lora-map';
 import { normalizeQueueQualityProfile, type QueueQualityProfile } from './queue-quality-profile';
 
 export const SESSION_RECIPES_KEY = 'comfy-prompt-session-recipes-v1';
@@ -78,8 +83,11 @@ export function normalizeSessionRecipe(value: unknown): SessionRecipe | null {
         .slice(0, 32)
     : undefined;
   const denoise = Number(sharedRaw.editDenoiseStrength);
-  const loraOverrides = normalizeSessionLoraStrengthOverrides(
-    sharedRaw.sessionLoraStrengthOverrides as SessionLoraStrengthOverrides | undefined
+  const loraOverrides = resolveEffectiveSessionLoraStrengthOverrides(
+    modelRaw,
+    sharedRaw.sessionLoraStrengthOverrides as SessionLoraStrengthOverrides | undefined,
+    sharedRaw.sessionLoraStrengthOverridesByModel as
+      import('./model-lora-map').SessionLoraStrengthOverridesByModel | undefined
   );
   return {
     id,
@@ -147,6 +155,12 @@ export function buildSessionRecipeFromShared(input: {
   const stamp = Date.now();
   const tool = input.toolId?.trim();
   const label = input.label?.trim() || (tool ? `Session · ${tool}` : 'Session snapshot');
+  const loraOverrides = resolveEffectiveSessionLoraStrengthOverrides(
+    input.shared.model,
+    input.shared.sessionLoraStrengthOverrides,
+    input.shared.sessionLoraStrengthOverridesByModel as
+      import('./model-lora-map').SessionLoraStrengthOverridesByModel | undefined
+  );
   return {
     id: `session-${stamp.toString(36)}`,
     label: label.slice(0, 48),
@@ -164,14 +178,8 @@ export function buildSessionRecipeFromShared(input: {
             .filter(Boolean)
             .slice(0, 32)
         : undefined,
-      ...(Object.keys(
-        normalizeSessionLoraStrengthOverrides(input.shared.sessionLoraStrengthOverrides)
-      ).length > 0
-        ? {
-            sessionLoraStrengthOverrides: normalizeSessionLoraStrengthOverrides(
-              input.shared.sessionLoraStrengthOverrides
-            ),
-          }
+      ...(Object.keys(loraOverrides).length > 0
+        ? { sessionLoraStrengthOverrides: loraOverrides }
         : {}),
       modelSamplerPreset: input.shared.modelSamplerPreset
         ? normalizeModelSamplerPresetTier(input.shared.modelSamplerPreset)
@@ -224,15 +232,11 @@ export function applySessionRecipeShared<T extends SessionRecipeShared>(
   recipe: SessionRecipe
 ): T {
   const snap = recipe.shared;
-  return {
+  let next: T = {
     ...shared,
     model: snap.model,
     ...(snap.queueQualityProfile ? { queueQualityProfile: snap.queueQualityProfile } : {}),
     ...(snap.sessionQueueMode ? { sessionQueueMode: snap.sessionQueueMode } : {}),
-    sessionActiveLoraIds: snap.sessionActiveLoraIds,
-    ...(snap.sessionLoraStrengthOverrides
-      ? { sessionLoraStrengthOverrides: snap.sessionLoraStrengthOverrides }
-      : {}),
     ...(snap.modelSamplerPreset ? { modelSamplerPreset: snap.modelSamplerPreset } : {}),
     ...(snap.modelResolutionOrientation
       ? { modelResolutionOrientation: snap.modelResolutionOrientation }
@@ -242,6 +246,38 @@ export function applySessionRecipeShared<T extends SessionRecipeShared>(
       : {}),
     ...(snap.editDenoiseStrength != null ? { editDenoiseStrength: snap.editDenoiseStrength } : {}),
   };
+  if (snap.sessionActiveLoraIds) {
+    next = {
+      ...next,
+      sessionActiveLoraIds: snap.sessionActiveLoraIds,
+      sessionActiveLoraIdsByModel: setSessionLoraIdsForModel(
+        (
+          shared as {
+            sessionActiveLoraIdsByModel?: import('./model-lora-map').SessionActiveLoraIdsByModel;
+          }
+        ).sessionActiveLoraIdsByModel,
+        snap.model,
+        snap.sessionActiveLoraIds
+      ),
+    };
+  }
+  if (snap.sessionLoraStrengthOverrides) {
+    const normalized = normalizeSessionLoraStrengthOverrides(snap.sessionLoraStrengthOverrides);
+    next = {
+      ...next,
+      sessionLoraStrengthOverrides: normalized,
+      sessionLoraStrengthOverridesByModel: setSessionLoraStrengthOverridesForModel(
+        (
+          shared as {
+            sessionLoraStrengthOverridesByModel?: import('./model-lora-map').SessionLoraStrengthOverridesByModel;
+          }
+        ).sessionLoraStrengthOverridesByModel,
+        snap.model,
+        normalized
+      ),
+    };
+  }
+  return next;
 }
 
 export function formatSessionRecipeSubtitle(recipe: SessionRecipe): string {

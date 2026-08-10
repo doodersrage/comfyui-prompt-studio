@@ -27,6 +27,12 @@ export type PluginManifestTool = {
   route?: string;
 };
 
+export type PluginManifestPresetProvider = {
+  kind: 'nsfw-generator' | 'scene-starter';
+  /** Relative app route or absolute URL returning preset JSON. */
+  catalogUrl: string;
+};
+
 export type PluginManifest = {
   id: string;
   label: string;
@@ -35,6 +41,8 @@ export type PluginManifest = {
   nav?: PluginManifestNavLink[];
   queueHooks?: PluginManifestQueueHooks;
   tools?: PluginManifestTool[];
+  /** Optional remote preset catalog merged into search / preset pickers. */
+  presetProvider?: PluginManifestPresetProvider;
 };
 
 const MAX_INSTALLED_PLUGINS = 24;
@@ -120,6 +128,24 @@ function normalizeTool(value: unknown): PluginManifestTool | null {
   };
 }
 
+function normalizePresetProvider(value: unknown): PluginManifestPresetProvider | undefined {
+  if (!value || typeof value !== 'object') {
+    return undefined;
+  }
+  const raw = value as Record<string, unknown>;
+  const catalogUrl = asTrimmedString(raw.catalogUrl);
+  const kindRaw = asTrimmedString(raw.kind);
+  const kind =
+    kindRaw === 'scene-starter' || kindRaw === 'nsfw-generator' ? kindRaw : 'nsfw-generator';
+  if (!catalogUrl) {
+    return undefined;
+  }
+  if (!catalogUrl.startsWith('/') && !/^https?:\/\//i.test(catalogUrl)) {
+    return undefined;
+  }
+  return { kind, catalogUrl };
+}
+
 /**
  * Validate + normalize a raw JSON manifest. Returns null when required fields
  * are missing or invalid.
@@ -145,6 +171,7 @@ export function normalizePluginManifest(input: unknown): PluginManifest | null {
     ? raw.tools.map(normalizeTool).filter((entry): entry is PluginManifestTool => Boolean(entry))
     : undefined;
   const queueHooks = normalizeQueueHooks(raw.queueHooks);
+  const presetProvider = normalizePresetProvider(raw.presetProvider);
 
   return {
     id,
@@ -154,6 +181,7 @@ export function normalizePluginManifest(input: unknown): PluginManifest | null {
     ...(nav && nav.length > 0 ? { nav } : {}),
     ...(queueHooks ? { queueHooks } : {}),
     ...(tools && tools.length > 0 ? { tools } : {}),
+    ...(presetProvider ? { presetProvider } : {}),
   };
 }
 
@@ -311,4 +339,14 @@ export function primaryToolForPlugin(plugin: PluginManifest): PluginManifestTool
     plugin.tools[0] ??
     null
   );
+}
+
+/** Installed plugins that expose a remote preset catalog URL. */
+export function presetProvidersFromInstalledPlugins(
+  plugins: PluginManifest[] = loadInstalledPlugins()
+): PluginManifestPresetProvider[] {
+  return plugins
+    .filter(plugin => plugin.enabled !== false && plugin.presetProvider?.catalogUrl)
+    .map(plugin => plugin.presetProvider!)
+    .slice(0, 12);
 }

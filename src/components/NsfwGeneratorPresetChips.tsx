@@ -18,6 +18,7 @@ type NsfwGeneratorPresetChipsProps = {
   recentIds?: string[];
   onToggleFavorite?: (presetId: string) => void;
   onDeleteUserPreset?: (presetId: string) => void;
+  duoOnly?: boolean;
 };
 
 function PresetChip({
@@ -145,6 +146,7 @@ export default function NsfwGeneratorPresetChips({
   recentIds = [],
   onToggleFavorite,
   onDeleteUserPreset,
+  duoOnly = false,
 }: NsfwGeneratorPresetChipsProps) {
   const [query, setQuery] = useState('');
 
@@ -154,11 +156,15 @@ export default function NsfwGeneratorPresetChips({
   const catalogById = useMemo(() => new Map(catalog.map(preset => [preset.id, preset])), [catalog]);
 
   const categoryFiltered = useMemo(() => {
-    if (category === 'all') {
-      return catalog;
+    let pool = catalog;
+    if (category !== 'all') {
+      pool = pool.filter(preset => preset.category === category);
     }
-    return catalog.filter(preset => preset.category === category);
-  }, [catalog, category]);
+    if (duoOnly) {
+      pool = pool.filter(preset => preset.duo === true);
+    }
+    return pool;
+  }, [catalog, category, duoOnly]);
 
   const filtered = useMemo(
     () => filterNsfwPresetsByQuery(categoryFiltered, query),

@@ -81,9 +81,12 @@ import { isQwenLightningModel } from '@/lib/model-sampling-patch';
 import { expandWildcardText, textHasWildcardTokens } from '@/lib/wildcard-expand';
 import {
   hasSessionLoraIdsForModel,
+  resolveEffectiveSessionLoraStrengthOverrides,
   resolveLoraIdsForModelSelection,
   setSessionLoraIdsForModel,
+  setSessionLoraStrengthOverridesForModel,
   type SessionActiveLoraIdsByModel,
+  type SessionLoraStrengthOverridesByModel,
 } from '@/lib/model-lora-map';
 import { resolveQueueParams } from '@/lib/queue-params-settings';
 import {
@@ -262,9 +265,15 @@ export default function SharedToolControls({
   const [sessionActiveLoraIds, setSessionActiveLoraIds] = useState<string[] | undefined>(undefined);
   const [sessionActiveLoraIdsByModel, setSessionActiveLoraIdsByModel] =
     useState<SessionActiveLoraIdsByModel>({});
+  const [sessionLoraStrengthOverridesByModel, setSessionLoraStrengthOverridesByModel] =
+    useState<SessionLoraStrengthOverridesByModel>({});
   const [sessionLoraStrengthOverrides, setSessionLoraStrengthOverrides] =
     useState<SessionLoraStrengthOverrides>(() =>
-      normalizeSessionLoraStrengthOverrides(shared.sessionLoraStrengthOverrides)
+      resolveEffectiveSessionLoraStrengthOverrides(
+        shared.model,
+        shared.sessionLoraStrengthOverrides,
+        shared.sessionLoraStrengthOverridesByModel
+      )
     );
 
   const workflowCatalog = useMemo(
@@ -468,6 +477,12 @@ export default function SharedToolControls({
 
       // Swap LoRA stack to this model's stored picks (or map defaults).
       const sharedNow = loadSettingsCache().shared;
+      const nextStrengthOverrides = resolveEffectiveSessionLoraStrengthOverrides(
+        model,
+        sharedNow.sessionLoraStrengthOverrides,
+        sharedNow.sessionLoraStrengthOverridesByModel
+      );
+      setSessionLoraStrengthOverrides(nextStrengthOverrides);
       if (sharedNow.autoSelectLorasForModel !== false) {
         const nextIds = resolveLoraIdsForModelSelection(model, {
           sessionActiveLoraIdsByModel: sharedNow.sessionActiveLoraIdsByModel,
@@ -477,8 +492,18 @@ export default function SharedToolControls({
         saveSharedSettings({
           ...loadSettingsCache().shared,
           sessionActiveLoraIds: nextIds,
+          sessionLoraStrengthOverrides: nextStrengthOverrides,
         });
-        onSharedSettingsChange?.({ sessionActiveLoraIds: nextIds });
+        onSharedSettingsChange?.({
+          sessionActiveLoraIds: nextIds,
+          sessionLoraStrengthOverrides: nextStrengthOverrides,
+        });
+      } else {
+        saveSharedSettings({
+          ...loadSettingsCache().shared,
+          sessionLoraStrengthOverrides: nextStrengthOverrides,
+        });
+        onSharedSettingsChange?.({ sessionLoraStrengthOverrides: nextStrengthOverrides });
       }
     },
     [applyWorkflowForModel, onModelChange, onSharedSettingsChange, showAllModelsOverride]
@@ -726,6 +751,7 @@ export default function SharedToolControls({
       setAutoRetryOnOom(shared.autoRetryOnOom !== false);
       setOomRetryDowngrade(shared.oomRetryDowngrade !== false);
       setSessionActiveLoraIdsByModel(shared.sessionActiveLoraIdsByModel ?? {});
+      setSessionLoraStrengthOverridesByModel(shared.sessionLoraStrengthOverridesByModel ?? {});
       setSessionActiveLoraIds(
         resolveLoraIdsForModelSelection(shared.model, {
           sessionActiveLoraIdsByModel: shared.sessionActiveLoraIdsByModel,
@@ -734,7 +760,11 @@ export default function SharedToolControls({
         })
       );
       setSessionLoraStrengthOverrides(
-        normalizeSessionLoraStrengthOverrides(shared.sessionLoraStrengthOverrides)
+        resolveEffectiveSessionLoraStrengthOverrides(
+          shared.model,
+          shared.sessionLoraStrengthOverrides,
+          shared.sessionLoraStrengthOverridesByModel
+        )
       );
     });
   }, [
@@ -752,6 +782,7 @@ export default function SharedToolControls({
     shared.oomRetryDowngrade,
     shared.sessionActiveLoraIds,
     shared.sessionActiveLoraIdsByModel,
+    shared.sessionLoraStrengthOverridesByModel,
     shared.sessionLoraStrengthOverrides,
     shared.modelLoraMap,
     shared.model,
@@ -786,13 +817,24 @@ export default function SharedToolControls({
   };
 
   const handleSessionLoraStrengthOverridesChange = (overrides: SessionLoraStrengthOverrides) => {
+    const modelId = shared.model;
     const normalized = normalizeSessionLoraStrengthOverrides(overrides);
+    const nextByModel = setSessionLoraStrengthOverridesForModel(
+      loadSettingsCache().shared.sessionLoraStrengthOverridesByModel,
+      modelId,
+      normalized
+    );
     setSessionLoraStrengthOverrides(normalized);
+    setSessionLoraStrengthOverridesByModel(nextByModel);
     saveSharedSettings({
       ...loadSettingsCache().shared,
       sessionLoraStrengthOverrides: normalized,
+      sessionLoraStrengthOverridesByModel: nextByModel,
     });
-    onSharedSettingsChange?.({ sessionLoraStrengthOverrides: normalized });
+    onSharedSettingsChange?.({
+      sessionLoraStrengthOverrides: normalized,
+      sessionLoraStrengthOverridesByModel: nextByModel,
+    });
   };
 
   const handleSamplerPresetChange = (preset: ModelSamplerPresetTier) => {
@@ -946,6 +988,23 @@ export default function SharedToolControls({
           loadSettingsCache().shared.sessionActiveLoraIdsByModel);
     setSessionActiveLoraIds(next.sessionActiveLoraIds);
     setSessionActiveLoraIdsByModel(nextByModel ?? {});
+    const nextStrengthByModel =
+      next.sessionLoraStrengthOverrides !== undefined
+        ? setSessionLoraStrengthOverridesForModel(
+            next.sessionLoraStrengthOverridesByModel ??
+              loadSettingsCache().shared.sessionLoraStrengthOverridesByModel,
+            next.model,
+            next.sessionLoraStrengthOverrides
+          )
+        : (next.sessionLoraStrengthOverridesByModel ??
+          loadSettingsCache().shared.sessionLoraStrengthOverridesByModel);
+    const nextStrengthOverrides = resolveEffectiveSessionLoraStrengthOverrides(
+      next.model,
+      next.sessionLoraStrengthOverrides ?? loadSettingsCache().shared.sessionLoraStrengthOverrides,
+      nextStrengthByModel
+    );
+    setSessionLoraStrengthOverridesByModel(nextStrengthByModel ?? {});
+    setSessionLoraStrengthOverrides(nextStrengthOverrides);
     if (next.model !== shared.model) {
       onModelChange(next.model);
     }
@@ -955,6 +1014,8 @@ export default function SharedToolControls({
       sessionQueueMode: next.sessionQueueMode,
       sessionActiveLoraIds: next.sessionActiveLoraIds,
       sessionActiveLoraIdsByModel: nextByModel,
+      sessionLoraStrengthOverrides: nextStrengthOverrides,
+      sessionLoraStrengthOverridesByModel: nextStrengthByModel,
       modelSamplerPreset: next.modelSamplerPreset,
       modelResolutionOrientation: next.modelResolutionOrientation,
       modelResolutionSizeTier: next.modelResolutionSizeTier,
@@ -972,6 +1033,8 @@ export default function SharedToolControls({
       modelResolutionSizeTier: resolutionSizeTier,
       sessionActiveLoraIds,
       sessionActiveLoraIdsByModel,
+      sessionLoraStrengthOverrides,
+      sessionLoraStrengthOverridesByModel,
     }),
     [
       shared,
@@ -980,6 +1043,8 @@ export default function SharedToolControls({
       resolutionSizeTier,
       sessionActiveLoraIds,
       sessionActiveLoraIdsByModel,
+      sessionLoraStrengthOverrides,
+      sessionLoraStrengthOverridesByModel,
     ]
   );
 

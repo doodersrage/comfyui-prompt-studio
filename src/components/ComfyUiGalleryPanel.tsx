@@ -16,6 +16,7 @@ import {
   buildToolQualityRecipeFromGalleryEntry,
 } from '@/lib/tool-quality-recipes';
 import { loadSettingsCache, saveSharedSettings } from '@/lib/settings-cache';
+import { resolveSharedEffectiveSessionLoraStrengthOverrides } from '@/lib/comfyui-settings';
 import { recordAvoidedTokensFromGalleryEntry } from '@/lib/avoided-tokens';
 import { recordCatalogBiasFromPrompt } from '@/lib/catalog-rating-bias';
 import GalleryVisionReviewButton from '@/components/gallery/GalleryVisionReviewButton';
@@ -1592,8 +1593,27 @@ export default function ComfyUiGalleryPanel({
                       sourceTool: entry.tool,
                     });
                   }
+                  const shared = loadSettingsCache().shared;
+                  const built = buildToolQualityRecipeFromGalleryEntry({
+                    ...entry,
+                    sessionLoraStrengthOverrides:
+                      entry.sessionLoraStrengthOverrides ??
+                      resolveSharedEffectiveSessionLoraStrengthOverrides(entry.model),
+                  });
+                  if (built.ok) {
+                    const nextRecipes = appendUserToolQualityRecipe(
+                      shared.toolQualityRecipes,
+                      built.recipe
+                    );
+                    saveSharedSettings({
+                      ...shared,
+                      toolQualityRecipes: nextRecipes,
+                    });
+                  }
                   setCompareStatus(
-                    `Winner: ${entry.model ?? 'unknown'} · seed ${entry.queueParams?.seed ?? '?'}`
+                    `Winner: ${entry.model ?? 'unknown'} · seed ${entry.queueParams?.seed ?? '?'}${
+                      built.ok ? ' · recipe saved' : ''
+                    }`
                   );
                   void import('@/lib/auto-improve-loop')
                     .then(({ runAutoImproveOnRating }) => runAutoImproveOnRating(entry, 5))
@@ -1612,7 +1632,9 @@ export default function ComfyUiGalleryPanel({
                   const shared = loadSettingsCache().shared;
                   const built = buildToolQualityRecipeFromGalleryEntry({
                     ...entry,
-                    sessionLoraStrengthOverrides: shared.sessionLoraStrengthOverrides,
+                    sessionLoraStrengthOverrides:
+                      entry.sessionLoraStrengthOverrides ??
+                      resolveSharedEffectiveSessionLoraStrengthOverrides(entry.model),
                   });
                   if (!built.ok) {
                     setCompareStatus(built.error);

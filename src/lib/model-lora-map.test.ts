@@ -194,3 +194,48 @@ describe("model lora map", () => {
     );
   });
 });
+
+describe("model-lora-map session strength overrides", () => {
+  it("prefers per-model overrides over legacy global", async () => {
+    const {
+      resolveEffectiveSessionLoraStrengthOverrides,
+    } = await import("./model-lora-map");
+    const resolved = resolveEffectiveSessionLoraStrengthOverrides(
+      "flux-dev",
+      { skin: { strengthModel: 0.2, strengthClip: 0.2 } },
+      {
+        "flux-dev": { skin: { strengthModel: 0.8, strengthClip: 0.9 } },
+      },
+    );
+    assert.deepEqual(resolved, {
+      skin: { strengthModel: 0.8, strengthClip: 0.9 },
+    });
+  });
+
+  it("falls back to legacy global when by-model map is empty", async () => {
+    const {
+      resolveEffectiveSessionLoraStrengthOverrides,
+    } = await import("./model-lora-map");
+    const resolved = resolveEffectiveSessionLoraStrengthOverrides(
+      "flux-dev",
+      { skin: { strengthModel: 0.55, strengthClip: 0.7 } },
+      {},
+    );
+    assert.deepEqual(resolved, {
+      skin: { strengthModel: 0.55, strengthClip: 0.7 },
+    });
+  });
+
+  it("writes and clears per-model override entries", async () => {
+    const {
+      hasSessionLoraStrengthOverridesForModel,
+      setSessionLoraStrengthOverridesForModel,
+    } = await import("./model-lora-map");
+    const next = setSessionLoraStrengthOverridesForModel(undefined, "qwen-image-2512", {
+      detail: { strengthModel: 0.6, strengthClip: 0.6 },
+    });
+    assert.equal(hasSessionLoraStrengthOverridesForModel(next, "qwen-image-2512"), true);
+    const cleared = setSessionLoraStrengthOverridesForModel(next, "qwen-image-2512", {});
+    assert.equal(hasSessionLoraStrengthOverridesForModel(cleared, "qwen-image-2512"), false);
+  });
+});

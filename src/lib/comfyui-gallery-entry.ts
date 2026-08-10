@@ -25,6 +25,8 @@ export type ComfyGalleryEntry = {
   queueQualityProfile?: import('./queue-quality-profile').QueueQualityProfile;
   /** Session LoRA library ids active when this job was queued (for re-edit same stack). */
   sessionActiveLoraIds?: string[];
+  /** Session LoRA strength tweaks active when this job was queued. */
+  sessionLoraStrengthOverrides?: import('./lora-stack').SessionLoraStrengthOverrides;
   /** Quick review rating from gallery review mode. */
   reviewRating?: 1 | 2 | 3 | 4 | 5;
   /** Optional project/campaign id. */

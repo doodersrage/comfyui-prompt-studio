@@ -30,8 +30,12 @@ import {
   isLightningLibraryEntry,
   normalizeLoraLibrary,
   type LoraLibraryEntry,
+  type SessionLoraStrengthOverrides,
 } from './lora-stack';
-import { resolveEffectiveSessionLoraIds } from './model-lora-map';
+import {
+  resolveEffectiveSessionLoraIds,
+  resolveEffectiveSessionLoraStrengthOverrides,
+} from './model-lora-map';
 import { loadSettingsCache } from './settings-cache';
 
 /**
@@ -46,6 +50,17 @@ export function resolveSharedEffectiveSessionLoraIds(model?: string): string[] |
     model?.trim() || shared.model,
     shared.modelLoraMap,
     shared.sessionActiveLoraIdsByModel
+  );
+}
+
+export function resolveSharedEffectiveSessionLoraStrengthOverrides(
+  model?: string
+): SessionLoraStrengthOverrides {
+  const shared = loadSettingsCache().shared;
+  return resolveEffectiveSessionLoraStrengthOverrides(
+    model?.trim() || shared.model,
+    shared.sessionLoraStrengthOverrides,
+    shared.sessionLoraStrengthOverridesByModel
   );
 }
 
@@ -367,7 +382,8 @@ export function comfyUiSettingsToRuntime(
   // otherwise the per-model LoRA map applies when present.
   const loraLibrary = applySessionLoraStrengthOverrides(
     applySessionLoraSelection(settings.loraLibrary, sessionActiveLoraIds),
-    options?.sessionLoraStrengthOverrides ?? loadSettingsCache().shared.sessionLoraStrengthOverrides
+    options?.sessionLoraStrengthOverrides ??
+      resolveSharedEffectiveSessionLoraStrengthOverrides(options?.model)
   );
 
   if (settings.useServerDefaults) {

@@ -44,6 +44,7 @@ export type RegisterComfyGalleryJobInput = {
   queueQualityProfile?: import('./queue-quality-profile').QueueQualityProfile;
   /** Session LoRA ids active at queue time (for re-edit same stack). */
   sessionActiveLoraIds?: string[];
+  sessionLoraStrengthOverrides?: import('./lora-stack').SessionLoraStrengthOverrides;
   projectId?: string;
   comfyUrl: string;
   /** Inference engine for this job (defaults to active adapter). */
@@ -89,6 +90,20 @@ function resolveComfyUrlForJob(promptId: string, comfyUrl?: string): string | un
   );
 }
 
+export function inheritGallerySessionFields(
+  entry: Pick<ComfyGalleryEntry, 'sessionActiveLoraIds' | 'sessionLoraStrengthOverrides'>
+): Pick<RegisterComfyGalleryJobInput, 'sessionActiveLoraIds' | 'sessionLoraStrengthOverrides'> {
+  return {
+    ...(entry.sessionActiveLoraIds?.length
+      ? { sessionActiveLoraIds: entry.sessionActiveLoraIds }
+      : {}),
+    ...(entry.sessionLoraStrengthOverrides &&
+    Object.keys(entry.sessionLoraStrengthOverrides).length > 0
+      ? { sessionLoraStrengthOverrides: entry.sessionLoraStrengthOverrides }
+      : {}),
+  };
+}
+
 export function registerComfyGalleryJob(input: RegisterComfyGalleryJobInput): ComfyGalleryEntry {
   const imageUrls = buildGalleryImageUrlsFromQueueParams({
     comfyUrl: input.comfyUrl,
@@ -111,6 +126,7 @@ export function registerComfyGalleryJob(input: RegisterComfyGalleryJobInput): Co
     maskImageUrl: imageUrls.maskImageUrl,
     queueQualityProfile: input.queueQualityProfile,
     sessionActiveLoraIds: input.sessionActiveLoraIds,
+    sessionLoraStrengthOverrides: input.sessionLoraStrengthOverrides,
     projectId: input.projectId,
     comfyUrl: input.comfyUrl,
     engineId: input.engineId ?? getEngineAdapter().id,

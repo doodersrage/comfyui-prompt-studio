@@ -10,6 +10,12 @@ import {
   uniqueHistoryTools,
   type HistoryFilter,
 } from '@/lib/history-filter';
+import {
+  deleteHistorySavedView,
+  loadHistorySavedViews,
+  upsertHistorySavedView,
+  type HistorySavedView,
+} from '@/lib/history-saved-views';
 import { buildPromptSidecar, downloadPromptSidecar } from '@/lib/prompt-sidecar';
 import {
   requeueComfyJobFromHistory,
@@ -349,6 +355,8 @@ export default function StudioHistoryTab({
   const filterKey = useMemo(() => JSON.stringify(historyFilter), [historyFilter]);
   const [pageByFilter, setPageByFilter] = useState<Record<string, number>>({});
   const [bulkTagDraft, setBulkTagDraft] = useState('');
+  const [savedViews, setSavedViews] = useState<HistorySavedView[]>(() => loadHistorySavedViews());
+  const [viewNameDraft, setViewNameDraft] = useState('');
 
   const page = pageByFilter[filterKey] ?? 1;
   const setPage = (next: number | ((prev: number) => number)) => {
@@ -633,6 +641,74 @@ export default function StudioHistoryTab({
               />
               Favorites only
             </label>
+            <label className="flex items-center gap-3 self-end pb-1 type-body">
+              <input
+                type="checkbox"
+                checked={historyFilter.videoOnly === true}
+                onChange={event =>
+                  onHistoryFilterChange(previous => ({
+                    ...previous,
+                    videoOnly: event.target.checked || undefined,
+                  }))
+                }
+                className={`h-4 w-4 rounded-[var(--radius-sm)] ${accentFocusClass(accent)}`}
+              />
+              Video lineage only
+            </label>
+            <div className="flex flex-wrap items-end gap-2 sm:col-span-2 xl:col-span-3">
+              <div className="min-w-[10rem] flex-1 space-y-2">
+                <FieldLabel htmlFor="history-saved-view-name">Saved filter</FieldLabel>
+                <input
+                  id="history-saved-view-name"
+                  value={viewNameDraft}
+                  onChange={event => setViewNameDraft(event.target.value)}
+                  placeholder="Campaign keepers, video drafts…"
+                  className="ui-input px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+                />
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  const name = viewNameDraft.trim() || `Filter ${savedViews.length + 1}`;
+                  upsertHistorySavedView({
+                    id: `history-view-${Date.now().toString(36)}`,
+                    name,
+                    filter: historyFilter,
+                  });
+                  setSavedViews(loadHistorySavedViews());
+                  setViewNameDraft('');
+                  onBackupStatusChange(`Saved history filter “${name}”.`);
+                }}
+              >
+                Save filter
+              </Button>
+              {savedViews.map(view => (
+                <div key={view.id} className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      onHistoryFilterChange(view.filter);
+                      onBackupStatusChange(`Applied filter “${view.name}”.`);
+                    }}
+                  >
+                    {view.name}
+                  </Button>
+                  <button
+                    type="button"
+                    aria-label={`Delete saved filter ${view.name}`}
+                    className="rounded px-1 text-xs text-[var(--text-muted)] hover:text-rose-300"
+                    onClick={() => {
+                      deleteHistorySavedView(view.id);
+                      setSavedViews(loadHistorySavedViews());
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
             {filteredEntries.length > 0 && onAddTagToEntries ? (
               <div className="flex flex-wrap items-end gap-2 sm:col-span-2 xl:col-span-3">
                 <div className="min-w-[10rem] flex-1 space-y-2">

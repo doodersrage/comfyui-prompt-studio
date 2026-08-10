@@ -54,6 +54,15 @@ import {
   saveWebhookSettings,
   type WebhookSettings,
 } from '@/lib/webhook-settings';
+import { loadSessionRecipes, saveSessionRecipes, type SessionRecipe } from '@/lib/session-recipes';
+import {
+  loadUserNsfwGeneratorPresets,
+  loadNsfwPresetPrefs,
+  saveNsfwPresetPrefs,
+  saveUserNsfwGeneratorPresets,
+  type NsfwPresetPrefs,
+  type UserNsfwGeneratorPreset,
+} from '@/lib/user-nsfw-generator-presets';
 
 export type StudioBackupV1 = {
   version: 1;
@@ -83,11 +92,18 @@ export type StudioBackupV3 = Omit<StudioBackupV2, 'version'> & {
   webhookSettings?: WebhookSettings;
 };
 
-export type StudioBackup = StudioBackupV1 | StudioBackupV2 | StudioBackupV3;
+export type StudioBackupV4 = Omit<StudioBackupV3, 'version'> & {
+  version: 4;
+  sessionRecipes?: SessionRecipe[];
+  userNsfwGeneratorPresets?: UserNsfwGeneratorPreset[];
+  nsfwPresetPrefs?: NsfwPresetPrefs;
+};
 
-export function exportStudioBackup(): StudioBackupV3 {
+export type StudioBackup = StudioBackupV1 | StudioBackupV2 | StudioBackupV3 | StudioBackupV4;
+
+export function exportStudioBackup(): StudioBackupV4 {
   return {
-    version: 3,
+    version: 4,
     exportedAt: new Date().toISOString(),
     history: loadHistoryFromStorage(),
     locationBlocklist: loadLocationBlocklist(),
@@ -104,11 +120,19 @@ export function exportStudioBackup(): StudioBackupV3 {
     activeProjectId: loadActiveProjectId(),
     scheduledBatch: loadScheduledBatchConfig(),
     webhookSettings: loadWebhookSettings(),
+    sessionRecipes: loadSessionRecipes(),
+    userNsfwGeneratorPresets: loadUserNsfwGeneratorPresets(),
+    nsfwPresetPrefs: loadNsfwPresetPrefs(),
   };
 }
 
 export function importStudioBackup(backup: StudioBackup): void {
-  if (backup.version !== 1 && backup.version !== 2 && backup.version !== 3) {
+  if (
+    backup.version !== 1 &&
+    backup.version !== 2 &&
+    backup.version !== 3 &&
+    backup.version !== 4
+  ) {
     throw new Error('Unsupported backup version.');
   }
 
@@ -137,7 +161,7 @@ export function importStudioBackup(backup: StudioBackup): void {
     }
   }
 
-  if (backup.version === 3) {
+  if (backup.version === 3 || backup.version === 4) {
     if (backup.avoidedTokens) {
       saveAvoidedTokens(backup.avoidedTokens);
     }
@@ -157,6 +181,18 @@ export function importStudioBackup(backup: StudioBackup): void {
     }
     if (backup.webhookSettings) {
       saveWebhookSettings(backup.webhookSettings);
+    }
+  }
+
+  if (backup.version === 4) {
+    if (backup.sessionRecipes) {
+      saveSessionRecipes(backup.sessionRecipes);
+    }
+    if (backup.userNsfwGeneratorPresets) {
+      saveUserNsfwGeneratorPresets(backup.userNsfwGeneratorPresets);
+    }
+    if (backup.nsfwPresetPrefs) {
+      saveNsfwPresetPrefs(backup.nsfwPresetPrefs);
     }
   }
 }
@@ -184,7 +220,10 @@ export function parseStudioBackupFile(raw: string): StudioBackup {
   const parsed = JSON.parse(raw) as StudioBackup;
   if (
     !parsed ||
-    (parsed.version !== 1 && parsed.version !== 2 && parsed.version !== 3) ||
+    (parsed.version !== 1 &&
+      parsed.version !== 2 &&
+      parsed.version !== 3 &&
+      parsed.version !== 4) ||
     !Array.isArray(parsed.history)
   ) {
     throw new Error('Invalid studio backup file.');

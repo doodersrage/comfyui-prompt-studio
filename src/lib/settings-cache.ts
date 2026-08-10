@@ -240,6 +240,8 @@ export type SharedToolSettings = {
   sessionActiveLoraIdsByModel?: SessionActiveLoraIdsByModel;
   /** Session-only LoRA strength tweaks (merged at queue time; does not change library defaults). */
   sessionLoraStrengthOverrides?: SessionLoraStrengthOverrides;
+  /** Per-model session LoRA strength tweaks (preferred over global legacy field). */
+  sessionLoraStrengthOverridesByModel?: import('./model-lora-map').SessionLoraStrengthOverridesByModel;
   /** Tiled neural upscale tile size (0 disables tiling). Overrides Max default when set. */
   neuralUpscaleTileSize?: number;
   /** Prefer mapped library workflow with upscale nodes for gallery upscale actions. */
@@ -480,6 +482,7 @@ export type NsfwGeneratorToolCache = {
   wildness?: number;
   nsfwPresetId?: string;
   presetCategory?: 'all' | import('./nsfw-generator-presets').NsfwPresetCategory;
+  duoOnly?: boolean;
 };
 
 export type ImagePromptToolCache = {
@@ -638,6 +641,7 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
   modelLoraMap: {},
   sessionActiveLoraIdsByModel: {},
   sessionLoraStrengthOverrides: {},
+  sessionLoraStrengthOverridesByModel: {},
   autoSelectWorkflowForModel: true,
   autoSelectLorasForModel: true,
   limitModelsToAvailableWorkflows: true,
@@ -993,6 +997,19 @@ export function loadSettingsCache(): SettingsCache {
       };
     } else if (!shared.sessionActiveLoraIdsByModel) {
       shared.sessionActiveLoraIdsByModel = {};
+    }
+
+    const strengthByModel = shared.sessionLoraStrengthOverridesByModel ?? {};
+    const strengthByModelEmpty = Object.keys(strengthByModel).length === 0;
+    const legacyStrength = normalizeSessionLoraStrengthOverrides(
+      shared.sessionLoraStrengthOverrides
+    );
+    if (strengthByModelEmpty && Object.keys(legacyStrength).length > 0 && shared.model?.trim()) {
+      shared.sessionLoraStrengthOverridesByModel = {
+        [shared.model.trim()]: legacyStrength,
+      };
+    } else if (!shared.sessionLoraStrengthOverridesByModel) {
+      shared.sessionLoraStrengthOverridesByModel = {};
     }
 
     const rawTools = parsed.tools ?? {};

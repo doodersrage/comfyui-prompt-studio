@@ -13,7 +13,10 @@ import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { avoidedTokensRequestBody } from '@/lib/avoided-tokens';
 import { getComfyModelDefinition } from '@/lib/comfy-models/client';
 import type { NsfwGeneratorPreset } from '@/lib/nsfw-generator-presets';
-import { resolveNsfwGeneratorPreset } from '@/lib/nsfw-generator-presets';
+import {
+  resolveNsfwGeneratorPreset,
+  pickRandomNsfwGeneratorPreset,
+} from '@/lib/nsfw-generator-presets';
 import { DEFAULT_NSFW_GENERATOR_TOOL_CACHE } from '@/lib/settings-cache';
 import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
 import { getReformatTargetLabel } from '@/lib/reformat-target';
@@ -30,8 +33,15 @@ import {
   pushNsfwPresetRecent,
   toggleNsfwPresetFavorite,
   upsertUserNsfwGeneratorPreset,
+  exportUserNsfwPresetPack,
+  importUserNsfwPresetPack,
   type UserNsfwGeneratorPreset,
 } from '@/lib/user-nsfw-generator-presets';
+import {
+  buildPresetVariationsHandoff,
+  presetVariationsPath,
+  savePresetVariationsHandoff,
+} from '@/lib/preset-variations-handoff';
 import { dispatchWebhook } from '@/lib/webhook-settings';
 import { whenBrowserStorageReady } from '@/lib/browser-storage';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
@@ -162,6 +172,35 @@ export default function NsfwGeneratorTool() {
     setError(null);
   }, [toolSettings, userPresets, updateToolSettings]);
 
+  const pickRandomPreset = useCallback(() => {
+    const preset = pickRandomNsfwGeneratorPreset(userPresets, {
+      category: toolSettings.presetCategory ?? 'all',
+      duoOnly: toolSettings.duoOnly === true,
+    });
+    if (!preset) {
+      setError('No presets match the current filters.');
+      return;
+    }
+    handlePresetSelect(preset);
+    setError(null);
+  }, [handlePresetSelect, toolSettings.duoOnly, toolSettings.presetCategory, userPresets]);
+
+  const handoffToVariations = useCallback(() => {
+    const hints = toolSettings.hints?.trim();
+    if (!hints) {
+      setError('Add hints before opening Variations.');
+      return;
+    }
+    savePresetVariationsHandoff(
+      buildPresetVariationsHandoff({
+        hints,
+        target: 'generate',
+        count: 4,
+      })
+    );
+    window.location.href = presetVariationsPath();
+  }, [toolSettings.hints]);
+
   const generate = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -250,6 +289,15 @@ export default function NsfwGeneratorTool() {
         persistKey="nsfw-generator-presets"
       >
         <div className="space-y-3">
+          <label className="flex items-center gap-3 text-sm text-[var(--text-secondary)]">
+            <input
+              type="checkbox"
+              checked={toolSettings.duoOnly === true}
+              onChange={event => updateToolSettings({ duoOnly: event.target.checked || undefined })}
+              className={`h-4 w-4 rounded ${accentFocusClass(ACCENT)}`}
+            />
+            Duo presets only
+          </label>
           <NsfwGeneratorPresetChips
             selectedId={toolSettings.nsfwPresetId}
             category={toolSettings.presetCategory ?? 'all'}
@@ -257,6 +305,7 @@ export default function NsfwGeneratorTool() {
             userPresets={userPresets}
             favoriteIds={presetPrefs.favoriteIds}
             recentIds={presetPrefs.recentIds}
+            duoOnly={toolSettings.duoOnly === true}
             onToggleFavorite={id => setPresetPrefs(toggleNsfwPresetFavorite(id))}
             onDeleteUserPreset={id => {
               deleteUserNsfwGeneratorPreset(id);
@@ -268,9 +317,61 @@ export default function NsfwGeneratorTool() {
             }}
             onSelect={handlePresetSelect}
           />
-          <Button variant="secondary" size="sm" onClick={saveCurrentAsPreset}>
-            Save current hints as preset
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" size="sm" onClick={saveCurrentAsPreset}>
+              Save current hints as preset
+            </Button>
+            <Button variant="secondary" size="sm" onClick={pickRandomPreset}>
+              Random preset
+            </Button>
+            <Button variant="secondary" size="sm" onClick={handoffToVariations}>
+              Variations grid
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                const payload = JSON.stringify(exportUserNsfwPresetPack(), null, 2);
+                const blob = new Blob([payload], { type: 'application/json;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const anchor = document.createElement('a');
+                anchor.href = url;
+                anchor.download = `adult-presets-${Date.now()}.json`;
+                anchor.click();
+                URL.revokeObjectURL(url);
+              }}
+            >
+              Export presets
+            </Button>
+            <label className="ui-btn-secondary ui-btn-sm cursor-pointer px-4">
+              Import presets
+              <input
+                type="file"
+                accept="application/json,.json"
+                className="hidden"
+                onChange={event => {
+                  const file = event.target.files?.[0];
+                  if (!file) {
+                    return;
+                  }
+                  void file.text().then(raw => {
+                    try {
+                      const pack = JSON.parse(
+                        raw
+                      ) as import('@/lib/user-nsfw-generator-presets').UserNsfwPresetPack;
+                      importUserNsfwPresetPack(pack, 'merge');
+                      setUserPresets(loadUserNsfwGeneratorPresets());
+                      setPresetPrefs(loadNsfwPresetPrefs());
+                      setError(null);
+                    } catch {
+                      setError('Invalid preset pack file.');
+                    }
+                  });
+                  event.target.value = '';
+                }}
+              />
+            </label>
+          </div>
         </div>
       </CollapsibleSection>
 
