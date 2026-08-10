@@ -106,7 +106,7 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 - **Gallery review shortcuts** — 1–5 rate, F favorite, N/P navigate in review mode
 - **Gallery review auto-advance** — optional jump to next unreviewed item after rating
 - **Mobile gallery review** — touch-friendly rating bar in gallery review mode
-- **Gallery compare modal** — compare 2–4 selected outputs in a full-screen overlay
+- **Gallery compare modal** — compare 2–4 selected outputs in a full-screen overlay (`GalleryCompareModal` + `useGalleryCompareHandlers`)
 - **Gallery compare panel** — pick winner, rate, favorite, mutate, or improve; bulk **Seed experiment**
 - **Gallery compare** — select 2–4 completed entries for side-by-side review on `/gallery`
 - **Gallery card polish** — hover quick actions (Open, Improve); storage cap warning near 5,000 IndexedDB entries
