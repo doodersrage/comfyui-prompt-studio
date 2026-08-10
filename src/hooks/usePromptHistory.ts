@@ -5,6 +5,7 @@ import { whenBrowserStorageReady } from '@/lib/browser-storage';
 import {
   loadPromptHistoryStore,
   savePromptHistoryStore,
+  PROMPT_HISTORY_LIMIT,
   type PromptHistoryEntry,
 } from '@/lib/prompt-history';
 import { USER_SCOPE_CHANGED_EVENT } from '@/lib/user-scope';
@@ -70,7 +71,7 @@ export function usePromptHistory() {
         id: entry.id?.trim() || crypto.randomUUID(),
         timestamp: Date.now(),
       };
-      persist([next, ...loadHistory()].slice(0, 100));
+      persist([next, ...loadHistory()].slice(0, PROMPT_HISTORY_LIMIT));
       return next.id;
     },
     [persist]

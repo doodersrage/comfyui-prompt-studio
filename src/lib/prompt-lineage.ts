@@ -1,8 +1,4 @@
-import {
-  loadPromptHistoryStore,
-  savePromptHistoryStore,
-  type PromptHistoryEntry,
-} from './prompt-history';
+import { loadPromptHistoryStore, savePromptHistoryStore } from './prompt-history';
 import {
   loadComfyGallery,
   updateComfyGalleryByPromptId,
@@ -50,7 +46,7 @@ export function attachGalleryPromptIdToHistory(
           }
         : entry
     );
-    savePromptHistoryStore(next.slice(0, 100));
+    savePromptHistoryStore(next);
   } catch {
     // ignore
   }

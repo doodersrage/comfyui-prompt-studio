@@ -3,6 +3,7 @@ import {
   saveLocationBlocklist,
   loadPromptHistoryStore,
   savePromptHistoryStore,
+  PROMPT_HISTORY_LIMIT,
   type PromptHistoryEntry,
 } from '@/lib/prompt-history';
 import {
@@ -35,9 +36,8 @@ import {
 } from '@/lib/comfyui-workflow-presets';
 import { exportAvoidedTokenList, saveAvoidedTokens } from '@/lib/avoided-tokens';
 import { WEBHOOK_LOG_KEY, loadWebhookLog, type WebhookLogEntry } from '@/lib/webhook-log';
-import { readBrowserValue, writeBrowserValue } from '@/lib/browser-storage';
+import { writeBrowserValue } from '@/lib/browser-storage';
 import {
-  ACTIVE_PROJECT_KEY,
   loadActiveProjectId,
   loadPromptProjects,
   savePromptProjects,
@@ -112,7 +112,7 @@ export function importStudioBackup(backup: StudioBackup): void {
     throw new Error('Unsupported backup version.');
   }
 
-  savePromptHistoryStore(backup.history.slice(0, 100));
+  savePromptHistoryStore(backup.history.slice(0, PROMPT_HISTORY_LIMIT));
   saveLocationBlocklist(backup.locationBlocklist);
   saveSettingsCache(backup.settings);
   if (backup.scenePresets) {

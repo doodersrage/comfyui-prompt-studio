@@ -1,4 +1,5 @@
 import type { GenerationDiagnostics } from '@/lib/generation-diagnostics';
+import { PROMPT_HISTORY_LIMIT } from '@/lib/history-pagination';
 import { readBrowserValue, writeBrowserValue } from './browser-storage';
 import { getActiveUserId, isUserScoped, scopedStorageKey } from './user-scope';
 
@@ -27,7 +28,7 @@ export type PromptHistoryEntry = {
   userId?: string;
 };
 
-const HISTORY_LIMIT = 100;
+export { PROMPT_HISTORY_LIMIT } from '@/lib/history-pagination';
 
 function historyKey(): string {
   return scopedStorageKey(PROMPT_HISTORY_KEY);
@@ -75,7 +76,7 @@ export function savePromptHistoryStore(entries: PromptHistoryEntry[]): void {
   }
 
   const userId = getActiveUserId();
-  const stamped = entries.slice(0, HISTORY_LIMIT).map(entry => ({
+  const stamped = entries.slice(0, PROMPT_HISTORY_LIMIT).map(entry => ({
     ...entry,
     userId: entry.userId ?? userId ?? undefined,
   }));

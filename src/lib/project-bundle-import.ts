@@ -4,7 +4,7 @@ import { loadComfyGallery, saveComfyGallery } from './comfyui-gallery';
 import {
   loadPromptHistoryStore,
   savePromptHistoryStore,
-  type PromptHistoryEntry,
+  PROMPT_HISTORY_LIMIT,
 } from './prompt-history';
 import { upsertPromptProject } from './prompt-projects';
 import type { ProjectBundle } from './project-bundle';
@@ -18,7 +18,7 @@ export function importProjectBundle(bundle: ProjectBundle): {
   const history = loadPromptHistoryStore();
   const historyIds = new Set(history.map(entry => entry.id));
   const historyAdded = bundle.history.filter(entry => !historyIds.has(entry.id));
-  const mergedHistory = [...historyAdded, ...history].slice(0, 100);
+  const mergedHistory = [...historyAdded, ...history].slice(0, PROMPT_HISTORY_LIMIT);
   savePromptHistoryStore(mergedHistory);
 
   const gallery = loadComfyGallery();

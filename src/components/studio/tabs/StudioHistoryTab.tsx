@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import type { PromptHistoryEntry } from '@/hooks/usePromptHistory';
 import type { PromptProject } from '@/lib/prompt-projects';
@@ -37,6 +38,15 @@ import {
 import type { ToolAccent } from '@/lib/tool-theme';
 import { FieldLabel } from '@/components/ui/Field';
 import { Button } from '@/components/ui/Button';
+import ListPaginator from '@/components/ui/ListPaginator';
+import {
+  DEFAULT_HISTORY_PAGE_SIZE,
+  paginateItems,
+  pageForIndex,
+  type HistoryPageSize,
+} from '@/lib/history-pagination';
+import { readBrowserString, writeBrowserString } from '@/lib/browser-storage';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import {
   EmptyState,
   ErrorState,
@@ -324,6 +334,46 @@ export default function StudioHistoryTab({
   onSaveTemplateFromEntry,
   onSendBatchFavorites,
 }: StudioHistoryTabProps) {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<HistoryPageSize>(() => {
+    const stored = readBrowserString('studio-history-page-size');
+    const parsed = stored ? Number(stored) : DEFAULT_HISTORY_PAGE_SIZE;
+    return ([10, 25, 50, 100] as const).includes(parsed as HistoryPageSize)
+      ? (parsed as HistoryPageSize)
+      : DEFAULT_HISTORY_PAGE_SIZE;
+  });
+
+  const filterKey = useMemo(() => JSON.stringify(historyFilter), [historyFilter]);
+  const [pageByFilter, setPageByFilter] = useState<Record<string, number>>({});
+
+  const page = pageByFilter[filterKey] ?? 1;
+  const setPage = (next: number | ((prev: number) => number)) => {
+    setPageByFilter(previous => {
+      const current = previous[filterKey] ?? 1;
+      const resolved = typeof next === 'function' ? next(current) : next;
+      return { ...previous, [filterKey]: resolved };
+    });
+  };
+
+  useEffect(() => {
+    if (!highlightHistoryId) {
+      return;
+    }
+    const index = filteredEntries.findIndex(entry => entry.id === highlightHistoryId);
+    if (index >= 0) {
+      scheduleAfterCommit(() => {
+        setPage(pageForIndex(index, pageSize));
+      });
+    }
+  }, [highlightHistoryId, filteredEntries, pageSize, filterKey]);
+
+  const pagination = useMemo(
+    () => paginateItems(filteredEntries, page, pageSize),
+    [filteredEntries, page, pageSize]
+  );
+
+  const visibleEntries = pagination.items;
+
   return (
     <ToolSection title="Saved prompts">
       <ToolMetaPanel>
@@ -331,6 +381,9 @@ export default function StudioHistoryTab({
           <p className="type-heading shrink-0">
             {filteredEntries.length}
             {filteredEntries.length !== entries.length ? ` of ${entries.length}` : ''} entries
+            {filteredEntries.length > pageSize
+              ? ` · page ${pagination.page}/${pagination.totalPages}`
+              : ''}
           </p>
           <div className="ui-list-actions w-full justify-start lg:w-auto lg:justify-end">
             {favoriteEntries.length > 0 && (
@@ -618,161 +671,195 @@ export default function StudioHistoryTab({
           }}
         />
       ) : (
-        <ToolBlockGroup className="mt-[var(--block-gap)]">
-          {filteredEntries.map(entry => (
-            <HistoryCard
-              key={entry.id}
-              entry={entry}
-              highlighted={highlightHistoryId === entry.id}
-              onCopy={() => onCopy(entry.prompt)}
-              onToggleFavorite={() => onToggleFavorite(entry.id)}
-              onRate={rating => onRate(entry.id, rating)}
-              onAddTag={tag => onAddTag(entry.id, tag)}
-              onExportSidecar={() => {
-                downloadPromptSidecar(
-                  buildPromptSidecar({
-                    positive: entry.prompt,
-                    model: entry.model,
-                    hints: entry.hints,
-                    tool: entry.tool,
-                    diagnostics: entry.diagnostics,
-                    metadata: entry.metadata,
-                  }),
-                  `${entry.tool}-history`
-                );
+        <>
+          {filteredEntries.length > pageSize ? (
+            <ListPaginator
+              page={pagination.page}
+              totalPages={pagination.totalPages}
+              totalItems={pagination.totalItems}
+              rangeStart={pagination.rangeStart}
+              rangeEnd={pagination.rangeEnd}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={nextSize => {
+                setPageSize(nextSize);
+                writeBrowserString('studio-history-page-size', String(nextSize));
+                setPage(1);
               }}
-              onRemove={() => onRemoveEntry(entry.id)}
-              onDiffLeft={() => onDiffLeft(entry.id)}
-              onDiffRight={() => onDiffRight(entry.id)}
-              onSaveTemplate={() => onSaveTemplateFromEntry(entry)}
-              onRequeue={newSeed => {
-                onBackupStatusChange('Queueing variation from history…');
-                void requeueComfyJobFromHistory(entry, {
-                  newSeed,
-                  onStatus: onBackupStatusChange,
-                }).then(result => {
-                  if (!result.ok) {
-                    onBackupStatusChange(result.error ?? 'Re-queue failed.');
-                    toastQueueOutcome({
-                      ok: false,
-                      text: result.error ?? 'Re-queue failed.',
-                    });
-                    return;
-                  }
-                  if (result.held) {
-                    const message = 'Max re-queue held until ComfyUI queue is idle';
-                    onBackupStatusChange(message);
-                    toastHeldMax({ text: message });
-                    return;
-                  }
-                  const message = [
-                    'queued from history',
-                    result.promptId ? `prompt_id ${result.promptId}` : null,
-                    newSeed ? 'new variation · new seed' : 'same params',
-                  ]
-                    .filter(Boolean)
-                    .join(' · ');
-                  onBackupStatusChange(message);
-                  toastQueueOutcome({ ok: true, text: message });
-                });
-              }}
-              onUpscale={qualityProfile => {
-                const galleryEntry = findGalleryEntryForHistory(entry);
-                if (!galleryEntry) {
-                  onBackupStatusChange(
-                    'No linked gallery output — rate or queue from Gallery first, then upscale from there.'
-                  );
-                  return;
-                }
-                onBackupStatusChange(`Upscaling linked gallery output (${qualityProfile})…`);
-                void requeueUpscaleFromGalleryEntry(galleryEntry, {
-                  qualityProfile,
-                  onStatus: onBackupStatusChange,
-                }).then(result => {
-                  if (!result.ok) {
-                    onBackupStatusChange(result.error ?? 'Upscale failed.');
-                    toastQueueOutcome({
-                      ok: false,
-                      text: result.error ?? 'Upscale failed.',
-                    });
-                    return;
-                  }
-                  if (result.held) {
-                    const message = 'Max upscale held until ComfyUI queue is idle';
-                    onBackupStatusChange(message);
-                    toastHeldMax({ text: message });
-                    return;
-                  }
-                  const message = result.promptId
-                    ? `Upscale queued · ${result.promptId}`
-                    : 'Upscale queued';
-                  onBackupStatusChange(message);
-                  toastQueueOutcome({ ok: true, text: message });
-                });
-              }}
-              onRefine={() => {
-                const galleryEntry = findGalleryEntryForHistory(entry);
-                if (!galleryEntry) {
-                  onBackupStatusChange(
-                    'No linked gallery output — open Gallery and use Refine on the completed output.'
-                  );
-                  return;
-                }
-                onBackupStatusChange('Queueing low-denoise refine from linked gallery output…');
-                void requeueRefineFromGalleryEntry(galleryEntry, {
-                  onStatus: onBackupStatusChange,
-                }).then(result => {
-                  if (!result.ok) {
-                    onBackupStatusChange(result.error ?? 'Refine failed.');
-                    toastQueueOutcome({
-                      ok: false,
-                      text: result.error ?? 'Refine failed.',
-                    });
-                    return;
-                  }
-                  if (result.held) {
-                    const message = 'Max refine held until ComfyUI queue is idle';
-                    onBackupStatusChange(message);
-                    toastHeldMax({ text: message });
-                    return;
-                  }
-                  const message = result.promptId
-                    ? `Refine queued · ${result.promptId}`
-                    : 'Refine queued';
-                  onBackupStatusChange(message);
-                  toastQueueOutcome({ ok: true, text: message });
-                });
-              }}
-              onRequeueBatch={() => {
-                const batchPrompts = readHistoryBatchPrompts(entry);
-                if (batchPrompts.length === 0) {
-                  return;
-                }
-                onBackupStatusChange(`Re-queueing batch (${batchPrompts.length})…`);
-                void requeueComfyJobs(
-                  batchPrompts.map(prompt => ({
-                    prompt,
-                    tool: entry.tool,
-                    model: entry.model,
-                    hints: entry.hints,
-                    newSeed: true,
-                  })),
-                  onBackupStatusChange
-                ).then(({ queued, failed }) => {
-                  onBackupStatusChange(
-                    `Batch re-queue finished · ${queued} queued · ${failed} failed`
-                  );
-                  toastBulkQueueSummary({
-                    label: 'Batch re-queue finished',
-                    queued,
-                    failed,
-                  });
-                });
-              }}
-              batchPromptCount={readHistoryBatchPrompts(entry).length}
             />
-          ))}
-        </ToolBlockGroup>
+          ) : null}
+          <ToolBlockGroup className="mt-[var(--block-gap)]">
+            {visibleEntries.map(entry => (
+              <HistoryCard
+                key={entry.id}
+                entry={entry}
+                highlighted={highlightHistoryId === entry.id}
+                onCopy={() => onCopy(entry.prompt)}
+                onToggleFavorite={() => onToggleFavorite(entry.id)}
+                onRate={rating => onRate(entry.id, rating)}
+                onAddTag={tag => onAddTag(entry.id, tag)}
+                onExportSidecar={() => {
+                  downloadPromptSidecar(
+                    buildPromptSidecar({
+                      positive: entry.prompt,
+                      model: entry.model,
+                      hints: entry.hints,
+                      tool: entry.tool,
+                      diagnostics: entry.diagnostics,
+                      metadata: entry.metadata,
+                    }),
+                    `${entry.tool}-history`
+                  );
+                }}
+                onRemove={() => onRemoveEntry(entry.id)}
+                onDiffLeft={() => onDiffLeft(entry.id)}
+                onDiffRight={() => onDiffRight(entry.id)}
+                onSaveTemplate={() => onSaveTemplateFromEntry(entry)}
+                onRequeue={newSeed => {
+                  onBackupStatusChange('Queueing variation from history…');
+                  void requeueComfyJobFromHistory(entry, {
+                    newSeed,
+                    onStatus: onBackupStatusChange,
+                  }).then(result => {
+                    if (!result.ok) {
+                      onBackupStatusChange(result.error ?? 'Re-queue failed.');
+                      toastQueueOutcome({
+                        ok: false,
+                        text: result.error ?? 'Re-queue failed.',
+                      });
+                      return;
+                    }
+                    if (result.held) {
+                      const message = 'Max re-queue held until ComfyUI queue is idle';
+                      onBackupStatusChange(message);
+                      toastHeldMax({ text: message });
+                      return;
+                    }
+                    const message = [
+                      'queued from history',
+                      result.promptId ? `prompt_id ${result.promptId}` : null,
+                      newSeed ? 'new variation · new seed' : 'same params',
+                    ]
+                      .filter(Boolean)
+                      .join(' · ');
+                    onBackupStatusChange(message);
+                    toastQueueOutcome({ ok: true, text: message });
+                  });
+                }}
+                onUpscale={qualityProfile => {
+                  const galleryEntry = findGalleryEntryForHistory(entry);
+                  if (!galleryEntry) {
+                    onBackupStatusChange(
+                      'No linked gallery output — rate or queue from Gallery first, then upscale from there.'
+                    );
+                    return;
+                  }
+                  onBackupStatusChange(`Upscaling linked gallery output (${qualityProfile})…`);
+                  void requeueUpscaleFromGalleryEntry(galleryEntry, {
+                    qualityProfile,
+                    onStatus: onBackupStatusChange,
+                  }).then(result => {
+                    if (!result.ok) {
+                      onBackupStatusChange(result.error ?? 'Upscale failed.');
+                      toastQueueOutcome({
+                        ok: false,
+                        text: result.error ?? 'Upscale failed.',
+                      });
+                      return;
+                    }
+                    if (result.held) {
+                      const message = 'Max upscale held until ComfyUI queue is idle';
+                      onBackupStatusChange(message);
+                      toastHeldMax({ text: message });
+                      return;
+                    }
+                    const message = result.promptId
+                      ? `Upscale queued · ${result.promptId}`
+                      : 'Upscale queued';
+                    onBackupStatusChange(message);
+                    toastQueueOutcome({ ok: true, text: message });
+                  });
+                }}
+                onRefine={() => {
+                  const galleryEntry = findGalleryEntryForHistory(entry);
+                  if (!galleryEntry) {
+                    onBackupStatusChange(
+                      'No linked gallery output — open Gallery and use Refine on the completed output.'
+                    );
+                    return;
+                  }
+                  onBackupStatusChange('Queueing low-denoise refine from linked gallery output…');
+                  void requeueRefineFromGalleryEntry(galleryEntry, {
+                    onStatus: onBackupStatusChange,
+                  }).then(result => {
+                    if (!result.ok) {
+                      onBackupStatusChange(result.error ?? 'Refine failed.');
+                      toastQueueOutcome({
+                        ok: false,
+                        text: result.error ?? 'Refine failed.',
+                      });
+                      return;
+                    }
+                    if (result.held) {
+                      const message = 'Max refine held until ComfyUI queue is idle';
+                      onBackupStatusChange(message);
+                      toastHeldMax({ text: message });
+                      return;
+                    }
+                    const message = result.promptId
+                      ? `Refine queued · ${result.promptId}`
+                      : 'Refine queued';
+                    onBackupStatusChange(message);
+                    toastQueueOutcome({ ok: true, text: message });
+                  });
+                }}
+                onRequeueBatch={() => {
+                  const batchPrompts = readHistoryBatchPrompts(entry);
+                  if (batchPrompts.length === 0) {
+                    return;
+                  }
+                  onBackupStatusChange(`Re-queueing batch (${batchPrompts.length})…`);
+                  void requeueComfyJobs(
+                    batchPrompts.map(prompt => ({
+                      prompt,
+                      tool: entry.tool,
+                      model: entry.model,
+                      hints: entry.hints,
+                      newSeed: true,
+                    })),
+                    onBackupStatusChange
+                  ).then(({ queued, failed }) => {
+                    onBackupStatusChange(
+                      `Batch re-queue finished · ${queued} queued · ${failed} failed`
+                    );
+                    toastBulkQueueSummary({
+                      label: 'Batch re-queue finished',
+                      queued,
+                      failed,
+                    });
+                  });
+                }}
+                batchPromptCount={readHistoryBatchPrompts(entry).length}
+              />
+            ))}
+          </ToolBlockGroup>
+          {filteredEntries.length > pageSize ? (
+            <ListPaginator
+              page={pagination.page}
+              totalPages={pagination.totalPages}
+              totalItems={pagination.totalItems}
+              rangeStart={pagination.rangeStart}
+              rangeEnd={pagination.rangeEnd}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={nextSize => {
+                setPageSize(nextSize);
+                writeBrowserString('studio-history-page-size', String(nextSize));
+                setPage(1);
+              }}
+            />
+          ) : null}
+        </>
       )}
     </ToolSection>
   );
