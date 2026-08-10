@@ -73,6 +73,8 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 - **Refine diff panel** — word-level diff when refining from a saved history parent
 - **Cherry-pick merge** — Studio Diff tab merges two prompts with lint checks
 - **Experiment dashboard** — Studio Experiments tab groups gallery outputs by prompt/seed variants
+- **Experiment list virtualization** — window virtualizer for large experiment group lists (48+ groups)
+- **Shared-project collab** — presence bar + draft sync via BroadcastChannel and `/api/collab` SSE; room state persists to `PROMPT_DATA_DIR/collab-rooms.json` and optional `COLLAB_REDIS_URL` for multi-node
 - **Experiment winner workflow** — crown winners, compare export, re-queue groups on Studio Experiments tab
 - **Style transplant** — Studio → Experiments applies lighting/camera mood from one prompt to another
 - **Duplicate detection** — Studio → Experiments finds near-identical history clusters
