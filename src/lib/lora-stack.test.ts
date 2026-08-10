@@ -225,6 +225,34 @@ describe("applySessionLoraSelection", () => {
   });
 });
 
+describe("applySessionLoraStrengthOverrides", () => {
+  it("merges session-only strength tweaks without changing enabled flags", async () => {
+    const { applySessionLoraSelection, applySessionLoraStrengthOverrides, resolveActiveLoraStack } =
+      await import("./lora-stack");
+    const library = [
+      makeEntry({ id: "a", enabled: true, strengthModel: 1, strengthClip: 1 }),
+      makeEntry({ id: "b", enabled: true, tokenValue: "b.safetensors", strengthModel: 0.5 }),
+    ];
+    const selected = applySessionLoraSelection(library, ["a", "b"]);
+    const tuned = applySessionLoraStrengthOverrides(selected, {
+      a: { strengthModel: 0.7 },
+    });
+    const stack = resolveActiveLoraStack(tuned);
+    assert.equal(stack.find((entry) => entry.id === "a")?.strengthModel, 0.7);
+    assert.equal(stack.find((entry) => entry.id === "b")?.strengthModel, 0.5);
+  });
+
+  it("drops overrides that match library defaults", async () => {
+    const { pruneSessionLoraStrengthOverride } = await import("./lora-stack");
+    const entry = makeEntry({ strengthModel: 0.8, strengthClip: 1 });
+    const next = pruneSessionLoraStrengthOverride({}, entry.id, entry, {
+      strengthModel: 0.8,
+      strengthClip: 1,
+    });
+    assert.deepEqual(next, {});
+  });
+});
+
 describe("describeLoraStack", () => {
   it("reports an empty stack", () => {
     assert.equal(describeLoraStack([]), "No LoRAs active.");

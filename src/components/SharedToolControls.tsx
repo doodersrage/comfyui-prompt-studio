@@ -92,6 +92,11 @@ import {
   resolveStudioModelForDiffusersAsset,
 } from '@/lib/diffusers-defaults';
 import { SUGGESTED_MODEL_CHECKPOINT_MAP } from '@/lib/model-checkpoint-map';
+import {
+  countSessionLoraStrengthOverrides,
+  normalizeSessionLoraStrengthOverrides,
+  type SessionLoraStrengthOverrides,
+} from '@/lib/lora-stack';
 
 const ModelSelector = dynamic(() => import('@/components/ModelSelector'), {
   ssr: false,
@@ -257,6 +262,10 @@ export default function SharedToolControls({
   const [sessionActiveLoraIds, setSessionActiveLoraIds] = useState<string[] | undefined>(undefined);
   const [sessionActiveLoraIdsByModel, setSessionActiveLoraIdsByModel] =
     useState<SessionActiveLoraIdsByModel>({});
+  const [sessionLoraStrengthOverrides, setSessionLoraStrengthOverrides] =
+    useState<SessionLoraStrengthOverrides>(() =>
+      normalizeSessionLoraStrengthOverrides(shared.sessionLoraStrengthOverrides)
+    );
 
   const workflowCatalog = useMemo(
     () => [
@@ -724,6 +733,9 @@ export default function SharedToolControls({
           sessionActiveLoraIds: shared.sessionActiveLoraIds,
         })
       );
+      setSessionLoraStrengthOverrides(
+        normalizeSessionLoraStrengthOverrides(shared.sessionLoraStrengthOverrides)
+      );
     });
   }, [
     shared.modelSamplerPreset,
@@ -740,6 +752,7 @@ export default function SharedToolControls({
     shared.oomRetryDowngrade,
     shared.sessionActiveLoraIds,
     shared.sessionActiveLoraIdsByModel,
+    shared.sessionLoraStrengthOverrides,
     shared.modelLoraMap,
     shared.model,
   ]);
@@ -771,6 +784,17 @@ export default function SharedToolControls({
       sessionActiveLoraIdsByModel: nextByModel,
     });
   };
+
+  const handleSessionLoraStrengthOverridesChange = (overrides: SessionLoraStrengthOverrides) => {
+    const normalized = normalizeSessionLoraStrengthOverrides(overrides);
+    setSessionLoraStrengthOverrides(normalized);
+    saveSharedSettings({
+      ...loadSettingsCache().shared,
+      sessionLoraStrengthOverrides: normalized,
+    });
+    onSharedSettingsChange?.({ sessionLoraStrengthOverrides: normalized });
+  };
+
   const handleSamplerPresetChange = (preset: ModelSamplerPresetTier) => {
     setSamplerPreset(preset);
     saveSharedSettings({
@@ -1142,11 +1166,15 @@ export default function SharedToolControls({
             {workflowBlock}
             <CollapsibleSection
               title="LoRA stack"
-              summary={
-                sessionActiveLoraIds !== undefined
-                  ? `${sessionActiveLoraIds.length} selected for this model`
-                  : 'Pick LoRAs for this model without trigger keywords'
-              }
+              summary={(() => {
+                const tuned = countSessionLoraStrengthOverrides(sessionLoraStrengthOverrides);
+                if (sessionActiveLoraIds !== undefined) {
+                  return `${sessionActiveLoraIds.length} selected${tuned ? ` · ${tuned} tuned` : ''}`;
+                }
+                return tuned
+                  ? `${tuned} strength tweak${tuned === 1 ? '' : 's'}`
+                  : 'Pick LoRAs for this model';
+              })()}
               defaultOpen={advancedOpenByDefault}
               persistKey="shared-lora-stack"
             >
@@ -1157,8 +1185,10 @@ export default function SharedToolControls({
                     ? sessionActiveLoraIds
                     : undefined
                 }
+                sessionLoraStrengthOverrides={sessionLoraStrengthOverrides}
                 checkboxClassName={checkboxClass}
                 onChange={handleSessionActiveLoraIdsChange}
+                onSessionStrengthOverridesChange={handleSessionLoraStrengthOverridesChange}
               />
             </CollapsibleSection>
 

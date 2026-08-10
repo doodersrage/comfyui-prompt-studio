@@ -4,11 +4,14 @@ import { useEffect, useState } from 'react';
 import { loadComfyUiSettings, saveComfyUiSettings } from '@/lib/comfyui-settings';
 import {
   clampLoraStrength,
-  DEFAULT_LORA_STRENGTH,
+  clearSessionLoraStrengthOverride,
   listSelectableLoraLibraryEntries,
   normalizeLoraLibraryEntry,
+  pruneSessionLoraStrengthOverride,
+  resolveLoraStrengths,
   resolveSessionActiveLoraIds,
   type LoraLibraryEntry,
+  type SessionLoraStrengthOverrides,
 } from '@/lib/lora-stack';
 import {
   hasSessionLoraIdsForModel,
@@ -20,14 +23,14 @@ import {
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import { loadSettingsCache } from '@/lib/settings-cache';
 import { Button } from '@/components/ui/Button';
-import { FieldLabel } from '@/components/ui/Field';
+import { ChipButton } from '@/components/ui/Field';
 
 type LoraStackSessionPickerProps = {
-  /** Current target model — used to refresh storage snapshot after model changes. */
   model?: string;
-  /** Explicit per-model override for the current model; undefined = follow defaults. */
   sessionActiveLoraIds?: string[];
+  sessionLoraStrengthOverrides?: SessionLoraStrengthOverrides;
   onChange: (ids: string[] | undefined) => void;
+  onSessionStrengthOverridesChange?: (overrides: SessionLoraStrengthOverrides) => void;
   checkboxClassName?: string;
 };
 
@@ -38,65 +41,49 @@ type PickerSnapshot = {
   sessionActiveLoraIdsByModel: SessionActiveLoraIdsByModel | undefined;
 };
 
-function LoraStrengthSliders({
-  strengthModel,
-  strengthClip,
-  onStrengthModelChange,
-  onStrengthClipChange,
+type StrengthEditMode = 'session' | 'library';
+
+function StrengthSlider({
+  label,
+  value,
+  onChange,
 }: {
-  strengthModel: number;
-  strengthClip: number;
-  onStrengthModelChange: (value: number) => void;
-  onStrengthClipChange: (value: number) => void;
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
 }) {
   return (
-    <div
-      className="grid gap-3 border-t border-[var(--border-subtle)]/80 pt-3 sm:grid-cols-2"
-      onClick={event => event.stopPropagation()}
-    >
-      <label className="space-y-1 text-xs text-[var(--text-muted)]">
-        <span className="flex items-center justify-between">
-          <span>Model strength</span>
-          <span className="font-mono text-[var(--text-secondary)]">{strengthModel.toFixed(2)}</span>
+    <label className="block space-y-1.5" onClick={event => event.stopPropagation()}>
+      <span className="flex items-center justify-between text-[11px] text-[var(--text-muted)]">
+        <span>{label}</span>
+        <span className="font-mono tabular-nums text-[var(--text-secondary)]">
+          {value.toFixed(2)}
         </span>
-        <input
-          type="range"
-          min={0}
-          max={2}
-          step={0.05}
-          value={strengthModel}
-          onChange={event => onStrengthModelChange(Number(event.target.value))}
-          className="h-8 w-full cursor-pointer accent-violet-500"
-        />
-      </label>
-      <label className="space-y-1 text-xs text-[var(--text-muted)]">
-        <span className="flex items-center justify-between">
-          <span>Clip strength</span>
-          <span className="font-mono text-[var(--text-secondary)]">{strengthClip.toFixed(2)}</span>
-        </span>
-        <input
-          type="range"
-          min={0}
-          max={2}
-          step={0.05}
-          value={strengthClip}
-          onChange={event => onStrengthClipChange(Number(event.target.value))}
-          className="h-8 w-full cursor-pointer accent-violet-500"
-        />
-      </label>
-    </div>
+      </span>
+      <input
+        type="range"
+        min={0}
+        max={2}
+        step={0.05}
+        value={value}
+        onChange={event => onChange(Number(event.target.value))}
+        className="h-7 w-full cursor-pointer accent-violet-500"
+      />
+    </label>
   );
 }
 
 export default function LoraStackSessionPicker({
   model,
   sessionActiveLoraIds,
+  sessionLoraStrengthOverrides = {},
   onChange,
+  onSessionStrengthOverridesChange,
   checkboxClassName,
 }: LoraStackSessionPickerProps) {
-  // Read browser storage only after mount to avoid SSR/client hydration mismatches.
   const [snapshot, setSnapshot] = useState<PickerSnapshot | null>(null);
-  const [expandedStrengthIds, setExpandedStrengthIds] = useState<Set<string>>(() => new Set());
+  const [tuningEntryId, setTuningEntryId] = useState<string | null>(null);
+  const [strengthEditMode, setStrengthEditMode] = useState<StrengthEditMode>('session');
 
   useEffect(() => {
     scheduleAfterCommit(() => {
@@ -108,9 +95,9 @@ export default function LoraStackSessionPicker({
         sessionActiveLoraIdsByModel: shared.sessionActiveLoraIdsByModel,
       });
     });
-  }, [model, sessionActiveLoraIds]);
+  }, [model, sessionActiveLoraIds, sessionLoraStrengthOverrides]);
 
-  const updateEntryStrength = (
+  const updateLibraryStrength = (
     entryId: string,
     patch: { strengthModel?: number; strengthClip?: number }
   ) => {
@@ -119,26 +106,19 @@ export default function LoraStackSessionPicker({
       entry.id === entryId ? normalizeLoraLibraryEntry({ ...entry, ...patch }) : entry
     );
     saveComfyUiSettings({ ...settings, loraLibrary: library });
-    setSnapshot(previous =>
-      previous
-        ? {
-            ...previous,
-            library,
-          }
-        : previous
-    );
+    setSnapshot(previous => (previous ? { ...previous, library } : previous));
   };
 
-  const toggleStrengthPanel = (entryId: string) => {
-    setExpandedStrengthIds(previous => {
-      const next = new Set(previous);
-      if (next.has(entryId)) {
-        next.delete(entryId);
-      } else {
-        next.add(entryId);
-      }
-      return next;
-    });
+  const updateSessionStrength = (
+    entry: LoraLibraryEntry,
+    patch: { strengthModel?: number; strengthClip?: number }
+  ) => {
+    if (!onSessionStrengthOverridesChange) {
+      return;
+    }
+    onSessionStrengthOverridesChange(
+      pruneSessionLoraStrengthOverride(sessionLoraStrengthOverrides, entry.id, entry, patch)
+    );
   };
 
   if (!snapshot) {
@@ -158,12 +138,6 @@ export default function LoraStackSessionPicker({
   );
   const activeIds = resolveSessionActiveLoraIds(snapshot.library, effectiveSessionIds);
   const activeSet = new Set(activeIds);
-  const activeLabelList = activeIds
-    .map(id => {
-      const entry = selectable.find(item => item.id === id);
-      return entry?.label?.trim() || id;
-    })
-    .join(', ');
 
   const modelDefaultIds = !sessionOverride
     ? resolveModelDefaultLoraIds(snapshot.model, snapshot.modelLoraMap)
@@ -195,96 +169,181 @@ export default function LoraStackSessionPicker({
     );
   }
 
+  const tuningEntry =
+    tuningEntryId !== null ? selectable.find(entry => entry.id === tuningEntryId) : undefined;
+
   return (
     <div className="space-y-3">
-      <FieldLabel hint="Checked LoRAs load at queue time. Adjust model and clip strength inline — changes apply to your LoRA library defaults.">
-        Active LoRAs
-      </FieldLabel>
+      <p className="type-caption leading-relaxed text-[var(--text-muted)]">
+        Check LoRAs to load at queue time. Tap a row to tune strengths —{' '}
+        <span className="text-[var(--text-secondary)]">This run</span> tweaks the session only;{' '}
+        <span className="text-[var(--text-secondary)]">Default</span> updates your library.
+      </p>
       {modelDefaultLabels !== null ? (
         <p className="type-caption text-[var(--text-muted)]">
-          Using model defaults: {modelDefaultLabels}
+          Model defaults: {modelDefaultLabels}
         </p>
       ) : null}
-      <ul className="ui-scroll-region sidebar-scroll max-h-72 space-y-2 overflow-y-auto pr-1">
+
+      <ul className="ui-scroll-region sidebar-scroll max-h-64 divide-y divide-[var(--border-subtle)]/80 overflow-y-auto rounded-xl border border-[var(--border-subtle)]/80">
         {selectable.map(entry => {
           const checked = activeSet.has(entry.id);
-          const showStrengths = checked || expandedStrengthIds.has(entry.id);
-          const strengthModel = entry.strengthModel ?? DEFAULT_LORA_STRENGTH;
-          const strengthClip = entry.strengthClip ?? DEFAULT_LORA_STRENGTH;
+          const isTuning = tuningEntryId === entry.id;
+          const strengths = resolveLoraStrengths(entry, sessionLoraStrengthOverrides);
 
           return (
-            <li key={entry.id}>
-              <div
-                className={`space-y-3 rounded-lg border px-3 py-2 transition ${
-                  checked
-                    ? 'border-violet-500/40 bg-violet-500/5'
-                    : 'border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/40 hover:border-[var(--border-default)] hover:bg-[var(--bg-muted)]/50'
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => {
-                        const next = new Set(activeIds);
-                        if (checked) {
-                          next.delete(entry.id);
-                        } else {
-                          next.add(entry.id);
-                        }
-                        onChange([...next]);
-                      }}
-                      className={
-                        checkboxClassName ??
-                        'mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500'
-                      }
-                    />
-                    <span className="min-w-0 space-y-0.5">
-                      <span className="block text-sm font-medium text-[var(--text-primary)]">
-                        {entry.label || entry.id}
-                      </span>
-                      <span className="block truncate text-xs text-[var(--text-muted)]">
-                        {entry.tokenValue}
-                      </span>
+            <li
+              key={entry.id}
+              className={
+                checked ? 'bg-violet-500/[0.04]' : isTuning ? 'bg-[var(--bg-muted)]/30' : undefined
+              }
+            >
+              <div className="flex items-center gap-2.5 px-3 py-2.5">
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => {
+                    const next = new Set(activeIds);
+                    if (checked) {
+                      next.delete(entry.id);
+                    } else {
+                      next.add(entry.id);
+                    }
+                    onChange([...next]);
+                  }}
+                  className={
+                    checkboxClassName ??
+                    'h-4 w-4 shrink-0 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500'
+                  }
+                />
+                <button
+                  type="button"
+                  aria-expanded={isTuning}
+                  onClick={() => {
+                    setTuningEntryId(current => (current === entry.id ? null : entry.id));
+                    setStrengthEditMode('session');
+                  }}
+                  className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-md px-1 py-0.5 text-left transition hover:bg-[var(--bg-muted)]/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500"
+                >
+                  <span className="truncate text-sm text-[var(--text-primary)]">
+                    {entry.label || entry.id}
+                  </span>
+                  {checked || strengths.hasSessionOverride ? (
+                    <span className="shrink-0 font-mono text-[10px] tabular-nums text-[var(--text-muted)]">
+                      {strengths.strengthModel.toFixed(2)}/{strengths.strengthClip.toFixed(2)}
+                      {strengths.hasSessionOverride ? (
+                        <span className="ml-1 rounded bg-violet-500/15 px-1 text-violet-200/90">
+                          run
+                        </span>
+                      ) : null}
                     </span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => toggleStrengthPanel(entry.id)}
-                    aria-expanded={showStrengths}
-                    className="shrink-0 rounded-lg border border-[var(--border-default)] px-2.5 py-1 text-[11px] text-[var(--text-muted)] transition hover:border-violet-500/50 hover:bg-violet-500/10 hover:text-violet-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500"
-                  >
-                    M {strengthModel.toFixed(2)} · C {strengthClip.toFixed(2)}
-                  </button>
-                </div>
-                {showStrengths ? (
-                  <LoraStrengthSliders
-                    strengthModel={strengthModel}
-                    strengthClip={strengthClip}
-                    onStrengthModelChange={value =>
-                      updateEntryStrength(entry.id, { strengthModel: clampLoraStrength(value) })
-                    }
-                    onStrengthClipChange={value =>
-                      updateEntryStrength(entry.id, { strengthClip: clampLoraStrength(value) })
-                    }
-                  />
-                ) : null}
+                  ) : null}
+                </button>
               </div>
             </li>
           );
         })}
       </ul>
-      <p className="text-sm leading-relaxed text-[var(--text-muted)]">
-        {activeIds.length === 0 ? (
-          <span className="text-[var(--text-muted)]">Selected: none</span>
-        ) : (
-          <>
-            <span className="font-medium text-[var(--text-secondary)]">Selected: </span>
-            {activeLabelList}
-          </>
-        )}
-      </p>
+
+      {tuningEntry ? (
+        <div className="space-y-3 rounded-xl border border-violet-500/20 bg-violet-500/[0.04] px-3 py-3">
+          <div className="min-w-0 space-y-0.5">
+            <p className="truncate text-sm font-medium text-[var(--text-primary)]">
+              {tuningEntry.label || tuningEntry.id}
+            </p>
+            <p className="truncate font-mono text-[10px] text-[var(--text-muted)]">
+              {tuningEntry.tokenValue}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-1.5">
+            <ChipButton
+              active={strengthEditMode === 'session'}
+              onClick={() => setStrengthEditMode('session')}
+              className="w-full justify-center px-2 text-[11px]"
+            >
+              This run
+            </ChipButton>
+            <ChipButton
+              active={strengthEditMode === 'library'}
+              onClick={() => setStrengthEditMode('library')}
+              className="w-full justify-center px-2 text-[11px]"
+            >
+              Default
+            </ChipButton>
+          </div>
+
+          {(() => {
+            const strengths = resolveLoraStrengths(tuningEntry, sessionLoraStrengthOverrides);
+            const displayModel =
+              strengthEditMode === 'session'
+                ? strengths.strengthModel
+                : clampLoraStrength(tuningEntry.strengthModel);
+            const displayClip =
+              strengthEditMode === 'session'
+                ? strengths.strengthClip
+                : clampLoraStrength(tuningEntry.strengthClip);
+
+            return (
+              <div className="space-y-3">
+                <StrengthSlider
+                  label="Model"
+                  value={displayModel}
+                  onChange={value => {
+                    const clamped = clampLoraStrength(value);
+                    if (strengthEditMode === 'session') {
+                      updateSessionStrength(tuningEntry, { strengthModel: clamped });
+                    } else {
+                      updateLibraryStrength(tuningEntry.id, { strengthModel: clamped });
+                      onSessionStrengthOverridesChange?.(
+                        clearSessionLoraStrengthOverride(
+                          sessionLoraStrengthOverrides,
+                          tuningEntry.id
+                        )
+                      );
+                    }
+                  }}
+                />
+                <StrengthSlider
+                  label="Clip"
+                  value={displayClip}
+                  onChange={value => {
+                    const clamped = clampLoraStrength(value);
+                    if (strengthEditMode === 'session') {
+                      updateSessionStrength(tuningEntry, { strengthClip: clamped });
+                    } else {
+                      updateLibraryStrength(tuningEntry.id, { strengthClip: clamped });
+                      onSessionStrengthOverridesChange?.(
+                        clearSessionLoraStrengthOverride(
+                          sessionLoraStrengthOverrides,
+                          tuningEntry.id
+                        )
+                      );
+                    }
+                  }}
+                />
+              </div>
+            );
+          })()}
+
+          {strengthEditMode === 'session' &&
+          resolveLoraStrengths(tuningEntry, sessionLoraStrengthOverrides).hasSessionOverride ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                onSessionStrengthOverridesChange?.(
+                  clearSessionLoraStrengthOverride(sessionLoraStrengthOverrides, tuningEntry.id)
+                );
+              }}
+            >
+              Reset to library default
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap gap-2">
         <Button
           type="button"
@@ -301,11 +360,7 @@ export default function LoraStackSessionPicker({
           <Button type="button" size="sm" variant="ghost" onClick={() => onChange(undefined)}>
             Follow model defaults
           </Button>
-        ) : (
-          <p className="type-caption self-center text-[var(--text-muted)]">
-            {modelDefaultLabels !== null ? 'Following model LoRA map' : 'None selected by default'}
-          </p>
-        )}
+        ) : null}
       </div>
     </div>
   );

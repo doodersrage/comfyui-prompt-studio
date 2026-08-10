@@ -21,6 +21,7 @@ import type { DetailLevel } from './detail-level';
 import { isBrowserStorageReady, readBrowserValue, writeBrowserValue } from './browser-storage';
 import type { ModelCheckpointMap, ModelRefinerMap, ModelVaeMap } from './model-checkpoint-map';
 import type { ModelLoraMap, SessionActiveLoraIdsByModel } from './model-lora-map';
+import type { SessionLoraStrengthOverrides } from './lora-stack';
 import type { ModelUpscaleMap } from './model-upscale-map';
 import {
   DEFAULT_QUEUE_QUALITY_PROFILE,
@@ -237,6 +238,8 @@ export type SharedToolSettings = {
    * for that model; missing key = follow model LoRA map / library enabled.
    */
   sessionActiveLoraIdsByModel?: SessionActiveLoraIdsByModel;
+  /** Session-only LoRA strength tweaks (merged at queue time; does not change library defaults). */
+  sessionLoraStrengthOverrides?: SessionLoraStrengthOverrides;
   /** Tiled neural upscale tile size (0 disables tiling). Overrides Max default when set. */
   neuralUpscaleTileSize?: number;
   /** Prefer mapped library workflow with upscale nodes for gallery upscale actions. */
@@ -625,6 +628,7 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
   modelUpscaleMap: {},
   modelLoraMap: {},
   sessionActiveLoraIdsByModel: {},
+  sessionLoraStrengthOverrides: {},
   autoSelectWorkflowForModel: true,
   autoSelectLorasForModel: true,
   limitModelsToAvailableWorkflows: true,

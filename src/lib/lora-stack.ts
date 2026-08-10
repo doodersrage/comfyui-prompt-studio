@@ -34,6 +34,14 @@ export type ActiveLoraStackEntry = {
   strengthClip: number;
 };
 
+/** Per-LoRA strength tweak for the current session only (does not mutate library defaults). */
+export type SessionLoraStrengthOverride = {
+  strengthModel?: number;
+  strengthClip?: number;
+};
+
+export type SessionLoraStrengthOverrides = Partial<Record<string, SessionLoraStrengthOverride>>;
+
 export const DEFAULT_LORA_STRENGTH = 1;
 const MIN_LORA_STRENGTH = 0;
 const MAX_LORA_STRENGTH = 2;
@@ -206,6 +214,123 @@ export function applySessionLoraSelection(
       autoFromPrompt: false,
     };
   });
+}
+
+export function normalizeSessionLoraStrengthOverrides(
+  overrides: SessionLoraStrengthOverrides | undefined
+): SessionLoraStrengthOverrides {
+  if (!overrides || typeof overrides !== 'object') {
+    return {};
+  }
+  const next: SessionLoraStrengthOverrides = {};
+  for (const [id, patch] of Object.entries(overrides)) {
+    const key = id.trim();
+    if (!key || !patch || typeof patch !== 'object') {
+      continue;
+    }
+    const strengthModel =
+      patch.strengthModel !== undefined ? clampLoraStrength(patch.strengthModel) : undefined;
+    const strengthClip =
+      patch.strengthClip !== undefined ? clampLoraStrength(patch.strengthClip) : undefined;
+    if (strengthModel === undefined && strengthClip === undefined) {
+      continue;
+    }
+    next[key] = {
+      ...(strengthModel !== undefined ? { strengthModel } : {}),
+      ...(strengthClip !== undefined ? { strengthClip } : {}),
+    };
+  }
+  return next;
+}
+
+export function countSessionLoraStrengthOverrides(
+  overrides: SessionLoraStrengthOverrides | undefined
+): number {
+  return Object.keys(normalizeSessionLoraStrengthOverrides(overrides)).length;
+}
+
+/** Merge session-only strength tweaks onto library entries before queue resolution. */
+export function applySessionLoraStrengthOverrides(
+  library: LoraLibraryEntry[] | undefined,
+  overrides: SessionLoraStrengthOverrides | undefined
+): LoraLibraryEntry[] {
+  const normalizedOverrides = normalizeSessionLoraStrengthOverrides(overrides);
+  if (Object.keys(normalizedOverrides).length === 0) {
+    return normalizeLoraLibrary(library);
+  }
+  return normalizeLoraLibrary(library).map(entry => {
+    const patch = normalizedOverrides[entry.id];
+    if (!patch) {
+      return entry;
+    }
+    return normalizeLoraLibraryEntry({
+      ...entry,
+      ...(patch.strengthModel !== undefined ? { strengthModel: patch.strengthModel } : {}),
+      ...(patch.strengthClip !== undefined ? { strengthClip: patch.strengthClip } : {}),
+    });
+  });
+}
+
+export function resolveLoraStrengths(
+  entry: LoraLibraryEntry,
+  overrides?: SessionLoraStrengthOverrides
+): { strengthModel: number; strengthClip: number; hasSessionOverride: boolean } {
+  const baseModel = clampLoraStrength(entry.strengthModel);
+  const baseClip = clampLoraStrength(entry.strengthClip);
+  const patch = overrides?.[entry.id];
+  const strengthModel =
+    patch?.strengthModel !== undefined ? clampLoraStrength(patch.strengthModel) : baseModel;
+  const strengthClip =
+    patch?.strengthClip !== undefined ? clampLoraStrength(patch.strengthClip) : baseClip;
+  const hasSessionOverride =
+    patch !== undefined && (strengthModel !== baseModel || strengthClip !== baseClip);
+  return { strengthModel, strengthClip, hasSessionOverride };
+}
+
+export function pruneSessionLoraStrengthOverride(
+  overrides: SessionLoraStrengthOverrides,
+  entryId: string,
+  libraryEntry: LoraLibraryEntry,
+  patch: SessionLoraStrengthOverride
+): SessionLoraStrengthOverrides {
+  const merged = {
+    ...overrides[entryId],
+    ...patch,
+  };
+  const baseModel = clampLoraStrength(libraryEntry.strengthModel);
+  const baseClip = clampLoraStrength(libraryEntry.strengthClip);
+  const modelMatch =
+    merged.strengthModel === undefined || clampLoraStrength(merged.strengthModel) === baseModel;
+  const clipMatch =
+    merged.strengthClip === undefined || clampLoraStrength(merged.strengthClip) === baseClip;
+  if (modelMatch && clipMatch) {
+    const next = { ...overrides };
+    delete next[entryId];
+    return next;
+  }
+  return {
+    ...overrides,
+    [entryId]: {
+      ...(merged.strengthModel !== undefined
+        ? { strengthModel: clampLoraStrength(merged.strengthModel) }
+        : {}),
+      ...(merged.strengthClip !== undefined
+        ? { strengthClip: clampLoraStrength(merged.strengthClip) }
+        : {}),
+    },
+  };
+}
+
+export function clearSessionLoraStrengthOverride(
+  overrides: SessionLoraStrengthOverrides,
+  entryId: string
+): SessionLoraStrengthOverrides {
+  if (!overrides[entryId]) {
+    return overrides;
+  }
+  const next = { ...overrides };
+  delete next[entryId];
+  return next;
 }
 
 /** Non-Lightning catalog entries shown in the session picker. */

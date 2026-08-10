@@ -26,6 +26,7 @@ import {
 import { readBrowserValue, removeBrowserKey, writeBrowserValue } from './browser-storage';
 import {
   applySessionLoraSelection,
+  applySessionLoraStrengthOverrides,
   isLightningLibraryEntry,
   normalizeLoraLibrary,
   type LoraLibraryEntry,
@@ -342,6 +343,7 @@ export function comfyUiSettingsToRuntime(
   settings: ComfyUiSettings,
   options?: {
     sessionActiveLoraIds?: string[];
+    sessionLoraStrengthOverrides?: import('./lora-stack').SessionLoraStrengthOverrides;
     model?: string;
   }
 ): ComfyUiRuntimeConfig | undefined {
@@ -363,7 +365,10 @@ export function comfyUiSettingsToRuntime(
   // normalized library itself so queue-time LoRA stacking survives the client→server hop.
   // Session sidebar picks override Settings enabled flags when set;
   // otherwise the per-model LoRA map applies when present.
-  const loraLibrary = applySessionLoraSelection(settings.loraLibrary, sessionActiveLoraIds);
+  const loraLibrary = applySessionLoraStrengthOverrides(
+    applySessionLoraSelection(settings.loraLibrary, sessionActiveLoraIds),
+    options?.sessionLoraStrengthOverrides ?? loadSettingsCache().shared.sessionLoraStrengthOverrides
+  );
 
   if (settings.useServerDefaults) {
     return stripEmptyComfyUiRuntime({
