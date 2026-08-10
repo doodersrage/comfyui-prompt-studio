@@ -9,8 +9,8 @@ import {
   ToolSection,
   accentButtonClass,
   accentFocusClass,
-  type ToolAccent,
 } from '@/components/ui/ToolPageShell';
+import type { ToolAccent } from '@/lib/tool-theme';
 import { FieldLabel, TextArea } from '@/components/ui/Field';
 import { Button, PrimaryButton } from '@/components/ui/Button';
 import { toastHeldMax } from '@/lib/app-toast';

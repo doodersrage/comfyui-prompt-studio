@@ -18,19 +18,11 @@ import {
   upsertSavedIdentityBundle,
 } from '@/lib/settings-cache';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
-import { toastBulkQueueSummary, toastHeldMax, toastQueueOutcome } from '@/lib/app-toast';
-import {
-  filterHistoryEntries,
-  uniqueHistoryModels,
-  uniqueHistoryTags,
-  uniqueHistoryTools,
-  type HistoryFilter,
-} from '@/lib/history-filter';
+import { toastHeldMax, toastQueueOutcome } from '@/lib/app-toast';
+import { filterHistoryEntries, type HistoryFilter } from '@/lib/history-filter';
 import { buildShareableSceneParams, buildScenePresetShareUrl } from '@/lib/scene-preset-url';
-import { buildPromptSidecar, downloadPromptSidecar } from '@/lib/prompt-sidecar';
 import {
   requeueComfyJobFromHistory,
-  requeueComfyJobs,
   requeueRefineFromGalleryEntry,
   requeueUpscaleFromGalleryEntry,
 } from '@/lib/comfyui-requeue';
@@ -67,11 +59,7 @@ import {
   upsertUserTemplate,
   type UserPromptTemplate,
 } from '@/lib/user-templates';
-import {
-  downloadTextFile,
-  exportHistoryCsv,
-  exportHistoryJsonl,
-} from '@/lib/history-export-formats';
+import { downloadTextFile } from '@/lib/history-export-formats';
 import { sortCatalogByRatingBias } from '@/lib/catalog-rating-bias';
 import { buildPromptIterationForest, type IterationTreeNode } from '@/lib/prompt-iteration-tree';
 import {
@@ -138,17 +126,14 @@ import {
   accentButtonClass,
   accentFocusClass,
 } from '@/components/ui/ToolPageShell';
-import { ChipButton, FieldLabel, TextArea, TextInput } from '@/components/ui/Field';
+import { ChipButton, FieldLabel, TextArea } from '@/components/ui/Field';
 import { Button, PrimaryButton } from '@/components/ui/Button';
 import { DataList, DataListActions, DataListPrimary, DataListRow } from '@/components/ui/DataList';
 import {
-  CompareCardsSkeleton,
   DataListSkeleton,
   EmptyState,
   ErrorState,
-  isLikelyErrorStatus,
   StudioTabSkeleton,
-  SuccessBanner,
 } from '@/components/ui/ViewState';
 import { isStudioTabId, studioTabGroupsForWorkspaceMode, type StudioTabId } from '@/lib/studio-nav';
 import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
@@ -167,6 +152,12 @@ const StudioDiffTab = dynamic(() => import('@/components/studio/tabs/StudioDiffT
 const StudioPortfolioTab = dynamic(() => import('@/components/studio/tabs/StudioPortfolioTab'), {
   loading: () => <StudioTabSkeleton />,
 });
+const StudioHistoryTab = dynamic(() => import('@/components/studio/tabs/StudioHistoryTab'), {
+  loading: () => <StudioTabSkeleton />,
+});
+const StudioCompareTab = dynamic(() => import('@/components/studio/tabs/StudioCompareTab'), {
+  loading: () => <StudioTabSkeleton />,
+});
 const StudioExperimentsTab = dynamic(
   () => import('@/components/studio/tabs/StudioExperimentsTab'),
   {
@@ -177,9 +168,6 @@ const PromptTimelinePanel = dynamic(() => import('@/components/studio/PromptTime
   loading: () => <StudioTabSkeleton />,
 });
 const EnhancedPromptResult = dynamic(() => import('@/components/LazyEnhancedPromptResult'), {
-  loading: () => <StudioTabSkeleton />,
-});
-const PromptDiagnosticsPanel = dynamic(() => import('@/components/PromptDiagnosticsPanel'), {
   loading: () => <StudioTabSkeleton />,
 });
 
@@ -805,476 +793,50 @@ export default function StudioTool() {
           </ToolMetaPanel>
 
           {tab === 'history' && (
-            <ToolSection title="Saved prompts">
-              <ToolMetaPanel>
-                <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <p className="type-heading shrink-0">
-                    {filteredEntries.length}
-                    {filteredEntries.length !== entries.length ? ` of ${entries.length}` : ''}{' '}
-                    entries
-                  </p>
-                  <div className="ui-list-actions w-full justify-start lg:w-auto lg:justify-end">
-                    {favoriteEntries.length > 0 && (
-                      <Button
-                        variant="accent-outline"
-                        size="sm"
-                        onClick={() =>
-                          void actions.sendBatchComfyUi(favoriteEntries.map(entry => entry.prompt))
-                        }
-                      >
-                        Queue favorites ({favoriteEntries.length})
-                      </Button>
-                    )}
-                    {entries.length > 0 && (
-                      <>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            downloadTextFile(
-                              exportHistoryCsv(filteredEntries),
-                              'history-filtered.csv',
-                              'text/csv;charset=utf-8'
-                            )
-                          }
-                        >
-                          Export CSV
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            downloadTextFile(
-                              exportHistoryJsonl(filteredEntries),
-                              'history-filtered.jsonl',
-                              'application/jsonl;charset=utf-8'
-                            )
-                          }
-                        >
-                          Export JSONL
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            void import('@/lib/studio-backup').then(({ downloadHistoryExport }) => {
-                              downloadHistoryExport(filteredEntries);
-                            });
-                          }}
-                        >
-                          Export filtered
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            void import('@/lib/studio-backup').then(({ downloadHistoryExport }) => {
-                              downloadHistoryExport(entries);
-                            });
-                          }}
-                        >
-                          Export all
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={clearHistory}>
-                          Clear all
-                        </Button>
-                      </>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        void import('@/lib/studio-backup').then(({ downloadStudioBackup }) => {
-                          downloadStudioBackup();
-                          setBackupStatus('Studio backup downloaded.');
-                        });
-                      }}
-                    >
-                      Export backup
-                    </Button>
-                    <label className="ui-btn-ghost ui-btn-sm ui-file-input-label cursor-pointer px-4">
-                      Import backup
-                      <input
-                        type="file"
-                        accept="application/json,.json"
-                        className="hidden"
-                        onChange={event => {
-                          const file = event.target.files?.[0];
-                          if (file) {
-                            void handleImportBackup(file);
-                          }
-                          event.target.value = '';
-                        }}
-                      />
-                    </label>
-                  </div>
-                </div>
-
-                {entries.length > 0 && (
-                  <div className="grid gap-4 pt-2 sm:grid-cols-2 xl:grid-cols-3">
-                    <div className="space-y-2">
-                      <FieldLabel htmlFor="history-search">Search</FieldLabel>
-                      <input
-                        id="history-search"
-                        value={historyFilter.query ?? ''}
-                        onChange={event =>
-                          setHistoryFilter(previous => ({
-                            ...previous,
-                            query: event.target.value || undefined,
-                          }))
-                        }
-                        placeholder="prompt, hints, tool…"
-                        className="ui-input px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <FieldLabel htmlFor="history-tool">Tool</FieldLabel>
-                      <select
-                        id="history-tool"
-                        value={historyFilter.tool ?? 'all'}
-                        onChange={event =>
-                          setHistoryFilter(previous => ({
-                            ...previous,
-                            tool: event.target.value === 'all' ? undefined : event.target.value,
-                          }))
-                        }
-                        className="ui-input px-3 py-[var(--input-padding-y)] type-body"
-                      >
-                        <option value="all">All tools</option>
-                        {uniqueHistoryTools(entries).map(tool => (
-                          <option key={tool} value={tool}>
-                            {tool}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="space-y-2">
-                      <FieldLabel htmlFor="history-model">Model</FieldLabel>
-                      <select
-                        id="history-model"
-                        value={historyFilter.model ?? 'all'}
-                        onChange={event =>
-                          setHistoryFilter(previous => ({
-                            ...previous,
-                            model: event.target.value === 'all' ? undefined : event.target.value,
-                          }))
-                        }
-                        className="ui-input px-3 py-[var(--input-padding-y)] type-body"
-                      >
-                        <option value="all">All models</option>
-                        {uniqueHistoryModels(entries).map(model => (
-                          <option key={model} value={model}>
-                            {model}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="space-y-2">
-                      <FieldLabel htmlFor="history-tag">Tag</FieldLabel>
-                      <select
-                        id="history-tag"
-                        value={historyFilter.tag ?? 'all'}
-                        onChange={event =>
-                          setHistoryFilter(previous => ({
-                            ...previous,
-                            tag: event.target.value === 'all' ? undefined : event.target.value,
-                          }))
-                        }
-                        className="ui-input px-3 py-[var(--input-padding-y)] type-body"
-                      >
-                        <option value="all">All tags</option>
-                        {uniqueHistoryTags(entries).map(tag => (
-                          <option key={tag} value={tag}>
-                            {tag}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <label className="flex items-center gap-3 self-end pb-1 type-body">
-                      <input
-                        type="checkbox"
-                        checked={historyFilter.semanticSearch === true}
-                        onChange={event =>
-                          setHistoryFilter(previous => ({
-                            ...previous,
-                            semanticSearch: event.target.checked || undefined,
-                          }))
-                        }
-                        className={`h-4 w-4 rounded-[var(--radius-sm)] ${accentFocusClass()}`}
-                      />
-                      Semantic search
-                    </label>
-                    {projects.length > 0 && (
-                      <div className="space-y-2">
-                        <FieldLabel htmlFor="history-project">Project</FieldLabel>
-                        <select
-                          id="history-project"
-                          value={activeProjectId ?? 'all'}
-                          onChange={event => {
-                            const value =
-                              event.target.value === 'all' ? undefined : event.target.value;
-                            setActiveProjectIdState(value);
-                            setActiveProjectId(value);
-                          }}
-                          className="ui-input px-3 py-[var(--input-padding-y)] type-body"
-                        >
-                          <option value="all">All projects</option>
-                          {projects.map(project => (
-                            <option key={project.id} value={project.id}>
-                              {project.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-                    <label className="flex items-center gap-3 self-end pb-1 type-body">
-                      <input
-                        type="checkbox"
-                        checked={historyFilter.favoritesOnly === true}
-                        onChange={event =>
-                          setHistoryFilter(previous => ({
-                            ...previous,
-                            favoritesOnly: event.target.checked || undefined,
-                          }))
-                        }
-                        className={`h-4 w-4 rounded-[var(--radius-sm)] ${accentFocusClass()}`}
-                      />
-                      Favorites only
-                    </label>
-                    <div className="space-y-2">
-                      <FieldLabel htmlFor="history-rating">Min rating</FieldLabel>
-                      <select
-                        id="history-rating"
-                        value={historyFilter.minRating ?? 0}
-                        onChange={event => {
-                          const value = Number(event.target.value);
-                          setHistoryFilter(previous => ({
-                            ...previous,
-                            minRating: value > 0 ? value : undefined,
-                          }));
-                        }}
-                        className="ui-input px-3 py-[var(--input-padding-y)] type-body"
-                      >
-                        <option value={0}>Any</option>
-                        {[1, 2, 3, 4, 5].map(rating => (
-                          <option key={rating} value={rating}>
-                            {rating}+ stars
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                )}
-              </ToolMetaPanel>
-
-              {backupStatus &&
-                (isLikelyErrorStatus(backupStatus) ? (
-                  <ErrorState
-                    compact
-                    title="Action failed"
-                    description={backupStatus}
-                    action={{
-                      label: 'Dismiss',
-                      onClick: () => setBackupStatus(null),
-                    }}
-                  />
-                ) : (
-                  <SuccessBanner message={backupStatus} />
-                ))}
-              {actions.comfyUiStatus && (
-                <p className="type-caption text-[var(--accent-text)]">{actions.comfyUiStatus}</p>
-              )}
-
-              {entries.length === 0 ? (
-                <EmptyState
-                  icon="inbox"
-                  title="No saved prompts yet"
-                  description="Generate a scene in Character or another tool, then use Save to history on the result panel. Your prompts will appear here for re-queue, export, and diff."
-                  action={{ label: 'Open Character', href: '/character' }}
-                />
-              ) : filteredEntries.length === 0 ? (
-                <EmptyState
-                  icon="search"
-                  title="No matches for these filters"
-                  description="Try a broader search term or remove tool, model, tag, or rating filters to see more history entries."
-                  action={{
-                    label: 'Clear filters',
-                    onClick: () => setHistoryFilter({}),
-                  }}
-                />
-              ) : (
-                <ToolBlockGroup className="mt-[var(--block-gap)]">
-                  {filteredEntries.map(entry => (
-                    <HistoryCard
-                      key={entry.id}
-                      entry={entry}
-                      highlighted={highlightHistoryId === entry.id}
-                      onCopy={() => copyText(entry.prompt)}
-                      onToggleFavorite={() => toggleFavorite(entry.id)}
-                      onRate={rating => setRating(entry.id, rating)}
-                      onAddTag={tag => addTag(entry.id, tag)}
-                      onExportSidecar={() => {
-                        downloadPromptSidecar(
-                          buildPromptSidecar({
-                            positive: entry.prompt,
-                            model: entry.model,
-                            hints: entry.hints,
-                            tool: entry.tool,
-                            diagnostics: entry.diagnostics,
-                            metadata: entry.metadata,
-                          }),
-                          `${entry.tool}-history`
-                        );
-                      }}
-                      onRemove={() => removeEntry(entry.id)}
-                      onDiffLeft={() => {
-                        setDiffLeftId(entry.id);
-                        selectStudioTab('diff');
-                      }}
-                      onDiffRight={() => {
-                        setDiffRightId(entry.id);
-                        selectStudioTab('diff');
-                      }}
-                      onSaveTemplate={() => {
-                        const name = window.prompt('Template name', `${entry.tool} prompt`);
-                        if (!name?.trim()) {
-                          return;
-                        }
-                        const created = templateFromPrompt(name.trim(), entry.prompt);
-                        upsertUserTemplate(created);
-                        setUserTemplates(loadUserTemplates());
-                        setBackupStatus(`Saved template “${created.label}”.`);
-                      }}
-                      onRequeue={newSeed => {
-                        setBackupStatus('Queueing variation from history…');
-                        void requeueComfyJobFromHistory(entry, {
-                          newSeed,
-                          onStatus: setBackupStatus,
-                        }).then(result => {
-                          if (!result.ok) {
-                            setBackupStatus(result.error ?? 'Re-queue failed.');
-                            toastQueueOutcome({
-                              ok: false,
-                              text: result.error ?? 'Re-queue failed.',
-                            });
-                            return;
-                          }
-                          if (result.held) {
-                            const message = 'Max re-queue held until ComfyUI queue is idle';
-                            setBackupStatus(message);
-                            toastHeldMax({ text: message });
-                            return;
-                          }
-                          const message = [
-                            'queued from history',
-                            result.promptId ? `prompt_id ${result.promptId}` : null,
-                            newSeed ? 'new variation · new seed' : 'same params',
-                          ]
-                            .filter(Boolean)
-                            .join(' · ');
-                          setBackupStatus(message);
-                          toastQueueOutcome({ ok: true, text: message });
-                        });
-                      }}
-                      onUpscale={qualityProfile => {
-                        const galleryEntry = findGalleryEntryForHistory(entry);
-                        if (!galleryEntry) {
-                          setBackupStatus(
-                            'No linked gallery output — rate or queue from Gallery first, then upscale from there.'
-                          );
-                          return;
-                        }
-                        setBackupStatus(`Upscaling linked gallery output (${qualityProfile})…`);
-                        void requeueUpscaleFromGalleryEntry(galleryEntry, {
-                          qualityProfile,
-                          onStatus: setBackupStatus,
-                        }).then(result => {
-                          if (!result.ok) {
-                            setBackupStatus(result.error ?? 'Upscale failed.');
-                            toastQueueOutcome({
-                              ok: false,
-                              text: result.error ?? 'Upscale failed.',
-                            });
-                            return;
-                          }
-                          if (result.held) {
-                            const message = 'Max upscale held until ComfyUI queue is idle';
-                            setBackupStatus(message);
-                            toastHeldMax({ text: message });
-                            return;
-                          }
-                          const message = result.promptId
-                            ? `Upscale queued · ${result.promptId}`
-                            : 'Upscale queued';
-                          setBackupStatus(message);
-                          toastQueueOutcome({ ok: true, text: message });
-                        });
-                      }}
-                      onRefine={() => {
-                        const galleryEntry = findGalleryEntryForHistory(entry);
-                        if (!galleryEntry) {
-                          setBackupStatus(
-                            'No linked gallery output — open Gallery and use Refine on the completed output.'
-                          );
-                          return;
-                        }
-                        setBackupStatus('Queueing low-denoise refine from linked gallery output…');
-                        void requeueRefineFromGalleryEntry(galleryEntry, {
-                          onStatus: setBackupStatus,
-                        }).then(result => {
-                          if (!result.ok) {
-                            setBackupStatus(result.error ?? 'Refine failed.');
-                            toastQueueOutcome({
-                              ok: false,
-                              text: result.error ?? 'Refine failed.',
-                            });
-                            return;
-                          }
-                          if (result.held) {
-                            const message = 'Max refine held until ComfyUI queue is idle';
-                            setBackupStatus(message);
-                            toastHeldMax({ text: message });
-                            return;
-                          }
-                          const message = result.promptId
-                            ? `Refine queued · ${result.promptId}`
-                            : 'Refine queued';
-                          setBackupStatus(message);
-                          toastQueueOutcome({ ok: true, text: message });
-                        });
-                      }}
-                      onRequeueBatch={() => {
-                        const batchPrompts = readHistoryBatchPrompts(entry);
-                        if (batchPrompts.length === 0) {
-                          return;
-                        }
-                        setBackupStatus(`Re-queueing batch (${batchPrompts.length})…`);
-                        void requeueComfyJobs(
-                          batchPrompts.map(prompt => ({
-                            prompt,
-                            tool: entry.tool,
-                            model: entry.model,
-                            hints: entry.hints,
-                            newSeed: true,
-                          })),
-                          setBackupStatus
-                        ).then(({ queued, failed }) => {
-                          setBackupStatus(
-                            `Batch re-queue finished · ${queued} queued · ${failed} failed`
-                          );
-                          toastBulkQueueSummary({
-                            label: 'Batch re-queue finished',
-                            queued,
-                            failed,
-                          });
-                        });
-                      }}
-                      batchPromptCount={readHistoryBatchPrompts(entry).length}
-                    />
-                  ))}
-                </ToolBlockGroup>
-              )}
-            </ToolSection>
+            <StudioHistoryTab
+              accent={ACCENT}
+              entries={entries}
+              filteredEntries={filteredEntries}
+              favoriteEntries={favoriteEntries}
+              historyFilter={historyFilter}
+              onHistoryFilterChange={setHistoryFilter}
+              projects={projects}
+              activeProjectId={activeProjectId}
+              onActiveProjectChange={projectId => {
+                setActiveProjectIdState(projectId);
+                setActiveProjectId(projectId);
+              }}
+              backupStatus={backupStatus}
+              onBackupStatusChange={setBackupStatus}
+              comfyUiStatus={actions.comfyUiStatus}
+              highlightHistoryId={highlightHistoryId}
+              onCopy={copyText}
+              onToggleFavorite={toggleFavorite}
+              onRate={setRating}
+              onAddTag={addTag}
+              onRemoveEntry={removeEntry}
+              onClearHistory={clearHistory}
+              onImportBackup={handleImportBackup}
+              onDiffLeft={id => {
+                setDiffLeftId(id);
+                selectStudioTab('diff');
+              }}
+              onDiffRight={id => {
+                setDiffRightId(id);
+                selectStudioTab('diff');
+              }}
+              onSaveTemplateFromEntry={entry => {
+                const name = window.prompt('Template name', `${entry.tool} prompt`);
+                if (!name?.trim()) {
+                  return;
+                }
+                const created = templateFromPrompt(name.trim(), entry.prompt);
+                upsertUserTemplate(created);
+                setUserTemplates(loadUserTemplates());
+                setBackupStatus(`Saved template “${created.label}”.`);
+              }}
+              onSendBatchFavorites={prompts => void actions.sendBatchComfyUi(prompts)}
+            />
           )}
 
           {tab === 'iteration' && (
@@ -2070,147 +1632,25 @@ export default function StudioTool() {
           )}
 
           {tab === 'compare' && (
-            <ToolSection>
-              <SharedToolControls
-                shared={shared}
-                onModelChange={model => updateShared({ model })}
-                onDetailChange={detail => updateShared({ detail })}
-                onWorkflowPresetChange={id => updateShared({ selectedWorkflowFileId: id })}
-              />
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <FieldLabel>Model A</FieldLabel>
-                  <p className="text-xs text-[var(--text-muted)]">{shared.model}</p>
-                </div>
-                <div className="space-y-2">
-                  <FieldLabel>Model B</FieldLabel>
-                  <TextInput
-                    value={toolSettings.compareModelB ?? 'flux-2-klein'}
-                    onChange={event => updateToolSettings({ compareModelB: event.target.value })}
-                  />
-                </div>
-              </div>
-
-              <TextArea
-                rows={3}
-                value={compareHints}
-                onChange={event => setCompareHints(event.target.value)}
-                className={accentFocusClass(ACCENT)}
-              />
-
-              <PrimaryButton
-                accentClassName={accentButtonClass(ACCENT)}
-                onClick={runCompare}
-                loading={compareLoading}
-                loadingLabel="Comparing models"
-              >
-                Compare models
-              </PrimaryButton>
-
-              <Button
-                variant="secondary"
-                loading={visualCompareLoading}
-                loadingLabel="Rendering compare"
-                disabled={!compareA?.prompt}
-                onClick={() => void runVisualCompare()}
-              >
-                Visual compare (ComfyUI)
-              </Button>
-              {visualCompareStatus ? (
-                <p className="text-xs text-violet-300/90">{visualCompareStatus}</p>
-              ) : null}
-
-              {compareError && (
-                <ErrorState
-                  compact
-                  title="Comparison failed"
-                  description={compareError}
-                  action={{
-                    label: 'Try again',
-                    onClick: () => void runCompare(),
-                  }}
-                />
-              )}
-
-              {compareLoading ? (
-                <CompareCardsSkeleton />
-              ) : compareA || compareB ? (
-                <div className="grid gap-4 lg:grid-cols-2">
-                  {compareA && (
-                    <CompareCard title={`Model A · ${shared.model}`} result={compareA} />
-                  )}
-                  {compareB && (
-                    <CompareCard
-                      title={`Model B · ${toolSettings.compareModelB}`}
-                      result={compareB}
-                    />
-                  )}
-                </div>
-              ) : (
-                <EmptyState
-                  icon="compare"
-                  title="Run a side-by-side comparison"
-                  description="Enter shared hints above, choose Model B, then compare how each architecture writes the same duo scene."
-                  action={{
-                    label: 'Compare models',
-                    onClick: () => void runCompare(),
-                  }}
-                />
-              )}
-
-              {(visualA?.previewUrl ||
-                visualB?.previewUrl ||
-                visualA?.held ||
-                visualB?.held ||
-                visualA?.error ||
-                visualB?.error) && (
-                <div className="grid gap-4 lg:grid-cols-2">
-                  {visualA ? (
-                    <div className="space-y-2">
-                      <p className="text-xs text-[var(--text-secondary)]">
-                        Visual · {visualA.model}
-                      </p>
-                      {visualA.previewUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={visualA.previewUrl}
-                          alt={`Visual compare ${visualA.model}`}
-                          className="w-full rounded-xl border border-[var(--border-subtle)]"
-                        />
-                      ) : (
-                        <p className="text-sm text-amber-300/90">
-                          {visualA.held
-                            ? 'Held Max until ComfyUI is idle'
-                            : (visualA.error ?? 'No preview')}
-                        </p>
-                      )}
-                    </div>
-                  ) : null}
-                  {visualB ? (
-                    <div className="space-y-2">
-                      <p className="text-xs text-[var(--text-secondary)]">
-                        Visual · {visualB.model}
-                      </p>
-                      {visualB.previewUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={visualB.previewUrl}
-                          alt={`Visual compare ${visualB.model}`}
-                          className="w-full rounded-xl border border-[var(--border-subtle)]"
-                        />
-                      ) : (
-                        <p className="text-sm text-amber-300/90">
-                          {visualB.held
-                            ? 'Held Max until ComfyUI is idle'
-                            : (visualB.error ?? 'No preview')}
-                        </p>
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-              )}
-            </ToolSection>
+            <StudioCompareTab
+              accent={ACCENT}
+              shared={shared}
+              toolSettings={toolSettings}
+              compareHints={compareHints}
+              compareA={compareA}
+              compareB={compareB}
+              compareLoading={compareLoading}
+              compareError={compareError}
+              visualCompareLoading={visualCompareLoading}
+              visualCompareStatus={visualCompareStatus}
+              visualA={visualA}
+              visualB={visualB}
+              onCompareHintsChange={setCompareHints}
+              onUpdateShared={updateShared}
+              onUpdateToolSettings={updateToolSettings}
+              onRunCompare={runCompare}
+              onRunVisualCompare={runVisualCompare}
+            />
           )}
 
           {tab === 'portfolio' && (
@@ -3099,228 +2539,6 @@ export default function StudioTool() {
   );
 }
 
-function readHistoryBatchPrompts(entry: PromptHistoryEntry): string[] {
-  const raw = entry.metadata?.batchPrompts;
-  if (!Array.isArray(raw)) {
-    return [];
-  }
-  return raw.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
-}
-
-function HistoryCard({
-  entry,
-  highlighted,
-  onCopy,
-  onToggleFavorite,
-  onRate,
-  onAddTag,
-  onExportSidecar,
-  onRemove,
-  onDiffLeft,
-  onDiffRight,
-  onSaveTemplate,
-  onRequeue,
-  onUpscale,
-  onRefine,
-  onRequeueBatch,
-  batchPromptCount = 0,
-}: {
-  entry: PromptHistoryEntry;
-  highlighted?: boolean;
-  onCopy: () => void;
-  onToggleFavorite: () => void;
-  onRate: (rating: PromptHistoryEntry['rating']) => void;
-  onAddTag: (tag: string) => void;
-  onExportSidecar: () => void;
-  onRemove: () => void;
-  onDiffLeft: () => void;
-  onDiffRight: () => void;
-  onSaveTemplate: () => void;
-  onRequeue: (newSeed: boolean) => void;
-  onUpscale?: (qualityProfile: 'final' | 'max') => void;
-  onRefine?: () => void;
-  onRequeueBatch?: () => void;
-  batchPromptCount?: number;
-}) {
-  const regenerateUrl = buildRegenerateUrl(entry);
-  const useAsHintsUrl = buildUseAsHintsUrl(entry);
-  const showHintDiff =
-    entry.hints?.trim() &&
-    entry.prompt.trim() &&
-    !entry.prompt.toLowerCase().includes(entry.hints.trim().slice(0, 40).toLowerCase());
-
-  return (
-    <ToolContentPanel
-      className={`ui-block-group min-w-0 ${highlighted ? 'ring-2 ring-violet-500/40' : ''}`}
-    >
-      <pre className="type-code max-h-56 overflow-auto whitespace-pre-wrap border border-[var(--border-subtle)] bg-[var(--bg-muted)] p-5 !text-[var(--tint-success-text)]">
-        {entry.prompt}
-      </pre>
-
-      <ToolMetaPanel>
-        <div className="flex min-w-0 flex-col gap-3">
-          <p className="type-caption min-w-0 break-words text-[var(--text-muted)]">
-            {entry.tool} · {entry.model} · {new Date(entry.timestamp).toLocaleString()}
-          </p>
-          <div className="ui-list-actions w-full justify-start">
-            <a href={regenerateUrl} className="ui-btn-ghost ui-btn-sm type-caption">
-              Regenerate
-            </a>
-            <a href={useAsHintsUrl} className="ui-btn-ghost ui-btn-sm type-caption">
-              Use as hints
-            </a>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="type-caption"
-              onClick={() => startPromptEditorFromHistoryEntry(entry)}
-            >
-              Edit prompt
-            </Button>
-            <a href={studioHistoryUrl(entry.id)} className="ui-btn-ghost ui-btn-sm type-caption">
-              Link
-            </a>
-            <Button variant="ghost" size="sm" className="type-caption" onClick={onToggleFavorite}>
-              {entry.favorite ? '★' : '☆'}
-            </Button>
-            <Button variant="ghost" size="sm" className="type-caption" onClick={onCopy}>
-              Copy
-            </Button>
-            <Button variant="ghost" size="sm" className="type-caption" onClick={onExportSidecar}>
-              Sidecar
-            </Button>
-            <Button
-              variant="accent-outline"
-              size="sm"
-              className="type-caption"
-              onClick={() => onRequeue(false)}
-            >
-              Re-queue
-            </Button>
-            <Button
-              variant="accent-outline"
-              size="sm"
-              className="type-caption"
-              onClick={() => onRequeue(true)}
-            >
-              New variation (new seed)
-            </Button>
-            {onUpscale ? (
-              <>
-                <Button
-                  variant="accent-outline"
-                  size="sm"
-                  className="type-caption"
-                  onClick={() => onUpscale('final')}
-                >
-                  Upscale (Final)
-                </Button>
-                <Button
-                  variant="accent-outline"
-                  size="sm"
-                  className="type-caption"
-                  onClick={() => onUpscale('max')}
-                >
-                  Upscale (Max)
-                </Button>
-              </>
-            ) : null}
-            {onRefine ? (
-              <Button
-                variant="accent-outline"
-                size="sm"
-                className="type-caption"
-                onClick={onRefine}
-              >
-                Refine (low denoise)
-              </Button>
-            ) : null}
-            {batchPromptCount > 1 && onRequeueBatch ? (
-              <Button
-                variant="accent-outline"
-                size="sm"
-                className="type-caption"
-                onClick={onRequeueBatch}
-              >
-                Re-queue batch ({batchPromptCount})
-              </Button>
-            ) : null}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="type-caption"
-              onClick={() => {
-                const tag = window.prompt('Add tag');
-                if (tag?.trim()) {
-                  onAddTag(tag.trim());
-                }
-              }}
-            >
-              Tag
-            </Button>
-            <Button variant="ghost" size="sm" className="type-caption" onClick={onDiffLeft}>
-              Diff A
-            </Button>
-            <Button variant="ghost" size="sm" className="type-caption" onClick={onDiffRight}>
-              Diff B
-            </Button>
-            <Button variant="ghost" size="sm" className="type-caption" onClick={onSaveTemplate}>
-              Template
-            </Button>
-            <Button variant="danger" size="sm" className="type-caption" onClick={onRemove}>
-              Remove
-            </Button>
-          </div>
-        </div>
-
-        {entry.hints?.trim() && (
-          <p className="type-caption ui-truncate-2">
-            Hints: <span className="text-[var(--text-secondary)]">{entry.hints}</span>
-          </p>
-        )}
-
-        {(entry.tags?.length ?? 0) > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {entry.tags!.map(tag => (
-              <span
-                key={tag}
-                className="type-overline rounded-[var(--radius-full)] border border-[var(--border-default)] bg-[var(--bg-subtle)] px-2.5 py-1"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
-
-        {showHintDiff && (
-          <p className="type-caption text-[var(--tint-warning-text)]">
-            Prompt expanded beyond the saved hints — use Regenerate to roll again with the same
-            inputs.
-          </p>
-        )}
-
-        <div className="flex gap-2">
-          {[1, 2, 3, 4, 5].map(value => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => onRate(value as PromptHistoryEntry['rating'])}
-              className={`ui-chip !min-h-8 !min-w-8 justify-center px-0 ${
-                entry.rating === value ? '' : ''
-              }`}
-              data-active={entry.rating === value ? 'true' : 'false'}
-            >
-              {value}
-            </button>
-          ))}
-        </div>
-
-        {entry.diagnostics && <PromptDiagnosticsPanel diagnostics={entry.diagnostics} />}
-      </ToolMetaPanel>
-    </ToolContentPanel>
-  );
-}
-
 function IterationTreeNodeCard({
   node,
   depth,
@@ -3527,17 +2745,5 @@ function IterationTreeNodeCard({
         />
       ))}
     </div>
-  );
-}
-
-function CompareCard({ title, result }: { title: string; result: EnrichedToolGenerateResult }) {
-  return (
-    <ToolContentPanel className="ui-block-group">
-      <h3 className="type-title ui-truncate">{title}</h3>
-      <pre className="type-code max-h-72 overflow-auto whitespace-pre-wrap border border-[var(--border-subtle)] bg-[var(--bg-muted)] p-5 !text-[var(--tint-success-text)]">
-        {result.prompt}
-      </pre>
-      <PromptDiagnosticsPanel diagnostics={result.diagnostics ?? null} />
-    </ToolContentPanel>
   );
 }

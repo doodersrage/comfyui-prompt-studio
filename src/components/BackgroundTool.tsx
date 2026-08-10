@@ -37,7 +37,6 @@ import {
   ToolBadge,
   CollapsibleSection,
   ToolLayout,
-  ToolSection,
   accentFocusClass,
 } from '@/components/ui/ToolPageShell';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';

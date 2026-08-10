@@ -7,6 +7,7 @@ import { applySceneStarterWorkflowHints } from '@/lib/scene-starter-workflow-hin
 import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import { VariationSliderField } from '@/components/scene-tool/SceneToolSections';
+import SceneSetupSection from '@/components/scene-tool/SceneSetupSection';
 import { HistoryHintSeedPanel } from '@/components/scene-tool/HistoryHintSeedPanel';
 import { normalizeHistorySeedScope, resolveGenerateHintSource } from '@/lib/scene-hint-source';
 import { countHistorySeedCandidates } from '@/lib/history-hint-seed';
@@ -552,7 +553,7 @@ export default function PromptGenerator() {
       }
     >
       <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.generate} />
-      <ToolSection title="Scene setup" description="Keywords or a random scene — then generate.">
+      <SceneSetupSection description="Keywords or a random scene — then generate.">
         <HistoryHintSeedPanel
           tool="generate"
           compact
@@ -838,7 +839,7 @@ export default function PromptGenerator() {
         {submitDisabledReason && !loading && <FieldError>{submitDisabledReason}</FieldError>}
 
         {error && <FieldError>{error}</FieldError>}
-      </ToolSection>
+      </SceneSetupSection>
 
       {output && (hintSource === 'random' || mode === 'positive') && (
         <EnhancedPromptResult
