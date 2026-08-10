@@ -13,6 +13,10 @@ import {
   toastBulkQueueSummary,
   toastQueueOutcome,
 } from "./app-toast";
+import {
+  dismissSystemTrayMessage,
+  getSystemTrayMessages,
+} from "./system-tray-messages";
 import { loadToolContext, saveToolContext } from "./tool-context-memory";
 import { resetUiChrome } from "./reset-ui-chrome";
 import { loadNavFavorites } from "./nav-favorites";
@@ -148,6 +152,9 @@ describe("app toast", () => {
       while (getAppToasts().length) {
         dismissAppToast(getAppToasts()[0]!.id);
       }
+      while (getSystemTrayMessages().length) {
+        dismissSystemTrayMessage(getSystemTrayMessages()[0]!.id);
+      }
     });
   });
 
@@ -165,11 +172,11 @@ describe("app toast", () => {
   it("toastQueueOutcome uses danger for failures", () => {
     withMockLocalStorage(() => {
       rememberToastPreference(true);
-      while (getAppToasts().length) {
-        dismissAppToast(getAppToasts()[0]!.id);
+      while (getSystemTrayMessages().length) {
+        dismissSystemTrayMessage(getSystemTrayMessages()[0]!.id);
       }
       toastQueueOutcome({ ok: false, text: "ComfyUI queue failed." });
-      assert.equal(getAppToasts()[0]?.tone, "danger");
+      assert.equal(getSystemTrayMessages()[0]?.tone, "danger");
     });
   });
 });
@@ -312,13 +319,13 @@ describe("bulk queue toast", () => {
     withMockLocalStorage(() => {
       resetBrowserStorageCache();
       rememberToastPreference(true);
-      while (getAppToasts().length) {
-        dismissAppToast(getAppToasts()[0]!.id);
+      while (getSystemTrayMessages().length) {
+        dismissSystemTrayMessage(getSystemTrayMessages()[0]!.id);
       }
     });
   });
 
-  it("summarizes bulk results in one toast", () => {
+  it("summarizes bulk results in one tray message", () => {
     withMockLocalStorage(() => {
       rememberToastPreference(true);
       assert.ok(
@@ -329,9 +336,9 @@ describe("bulk queue toast", () => {
           skipped: 1,
         }),
       );
-      assert.equal(getAppToasts().length, 1);
-      assert.match(getAppToasts()[0]!.text, /Bulk upscale finished/);
-      assert.equal(getAppToasts()[0]!.tone, "danger");
+      assert.equal(getSystemTrayMessages().length, 1);
+      assert.match(getSystemTrayMessages()[0]!.text, /Bulk upscale finished/);
+      assert.equal(getSystemTrayMessages()[0]!.tone, "danger");
     });
   });
 });
@@ -344,14 +351,19 @@ describe("mute toasts", () => {
       while (getAppToasts().length) {
         dismissAppToast(getAppToasts()[0]!.id);
       }
+      while (getSystemTrayMessages().length) {
+        dismissSystemTrayMessage(getSystemTrayMessages()[0]!.id);
+      }
     });
   });
 
-  it("skips push when toasts are disabled", () => {
+  it("skips push when notifications are disabled", () => {
     withMockLocalStorage(() => {
       rememberToastPreference(false);
       assert.equal(pushAppToast({ text: "Should not show", ttlMs: 0 }), null);
       assert.equal(getAppToasts().length, 0);
+      assert.equal(toastQueueOutcome({ ok: true, text: "Also hidden", ttlMs: 0 }), null);
+      assert.equal(getSystemTrayMessages().length, 0);
       rememberToastPreference(true);
       assert.ok(pushAppToast({ text: "Visible", ttlMs: 0 }));
     });

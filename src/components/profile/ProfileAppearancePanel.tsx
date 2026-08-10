@@ -81,14 +81,17 @@ export default function ProfileAppearancePanel() {
             setToastsEnabled(next);
             rememberToastPreference(next);
             if (next) {
-              pushAppToast({ text: 'Toasts enabled', tone: 'info', ttlMs: 2500 });
+              pushAppToast({ text: 'Activity notifications enabled', tone: 'info', ttlMs: 2500 });
             }
           }}
         />
         <span>
-          <span className="block font-medium text-[var(--text-primary)]">Queue toasts</span>
+          <span className="block font-medium text-[var(--text-primary)]">
+            Activity notifications
+          </span>
           <span className="type-caption text-[var(--text-muted)]">
-            Show bottom-right confirmations for ComfyUI queue success and failures.
+            Show queue confirmations, held Max warnings, and other activity in the bottom-right
+            system tray.
           </span>
         </span>
       </label>

@@ -10,6 +10,11 @@ import { comfyUiJobProgressPercent } from '@/lib/comfyui-job-status';
 import { HELD_MAX_UPDATED_EVENT, listHeldMaxJobs, type HeldMaxJob } from '@/lib/held-max-queue';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import { COMFY_ASSET_JOBS_UPDATED_EVENT } from '@/lib/comfy-asset-events';
+import {
+  getSystemTrayMessages,
+  SYSTEM_TRAY_MESSAGES_EVENT,
+  type SystemTrayMessage,
+} from '@/lib/system-tray-messages';
 
 export type SystemTrayAssetJob = {
   id: string;
@@ -38,6 +43,7 @@ export type SystemTrayState = {
   primary: SystemTrayPrimary | null;
   totalActiveCount: number;
   hasActivity: boolean;
+  trayMessages: SystemTrayMessage[];
   refresh: () => void;
 };
 
@@ -113,6 +119,7 @@ export function useSystemTrayState(options?: { pollAssets?: boolean }): SystemTr
   const [heldJobs, setHeldJobs] = useState<HeldMaxJob[]>([]);
   const [assetJobs, setAssetJobs] = useState<SystemTrayAssetJob[]>([]);
   const [queueHealth, setQueueHealth] = useState<SystemTrayQueueHealth | null>(null);
+  const [trayMessages, setTrayMessages] = useState<SystemTrayMessage[]>([]);
 
   const refreshGallery = useCallback(() => {
     setGalleryEntries(loadComfyGallery());
@@ -180,12 +187,17 @@ export function useSystemTrayState(options?: { pollAssets?: boolean }): SystemTr
 
   const assetPollMs = assetJobs.length > 0 ? 2000 : 8000;
 
+  const refreshMessages = useCallback(() => {
+    setTrayMessages(getSystemTrayMessages());
+  }, []);
+
   const refresh = useCallback(() => {
     refreshGallery();
     refreshHeld();
     void refreshHealth();
     void refreshAssets();
-  }, [refreshAssets, refreshGallery, refreshHeld, refreshHealth]);
+    refreshMessages();
+  }, [refreshAssets, refreshGallery, refreshHeld, refreshHealth, refreshMessages]);
 
   useEffect(() => {
     scheduleAfterCommit(refresh);
@@ -193,10 +205,12 @@ export function useSystemTrayState(options?: { pollAssets?: boolean }): SystemTr
     const onGallery = () => refreshGallery();
     const onHeld = () => refreshHeld();
     const onAssets = () => void refreshAssets();
+    const onTrayMessages = () => refreshMessages();
 
     window.addEventListener(COMFYUI_GALLERY_UPDATED_EVENT, onGallery);
     window.addEventListener(HELD_MAX_UPDATED_EVENT, onHeld);
     window.addEventListener(COMFY_ASSET_JOBS_UPDATED_EVENT, onAssets);
+    window.addEventListener(SYSTEM_TRAY_MESSAGES_EVENT, onTrayMessages);
     window.addEventListener('storage', onHeld);
 
     const galleryInterval = window.setInterval(refreshGallery, 4000);
@@ -211,12 +225,21 @@ export function useSystemTrayState(options?: { pollAssets?: boolean }): SystemTr
       window.removeEventListener(COMFYUI_GALLERY_UPDATED_EVENT, onGallery);
       window.removeEventListener(HELD_MAX_UPDATED_EVENT, onHeld);
       window.removeEventListener(COMFY_ASSET_JOBS_UPDATED_EVENT, onAssets);
+      window.removeEventListener(SYSTEM_TRAY_MESSAGES_EVENT, onTrayMessages);
       window.removeEventListener('storage', onHeld);
       window.clearInterval(galleryInterval);
       window.clearInterval(healthInterval);
       window.clearInterval(assetInterval);
     };
-  }, [assetPollMs, refresh, refreshAssets, refreshGallery, refreshHealth, refreshHeld]);
+  }, [
+    assetPollMs,
+    refresh,
+    refreshAssets,
+    refreshGallery,
+    refreshHealth,
+    refreshHeld,
+    refreshMessages,
+  ]);
 
   const activeGalleryJobs = useMemo(
     () =>
@@ -245,6 +268,7 @@ export function useSystemTrayState(options?: { pollAssets?: boolean }): SystemTr
     primary,
     totalActiveCount,
     hasActivity,
+    trayMessages,
     refresh,
   };
 }

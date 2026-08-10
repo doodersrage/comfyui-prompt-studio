@@ -19,10 +19,6 @@ const GalleryPwaRegister = dynamic(() => import('@/components/GalleryPwaRegister
   ssr: false,
 });
 
-const GlobalToastHost = dynamic(() => import('@/components/GlobalToastHost'), {
-  ssr: false,
-});
-
 const SystemTray = dynamic(() => import('@/components/SystemTray'), {
   ssr: false,
 });
@@ -90,7 +86,6 @@ export default function DeferredShellClient() {
   return (
     <>
       {batchEnabled || shellReady ? <ScheduledBatchRunner /> : null}
-      {toastReady || shellReady ? <GlobalToastHost /> : null}
       {toastReady || shellReady ? <SystemTray /> : null}
       {shellReady ? (
         <>

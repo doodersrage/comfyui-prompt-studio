@@ -1,4 +1,10 @@
-import { readBrowserString, writeBrowserString } from './browser-storage';
+import {
+  loadToastPreferenceEnabled,
+  pushSystemTrayMessage,
+  rememberToastPreference,
+} from './system-tray-messages';
+
+export { loadToastPreferenceEnabled, rememberToastPreference };
 
 export type AppToastTone = 'neutral' | 'success' | 'warning' | 'danger' | 'info';
 
@@ -60,13 +66,13 @@ export function pushAppToast(input: {
   return id;
 }
 
-/** Convenience for Comfy queue / requeue outcomes. */
+/** Convenience for Comfy queue / requeue outcomes — shown in the system tray. */
 export function toastQueueOutcome(input: {
   ok: boolean;
   text: string;
   href?: string;
 }): string | null {
-  return pushAppToast({
+  return pushSystemTrayMessage({
     text: input.text,
     tone: input.ok ? 'success' : 'danger',
     href: input.href ?? (input.ok ? '/gallery' : '/queue'),
@@ -77,7 +83,7 @@ export function toastQueueOutcome(input: {
 /** Sticky warning when Max jobs are parked until ComfyUI is idle. */
 export function toastHeldMax(input: { text: string; count?: number }): string | null {
   const countNote = typeof input.count === 'number' && input.count > 1 ? ` (${input.count})` : '';
-  return pushAppToast({
+  return pushSystemTrayMessage({
     text: `${input.text.trim()}${countNote}`,
     tone: 'warning',
     href: '/queue',
@@ -85,7 +91,7 @@ export function toastHeldMax(input: { text: string; count?: number }): string | 
   });
 }
 
-/** One summary toast for bulk gallery/queue ops (avoids per-item noise). */
+/** One summary message for bulk gallery/queue ops (avoids per-item noise). */
 export function toastBulkQueueSummary(input: {
   label: string;
   queued: number;
@@ -98,7 +104,7 @@ export function toastBulkQueueSummary(input: {
     return toastQueueOutcome({ ok: false, text, href: '/queue' });
   }
   if (input.queued === 0) {
-    return pushAppToast({
+    return pushSystemTrayMessage({
       text,
       tone: 'warning',
       href: '/gallery',
@@ -122,13 +128,4 @@ export function clearAppToasts(): void {
   }
   toasts = [];
   emit();
-}
-
-export function rememberToastPreference(enabled: boolean): void {
-  writeBrowserString('comfy-app-toast-enabled-v1', enabled ? '1' : '0');
-}
-
-export function loadToastPreferenceEnabled(): boolean {
-  const value = readBrowserString('comfy-app-toast-enabled-v1');
-  return value !== '0';
 }
