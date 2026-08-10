@@ -59,12 +59,16 @@ export default function ScheduledBatchRunner() {
             detail,
           });
 
-          if (bestOfN > 1 && prompts.length > config.count) {
+          const useVisionRank = Boolean(config.bestOfNVision && bestOfN > 1);
+          if (!useVisionRank && bestOfN > 1 && prompts.length > config.count) {
             prompts = await rankScheduledBatchPrompts(prompts, config.count, bestOfN);
-          } else {
+          } else if (!useVisionRank) {
             prompts = prompts.slice(0, config.count);
+          } else {
+            prompts = prompts.slice(0, generateCount);
           }
 
+          const queuedPromptIds: string[] = [];
           if (config.autoQueueComfyUi && prompts.length > 0) {
             const negativePrompt = await resolveQueueNegativePrompt({
               model,
@@ -132,10 +136,27 @@ export default function ScheduledBatchRunner() {
                     comfyUrl,
                     clientId: queued.clientId,
                   });
+                  queuedPromptIds.push(result.promptId);
                 }
                 registerScheduledBatchQueue(queuedJobs);
               }
               queued.releaseLiveSocket();
+            }
+
+            if (useVisionRank && queuedPromptIds.length > 0) {
+              const { runPostQueueVisionCull } = await import('@/lib/best-of-n-vision-queue');
+              const { kept, completed } = await runPostQueueVisionCull(
+                queuedPromptIds,
+                config.count
+              );
+              void dispatchWebhook({
+                event: 'scheduled.batch.run',
+                tool: 'scheduled-batch',
+                model,
+                queued: queuedPromptIds.length,
+                completedAt: Date.now(),
+                message: `Vision-ranked ${completed} outputs → kept ${kept.length} winners`,
+              });
             }
           }
 

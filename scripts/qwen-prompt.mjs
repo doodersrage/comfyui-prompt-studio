@@ -47,10 +47,50 @@ async function main() {
   if (!tool || tool === 'help' || args.help) {
     console.log(`Usage: node scripts/qwen-prompt.mjs <tool> [options]
 
-Tools: duo, character, batch, lint, negative, catalog, compose, generate, format, fix, compact, comfyui, topics-batch, pet, fantasy, background, random-scene, refine, image-prompt, portfolio, webhook-test
+Tools: duo, character, batch, lint, negative, catalog, compose, generate, format, fix, compact, comfyui, topics-batch, pet, fantasy, background, random-scene, refine, image-prompt, portfolio, webhook-test, recommend, recipes-run
 Env: PROMPT_API_URL (default ${BASE_URL})
-Portfolio: --input "draft" [--models a,b] [--queue] [--negative "..."]`);
+Portfolio: --input "draft" [--models a,b] [--queue] [--negative "..."]
+Recommend: --input "neon alley portrait" [--limit 3]
+Recipes-run: --prompt "..." --steps compact,format [--model sdxl-base]`);
     process.exit(0);
+  }
+
+  if (tool === 'recommend') {
+    const input = String(args.input ?? args.text ?? args._[1] ?? '').trim();
+    if (!input) {
+      console.error('recommend requires --input');
+      process.exit(1);
+    }
+    const response = await fetch(`${BASE_URL}/api/models/recommend`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ input, limit: Number(args.limit) || 3 }),
+    });
+    console.log(JSON.stringify(await response.json(), null, 2));
+    return;
+  }
+
+  if (tool === 'recipes-run') {
+    const prompt = String(args.prompt ?? '').trim();
+    const steps = String(args.steps ?? '')
+      .split(',')
+      .map(step => step.trim())
+      .filter(Boolean);
+    if (!prompt || steps.length === 0) {
+      console.error('recipes-run requires --prompt and --steps (comma-separated)');
+      process.exit(1);
+    }
+    const response = await fetch(`${BASE_URL}/api/recipes/run`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt,
+        model: args.model ?? 'sdxl-base',
+        steps: steps.map(id => ({ id })),
+      }),
+    });
+    console.log(JSON.stringify(await response.json(), null, 2));
+    return;
   }
 
   const routes = {

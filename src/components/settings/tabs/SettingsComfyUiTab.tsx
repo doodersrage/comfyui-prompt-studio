@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import ComfyUiSettingsJumpNav from '@/components/settings/ComfyUiSettingsJumpNav';
 import SettingsBrowserPresetsPanel from '@/components/settings/SettingsBrowserPresetsPanel';
 import CompactDraftSavesStatus from '@/components/settings/CompactDraftSavesStatus';
@@ -7,7 +8,6 @@ import ToolQualityProfilesSettings from '@/components/settings/ToolQualityProfil
 import FaceDetailerHealthChip from '@/components/settings/FaceDetailerHealthChip';
 import IdentityPackHealthChips from '@/components/settings/IdentityPackHealthChips';
 import WildcardListsEditor from '@/components/settings/WildcardListsEditor';
-import ComfyWorkflowLibraryPanel from '@/components/ComfyWorkflowLibraryPanel';
 import WorkflowHealthPanel from '@/components/WorkflowHealthPanel';
 import WorkflowDiffPanel from '@/components/settings/WorkflowDiffPanel';
 import LoraLibrarySettingsPanel from '@/components/settings/LoraLibrarySettingsPanel';
@@ -67,6 +67,11 @@ import {
 import { EmptyState } from '@/components/ui/ViewState';
 import { FieldError, FieldLabel, TextArea } from '@/components/ui/Field';
 import { Button, PrimaryButton } from '@/components/ui/Button';
+
+const ComfyWorkflowLibraryPanel = dynamic(() => import('@/components/ComfyWorkflowLibraryPanel'), {
+  ssr: false,
+  loading: () => <p className="text-sm text-[var(--text-muted)]">Loading workflow library…</p>,
+});
 
 const ACCENT = SETTINGS_TOOL_ACCENT;
 

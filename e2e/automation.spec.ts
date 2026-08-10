@@ -13,6 +13,7 @@ test.describe('Settings automation', () => {
     await expect(page.getByRole('heading', { name: 'Scheduled batch' })).toBeVisible();
     await expect(page.getByLabel('Enable browser scheduled batch')).toBeVisible();
     await expect(page.getByLabel(/Best-of-N ranking/i)).toBeVisible();
+    await expect(page.getByText(/Vision-rank queued outputs/i)).toBeVisible();
   });
 
   test('webhook settings section is reachable', async ({ page }) => {

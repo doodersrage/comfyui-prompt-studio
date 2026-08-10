@@ -9,6 +9,8 @@ type ModelRecommenderHintsProps = {
   text: string;
   currentModel: ComfyImageModel;
   onApplyModel?: (model: ComfyImageModel) => void;
+  /** Prefer server route for CLI parity; falls back to client rules. */
+  preferServer?: boolean;
 };
 
 const RECOMMEND_DEBOUNCE_MS = 400;
@@ -17,21 +19,60 @@ export default function ModelRecommenderHints({
   text,
   currentModel,
   onApplyModel,
+  preferServer = true,
 }: ModelRecommenderHintsProps) {
   const [debouncedText, setDebouncedText] = useState(text);
+  const [serverSuggestions, setServerSuggestions] = useState<ModelRecommendation[] | null>(null);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedText(text), RECOMMEND_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
   }, [text]);
 
-  const suggestions = useMemo((): ModelRecommendation[] => {
+  const localSuggestions = useMemo((): ModelRecommendation[] => {
     const trimmed = debouncedText.trim();
     if (trimmed.length < 8) {
       return [];
     }
     return recommendModels(trimmed, 3);
   }, [debouncedText]);
+
+  useEffect(() => {
+    const trimmed = debouncedText.trim();
+    if (!preferServer || trimmed.length < 8) {
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch('/api/models/recommend', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ input: trimmed, limit: 3 }),
+        });
+        const data = (await response.json()) as { recommendations?: ModelRecommendation[] };
+        if (!cancelled && response.ok && Array.isArray(data.recommendations)) {
+          setServerSuggestions(data.recommendations);
+        }
+      } catch {
+        // fall back to localSuggestions in render
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedText, preferServer]);
+
+  const suggestions = useMemo(() => {
+    const trimmed = debouncedText.trim();
+    if (trimmed.length < 8) {
+      return [];
+    }
+    if (preferServer && serverSuggestions?.length) {
+      return serverSuggestions;
+    }
+    return localSuggestions;
+  }, [debouncedText, localSuggestions, preferServer, serverSuggestions]);
 
   if (!text.trim() || suggestions.length === 0 || !onApplyModel) {
     return null;

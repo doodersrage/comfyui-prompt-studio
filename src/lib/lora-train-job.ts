@@ -22,6 +22,8 @@ export type LoraTrainTrainerPrefs = {
   baseModel?: string;
   /** When registering a completed job, also pin it into sessionActiveLoraIds. */
   activateOnRegister?: boolean;
+  /** Queue a validation render when a train job completes. */
+  autoQueueValidation?: boolean;
 };
 
 export type LoraDatasetExportPrefs = {
@@ -228,5 +230,6 @@ export function normalizeLoraTrainTrainerPrefs(raw: unknown): LoraTrainTrainerPr
     outputDir: typeof record.outputDir === 'string' ? record.outputDir.trim() : '',
     baseModel: typeof record.baseModel === 'string' ? record.baseModel.trim() : '',
     activateOnRegister: record.activateOnRegister !== false,
+    autoQueueValidation: Boolean(record.autoQueueValidation),
   };
 }

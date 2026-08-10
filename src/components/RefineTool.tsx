@@ -9,6 +9,7 @@ import InpaintMaskEditor from '@/components/InpaintMaskEditor';
 import RegionalEditPanel, { regionalSlotsQueueExtras } from '@/components/RegionalEditPanel';
 import SharedToolControls from '@/components/SharedToolControls';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
+import CollabPresenceBar from '@/components/CollabPresenceBar';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
@@ -335,6 +336,17 @@ export default function RefineTool() {
       }
     >
       <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.refine} />
+      <CollabPresenceBar
+        tool="refine"
+        draft={[intentHints, currentPrompt].filter(Boolean).join('\n\n')}
+        onApplyRemoteDraft={payload => {
+          const parts = payload.draft.split(/\n\n+/);
+          updateToolSettings({
+            intentHints: parts[0] ?? payload.draft,
+            currentPrompt: parts.slice(1).join('\n\n') || toolSettings.currentPrompt,
+          });
+        }}
+      />
       <ToolSection>
         {isBooguEditModel(shared.model) ? (
           <p className="mb-4 text-xs leading-relaxed text-[var(--text-muted)]">

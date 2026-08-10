@@ -35,6 +35,15 @@ describe('clampScheduledBatchConfig', () => {
     assert.equal(result.bestOfN, 4);
     assert.equal(result.model, 'qwen-image-2512');
     assert.equal(result.webhookAutoRetry, true);
+    assert.equal(result.bestOfNVision, false);
+  });
+
+  it('persists bestOfNVision flag', () => {
+    const result = clampScheduledBatchConfig({
+      ...DEFAULT_SCHEDULED_BATCH,
+      bestOfNVision: true,
+    });
+    assert.equal(result.bestOfNVision, true);
   });
 });
 

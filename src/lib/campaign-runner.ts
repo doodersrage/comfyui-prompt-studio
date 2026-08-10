@@ -12,6 +12,7 @@ import { prepareQueuePrompts } from './queue-prompt-prep';
 import { resolveQueueParams } from './queue-params-settings';
 import { guardQueueQualityForVram } from './vram-queue-guard';
 import { maybeHoldMaxGenerateJobs } from './held-max-queue';
+import { rankPromptsWithLlm } from './best-of-n-rank';
 
 export type CampaignStepResult = {
   index: number;
@@ -30,9 +31,13 @@ export async function runPromptCampaign(input: {
   topics?: string[];
   queueToComfyUi: boolean;
   hints?: string;
+  bestOfN?: number;
+  bestOfNVision?: boolean;
 }): Promise<CampaignStepResult[]> {
   const model = input.model as ComfyImageModel;
+  const bestOfN = Math.min(4, Math.max(1, Math.floor(input.bestOfN ?? 1)));
   const count = Math.min(12, Math.max(1, input.count));
+  const generateCount = bestOfN > 1 ? count * bestOfN : count;
   const results: CampaignStepResult[] = [];
   const projectId = loadActiveProjectId();
   const baseRuntime = resolveRuntimeForQueue(model, 'campaign');
@@ -47,7 +52,7 @@ export async function runPromptCampaign(input: {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model,
-        topics: input.topics.slice(0, count),
+        topics: input.topics.slice(0, generateCount),
         target: 'generate',
         ...avoidedTokensRequestBody(),
       }),
@@ -61,7 +66,7 @@ export async function runPromptCampaign(input: {
     }
     prompts = (data.results ?? []).map(entry => entry.prompt?.trim()).filter(Boolean) as string[];
   } else {
-    for (let index = 0; index < count; index += 1) {
+    for (let index = 0; index < generateCount; index += 1) {
       const response = await fetch('/api/random-scene', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -86,6 +91,17 @@ export async function runPromptCampaign(input: {
       prompts.push(data.prompt.trim());
     }
   }
+
+  const useVisionRank = Boolean(input.bestOfNVision && bestOfN > 1 && input.queueToComfyUi);
+  if (!useVisionRank && bestOfN > 1 && prompts.length > count) {
+    prompts = await rankPromptsWithLlm(prompts, count);
+  } else if (!useVisionRank) {
+    prompts = prompts.slice(0, count);
+  } else {
+    prompts = prompts.slice(0, generateCount);
+  }
+
+  const queuedPromptIds: string[] = [];
 
   for (const [index, rawPrompt] of prompts.entries()) {
     const steered = input.queueToComfyUi
@@ -165,8 +181,14 @@ export async function runPromptCampaign(input: {
       comfyUrl: queuedJob.comfyUrl ?? 'http://127.0.0.1:8188',
       clientId: queuedJob.clientId,
     });
+    queuedPromptIds.push(queuedJob.promptId);
     queuedJob.releaseLiveSocket();
     results.push({ index, prompt, queued: true, promptId: queuedJob.promptId });
+  }
+
+  if (useVisionRank && queuedPromptIds.length > 0) {
+    const { runPostQueueVisionCull } = await import('./best-of-n-vision-queue');
+    await runPostQueueVisionCull(queuedPromptIds, count);
   }
 
   return results;

@@ -53,6 +53,9 @@ import { countHistorySeedCandidates } from '@/lib/history-hint-seed';
 import type { SharedToolSettings, VariationsToolCache } from '@/lib/settings-cache';
 import { buildMatrixAxes, type MatrixAxisKind } from '@/lib/variation-matrix';
 import { downloadMatrixCsv } from '@/lib/matrix-export-formats';
+import VirtualizedVariationResults, {
+  shouldVirtualizeVariationResults,
+} from '@/components/VirtualizedVariationResults';
 import { scoreBatchReadiness } from '@/lib/batch-readiness';
 import SidecarImportButton from '@/components/SidecarImportButton';
 import { SHOT_SCALE_LABEL, rollVariationLabel } from '@/lib/tool-ui-labels';
@@ -1169,31 +1172,58 @@ export default function VariationGridTool() {
               </Button>
             </div>
           ) : null}
-          <ol className="space-y-3">
-            {results.map((entry, index) => (
-              <li
-                key={`${index}-${entry.prompt.slice(0, 24)}`}
-                className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)]/50 p-4"
-              >
-                <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
-                  {entry.rowLabel && entry.colLabel
-                    ? `${entry.rowLabel} × ${entry.colLabel}`
-                    : `Variation ${index + 1}`}
-                  {entry.seed ? ` · seed ${entry.seed.slice(0, 48)}` : ''}
-                  {readinessByIndex.get(index)
-                    ? ` · readiness ${readinessByIndex.get(index)!.score}/100`
-                    : ''}
-                </p>
-                {entry.error ? (
-                  <p className="mt-2 text-sm text-rose-300">{entry.error}</p>
-                ) : (
-                  <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
-                    {entry.prompt}
+          {shouldVirtualizeVariationResults(results.length) ? (
+            <VirtualizedVariationResults
+              items={results}
+              getKey={(entry, index) => `${index}-${entry.prompt.slice(0, 24)}`}
+              renderItem={(entry, index) => (
+                <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)]/50 p-4">
+                  <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
+                    {entry.rowLabel && entry.colLabel
+                      ? `${entry.rowLabel} × ${entry.colLabel}`
+                      : `Variation ${index + 1}`}
+                    {entry.seed ? ` · seed ${entry.seed.slice(0, 48)}` : ''}
+                    {readinessByIndex.get(index)
+                      ? ` · readiness ${readinessByIndex.get(index)!.score}/100`
+                      : ''}
                   </p>
-                )}
-              </li>
-            ))}
-          </ol>
+                  {entry.error ? (
+                    <p className="mt-2 text-sm text-rose-300">{entry.error}</p>
+                  ) : (
+                    <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
+                      {entry.prompt}
+                    </p>
+                  )}
+                </div>
+              )}
+            />
+          ) : (
+            <ol className="space-y-3">
+              {results.map((entry, index) => (
+                <li
+                  key={`${index}-${entry.prompt.slice(0, 24)}`}
+                  className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)]/50 p-4"
+                >
+                  <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
+                    {entry.rowLabel && entry.colLabel
+                      ? `${entry.rowLabel} × ${entry.colLabel}`
+                      : `Variation ${index + 1}`}
+                    {entry.seed ? ` · seed ${entry.seed.slice(0, 48)}` : ''}
+                    {readinessByIndex.get(index)
+                      ? ` · readiness ${readinessByIndex.get(index)!.score}/100`
+                      : ''}
+                  </p>
+                  {entry.error ? (
+                    <p className="mt-2 text-sm text-rose-300">{entry.error}</p>
+                  ) : (
+                    <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
+                      {entry.prompt}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ol>
+          )}
         </ToolPrimarySection>
       )}
       <MobileStickyQueueBar

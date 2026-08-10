@@ -24,6 +24,8 @@ export type StudioCampaignTabProps = {
   campaignGenre: string;
   campaignTopics: string;
   campaignQueue: boolean;
+  campaignBestOfN: number;
+  campaignBestOfNVision: boolean;
   campaignLoading: boolean;
   campaignStatus: string | null;
   campaignResults: CampaignStepResult[];
@@ -34,6 +36,8 @@ export type StudioCampaignTabProps = {
   onCampaignGenreChange: (genre: string) => void;
   onCampaignTopicsChange: (topics: string) => void;
   onCampaignQueueChange: (queue: boolean) => void;
+  onCampaignBestOfNChange: (value: number) => void;
+  onCampaignBestOfNVisionChange: (value: boolean) => void;
   onCampaignLoadingChange: (loading: boolean) => void;
   onCampaignStatusChange: (status: string | null) => void;
   onCampaignResultsChange: (results: CampaignStepResult[]) => void;
@@ -54,6 +58,8 @@ export default function StudioCampaignTab({
   campaignGenre,
   campaignTopics,
   campaignQueue,
+  campaignBestOfN,
+  campaignBestOfNVision,
   campaignLoading,
   campaignStatus,
   campaignResults,
@@ -64,6 +70,8 @@ export default function StudioCampaignTab({
   onCampaignGenreChange,
   onCampaignTopicsChange,
   onCampaignQueueChange,
+  onCampaignBestOfNChange,
+  onCampaignBestOfNVisionChange,
   onCampaignLoadingChange,
   onCampaignStatusChange,
   onCampaignResultsChange,
@@ -137,6 +145,31 @@ export default function StudioCampaignTab({
         />
         Queue each prompt to ComfyUI
       </label>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="space-y-1 text-xs text-[var(--text-secondary)]">
+          Best-of-N (text rank)
+          <select
+            value={campaignBestOfN}
+            onChange={event => onCampaignBestOfNChange(Number(event.target.value) || 1)}
+            className="ui-input block w-full px-3 py-[var(--input-padding-y)] type-body"
+          >
+            <option value={1}>Off</option>
+            <option value={2}>2×</option>
+            <option value={3}>3×</option>
+            <option value={4}>4×</option>
+          </select>
+        </label>
+        <label className="mt-6 flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+          <input
+            type="checkbox"
+            checked={campaignBestOfNVision}
+            disabled={!campaignQueue || campaignBestOfN <= 1}
+            onChange={event => onCampaignBestOfNVisionChange(event.target.checked)}
+            className={`h-4 w-4 rounded ${accentFocusClass()}`}
+          />
+          Vision-rank queued outputs (needs LLM_VISION_MODEL)
+        </label>
+      </div>
       <div className="flex flex-wrap gap-2">
         <PrimaryButton
           accentClassName={accentButtonClass(accent)}
@@ -170,6 +203,8 @@ export default function StudioCampaignTab({
                   topics,
                   queueToComfyUi: campaignQueue,
                   hints: campaignGenre.trim() || campaignTopics.slice(0, 200),
+                  bestOfN: campaignBestOfN,
+                  bestOfNVision: campaignBestOfNVision,
                 });
                 onCampaignResultsChange(results);
                 const queued = results.filter(step => step.queued).length;

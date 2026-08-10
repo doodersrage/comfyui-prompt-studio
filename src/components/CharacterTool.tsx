@@ -60,6 +60,7 @@ import { getSportPreset, isSportStarterPreset } from '@/lib/sport-presets';
 import { accentFocusClass, accentRingClass, type ToolAccent } from '@/lib/tool-theme';
 import { ToolBadge, CollapsibleSection, ToolLayout } from '@/components/ui/ToolPageShell';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
+import CollabPresenceBar from '@/components/CollabPresenceBar';
 import { ChipButton, FieldDivider, FieldLabel } from '@/components/ui/Field';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { Button } from '@/components/ui/Button';
@@ -498,6 +499,11 @@ export default function CharacterTool() {
       }
     >
       <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.character} />
+      <CollabPresenceBar
+        tool="character"
+        draft={toolSettings.hints ?? ''}
+        onApplyRemoteDraft={payload => updateToolSettings({ hints: payload.draft })}
+      />
       <SceneSetupSection description="Pick a mode, add hints, then generate.">
         <FieldLabel>Scene mode</FieldLabel>
         <div className="flex flex-wrap gap-2">

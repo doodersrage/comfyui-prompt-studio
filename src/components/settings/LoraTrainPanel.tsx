@@ -75,6 +75,60 @@ export default function LoraTrainPanel({ onStatus }: LoraTrainPanelProps) {
   });
   const [validationPrompt, setValidationPrompt] = useState<string | null>(null);
 
+  const queueValidationByPrompt = useCallback(
+    async (prompt: string) => {
+      const { postComfyUiPrompt } = await import('@/lib/comfyui-queue-request');
+      const { resolveQueueNegativePrompt } = await import('@/lib/queue-negative');
+      const { resolveQueueParams } = await import('@/lib/queue-params-settings');
+      const { resolveRuntimeForQueue } = await import('@/lib/comfyui-runtime-for-model');
+      const { registerComfyGalleryJob } = await import('@/lib/comfyui-gallery-client');
+      const { scheduleComfyGalleryPoll } = await import('@/lib/comfyui-gallery-poller');
+      const { shared } = loadSettingsCache();
+      const negativePrompt = await resolveQueueNegativePrompt({
+        model: shared.model,
+        tool: 'generate',
+      });
+      const runtime = resolveRuntimeForQueue(shared.model, 'generate');
+      const params = resolveQueueParams({
+        model: shared.model,
+        tool: 'generate',
+      });
+      onStatus?.('Queueing LoRA validation…');
+      const queued = await postComfyUiPrompt({
+        prompts: [prompt],
+        negativePrompt,
+        paramsPerPrompt: [params],
+        ...(runtime ? { comfy: runtime } : {}),
+      });
+      const data = queued.raw as {
+        results?: Array<{ promptId?: string; comfyUrl?: string }>;
+        comfyUrl?: string;
+      };
+      const result = data.results?.[0];
+      if (queued.status < 400 && result?.promptId) {
+        registerComfyGalleryJob({
+          promptId: result.promptId,
+          prompt,
+          negativePrompt,
+          tool: 'lora-validation',
+          model: shared.model,
+          comfyUrl: result.comfyUrl ?? data.comfyUrl ?? queued.comfyUrl ?? 'http://127.0.0.1:8188',
+          clientId: queued.clientId,
+          queueParams: params,
+        });
+        void scheduleComfyGalleryPoll(result.promptId, {
+          comfyUrl: result.comfyUrl ?? data.comfyUrl ?? queued.comfyUrl ?? 'http://127.0.0.1:8188',
+          clientId: queued.clientId,
+        });
+        onStatus?.('Validation queued — check Gallery for output.');
+      } else {
+        onStatus?.('Validation queue failed.');
+      }
+      queued.releaseLiveSocket();
+    },
+    [onStatus]
+  );
+
   const persistJobs = useCallback((nextJobs: TrainJob[]) => {
     const shared = loadSettingsCache().shared;
     saveSharedSettings({ ...shared, loraTrainJobs: nextJobs });
@@ -256,6 +310,9 @@ export default function LoraTrainPanel({ onStatus }: LoraTrainPanelProps) {
 
         const prompt = buildLoraTrainValidationPrompt(nextJob.trigger || trigger);
         setValidationPrompt(prompt);
+        if (prefs.autoQueueValidation) {
+          void queueValidationByPrompt(prompt);
+        }
         onStatus?.(
           data.entry
             ? `Registered LoRA “${data.entry.label || data.entry.id}” with trigger “${data.entry.triggerPhrase || nextJob.trigger}”.`
@@ -267,7 +324,7 @@ export default function LoraTrainPanel({ onStatus }: LoraTrainPanelProps) {
         setBusy(false);
       }
     },
-    [onStatus, outputPath, persistJobs, prefs, trigger]
+    [onStatus, outputPath, persistJobs, prefs, queueValidationByPrompt, trigger]
   );
 
   const markManualComplete = useCallback(
@@ -360,6 +417,15 @@ export default function LoraTrainPanel({ onStatus }: LoraTrainPanelProps) {
           className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-[var(--accent)]"
         />
         Activate in session LoRA stack on register
+      </label>
+      <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+        <input
+          type="checkbox"
+          checked={prefs.autoQueueValidation === true}
+          onChange={event => persistPrefs({ ...prefs, autoQueueValidation: event.target.checked })}
+          className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-[var(--accent)]"
+        />
+        Auto-queue validation render when a train job registers
       </label>
 
       <div className="flex flex-wrap gap-2">
@@ -474,39 +540,7 @@ export default function LoraTrainPanel({ onStatus }: LoraTrainPanelProps) {
               variant="accent-outline"
               size="sm"
               onClick={() => {
-                void (async () => {
-                  try {
-                    const { postComfyUiPrompt } = await import('@/lib/comfyui-queue-request');
-                    const { resolveQueueNegativePrompt } = await import('@/lib/queue-negative');
-                    const { resolveQueueParams } = await import('@/lib/queue-params-settings');
-                    const { resolveRuntimeForQueue } =
-                      await import('@/lib/comfyui-runtime-for-model');
-                    const { shared } = loadSettingsCache();
-                    const negativePrompt = await resolveQueueNegativePrompt({
-                      model: shared.model,
-                      tool: 'generate',
-                    });
-                    const runtime = resolveRuntimeForQueue(shared.model, 'generate');
-                    const params = resolveQueueParams({
-                      model: shared.model,
-                      tool: 'generate',
-                    });
-                    onStatus?.('Queueing LoRA validation…');
-                    const queued = await postComfyUiPrompt({
-                      prompts: [validationPrompt],
-                      negativePrompt,
-                      paramsPerPrompt: [params],
-                      ...(runtime ? { comfy: runtime } : {}),
-                    });
-                    onStatus?.(
-                      queued.status < 400
-                        ? 'Validation queued — check Gallery for output.'
-                        : 'Validation queue failed.'
-                    );
-                  } catch (error) {
-                    onStatus?.(error instanceof Error ? error.message : 'Validation queue failed.');
-                  }
-                })();
+                void queueValidationByPrompt(validationPrompt);
               }}
             >
               Queue validation

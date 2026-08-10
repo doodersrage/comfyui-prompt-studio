@@ -25,7 +25,7 @@ import GalleryDisplayGrid from '@/components/gallery/GalleryDisplayGrid';
 import GalleryEmptyPanel from '@/components/gallery/GalleryEmptyPanel';
 import GalleryFiltersBar from '@/components/gallery/GalleryFiltersBar';
 import GalleryReviewBanner from '@/components/gallery/GalleryReviewBanner';
-import GallerySelectionBar from '@/components/gallery/GallerySelectionBar';
+import GalleryExperimentPanel from '@/components/gallery/GalleryExperimentPanel';
 import GalleryStatsBar from '@/components/gallery/GalleryStatsBar';
 import GalleryReviewTouchBar from '@/components/gallery/GalleryReviewTouchBar';
 import GalleryPanelSkeleton from '@/components/gallery/GalleryPanelSkeleton';
@@ -1156,7 +1156,7 @@ export default function ComfyUiGalleryPanel({
       ) : null}
 
       {bulkEnabled ? (
-        <GallerySelectionBar
+        <GalleryExperimentPanel
           lean={leanGallery}
           selectedCount={selectedIds.length}
           selectedEntries={selectedEntries}

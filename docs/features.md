@@ -21,7 +21,7 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 - **Pre-lint + rule fix** — Duo shows hint lint before generate; **Fix prompt (rules)** applies helmets, sport strips, etc.
 - **Qwen Edit builder** — segment-based edit instruction builder on Generate for Qwen Edit models
 - **Generate sport presets** — sport preset chips on Generate (positive mode) with shareable scene URLs
-- **Model recommender** — Generate sidebar suggests models from prompt text (`/api/models/recommend`)
+- **Model recommender** — Generate sidebar suggests models from prompt text (`/api/models/recommend`; UI uses server route with client fallback)
 - **Token / weight inspector** — `(tag:1.2)` analysis on Lint, Format, and result panels
 - **Prompt readiness score** — pre-queue lint badge on result panels (`/api/readiness`)
 - **Readiness-gated queue** — result panels warn below score 60; confirm or fix before ComfyUI queue
@@ -39,7 +39,7 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 
 - **Character generator** — solo, duo/sport, and compose-with-background modes; sport presets, team kit, batch roll, ComfyUI queue
 - **Scene compose mode** — Character tool merges background + subject into one scene prompt
-- **Regional prompt composer** — Character tool merges labeled subject/background/lighting text segments (prompt text only — not ComfyUI regional/attention-mask nodes)
+- **Regional prompt composer** — Character tool merges labeled subject/background/lighting segments; queue-time `workflow-regional-patch` also wires AttentionCouple-style nodes when installed
 - **Location blocklist** — block locations in Studio catalog; all generators respect the list
 - **Locked wardrobe** — pin a catalog outfit from Studio; Character and batch tools reuse it
 - **Locked location & variation seed** — pin scene place and environment seed for reproducible rolls
@@ -74,7 +74,7 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 - **Cherry-pick merge** — Studio Diff tab merges two prompts with lint checks
 - **Experiment dashboard** — Studio Experiments tab groups gallery outputs by prompt/seed variants
 - **Experiment list virtualization** — window virtualizer for large experiment group lists (48+ groups)
-- **Shared-project collab** — presence bar + draft sync via BroadcastChannel and `/api/collab` SSE; room state persists to `PROMPT_DATA_DIR/collab-rooms.json` and optional `COLLAB_REDIS_URL` for multi-node
+- **Shared-project collab** — presence bar + draft sync via BroadcastChannel and `/api/collab` SSE; room state persists to `PROMPT_DATA_DIR/collab-rooms.json` and optional `COLLAB_REDIS_URL` for multi-node; **Apply draft** merges remote edits on Generate, Character, Refine, and Compose
 - **Experiment winner workflow** — crown winners, compare export, re-queue groups on Studio Experiments tab
 - **Style transplant** — Studio → Experiments applies lighting/camera mood from one prompt to another
 - **Duplicate detection** — Studio → Experiments finds near-identical history clusters

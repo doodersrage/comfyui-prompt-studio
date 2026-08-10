@@ -187,6 +187,8 @@ export default function StudioTool() {
   const [campaignGenre, setCampaignGenre] = useState('');
   const [campaignTopics, setCampaignTopics] = useState('');
   const [campaignQueue, setCampaignQueue] = useState(true);
+  const [campaignBestOfN, setCampaignBestOfN] = useState(1);
+  const [campaignBestOfNVision, setCampaignBestOfNVision] = useState(false);
   const [campaignLoading, setCampaignLoading] = useState(false);
   const [campaignStatus, setCampaignStatus] = useState<string | null>(null);
   const [campaignResults, setCampaignResults] = useState<CampaignStepResult[]>([]);
@@ -789,6 +791,8 @@ export default function StudioTool() {
               campaignGenre={campaignGenre}
               campaignTopics={campaignTopics}
               campaignQueue={campaignQueue}
+              campaignBestOfN={campaignBestOfN}
+              campaignBestOfNVision={campaignBestOfNVision}
               campaignLoading={campaignLoading}
               campaignStatus={campaignStatus}
               campaignResults={campaignResults}
@@ -799,6 +803,8 @@ export default function StudioTool() {
               onCampaignGenreChange={setCampaignGenre}
               onCampaignTopicsChange={setCampaignTopics}
               onCampaignQueueChange={setCampaignQueue}
+              onCampaignBestOfNChange={setCampaignBestOfN}
+              onCampaignBestOfNVisionChange={setCampaignBestOfNVision}
               onCampaignLoadingChange={setCampaignLoading}
               onCampaignStatusChange={setCampaignStatus}
               onCampaignResultsChange={setCampaignResults}

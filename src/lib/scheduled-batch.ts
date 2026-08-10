@@ -19,6 +19,8 @@ export type ScheduledBatchConfig = {
   qualityProfile?: QueueQualityProfile;
   /** Generate count × bestOfN, LLM-rank down to count (1 = off). */
   bestOfN?: number;
+  /** After Comfy queue completes, vision-rank outputs and keep top count (needs LLM_VISION_MODEL). */
+  bestOfNVision?: boolean;
   /** Auto-retry failed webhook deliveries with backoff (browser log). */
   webhookAutoRetry?: boolean;
 };
@@ -68,6 +70,7 @@ export function clampScheduledBatchConfig(config: ScheduledBatchConfig): Schedul
     bestOfN: Number.isFinite(config.bestOfN)
       ? Math.min(4, Math.max(1, Math.floor(config.bestOfN!)))
       : 1,
+    bestOfNVision: Boolean(config.bestOfNVision),
     webhookAutoRetry: Boolean(config.webhookAutoRetry),
   };
 }

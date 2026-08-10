@@ -24,6 +24,7 @@ import { EmptyState } from '@/components/ui/ViewState';
 import VirtualizedExperimentList, {
   shouldVirtualizeExperimentList,
 } from '@/components/studio/VirtualizedExperimentList';
+import { crownBestVisionEntryForGroup } from '@/lib/best-of-n-vision-queue';
 
 export default function ExperimentDashboardPanel() {
   const [groups, setGroups] = useState<ExperimentGroup[]>([]);
@@ -31,6 +32,7 @@ export default function ExperimentDashboardPanel() {
   const [status, setStatus] = useState<string | null>(null);
   const [winners, setWinners] = useState(loadExperimentWinners);
   const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
+  const [visionRankingGroupId, setVisionRankingGroupId] = useState<string | null>(null);
 
   async function refresh() {
     setLoading(true);
@@ -165,6 +167,30 @@ export default function ExperimentDashboardPanel() {
 
         {expandedGroupId === group.id && expandedGroup?.id === group.id ? (
           <div className="mt-4 flex flex-wrap gap-2 border-t border-[var(--border-subtle)] pt-4">
+            <Button
+              variant="secondary"
+              className="!min-h-8"
+              loading={visionRankingGroupId === group.id}
+              disabled={group.entries.length < 2}
+              onClick={() => {
+                setVisionRankingGroupId(group.id);
+                setStatus('Vision-ranking experiment group…');
+                void crownBestVisionEntryForGroup(group.id, group.entries)
+                  .then(winner => {
+                    if (winner) {
+                      setWinners(loadExperimentWinners());
+                      setStatus(`Crowned vision winner (seed ${winner.queueParams?.seed ?? '—'}).`);
+                    } else {
+                      setStatus(
+                        'Vision rank failed — check LLM_VISION_MODEL and completed outputs.'
+                      );
+                    }
+                  })
+                  .finally(() => setVisionRankingGroupId(null));
+              }}
+            >
+              Rank with vision
+            </Button>
             <Button
               variant="secondary"
               className="!min-h-8"

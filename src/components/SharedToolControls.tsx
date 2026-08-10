@@ -148,6 +148,10 @@ const QueueRecipesPanel = dynamic(() => import('@/components/QueueRecipesPanel')
   ssr: false,
   loading: () => null,
 });
+const DiffusersQueueHint = dynamic(() => import('@/components/DiffusersQueueHint'), {
+  ssr: false,
+  loading: () => null,
+});
 
 type SharedToolControlsProps = {
   shared: SharedToolSettings;
@@ -309,6 +313,22 @@ export default function SharedToolControls({
       }),
     [shared.model, shared.modelWorkflowMap, suggestedWorkflowMap, toolId, workflowCatalog]
   );
+
+  const selectedWorkflowJson = useMemo(() => {
+    const id =
+      shared.selectedWorkflowFileId ??
+      shared.selectedWorkflowPresetId ??
+      workflowSelection.selectedId;
+    if (!id) {
+      return null;
+    }
+    return workflowCatalog.find(entry => entry.id === id)?.workflowJson ?? null;
+  }, [
+    shared.selectedWorkflowFileId,
+    shared.selectedWorkflowPresetId,
+    workflowCatalog,
+    workflowSelection.selectedId,
+  ]);
 
   const supportedModels = useMemo(
     () =>
@@ -1088,6 +1108,9 @@ export default function SharedToolControls({
             onChange={handleModelChange}
           />
         )}
+        {shared.inferenceEngine === 'diffusers' ? (
+          <DiffusersQueueHint workflowJson={selectedWorkflowJson} />
+        ) : null}
         {toolId === 'generate' && /qwen-image-edit-2511-lightning/i.test(shared.model) ? (
           <div className="space-y-2 rounded-xl border border-amber-500/25 bg-amber-500/5 px-3 py-2.5">
             <p className="text-xs leading-relaxed text-amber-100/85">

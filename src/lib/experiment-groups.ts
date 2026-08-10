@@ -56,6 +56,18 @@ export function groupGalleryExperiments(entries: ComfyGalleryEntry[]): Experimen
   }
 
   return [...map.values()]
-    .filter(group => group.entries.length >= 2 || group.variants.seeds.length >= 2)
-    .sort((a, b) => b.entries.length - a.entries.length);
+    .filter(
+      group =>
+        group.entries.length >= 2 ||
+        group.variants.seeds.length >= 2 ||
+        group.entries.some(entry => entry.tool === 'param-experiment')
+    )
+    .sort((a, b) => {
+      const aParam = a.entries.some(entry => entry.tool === 'param-experiment') ? 1 : 0;
+      const bParam = b.entries.some(entry => entry.tool === 'param-experiment') ? 1 : 0;
+      if (aParam !== bParam) {
+        return bParam - aParam;
+      }
+      return b.entries.length - a.entries.length;
+    });
 }

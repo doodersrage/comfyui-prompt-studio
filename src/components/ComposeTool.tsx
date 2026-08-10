@@ -421,7 +421,11 @@ export default function ComposeTool() {
       }
     >
       <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.compose} />
-      <CollabPresenceBar tool="compose" draft={instruction} />
+      <CollabPresenceBar
+        tool="compose"
+        draft={instruction}
+        onApplyRemoteDraft={payload => setInstruction(payload.draft)}
+      />
       <ToolSection>
         <FieldLabel>Mode</FieldLabel>
         <div className="flex flex-wrap gap-2">

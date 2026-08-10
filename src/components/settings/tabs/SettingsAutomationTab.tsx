@@ -777,6 +777,23 @@ export default function SettingsAutomationTab({
             Generates count × N prompts, then LLM-picks the best before optional Comfy queue.
           </p>
         </div>
+        <label className="mt-3 flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+          <input
+            type="checkbox"
+            checked={scheduledBatch.bestOfNVision ?? false}
+            disabled={(scheduledBatch.bestOfN ?? 1) <= 1 || !scheduledBatch.autoQueueComfyUi}
+            onChange={event => {
+              const next = {
+                ...scheduledBatch,
+                bestOfNVision: event.target.checked,
+              };
+              setScheduledBatch(next);
+              saveScheduledBatchConfig(next);
+            }}
+            className="h-4 w-4 rounded"
+          />
+          Vision-rank queued outputs after Comfy completes (needs LLM_VISION_MODEL)
+        </label>
       </ToolSection>
     </>
   );

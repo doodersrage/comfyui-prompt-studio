@@ -66,6 +66,7 @@ import {
 } from '@/components/ui/Field';
 import { markOnboardingFirstGenerate } from '@/lib/onboarding-hooks';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
+import CollabPresenceBar from '@/components/CollabPresenceBar';
 import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { markComfyQueueIntent } from '@/lib/comfy-setup-intent';
@@ -553,6 +554,11 @@ export default function PromptGenerator() {
       }
     >
       <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.generate} />
+      <CollabPresenceBar
+        tool="generate"
+        draft={input}
+        onApplyRemoteDraft={payload => updateToolSettings({ hints: payload.draft })}
+      />
       <SceneSetupSection description="Keywords or a random scene — then generate.">
         <HistoryHintSeedPanel
           tool="generate"

@@ -9,11 +9,13 @@ import {
   type CollabPresencePeer,
 } from '@/lib/collab-presence';
 import { loadActiveProjectId } from '@/lib/prompt-projects';
+import { Button } from '@/components/ui/Button';
 
 type CollabPresenceBarProps = {
   tool?: string;
   draft?: string;
   displayName?: string;
+  onApplyRemoteDraft?: (payload: CollabDraftPayload) => void;
 };
 
 /**
@@ -23,10 +25,11 @@ export default function CollabPresenceBar({
   tool,
   draft,
   displayName = 'You',
+  onApplyRemoteDraft,
 }: CollabPresenceBarProps) {
   const [peerId] = useState(() => createCollabPeerId());
   const [peers, setPeers] = useState<CollabPresencePeer[]>([]);
-  const [remoteWarning, setRemoteWarning] = useState<string | null>(null);
+  const [remoteDraft, setRemoteDraft] = useState<CollabDraftPayload | null>(null);
   const localDraftAtRef = useRef<number | undefined>(undefined);
   const projectId = useMemo(
     () => (typeof window === 'undefined' ? 'default' : loadActiveProjectId() || 'default'),
@@ -50,7 +53,7 @@ export default function CollabPresenceBar({
       }
       if (data?.type === 'draft' && data.payload) {
         if (shouldWarnRemoteDraft(localDraftAtRef.current, data.payload, peerId)) {
-          setRemoteWarning(`${data.payload.peerId.slice(0, 6)} edited the shared draft`);
+          setRemoteDraft(data.payload);
         }
       }
     };
@@ -91,7 +94,7 @@ export default function CollabPresenceBar({
       try {
         const payload = JSON.parse((event as MessageEvent).data) as CollabDraftPayload;
         if (shouldWarnRemoteDraft(localDraftAtRef.current, payload, peerId)) {
-          setRemoteWarning('Someone else edited the shared draft');
+          setRemoteDraft(payload);
         }
       } catch {
         // ignore
@@ -160,7 +163,31 @@ export default function CollabPresenceBar({
           </span>
         ))
       )}
-      {remoteWarning ? <span className="text-amber-200">{remoteWarning}</span> : null}
+      {remoteDraft ? (
+        <span className="flex flex-wrap items-center gap-2 text-amber-200">
+          Remote draft update
+          {onApplyRemoteDraft ? (
+            <Button
+              variant="ghost"
+              className="!min-h-7 px-2 text-[10px]"
+              onClick={() => {
+                onApplyRemoteDraft(remoteDraft);
+                setRemoteDraft(null);
+                localDraftAtRef.current = remoteDraft.updatedAt;
+              }}
+            >
+              Apply draft
+            </Button>
+          ) : null}
+          <button
+            type="button"
+            className="text-[10px] underline opacity-80"
+            onClick={() => setRemoteDraft(null)}
+          >
+            Dismiss
+          </button>
+        </span>
+      ) : null}
     </div>
   );
 }
