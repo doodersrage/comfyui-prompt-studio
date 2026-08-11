@@ -140,9 +140,22 @@ export default function ControlNetTool() {
   const [handoffControlImageUrls, setHandoffControlImageUrls] = useState<Array<string | undefined>>(
     []
   );
+  const [controlStrength, setControlStrength] = useState(1);
 
   const selectedModel = getComfyModelDefinition(shared.model);
   const hintText = [subject, scene, detailNotes].filter(Boolean).join(' · ');
+  const activeSlotCount =
+    1 +
+    extraRefFiles.filter(Boolean).length +
+    handoffControlImageUrls.slice(1).filter(url => url?.trim()).length;
+  const controlNetStrengths = Array.from(
+    { length: Math.max(1, Math.min(4, activeSlotCount)) },
+    () => controlStrength
+  );
+  const controlNetModes = Array.from(
+    { length: Math.max(1, Math.min(4, activeSlotCount)) },
+    () => mode
+  );
 
   const queueControlNetOptions = {
     controlImage: refFile,
@@ -160,24 +173,23 @@ export default function ControlNetTool() {
     queueParamsBase: {
       ...handoffQueueParams,
       controlNetMode: mode,
+      controlNetModes,
+      controlNetStrengths,
     },
   };
 
-  const onRefChange = useCallback(
-    (file: File | null) => {
-      if (refPreview) {
-        URL.revokeObjectURL(refPreview);
-      }
-      setRefFile(file);
-      setRefPreview(file ? URL.createObjectURL(file) : null);
-    },
-    [refPreview]
-  );
+  function onRefChange(file: File | null) {
+    if (refPreview?.startsWith('blob:')) {
+      URL.revokeObjectURL(refPreview);
+    }
+    setRefFile(file);
+    setRefPreview(file ? URL.createObjectURL(file) : null);
+  }
 
-  const onExtraRefChange = useCallback((index: number, file: File | null) => {
+  function onExtraRefChange(index: number, file: File | null) {
     setExtraRefPreviews(previous => {
       const next = [...previous];
-      if (next[index]) {
+      if (next[index]?.startsWith('blob:')) {
         URL.revokeObjectURL(next[index]!);
       }
       next[index] = file ? URL.createObjectURL(file) : null;
@@ -188,60 +200,68 @@ export default function ControlNetTool() {
       next[index] = file;
       return next;
     });
-  }, []);
+  }
 
-  const applyGalleryHandoff = useCallback(
-    (handoff: {
-      prompt: string;
-      model?: string;
-      queueParams?: WorkflowParamValues;
-      controlImageUrls?: string[];
-      file: File | null;
-      previewUrl: string | null;
-      payload: { galleryEntryId?: string; imageUrl?: string };
-    }) => {
-      setOutput(handoff.prompt);
-      setSubject(handoff.prompt.slice(0, 800));
-      setHandoffQueueParams(handoff.queueParams);
-      setHandoffParentGalleryEntryId(handoff.payload.galleryEntryId?.trim() || undefined);
-      const controlUrls = (handoff.controlImageUrls ?? [])
-        .map(url => url?.trim() || '')
-        .filter(Boolean);
-      setHandoffControlImageUrls(controlUrls);
-      const primaryUrl =
-        controlUrls[0] ||
-        handoff.previewUrl?.trim() ||
-        handoff.payload.imageUrl?.trim() ||
-        undefined;
-      setHandoffSourceImageUrl(primaryUrl);
-      if (handoff.model) {
-        updateShared({ model: handoff.model as typeof shared.model });
-      }
-      if (handoff.file) {
-        onRefChange(handoff.file);
-      } else if (primaryUrl) {
-        setRefPreview(primaryUrl);
-      }
-      const extras = controlUrls.slice(1, 4);
-      if (extras.length > 0) {
-        setExtraRefPreviews(previous => {
-          const next = [...previous];
-          for (let i = 0; i < 3; i += 1) {
-            if (next[i]) {
-              URL.revokeObjectURL(next[i]!);
-            }
-            next[i] = extras[i] ?? null;
+  function applyGalleryHandoff(handoff: {
+    prompt: string;
+    model?: string;
+    queueParams?: WorkflowParamValues;
+    controlImageUrls?: string[];
+    file: File | null;
+    previewUrl: string | null;
+    payload: { galleryEntryId?: string; imageUrl?: string };
+  }) {
+    setOutput(handoff.prompt);
+    setSubject(handoff.prompt.slice(0, 800));
+    setHandoffQueueParams(handoff.queueParams);
+    setHandoffParentGalleryEntryId(handoff.payload.galleryEntryId?.trim() || undefined);
+    const restoredMode = normalizeControlNetMode(
+      handoff.queueParams?.controlNetModes?.[0] || handoff.queueParams?.controlNetMode
+    );
+    setMode(restoredMode);
+    const strengthRaw = handoff.queueParams?.controlNetStrengths?.[0];
+    const strengthNum =
+      typeof strengthRaw === 'number'
+        ? strengthRaw
+        : typeof strengthRaw === 'string'
+          ? Number(strengthRaw)
+          : NaN;
+    if (Number.isFinite(strengthNum)) {
+      setControlStrength(Math.min(2, Math.max(0, strengthNum)));
+    }
+    const controlUrls = (handoff.controlImageUrls ?? [])
+      .map(url => url?.trim() || '')
+      .filter(Boolean);
+    setHandoffControlImageUrls(controlUrls);
+    const primaryUrl =
+      controlUrls[0] || handoff.previewUrl?.trim() || handoff.payload.imageUrl?.trim() || undefined;
+    setHandoffSourceImageUrl(primaryUrl);
+    if (handoff.model) {
+      updateShared({ model: handoff.model as typeof shared.model });
+    }
+    if (handoff.file) {
+      onRefChange(handoff.file);
+    } else if (primaryUrl) {
+      setRefPreview(primaryUrl);
+    }
+    const extras = controlUrls.slice(1, 4);
+    if (extras.length > 0) {
+      setExtraRefPreviews(previous => {
+        const next = [...previous];
+        for (let i = 0; i < 3; i += 1) {
+          if (next[i]?.startsWith('blob:')) {
+            URL.revokeObjectURL(next[i]!);
           }
-          return next;
-        });
-      }
-    },
-    [onRefChange, updateShared]
-  );
+          next[i] = extras[i] ?? null;
+        }
+        return next;
+      });
+    }
+  }
 
   useGalleryHandoff('controlnet', applyGalleryHandoff);
 
-  const generate = useCallback(async () => {
+  async function generate() {
     setLoading(true);
     setError(null);
     setCopied(false);
@@ -291,9 +311,9 @@ export default function ControlNetTool() {
     } finally {
       setLoading(false);
     }
-  }, [actions, detailNotes, hintText, mode, refFile, scene, shared.detail, shared.model, subject]);
+  }
 
-  const copyOutput = useCallback(async () => {
+  async function copyOutput() {
     if (!output) {
       return;
     }
@@ -304,7 +324,7 @@ export default function ControlNetTool() {
     } catch {
       setError('Could not copy to clipboard.');
     }
-  }, [output]);
+  }
 
   return (
     <ToolLayout
@@ -344,11 +364,29 @@ export default function ControlNetTool() {
               key={entry.id}
               type="button"
               onClick={() => setMode(entry.id)}
-              className={`ui-chip ${mode === entry.id ? 'ui-chip-active' : ''}`}
+              className={`ui-chip ${mode === entry.id ? 'ui-chip-active' : ''} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]`}
             >
               {entry.label}
             </button>
           ))}
+        </div>
+        <div className="mt-4 space-y-2">
+          <FieldLabel
+            htmlFor="controlnet-strength"
+            hint="Applied to each active ControlNetApply slot"
+          >
+            Strength ({controlStrength.toFixed(2)})
+          </FieldLabel>
+          <input
+            id="controlnet-strength"
+            type="range"
+            min={0}
+            max={2}
+            step={0.05}
+            value={controlStrength}
+            onChange={event => setControlStrength(Number(event.target.value))}
+            className={`w-full accent-cyan-500 ${accentFocusClass()}`}
+          />
         </div>
       </ToolSection>
 

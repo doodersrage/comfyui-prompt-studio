@@ -163,4 +163,26 @@ describe("gallery re-edit handoff", () => {
     assert.equal(payload.controlImageUrls?.length, 2);
     assert.match(payload.controlImageUrls?.[0] ?? "", /pose\.png/);
   });
+
+  it("controlnet handoff restores mode and strengths from queueParams", () => {
+    const payload = buildGalleryHandoff(
+      fakeEntry({
+        queueParams: {
+          controlNetMode: "canny",
+          controlNetModes: ["canny", "depth"],
+          controlNetStrengths: [0.85, 0.5],
+          controlImageFilenames: ["pose.png", "depth.png"],
+        },
+        controlImageUrls: [
+          "http://127.0.0.1:8188/view?filename=pose.png",
+          "http://127.0.0.1:8188/view?filename=depth.png",
+        ],
+      }),
+      "controlnet",
+    );
+    assert.equal(payload.queueParams?.controlNetMode, "canny");
+    assert.deepEqual(payload.queueParams?.controlNetModes, ["canny", "depth"]);
+    assert.deepEqual(payload.queueParams?.controlNetStrengths, [0.85, 0.5]);
+  });
 });
+

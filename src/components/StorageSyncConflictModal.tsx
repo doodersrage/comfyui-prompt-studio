@@ -40,7 +40,16 @@ export default function StorageSyncConflictModal({
               <p className="text-sm font-medium text-[var(--text-primary)]">{conflict.namespace}</p>
               <p className="mt-1 text-xs text-[var(--text-muted)]">
                 Local: {conflict.localCount ?? 0} · Server: {conflict.serverCount ?? 0}
+                {conflict.detail ? ` · ${conflict.detail}` : ''}
               </p>
+              {conflict.mapDiffKeys?.length ? (
+                <p className="mt-1 text-xs text-amber-200/90">
+                  Diverging maps: {conflict.mapDiffKeys.join(', ')}. Choose{' '}
+                  <span className="font-medium">local</span> /{' '}
+                  <span className="font-medium">server</span> to prefer one side, or{' '}
+                  <span className="font-medium">merge</span> to union keys (local wins on overlap).
+                </p>
+              ) : null}
               <div className="mt-2 flex flex-wrap gap-2">
                 {(['local', 'server', 'merge'] as MergeChoice[]).map(choice => (
                   <button
@@ -52,13 +61,17 @@ export default function StorageSyncConflictModal({
                         [conflict.namespace as StorageNamespace]: choice,
                       }))
                     }
-                    className={`rounded-full px-3 py-1 text-xs transition ${
+                    className={`rounded-full px-3 py-1 text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] ${
                       choices[conflict.namespace as StorageNamespace] === choice
-                        ? 'bg-violet-600 text-white'
-                        : 'border border-[var(--border-default)] text-[var(--text-muted)] hover:border-violet-500/40'
+                        ? 'bg-[color-mix(in_oklab,var(--accent)_78%,#1a1028)] text-white'
+                        : 'border border-[var(--border-default)] text-[var(--text-muted)] hover:border-[var(--accent)]/40'
                     }`}
                   >
-                    {choice}
+                    {choice === 'local'
+                      ? 'Keep local'
+                      : choice === 'server'
+                        ? 'Prefer server'
+                        : 'Merge / Diff union'}
                   </button>
                 ))}
               </div>

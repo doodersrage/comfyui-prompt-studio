@@ -29,6 +29,12 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
+      # Gallery reliability specs first for clearer CI signal on exact-replay regressions.
+      - run: npm run test:e2e:gallery
+        env:
+          CI: true
+          PROMPT_AUTH_ENABLED: 'false'
+          NEXT_PUBLIC_PLAYWRIGHT: '1'
       - run: npm run test:e2e
         env:
           CI: true

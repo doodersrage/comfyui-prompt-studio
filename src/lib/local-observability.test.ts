@@ -5,6 +5,8 @@ import {
   incrementLocalObservability,
   loadLocalObservability,
   LOCAL_OBSERVABILITY_KEY,
+  noteQueueFailureMetric,
+  summarizeLocalReliability,
 } from './local-observability';
 
 describe('local-observability', () => {
@@ -33,5 +35,12 @@ describe('local-observability', () => {
     const snap = loadLocalObservability();
     assert.equal(snap.exactReplay, 2);
     assert.ok(storage.has(LOCAL_OBSERVABILITY_KEY) || snap.exactReplay === 2);
+
+    noteQueueFailureMetric({ message: 'CUDA out of memory', href: '/settings?tab=comfyui' });
+    const afterFail = loadLocalObservability();
+    assert.equal(afterFail.queueFailures, 1);
+    assert.match(afterFail.lastFailureMessage ?? '', /CUDA/);
+    const summary = summarizeLocalReliability(afterFail);
+    assert.match(summary.headline, /CUDA|failure/i);
   });
 });

@@ -34,7 +34,10 @@ import {
   type SessionLoraStrengthOverrides,
 } from './lora-stack';
 import type { ModelUpscaleMap } from './model-upscale-map';
-import { normalizeGalleryWorkflowRetentionDays } from './gallery-workflow-hygiene';
+import {
+  normalizeGalleryWorkflowMaxBytes,
+  normalizeGalleryWorkflowRetentionDays,
+} from './gallery-workflow-hygiene';
 import {
   DEFAULT_QUEUE_QUALITY_PROFILE,
   normalizeQueueQualityProfile,
@@ -572,6 +575,8 @@ export type SharedToolSettings = {
    * Default 30. List UI already strips graphs; this prunes IndexedDB bodies.
    */
   galleryWorkflowRetentionDays?: number;
+  /** Max total bytes of stored exact-replay graphs (0 = unlimited). */
+  galleryWorkflowMaxBytes?: number;
   /**
    * When true (default), stamp promptVersion / promptContentHash / versionRootId
    * on history saves and show vN labels in Studio.
@@ -981,6 +986,7 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
   // (not imported here to avoid a module cycle through comfyui-config.ts).
   faceDetailerDenoise: 0.35,
   galleryWorkflowRetentionDays: 30,
+  galleryWorkflowMaxBytes: 8 * 1024 * 1024,
   promptVersioningEnabled: true,
   preferredComfyHost: undefined,
   comfyPoolLoadBalance: true,
@@ -1297,6 +1303,9 @@ export function loadSettingsCache(): SettingsCache {
     );
     shared.galleryWorkflowRetentionDays = normalizeGalleryWorkflowRetentionDays(
       shared.galleryWorkflowRetentionDays
+    );
+    shared.galleryWorkflowMaxBytes = normalizeGalleryWorkflowMaxBytes(
+      shared.galleryWorkflowMaxBytes
     );
     shared.expandWildcards = shared.expandWildcards !== false;
     shared.autoRetryOnOom = shared.autoRetryOnOom !== false;

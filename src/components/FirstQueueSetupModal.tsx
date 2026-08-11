@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Button, PrimaryButton } from '@/components/ui/Button';
 import { runHealAndReady } from '@/lib/first-run-setup';
@@ -18,6 +18,13 @@ import {
   dismissFirstQueueSetupModal,
   FIRST_QUEUE_SETUP_DISMISS_KEY,
 } from '@/lib/first-queue-setup';
+import {
+  noteFirstQueueSetupBlockedStep,
+  noteFirstQueueSetupCompletedMetric,
+  noteFirstQueueSetupDismissedMetric,
+  noteFirstQueueSetupShownMetric,
+  type FirstQueueSetupStepId,
+} from '@/lib/local-observability';
 
 const DISMISS_KEY = FIRST_QUEUE_SETUP_DISMISS_KEY;
 
@@ -26,6 +33,19 @@ type StepState = {
   systemWorkflows: boolean;
   comfyOk: boolean | null;
 };
+
+function resolveBlockedSetupStep(steps: StepState): FirstQueueSetupStepId | null {
+  if (!steps.storageReady) {
+    return 'storage';
+  }
+  if (steps.comfyOk === false) {
+    return 'comfy';
+  }
+  if (!steps.systemWorkflows) {
+    return 'systemWorkflows';
+  }
+  return null;
+}
 
 export default function FirstQueueSetupModal() {
   const [open, setOpen] = useState(false);
@@ -36,6 +56,7 @@ export default function FirstQueueSetupModal() {
     systemWorkflows: false,
     comfyOk: null,
   });
+  const lastBlockedStepRef = useRef<FirstQueueSetupStepId | null>(null);
 
   const refresh = useCallback(() => {
     const shared = loadSettingsCache().shared;
@@ -63,7 +84,12 @@ export default function FirstQueueSetupModal() {
       if (shared.useSystemWorkflows === true) {
         return;
       }
-      setOpen(true);
+      setOpen(previous => {
+        if (!previous) {
+          noteFirstQueueSetupShownMetric();
+        }
+        return true;
+      });
       refresh();
     };
 
@@ -108,11 +134,24 @@ export default function FirstQueueSetupModal() {
     };
   }, [refresh]);
 
+  useEffect(() => {
+    if (!open) {
+      lastBlockedStepRef.current = null;
+      return;
+    }
+    const blocked = resolveBlockedSetupStep(steps);
+    if (blocked && blocked !== lastBlockedStepRef.current) {
+      lastBlockedStepRef.current = blocked;
+      noteFirstQueueSetupBlockedStep(blocked);
+    }
+  }, [open, steps]);
+
   if (!open) {
     return null;
   }
 
   const dismiss = () => {
+    noteFirstQueueSetupDismissedMetric();
     dismissFirstQueueSetupModal();
     setOpen(false);
   };
@@ -216,6 +255,7 @@ export default function FirstQueueSetupModal() {
                   comfyOk: result.comfyOk ? true : previous.comfyOk,
                 }));
                 if (result.systemWorkflowsEnabled) {
+                  noteFirstQueueSetupCompletedMetric();
                   writeBrowserValue(DISMISS_KEY, true);
                   window.setTimeout(() => setOpen(false), 900);
                 }

@@ -29,7 +29,10 @@ import { scheduleUserAnalyticsSync } from './user-analytics-sync';
 import { capGalleryEntriesForLocalStorage } from './gallery-cap';
 import { rememberGalleryDeletedIds } from './gallery-deleted-ids';
 import { galleryEntryCorpus } from './embedding-rank';
-import { pruneStaleGalleryWorkflowJson } from './gallery-workflow-hygiene';
+import {
+  enforceGalleryWorkflowByteBudget,
+  pruneStaleGalleryWorkflowJson,
+} from './gallery-workflow-hygiene';
 import { loadSettingsCache } from './settings-cache';
 
 export type { ComfyGalleryEntry } from './comfyui-gallery-entry';
@@ -240,8 +243,15 @@ export function saveComfyGallery(
     return;
   }
 
-  const retention = loadSettingsCache().shared.galleryWorkflowRetentionDays;
-  const { entries: pruned } = pruneStaleGalleryWorkflowJson(entries, retention ?? 30);
+  const shared = loadSettingsCache().shared;
+  const { entries: agePruned } = pruneStaleGalleryWorkflowJson(
+    entries,
+    shared.galleryWorkflowRetentionDays ?? 30
+  );
+  const { entries: pruned } = enforceGalleryWorkflowByteBudget(
+    agePruned,
+    shared.galleryWorkflowMaxBytes ?? 8 * 1024 * 1024
+  );
   const { kept, evicted } = capGalleryEntriesForLocalStorage(pruned, MAX_GALLERY_ENTRIES);
   setGalleryCache(kept);
   notifyGalleryUpdated();

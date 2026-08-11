@@ -992,10 +992,14 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         const hrefFromError =
           err instanceof Error ? (err as Error & { href?: string }).href : undefined;
         setComfyUiStatus(message);
+        const href = hrefFromError || resolveQueueFailureHref(message) || '/queue';
+        void import('@/lib/local-observability').then(({ noteQueueFailureMetric }) => {
+          noteQueueFailureMetric({ message, href });
+        });
         toastQueueOutcome({
           ok: false,
           text: message,
-          href: hrefFromError || resolveQueueFailureHref(message) || '/queue',
+          href,
         });
       }
     },
@@ -1241,6 +1245,12 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
               .filter(Boolean)
               .join(' · ')
           );
+          if (data.failed) {
+            const batchMessage = `Batch queued with ${data.failed} failure(s)`;
+            void import('@/lib/local-observability').then(({ noteQueueFailureMetric }) => {
+              noteQueueFailureMetric({ message: batchMessage, href: '/queue' });
+            });
+          }
           toastQueueOutcome({
             ok: !data.failed,
             text: data.failed
@@ -1257,10 +1267,14 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         const hrefFromError =
           err instanceof Error ? (err as Error & { href?: string }).href : undefined;
         setComfyUiStatus(message);
+        const href = hrefFromError || resolveQueueFailureHref(message) || '/queue';
+        void import('@/lib/local-observability').then(({ noteQueueFailureMetric }) => {
+          noteQueueFailureMetric({ message, href });
+        });
         toastQueueOutcome({
           ok: false,
           text: message,
-          href: hrefFromError || resolveQueueFailureHref(message) || '/queue',
+          href,
         });
       }
     },

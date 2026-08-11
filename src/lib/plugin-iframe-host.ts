@@ -93,18 +93,22 @@ export function isPluginIframeHostMessage(value: unknown): value is PluginIframe
   return typeof raw.type === 'string' && INBOUND_TYPES.has(raw.type);
 }
 
-/** Reject cross-origin posts unless the iframe URL or user allowlist permits that origin. */
+/**
+ * Reject cross-origin posts unless the iframe URL origin matches or the user
+ * allowlist explicitly permits that origin. Wildcard / unresolvable targets are
+ * default-deny (allowlist-only).
+ */
 export function isAllowedPluginMessageOrigin(
   eventOrigin: string,
   iframeUrl: string | null | undefined,
   allowlist: string[] = []
 ): boolean {
-  if (!iframeUrl) {
+  if (!iframeUrl || !eventOrigin?.trim()) {
     return false;
   }
   const expected = resolvePluginIframeTargetOrigin(iframeUrl);
   if (expected === '*') {
-    return true;
+    return allowlist.includes(eventOrigin);
   }
   if (eventOrigin === expected) {
     return true;
@@ -184,12 +188,13 @@ export function postPluginIframeHostApplyResult(
 
 export function resolvePluginIframeTargetOrigin(iframeUrl: string): string {
   if (iframeUrl.startsWith('/')) {
-    return typeof window !== 'undefined' ? window.location.origin : '*';
+    // Relative embeds are same-origin; without a window, refuse wildcard posts.
+    return typeof window !== 'undefined' ? window.location.origin : '';
   }
   try {
     return new URL(iframeUrl).origin;
   } catch {
-    return '*';
+    return '';
   }
 }
 

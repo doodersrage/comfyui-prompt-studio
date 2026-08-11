@@ -15,6 +15,7 @@ import {
   saveGalleryDeletedIds,
 } from './gallery-deleted-ids';
 import {
+  detectLoaderMapDivergence,
   detectStorageConflicts,
   mergeArraysById,
   mergeSettingsCache,
@@ -67,6 +68,7 @@ export async function probeStorageConflicts(): Promise<StorageNamespaceConflict[
   const localGallery = loadComfyGallery();
   const localDeleted = loadGalleryDeletedIds();
 
+  let serverSettings: SettingsCache | null = null;
   const probes = await Promise.all(
     SYNC_NAMESPACES.map(async namespace => {
       if (namespace === 'gallery-deleted-ids') {
@@ -90,6 +92,9 @@ export async function probeStorageConflicts(): Promise<StorageNamespaceConflict[
           : namespace === 'prompt-history'
             ? await pullNamespaceFromServer<PromptHistoryEntry[]>(namespace)
             : await pullNamespaceFromServer<ComfyGalleryEntry[]>(namespace);
+      if (namespace === 'settings-cache') {
+        serverSettings = server;
+      }
       const local =
         namespace === 'settings-cache'
           ? localSettings
@@ -104,7 +109,30 @@ export async function probeStorageConflicts(): Promise<StorageNamespaceConflict[
     })
   );
 
-  return detectStorageConflicts({ namespaces: probes });
+  const conflicts = detectStorageConflicts({ namespaces: probes });
+  const mapDiffKeys = detectLoaderMapDivergence(
+    localSettings.shared as Record<string, unknown>,
+    serverSettings?.shared as Record<string, unknown> | undefined
+  );
+  if (mapDiffKeys.length > 0) {
+    const existing = conflicts.find(conflict => conflict.namespace === 'settings-cache');
+    const detail = `Loader maps differ: ${mapDiffKeys.join(', ')}`;
+    if (existing) {
+      existing.mapDiffKeys = mapDiffKeys;
+      existing.detail = detail;
+    } else {
+      conflicts.push({
+        namespace: 'settings-cache',
+        localUpdatedAt: localSettings.updatedAt,
+        serverUpdatedAt: serverSettings?.updatedAt,
+        localCount: 1,
+        serverCount: serverSettings ? 1 : 0,
+        mapDiffKeys,
+        detail,
+      });
+    }
+  }
+  return conflicts;
 }
 
 export async function applyStorageMerge(

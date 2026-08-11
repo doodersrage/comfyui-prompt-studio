@@ -114,8 +114,9 @@ export function buildGalleryHandoff(
     imageUrl: image ? buildComfyViewPath(entry.comfyUrl, image) : undefined,
     imageFilename: image?.filename,
     ...(controlImageUrls?.length ? { controlImageUrls } : {}),
-    // Re-edit restores sampler/size/LoRA stack; plain open only carries the image.
-    queueParams: handoffMode === 'reedit' ? entry.queueParams : undefined,
+    // Re-edit restores sampler/size/LoRA stack; ControlNet also needs mode/strengths.
+    queueParams:
+      handoffMode === 'reedit' || target === 'controlnet' ? entry.queueParams : undefined,
     queueQualityProfile: handoffMode === 'reedit' ? entry.queueQualityProfile : undefined,
     sessionActiveLoraIds: resolveHandoffLoraIds(entry, includeLoras),
     ...(handoffMode === 'reedit' && identityKind ? { identityKind } : {}),

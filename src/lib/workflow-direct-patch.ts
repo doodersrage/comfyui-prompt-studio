@@ -628,9 +628,23 @@ export function patchControlNetInWorkflow(
     controlImageFilenames?: string[];
     availableNodeTypes?: Iterable<string> | null;
     controlNetMode?: string;
+    controlNetModes?: string[];
+    controlNetStrengths?: Array<number | string>;
   }
 ): { workflow: Record<string, unknown>; patched: WorkflowDirectPatchCounts } {
   const stackEntries = (() => {
+    const strengths = input.controlNetStrengths ?? [];
+    const modes = input.controlNetModes ?? [];
+    const parseStrength = (value: number | string | undefined): number | undefined => {
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        return value;
+      }
+      if (typeof value === 'string' && value.trim()) {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : undefined;
+      }
+      return undefined;
+    };
     const fromArray = (input.controlImageFilenames ?? [])
       .map(name => name?.trim())
       .filter(Boolean) as string[];
@@ -638,7 +652,8 @@ export function patchControlNetInWorkflow(
       return fromArray.map((controlImageFilename, index) => ({
         controlImageFilename,
         controlNetModelFilename: index === 0 ? input.controlNetModelFilename : undefined,
-        controlNetMode: input.controlNetMode,
+        controlNetMode: modes[index] || input.controlNetMode,
+        strength: parseStrength(strengths[index]),
       }));
     }
     const primary = input.controlImageFilename?.trim();
@@ -647,7 +662,8 @@ export function patchControlNetInWorkflow(
           {
             controlImageFilename: primary,
             controlNetModelFilename: input.controlNetModelFilename,
-            controlNetMode: input.controlNetMode,
+            controlNetMode: modes[0] || input.controlNetMode,
+            strength: parseStrength(strengths[0]),
           },
         ]
       : [];
@@ -1629,6 +1645,8 @@ export function patchWorkflowDirectParams(
     controlImageFilenames: input.controlImageFilenames ?? input.params?.controlImageFilenames,
     availableNodeTypes: input.availableNodeTypes,
     controlNetMode: input.params?.controlNetMode,
+    controlNetModes: input.params?.controlNetModes,
+    controlNetStrengths: input.params?.controlNetStrengths,
   });
   const ipAdapterPatch = patchIpAdapterInWorkflow(controlPatch.workflow, {
     ipAdapterImageFilename: willUseKleinEnhancer ? undefined : input.ipAdapterImageFilename,

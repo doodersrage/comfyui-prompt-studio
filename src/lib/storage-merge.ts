@@ -4,7 +4,56 @@ export type StorageNamespaceConflict = {
   serverUpdatedAt?: number;
   localCount?: number;
   serverCount?: number;
+  /** Loader-map keys that differ between local and server (settings-cache). */
+  mapDiffKeys?: string[];
+  detail?: string;
 };
+
+export const SETTINGS_LOADER_MAP_KEYS = [
+  'modelCheckpointMap',
+  'modelVaeMap',
+  'modelRefinerMap',
+  'modelUpscaleMap',
+  'modelLoraMap',
+  'modelControlNetMap',
+  'modelWorkflowMap',
+  'modelSamplerMemory',
+  'sessionActiveLoraIdsByModel',
+] as const;
+
+export type SettingsLoaderMapKey = (typeof SETTINGS_LOADER_MAP_KEYS)[number];
+
+/** Compare shared loader / LoRA maps and return keys where membership or values diverge. */
+export function detectLoaderMapDivergence(
+  localShared: Record<string, unknown> | undefined,
+  serverShared: Record<string, unknown> | undefined
+): string[] {
+  const diffs: string[] = [];
+  for (const key of SETTINGS_LOADER_MAP_KEYS) {
+    const localMap = (localShared?.[key] ?? {}) as Record<string, unknown>;
+    const serverMap = (serverShared?.[key] ?? {}) as Record<string, unknown>;
+    const localKeys = Object.keys(localMap).sort();
+    const serverKeys = Object.keys(serverMap).sort();
+    if (localKeys.length === 0 && serverKeys.length === 0) {
+      continue;
+    }
+    if (localKeys.join('\0') !== serverKeys.join('\0')) {
+      diffs.push(key);
+      continue;
+    }
+    const diverges = localKeys.some(mapKey => {
+      try {
+        return JSON.stringify(localMap[mapKey]) !== JSON.stringify(serverMap[mapKey]);
+      } catch {
+        return localMap[mapKey] !== serverMap[mapKey];
+      }
+    });
+    if (diverges) {
+      diffs.push(key);
+    }
+  }
+  return diffs;
+}
 
 export type MergeChoice = 'local' | 'server' | 'merge';
 
@@ -128,18 +177,8 @@ export function mergeSettingsCache<
     return { ...b, ...a };
   };
 
-  const mapKeys = [
-    'modelCheckpointMap',
-    'modelVaeMap',
-    'modelRefinerMap',
-    'modelUpscaleMap',
-    'modelLoraMap',
-    'modelControlNetMap',
-    'modelWorkflowMap',
-    'modelSamplerMemory',
-  ] as const;
   const sharedMaps: Record<string, unknown> = {};
-  for (const key of mapKeys) {
+  for (const key of SETTINGS_LOADER_MAP_KEYS) {
     const merged = mergeMapField(key);
     if (merged) {
       sharedMaps[key] = merged;

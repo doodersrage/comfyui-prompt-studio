@@ -57,6 +57,9 @@ export default function PluginsPage() {
   const [manifestStatus, setManifestStatus] = useState<string | null>(null);
   const [originAllowlistText, setOriginAllowlistText] = useState('');
   const [originStatus, setOriginStatus] = useState<string | null>(null);
+  const [pageOrigin] = useState(() =>
+    typeof window !== 'undefined' ? window.location.origin : '—'
+  );
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -298,9 +301,13 @@ export default function PluginsPage() {
 
       <ToolSection title="Iframe origin allowlist">
         <p className="type-caption">
-          Same-origin iframe tools always work. Add extra{' '}
-          <code className="text-violet-300">https://host</code> origins (one per line) for remote
-          plugin iframes. Messages from other origins are ignored.
+          Default-deny for remote posts: same-origin iframe tools always work; remote iframes must
+          match their URL origin or an entry below. Add{' '}
+          <code className="text-violet-300">https://host</code> origins (one per line). Unresolvable
+          / wildcard targets never accept messages unless listed here.
+        </p>
+        <p className="type-caption mt-2 text-[var(--text-secondary)]">
+          This page origin: <code className="text-violet-300">{pageOrigin}</code>
         </p>
         <MonoTextArea
           className="mt-3 min-h-28"

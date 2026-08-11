@@ -200,6 +200,8 @@ export default function PluginDetailPage({ params }: PluginDetailPageProps) {
   const iframeUrl = resolveEmbeddablePluginIframeUrl(tool?.iframeUrl);
 
   if (iframeUrl) {
+    const iframeOrigin =
+      resolvePluginIframeTargetOrigin(iframeUrl) || '(unresolved — default deny)';
     return (
       <ToolLayout
         accent="violet"
@@ -208,6 +210,16 @@ export default function PluginDetailPage({ params }: PluginDetailPageProps) {
         title={tool?.title || plugin.label}
         description={`${plugin.label} · v${plugin.version}`}
       >
+        <p className="type-caption mb-3 text-[var(--text-secondary)]">
+          Active iframe origin: <code className="text-violet-300">{iframeOrigin}</code>
+          {' · '}
+          <Link
+            href="/plugins"
+            className="text-[var(--accent-text)] underline-offset-2 transition hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+          >
+            Manage allowlist
+          </Link>
+        </p>
         <div className="overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[color-mix(in_oklab,var(--surface)_88%,transparent)] shadow-[var(--shadow-soft)]">
           <iframe
             ref={iframeRef}

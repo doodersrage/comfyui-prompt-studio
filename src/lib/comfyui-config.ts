@@ -162,6 +162,10 @@ export type WorkflowParamValues = {
   controlImageFilenames?: string[];
   /** ControlNet preprocessor mode (canny/pose/depth/…) when auto-inserting a chain. */
   controlNetMode?: string;
+  /** Optional per-slot ControlNetApply strengths (index 0 = primary). */
+  controlNetStrengths?: Array<number | string>;
+  /** Optional per-slot preprocessor modes when stacking ControlNets. */
+  controlNetModes?: string[];
   /** {{IPADAPTER_IMAGE}} — filename of the identity/style reference image on a LoadImage node. */
   ipAdapterImageFilename?: string;
   /** Extra IP-Adapter refs for stacked apply chains (index 0 mirrors ipAdapterImageFilename). */

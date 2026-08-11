@@ -16,6 +16,20 @@ describe('resolveQueueFailureHref', () => {
     assert.match(resolveQueueFailureHref('checkpoint filename missing') ?? '', /model-assets|comfyui/i);
   });
 
+  it('routes Diffusers, batch, object_info, and OOM failures', () => {
+    assert.match(
+      resolveQueueFailureHref('Diffusers queue failed: connection refused') ?? '',
+      /inference-engine|comfyui/i
+    );
+    assert.equal(resolveQueueFailureHref('Batch queued with 2 failure(s)'), '/queue');
+    assert.match(
+      resolveQueueFailureHref('object_info missing node type FooBar') ?? '',
+      /workflow-map|comfyui/i
+    );
+    assert.match(resolveQueueFailureHref('CUDA out of memory') ?? '', /vram|comfyui/i);
+    assert.match(resolveQueueFailureHref('ComfyUI unauthorized 401') ?? '', /connection|comfyui/i);
+  });
+
   it('returns undefined for generic failures', () => {
     assert.equal(resolveQueueFailureHref('Something went wrong'), undefined);
   });

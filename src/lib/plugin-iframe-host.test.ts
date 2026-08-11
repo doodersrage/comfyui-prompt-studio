@@ -50,4 +50,25 @@ describe('plugin-iframe-host', () => {
       false
     );
   });
+
+  it('default-denies unresolved origins unless allowlisted', () => {
+    assert.equal(isAllowedPluginMessageOrigin('https://evil.test', 'not-a-url'), false);
+    assert.equal(
+      isAllowedPluginMessageOrigin('https://trusted.test', 'not-a-url', ['https://trusted.test']),
+      true
+    );
+    assert.equal(
+      isAllowedPluginMessageOrigin('https://evil.test', 'https://example.com/p.html', [
+        'https://trusted.test',
+      ]),
+      false
+    );
+    assert.equal(
+      isAllowedPluginMessageOrigin('https://trusted.test', 'https://example.com/p.html', [
+        'https://trusted.test',
+      ]),
+      true
+    );
+  });
 });
+

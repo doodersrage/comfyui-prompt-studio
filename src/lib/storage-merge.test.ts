@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  detectLoaderMapDivergence,
   detectStorageConflicts,
   suggestMergeChoice,
 } from "./storage-merge";
@@ -30,6 +31,22 @@ describe("detectStorageConflicts", () => {
       ],
     });
     assert.equal(conflicts.length, 1);
+  });
+});
+
+describe("detectLoaderMapDivergence", () => {
+  it("flags maps with different keys or values", () => {
+    const diffs = detectLoaderMapDivergence(
+      {
+        modelCheckpointMap: { "flux-dev": "a.safetensors" },
+        modelLoraMap: { "flux-dev": ["skin"] },
+      },
+      {
+        modelCheckpointMap: { "flux-dev": "b.safetensors" },
+        modelLoraMap: { "flux-dev": ["skin"] },
+      },
+    );
+    assert.deepEqual(diffs, ["modelCheckpointMap"]);
   });
 });
 
