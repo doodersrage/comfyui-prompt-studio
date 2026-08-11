@@ -20,9 +20,14 @@ export type ComfyGalleryEntry = {
   queueParams?: WorkflowParamValues;
   /**
    * Exact workflow JSON queued for this job (capped). Preferred for exact replay
-   * before fetching ComfyUI history.
+   * before fetching ComfyUI history. May be omitted from list projections —
+   * see `hasStoredWorkflow` + `getGalleryEntryById`.
    */
   workflowJson?: string;
+  /** True when a stored graph exists (list projection may omit the JSON body). */
+  hasStoredWorkflow?: boolean;
+  /** Set when the queued graph was too large to persist for exact replay. */
+  workflowJsonOmitted?: boolean;
   /** Original source image URL at queue time (Comfy view or app proxy). */
   sourceImageUrl?: string;
   /** Inpaint mask URL at queue time when available. */

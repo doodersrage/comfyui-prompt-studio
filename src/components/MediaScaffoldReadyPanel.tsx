@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import ComfyPackImportControl from '@/components/ComfyPackImportControl';
 import { Button } from '@/components/ui/Button';
@@ -11,6 +12,8 @@ import { resolveWorkflowForModelSelection } from '@/lib/model-workflow-map';
 import type { ComfyImageModel } from '@/lib/comfy-models/client';
 import type { PackImportResult } from '@/lib/workflow-pack-import';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
+import { resolveQueueFailureHref } from '@/lib/queue-failure-playbook';
+import { settingsComfyUiSectionHref } from '@/lib/settings-comfyui-nav';
 
 type MediaKind = 'audio' | 'mesh' | 'video' | 'controlnet';
 
@@ -32,6 +35,7 @@ export default function MediaScaffoldReadyPanel({
   className = '',
 }: MediaScaffoldReadyPanelProps) {
   const [status, setStatus] = useState<string | null>(null);
+  const [statusHref, setStatusHref] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
 
   const preferKind = kind === 'controlnet' ? undefined : kind;
@@ -39,12 +43,15 @@ export default function MediaScaffoldReadyPanel({
   const runAudit = useCallback(async () => {
     setBusy(true);
     setStatus(null);
+    setStatusHref(undefined);
     try {
       await ensureScaffold?.();
       const objectInfo = await fetchComfyObjectInfoCached({ forceRefresh: false });
       const available = objectInfo?.nodeTypes;
       if (!available?.size) {
-        setStatus('Could not read ComfyUI object_info — is Comfy reachable?');
+        const message = 'Could not read ComfyUI object_info — is Comfy reachable?';
+        setStatus(message);
+        setStatusHref(resolveQueueFailureHref(message) ?? settingsComfyUiSectionHref('connection'));
         return;
       }
 
@@ -59,9 +66,9 @@ export default function MediaScaffoldReadyPanel({
         (workflowId ? files.find(file => file.id === workflowId)?.workflowJson : undefined) ||
         files.find(file => file.id === shared.selectedWorkflowFileId)?.workflowJson;
       if (!workflowJson?.trim()) {
-        setStatus(
-          `No ${kind} workflow selected yet — import a pack below or enable system workflows.`
-        );
+        const message = `No ${kind} workflow selected yet — import a pack below or enable system workflows.`;
+        setStatus(message);
+        setStatusHref(settingsComfyUiSectionHref('workflow-map'));
         return;
       }
 
@@ -76,13 +83,15 @@ export default function MediaScaffoldReadyPanel({
       const missing = issues
         .map(issue => issue.message.match(/“([^”]+)”/)?.[1])
         .filter(Boolean) as string[];
-      setStatus(
-        `Missing ${issues.length} node type(s)${
-          missing.length ? `: ${missing.slice(0, 6).join(', ')}` : ''
-        }${missing.length > 6 ? '…' : ''}. Import a matching pack or install custom nodes.`
-      );
+      const message = `Missing ${issues.length} node type(s)${
+        missing.length ? `: ${missing.slice(0, 6).join(', ')}` : ''
+      }${missing.length > 6 ? '…' : ''}. Import a matching pack or install custom nodes.`;
+      setStatus(message);
+      setStatusHref(issues[0]?.href ?? settingsComfyUiSectionHref('workflow-map'));
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Scaffold check failed.');
+      const message = error instanceof Error ? error.message : 'Scaffold check failed.';
+      setStatus(message);
+      setStatusHref(resolveQueueFailureHref(message));
     } finally {
       setBusy(false);
     }
@@ -134,6 +143,17 @@ export default function MediaScaffoldReadyPanel({
       {status ? (
         <p className="text-xs text-[var(--text-secondary)]" role="status">
           {status}
+          {statusHref ? (
+            <>
+              {' '}
+              <Link
+                href={statusHref}
+                className="text-[var(--accent-text)] underline-offset-2 transition hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+              >
+                Open Settings
+              </Link>
+            </>
+          ) : null}
         </p>
       ) : null}
     </div>

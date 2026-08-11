@@ -16,6 +16,7 @@ import type { ComfyGalleryEntry } from './comfyui-gallery-entry';
 import type { ComfyGalleryJobStatus } from './comfyui-gallery-types';
 import {
   getGalleryCache,
+  getGalleryEntryById,
   notifyGalleryUpdated,
   persistGalleryCache,
   setGalleryCache,
@@ -38,6 +39,7 @@ export {
   MAX_GALLERY_ENTRIES,
 } from './comfyui-gallery-storage-meta';
 export { initAppDb, initGalleryStore, isAppDbReady, isGalleryStoreReady } from './app-db-init';
+export { getGalleryEntryById } from './gallery-db-store';
 
 export type ComfyGalleryFilter = {
   status?: ComfyGalleryJobStatus | 'all';

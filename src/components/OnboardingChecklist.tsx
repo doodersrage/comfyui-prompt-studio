@@ -10,6 +10,7 @@ import {
   isOnboardingCoreStep,
   isOnboardingStepAccessible,
   loadOnboardingState,
+  ONBOARDING_UPDATED_EVENT,
   type OnboardingStep,
 } from '@/lib/onboarding-store';
 import { Button } from '@/components/ui/Button';
@@ -77,9 +78,11 @@ export default function OnboardingChecklist() {
     };
     window.addEventListener('focus', refresh);
     window.addEventListener('storage', refresh);
+    window.addEventListener(ONBOARDING_UPDATED_EVENT, refresh);
     return () => {
       window.removeEventListener('focus', refresh);
       window.removeEventListener('storage', refresh);
+      window.removeEventListener(ONBOARDING_UPDATED_EVENT, refresh);
     };
   }, []);
 

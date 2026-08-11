@@ -3,9 +3,11 @@
  */
 
 import { requeueComfyJob } from './comfyui-requeue';
-import { loadSettingsCache } from './settings-cache';
+import { loadSettingsCache, saveSharedSettings } from './settings-cache';
 import { rememberToolDraft } from './tool-draft-memory';
 import { runPluginQueuePreflight } from './plugin-queue-hooks';
+import { normalizeQueueQualityProfile } from './queue-quality-profile';
+import { resolveSharedEffectiveSessionLoraIds } from './comfyui-settings';
 
 export type PluginApplyPromptPayload = {
   prompt: string;
@@ -18,6 +20,15 @@ export type PluginQueuePayload = {
   model?: string;
   denoise?: number;
   cfg?: number;
+  qualityProfile?: 'draft' | 'final' | 'max' | 'followSettings';
+};
+
+export type PluginApplyModelPayload = {
+  model: string;
+};
+
+export type PluginApplyQualityPayload = {
+  qualityProfile: 'draft' | 'final' | 'max' | 'followSettings';
 };
 
 export async function applyPromptFromPlugin(
@@ -35,6 +46,46 @@ export async function applyPromptFromPlugin(
     text: prompt,
   });
   return { ok: true, message: 'Prompt applied — open Generate or Studio to continue.' };
+}
+
+export async function applyModelFromPlugin(
+  payload: PluginApplyModelPayload
+): Promise<{ ok: boolean; message: string }> {
+  const model = payload.model?.trim();
+  if (!model) {
+    return { ok: false, message: 'Plugin apply-model requires a model id.' };
+  }
+  const shared = loadSettingsCache().shared;
+  saveSharedSettings({ ...shared, model: model as typeof shared.model }, { notify: true });
+  return { ok: true, message: `Model set to ${model}.` };
+}
+
+export async function applyQualityFromPlugin(
+  payload: PluginApplyQualityPayload
+): Promise<{ ok: boolean; message: string }> {
+  const profile = normalizeQueueQualityProfile(payload.qualityProfile);
+  const shared = loadSettingsCache().shared;
+  saveSharedSettings({ ...shared, queueQualityProfile: profile }, { notify: true });
+  return { ok: true, message: `Quality profile set to ${profile}.` };
+}
+
+export function buildPluginHostContextSnapshot(input: {
+  pluginId: string;
+  pluginLabel?: string;
+  tool?: string;
+  prompt?: string;
+}): import('./plugin-iframe-host').PluginIframeHostContext {
+  const shared = loadSettingsCache().shared;
+  return {
+    pluginId: input.pluginId,
+    pluginLabel: input.pluginLabel,
+    model: shared.model,
+    tool: input.tool,
+    prompt: input.prompt,
+    qualityProfile: shared.queueQualityProfile,
+    sessionActiveLoraIds: resolveSharedEffectiveSessionLoraIds(shared.model),
+    selectedWorkflowFileId: shared.selectedWorkflowFileId,
+  };
 }
 
 export async function queuePromptFromPlugin(
@@ -82,6 +133,9 @@ export async function queuePromptFromPlugin(
     model: preflight.payload.model || model,
     tool: `plugin:${pluginId}`,
     queueParams: Object.keys(queueParams).length > 0 ? queueParams : undefined,
+    qualityProfile: payload.qualityProfile
+      ? normalizeQueueQualityProfile(payload.qualityProfile)
+      : undefined,
   });
 
   if (!result.ok) {

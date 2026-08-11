@@ -20,6 +20,7 @@ import GalleryPanelSkeleton from '@/components/gallery/GalleryPanelSkeleton';
 import GalleryPaginator from '@/components/gallery/GalleryPaginator';
 import StatusToastStrip from '@/components/ui/StatusToastStrip';
 import { assessGalleryCapWarning } from '@/lib/gallery-cap';
+import { galleryDerivedKindChipLabel } from '@/lib/gallery-derived-kind';
 import { MAX_GALLERY_ENTRIES } from '@/lib/comfyui-gallery-storage-meta';
 import { useGalleryReview } from '@/hooks/useGalleryReview';
 import { useGallerySelection } from '@/hooks/useGallerySelection';
@@ -815,7 +816,17 @@ export default function ComfyUiGalleryPanel({
         </div>
       ) : (
         <div className="flex flex-wrap gap-2">
-          {(['upscale', 'refine', 'variation', 'moire-clean'] as const).map(kind => (
+          {(
+            [
+              'upscale',
+              'refine',
+              'soft-pass',
+              'variation',
+              'moire-clean',
+              'face-detail',
+              'controlnet',
+            ] as const
+          ).map(kind => (
             <button
               key={kind}
               type="button"
@@ -831,13 +842,7 @@ export default function ComfyUiGalleryPanel({
                   : 'border-[var(--border-subtle)] bg-[var(--bg-base)]/40 text-[var(--text-muted)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]'
               }`}
             >
-              {kind === 'upscale'
-                ? 'Upscaled'
-                : kind === 'refine'
-                  ? 'Refined'
-                  : kind === 'variation'
-                    ? 'Variations'
-                    : 'Moiré clean'}
+              {galleryDerivedKindChipLabel(kind)}
             </button>
           ))}
         </div>

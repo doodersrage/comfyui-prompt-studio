@@ -25,7 +25,8 @@ export type GalleryCardActions = {
   requeue: (
     id: string,
     newSeed: boolean,
-    qualityProfile?: import('@/lib/queue-quality-profile').QueueQualityProfile
+    qualityProfile?: import('@/lib/queue-quality-profile').QueueQualityProfile,
+    options?: { exactGraph?: boolean }
   ) => void;
   cancel: (id: string) => void;
   upscale: (id: string, qualityProfile: 'final' | 'max', options?: { force?: boolean }) => void;
@@ -121,8 +122,9 @@ function GalleryCardItem({
   const onRequeue = useCallback(
     (
       newSeed: boolean,
-      qualityProfile?: import('@/lib/queue-quality-profile').QueueQualityProfile
-    ) => actionsRef.current.requeue(entry.id, newSeed, qualityProfile),
+      qualityProfile?: import('@/lib/queue-quality-profile').QueueQualityProfile,
+      options?: { exactGraph?: boolean }
+    ) => actionsRef.current.requeue(entry.id, newSeed, qualityProfile, options),
     [actionsRef, entry.id]
   );
   const onCancel = useCallback(() => actionsRef.current.cancel(entry.id), [actionsRef, entry.id]);

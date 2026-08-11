@@ -28,6 +28,12 @@ function galleryEntryFingerprint(entry: ComfyGalleryEntry): string {
   const images = entry.images
     .map(image => `${image.filename}:${image.subfolder}:${image.type}`)
     .join(',');
+  const workflowLen = entry.workflowJson?.length ?? 0;
+  const workflowSig = workflowLen
+    ? `${workflowLen}:${entry.workflowJson!.slice(0, 24)}:${entry.workflowJson!.slice(-24)}`
+    : entry.workflowJsonOmitted
+      ? 'omitted'
+      : '';
   return [
     entry.status,
     entry.completedAt ?? 0,
@@ -46,7 +52,20 @@ function galleryEntryFingerprint(entry: ComfyGalleryEntry): string {
     entry.negativePrompt?.length ?? 0,
     entry.derivedKind ?? '',
     entry.parentGalleryEntryId ?? '',
+    workflowSig,
   ].join('|');
+}
+
+/** Strip heavy workflow JSON from list projections; keep a flag for UI badges. */
+export function projectGalleryEntryForList(entry: ComfyGalleryEntry): ComfyGalleryEntry {
+  if (!entry.workflowJson) {
+    return entry;
+  }
+  const { workflowJson: _omit, ...rest } = entry;
+  return {
+    ...rest,
+    hasStoredWorkflow: true,
+  };
 }
 
 /** Sync legacy localStorage into memory for instant first paint. */
@@ -111,7 +130,14 @@ function mergeUserEntriesIntoAll(userEntries: ComfyGalleryEntry[]): ComfyGallery
 }
 
 function refreshCacheFromAll(): void {
-  cache = filterEntriesForActiveUser(allEntries).slice(0, MAX_GALLERY_ENTRIES);
+  cache = filterEntriesForActiveUser(allEntries)
+    .slice(0, MAX_GALLERY_ENTRIES)
+    .map(projectGalleryEntryForList);
+}
+
+/** Full entry including stored workflowJson (not the list projection). */
+export function getGalleryEntryById(id: string): ComfyGalleryEntry | undefined {
+  return allEntries.find(entry => entry.id === id);
 }
 
 function assignLegacyGalleryEntriesToActiveUser(): void {

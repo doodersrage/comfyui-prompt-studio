@@ -108,6 +108,8 @@
     <div class="row">
       <button type="button" class="primary" id="queue">Queue via host</button>
       <button type="button" class="ghost" id="apply">Apply prompt only</button>
+      <button type="button" class="ghost" id="quality">Set Final quality</button>
+      <button type="button" class="ghost" id="pick">Pick from gallery</button>
       <button type="button" class="ghost" id="toast">Toast</button>
     </div>
     <div id="status" role="status" aria-live="polite"></div>
@@ -146,6 +148,14 @@
       document.getElementById('apply').addEventListener('click', () => {
         post({ type: 'plugin:apply-prompt', prompt: promptEl.value });
         setStatus('Prompt applied to host');
+      });
+      document.getElementById('quality').addEventListener('click', () => {
+        post({ type: 'plugin:apply-quality', qualityProfile: 'final' });
+        setStatus('Requested Final quality');
+      });
+      document.getElementById('pick').addEventListener('click', () => {
+        post({ type: 'plugin:pick-gallery', target: 'compose' });
+        setStatus('Opening gallery pick…');
       });
       document.getElementById('toast').addEventListener('click', () => {
         post({ type: 'plugin:toast', message: 'Hello from the iframe example' });

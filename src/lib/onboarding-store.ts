@@ -153,13 +153,20 @@ export function loadOnboardingState(): OnboardingStep[] {
   }));
 }
 
-export function markOnboardingStepDone(stepId: string): void {
+export const ONBOARDING_UPDATED_EVENT = 'onboarding-updated';
+
+export function markOnboardingStepDone(stepId: string): boolean {
   if (typeof window === 'undefined') {
-    return;
+    return false;
   }
   const saved = readBrowserValue<Record<string, boolean>>(KEY) ?? {};
+  if (saved[stepId] === true) {
+    return false;
+  }
   saved[stepId] = true;
   writeBrowserValue(KEY, saved);
+  window.dispatchEvent(new Event(ONBOARDING_UPDATED_EVENT));
+  return true;
 }
 
 export function onboardingComplete(): boolean {
@@ -175,4 +182,5 @@ export function dismissOnboarding(): void {
     saved[step.id] = true;
   }
   writeBrowserValue(KEY, saved);
+  window.dispatchEvent(new Event(ONBOARDING_UPDATED_EVENT));
 }

@@ -6,6 +6,9 @@ export type PluginIframeHostContext = {
   model?: string;
   tool?: string;
   prompt?: string;
+  qualityProfile?: string;
+  sessionActiveLoraIds?: string[];
+  selectedWorkflowFileId?: string;
 };
 
 export type PluginIframeHostOutbound =
@@ -23,6 +26,13 @@ export type PluginIframeHostOutbound =
       ok: boolean;
       message: string;
       promptId?: string;
+    }
+  | {
+      channel: typeof PLUGIN_IFRAME_HOST_CHANNEL;
+      type: 'host:apply-result';
+      pluginId: string;
+      ok: boolean;
+      message: string;
     };
 
 export type PluginIframeHostInbound =
@@ -37,13 +47,40 @@ export type PluginIframeHostInbound =
     }
   | {
       channel: typeof PLUGIN_IFRAME_HOST_CHANNEL;
+      type: 'plugin:apply-model';
+      model: string;
+    }
+  | {
+      channel: typeof PLUGIN_IFRAME_HOST_CHANNEL;
+      type: 'plugin:apply-quality';
+      qualityProfile: 'draft' | 'final' | 'max' | 'followSettings';
+    }
+  | {
+      channel: typeof PLUGIN_IFRAME_HOST_CHANNEL;
+      type: 'plugin:pick-gallery';
+      target?: 'compose' | 'refine' | 'controlnet' | 'inpaint' | 'outpaint' | 'imagePrompt';
+    }
+  | {
+      channel: typeof PLUGIN_IFRAME_HOST_CHANNEL;
       type: 'plugin:queue';
       prompt: string;
       negativePrompt?: string;
       model?: string;
       denoise?: number;
       cfg?: number;
+      qualityProfile?: 'draft' | 'final' | 'max' | 'followSettings';
     };
+
+const INBOUND_TYPES = new Set([
+  'plugin:resize',
+  'plugin:navigate',
+  'plugin:toast',
+  'plugin:apply-prompt',
+  'plugin:apply-model',
+  'plugin:apply-quality',
+  'plugin:pick-gallery',
+  'plugin:queue',
+]);
 
 export function isPluginIframeHostMessage(value: unknown): value is PluginIframeHostInbound {
   if (!value || typeof value !== 'object') {
@@ -53,13 +90,22 @@ export function isPluginIframeHostMessage(value: unknown): value is PluginIframe
   if (raw.channel !== PLUGIN_IFRAME_HOST_CHANNEL) {
     return false;
   }
-  return (
-    raw.type === 'plugin:resize' ||
-    raw.type === 'plugin:navigate' ||
-    raw.type === 'plugin:toast' ||
-    raw.type === 'plugin:apply-prompt' ||
-    raw.type === 'plugin:queue'
-  );
+  return typeof raw.type === 'string' && INBOUND_TYPES.has(raw.type);
+}
+
+/** Reject cross-origin posts unless the iframe URL allows that origin. */
+export function isAllowedPluginMessageOrigin(
+  eventOrigin: string,
+  iframeUrl: string | null | undefined
+): boolean {
+  if (!iframeUrl) {
+    return false;
+  }
+  const expected = resolvePluginIframeTargetOrigin(iframeUrl);
+  if (expected === '*') {
+    return true;
+  }
+  return eventOrigin === expected;
 }
 
 export function postPluginIframeHostReady(
@@ -114,9 +160,27 @@ export function postPluginIframeHostQueueResult(
   iframe.contentWindow.postMessage(message, targetOrigin);
 }
 
+export function postPluginIframeHostApplyResult(
+  iframe: HTMLIFrameElement | null,
+  result: { pluginId: string; ok: boolean; message: string },
+  targetOrigin = '*'
+): void {
+  if (!iframe?.contentWindow) {
+    return;
+  }
+  const message: PluginIframeHostOutbound = {
+    channel: PLUGIN_IFRAME_HOST_CHANNEL,
+    type: 'host:apply-result',
+    pluginId: result.pluginId,
+    ok: result.ok,
+    message: result.message,
+  };
+  iframe.contentWindow.postMessage(message, targetOrigin);
+}
+
 export function resolvePluginIframeTargetOrigin(iframeUrl: string): string {
   if (iframeUrl.startsWith('/')) {
-    return window.location.origin;
+    return typeof window !== 'undefined' ? window.location.origin : '*';
   }
   try {
     return new URL(iframeUrl).origin;

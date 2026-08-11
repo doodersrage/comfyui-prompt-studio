@@ -46,7 +46,7 @@ import { joinQueueStatusNotes } from '@/lib/queue-status-notes';
 import { runPluginQueuePreflight } from '@/lib/plugin-queue-hooks';
 import { dispatchWebhook } from '@/lib/webhook-settings';
 import { markOnboardingFirstQueue } from '@/lib/onboarding-hooks';
-import { resolveQueueFailureHref } from '@/lib/queue-failure-playbook';
+import { resolveQueueFailureHref, resolveQueueFailurePlaybook } from '@/lib/queue-failure-playbook';
 import { formatComfyUiJobStatusLine, type ComfyUiJobTrackerState } from '@/lib/comfyui-job-status';
 
 type WorkflowPreviewResult = Awaited<
@@ -569,12 +569,10 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             comfy: runtime,
           });
           if (!preflight.ok) {
-            throw new Error(
-              preflight.issues
-                .filter(issue => issue.severity === 'error')
-                .map(issue => issue.message)
-                .join(' · ') || 'Workflow pre-flight failed.'
-            );
+            const playbook = resolveQueueFailurePlaybook(preflight.issues);
+            const error = new Error(playbook.message);
+            (error as Error & { href?: string }).href = playbook.href;
+            throw error;
           }
         }
 
@@ -987,11 +985,13 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'ComfyUI failed.';
+        const hrefFromError =
+          err instanceof Error ? (err as Error & { href?: string }).href : undefined;
         setComfyUiStatus(message);
         toastQueueOutcome({
           ok: false,
           text: message,
-          href: resolveQueueFailureHref(message) ?? '/queue',
+          href: hrefFromError || resolveQueueFailureHref(message) || '/queue',
         });
       }
     },
@@ -1135,12 +1135,10 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           comfy: runtime,
         });
         if (!preflight.ok) {
-          throw new Error(
-            preflight.issues
-              .filter(issue => issue.severity === 'error')
-              .map(issue => issue.message)
-              .join(' · ') || 'Workflow pre-flight failed.'
-          );
+          const playbook = resolveQueueFailurePlaybook(preflight.issues);
+          const error = new Error(playbook.message);
+          (error as Error & { href?: string }).href = playbook.href;
+          throw error;
         }
 
         const autoSaveEnabled = loadComfyUiSettings().autoSaveHistoryOnQueue !== false;
@@ -1248,8 +1246,14 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'ComfyUI batch failed.';
+        const hrefFromError =
+          err instanceof Error ? (err as Error & { href?: string }).href : undefined;
         setComfyUiStatus(message);
-        toastQueueOutcome({ ok: false, text: message, href: '/queue' });
+        toastQueueOutcome({
+          ok: false,
+          text: message,
+          href: hrefFromError || resolveQueueFailureHref(message) || '/queue',
+        });
       }
     },
     [

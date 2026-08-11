@@ -107,6 +107,8 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 - **Gallery review auto-advance** — optional jump to next unreviewed item after rating
 - **Mobile gallery review** — touch-friendly rating bar in gallery review mode
 - **Gallery compare modal** — compare 2–4 selected outputs in a full-screen overlay (`GalleryCompareModal` + `useGalleryCompareHandlers`)
+- **Exact graph replay** — queue stores capped `workflowJson` on gallery entries; cards show an Exact graph badge and **Replay exact graph** (falls back to Comfy history when omitted)
+- **Lineage filters** — Upscale / Refine / Soft pass / Variation / Moiré / Face detail / ControlNet derivative chips
 - **Gallery compare panel** — pick winner, rate, favorite, mutate, or improve; bulk **Seed experiment**
 - **Gallery compare** — select 2–4 completed entries for side-by-side review on `/gallery`
 - **Gallery card polish** — hover quick actions (Open, Improve); storage cap warning near 5,000 IndexedDB entries
@@ -185,6 +187,7 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 - **Video prompt builder** — `/video` + `wan-video` / `hunyuan-video` model profiles
 - **ControlNet prompt builder** — `/controlnet` tool for depth/pose/canny/normal/lineart conditioning text
 - **ControlNet from image** — upload reference for vision-assisted structure extraction on `/controlnet`
+- **ControlNet gallery lineage** — gallery → ControlNet handoffs keep parent entry + source image; derivatives filter as ControlNet
 - **Multi-ref image prompts** — Image tool accepts up to 4 references (`/api/image-prompt/multi`)
 - **IP-Adapter multi-ref merge** — vision LLM describes refs and blends into text prompt (no ComfyUI IP-Adapter nodes)
 - **Portable IP-Adapter identity** — Settings → ComfyUI patches `{{IPADAPTER_*}}` tokens or auto-inserts IPAdapter chain at queue time
@@ -224,6 +227,9 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 - **Shared projects** — admin assigns group-scoped projects via `/api/shared-projects`
 - **Shared projects UI** — admin CRUD in Settings → Users; adopt in Studio → Projects
 - **Plugin registry** — `/plugins` lists built-in tools and accepts custom localStorage **nav bookmarks** (not a runnable plugin runtime)
+- **Plugin iframe host** — installable manifests can embed tools at `/plugins/[id]` with queue / apply-prompt / apply-model / apply-quality / pick-gallery (`docs/plugin-iframe-host.md`)
+- **Queue failure playbooks** — missing-node and loader failures deep-link toast CTAs to Settings sections
+- **Simple first-success** — first completed render in Simple mode advances onboarding and nudges Gallery review
 - **CLI** — `npm run prompt:cli -- duo --hints "..."` over the HTTP API
 
 ## Automation & integrations {#automation}

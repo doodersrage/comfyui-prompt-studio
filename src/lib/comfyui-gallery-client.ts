@@ -32,15 +32,26 @@ import { forgetPendingGalleryPoll } from './gallery-pending-polls';
 /** Cap stored workflow graphs so gallery IndexedDB stays bounded. */
 export const MAX_GALLERY_WORKFLOW_CHARS = 400_000;
 
+export type ClampGalleryWorkflowResult = {
+  workflowJson?: string;
+  omitted: boolean;
+};
+
 export function clampGalleryWorkflowJson(workflowJson?: string): string | undefined {
+  return clampGalleryWorkflowJsonDetailed(workflowJson).workflowJson;
+}
+
+export function clampGalleryWorkflowJsonDetailed(
+  workflowJson?: string
+): ClampGalleryWorkflowResult {
   const trimmed = workflowJson?.trim();
   if (!trimmed) {
-    return undefined;
+    return { omitted: false };
   }
   if (trimmed.length > MAX_GALLERY_WORKFLOW_CHARS) {
-    return undefined;
+    return { omitted: true };
   }
-  return trimmed;
+  return { workflowJson: trimmed, omitted: false };
 }
 
 export type RegisterComfyGalleryJobInput = {
@@ -128,7 +139,17 @@ export function registerComfyGalleryJob(input: RegisterComfyGalleryJobInput): Co
     maskImageUrl: input.maskImageUrl,
   });
 
-  const workflowJson = clampGalleryWorkflowJson(input.workflowJson);
+  const clamped = clampGalleryWorkflowJsonDetailed(input.workflowJson);
+  if (clamped.omitted && typeof window !== 'undefined') {
+    void import('./app-toast').then(({ pushAppToast }) => {
+      pushAppToast({
+        text: 'Workflow graph too large to store — exact replay may need Comfy history.',
+        tone: 'warning',
+        ttlMs: 5000,
+        href: '/gallery',
+      });
+    });
+  }
   const entry = addComfyGalleryEntry({
     promptId: input.promptId,
     prompt: input.prompt,
@@ -139,7 +160,10 @@ export function registerComfyGalleryJob(input: RegisterComfyGalleryJobInput): Co
     parentGalleryEntryId: input.parentGalleryEntryId,
     derivedKind: input.derivedKind,
     queueParams: input.queueParams,
-    ...(workflowJson ? { workflowJson } : {}),
+    ...(clamped.workflowJson
+      ? { workflowJson: clamped.workflowJson, hasStoredWorkflow: true }
+      : {}),
+    ...(clamped.omitted ? { workflowJsonOmitted: true } : {}),
     sourceImageUrl: imageUrls.sourceImageUrl,
     maskImageUrl: imageUrls.maskImageUrl,
     queueQualityProfile: input.queueQualityProfile,
@@ -447,7 +471,18 @@ function applyComfyJobStatus(
         return;
       }
       void import('./onboarding-hooks').then(({ markOnboardingFirstQueueSuccess }) => {
-        markOnboardingFirstQueueSuccess();
+        const first = markOnboardingFirstQueueSuccess();
+        if (!first) {
+          return;
+        }
+        void import('./app-toast').then(({ pushAppToast }) => {
+          pushAppToast({
+            text: 'First render complete — rate it in Gallery next.',
+            tone: 'success',
+            ttlMs: 7000,
+            href: '/gallery?review=1',
+          });
+        });
       });
     });
 

@@ -12,18 +12,25 @@ import {
   type PluginManifest,
 } from '@/lib/plugin-manifest';
 import {
+  isAllowedPluginMessageOrigin,
   isPluginIframeHostMessage,
+  postPluginIframeHostApplyResult,
   postPluginIframeHostContext,
   postPluginIframeHostQueueResult,
   postPluginIframeHostReady,
   resolveEmbeddablePluginIframeUrl,
   resolvePluginIframeTargetOrigin,
-  type PluginIframeHostContext,
 } from '@/lib/plugin-iframe-host';
-import { applyPromptFromPlugin, queuePromptFromPlugin } from '@/lib/plugin-iframe-queue';
-import { loadSettingsCache } from '@/lib/settings-cache';
+import {
+  applyModelFromPlugin,
+  applyPromptFromPlugin,
+  applyQualityFromPlugin,
+  buildPluginHostContextSnapshot,
+  queuePromptFromPlugin,
+} from '@/lib/plugin-iframe-queue';
 import { loadLastToolDraft } from '@/lib/tool-draft-memory';
 import { toastQueueOutcome } from '@/lib/app-toast';
+import { galleryPickPath } from '@/lib/gallery-handoff';
 
 type PluginDetailPageProps = {
   params: Promise<{ id: string }>;
@@ -52,17 +59,16 @@ export default function PluginDetailPage({ params }: PluginDetailPageProps) {
     if (!iframeUrl) {
       return;
     }
-    const shared = loadSettingsCache().shared;
     const draft = loadLastToolDraft();
-    const context: PluginIframeHostContext = {
+    const context = buildPluginHostContextSnapshot({
       pluginId: plugin.id,
       pluginLabel: plugin.label,
-      model: shared.model,
       tool: draft?.toolKey,
       prompt: draft?.preview?.slice(0, 500),
-    };
-    postPluginIframeHostReady(iframe, plugin.id, resolvePluginIframeTargetOrigin(iframeUrl));
-    postPluginIframeHostContext(iframe, context, resolvePluginIframeTargetOrigin(iframeUrl));
+    });
+    const origin = resolvePluginIframeTargetOrigin(iframeUrl);
+    postPluginIframeHostReady(iframe, plugin.id, origin);
+    postPluginIframeHostContext(iframe, context, origin);
   }, [plugin]);
 
   useEffect(() => {
@@ -71,6 +77,9 @@ export default function PluginDetailPage({ params }: PluginDetailPageProps) {
         return;
       }
       const iframeUrl = resolveEmbeddablePluginIframeUrl(primaryToolForPlugin(plugin)?.iframeUrl);
+      if (!isAllowedPluginMessageOrigin(event.origin, iframeUrl)) {
+        return;
+      }
       const origin = iframeUrl ? resolvePluginIframeTargetOrigin(iframeUrl) : '*';
 
       if (event.data.type === 'plugin:resize' && Number.isFinite(event.data.height)) {
@@ -88,12 +97,41 @@ export default function PluginDetailPage({ params }: PluginDetailPageProps) {
       if (event.data.type === 'plugin:apply-prompt') {
         void applyPromptFromPlugin(plugin.id, event.data).then(result => {
           toastQueueOutcome({ ok: result.ok, text: result.message });
-          postPluginIframeHostQueueResult(
+          postPluginIframeHostApplyResult(
             iframeRef.current,
             { pluginId: plugin.id, ok: result.ok, message: result.message },
             origin
           );
         });
+        return;
+      }
+      if (event.data.type === 'plugin:apply-model') {
+        void applyModelFromPlugin(event.data).then(result => {
+          toastQueueOutcome({ ok: result.ok, text: result.message });
+          postPluginIframeHostApplyResult(
+            iframeRef.current,
+            { pluginId: plugin.id, ok: result.ok, message: result.message },
+            origin
+          );
+          pushHostContext();
+        });
+        return;
+      }
+      if (event.data.type === 'plugin:apply-quality') {
+        void applyQualityFromPlugin(event.data).then(result => {
+          toastQueueOutcome({ ok: result.ok, text: result.message });
+          postPluginIframeHostApplyResult(
+            iframeRef.current,
+            { pluginId: plugin.id, ok: result.ok, message: result.message },
+            origin
+          );
+          pushHostContext();
+        });
+        return;
+      }
+      if (event.data.type === 'plugin:pick-gallery') {
+        const target = event.data.target ?? 'compose';
+        router.push(galleryPickPath(target));
         return;
       }
       if (event.data.type === 'plugin:queue') {
@@ -115,7 +153,7 @@ export default function PluginDetailPage({ params }: PluginDetailPageProps) {
 
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [plugin, router]);
+  }, [plugin, pushHostContext, router]);
 
   if (plugin === undefined) {
     return (

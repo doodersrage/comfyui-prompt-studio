@@ -998,8 +998,20 @@ export async function requeueComfyJobFromEntry(
   const urls = resolveRequeueImageUrlsFromEntry(entry);
   const isVariation = Boolean(options?.newSeed || options?.qualityProfile);
 
-  let workflowJson = options?.workflowJson?.trim() || entry.workflowJson?.trim() || undefined;
-  if (workflowJson && !options?.workflowJson?.trim() && entry.workflowJson?.trim()) {
+  const storedEntry =
+    !options?.workflowJson?.trim() && !entry.workflowJson?.trim()
+      ? (await import('./gallery-db-store')).getGalleryEntryById(entry.id)
+      : undefined;
+  let workflowJson =
+    options?.workflowJson?.trim() ||
+    entry.workflowJson?.trim() ||
+    storedEntry?.workflowJson?.trim() ||
+    undefined;
+  if (
+    workflowJson &&
+    !options?.workflowJson?.trim() &&
+    (entry.workflowJson?.trim() || storedEntry?.workflowJson?.trim())
+  ) {
     options?.onStatus?.('Replaying stored gallery workflow graph.');
   }
   if (!workflowJson && options?.exactGraph !== false && entry.promptId?.trim()) {

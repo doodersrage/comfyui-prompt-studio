@@ -36,6 +36,7 @@ import {
   type ComfyGalleryEntry,
   type GalleryLayoutMode,
 } from '@/lib/comfyui-gallery';
+import { galleryDerivedKindLabel } from '@/lib/gallery-derived-kind';
 
 type GalleryCardProps = {
   entry: ComfyGalleryEntry;
@@ -53,7 +54,8 @@ type GalleryCardProps = {
   onDownloadError: (message: string | null) => void;
   onRequeue: (
     newSeed: boolean,
-    qualityProfile?: import('@/lib/queue-quality-profile').QueueQualityProfile
+    qualityProfile?: import('@/lib/queue-quality-profile').QueueQualityProfile,
+    options?: { exactGraph?: boolean }
   ) => void;
   onCancel: () => void;
   onUpscale: (qualityProfile: 'final' | 'max', options?: { force?: boolean }) => void;
@@ -341,20 +343,7 @@ export default function GalleryCard({
     };
   }, [menuOpen]);
 
-  const derivedLabel =
-    entry.derivedKind === 'upscale'
-      ? 'upscaled from prior'
-      : entry.derivedKind === 'refine'
-        ? 'refined from prior'
-        : entry.derivedKind === 'soft-pass'
-          ? 'soft second pass from prior'
-          : entry.derivedKind === 'variation'
-            ? 'variation of prior'
-            : entry.derivedKind === 'moire-clean'
-              ? 'moiré-cleaned from prior'
-              : entry.derivedKind === 'face-detail'
-                ? 'face-detailed from prior'
-                : undefined;
+  const derivedLabel = galleryDerivedKindLabel(entry.derivedKind);
 
   const comfyHostLabel = formatComfyHostLabel(entry.comfyUrl);
   const renderDurationLabel = formatRenderDuration(resolveGalleryRenderDurationMs(entry));
@@ -520,6 +509,16 @@ export default function GalleryCard({
                 {entry.reviewRating}★
               </span>
             ) : null}
+            {entry.hasStoredWorkflow || entry.workflowJson ? (
+              <span className="rounded-full border border-sky-400/30 bg-sky-500/15 px-2 py-0.5 text-[10px] text-sky-100 backdrop-blur-sm">
+                Exact graph
+              </span>
+            ) : null}
+            {entry.workflowJsonOmitted ? (
+              <span className="rounded-full border border-amber-400/30 bg-amber-500/15 px-2 py-0.5 text-[10px] text-amber-100 backdrop-blur-sm">
+                Graph omitted
+              </span>
+            ) : null}
             {primaryMediaKind === 'video' ? (
               <span className="rounded-full border border-sky-500/30 bg-sky-500/15 px-2 py-0.5 text-[10px] text-sky-100 backdrop-blur-sm">
                 {entry.sourceImageUrl?.trim() ? 'I2V' : 'Video'}
@@ -607,6 +606,16 @@ export default function GalleryCard({
           </span>
           {entry.reviewRating ? (
             <span className="text-[10px] text-violet-300">{entry.reviewRating}★</span>
+          ) : null}
+          {entry.hasStoredWorkflow || entry.workflowJson ? (
+            <span className="rounded-full border border-sky-400/30 bg-sky-500/10 px-2 py-0.5 text-[10px] text-sky-100">
+              Exact graph
+            </span>
+          ) : null}
+          {entry.workflowJsonOmitted ? (
+            <span className="rounded-full border border-amber-400/30 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-100">
+              Graph omitted
+            </span>
           ) : null}
           {reviewFocus ? (
             <span className="text-[10px] font-medium text-violet-300">Review focus</span>
@@ -1010,31 +1019,40 @@ export default function GalleryCard({
                       }}
                     />
                   ) : null}
+                  {entry.hasStoredWorkflow || entry.workflowJson ? (
+                    <GalleryMenuButton
+                      label="Replay exact graph"
+                      onClick={() => {
+                        onRequeue(false, undefined, { exactGraph: true });
+                        setMenuOpen(false);
+                      }}
+                    />
+                  ) : null}
                   <GalleryMenuButton
                     label="Re-queue (same seed)"
                     onClick={() => {
-                      onRequeue(false);
+                      onRequeue(false, undefined, { exactGraph: false });
                       setMenuOpen(false);
                     }}
                   />
                   <GalleryMenuButton
                     label="New seed"
                     onClick={() => {
-                      onRequeue(true);
+                      onRequeue(true, undefined, { exactGraph: false });
                       setMenuOpen(false);
                     }}
                   />
                   <GalleryMenuButton
                     label="Variation · Final (hires sampler)"
                     onClick={() => {
-                      onRequeue(true, 'final');
+                      onRequeue(true, 'final', { exactGraph: false });
                       setMenuOpen(false);
                     }}
                   />
                   <GalleryMenuButton
                     label="Variation · Max (heavy polish)"
                     onClick={() => {
-                      onRequeue(true, 'max');
+                      onRequeue(true, 'max', { exactGraph: false });
                       setMenuOpen(false);
                     }}
                   />

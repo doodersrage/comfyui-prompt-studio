@@ -10,13 +10,16 @@ comfyui-prompt-studio-plugin-host
 
 Source of truth: `src/lib/plugin-iframe-host.ts`. Host page: `src/app/plugins/[id]/page.tsx`.
 
+The host rejects messages whose `event.origin` does not match the iframe URL origin (same-origin relative URLs use the Studio origin).
+
 ## Host → plugin
 
 | `type` | Purpose |
 | --- | --- |
 | `host:ready` | Iframe loaded; safe to send plugin messages |
-| `host:context` | Current plugin id, model, tool, prompt snapshot |
+| `host:context` | Snapshot: plugin id, model, tool, prompt, quality profile, active LoRA ids, selected workflow id |
 | `host:queue-result` | Outcome of a `plugin:queue` request (`ok`, `message`, optional `promptId`) |
+| `host:apply-result` | Outcome of apply-prompt / apply-model / apply-quality |
 
 ## Plugin → host
 
@@ -26,7 +29,10 @@ Source of truth: `src/lib/plugin-iframe-host.ts`. Host page: `src/app/plugins/[i
 | `plugin:navigate` | `{ href }` — in-app navigation (same origin paths) |
 | `plugin:toast` | `{ message }` — tray toast |
 | `plugin:apply-prompt` | `{ prompt, negativePrompt? }` — push text into Studio without queueing |
-| `plugin:queue` | `{ prompt, negativePrompt?, model?, denoise?, cfg? }` — run host queue path |
+| `plugin:apply-model` | `{ model }` — set shared target model |
+| `plugin:apply-quality` | `{ qualityProfile: draft\|final\|max\|followSettings }` |
+| `plugin:pick-gallery` | `{ target? }` — open Gallery pick mode for compose/refine/controlnet/… |
+| `plugin:queue` | `{ prompt, negativePrompt?, model?, denoise?, cfg?, qualityProfile? }` — run host queue path |
 
 ## Minimal example
 

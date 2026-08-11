@@ -155,6 +155,25 @@ function persistSettingsBlobSidecars(cache: SettingsCache): void {
   });
 }
 
+/** Main blob without heavy tools/plugins/maps — those live in sidecars. */
+function slimSettingsForMainBlob(cache: SettingsCache): SettingsCache {
+  const shared: SharedToolSettings = { ...cache.shared };
+  shared.modelCheckpointMap = {};
+  shared.modelVaeMap = {};
+  shared.modelRefinerMap = {};
+  shared.modelUpscaleMap = {};
+  shared.modelLoraMap = {};
+  shared.modelControlNetMap = {};
+  shared.modelWorkflowMap = {};
+  shared.modelSamplerMemory = {};
+  return {
+    shared,
+    tools: {},
+    installedPlugins: [],
+    ...(typeof cache.updatedAt === 'number' ? { updatedAt: cache.updatedAt } : {}),
+  };
+}
+
 function loadSettingsBlobSidecars(): {
   tools?: ToolSettingsCache;
   installedPlugins?: SettingsCache['installedPlugins'];
@@ -1433,8 +1452,8 @@ export function saveSettingsCache(cache: SettingsCache, options?: SaveSettingsOp
     return;
   }
 
-  writeBrowserValue(SETTINGS_CACHE_KEY, stamped);
   persistSettingsBlobSidecars(stamped);
+  writeBrowserValue(SETTINGS_CACHE_KEY, slimSettingsForMainBlob(stamped));
   const storedVersion = readBrowserValue<unknown>(SETTINGS_CACHE_KEY);
   cachedLoadResult = stamped;
   cachedBrowserVersion = storedVersion;

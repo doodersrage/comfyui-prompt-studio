@@ -163,18 +163,21 @@ export function useGalleryPanelActions({
       requeue: (
         id: string,
         newSeed: boolean,
-        qualityProfile?: import('@/lib/queue-quality-profile').QueueQualityProfile
+        qualityProfile?: import('@/lib/queue-quality-profile').QueueQualityProfile,
+        options?: { exactGraph?: boolean }
       ) => {
         const entry = entriesRef.current.find(item => item.id === id);
         if (!entry) {
           return;
         }
-        setRequeueStatus('Queueing variation…');
+        const exactGraph = options?.exactGraph !== false;
+        setRequeueStatus(exactGraph ? 'Replaying exact graph…' : 'Queueing variation…');
         void loadGalleryRequeue()
           .then(({ requeueComfyJobFromEntry }) =>
             requeueComfyJobFromEntry(entry, {
               newSeed,
               qualityProfile,
+              exactGraph,
               onStatus: setRequeueStatus,
             })
           )
