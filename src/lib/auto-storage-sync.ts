@@ -177,6 +177,10 @@ export async function applyStorageMerge(
     if (choice === 'merge' && local && server) {
       if (namespace === 'settings-cache') {
         const merged = mergeSettingsCache(local as SettingsCache, server as SettingsCache);
+        const localShared = (local as SettingsCache).shared;
+        if (localShared?.useSystemWorkflows === true) {
+          merged.shared = { ...merged.shared, useSystemWorkflows: true };
+        }
         saveSettingsCache(merged);
         await syncNamespaceToServer(namespace, merged);
       } else if (namespace === 'prompt-history') {
@@ -220,6 +224,7 @@ export async function autoPullStorageIfEmpty(): Promise<AutoSyncResult> {
   const gallery = loadComfyGallery();
   if (history.length === 0 && gallery.length === 0) {
     const synced: StorageNamespace[] = [];
+    const localSettings = loadSettingsCache();
     // Pull tombstones first so a full server gallery does not resurrect deletes.
     const serverDeleted = await pullNamespaceFromServer<string[] | { ids?: string[] }>(
       'gallery-deleted-ids'
@@ -234,22 +239,24 @@ export async function autoPullStorageIfEmpty(): Promise<AutoSyncResult> {
       synced.push('gallery-deleted-ids');
     }
     for (const namespace of SYNC_NAMESPACES) {
-      if (namespace === 'gallery-deleted-ids') {
+      if (namespace === 'gallery-deleted-ids' || namespace === 'settings-cache') {
         continue;
       }
       const server = await pullNamespaceFromServer<unknown>(namespace);
       if (!server) {
         continue;
       }
-      if (namespace === 'settings-cache') {
-        saveSettingsCache(server as SettingsCache);
-      } else if (namespace === 'prompt-history') {
+      if (namespace === 'prompt-history') {
         savePromptHistoryStore(server as PromptHistoryEntry[]);
       } else {
         await saveComfyGalleryAsync(filterOutDeletedGalleryEntries(server as ComfyGalleryEntry[]));
       }
       synced.push(namespace);
     }
+    // Push local browser settings to server — never replace local toggles/LoRAs/maps
+    // just because history/gallery are empty (common for generate-only users).
+    await syncNamespaceToServer('settings-cache', localSettings);
+    synced.push('settings-cache');
     return { synced, conflicts: [], skipped: false, pulledIntoEmpty: synced.length > 0 };
   }
 
@@ -260,7 +267,13 @@ export async function autoPullStorageIfEmpty(): Promise<AutoSyncResult> {
 
   const choices: Partial<Record<StorageNamespace, MergeChoice>> = {};
   for (const conflict of conflicts) {
-    choices[conflict.namespace as StorageNamespace] = suggestMergeChoice(conflict);
+    if (conflict.namespace === 'settings-cache') {
+      // Browser settings (toggles, LoRAs, maps) always win on silent startup sync.
+      // Server snapshots are a backup — pulling them overwrote useSystemWorkflows on refresh.
+      choices[conflict.namespace as StorageNamespace] = 'local';
+    } else {
+      choices[conflict.namespace as StorageNamespace] = suggestMergeChoice(conflict);
+    }
   }
   const result = await applyStorageMerge(choices);
   return {

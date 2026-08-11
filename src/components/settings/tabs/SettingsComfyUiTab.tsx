@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import ComfyUiSettingsJumpNav from '@/components/settings/ComfyUiSettingsJumpNav';
 import SettingsBrowserPresetsPanel from '@/components/settings/SettingsBrowserPresetsPanel';
@@ -47,7 +48,7 @@ import {
   mergeModelWorkflowMap,
   suggestWorkflowDefaultsByCategory,
 } from '@/lib/workflow-category-defaults';
-import { loadSettingsCache } from '@/lib/settings-cache';
+import { loadSettingsCache, setUseSystemWorkflowsPref } from '@/lib/settings-cache';
 import type { SharedToolSettings } from '@/lib/settings-cache';
 import { markOnboardingSystemWorkflowsEnabled } from '@/lib/onboarding-hooks';
 import { fetchWorkflowPreview } from '@/lib/comfyui-requeue';
@@ -184,6 +185,9 @@ export default function SettingsComfyUiTab({
   refreshHealth,
   health,
 }: SettingsComfyUiTabProps) {
+  const [systemWorkflowsSaveHint, setSystemWorkflowsSaveHint] = useState<string | null>(null);
+  const [systemWorkflowsSaving, setSystemWorkflowsSaving] = useState(false);
+
   return (
     <>
       <ComfyUiSettingsJumpNav activeSection={comfyUiSection} onJump={handleComfyUiSectionJump} />
@@ -314,18 +318,36 @@ export default function SettingsComfyUiTab({
             checked={sharedSettings.useSystemWorkflows === true}
             onChange={event => {
               const enabled = event.target.checked;
-              updateSharedSettings({
-                useSystemWorkflows: enabled,
-                ...(enabled &&
+              const qualityPatch: Partial<Pick<SharedToolSettings, 'queueQualityProfile'>> =
+                enabled &&
                 (sharedSettings.queueQualityProfile === 'followSettings' ||
                   sharedSettings.queueQualityProfile == null)
-                  ? { queueQualityProfile: 'final' as const }
-                  : {}),
+                  ? { queueQualityProfile: 'final' }
+                  : {};
+              updateSharedSettings({
+                useSystemWorkflows: enabled,
+                ...qualityPatch,
               });
-              if (enabled) {
-                markOnboardingSystemWorkflowsEnabled();
-                void (async () => {
-                  setStatus('Scanning ComfyUI inventory for system workflows…');
+              void (async () => {
+                setSystemWorkflowsSaving(true);
+                setSystemWorkflowsSaveHint('Saving…');
+                try {
+                  await setUseSystemWorkflowsPref(enabled, qualityPatch);
+                  setSystemWorkflowsSaveHint(
+                    enabled ? 'Saved — stays on after refresh.' : 'Saved — system workflows off.'
+                  );
+                } catch {
+                  setSystemWorkflowsSaveHint(
+                    'Could not save. Your browser may be blocking storage.'
+                  );
+                  updateSharedSettings({ useSystemWorkflows: !enabled });
+                  return;
+                } finally {
+                  setSystemWorkflowsSaving(false);
+                }
+                if (enabled) {
+                  markOnboardingSystemWorkflowsEnabled();
+                  setSystemWorkflowsSaveHint('Saved — scanning ComfyUI inventory…');
                   const { scanAndAdaptSystemWorkflowInventory } =
                     await import('@/lib/comfyui-runtime-for-model');
                   const models = await scanAndAdaptSystemWorkflowInventory({
@@ -333,8 +355,8 @@ export default function SettingsComfyUiTab({
                     persist: true,
                   });
                   if (!models) {
-                    setStatus(
-                      'System workflows on — could not reach ComfyUI inventory yet; scaffolds will adapt on next queue.'
+                    setSystemWorkflowsSaveHint(
+                      'Saved — ComfyUI not reachable yet; scaffolds adapt on next queue.'
                     );
                     return;
                   }
@@ -348,17 +370,37 @@ export default function SettingsComfyUiTab({
                   setModelCheckpointMapText(formatModelCheckpointMap(adapted.modelCheckpointMap));
                   setModelVaeMapText(formatModelVaeMap(adapted.modelVaeMap));
                   setModelUpscaleMapText(formatModelUpscaleMap(adapted.modelUpscaleMap));
-                  setStatus('System workflows on — loader maps adapted from ComfyUI inventory.');
+                  setSystemWorkflowsSaveHint('Saved — loader maps adapted from ComfyUI.');
                   setWorkflowHealthRefresh(n => n + 1);
-                })();
-              }
+                }
+              })();
             }}
-            disabled={!sharedMounted}
+            disabled={systemWorkflowsSaving}
             className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] ${accentFocusClass(ACCENT)}`}
           />
           <span className="space-y-1">
-            <span className="block text-sm font-medium text-[var(--text-primary)]">
-              Use system workflows
+            <span className="flex flex-wrap items-center gap-2">
+              <span className="block text-sm font-medium text-[var(--text-primary)]">
+                Use system workflows
+              </span>
+              {!sharedMounted ? (
+                <span className="text-xs text-[var(--text-muted)]">Loading saved settings…</span>
+              ) : null}
+              {systemWorkflowsSaveHint ? (
+                <span
+                  className={`text-xs ${
+                    systemWorkflowsSaveHint.startsWith('Could not')
+                      ? 'text-rose-400'
+                      : systemWorkflowsSaveHint.startsWith('Saved')
+                        ? 'text-emerald-400'
+                        : 'text-[var(--text-muted)]'
+                  }`}
+                  role="status"
+                  aria-live="polite"
+                >
+                  {systemWorkflowsSaveHint}
+                </span>
+              ) : null}
             </span>
             <span className="block text-xs text-[var(--text-muted)]">
               Queue from the best matching library pack when one scores well, otherwise a built-in

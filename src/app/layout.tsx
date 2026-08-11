@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Suspense } from 'react';
 import { Geist, Geist_Mono } from 'next/font/google';
 import ThemeInit from '@/components/ThemeInit';
+import BrowserStorageInit from '@/components/BrowserStorageInit';
 import TabSyncInit from '@/components/TabSyncInit';
 import AmbientBackground from '@/components/AmbientBackground';
 import AppNav from '@/components/AppNav';
@@ -10,6 +11,7 @@ import ComfyGalleryBackgroundPoller from '@/components/ComfyGalleryBackgroundPol
 import UserScopeInit from '@/components/UserScopeInit';
 import AutoStorageSyncInit from '@/components/AutoStorageSyncInit';
 import NsfwGeneratorPluginInit from '@/components/NsfwGeneratorPluginInit';
+import PluginRuntimeInit from '@/components/PluginRuntimeInit';
 import DeferredShellClient from '@/components/DeferredShellClient';
 import './globals.css';
 
@@ -71,6 +73,7 @@ export default function RootLayout({
       >
         <AmbientBackground />
         <ThemeInit />
+        <BrowserStorageInit />
         <TabSyncInit />
         <AuthProvider>
           <div className="relative z-[1] min-h-full lg:pl-[var(--sidebar-width)]">
@@ -81,6 +84,7 @@ export default function RootLayout({
             <UserScopeInit />
             <AutoStorageSyncInit />
             <NsfwGeneratorPluginInit />
+            <PluginRuntimeInit />
             <DeferredShellClient />
             {children}
           </div>

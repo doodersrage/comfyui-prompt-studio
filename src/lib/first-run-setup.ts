@@ -11,7 +11,8 @@ import {
 } from './model-checkpoint-map';
 import { formatModelUpscaleMap } from './model-upscale-map';
 import { formatModelControlNetMap } from './model-controlnet-map';
-import { loadSettingsCache, saveSettingsCache } from './settings-cache';
+import { loadSettingsCache, saveSettingsCache, setUseSystemWorkflowsPref } from './settings-cache';
+import { whenBrowserStorageReady, flushBrowserStorageNow } from './browser-storage';
 import { loadComfyUiSettings } from './comfyui-settings';
 import { fetchComfyObjectInfoCached } from './comfyui-object-info-cache';
 import { syncLoaderMapsFromInventory } from './loader-map-inventory-sync';
@@ -34,6 +35,7 @@ export type FirstRunSetupResult = {
 export async function enableSystemWorkflowsAndHeal(options?: {
   comfyUrl?: string;
 }): Promise<FirstRunSetupResult> {
+  await whenBrowserStorageReady();
   const cache = loadSettingsCache();
   const shared = {
     ...cache.shared,
@@ -53,8 +55,24 @@ export async function enableSystemWorkflowsAndHeal(options?: {
   shared.modelVaeMap = suggested.modelVaeMap;
   shared.modelRefinerMap = suggested.modelRefinerMap;
 
-  saveSettingsCache({ ...cache, shared });
+  await setUseSystemWorkflowsPref(true, {
+    queueQualityProfile:
+      cache.shared.queueQualityProfile === 'followSettings' ||
+      cache.shared.queueQualityProfile == null
+        ? 'final'
+        : cache.shared.queueQualityProfile,
+  });
+  saveSettingsCache({
+    ...loadSettingsCache(),
+    shared: {
+      ...loadSettingsCache().shared,
+      modelCheckpointMap: shared.modelCheckpointMap,
+      modelVaeMap: shared.modelVaeMap,
+      modelRefinerMap: shared.modelRefinerMap,
+    },
+  });
   markOnboardingSystemWorkflowsEnabled();
+  await flushBrowserStorageNow();
 
   const settings = loadComfyUiSettings();
   const comfyUrl = options?.comfyUrl?.trim() || settings.apiUrl?.trim() || undefined;
@@ -91,13 +109,14 @@ export async function enableSystemWorkflowsAndHeal(options?: {
             modelControlNetMap: synced.modelControlNetMap,
           },
         });
+        await flushBrowserStorageNow();
       }
       return {
         ok: true,
         comfyOk: true,
         systemWorkflowsEnabled: true,
         mapsAdapted: true,
-        message: 'System workflows on — loader maps adapted from ComfyUI inventory.',
+        message: 'Saved — system workflows on. Loader maps adapted from ComfyUI inventory.',
       };
     }
   } catch {
@@ -110,7 +129,7 @@ export async function enableSystemWorkflowsAndHeal(options?: {
     systemWorkflowsEnabled: true,
     mapsAdapted: false,
     message:
-      'System workflows on — could not reach ComfyUI yet; maps will adapt on the next successful connection.',
+      'Saved — system workflows on. ComfyUI not reachable yet; maps adapt on next connection.',
   };
 }
 

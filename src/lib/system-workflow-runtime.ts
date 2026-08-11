@@ -136,7 +136,7 @@ export function shouldLimitSystemWorkflowPicker(
 
 /**
  * Models with a dedicated system scaffold (not the generic checkpoint fallback).
- * FLUX, Qwen (incl. Lightning / Edit / Rapid), Z-Image, and video (WAN / Hunyuan / LTX).
+ * FLUX, Qwen, SD3/SDXL, Z-Image, Boogu, OmniGen2, Lumina2, HiDream, video, and instruct-edit.
  */
 export function isSystemWorkflowSupportedModel(model: ComfyImageModel | string): boolean {
   const category = getComfyModelDefinition(model)?.category;
@@ -144,11 +144,24 @@ export function isSystemWorkflowSupportedModel(model: ComfyImageModel | string):
     category === 'flux' ||
     category === 'qwen' ||
     category === 'video' ||
-    category === 'instruct-edit'
+    category === 'instruct-edit' ||
+    category === 'sd3' ||
+    category === 'sdxl'
   ) {
     return true;
   }
-  return isZImageModel(model) || isBooguEditModel(model) || isBooguImageModel(model);
+  if (
+    isZImageModel(model) ||
+    isBooguEditModel(model) ||
+    isBooguImageModel(model) ||
+    model === 'omnigen2' ||
+    model === 'lumina2' ||
+    model === 'hidream' ||
+    model === 'hidream-o1'
+  ) {
+    return true;
+  }
+  return false;
 }
 
 export function listSystemWorkflowSupportedModels(): ComfyImageModel[] {

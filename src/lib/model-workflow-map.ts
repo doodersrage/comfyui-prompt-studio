@@ -26,6 +26,12 @@ export const MODEL_FAMILY_GROUPS: readonly (readonly ComfyImageModel[])[] = [
   ['boogu-image', 'boogu-image-turbo'],
   ['boogu-image-edit', 'boogu-image-edit-turbo'],
   ['wan-video', 'wan-video-rapid-aio', 'wan-video-lightning-4'],
+  ['sd3-medium', 'sd3-large', 'sd3.5-large', 'auraflow'],
+  ['sdxl', 'sdxl-refiner', 'ssd-1b', 'segmind-vega'],
+  ['hidream', 'hidream-o1'],
+  ['pixart-alpha', 'pixart-sigma'],
+  ['lumina2'],
+  ['sd15-instruct-pix2pix', 'sdxl-instruct-pix2pix'],
 ];
 
 /** Sibling presets in the same family (vanilla + Lightning, Rapid AIO, Klein, …). */

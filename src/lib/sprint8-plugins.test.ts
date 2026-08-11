@@ -12,6 +12,7 @@ import {
 } from "./plugin-manifest";
 import {
   applyPluginQueueHookMutation,
+  loadManifestPluginHooksForEvent,
   normalizeHookCfg,
   normalizeHookDenoise,
 } from "./plugin-queue-hooks";
@@ -138,5 +139,10 @@ describe("sprint8 plugin runtime", () => {
     assert.equal(blocked.blocked, true);
     assert.equal(blocked.reason, "policy rejected");
     assert.equal(blocked.payload.denoise, undefined);
+  });
+
+  it("loads manifest hooks by lifecycle event", () => {
+    const hooks = loadManifestPluginHooksForEvent("prompt-generated");
+    assert.ok(Array.isArray(hooks));
   });
 });

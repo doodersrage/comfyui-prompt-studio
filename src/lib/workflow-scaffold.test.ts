@@ -353,4 +353,45 @@ describe("workflow scaffold", () => {
     assert.equal(result.source, "clone");
     assert.match(result.json, /\{\{POSITIVE\}\}/);
   });
+
+  it("builds SD3 scaffold with TripleCLIP and ModelSamplingSD3", () => {
+    const result = buildWorkflowScaffoldForModel("sd3.5-large");
+    assert.equal(result.category, "sd3");
+    assert.match(result.json, /TripleCLIPLoader/);
+    assert.match(result.json, /ModelSamplingSD3/);
+    assert.match(result.json, /EmptySD3LatentImage/);
+    assert.match(result.json, /\{\{UNET\}\}/);
+  });
+
+  it("builds AuraFlow scaffold with ModelSamplingAuraFlow", () => {
+    const result = buildWorkflowScaffoldForModel("auraflow");
+    assert.equal(result.category, "sd3");
+    assert.match(result.json, /ModelSamplingAuraFlow/);
+    assert.doesNotMatch(result.json, /ModelSamplingSD3/);
+  });
+
+  it("builds InstructPix2Pix scaffold with VAEEncode img2img", () => {
+    const result = buildWorkflowScaffoldForModel("sdxl-instruct-pix2pix");
+    assert.match(result.json, /LoadImage/);
+    assert.match(result.json, /VAEEncode/);
+    assert.match(result.json, /\{\{INPUT_IMAGE\}\}/);
+  });
+
+  it("builds OmniGen2 scaffold with reference LoadImage slots", () => {
+    const result = buildWorkflowScaffoldForModel("omnigen2");
+    assert.match(result.json, /UNETLoader/);
+    assert.match(result.json, /ModelSamplingAuraFlow/);
+    assert.match(result.json, /Reference Image 1/);
+  });
+
+  it("builds Lumina2 dedicated scaffold", () => {
+    const result = buildWorkflowScaffoldForModel("lumina2");
+    assert.match(result.json, /"type": "lumina2"/);
+    assert.match(result.json, /ModelSamplingAuraFlow/);
+  });
+
+  it("builds HiDream-O1 scaffold with HiDream note", () => {
+    const result = buildWorkflowScaffoldForModel("hidream-o1");
+    assert.match(result.notes.join(" "), /HiDream-O1/i);
+  });
 });

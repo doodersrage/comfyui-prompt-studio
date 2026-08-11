@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { STUDIO_BACKUP_LAST_EXPORT_KEY } from '@/lib/studio-backup-meta';
-import { readBrowserString } from '@/lib/browser-storage';
+import { readBrowserString, whenBrowserStorageReady } from '@/lib/browser-storage';
 import { useComfyUiSettings } from '@/hooks/useComfyUiSettings';
 import { validateWorkflowJson, type CustomWorkflowToken } from '@/lib/comfyui-config';
 import {
@@ -32,7 +32,8 @@ import { fetchComfyObjectInfoCached } from '@/lib/comfyui-object-info-cache';
 import {
   DEFAULT_SHARED_SETTINGS,
   loadSettingsCache,
-  saveSharedSettings,
+  saveSharedSettingsNow,
+  SETTINGS_CACHE_UPDATED_EVENT,
   type SharedToolSettings,
 } from '@/lib/settings-cache';
 import {
@@ -262,6 +263,16 @@ export default function SettingsTool() {
     setAvoidedTokens(exportAvoidedTokenList());
   }, [updateSettings]);
 
+  /** Soft sync for same-tab cache events — never wipe map textarea drafts mid-edit. */
+  const softSyncSharedSettings = useCallback(() => {
+    const cache = loadSettingsCache();
+    setSharedSettings(cache.shared);
+    updateSettings(loadComfyUiSettings());
+    setWebhookSettings(loadWebhookSettings());
+    setScheduledBatch(loadScheduledBatchConfig());
+    setAvoidedTokens(exportAvoidedTokenList());
+  }, [updateSettings]);
+
   useEffect(() => {
     if (tab !== 'comfyui' || !comfyUiSection) {
       return;
@@ -272,7 +283,11 @@ export default function SettingsTool() {
   }, [tab, comfyUiSection, scrollToComfyUiSection]);
 
   useEffect(() => {
-    scheduleAfterCommit(() => {
+    let cancelled = false;
+    void whenBrowserStorageReady().then(() => {
+      if (cancelled) {
+        return;
+      }
       const cache = loadSettingsCache();
       setSharedSettings(cache.shared);
       setModelWorkflowMapText(formatModelWorkflowMap(cache.shared.modelWorkflowMap));
@@ -301,25 +316,37 @@ export default function SettingsTool() {
         setBackupReminder(null);
       }
     });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
     const refreshAvoided = () => setAvoidedTokens(exportAvoidedTokenList());
     const refreshWebhookLog = () => setWebhookLog(loadWebhookLog());
+    const refreshShared = () => {
+      if (!sharedMounted) {
+        return;
+      }
+      scheduleAfterCommit(() => {
+        softSyncSharedSettings();
+      });
+    };
     window.addEventListener(AVOIDED_TOKENS_UPDATED_EVENT, refreshAvoided);
     window.addEventListener(WEBHOOK_LOG_UPDATED_EVENT, refreshWebhookLog);
+    window.addEventListener(SETTINGS_CACHE_UPDATED_EVENT, refreshShared);
     return () => {
       window.removeEventListener(AVOIDED_TOKENS_UPDATED_EVENT, refreshAvoided);
       window.removeEventListener(WEBHOOK_LOG_UPDATED_EVENT, refreshWebhookLog);
+      window.removeEventListener(SETTINGS_CACHE_UPDATED_EVENT, refreshShared);
     };
-  }, []);
+  }, [sharedMounted, softSyncSharedSettings]);
 
   const updateSharedSettings = useCallback((patch: Partial<SharedToolSettings>) => {
-    setSharedSettings(previous => {
-      const next = { ...previous, ...patch };
-      saveSharedSettings(next);
-      return next;
-    });
+    setSharedSettings(previous => ({ ...previous, ...patch }));
+    const next = { ...loadSettingsCache().shared, ...patch };
+    // Avoid broadcasting back into this page — optimistic UI already applied.
+    void saveSharedSettingsNow(next, { notify: false });
   }, []);
 
   // Mirrors Studio Automation config to server storage so the headless scheduled

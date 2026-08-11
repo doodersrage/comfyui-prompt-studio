@@ -125,6 +125,25 @@ export function hasSessionLoraIdsForModel(
 }
 
 /** Write or clear a per-model session LoRA pick. */
+/** When sidecar / IDB disagree, keep the per-model list with more picks. */
+export function mergeSessionLoraIdsByModel(
+  base: SessionActiveLoraIdsByModel | undefined,
+  overlay: SessionActiveLoraIdsByModel | undefined
+): SessionActiveLoraIdsByModel {
+  if (!overlay || Object.keys(overlay).length === 0) {
+    return { ...(base ?? {}) };
+  }
+  const result: SessionActiveLoraIdsByModel = { ...(base ?? {}) };
+  for (const [model, ids] of Object.entries(overlay)) {
+    if (!Array.isArray(ids)) {
+      continue;
+    }
+    const existing = result[model] ?? [];
+    result[model] = existing.length >= ids.length ? existing : ids;
+  }
+  return result;
+}
+
 export function setSessionLoraIdsForModel(
   byModel: SessionActiveLoraIdsByModel | undefined,
   model: string,

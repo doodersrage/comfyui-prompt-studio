@@ -18,7 +18,7 @@ export type PluginQueueHook = {
 export const PLUGIN_QUEUE_HOOKS_KEY = 'plugin-queue-hooks-v1';
 
 export type PluginQueueHookPayload = {
-  event: 'queue-preflight';
+  event: 'queue-preflight' | 'prompt-generated' | 'prompt-history-saved';
   prompt: string;
   negativePrompt?: string;
   model?: string;
@@ -27,6 +27,7 @@ export type PluginQueueHookPayload = {
   denoise?: string | number;
   /** Sampler CFG — hooks may rewrite within a safe range. */
   cfg?: string | number;
+  completedAt?: number;
 };
 
 export type PluginQueueHookResult = {
@@ -112,7 +113,9 @@ export function savePluginQueueHooks(hooks: PluginQueueHook[]): void {
 }
 
 /** Queue hooks registered on enabled installed plugin manifests. */
-export function loadManifestPluginQueueHooks(): PluginQueueHook[] {
+export function loadManifestPluginHooksForEvent(
+  event: PluginQueueHookPayload['event']
+): PluginQueueHook[] {
   if (typeof window === 'undefined') {
     return [];
   }
@@ -121,10 +124,10 @@ export function loadManifestPluginQueueHooks(): PluginQueueHook[] {
       .filter(plugin => plugin.enabled !== false && plugin.queueHooks?.url)
       .filter(plugin => {
         const events = plugin.queueHooks?.events ?? ['queue-preflight'];
-        return events.includes('queue-preflight');
+        return events.includes(event);
       })
       .map(plugin => ({
-        id: `manifest:${plugin.id}`,
+        id: `manifest:${plugin.id}:${event}`,
         label: plugin.label,
         url: plugin.queueHooks!.url,
         enabled: true,
@@ -132,6 +135,11 @@ export function loadManifestPluginQueueHooks(): PluginQueueHook[] {
   } catch {
     return [];
   }
+}
+
+/** Queue hooks registered on enabled installed plugin manifests. */
+export function loadManifestPluginQueueHooks(): PluginQueueHook[] {
+  return loadManifestPluginHooksForEvent('queue-preflight');
 }
 
 /** Manual hooks + enabled manifest queueHooks (manual ids win on collision). */
@@ -259,4 +267,36 @@ export async function runPluginQueuePreflight(
   }
 
   return { payload: next, blocked: false, messages };
+}
+
+export type PluginLifecyclePayload = Pick<
+  PluginQueueHookPayload,
+  'event' | 'prompt' | 'negativePrompt' | 'model' | 'tool' | 'completedAt'
+>;
+
+/**
+ * Fire-and-forget lifecycle hooks (prompt generated / history saved). Hooks may
+ * observe or mutate prompts but cannot block unlike queue-preflight.
+ */
+export async function dispatchPluginLifecycleHooks(
+  payload: PluginLifecyclePayload,
+  hooks: PluginQueueHook[] = resolveActivePluginQueueHooks(
+    loadPluginQueueHooks(),
+    loadManifestPluginHooksForEvent(payload.event)
+  )
+): Promise<void> {
+  for (const hook of hooks) {
+    if (hook.enabled === false || !isAllowedHookUrl(hook.url)) {
+      continue;
+    }
+    try {
+      await fetch(hook.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } catch {
+      // Lifecycle hooks are best-effort.
+    }
+  }
 }

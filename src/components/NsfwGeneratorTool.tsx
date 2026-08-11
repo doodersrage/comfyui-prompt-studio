@@ -233,6 +233,15 @@ export default function NsfwGeneratorTool() {
         prompt: prompt.slice(0, 500),
         completedAt: Date.now(),
       });
+      void import('@/lib/plugin-queue-hooks').then(({ dispatchPluginLifecycleHooks }) => {
+        void dispatchPluginLifecycleHooks({
+          event: 'prompt-generated',
+          tool: TOOL_ID,
+          model: shared.model,
+          prompt: prompt.slice(0, 500),
+          completedAt: Date.now(),
+        });
+      });
     } catch (err) {
       setOutput('');
       setResult(null);

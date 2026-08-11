@@ -1984,6 +1984,368 @@ export function buildIdentityWorkflowScaffold(
   };
 }
 
+function isAuraFlowModel(model?: ComfyImageModel | string): boolean {
+  return String(model ?? '').trim() === 'auraflow' || /auraflow/i.test(String(model ?? ''));
+}
+
+function isHiDreamModel(model?: ComfyImageModel | string): boolean {
+  return /^hidream(-o1)?$/i.test(String(model ?? '').trim());
+}
+
+function isOmniGen2Model(model?: ComfyImageModel | string): boolean {
+  return String(model ?? '').trim() === 'omnigen2';
+}
+
+function isPixartModel(model?: ComfyImageModel | string): boolean {
+  return /^pixart-(alpha|sigma)$/i.test(String(model ?? '').trim());
+}
+
+function isInstructPix2pixModel(model?: ComfyImageModel | string): boolean {
+  return /instruct-pix2pix/i.test(String(model ?? '').trim());
+}
+
+function sd3Scaffold(
+  tokens: WorkflowPlaceholderTokens,
+  model?: ComfyImageModel | string
+): Record<string, unknown> {
+  const useAuraFlow = isAuraFlowModel(model);
+  const vaeName =
+    suggestedVaeFilenameForModel(String(model ?? 'sd3-medium')) ?? 'sd3_vae.safetensors';
+
+  return {
+    '1': {
+      class_type: 'UNETLoader',
+      inputs: { unet_name: DEFAULT_UNET_TOKEN, weight_dtype: 'default' },
+      _meta: { title: 'Load SD3 UNET' },
+    },
+    '2': {
+      class_type: 'TripleCLIPLoader',
+      inputs: {
+        clip_name1: 'clip_g.safetensors',
+        clip_name2: 'clip_l.safetensors',
+        clip_name3: 't5xxl_fp16.safetensors',
+      },
+      _meta: { title: 'Triple CLIP (SD3)' },
+    },
+    '3': {
+      class_type: 'VAELoader',
+      inputs: { vae_name: vaeName },
+      _meta: { title: 'Load VAE' },
+    },
+    '4': {
+      class_type: useAuraFlow ? 'ModelSamplingAuraFlow' : 'ModelSamplingSD3',
+      inputs: useAuraFlow
+        ? { model: ['1', 0], shift: tokens.shift }
+        : { model: ['1', 0], shift: tokens.shift },
+      _meta: { title: useAuraFlow ? 'ModelSamplingAuraFlow' : 'ModelSamplingSD3' },
+    },
+    '5': {
+      class_type: 'CLIPTextEncode',
+      inputs: { text: tokens.positive, clip: ['2', 0] },
+      _meta: { title: 'Positive Prompt' },
+    },
+    '6': {
+      class_type: 'CLIPTextEncode',
+      inputs: { text: tokens.negative, clip: ['2', 0] },
+      _meta: { title: 'Negative Prompt' },
+    },
+    '7': {
+      class_type: 'EmptySD3LatentImage',
+      inputs: { width: tokens.width, height: tokens.height, batch_size: 1 },
+      _meta: { title: 'Empty SD3 Latent' },
+    },
+    '8': {
+      class_type: 'KSampler',
+      inputs: {
+        seed: tokens.seed,
+        steps: tokens.steps,
+        cfg: tokens.cfg,
+        sampler_name: tokens.sampler,
+        scheduler: tokens.scheduler,
+        denoise: tokens.denoise,
+        model: ['4', 0],
+        positive: ['5', 0],
+        negative: ['6', 0],
+        latent_image: ['7', 0],
+      },
+      _meta: { title: 'KSampler' },
+    },
+    '9': {
+      class_type: 'VAEDecode',
+      inputs: { samples: ['8', 0], vae: ['3', 0] },
+      _meta: { title: 'VAE Decode' },
+    },
+    '10': {
+      class_type: 'SaveImage',
+      inputs: { images: ['9', 0], filename_prefix: 'PromptStudio-sd3' },
+      _meta: { title: 'Save Image' },
+    },
+  };
+}
+
+function instructPix2pixScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknown> {
+  return {
+    '1': {
+      class_type: 'CheckpointLoaderSimple',
+      inputs: { ckpt_name: DEFAULT_CHECKPOINT_TOKEN },
+      _meta: { title: 'Load InstructPix2Pix Checkpoint' },
+    },
+    '901': {
+      class_type: 'LoadImage',
+      inputs: { image: tokens.inputImage },
+      _meta: { title: 'Source Image' },
+    },
+    '2': {
+      class_type: 'CLIPTextEncode',
+      inputs: { text: tokens.positive, clip: ['1', 1] },
+      _meta: { title: 'Instruction Prompt' },
+    },
+    '3': {
+      class_type: 'CLIPTextEncode',
+      inputs: { text: tokens.negative, clip: ['1', 1] },
+      _meta: { title: 'Negative Prompt' },
+    },
+    '4': {
+      class_type: 'VAEEncode',
+      inputs: { pixels: ['901', 0], vae: ['1', 2] },
+      _meta: { title: 'Encode Source' },
+    },
+    '5': {
+      class_type: 'KSampler',
+      inputs: {
+        seed: tokens.seed,
+        steps: tokens.steps,
+        cfg: tokens.cfg,
+        sampler_name: tokens.sampler,
+        scheduler: tokens.scheduler,
+        denoise: tokens.denoise,
+        model: ['1', 0],
+        positive: ['2', 0],
+        negative: ['3', 0],
+        latent_image: ['4', 0],
+      },
+      _meta: { title: 'KSampler' },
+    },
+    '6': {
+      class_type: 'VAEDecode',
+      inputs: { samples: ['5', 0], vae: ['1', 2] },
+      _meta: { title: 'VAE Decode' },
+    },
+    '7': {
+      class_type: 'SaveImage',
+      inputs: { images: ['6', 0], filename_prefix: 'PromptStudio-ip2p' },
+      _meta: { title: 'Save Image' },
+    },
+  };
+}
+
+function omnigen2Scaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknown> {
+  return {
+    '1': {
+      class_type: 'UNETLoader',
+      inputs: { unet_name: DEFAULT_UNET_TOKEN, weight_dtype: 'default' },
+      _meta: { title: 'Load OmniGen2 UNET' },
+    },
+    '2': {
+      class_type: 'CLIPLoader',
+      inputs: { clip_name: 't5xxl_fp16.safetensors', type: 'stable_diffusion' },
+      _meta: { title: 'CLIPLoader (OmniGen2)' },
+    },
+    '3': {
+      class_type: 'VAELoader',
+      inputs: { vae_name: 'ae.safetensors' },
+      _meta: { title: 'Load VAE' },
+    },
+    '901': {
+      class_type: 'LoadImage',
+      inputs: { image: tokens.inputImage },
+      _meta: { title: 'Reference Image 1' },
+    },
+    '902': {
+      class_type: 'LoadImage',
+      inputs: { image: tokens.inputImage },
+      _meta: { title: 'Reference Image 2' },
+    },
+    '4': {
+      class_type: 'ModelSamplingAuraFlow',
+      inputs: { model: ['1', 0], shift: tokens.shift },
+      _meta: { title: 'ModelSamplingAuraFlow' },
+    },
+    '5': {
+      class_type: 'CLIPTextEncode',
+      inputs: { text: tokens.positive, clip: ['2', 0] },
+      _meta: { title: 'Instruction Prompt' },
+    },
+    '6': {
+      class_type: 'CLIPTextEncode',
+      inputs: { text: tokens.negative, clip: ['2', 0] },
+      _meta: { title: 'Negative Prompt' },
+    },
+    '7': {
+      class_type: 'EmptySD3LatentImage',
+      inputs: { width: tokens.width, height: tokens.height, batch_size: 1 },
+      _meta: { title: 'Empty Latent' },
+    },
+    '8': {
+      class_type: 'KSampler',
+      inputs: {
+        seed: tokens.seed,
+        steps: tokens.steps,
+        cfg: tokens.cfg,
+        sampler_name: tokens.sampler,
+        scheduler: tokens.scheduler,
+        denoise: tokens.denoise,
+        model: ['4', 0],
+        positive: ['5', 0],
+        negative: ['6', 0],
+        latent_image: ['7', 0],
+      },
+      _meta: { title: 'KSampler' },
+    },
+    '9': {
+      class_type: 'VAEDecode',
+      inputs: { samples: ['8', 0], vae: ['3', 0] },
+      _meta: { title: 'VAE Decode' },
+    },
+    '10': {
+      class_type: 'SaveImage',
+      inputs: { images: ['9', 0], filename_prefix: 'PromptStudio-omnigen2' },
+      _meta: { title: 'Save Image' },
+    },
+    '11': {
+      class_type: 'Note',
+      inputs: {
+        text: 'OmniGen2 starter — wire pack-accurate OmniGen2 encode / reference nodes when available. Ref images use {{INPUT_IMAGE}} slots.',
+      },
+      _meta: { title: 'OmniGen2 scaffold note' },
+    },
+  };
+}
+
+function pixartScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknown> {
+  return {
+    '1': {
+      class_type: 'CheckpointLoaderSimple',
+      inputs: { ckpt_name: DEFAULT_CHECKPOINT_TOKEN },
+      _meta: { title: 'Load PixArt Checkpoint' },
+    },
+    '2': {
+      class_type: 'CLIPTextEncode',
+      inputs: { text: tokens.positive, clip: ['1', 1] },
+      _meta: { title: 'Positive Prompt' },
+    },
+    '3': {
+      class_type: 'CLIPTextEncode',
+      inputs: { text: tokens.negative, clip: ['1', 1] },
+      _meta: { title: 'Negative Prompt' },
+    },
+    '4': {
+      class_type: 'EmptyLatentImage',
+      inputs: { width: tokens.width, height: tokens.height, batch_size: 1 },
+      _meta: { title: 'Empty Latent' },
+    },
+    '5': {
+      class_type: 'KSampler',
+      inputs: {
+        seed: tokens.seed,
+        steps: tokens.steps,
+        cfg: tokens.cfg,
+        sampler_name: tokens.sampler,
+        scheduler: tokens.scheduler,
+        denoise: tokens.denoise,
+        model: ['1', 0],
+        positive: ['2', 0],
+        negative: ['3', 0],
+        latent_image: ['4', 0],
+      },
+      _meta: { title: 'KSampler' },
+    },
+    '6': {
+      class_type: 'VAEDecode',
+      inputs: { samples: ['5', 0], vae: ['1', 2] },
+      _meta: { title: 'VAE Decode' },
+    },
+    '7': {
+      class_type: 'SaveImage',
+      inputs: { images: ['6', 0], filename_prefix: 'PromptStudio-pixart' },
+      _meta: { title: 'Save Image' },
+    },
+    '8': {
+      class_type: 'Note',
+      inputs: {
+        text: 'PixArt starter — import pack-accurate PixArt DiT graph (T5 + transformer loaders) when available.',
+      },
+      _meta: { title: 'PixArt scaffold note' },
+    },
+  };
+}
+
+function lumina2Scaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknown> {
+  return {
+    '1': {
+      class_type: 'UNETLoader',
+      inputs: { unet_name: DEFAULT_UNET_TOKEN, weight_dtype: 'default' },
+      _meta: { title: 'Load Lumina2 UNET' },
+    },
+    '2': {
+      class_type: 'CLIPLoader',
+      inputs: { clip_name: 'gemma_2_2b_it.safetensors', type: 'lumina2' },
+      _meta: { title: 'CLIPLoader (Lumina2)' },
+    },
+    '3': {
+      class_type: 'VAELoader',
+      inputs: { vae_name: 'ae.safetensors' },
+      _meta: { title: 'Load VAE' },
+    },
+    '4': {
+      class_type: 'ModelSamplingAuraFlow',
+      inputs: { model: ['1', 0], shift: tokens.shift },
+      _meta: { title: 'ModelSamplingAuraFlow' },
+    },
+    '5': {
+      class_type: 'CLIPTextEncode',
+      inputs: { text: tokens.positive, clip: ['2', 0] },
+      _meta: { title: 'Positive Prompt' },
+    },
+    '6': {
+      class_type: 'CLIPTextEncode',
+      inputs: { text: tokens.negative, clip: ['2', 0] },
+      _meta: { title: 'Negative Prompt' },
+    },
+    '7': {
+      class_type: 'EmptySD3LatentImage',
+      inputs: { width: tokens.width, height: tokens.height, batch_size: 1 },
+      _meta: { title: 'Empty Latent' },
+    },
+    '8': {
+      class_type: 'KSampler',
+      inputs: {
+        seed: tokens.seed,
+        steps: tokens.steps,
+        cfg: tokens.cfg,
+        sampler_name: tokens.sampler,
+        scheduler: tokens.scheduler,
+        denoise: tokens.denoise,
+        model: ['4', 0],
+        positive: ['5', 0],
+        negative: ['6', 0],
+        latent_image: ['7', 0],
+      },
+      _meta: { title: 'KSampler' },
+    },
+    '9': {
+      class_type: 'VAEDecode',
+      inputs: { samples: ['8', 0], vae: ['3', 0] },
+      _meta: { title: 'VAE Decode' },
+    },
+    '10': {
+      class_type: 'SaveImage',
+      inputs: { images: ['9', 0], filename_prefix: 'PromptStudio-lumina2' },
+      _meta: { title: 'Save Image' },
+    },
+  };
+}
+
 function sdxlScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknown> {
   return {
     '1': {
@@ -2149,6 +2511,26 @@ function genericScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unkn
       class_type: 'SaveImage',
       inputs: { images: ['6', 0], filename_prefix: 'PromptStudio' },
       _meta: { title: 'Save Image' },
+    },
+  };
+}
+
+function hidreamScaffold(
+  tokens: WorkflowPlaceholderTokens,
+  model?: ComfyImageModel | string
+): Record<string, unknown> {
+  const isO1 = String(model ?? '').trim() === 'hidream-o1';
+  const graph = hunyuanImageScaffold(tokens, model);
+  return {
+    ...graph,
+    '8': {
+      class_type: 'Note',
+      inputs: {
+        text: isO1
+          ? 'HiDream-O1 starter — reasoning T2I; import pack-accurate HiDream-O1 graph when available. Map {{CHECKPOINT}} / {{UNET}} under Settings.'
+          : 'HiDream starter — replace with pack-accurate HiDream loader stack when available.',
+      },
+      _meta: { title: 'HiDream scaffold note' },
     },
   };
 }
@@ -2421,7 +2803,8 @@ export function buildWorkflowScaffoldForModel(
     isQwenEditModel(model) &&
     !isQwenLightningModel(model) &&
     !usesQwenCheckpointLoader(model);
-  const useEditScaffold = isEditCapableModel(model);
+  const useEditScaffold = isEditCapableModel(model) && !isInstructPix2pixModel(model);
+  const useInstructPix2pixScaffold = isInstructPix2pixModel(model);
   const useLightningScaffold = category === 'qwen' && isQwenLightningModel(model);
   const useCheckpointScaffold =
     category === 'qwen' && usesQwenCheckpointLoader(model) && !useLightningScaffold;
@@ -2438,35 +2821,47 @@ export function buildWorkflowScaffoldForModel(
           })
         : useQwenComposeScaffold
           ? qwenEditComposeScaffold(resolvedTokens, model)
-          : useEditScaffold
-            ? editScaffold(resolvedTokens, category, model)
-            : isBooguEditModel(model)
-              ? booguEditScaffold(resolvedTokens, { turbo: isBooguEditTurboModel(model) })
-              : isBooguImageTurboModel(model)
-                ? booguImageTurboScaffold(resolvedTokens)
-                : isBooguImageModel(model)
-                  ? booguImageScaffold(resolvedTokens)
-                  : isZImageModel(model)
-                    ? zImageScaffold(resolvedTokens)
-                    : category === 'flux'
-                      ? fluxScaffold(resolvedTokens, model)
-                      : useLightningScaffold
-                        ? qwenLightningScaffold(resolvedTokens)
-                        : useCheckpointScaffold
-                          ? qwenCheckpointScaffold(resolvedTokens)
-                          : category === 'qwen'
-                            ? qwenScaffold(resolvedTokens)
-                            : category === 'video'
-                              ? videoScaffold(resolvedTokens, model)
-                              : category === 'sdxl'
-                                ? sdxlScaffold(resolvedTokens)
-                                : category === 'hunyuan'
-                                  ? hunyuanImageScaffold(resolvedTokens, model)
-                                  : category === 'audio'
-                                    ? audioScaffold(resolvedTokens)
-                                    : category === 'mesh'
-                                      ? meshScaffold(resolvedTokens)
-                                      : genericScaffold(resolvedTokens);
+          : useInstructPix2pixScaffold
+            ? instructPix2pixScaffold(resolvedTokens)
+            : useEditScaffold
+              ? editScaffold(resolvedTokens, category, model)
+              : isBooguEditModel(model)
+                ? booguEditScaffold(resolvedTokens, { turbo: isBooguEditTurboModel(model) })
+                : isBooguImageTurboModel(model)
+                  ? booguImageTurboScaffold(resolvedTokens)
+                  : isBooguImageModel(model)
+                    ? booguImageScaffold(resolvedTokens)
+                    : isZImageModel(model)
+                      ? zImageScaffold(resolvedTokens)
+                      : category === 'flux'
+                        ? fluxScaffold(resolvedTokens, model)
+                        : useLightningScaffold
+                          ? qwenLightningScaffold(resolvedTokens)
+                          : useCheckpointScaffold
+                            ? qwenCheckpointScaffold(resolvedTokens)
+                            : category === 'qwen'
+                              ? qwenScaffold(resolvedTokens)
+                              : category === 'video'
+                                ? videoScaffold(resolvedTokens, model)
+                                : category === 'sd3'
+                                  ? sd3Scaffold(resolvedTokens, model)
+                                  : category === 'sdxl'
+                                    ? sdxlScaffold(resolvedTokens)
+                                    : category === 'hunyuan'
+                                      ? isHiDreamModel(model)
+                                        ? hidreamScaffold(resolvedTokens, model)
+                                        : hunyuanImageScaffold(resolvedTokens, model)
+                                      : category === 'audio'
+                                        ? audioScaffold(resolvedTokens)
+                                        : category === 'mesh'
+                                          ? meshScaffold(resolvedTokens)
+                                          : isOmniGen2Model(model)
+                                            ? omnigen2Scaffold(resolvedTokens)
+                                            : isPixartModel(model)
+                                              ? pixartScaffold(resolvedTokens)
+                                              : model === 'lumina2'
+                                                ? lumina2Scaffold(resolvedTokens)
+                                                : genericScaffold(resolvedTokens);
   const videoLatentClass = category === 'video' ? resolveVideoLatentClass(model) : null;
   const notes = [
     'Starter graph with app placeholders — verify loader filenames match your ComfyUI models folder.',
@@ -2508,21 +2903,33 @@ export function buildWorkflowScaffoldForModel(
                     ? isWanLightningModel(model)
                       ? 'WAN Lightning scaffold uses CheckpointLoader + LoraLoaderModelOnly ({{LORA_LIGHTNING}} → Wan2.2-Lightning-low_noise_model) + EmptyHunyuanLatentVideo + SaveAnimatedWEBP. Map the low-noise Lightning LoRA in Settings → LoRA library or keep it in ComfyUI’s loras folder.'
                       : `Video scaffold uses ${videoLatentClass} ({{VIDEO_FRAMES}} length) + SaveAnimatedWEBP ({{VIDEO_FPS}}). Prefer importing a pack-accurate WAN/Hunyuan/LTX workflow when you have one. {{INIT_IMAGE}} is optional — queues with an init image auto-wire WanImageToVideo, HunyuanImageToVideo, or LTXVImgToVideo.`
-                    : category === 'sdxl'
-                      ? 'SDXL scaffold uses CheckpointLoaderSimple + dual CLIPTextEncode + EmptyLatentImage + KSampler — map {{CHECKPOINT}} under Settings → model checkpoint map.'
-                      : category === 'hunyuan'
-                        ? 'Hunyuan still-image scaffold uses CheckpointLoader + EmptyLatentImage — import pack-accurate HyDiT / Hunyuan Image 2.1 graphs when available.'
-                        : category === 'audio'
-                          ? 'Audio scaffold is a Stable-Audio-oriented starter (Checkpoint + CLIP + KSampler + SaveAudio) with {{AUDIO_SECONDS}} on the Note node. Prefer importing your pack’s Stable Audio / music graph when you have one — then map it under Settings → model→workflow.'
-                          : category === 'mesh'
-                            ? 'Mesh scaffold wires {{INPUT_IMAGE}} + Checkpoint + CLIP + KSampler + SaveImage with {{MESH_RESOLUTION}} on the Note node. Prefer importing Hunyuan3D / image-to-mesh pack graphs when available.'
-                            : isBooguImageTurboModel(model)
-                              ? 'Boogu Image Turbo uses UNETLoader + ConditioningZeroOut (CFG 1, no negative encode, no AuraFlow). Native 4-step distilled weights — no Lightning LoRA required.'
-                              : isBooguImageModel(model)
-                                ? 'Boogu Image Base scaffold uses UNETLoader + CLIPLoader (type boogu, qwen3vl_8b) + flux1_vae_bf16 + ModelSamplingAuraFlow — ~25–50 steps, cfg ~4.'
-                                : isZImageModel(model)
-                                  ? 'Z-Image scaffold uses UNETLoader + CLIPLoader (type lumina2, qwen_3_4b) + ae.safetensors VAE + ModelSamplingAuraFlow. Turbo: 6–8 steps, cfg 1; Base: ~30–50 steps, cfg 3–5.'
-                                  : 'Use Settings → model checkpoint map so Send to ComfyUI can patch loader nodes automatically.',
+                    : category === 'sd3'
+                      ? isAuraFlowModel(model)
+                        ? 'AuraFlow scaffold uses UNETLoader + TripleCLIP + ModelSamplingAuraFlow + EmptySD3LatentImage — map {{UNET}} under Settings.'
+                        : 'SD3 scaffold uses UNETLoader + TripleCLIP + ModelSamplingSD3 + EmptySD3LatentImage — map {{UNET}} and clip filenames under Settings.'
+                      : category === 'sdxl'
+                        ? 'SDXL scaffold uses CheckpointLoaderSimple + dual CLIPTextEncode + EmptyLatentImage + KSampler — map {{CHECKPOINT}} under Settings → model checkpoint map.'
+                        : category === 'hunyuan'
+                          ? isHiDreamModel(model)
+                            ? 'HiDream scaffold — import pack-accurate HiDream / HiDream-O1 graphs when available.'
+                            : 'Hunyuan still-image scaffold uses CheckpointLoader + EmptyLatentImage — import pack-accurate HyDiT / Hunyuan Image 2.1 graphs when available.'
+                          : category === 'audio'
+                            ? 'Audio scaffold is a Stable-Audio-oriented starter (Checkpoint + CLIP + KSampler + SaveAudio) with {{AUDIO_SECONDS}} on the Note node. Prefer importing your pack’s Stable Audio / music graph when you have one — then map it under Settings → model→workflow.'
+                            : category === 'mesh'
+                              ? 'Mesh scaffold wires {{INPUT_IMAGE}} + Checkpoint + CLIP + KSampler + SaveImage with {{MESH_RESOLUTION}} on the Note node. Prefer importing Hunyuan3D / image-to-mesh pack graphs when available.'
+                              : isBooguImageTurboModel(model)
+                                ? 'Boogu Image Turbo uses UNETLoader + ConditioningZeroOut (CFG 1, no negative encode, no AuraFlow). Native 4-step distilled weights — no Lightning LoRA required.'
+                                : isBooguImageModel(model)
+                                  ? 'Boogu Image Base scaffold uses UNETLoader + CLIPLoader (type boogu, qwen3vl_8b) + flux1_vae_bf16 + ModelSamplingAuraFlow — ~25–50 steps, cfg ~4.'
+                                  : isZImageModel(model)
+                                    ? 'Z-Image scaffold uses UNETLoader + CLIPLoader (type lumina2, qwen_3_4b) + ae.safetensors VAE + ModelSamplingAuraFlow. Turbo: 6–8 steps, cfg 1; Base: ~30–50 steps, cfg 3–5.'
+                                    : isOmniGen2Model(model)
+                                      ? 'OmniGen2 scaffold includes reference LoadImage slots — wire pack-accurate OmniGen2 encode nodes when available.'
+                                      : isPixartModel(model)
+                                        ? 'PixArt starter uses CheckpointLoader — import pack-accurate PixArt DiT graph when available.'
+                                        : model === 'lumina2'
+                                          ? 'Lumina2 scaffold uses UNETLoader + CLIPLoader (type lumina2) + ModelSamplingAuraFlow + EmptySD3LatentImage.'
+                                          : 'Use Settings → model checkpoint map so Send to ComfyUI can patch loader nodes automatically.',
   ];
 
   return {

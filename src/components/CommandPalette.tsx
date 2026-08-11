@@ -248,9 +248,9 @@ export default function CommandPalette() {
       setLastRoute(loadLastToolRoute());
       setLastDraft(loadLastToolDraft());
     });
-    void import('@/lib/plugin-manifest').then(({ navLinksFromInstalledPlugins }) => {
+    void import('@/lib/plugin-nav-links').then(({ resolveAllPluginNavLinks }) => {
       setPluginNavItems(
-        navLinksFromInstalledPlugins().map(link => ({
+        resolveAllPluginNavLinks().map(link => ({
           id: `plugin-nav-${link.href}`,
           label: link.label,
           subtitle: link.description,

@@ -239,9 +239,12 @@ describe("system-workflow-runtime", () => {
     assert.equal(isSystemWorkflowSupportedModel("boogu-image-turbo"), true);
     assert.equal(isSystemWorkflowSupportedModel("boogu-image-edit"), true);
     assert.equal(isSystemWorkflowSupportedModel("boogu-image-edit-turbo"), true);
-    assert.equal(isSystemWorkflowSupportedModel("sdxl"), false);
+    assert.equal(isSystemWorkflowSupportedModel("sdxl"), true);
+    assert.equal(isSystemWorkflowSupportedModel("sd3.5-large"), true);
+    assert.equal(isSystemWorkflowSupportedModel("omnigen2"), true);
+    assert.equal(isSystemWorkflowSupportedModel("hidream-o1"), true);
     assert.equal(isSystemWorkflowSupportedModel("hunyuan-dit"), false);
-    assert.equal(resolveSystemWorkflowFallbackModel("sdxl"), "qwen-image-2512");
+    assert.equal(resolveSystemWorkflowFallbackModel("sdxl"), "sdxl");
     assert.ok(listSystemWorkflowSupportedModels().every(isSystemWorkflowSupportedModel));
   });
 
@@ -1370,7 +1373,7 @@ describe("system-workflow-runtime", () => {
     );
     assert.equal(
       usesSystemWorkflowPath({ useSystemWorkflows: true }, "sdxl"),
-      false,
+      true,
     );
     assert.equal(
       shouldLimitSystemWorkflowPicker({

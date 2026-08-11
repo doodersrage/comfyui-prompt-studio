@@ -5,16 +5,21 @@
  */
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
-import { loadSettingsCache } from '@/lib/settings-cache';
+import { loadSettingsCache, SETTINGS_CACHE_UPDATED_EVENT } from '@/lib/settings-cache';
+import { loadOnboardingState } from '@/lib/onboarding-store';
 import { enableSystemWorkflowsAndHeal } from '@/lib/first-run-setup';
 import { settingsTabHref } from '@/lib/settings-nav';
 import { settingsComfyUiSectionHref } from '@/lib/settings-comfyui-nav';
 import { Button } from '@/components/ui/Button';
 import { COMFY_QUEUE_INTENT_EVENT, hasComfyQueueIntent } from '@/lib/comfy-setup-intent';
-import { readBrowserValue, writeBrowserValue } from '@/lib/browser-storage';
+import {
+  readBrowserValue,
+  whenBrowserStorageReady,
+  writeBrowserValue,
+} from '@/lib/browser-storage';
 
 const DISMISS_KEY = 'comfy-setup-readiness-dismiss-v1';
 
@@ -39,6 +44,17 @@ export default function SetupReadinessBanner({
   const [message, setMessage] = useState<string | null>(null);
   const [queueIntent, setQueueIntent] = useState(false);
 
+  const refreshSystemWorkflows = useCallback((comfyOk?: boolean | null) => {
+    const shared = loadSettingsCache().shared;
+    const onboardingEnabled = loadOnboardingState().some(
+      step => step.id === 'system-workflows' && step.done
+    );
+    setReadiness(prev => ({
+      comfyOk: comfyOk !== undefined ? comfyOk : (prev?.comfyOk ?? null),
+      systemWorkflows: shared.useSystemWorkflows === true || onboardingEnabled,
+    }));
+  }, []);
+
   useEffect(() => {
     if (!deferUntilQueueIntent) {
       return;
@@ -52,41 +68,53 @@ export default function SetupReadinessBanner({
   }, [deferUntilQueueIntent]);
 
   useEffect(() => {
-    scheduleAfterCommit(() => {
-      setDismissed(Boolean(readBrowserValue<boolean>(DISMISS_KEY)));
-      const shared = loadSettingsCache().shared;
-      setReadiness({
-        comfyOk: null,
-        systemWorkflows: shared.useSystemWorkflows === true,
-      });
-    });
     let cancelled = false;
+
+    void whenBrowserStorageReady().then(() => {
+      if (cancelled) {
+        return;
+      }
+      setDismissed(Boolean(readBrowserValue<boolean>(DISMISS_KEY)));
+      refreshSystemWorkflows(null);
+    });
+
     void fetch('/api/health')
       .then(response => response.json())
       .then((data: { comfyui?: { ok?: boolean } }) => {
         if (cancelled) {
           return;
         }
-        const shared = loadSettingsCache().shared;
-        setReadiness({
-          comfyOk: Boolean(data.comfyui?.ok),
-          systemWorkflows: shared.useSystemWorkflows === true,
+        return whenBrowserStorageReady().then(() => {
+          if (cancelled) {
+            return;
+          }
+          refreshSystemWorkflows(Boolean(data.comfyui?.ok));
         });
       })
       .catch(() => {
         if (cancelled) {
           return;
         }
-        const shared = loadSettingsCache().shared;
-        setReadiness({
-          comfyOk: false,
-          systemWorkflows: shared.useSystemWorkflows === true,
+        return whenBrowserStorageReady().then(() => {
+          if (cancelled) {
+            return;
+          }
+          refreshSystemWorkflows(false);
         });
       });
+
+    const onSettingsUpdated = () => {
+      if (!cancelled) {
+        scheduleAfterCommit(() => refreshSystemWorkflows());
+      }
+    };
+    window.addEventListener(SETTINGS_CACHE_UPDATED_EVENT, onSettingsUpdated);
+
     return () => {
       cancelled = true;
+      window.removeEventListener(SETTINGS_CACHE_UPDATED_EVENT, onSettingsUpdated);
     };
-  }, []);
+  }, [refreshSystemWorkflows]);
 
   if (dismissed || !readiness || (deferUntilQueueIntent && !queueIntent)) {
     return null;
@@ -103,7 +131,9 @@ export default function SetupReadinessBanner({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <p className="text-sm font-medium text-[var(--accent-text)]">
-            Finish setup before {toolLabel}
+            {needsSystemWf
+              ? `Finish setup before ${toolLabel}`
+              : `ComfyUI connection needed for ${toolLabel}`}
           </p>
           <ul className="type-caption space-y-1 text-[var(--text-secondary)]">
             {comfyDown ? (
@@ -138,15 +168,7 @@ export default function SetupReadinessBanner({
                 void enableSystemWorkflowsAndHeal().then(result => {
                   setBusy(false);
                   setMessage(result.message);
-                  setReadiness(prev =>
-                    prev
-                      ? {
-                          ...prev,
-                          systemWorkflows: true,
-                          comfyOk: result.comfyOk ? true : prev.comfyOk,
-                        }
-                      : prev
-                  );
+                  refreshSystemWorkflows(result.comfyOk ? true : undefined);
                 });
               }}
             >

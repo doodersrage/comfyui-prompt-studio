@@ -18,10 +18,21 @@ import { DEFAULT_RENDER_REALISM_MODE, normalizeRenderRealismMode } from './rende
 import type { RenderRealismMode } from './render-realism';
 import { DEFAULT_VARIATION_SETTINGS } from './variation-settings';
 import type { DetailLevel } from './detail-level';
-import { isBrowserStorageReady, readBrowserValue, writeBrowserValue } from './browser-storage';
+import {
+  isBrowserStorageReady,
+  readBrowserValue,
+  readBrowserString,
+  whenBrowserStorageReady,
+  writeBrowserValue,
+  writeBrowserString,
+  flushBrowserStorageNow,
+} from './browser-storage';
 import type { ModelCheckpointMap, ModelRefinerMap, ModelVaeMap } from './model-checkpoint-map';
 import type { ModelLoraMap, SessionActiveLoraIdsByModel } from './model-lora-map';
-import type { SessionLoraStrengthOverrides } from './lora-stack';
+import {
+  normalizeSessionLoraStrengthOverrides,
+  type SessionLoraStrengthOverrides,
+} from './lora-stack';
 import type { ModelUpscaleMap } from './model-upscale-map';
 import {
   DEFAULT_QUEUE_QUALITY_PROFILE,
@@ -51,19 +62,199 @@ import {
   mergeSuggestedUpscaleMap,
   parseModelUpscaleMap,
 } from './model-upscale-map';
-import { SUGGESTED_MODEL_LORA_MAP } from './model-lora-map';
+import { mergeSessionLoraIdsByModel, SUGGESTED_MODEL_LORA_MAP } from './model-lora-map';
 import {
   normalizeLoraDatasetExportPrefs,
   normalizeLoraTrainTrainerPrefs,
   normalizeTrainJobs,
 } from './lora-train-job';
+import { loadOnboardingState } from './onboarding-store';
+import { scheduleAfterCommit } from './schedule-after-commit';
 
 export const SETTINGS_CACHE_KEY = 'comfy-prompt-tool-settings-v1';
 export const SETTINGS_CACHE_UPDATED_EVENT = 'settings-cache-updated';
+/** Sidecar — small, always fits in localStorage even when the main settings blob is huge. */
+export const SYSTEM_WORKFLOWS_PREF_KEY = 'comfy-use-system-workflows-v1';
+export const SESSION_LORA_PREFS_KEY = 'comfy-session-lora-prefs-v1';
+
+type SessionLoraPrefs = {
+  sessionActiveLoraIdsByModel?: SessionActiveLoraIdsByModel;
+  sessionLoraStrengthOverridesByModel?: Record<string, SessionLoraStrengthOverrides>;
+};
+
+function writeSessionLoraPrefsSidecarSync(prefs: SessionLoraPrefs): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  try {
+    window.localStorage.setItem(SESSION_LORA_PREFS_KEY, JSON.stringify(prefs));
+  } catch {
+    // ignore quota / private mode
+  }
+}
+
+function buildSessionLoraPrefsSidecar(
+  shared: SharedToolSettings,
+  existing?: SessionLoraPrefs | null
+): SessionLoraPrefs | null {
+  const byModel = shared.sessionActiveLoraIdsByModel;
+  const strengthByModel = shared.sessionLoraStrengthOverridesByModel;
+  const hasLoras = byModel && Object.keys(byModel).length > 0;
+  const hasStrength = strengthByModel && Object.keys(strengthByModel).length > 0;
+  if (!hasLoras && !hasStrength) {
+    return null;
+  }
+  const prefs: SessionLoraPrefs = {};
+  if (hasLoras) {
+    prefs.sessionActiveLoraIdsByModel = mergeSessionLoraIdsByModel(
+      existing?.sessionActiveLoraIdsByModel,
+      byModel
+    );
+  } else if (existing?.sessionActiveLoraIdsByModel) {
+    prefs.sessionActiveLoraIdsByModel = existing.sessionActiveLoraIdsByModel;
+  }
+  if (hasStrength) {
+    prefs.sessionLoraStrengthOverridesByModel = {
+      ...(existing?.sessionLoraStrengthOverridesByModel ?? {}),
+      ...(strengthByModel as Record<string, SessionLoraStrengthOverrides>),
+    };
+  } else if (existing?.sessionLoraStrengthOverridesByModel) {
+    prefs.sessionLoraStrengthOverridesByModel = existing.sessionLoraStrengthOverridesByModel;
+  }
+  return prefs;
+}
+
+function persistCriticalSharedPrefs(shared: SharedToolSettings): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  writeBrowserString(SYSTEM_WORKFLOWS_PREF_KEY, shared.useSystemWorkflows === true ? '1' : '0');
+  const existing = readBrowserValue<SessionLoraPrefs>(SESSION_LORA_PREFS_KEY);
+  const nextPrefs = buildSessionLoraPrefsSidecar(shared, existing);
+  if (!nextPrefs) {
+    return;
+  }
+  writeSessionLoraPrefsSidecarSync(nextPrefs);
+  writeBrowserValue(SESSION_LORA_PREFS_KEY, nextPrefs);
+}
+
+function applySystemWorkflowsSidecar(shared: SharedToolSettings): void {
+  const wfRaw = readBrowserString(SYSTEM_WORKFLOWS_PREF_KEY);
+  if (wfRaw === '1') {
+    shared.useSystemWorkflows = true;
+  } else if (wfRaw === '0') {
+    shared.useSystemWorkflows = false;
+  }
+}
+
+function applyCriticalSharedPrefs(shared: SharedToolSettings): void {
+  applySystemWorkflowsSidecar(shared);
+
+  const loraPrefs = readBrowserValue<SessionLoraPrefs>(SESSION_LORA_PREFS_KEY);
+  if (loraPrefs?.sessionActiveLoraIdsByModel) {
+    shared.sessionActiveLoraIdsByModel = mergeSessionLoraIdsByModel(
+      shared.sessionActiveLoraIdsByModel,
+      loraPrefs.sessionActiveLoraIdsByModel
+    );
+  }
+  if (loraPrefs?.sessionLoraStrengthOverridesByModel) {
+    shared.sessionLoraStrengthOverridesByModel = {
+      ...(shared.sessionLoraStrengthOverridesByModel ?? {}),
+      ...loraPrefs.sessionLoraStrengthOverridesByModel,
+    };
+  }
+}
 
 /** Memoized result for loadSettingsCache to avoid re-normalizing on hot-path reads. */
 let cachedLoadResult: SettingsCache | null = null;
 let cachedBrowserVersion: unknown | null = null;
+/** Patches queued before IndexedDB KV hydrate — merged and flushed on ready. */
+let pendingSettingsCache: SettingsCache | null = null;
+let pendingFlushScheduled = false;
+
+function mergePendingSettingsCache(base: SettingsCache | null, next: SettingsCache): SettingsCache {
+  if (!base) {
+    return next;
+  }
+  const mergedTools = { ...base.tools };
+  for (const [toolKey, toolPatch] of Object.entries(next.tools ?? {})) {
+    mergedTools[toolKey as keyof ToolSettingsCache] = {
+      ...(mergedTools[toolKey as keyof ToolSettingsCache] ?? {}),
+      ...toolPatch,
+    } as ToolSettingsCache[keyof ToolSettingsCache];
+  }
+  return {
+    shared: { ...base.shared, ...next.shared },
+    tools: mergedTools,
+    installedPlugins: next.installedPlugins ?? base.installedPlugins,
+  };
+}
+
+function schedulePendingSettingsFlush(): void {
+  if (pendingFlushScheduled) {
+    return;
+  }
+  pendingFlushScheduled = true;
+  void whenBrowserStorageReady().then(() => {
+    pendingFlushScheduled = false;
+    flushPendingSettingsCache();
+  });
+}
+
+function withPendingSettingsOverlay(result: SettingsCache): SettingsCache {
+  if (!pendingSettingsCache) {
+    return result;
+  }
+  return mergePendingSettingsCache(result, pendingSettingsCache);
+}
+
+export function notifySettingsCacheUpdated(): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  scheduleAfterCommit(() => {
+    window.dispatchEvent(new Event(SETTINGS_CACHE_UPDATED_EVENT));
+  });
+}
+
+export type SaveSettingsOptions = {
+  /**
+   * When false, skip the same-tab `settings-cache-updated` broadcast.
+   * Use for routine typing/persist so listeners do not clobber controlled inputs.
+   * Cross-tab sync still runs after IndexedDB flush.
+   */
+  notify?: boolean;
+};
+function repairSystemWorkflowsFromOnboarding(shared: SharedToolSettings): {
+  shared: SharedToolSettings;
+  repaired: boolean;
+} {
+  if (shared.useSystemWorkflows === true) {
+    return { shared, repaired: false };
+  }
+  try {
+    const onboardingDone = loadOnboardingState().some(
+      step => step.id === 'system-workflows' && step.done
+    );
+    if (onboardingDone) {
+      return { shared: { ...shared, useSystemWorkflows: true }, repaired: true };
+    }
+  } catch {
+    // ignore onboarding read failures
+  }
+  return { shared, repaired: false };
+}
+
+function flushPendingSettingsCache(): void {
+  if (!pendingSettingsCache || !isBrowserStorageReady()) {
+    return;
+  }
+  const pending = pendingSettingsCache;
+  pendingSettingsCache = null;
+  invalidateSettingsCache();
+  const fromStore = loadSettingsCache();
+  saveSettingsCache(mergePendingSettingsCache(fromStore, pending));
+}
 
 export type SharedToolSettings = {
   model: ComfyImageModel;
@@ -598,6 +789,8 @@ export type SettingsCache = {
   tools: ToolSettingsCache;
   /** Installed plugin runtime manifests (Sprint 8). */
   installedPlugins?: import('./plugin-manifest').PluginManifest[];
+  /** Monotonic save timestamp for merge / sync conflict resolution. */
+  updatedAt?: number;
 };
 
 export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
@@ -911,6 +1104,16 @@ export function loadSettingsCache(): SettingsCache {
     return { shared: DEFAULT_SHARED_SETTINGS, tools: {}, installedPlugins: [] };
   }
 
+  // IndexedDB-only keys return null until hydrate — never memoize empty defaults while
+  // storage is still loading.
+  if (!isBrowserStorageReady()) {
+    return withPendingSettingsOverlay({
+      shared: { ...DEFAULT_SHARED_SETTINGS },
+      tools: {},
+      installedPlugins: [],
+    });
+  }
+
   // Fast path: return the memoized result unless browser storage changed.
   if (
     cachedLoadResult != null &&
@@ -922,15 +1125,24 @@ export function loadSettingsCache(): SettingsCache {
   try {
     const parsed = readBrowserValue<Partial<SettingsCache>>(SETTINGS_CACHE_KEY);
     if (!parsed) {
-      const defaults = { shared: DEFAULT_SHARED_SETTINGS, tools: {}, installedPlugins: [] };
-      cachedLoadResult = defaults;
-      cachedBrowserVersion = null; // no browser value means "no version" → safe to cache
+      const defaults = withPendingSettingsOverlay({
+        shared: { ...DEFAULT_SHARED_SETTINGS },
+        tools: {},
+        installedPlugins: [],
+      });
+      applyCriticalSharedPrefs(defaults.shared);
+      // Avoid memoizing pre-hydrate defaults — IDB/localStorage may still be loading.
+      if (isBrowserStorageReady()) {
+        cachedLoadResult = defaults;
+        cachedBrowserVersion = null;
+      }
       return defaults;
     }
     const shared = {
       ...DEFAULT_SHARED_SETTINGS,
       ...parsed.shared,
     };
+    applyCriticalSharedPrefs(shared);
 
     if (!isDetailLevel(shared.detail)) {
       shared.detail = DEFAULT_SHARED_SETTINGS.detail;
@@ -1020,24 +1232,51 @@ export function loadSettingsCache(): SettingsCache {
 
     const rawTools = parsed.tools ?? {};
     const migrated = migrateLegacyToolSettings(rawTools);
-    if (migrated.changed && typeof window !== 'undefined') {
-      saveSettingsCache({ shared, tools: migrated.tools });
+
+    const repair = repairSystemWorkflowsFromOnboarding(shared);
+    if (repair.repaired) {
+      Object.assign(shared, repair.shared);
     }
 
-    const result = {
+    if (migrated.changed && typeof window !== 'undefined') {
+      const installedPlugins = Array.isArray(parsed.installedPlugins)
+        ? (parsed.installedPlugins as SettingsCache['installedPlugins'])
+        : [];
+      scheduleAfterCommit(() => {
+        saveSettingsCache({ shared, tools: migrated.tools, installedPlugins });
+      });
+    } else if (repair.repaired && typeof window !== 'undefined') {
+      scheduleAfterCommit(() => {
+        saveSettingsCache({
+          shared,
+          tools: migrated.tools,
+          installedPlugins: Array.isArray(parsed.installedPlugins)
+            ? (parsed.installedPlugins as SettingsCache['installedPlugins'])
+            : [],
+        });
+        void flushBrowserStorageNowWithTimeout();
+      });
+    }
+
+    const result = withPendingSettingsOverlay({
       shared,
       tools: migrated.tools,
       installedPlugins: Array.isArray(parsed.installedPlugins)
         ? (parsed.installedPlugins as SettingsCache['installedPlugins'])
         : [],
-    };
+      ...(typeof parsed.updatedAt === 'number' ? { updatedAt: parsed.updatedAt } : {}),
+    });
 
     // Cache the normalized result so subsequent reads bypass migration/normalization.
     cachedLoadResult = result;
-    cachedBrowserVersion = parsed;
+    cachedBrowserVersion = readBrowserValue<unknown>(SETTINGS_CACHE_KEY);
     return result;
   } catch {
-    const fallback = { shared: DEFAULT_SHARED_SETTINGS, tools: {}, installedPlugins: [] };
+    const fallback = withPendingSettingsOverlay({
+      shared: DEFAULT_SHARED_SETTINGS,
+      tools: {},
+      installedPlugins: [],
+    });
     cachedLoadResult = fallback;
     cachedBrowserVersion = null;
     return fallback;
@@ -1050,53 +1289,158 @@ export function invalidateSettingsCache(): void {
   cachedBrowserVersion = null;
 }
 
-export function saveSettingsCache(cache: SettingsCache): void {
+if (typeof window !== 'undefined') {
+  void whenBrowserStorageReady().then(() => {
+    invalidateSettingsCache();
+    notifySettingsCacheUpdated();
+  });
+}
+
+export function saveSettingsCache(cache: SettingsCache, options?: SaveSettingsOptions): void {
   if (typeof window === 'undefined') {
     return;
   }
-  // Refuse pre-hydrate writes — loadSettingsCache() returns defaults when the
-  // KV cache is still empty, and persisting that would wipe real IDB settings.
+  const shouldNotify = options?.notify !== false;
+  const stamped: SettingsCache = { ...cache, updatedAt: Date.now() };
+  applySystemWorkflowsSidecar(stamped.shared);
   if (!isBrowserStorageReady()) {
+    pendingSettingsCache = mergePendingSettingsCache(pendingSettingsCache, stamped);
+    schedulePendingSettingsFlush();
+    invalidateSettingsCache();
+    cachedLoadResult = pendingSettingsCache;
+    cachedBrowserVersion = pendingSettingsCache;
+    persistCriticalSharedPrefs(stamped.shared);
+    if (shouldNotify) {
+      notifySettingsCacheUpdated();
+    }
     return;
   }
 
-  writeBrowserValue(SETTINGS_CACHE_KEY, cache);
-  // Keep the memo in sync with the value we just persisted.
-  cachedLoadResult = cache;
-  cachedBrowserVersion = cache;
-  void import('./tab-sync').then(({ broadcastTabSync }) =>
-    broadcastTabSync({ type: 'settings-updated' })
-  );
+  writeBrowserValue(SETTINGS_CACHE_KEY, stamped);
+  const storedVersion = readBrowserValue<unknown>(SETTINGS_CACHE_KEY);
+  cachedLoadResult = stamped;
+  cachedBrowserVersion = storedVersion;
+  persistCriticalSharedPrefs(stamped.shared);
+  void flushBrowserStorageNow().then(() => {
+    void import('./tab-sync').then(({ broadcastTabSync }) =>
+      broadcastTabSync({ type: 'settings-updated' })
+    );
+  });
+  if (shouldNotify) {
+    notifySettingsCacheUpdated();
+  }
 }
 
-export function saveSharedSettings(shared: SharedToolSettings): void {
-  if (typeof window === 'undefined' || !isBrowserStorageReady()) {
+export function saveSharedSettings(
+  shared: SharedToolSettings,
+  options?: SaveSettingsOptions
+): void {
+  if (typeof window === 'undefined') {
     return;
   }
   invalidateSettingsCache();
-  const cache = loadSettingsCache();
-  saveSettingsCache({ ...cache, shared });
+  const cache = isBrowserStorageReady()
+    ? loadSettingsCache()
+    : (pendingSettingsCache ?? {
+        shared: DEFAULT_SHARED_SETTINGS,
+        tools: {},
+        installedPlugins: [],
+      });
+  const merged: SharedToolSettings = { ...shared };
+  applySystemWorkflowsSidecar(merged);
+  saveSettingsCache({ ...cache, shared: merged }, options);
+}
+
+/** Persist LoRA stack picks and await storage flush — survives immediate page reload. */
+export async function saveSessionLoraSelectionNow(
+  shared: SharedToolSettings,
+  options?: SaveSettingsOptions
+): Promise<void> {
+  saveSharedSettings(shared, { notify: options?.notify ?? false });
+  await flushBrowserStorageNowWithTimeout();
+}
+
+/** Persist shared settings and await IndexedDB flush — use for critical toggles before navigation. */
+export async function saveSharedSettingsNow(
+  shared: SharedToolSettings,
+  options?: SaveSettingsOptions
+): Promise<void> {
+  saveSharedSettings(shared, options);
+  await flushBrowserStorageNowWithTimeout();
+}
+
+const STORAGE_FLUSH_TIMEOUT_MS = 4000;
+
+async function flushBrowserStorageNowWithTimeout(): Promise<void> {
+  await Promise.race([
+    flushBrowserStorageNow(),
+    new Promise<void>(resolve => {
+      setTimeout(resolve, STORAGE_FLUSH_TIMEOUT_MS);
+    }),
+  ]);
+}
+
+/**
+ * Reliable toggle for Use system workflows — writes the tiny sidecar to localStorage
+ * synchronously first so refresh survives IndexedDB debounce/hang.
+ */
+export async function setUseSystemWorkflowsPref(
+  enabled: boolean,
+  extras?: Partial<Pick<SharedToolSettings, 'queueQualityProfile'>>
+): Promise<void> {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const sidecar = enabled ? '1' : '0';
+  try {
+    window.localStorage.setItem(SYSTEM_WORKFLOWS_PREF_KEY, sidecar);
+  } catch {
+    throw new Error('Browser storage is blocked or full.');
+  }
+
+  writeBrowserString(SYSTEM_WORKFLOWS_PREF_KEY, sidecar);
+
+  invalidateSettingsCache();
+  const shared: SharedToolSettings = {
+    ...loadSettingsCache().shared,
+    useSystemWorkflows: enabled,
+    ...(extras ?? {}),
+  };
+  saveSharedSettings(shared, { notify: true });
+  await flushBrowserStorageNowWithTimeout();
+  invalidateSettingsCache();
 }
 
 export function saveToolSettings<K extends keyof ToolSettingsCache>(
   tool: K,
-  settings: ToolSettingsCache[K]
+  settings: ToolSettingsCache[K],
+  options?: SaveSettingsOptions
 ): void {
-  if (typeof window === 'undefined' || !isBrowserStorageReady()) {
+  if (typeof window === 'undefined') {
     return;
   }
   invalidateSettingsCache();
-  const cache = loadSettingsCache();
-  saveSettingsCache({
-    ...cache,
-    tools: {
-      ...cache.tools,
-      [tool]: {
-        ...cache.tools[tool],
-        ...settings,
+  const cache = isBrowserStorageReady()
+    ? loadSettingsCache()
+    : (pendingSettingsCache ?? {
+        shared: DEFAULT_SHARED_SETTINGS,
+        tools: {},
+        installedPlugins: [],
+      });
+  saveSettingsCache(
+    {
+      ...cache,
+      tools: {
+        ...cache.tools,
+        [tool]: {
+          ...cache.tools[tool],
+          ...settings,
+        },
       },
     },
-  });
+    options
+  );
 }
 
 export function loadToolSettings<K extends keyof ToolSettingsCache>(

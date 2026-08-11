@@ -8,12 +8,179 @@ let readyPromise: Promise<void> | null = null;
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
 let flushListenersAttached = false;
 const PERSIST_DEBOUNCE_MS = 350;
-/** Keys that FOUC / pre-paint scripts read from localStorage — keep sync. */
+
+/** Theme/ambient/density only — small keys read before paint. */
 const SYNC_LOCALSTORAGE_KEYS = new Set([
   'comfy-app-theme-v1',
   'comfy-ambient-intensity-v1',
   'comfy-ui-density-v1',
 ]);
+
+/**
+ * Tiny preference sidecars — always mirror to localStorage so critical toggles
+ * survive IndexedDB quota/errors and reload even when the main settings blob fails.
+ */
+const CRITICAL_LOCALSTORAGE_MIRROR_KEYS = new Set([
+  'comfy-use-system-workflows-v1',
+  'comfy-session-lora-prefs-v1',
+]);
+
+/**
+ * Large or authoritative app data — IndexedDB only when Dexie is available.
+ * Never mirror to localStorage (quota failures were wiping settings on refresh).
+ */
+export const IDB_ONLY_KEYS = new Set([
+  'comfy-prompt-tool-settings-v1',
+  'comfy-prompt-tool-history-v1',
+  'comfyui-settings-v4',
+  'comfy-onboarding-v2',
+  'comfy-use-system-workflows-v1',
+  'comfy-session-lora-prefs-v1',
+]);
+
+/** Keys loaded before the full KV table so settings/history hydrate sooner. */
+const HOT_KV_KEYS = [
+  'comfy-prompt-tool-settings-v1',
+  'comfy-use-system-workflows-v1',
+  'comfy-session-lora-prefs-v1',
+  'comfyui-settings-v4',
+  'comfy-prompt-tool-history-v1',
+] as const;
+
+function usesIndexedDbOnly(key: string): boolean {
+  return Boolean(appDb) && IDB_ONLY_KEYS.has(key);
+}
+
+function readStorageUpdatedAt(value: unknown): number {
+  if (!value || typeof value !== 'object') {
+    return 0;
+  }
+  const updatedAt = (value as { updatedAt?: unknown }).updatedAt;
+  return typeof updatedAt === 'number' && Number.isFinite(updatedAt) ? updatedAt : 0;
+}
+
+function readSystemWorkflowsSidecarFlag(value: unknown): boolean | null {
+  if (value === '1' || value === 1 || value === true) {
+    return true;
+  }
+  if (value === '0' || value === 0 || value === false) {
+    return false;
+  }
+  return null;
+}
+
+const SESSION_LORA_PREFS_STORAGE_KEY = 'comfy-session-lora-prefs-v1';
+
+type SessionLoraPrefsSidecar = {
+  sessionActiveLoraIdsByModel?: Record<string, string[]>;
+  sessionLoraStrengthOverridesByModel?: Record<string, unknown>;
+};
+
+function asSessionLoraPrefsSidecar(value: unknown): SessionLoraPrefsSidecar | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  return value as SessionLoraPrefsSidecar;
+}
+
+function mergeSessionLoraPrefsSidecar(
+  existing: unknown,
+  incoming: unknown
+): SessionLoraPrefsSidecar | null {
+  const a = asSessionLoraPrefsSidecar(existing);
+  const b = asSessionLoraPrefsSidecar(incoming);
+  if (!a && !b) {
+    return null;
+  }
+  const byModel: Record<string, string[]> = {};
+  for (const source of [a?.sessionActiveLoraIdsByModel, b?.sessionActiveLoraIdsByModel]) {
+    if (!source) {
+      continue;
+    }
+    for (const [model, ids] of Object.entries(source)) {
+      if (!Array.isArray(ids)) {
+        continue;
+      }
+      const prev = byModel[model] ?? [];
+      byModel[model] = prev.length >= ids.length ? prev : ids;
+    }
+  }
+  const strength = {
+    ...(a?.sessionLoraStrengthOverridesByModel ?? {}),
+    ...(b?.sessionLoraStrengthOverridesByModel ?? {}),
+  };
+  const hasByModel = Object.keys(byModel).length > 0;
+  const hasStrength = Object.keys(strength).length > 0;
+  if (!hasByModel && !hasStrength) {
+    return null;
+  }
+  return {
+    ...(hasByModel ? { sessionActiveLoraIdsByModel: byModel } : {}),
+    ...(hasStrength ? { sessionLoraStrengthOverridesByModel: strength } : {}),
+  };
+}
+
+/** Prefer the value with the newest `updatedAt`; tie-break toward `incoming` (usually IDB). */
+function pickNewerStorageValue(key: string, existing: unknown, incoming: unknown): unknown {
+  if (key === 'comfy-use-system-workflows-v1') {
+    const existingOn = readSystemWorkflowsSidecarFlag(existing);
+    const incomingOn = readSystemWorkflowsSidecarFlag(incoming);
+    if (existingOn === true || incomingOn === true) {
+      return '1';
+    }
+    if (incomingOn === false) {
+      return '0';
+    }
+    if (existingOn === false) {
+      return '0';
+    }
+    return incoming ?? existing;
+  }
+
+  if (key === SESSION_LORA_PREFS_STORAGE_KEY) {
+    return mergeSessionLoraPrefsSidecar(existing, incoming) ?? incoming ?? existing;
+  }
+
+  const existingAt = readStorageUpdatedAt(existing);
+  const incomingAt = readStorageUpdatedAt(incoming);
+  if (incomingAt > existingAt) {
+    return incoming;
+  }
+  if (incomingAt < existingAt) {
+    return existing;
+  }
+  return incoming;
+}
+
+function adoptStorageValue(key: string, incoming: unknown): void {
+  if (incoming === undefined || dirtyKeys.has(key)) {
+    return;
+  }
+  const existing = cache.get(key);
+  if (existing === undefined) {
+    cache.set(key, incoming);
+  } else {
+    cache.set(key, pickNewerStorageValue(key, existing, incoming));
+  }
+  mirrorToLocalStorageIfAllowed(key);
+}
+
+function mirrorToLocalStorageIfAllowed(key: string): void {
+  if (CRITICAL_LOCALSTORAGE_MIRROR_KEYS.has(key) || SYNC_LOCALSTORAGE_KEYS.has(key)) {
+    const value = cache.get(key);
+    if (value !== undefined) {
+      writeLegacyLocalStorageValue(key, value);
+    }
+    return;
+  }
+  if (usesIndexedDbOnly(key)) {
+    return;
+  }
+  const value = cache.get(key);
+  if (value !== undefined) {
+    writeLegacyLocalStorageValue(key, value);
+  }
+}
 
 function readLegacyLocalStorageValue(key: string): unknown | undefined {
   if (typeof window === 'undefined') {
@@ -82,6 +249,12 @@ export function readBrowserValue<T>(key: string): T | null {
     return cache.get(key) as T;
   }
 
+  // IndexedDB-authoritative keys must not read stale localStorage mirrors,
+  // except tiny sidecars that are dual-written for reliability.
+  if (usesIndexedDbOnly(key) && !CRITICAL_LOCALSTORAGE_MIRROR_KEYS.has(key)) {
+    return null;
+  }
+
   const legacy = readLegacyLocalStorageValue(key);
   if (legacy !== undefined) {
     cache.set(key, legacy);
@@ -109,10 +282,7 @@ export function writeBrowserValue(key: string, value: unknown): void {
 
   cache.set(key, value);
   dirtyKeys.add(key);
-  // Theme/ambient must hit localStorage immediately for the pre-paint script.
-  if (SYNC_LOCALSTORAGE_KEYS.has(key)) {
-    writeLegacyLocalStorageValue(key, value);
-  }
+  mirrorToLocalStorageIfAllowed(key);
   schedulePersistDirtyKeys();
 }
 
@@ -127,7 +297,9 @@ export function removeBrowserKey(key: string): void {
 
   cache.delete(key);
   dirtyKeys.add(key);
-  removeLegacyLocalStorageValue(key);
+  if (!usesIndexedDbOnly(key)) {
+    removeLegacyLocalStorageValue(key);
+  }
   schedulePersistDirtyKeys();
 }
 
@@ -151,6 +323,19 @@ export function flushBrowserStorage(): void {
     persistTimer = null;
   }
   void initBrowserStorage().then(() => persistDirtyBrowserKeys());
+}
+
+/** Await IndexedDB (or legacy) persistence for dirty keys — use before navigation or reload. */
+export async function flushBrowserStorageNow(): Promise<void> {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  if (persistTimer) {
+    clearTimeout(persistTimer);
+    persistTimer = null;
+  }
+  await initBrowserStorage();
+  await persistDirtyBrowserKeys();
 }
 
 function attachBrowserStorageFlushListeners(): void {
@@ -189,19 +374,25 @@ async function persistBrowserKey(key: string): Promise<void> {
   try {
     if (!cache.has(key)) {
       await db.kv.delete(key);
-      removeLegacyLocalStorageValue(key);
+      if (!usesIndexedDbOnly(key)) {
+        removeLegacyLocalStorageValue(key);
+      }
       return;
     }
 
     await db.kv.put({ key, value: cache.get(key) });
-    // Mirror to localStorage after debounced persist (theme/ambient already synced).
-    const value = cache.get(key);
-    if (value !== undefined) {
-      writeLegacyLocalStorageValue(key, value);
+    if (!usesIndexedDbOnly(key)) {
+      const value = cache.get(key);
+      if (value !== undefined) {
+        writeLegacyLocalStorageValue(key, value);
+      }
     }
   } catch {
     const value = cache.get(key);
-    if (value !== undefined) {
+    if (
+      value !== undefined &&
+      (!usesIndexedDbOnly(key) || CRITICAL_LOCALSTORAGE_MIRROR_KEYS.has(key))
+    ) {
       writeLegacyLocalStorageValue(key, value);
     }
   }
@@ -213,6 +404,53 @@ async function persistDirtyBrowserKeys(): Promise<void> {
   await Promise.all(keys.map(key => persistBrowserKey(key)));
 }
 
+/** One-time: move legacy localStorage copies into IndexedDB, then delete LS copies. */
+/** Prefer enabled sidecar + localStorage backup after IDB hydrate (stale IDB must not win). */
+function reconcileCriticalSidecarPrefs(): void {
+  const wfLs = readSystemWorkflowsSidecarFlag(
+    readLegacyLocalStorageValue('comfy-use-system-workflows-v1')
+  );
+  const wfCache = readSystemWorkflowsSidecarFlag(cache.get('comfy-use-system-workflows-v1'));
+  if (wfLs === true || wfCache === true) {
+    cache.set('comfy-use-system-workflows-v1', '1');
+    dirtyKeys.add('comfy-use-system-workflows-v1');
+    mirrorToLocalStorageIfAllowed('comfy-use-system-workflows-v1');
+  } else if (wfLs === false || wfCache === false) {
+    cache.set('comfy-use-system-workflows-v1', '0');
+    mirrorToLocalStorageIfAllowed('comfy-use-system-workflows-v1');
+  }
+
+  const loraLs = asSessionLoraPrefsSidecar(
+    readLegacyLocalStorageValue(SESSION_LORA_PREFS_STORAGE_KEY)
+  );
+  const loraCache = asSessionLoraPrefsSidecar(cache.get(SESSION_LORA_PREFS_STORAGE_KEY));
+  const mergedLoras = mergeSessionLoraPrefsSidecar(loraCache, loraLs);
+  if (mergedLoras) {
+    cache.set(SESSION_LORA_PREFS_STORAGE_KEY, mergedLoras);
+    dirtyKeys.add(SESSION_LORA_PREFS_STORAGE_KEY);
+    mirrorToLocalStorageIfAllowed(SESSION_LORA_PREFS_STORAGE_KEY);
+  }
+}
+
+async function migrateIdbOnlyKeysFromLocalStorage(): Promise<void> {
+  if (typeof window === 'undefined' || !appDb) {
+    return;
+  }
+
+  for (const key of IDB_ONLY_KEYS) {
+    const legacy = readLegacyLocalStorageValue(key);
+    if (legacy === undefined) {
+      continue;
+    }
+    adoptStorageValue(key, legacy);
+    if (!CRITICAL_LOCALSTORAGE_MIRROR_KEYS.has(key)) {
+      removeLegacyLocalStorageValue(key);
+    }
+  }
+
+  await persistDirtyBrowserKeys();
+}
+
 async function migrateLocalStorageToBrowserDb(): Promise<void> {
   if (typeof window === 'undefined') {
     return;
@@ -222,6 +460,9 @@ async function migrateLocalStorageToBrowserDb(): Promise<void> {
   for (let index = 0; index < window.localStorage.length; index += 1) {
     const key = window.localStorage.key(index);
     if (!key || key === COMFYUI_GALLERY_KEY || cache.has(key)) {
+      continue;
+    }
+    if (IDB_ONLY_KEYS.has(key) || SYNC_LOCALSTORAGE_KEYS.has(key)) {
       continue;
     }
     keysToMigrate.push(key);
@@ -239,13 +480,6 @@ async function migrateLocalStorageToBrowserDb(): Promise<void> {
 
   await persistDirtyBrowserKeys();
 }
-
-/** Keys loaded before the full KV table so settings/history hydrate sooner. */
-const HOT_KV_KEYS = [
-  'comfy-prompt-tool-settings-v1',
-  'comfyui-settings-v4',
-  'comfy-prompt-tool-history-v1',
-] as const;
 
 export async function initBrowserStorage(): Promise<void> {
   if (typeof window === 'undefined') {
@@ -268,16 +502,12 @@ export async function initBrowserStorage(): Promise<void> {
     }
 
     try {
-      // Prefer hot keys first so settings hooks can hydrate without waiting on
-      // the full KV dump (gallery mirrors, drafts, experiments, …).
       await Promise.all(
         HOT_KV_KEYS.map(async key => {
           try {
             const record = await db.kv.get(key);
-            // Keep in-flight writes — never let a slow IDB read clobber a
-            // newer value already queued in dirtyKeys.
-            if (record && !dirtyKeys.has(record.key)) {
-              cache.set(record.key, record.value);
+            if (record) {
+              adoptStorageValue(record.key, record.value);
             }
           } catch {
             // ignore per-key failures; full hydrate follows
@@ -285,13 +515,27 @@ export async function initBrowserStorage(): Promise<void> {
         })
       );
 
+      await migrateIdbOnlyKeysFromLocalStorage();
+
       const records = await db.kv.toArray();
       for (const record of records) {
-        if (!dirtyKeys.has(record.key)) {
-          cache.set(record.key, record.value);
+        if ((HOT_KV_KEYS as readonly string[]).includes(record.key)) {
+          continue;
         }
+        adoptStorageValue(record.key, record.value);
       }
       await migrateLocalStorageToBrowserDb();
+      reconcileCriticalSidecarPrefs();
+      await persistDirtyBrowserKeys();
+
+      // Drop stale localStorage mirrors for large IDB-only keys — keep tiny sidecar backups.
+      for (const key of IDB_ONLY_KEYS) {
+        if (CRITICAL_LOCALSTORAGE_MIRROR_KEYS.has(key)) {
+          mirrorToLocalStorageIfAllowed(key);
+          continue;
+        }
+        removeLegacyLocalStorageValue(key);
+      }
     } catch {
       // IndexedDB unavailable — cache continues to use legacy localStorage reads.
     }
@@ -300,6 +544,10 @@ export async function initBrowserStorage(): Promise<void> {
   })();
 
   return readyPromise;
+}
+
+if (typeof window !== 'undefined') {
+  void initBrowserStorage();
 }
 
 export async function clearBrowserKvStore(): Promise<void> {
@@ -325,31 +573,49 @@ export async function reloadBrowserStorageKeys(keys: readonly string[]): Promise
     return;
   }
 
-  for (const key of keys) {
-    cache.delete(key);
-    dirtyKeys.delete(key);
-  }
-
   const db = appDb;
-  if (!db) {
-    for (const key of keys) {
-      const legacy = readLegacyLocalStorageValue(key);
-      if (legacy !== undefined) {
-        cache.set(key, legacy);
-      }
-    }
-    return;
-  }
 
   await Promise.all(
     keys.map(async key => {
-      try {
-        const record = await db.kv.get(key);
-        if (record) {
-          cache.set(record.key, record.value);
+      if (dirtyKeys.has(key)) {
+        return;
+      }
+
+      cache.delete(key);
+
+      if (db && (usesIndexedDbOnly(key) || IDB_ONLY_KEYS.has(key))) {
+        try {
+          const record = await db.kv.get(key);
+          if (record) {
+            cache.set(record.key, record.value);
+          }
+        } catch {
+          /* ignore per-key failures */
         }
-      } catch {
-        /* ignore per-key failures */
+        return;
+      }
+
+      let idbValue: unknown | undefined;
+      if (db) {
+        try {
+          const record = await db.kv.get(key);
+          idbValue = record?.value;
+        } catch {
+          /* ignore per-key failures */
+        }
+      }
+
+      const legacy = readLegacyLocalStorageValue(key);
+      const winner =
+        legacy === undefined
+          ? idbValue
+          : idbValue === undefined
+            ? legacy
+            : pickNewerStorageValue(key, legacy, idbValue);
+
+      if (winner !== undefined) {
+        cache.set(key, winner);
+        mirrorToLocalStorageIfAllowed(key);
       }
     })
   );

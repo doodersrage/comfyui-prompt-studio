@@ -5,8 +5,10 @@ import { subscribeTabSync } from '@/lib/tab-sync';
 import { COMFYUI_GALLERY_UPDATED_EVENT } from '@/lib/comfyui-gallery-storage-meta';
 import {
   SETTINGS_CACHE_KEY,
+  SYSTEM_WORKFLOWS_PREF_KEY,
+  SESSION_LORA_PREFS_KEY,
   invalidateSettingsCache,
-  SETTINGS_CACHE_UPDATED_EVENT,
+  notifySettingsCacheUpdated,
 } from '@/lib/settings-cache';
 import {
   AVOIDED_TOKENS_KEY,
@@ -31,9 +33,13 @@ export default function TabSyncInit() {
       }
       if (message.type === 'settings-updated') {
         void import('@/lib/browser-storage').then(async ({ reloadBrowserStorageKeys }) => {
-          await reloadBrowserStorageKeys([SETTINGS_CACHE_KEY]);
+          await reloadBrowserStorageKeys([
+            SETTINGS_CACHE_KEY,
+            SYSTEM_WORKFLOWS_PREF_KEY,
+            SESSION_LORA_PREFS_KEY,
+          ]);
           invalidateSettingsCache();
-          window.dispatchEvent(new Event(SETTINGS_CACHE_UPDATED_EVENT));
+          notifySettingsCacheUpdated();
         });
       }
       if (message.type === 'avoided-tokens-updated') {

@@ -53,6 +53,7 @@ import {
   DEFAULT_VIDEO_TOOL_CACHE,
   loadSettingsCache,
   loadToolSettings,
+  saveSessionLoraSelectionNow,
   saveSharedSettings,
 } from '@/lib/settings-cache';
 import {
@@ -444,13 +445,16 @@ export default function SharedToolControls({
       // user assignment just because auto-rank prefers another file.
       const mappedId = shared.modelWorkflowMap?.[model]?.trim();
       if (mappedId && mappedId !== workflowId && isQwenLightningModel(model)) {
-        saveSharedSettings({
-          ...loadSettingsCache().shared,
-          modelWorkflowMap: {
-            ...shared.modelWorkflowMap,
-            [model]: workflowId,
+        saveSharedSettings(
+          {
+            ...loadSettingsCache().shared,
+            modelWorkflowMap: {
+              ...shared.modelWorkflowMap,
+              [model]: workflowId,
+            },
           },
-        });
+          { notify: false }
+        );
       }
 
       if (workflowId === selectedWorkflowId) {
@@ -487,10 +491,13 @@ export default function SharedToolControls({
 
       if (showAllModelsOverride) {
         setShowAllModelsOverride(false);
-        saveSharedSettings({
-          ...loadSettingsCache().shared,
-          showAllModelsOverride: false,
-        });
+        saveSharedSettings(
+          {
+            ...loadSettingsCache().shared,
+            showAllModelsOverride: false,
+          },
+          { notify: false }
+        );
       }
       onModelChange(model);
       applyWorkflowForModel(model, stackFamilyChanged);
@@ -509,20 +516,26 @@ export default function SharedToolControls({
           modelLoraMap: sharedNow.modelLoraMap,
         });
         setSessionActiveLoraIds(nextIds);
-        saveSharedSettings({
-          ...loadSettingsCache().shared,
-          sessionActiveLoraIds: nextIds,
-          sessionLoraStrengthOverrides: nextStrengthOverrides,
-        });
+        saveSharedSettings(
+          {
+            ...loadSettingsCache().shared,
+            sessionActiveLoraIds: nextIds,
+            sessionLoraStrengthOverrides: nextStrengthOverrides,
+          },
+          { notify: false }
+        );
         onSharedSettingsChange?.({
           sessionActiveLoraIds: nextIds,
           sessionLoraStrengthOverrides: nextStrengthOverrides,
         });
       } else {
-        saveSharedSettings({
-          ...loadSettingsCache().shared,
-          sessionLoraStrengthOverrides: nextStrengthOverrides,
-        });
+        saveSharedSettings(
+          {
+            ...loadSettingsCache().shared,
+            sessionLoraStrengthOverrides: nextStrengthOverrides,
+          },
+          { notify: false }
+        );
         onSharedSettingsChange?.({ sessionLoraStrengthOverrides: nextStrengthOverrides });
       }
     },
@@ -543,11 +556,14 @@ export default function SharedToolControls({
         ...sharedNow.modelCheckpointMap,
         [studioModel]: weightId,
       };
-      saveSharedSettings({
-        ...sharedNow,
-        model: studioModel,
-        modelCheckpointMap: nextMap,
-      });
+      saveSharedSettings(
+        {
+          ...sharedNow,
+          model: studioModel,
+          modelCheckpointMap: nextMap,
+        },
+        { notify: false }
+      );
       onSharedSettingsChange?.({
         model: studioModel,
         modelCheckpointMap: nextMap,
@@ -578,10 +594,13 @@ export default function SharedToolControls({
 
   const handleShowAllModels = useCallback(() => {
     setShowAllModelsOverride(true);
-    saveSharedSettings({
-      ...loadSettingsCache().shared,
-      showAllModelsOverride: true,
-    });
+    saveSharedSettings(
+      {
+        ...loadSettingsCache().shared,
+        showAllModelsOverride: true,
+      },
+      { notify: false }
+    );
   }, []);
 
   // When the picker is limited to system families, snap unsupported picks off.
@@ -810,8 +829,9 @@ export default function SharedToolControls({
 
   const handleSessionActiveLoraIdsChange = (ids: string[] | undefined) => {
     const modelId = shared.model;
+    const baseShared = loadSettingsCache().shared;
     const nextByModel = setSessionLoraIdsForModel(
-      loadSettingsCache().shared.sessionActiveLoraIdsByModel,
+      baseShared.sessionActiveLoraIdsByModel,
       modelId,
       ids
     );
@@ -821,96 +841,124 @@ export default function SharedToolControls({
         ? ids
         : resolveLoraIdsForModelSelection(modelId, {
             sessionActiveLoraIdsByModel: nextByModel,
-            modelLoraMap: loadSettingsCache().shared.modelLoraMap,
+            modelLoraMap: baseShared.modelLoraMap,
           });
     setSessionActiveLoraIds(mirrored);
     setSessionActiveLoraIdsByModel(nextByModel);
-    saveSharedSettings({
-      ...loadSettingsCache().shared,
+    const patch = {
       sessionActiveLoraIds: mirrored,
       sessionActiveLoraIdsByModel: nextByModel,
-    });
-    onSharedSettingsChange?.({
-      sessionActiveLoraIds: mirrored,
-      sessionActiveLoraIdsByModel: nextByModel,
-    });
+    };
+    if (onSharedSettingsChange) {
+      onSharedSettingsChange(patch);
+    } else {
+      void saveSessionLoraSelectionNow({
+        ...baseShared,
+        ...patch,
+      });
+    }
   };
 
   const handleSessionLoraStrengthOverridesChange = (overrides: SessionLoraStrengthOverrides) => {
     const modelId = shared.model;
     const normalized = normalizeSessionLoraStrengthOverrides(overrides);
+    const baseShared = loadSettingsCache().shared;
     const nextByModel = setSessionLoraStrengthOverridesForModel(
-      loadSettingsCache().shared.sessionLoraStrengthOverridesByModel,
+      baseShared.sessionLoraStrengthOverridesByModel,
       modelId,
       normalized
     );
     setSessionLoraStrengthOverrides(normalized);
     setSessionLoraStrengthOverridesByModel(nextByModel);
-    saveSharedSettings({
-      ...loadSettingsCache().shared,
+    const patch = {
       sessionLoraStrengthOverrides: normalized,
       sessionLoraStrengthOverridesByModel: nextByModel,
-    });
-    onSharedSettingsChange?.({
-      sessionLoraStrengthOverrides: normalized,
-      sessionLoraStrengthOverridesByModel: nextByModel,
-    });
+    };
+    if (onSharedSettingsChange) {
+      onSharedSettingsChange(patch);
+    } else {
+      void saveSessionLoraSelectionNow({
+        ...baseShared,
+        ...patch,
+      });
+    }
   };
 
   const handleSamplerPresetChange = (preset: ModelSamplerPresetTier) => {
     setSamplerPreset(preset);
-    saveSharedSettings({
-      ...loadSettingsCache().shared,
-      modelSamplerPreset: preset,
-    });
+    saveSharedSettings(
+      {
+        ...loadSettingsCache().shared,
+        modelSamplerPreset: preset,
+      },
+      { notify: false }
+    );
   };
 
   const handleSamplerOverridesChange = (overrides: ModelSamplerOverrideFields) => {
     setSamplerOverrides(overrides);
-    saveSharedSettings({
-      ...loadSettingsCache().shared,
-      modelSamplerOverrides: overrides,
-    });
+    saveSharedSettings(
+      {
+        ...loadSettingsCache().shared,
+        modelSamplerOverrides: overrides,
+      },
+      { notify: false }
+    );
   };
 
   const handleResolutionOrientationChange = (orientation: ResolutionOrientation) => {
     setResolutionOrientation(orientation);
-    saveSharedSettings({
-      ...loadSettingsCache().shared,
-      modelResolutionOrientation: orientation,
-    });
+    saveSharedSettings(
+      {
+        ...loadSettingsCache().shared,
+        modelResolutionOrientation: orientation,
+      },
+      { notify: false }
+    );
   };
 
   const handleResolutionSizeTierChange = (tier: ResolutionSizeTier) => {
     setResolutionSizeTier(tier);
-    saveSharedSettings({
-      ...loadSettingsCache().shared,
-      modelResolutionSizeTier: tier,
-    });
+    saveSharedSettings(
+      {
+        ...loadSettingsCache().shared,
+        modelResolutionSizeTier: tier,
+      },
+      { notify: false }
+    );
   };
 
   const handleRenderRealismModeChange = (mode: RenderRealismMode) => {
     setRenderRealismMode(mode);
-    saveSharedSettings({
-      ...loadSettingsCache().shared,
-      renderRealismMode: mode,
-    });
+    saveSharedSettings(
+      {
+        ...loadSettingsCache().shared,
+        renderRealismMode: mode,
+      },
+      { notify: false }
+    );
   };
 
   const handleAnatomyGuardModeChange = (mode: AnatomyGuardMode) => {
     setAnatomyGuardMode(mode);
-    saveSharedSettings({
-      ...loadSettingsCache().shared,
-      anatomyGuardMode: mode,
-    });
+    saveSharedSettings(
+      {
+        ...loadSettingsCache().shared,
+        anatomyGuardMode: mode,
+      },
+      { notify: false }
+    );
   };
 
   const handleQueueQualityProfileChange = (profile: QueueQualityProfile) => {
     setQueueQualityProfile(profile);
-    saveSharedSettings({
-      ...loadSettingsCache().shared,
-      queueQualityProfile: profile,
-    });
+    saveSharedSettings(
+      {
+        ...loadSettingsCache().shared,
+        queueQualityProfile: profile,
+      },
+      { notify: false }
+    );
   };
 
   // Snap Follow sidebar → Final when enabling system workflows (chips need an active profile).
@@ -934,34 +982,46 @@ export default function SharedToolControls({
 
   const handleExpandWildcardsChange = (value: boolean) => {
     setExpandWildcards(value);
-    saveSharedSettings({
-      ...loadSettingsCache().shared,
-      expandWildcards: value,
-    });
+    saveSharedSettings(
+      {
+        ...loadSettingsCache().shared,
+        expandWildcards: value,
+      },
+      { notify: false }
+    );
   };
 
   const handleWildcardSeedChange = (value: string) => {
     setWildcardSeed(value);
-    saveSharedSettings({
-      ...loadSettingsCache().shared,
-      wildcardSeed: value.trim() || undefined,
-    });
+    saveSharedSettings(
+      {
+        ...loadSettingsCache().shared,
+        wildcardSeed: value.trim() || undefined,
+      },
+      { notify: false }
+    );
   };
 
   const handleAutoRetryOnOomChange = (value: boolean) => {
     setAutoRetryOnOom(value);
-    saveSharedSettings({
-      ...loadSettingsCache().shared,
-      autoRetryOnOom: value,
-    });
+    saveSharedSettings(
+      {
+        ...loadSettingsCache().shared,
+        autoRetryOnOom: value,
+      },
+      { notify: false }
+    );
   };
 
   const handleOomRetryDowngradeChange = (value: boolean) => {
     setOomRetryDowngrade(value);
-    saveSharedSettings({
-      ...loadSettingsCache().shared,
-      oomRetryDowngrade: value,
-    });
+    saveSharedSettings(
+      {
+        ...loadSettingsCache().shared,
+        oomRetryDowngrade: value,
+      },
+      { notify: false }
+    );
   };
 
   const toolProfileOverride = toolId ? shared.toolQueueQualityProfiles?.[toolId] : undefined;
@@ -977,10 +1037,13 @@ export default function SharedToolControls({
       current[toolId] = profile;
     }
     const nextProfiles = Object.keys(current).length > 0 ? current : undefined;
-    saveSharedSettings({
-      ...loadSettingsCache().shared,
-      toolQueueQualityProfiles: nextProfiles,
-    });
+    saveSharedSettings(
+      {
+        ...loadSettingsCache().shared,
+        toolQueueQualityProfiles: nextProfiles,
+      },
+      { notify: false }
+    );
     onSharedSettingsChange?.({ toolQueueQualityProfiles: nextProfiles });
   };
 

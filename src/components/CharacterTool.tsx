@@ -470,6 +470,7 @@ export default function CharacterTool() {
           onModelChange={model => updateShared({ model })}
           onDetailChange={detail => updateShared({ detail })}
           onWorkflowPresetChange={id => updateShared({ selectedWorkflowFileId: id })}
+          onSharedSettingsChange={updateShared}
           detailHelp={
             sceneMode === 'duo'
               ? 'Action mode works best with Rich detail for sport scenes.'

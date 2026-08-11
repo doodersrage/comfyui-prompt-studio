@@ -94,17 +94,29 @@ export function mergeArraysById<T extends { id: string }>(
   });
 }
 
-export function mergeSettingsCache<T extends Record<string, unknown>>(local: T, server: T): T {
+export function mergeSettingsCache<
+  T extends {
+    updatedAt?: number;
+    shared?: Record<string, unknown>;
+    tools?: Record<string, unknown>;
+  },
+>(local: T, server: T): T {
+  const localTime = local.updatedAt ?? 0;
+  const serverTime = server.updatedAt ?? 0;
+  const preferLocal = localTime >= serverTime;
+  const winner = preferLocal ? local : server;
+  const loser = preferLocal ? server : local;
   return {
-    ...server,
-    ...local,
+    ...loser,
+    ...winner,
+    updatedAt: Math.max(localTime, serverTime) || undefined,
     shared: {
-      ...(server.shared as Record<string, unknown> | undefined),
-      ...(local.shared as Record<string, unknown> | undefined),
+      ...(loser.shared ?? {}),
+      ...(winner.shared ?? {}),
     },
     tools: {
-      ...(server.tools as Record<string, unknown> | undefined),
-      ...(local.tools as Record<string, unknown> | undefined),
+      ...(loser.tools ?? {}),
+      ...(winner.tools ?? {}),
     },
-  };
+  } as T;
 }

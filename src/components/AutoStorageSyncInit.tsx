@@ -7,6 +7,7 @@ import type { AutoSyncResult } from '@/lib/auto-storage-sync';
 import type { StorageNamespace } from '@/lib/storage-namespaces';
 import type { MergeChoice } from '@/lib/storage-merge';
 import { suggestMergeChoice } from '@/lib/storage-merge';
+import { COMFYUI_GALLERY_UPDATED_EVENT } from '@/lib/comfyui-gallery-storage-meta';
 
 const StorageSyncConflictModal = dynamic(() => import('@/components/StorageSyncConflictModal'), {
   ssr: false,
@@ -58,9 +59,11 @@ export default function AutoStorageSyncInit() {
           setOpen(true);
           return;
         }
-        // Reload only when an empty browser received server snapshots.
+        // Refresh gallery/history consumers — avoid location.reload() which races
+        // with in-flight shared-settings writes (LoRAs, system workflows, maps).
         if (result.pulledIntoEmpty) {
-          window.location.reload();
+          window.dispatchEvent(new Event(COMFYUI_GALLERY_UPDATED_EVENT));
+          window.dispatchEvent(new Event('prompt-history-updated'));
         }
       });
     });

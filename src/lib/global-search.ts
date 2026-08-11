@@ -3,6 +3,7 @@ import { loadComfyGallery } from './comfyui-gallery';
 import { loadScenePresets } from './scene-presets';
 import { mergeNsfwPresetCatalog } from './nsfw-generator-presets';
 import { loadUserNsfwGeneratorPresets } from './user-nsfw-generator-presets';
+import { searchPluginPresetCache } from './plugin-preset-catalog';
 
 export type GlobalSearchResult = {
   id: string;
@@ -104,6 +105,8 @@ export function searchGlobal(query: string, limit = 12): GlobalSearchResult[] {
       });
     }
   }
+
+  results.push(...searchPluginPresetCache(q, limit));
 
   return results.sort((a, b) => b.score - a.score).slice(0, limit);
 }

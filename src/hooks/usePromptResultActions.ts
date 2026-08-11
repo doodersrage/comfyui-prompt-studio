@@ -401,6 +401,15 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           completedAt: Date.now(),
         });
       });
+      void import('@/lib/plugin-queue-hooks').then(({ dispatchPluginLifecycleHooks }) => {
+        void dispatchPluginLifecycleHooks({
+          event: 'prompt-history-saved',
+          tool: config.tool,
+          model: config.model,
+          prompt: input.prompt.slice(0, 500),
+          completedAt: Date.now(),
+        });
+      });
       if (parentHistoryId) {
         clearLineageParent();
       }
