@@ -25,9 +25,12 @@ test.describe('Settings automation', () => {
   test('vision-rank checkbox toggles when best-of-N is set', async ({ page }) => {
     await gotoStable(page, '/settings?tab=automation');
     const bestOfN = page.getByLabel(/Best-of-N ranking/i);
-    await bestOfN.fill('3');
+    await bestOfN.selectOption('3');
+    // Vision-rank stays disabled until auto-queue is on.
+    const autoQueue = page.getByLabel(/Auto-queue to ComfyUI/i);
+    await autoQueue.check();
     const vision = page.getByLabel(/Vision-rank queued outputs/i);
-    await expect(vision).toBeEnabled();
+    await expect(vision).toBeEnabled({ timeout: 10_000 });
     await vision.check();
     await expect(vision).toBeChecked();
   });

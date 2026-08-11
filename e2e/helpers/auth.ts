@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 import { expect } from '@playwright/test';
+import { ensureStudioWorkspace } from './gallery';
 import { gotoStable } from './navigation';
 import { dismissBlockingOverlays } from './overlays';
 
@@ -16,9 +17,11 @@ export function e2eCredentials(): { username: string; password: string } {
 }
 
 export async function ensureAuthenticated(page: Page): Promise<void> {
+  await ensureStudioWorkspace(page);
   await gotoStable(page, '/');
   if (page.url().includes('/login')) {
     await loginThroughApi(page);
+    await ensureStudioWorkspace(page);
     await dismissBlockingOverlays(page);
     return;
   }
@@ -30,6 +33,7 @@ export async function ensureAuthenticated(page: Page): Promise<void> {
   if (signInVisible) {
     await loginThroughApi(page);
   }
+  await ensureStudioWorkspace(page);
   await dismissBlockingOverlays(page);
 }
 

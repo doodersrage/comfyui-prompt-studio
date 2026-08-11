@@ -8,8 +8,11 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("generate accepts keywords without server error", async ({ page }) => {
-  await gotoStable(page, "/");
-  await page.getByRole("button", { name: "Manual hints", exact: true }).click();
+  await gotoStable(page, "/?hintSource=manual");
+  const manualHints = page.getByRole("button", { name: "Manual hints", exact: true });
+  if (await manualHints.isVisible({ timeout: 5_000 }).catch(() => false)) {
+    await manualHints.click();
+  }
   const keywords = page.getByLabel(/Scene idea or keywords/i);
   await expect(keywords).toBeVisible({ timeout: 60_000 });
   await keywords.click();
@@ -25,7 +28,11 @@ test("gallery review mode toggles", async ({ page }) => {
   // Deferred welcome can mount after navigation; clear again before Filters.
   await dismissBlockingOverlays(page);
   // Review toggles live inside the collapsed Filters section.
-  await page.locator("summary").filter({ hasText: "Filters" }).click();
+  const filtersSummary = page.locator("details.ui-collapsible summary").filter({
+    hasText: "Filters",
+  });
+  await expect(filtersSummary).toBeVisible({ timeout: 15_000 });
+  await filtersSummary.click();
   await page.getByRole("button", { name: "Review mode", exact: true }).click();
   await expect(page.getByRole("button", { name: "Auto-advance", exact: true })).toBeVisible();
 });
