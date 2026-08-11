@@ -46,6 +46,8 @@ import {
 } from '@/components/ui/ToolPageShell';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { FieldDivider } from '@/components/ui/Field';
+import { ButtonLink } from '@/components/ui/Button';
+import { galleryPickPath } from '@/lib/gallery-handoff';
 
 const ACCENT = 'teal' as const;
 
@@ -216,6 +218,14 @@ export default function BackgroundTool() {
       }
     >
       <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.background} />
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <ButtonLink href={galleryPickPath('background')} variant="secondary" size="sm">
+          Seed from Gallery
+        </ButtonLink>
+        <p className="type-caption text-[var(--text-muted)]">
+          Opens Gallery in pick mode to load prompt and hints into this setup.
+        </p>
+      </div>
       <SceneSetupSection
         title="Environment setup"
         description="Quick tags and optional presets — no people."
@@ -347,6 +357,7 @@ export default function BackgroundTool() {
         disabled={!output.trim()}
         label="Queue background"
         status={actions.comfyUiStatus}
+        primaryGenerate
         onQueue={() => void actions.sendComfyUi(output)}
       />
     </ToolLayout>

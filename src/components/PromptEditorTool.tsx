@@ -23,6 +23,7 @@ import { usePromptResultActions } from '@/hooks/usePromptResultActions';
 import { getComfyModelDefinition } from '@/lib/comfy-models/client';
 import { getDetailLimits } from '@/lib/detail-level';
 import { modelUsesNegativePrompt } from '@/lib/prompt-pair';
+import { continueEditResultProps } from '@/lib/continue-edit-result-props';
 import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
 import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-target';
@@ -290,11 +291,20 @@ export default function PromptEditorTool() {
         <div className="flex flex-wrap gap-3">
           <PrimaryButton
             accentClassName={accentButtonClass(ACCENT)}
-            onClick={() => void runLint()}
+            data-action="primary-generate"
+            onClick={() => void actions.sendComfyUi(positive, sport, undefined, queueOptions)}
             disabled={!mounted || !positive.trim()}
           >
-            Run lint
+            Queue prompt
           </PrimaryButton>
+          <button
+            type="button"
+            onClick={() => void runLint()}
+            disabled={!mounted || !positive.trim()}
+            className="rounded-xl border border-sky-700/60 px-5 py-2 text-sm font-medium text-sky-200 transition hover:border-sky-600/70 hover:bg-sky-950/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40 disabled:opacity-50"
+          >
+            Run lint
+          </button>
           <button
             type="button"
             onClick={() => void actions.fixPrompt(positive, setPositive, hints)}
@@ -375,6 +385,7 @@ export default function PromptEditorTool() {
         }
         onSendComfyUi={() => void actions.sendComfyUi(positive, sport, undefined, queueOptions)}
         {...promptResultPreviewProps(actions, positive, sport)}
+        {...continueEditResultProps(actions, positive, { queueImageOptions: queueOptions })}
         fixStatus={actions.fixStatus}
         compactStatus={actions.compactStatus}
         reformatStatus={actions.reformatStatus}
@@ -388,6 +399,7 @@ export default function PromptEditorTool() {
         disabled={!positive.trim()}
         label="Queue prompt"
         status={actions.comfyUiStatus}
+        primaryGenerate
         onQueue={() => void actions.sendComfyUi(positive, sport, undefined, queueOptions)}
       />
     </ToolLayout>

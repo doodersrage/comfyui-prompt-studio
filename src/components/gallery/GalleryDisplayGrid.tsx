@@ -44,6 +44,9 @@ type GalleryDisplayGridProps = {
   onCrownExperiment?: (groupId: string, entryId: string) => void;
   onCompareExperiment?: (entries: ComfyGalleryEntry[]) => void;
   onRequeueExperiment?: (entries: ComfyGalleryEntry[]) => void;
+  onWinnerUpscale?: (entry: ComfyGalleryEntry) => void;
+  onWinnerRefine?: (entry: ComfyGalleryEntry) => void;
+  onWinnerContinue?: (entry: ComfyGalleryEntry) => void;
   layout: GalleryLayoutMode;
   density?: GalleryDensity;
   compact: boolean;
@@ -96,6 +99,9 @@ function DisplayRowView({
   onCrownExperiment,
   onCompareExperiment,
   onRequeueExperiment,
+  onWinnerUpscale,
+  onWinnerRefine,
+  onWinnerContinue,
   renderCard,
 }: {
   row: GalleryDisplayRow;
@@ -107,6 +113,9 @@ function DisplayRowView({
   onCrownExperiment?: (groupId: string, entryId: string) => void;
   onCompareExperiment?: (entries: ComfyGalleryEntry[]) => void;
   onRequeueExperiment?: (entries: ComfyGalleryEntry[]) => void;
+  onWinnerUpscale?: (entry: ComfyGalleryEntry) => void;
+  onWinnerRefine?: (entry: ComfyGalleryEntry) => void;
+  onWinnerContinue?: (entry: ComfyGalleryEntry) => void;
   renderCard: (entry: ComfyGalleryEntry) => ReactNode;
 }) {
   if (row.kind === 'cards') {
@@ -133,6 +142,9 @@ function DisplayRowView({
         onCrown={onCrownExperiment ? entryId => onCrownExperiment(row.groupId, entryId) : undefined}
         onCompare={onCompareExperiment ? () => onCompareExperiment(row.entries) : undefined}
         onRequeueSeeds={onRequeueExperiment ? () => onRequeueExperiment(row.entries) : undefined}
+        onWinnerUpscale={onWinnerUpscale}
+        onWinnerRefine={onWinnerRefine}
+        onWinnerContinue={onWinnerContinue}
         layout={layout}
         columns={columns}
         gridClassName={gridClassName}
@@ -177,6 +189,9 @@ function VirtualizedDisplayRows({
   onCrownExperiment,
   onCompareExperiment,
   onRequeueExperiment,
+  onWinnerUpscale,
+  onWinnerRefine,
+  onWinnerContinue,
   renderCard,
   estimateRowHeight,
 }: {
@@ -192,6 +207,9 @@ function VirtualizedDisplayRows({
   onCrownExperiment?: (groupId: string, entryId: string) => void;
   onCompareExperiment?: (entries: ComfyGalleryEntry[]) => void;
   onRequeueExperiment?: (entries: ComfyGalleryEntry[]) => void;
+  onWinnerUpscale?: (entry: ComfyGalleryEntry) => void;
+  onWinnerRefine?: (entry: ComfyGalleryEntry) => void;
+  onWinnerContinue?: (entry: ComfyGalleryEntry) => void;
   renderCard: (entry: ComfyGalleryEntry) => ReactNode;
   estimateRowHeight: number;
 }) {
@@ -283,6 +301,9 @@ function VirtualizedDisplayRows({
                   onCrownExperiment={onCrownExperiment}
                   onCompareExperiment={onCompareExperiment}
                   onRequeueExperiment={onRequeueExperiment}
+                  onWinnerUpscale={onWinnerUpscale}
+                  onWinnerRefine={onWinnerRefine}
+                  onWinnerContinue={onWinnerContinue}
                   renderCard={renderCard}
                 />
               </div>
@@ -306,6 +327,9 @@ export default function GalleryDisplayGrid({
   onCrownExperiment,
   onCompareExperiment,
   onRequeueExperiment,
+  onWinnerUpscale,
+  onWinnerRefine,
+  onWinnerContinue,
   layout,
   density = 'comfortable',
   compact,
@@ -387,6 +411,9 @@ export default function GalleryDisplayGrid({
             onCrownExperiment={onCrownExperiment}
             onCompareExperiment={onCompareExperiment}
             onRequeueExperiment={onRequeueExperiment}
+            onWinnerUpscale={onWinnerUpscale}
+            onWinnerRefine={onWinnerRefine}
+            onWinnerContinue={onWinnerContinue}
             renderCard={renderCard}
           />
         ))}
@@ -409,6 +436,9 @@ export default function GalleryDisplayGrid({
         onCrownExperiment={onCrownExperiment}
         onCompareExperiment={onCompareExperiment}
         onRequeueExperiment={onRequeueExperiment}
+        onWinnerUpscale={onWinnerUpscale}
+        onWinnerRefine={onWinnerRefine}
+        onWinnerContinue={onWinnerContinue}
         renderCard={renderCard}
         estimateRowHeight={estimateRowHeight}
       />

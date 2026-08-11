@@ -14,7 +14,8 @@ export type HistorySeedTool =
   | 'inpaint'
   | 'outpaint'
   | 'video'
-  | 'controlnet';
+  | 'controlnet'
+  | 'imagePrompt';
 
 export const SCENE_HINT_SOURCE_OPTIONS: Array<{
   value: SceneHintSource;

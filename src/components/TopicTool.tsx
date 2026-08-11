@@ -764,6 +764,7 @@ export default function TopicTool() {
           disabled={lintLoading}
           label="Queue batch"
           status={comfyBatchStatus ?? (lintLoading ? 'Linting batch…' : null)}
+          primaryGenerate
           onQueue={() => void queueBatchComfyUi()}
         />
       ) : null}

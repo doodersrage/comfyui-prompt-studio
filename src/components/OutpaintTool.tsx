@@ -9,7 +9,7 @@ import SharedToolControls from '@/components/SharedToolControls';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
 import { HistoryHintSeedPanel } from '@/components/scene-tool/HistoryHintSeedPanel';
-import { Button, PrimaryButton } from '@/components/ui/Button';
+import { Button, ButtonLink, PrimaryButton } from '@/components/ui/Button';
 import { FieldError, FieldLabel, TextInput, TextArea } from '@/components/ui/Field';
 import {
   ToolBadge,
@@ -30,7 +30,7 @@ import {
   outpaintInsetsHavePad,
   renderOutpaintPadAndMask,
 } from '@/lib/outpaint-canvas';
-import { sharedPatchFromGalleryHandoff } from '@/lib/gallery-handoff';
+import { galleryPickPath, sharedPatchFromGalleryHandoff } from '@/lib/gallery-handoff';
 import { continueEditResultProps } from '@/lib/continue-edit-result-props';
 import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
 import { getReformatTargetLabel } from '@/lib/reformat-target';
@@ -302,12 +302,17 @@ export default function OutpaintTool() {
       />
       <ToolSection title="Source">
         <FieldLabel>Image</FieldLabel>
-        <input
-          type="file"
-          accept="image/*"
-          onChange={event => onFile(event.target.files?.[0] ?? null)}
-          className={`block w-full text-sm text-[var(--text-muted)] file:mr-4 file:rounded-lg file:border-0 file:bg-amber-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60 ${accentFocusClass(ACCENT)}`}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="file"
+            accept="image/*"
+            onChange={event => onFile(event.target.files?.[0] ?? null)}
+            className={`block min-w-0 flex-1 text-sm text-[var(--text-muted)] file:mr-4 file:rounded-lg file:border-0 file:bg-amber-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60 ${accentFocusClass(ACCENT)}`}
+          />
+          <ButtonLink href={galleryPickPath('outpaint')} variant="secondary" size="sm">
+            Choose from Gallery
+          </ButtonLink>
+        </div>
         {sourceUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -422,6 +427,7 @@ export default function OutpaintTool() {
         disabled={busy || !sourceUrl}
         label="Queue outpaint"
         status={status ?? actions.comfyUiStatus}
+        primaryGenerate
         onQueue={() => void runOutpaint()}
       >
         <div className="mb-2">

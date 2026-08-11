@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useCallback, useState } from 'react';
 import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
+import EditToolRecipeStrip from '@/components/EditToolRecipeStrip';
+import { HistoryHintSeedPanel } from '@/components/scene-tool/HistoryHintSeedPanel';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
 import { continueEditResultProps } from '@/lib/continue-edit-result-props';
@@ -22,6 +24,7 @@ import { isBooguEditModel, isZImageModel } from '@/lib/model-denoise-defaults';
 import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-target';
 import { DEFAULT_IMAGE_PROMPT_TOOL_CACHE } from '@/lib/settings-cache';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
+import { normalizeHistorySeedScope, normalizeSceneHintSource } from '@/lib/scene-hint-source';
 import type {
   EnrichedToolGenerateResult,
   ImagePromptFocus,
@@ -45,7 +48,8 @@ import {
   DESCRIPTION_PRESET_LABEL,
   EXTRA_HINTS_LABEL,
 } from '@/lib/tool-ui-labels';
-import { Button, PrimaryButton } from '@/components/ui/Button';
+import { Button, ButtonLink, PrimaryButton } from '@/components/ui/Button';
+import { galleryPickPath } from '@/lib/gallery-handoff';
 
 const ACCENT = 'fuchsia' as const;
 
@@ -357,6 +361,31 @@ export default function ImagePromptTool() {
       }
     >
       <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.imagePrompt} />
+      <EditToolRecipeStrip
+        toolId="imagePrompt"
+        shared={shared}
+        onApplied={next => updateShared(next)}
+      />
+      <HistoryHintSeedPanel
+        tool="imagePrompt"
+        hintSource={normalizeSceneHintSource(toolSettings.hintSource)}
+        historySeedScope={normalizeHistorySeedScope(toolSettings.historySeedScope)}
+        hints={toolSettings.extraHints ?? ''}
+        randomTheme={toolSettings.randomTheme ?? ''}
+        lastHistorySeedEntryId={toolSettings.lastHistorySeedEntryId}
+        onHintSourceChange={source => updateToolSettings({ hintSource: source })}
+        onHistorySeedScopeChange={scope => updateToolSettings({ historySeedScope: scope })}
+        onHintsChange={value => updateToolSettings({ extraHints: value })}
+        onRandomThemeChange={theme => updateToolSettings({ randomTheme: theme })}
+        onHistorySeedApplied={result =>
+          updateToolSettings({
+            extraHints: result.hints,
+            lastHistorySeedEntryId: result.entryId,
+            hintSource: 'history',
+          })
+        }
+        accentFocusClassName={accentFocusClass(ACCENT)}
+      />
       <ToolSection>
         {isBooguEditModel(shared.model) ? (
           <p className="mb-4 text-xs leading-relaxed text-[var(--text-muted)]">
@@ -371,12 +400,17 @@ export default function ImagePromptTool() {
           </p>
         ) : null}
         <FieldLabel>Upload images (up to 4)</FieldLabel>
-        <input
-          type="file"
-          accept="image/*"
-          onChange={e => onFileChange(e.target.files?.[0] ?? null)}
-          className="block w-full text-sm text-[var(--text-muted)] file:mr-4 file:rounded-lg file:border-0 file:bg-fuchsia-600 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white"
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="file"
+            accept="image/*"
+            onChange={e => onFileChange(e.target.files?.[0] ?? null)}
+            className="block min-w-0 flex-1 text-sm text-[var(--text-muted)] file:mr-4 file:rounded-lg file:border-0 file:bg-fuchsia-600 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white"
+          />
+          <ButtonLink href={galleryPickPath('imagePrompt')} variant="secondary" size="sm">
+            Choose from Gallery
+          </ButtonLink>
+        </div>
         {refImages.length > 0 && refImages.length < 4 ? (
           <label className="mt-2 block text-sm text-[var(--text-muted)]">
             Add another reference
@@ -667,6 +701,7 @@ export default function ImagePromptTool() {
         disabled={!output.trim()}
         label="Queue image prompt"
         status={actions.comfyUiStatus}
+        primaryGenerate
         onQueue={() =>
           void actions.sendComfyUi(output, inferredSport, undefined, {
             inputImage: refImages[0]?.file ?? null,

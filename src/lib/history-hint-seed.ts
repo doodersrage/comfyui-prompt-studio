@@ -32,6 +32,7 @@ const RELATED_TOOLS: Record<HistorySeedTool, readonly string[]> = {
   outpaint: ['outpaint', 'inpaint', 'refine', 'compose', 'generate'],
   video: ['video', 'generate', 'character', 'compose', 'imagePrompt'],
   controlnet: ['controlnet', 'compose', 'refine', 'inpaint', 'generate'],
+  imagePrompt: ['imagePrompt', 'refine', 'compose', 'generate', 'character'],
 };
 
 const STOPWORDS = new Set([

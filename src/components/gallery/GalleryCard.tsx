@@ -22,8 +22,14 @@ import {
   startBackgroundFromGalleryEntry,
   startImproveFromGalleryEntry,
   startInpaintFromGalleryEntry,
+  startMeshFromGalleryEntry,
   startOutpaintFromGalleryEntry,
 } from '@/lib/improve-output';
+import {
+  buildGalleryVariationsHandoff,
+  galleryVariationsPath,
+  saveGalleryVariationsHandoff,
+} from '@/lib/gallery-variations-handoff';
 import { scoreGalleryEntryHeuristic, type AestheticScoreResult } from '@/lib/aesthetic-score';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import { updateComfyGalleryEntryById } from '@/lib/comfyui-gallery';
@@ -362,7 +368,7 @@ export default function GalleryCard({
   const progressPercent = comfyUiJobProgressPercent(entry);
 
   const cardTone = selected
-    ? 'border-violet-500/50 ring-1 ring-violet-500/25'
+    ? 'border-violet-400/70 ring-2 ring-violet-400/40 shadow-[0_0_28px_-10px_rgba(139,92,246,0.55)]'
     : reviewFocus
       ? 'border-violet-400/60 ring-2 ring-violet-400/35 shadow-[0_0_24px_-8px_rgba(139,92,246,0.45)]'
       : 'border-[var(--border-subtle)]/80';
@@ -639,15 +645,24 @@ export default function GalleryCard({
             }`}
           >
             {selectable ? (
-              <label className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border-default)]/70 bg-[var(--bg-base)]/80 backdrop-blur transition hover:border-[var(--border-default)]">
+              <label
+                className={`flex h-8 w-8 items-center justify-center rounded-full border backdrop-blur transition ${
+                  selected
+                    ? 'border-violet-400/60 bg-violet-500/25'
+                    : 'border-[var(--border-default)]/70 bg-[var(--bg-base)]/80 hover:border-[var(--border-default)]'
+                }`}
+                onClick={event => event.stopPropagation()}
+              >
                 <input
                   type="checkbox"
                   checked={selected ?? false}
-                  onClick={event => {
-                    event.preventDefault();
-                    onToggleSelected?.({ shiftKey: event.shiftKey });
+                  onChange={event => {
+                    onToggleSelected?.({
+                      shiftKey:
+                        'shiftKey' in event.nativeEvent &&
+                        Boolean((event.nativeEvent as MouseEvent).shiftKey),
+                    });
                   }}
-                  onChange={() => undefined}
                   aria-label="Select entry"
                   className="h-3.5 w-3.5 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
                 />
@@ -794,15 +809,24 @@ export default function GalleryCard({
           ) : null}
         </div>
         {layout === 'list' && selectable ? (
-          <label className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--border-default)]/70 bg-[var(--bg-base)]/80">
+          <label
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border backdrop-blur transition ${
+              selected
+                ? 'border-violet-400/60 bg-violet-500/25'
+                : 'border-[var(--border-default)]/70 bg-[var(--bg-base)]/80'
+            }`}
+            onClick={event => event.stopPropagation()}
+          >
             <input
               type="checkbox"
               checked={selected ?? false}
-              onClick={event => {
-                event.preventDefault();
-                onToggleSelected?.({ shiftKey: event.shiftKey });
+              onChange={event => {
+                onToggleSelected?.({
+                  shiftKey:
+                    'shiftKey' in event.nativeEvent &&
+                    Boolean((event.nativeEvent as MouseEvent).shiftKey),
+                });
               }}
-              onChange={() => undefined}
               aria-label="Select entry"
               className="h-3.5 w-3.5 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
             />
@@ -1079,6 +1103,34 @@ export default function GalleryCard({
                             setMenuOpen(false);
                           }}
                         />
+                        {entry.status === 'completed' ? (
+                          <GalleryMenuButton
+                            label="Re-edit · Inpaint (same stack)"
+                            onClick={() => {
+                              saveGalleryHandoff(buildReeditGalleryHandoff(entry, 'inpaint'));
+                              router.push(galleryHandoffPath('inpaint'));
+                              setMenuOpen(false);
+                            }}
+                          />
+                        ) : null}
+                        {entry.status === 'completed' ? (
+                          <GalleryMenuButton
+                            label="Re-edit · Outpaint (same stack)"
+                            onClick={() => {
+                              saveGalleryHandoff(buildReeditGalleryHandoff(entry, 'outpaint'));
+                              router.push(galleryHandoffPath('outpaint'));
+                              setMenuOpen(false);
+                            }}
+                          />
+                        ) : null}
+                        <GalleryMenuButton
+                          label="Open in Variations"
+                          onClick={() => {
+                            saveGalleryVariationsHandoff(buildGalleryVariationsHandoff(entry));
+                            router.push(galleryVariationsPath());
+                            setMenuOpen(false);
+                          }}
+                        />
                         <GalleryMenuButton
                           label="Compose"
                           onClick={() => {
@@ -1137,6 +1189,15 @@ export default function GalleryCard({
                             setMenuOpen(false);
                           }}
                         />
+                        {primaryMediaKind === 'image' && entry.status === 'completed' ? (
+                          <GalleryMenuButton
+                            label="Mesh / 3D"
+                            onClick={() => {
+                              startMeshFromGalleryEntry(entry);
+                              setMenuOpen(false);
+                            }}
+                          />
+                        ) : null}
                         {primaryMediaKind === 'image' && entry.status === 'completed' ? (
                           <GalleryMenuButton
                             label="Send to Video (I2V)"

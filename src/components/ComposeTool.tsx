@@ -50,7 +50,7 @@ import {
   type ComposeIdentityKind,
 } from '@/lib/compose-identity-lock';
 import { createDefaultRegionalSlots } from '@/lib/regional-prompt-slots';
-import { sharedPatchFromGalleryHandoff } from '@/lib/gallery-handoff';
+import { galleryPickPath, sharedPatchFromGalleryHandoff } from '@/lib/gallery-handoff';
 import { DEFAULT_IMAGE_COMPOSE_TOOL_CACHE } from '@/lib/settings-cache';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
@@ -63,7 +63,7 @@ import {
   accentFocusClass,
 } from '@/components/ui/ToolPageShell';
 import { FieldError, FieldLabel, TextArea } from '@/components/ui/Field';
-import { PrimaryButton } from '@/components/ui/Button';
+import { ButtonLink, PrimaryButton } from '@/components/ui/Button';
 
 const ACCENT = 'cyan' as const;
 
@@ -556,13 +556,20 @@ export default function ComposeTool() {
                     </button>
                   ) : null}
                 </div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  disabled={disabled}
-                  onChange={event => setFigure(index, event.target.files?.[0] ?? null)}
-                  className="block w-full text-sm text-[var(--text-secondary)] file:mr-3 file:rounded-lg file:border-0 file:bg-cyan-700/80 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white hover:file:bg-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60 disabled:opacity-50"
-                />
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    disabled={disabled}
+                    onChange={event => setFigure(index, event.target.files?.[0] ?? null)}
+                    className="block min-w-0 flex-1 text-sm text-[var(--text-secondary)] file:mr-3 file:rounded-lg file:border-0 file:bg-cyan-700/80 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white hover:file:bg-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60 disabled:opacity-50"
+                  />
+                  {index === 0 ? (
+                    <ButtonLink href={galleryPickPath('compose')} variant="secondary" size="sm">
+                      Choose from Gallery
+                    </ButtonLink>
+                  ) : null}
+                </div>
                 {slot.previewUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -852,6 +859,7 @@ export default function ComposeTool() {
         disabled={!output.trim()}
         label="Queue Compose"
         status={actions.comfyUiStatus}
+        primaryGenerate
         onQueue={() => {
           if (!assertReadyToQueue()) {
             return;

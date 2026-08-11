@@ -29,8 +29,11 @@ import { diffPromptWords } from '@/lib/prompt-diff';
 import { resolveParentHistoryId } from '@/lib/prompt-lineage-session';
 import { DEFAULT_REFINE_TOOL_CACHE } from '@/lib/settings-cache';
 import { createDefaultRegionalSlots } from '@/lib/regional-prompt-slots';
-import { sharedPatchFromGalleryHandoff } from '@/lib/gallery-handoff';
-import type { GalleryHandoffPayload } from '@/lib/gallery-handoff';
+import {
+  galleryPickPath,
+  sharedPatchFromGalleryHandoff,
+  type GalleryHandoffPayload,
+} from '@/lib/gallery-handoff';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
 import {
   ToolBadge,
@@ -41,7 +44,7 @@ import {
 } from '@/components/ui/ToolPageShell';
 import { FieldError, FieldLabel, TextArea } from '@/components/ui/Field';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
-import { PrimaryButton } from '@/components/ui/Button';
+import { ButtonLink, PrimaryButton } from '@/components/ui/Button';
 
 const ACCENT = 'fuchsia' as const;
 
@@ -397,12 +400,17 @@ export default function RefineTool() {
           </p>
         ) : null}
         <FieldLabel>Reference image</FieldLabel>
-        <input
-          type="file"
-          accept="image/*"
-          onChange={event => onFileChange(event.target.files?.[0] ?? null)}
-          className="block w-full text-sm text-[var(--text-muted)] file:mr-4 file:rounded-lg file:border-0 file:bg-fuchsia-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-fuchsia-500"
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="file"
+            accept="image/*"
+            onChange={event => onFileChange(event.target.files?.[0] ?? null)}
+            className="block min-w-0 flex-1 text-sm text-[var(--text-muted)] file:mr-4 file:rounded-lg file:border-0 file:bg-fuchsia-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-fuchsia-500"
+          />
+          <ButtonLink href={galleryPickPath('refine')} variant="secondary" size="sm">
+            Choose from Gallery
+          </ButtonLink>
+        </div>
         {previewUrl && !needsInpaintMask ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -547,6 +555,7 @@ export default function RefineTool() {
         disabled={!output.trim()}
         label="Queue refine"
         status={actions.comfyUiStatus}
+        primaryGenerate
         onQueue={() => {
           void actions.sendComfyUi(output, undefined, undefined, queueImageOptions);
         }}

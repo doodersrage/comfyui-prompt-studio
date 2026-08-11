@@ -284,6 +284,7 @@ export default function NegativeTool() {
         disabled={!output.trim()}
         label="Queue negative"
         status={actions.comfyUiStatus}
+        primaryGenerate
         onQueue={() => void actions.sendComfyUi(output)}
       />
     </ToolLayout>

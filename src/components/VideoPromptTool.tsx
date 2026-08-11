@@ -715,6 +715,7 @@ export default function VideoPromptTool() {
         disabled={!output.trim()}
         label="Queue video"
         status={actions.comfyUiStatus}
+        primaryGenerate
         onQueue={queueVideo}
       />
     </ToolLayout>

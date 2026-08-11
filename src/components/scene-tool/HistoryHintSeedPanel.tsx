@@ -84,6 +84,11 @@ const HISTORY_EMPTY_GUIDANCE: Partial<
     href: '/controlnet',
     linkLabel: 'Open ControlNet',
   },
+  imagePrompt: {
+    message: 'Run a few Image → Prompt captions and save them to history for hint seeds.',
+    href: '/image-prompt',
+    linkLabel: 'Open Image → Prompt',
+  },
 };
 
 type HistoryHintSeedPanelProps = {

@@ -9,12 +9,15 @@ import ToolSetupBanner from '@/components/ToolSetupBanner';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import MediaScaffoldReadyPanel from '@/components/MediaScaffoldReadyPanel';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
+import { useGalleryHandoff } from '@/hooks/useGalleryHandoff';
 import { usePromptResultActions } from '@/hooks/usePromptResultActions';
 import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
 import { DEFAULT_MESH_MODEL, getComfyModelDefinition } from '@/lib/comfy-models/client';
+import type { ComfyImageModel } from '@/lib/comfy-models/client';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import { MESH_RESOLUTION_TOKEN, buildMeshPrompt } from '@/lib/audio-mesh-prompt';
 import { ensureMeshWorkflowScaffold } from '@/lib/ensure-media-workflow';
+import { galleryPickPath } from '@/lib/gallery-handoff';
 import { DEFAULT_MESH_TOOL_CACHE } from '@/lib/settings-cache';
 import { fetchComfyObjectInfoCached } from '@/lib/comfyui-object-info-cache';
 import {
@@ -26,7 +29,7 @@ import {
 } from '@/components/ui/ToolPageShell';
 import { FieldLabel, TextArea, TextInput } from '@/components/ui/Field';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
-import { PrimaryButton } from '@/components/ui/Button';
+import { ButtonLink, PrimaryButton } from '@/components/ui/Button';
 
 const ACCENT = 'emerald' as const;
 
@@ -52,6 +55,26 @@ export default function MeshPromptTool() {
     detail: shared.detail,
     hints: subject,
   });
+
+  const applyGalleryHandoff = useCallback(
+    (handoff: { prompt: string; model?: string; file: File | null; previewUrl: string | null }) => {
+      if (handoff.prompt.trim()) {
+        updateToolSettings({ subject: handoff.prompt.trim().slice(0, 400) });
+      }
+      if (handoff.model?.trim()) {
+        updateShared({ model: handoff.model.trim() as ComfyImageModel });
+      }
+      setFile(handoff.file);
+      setPreviewUrl(current => {
+        if (current?.startsWith('blob:')) {
+          URL.revokeObjectURL(current);
+        }
+        return handoff.previewUrl;
+      });
+    },
+    [updateShared, updateToolSettings]
+  );
+  useGalleryHandoff('mesh', applyGalleryHandoff);
 
   useEffect(() => {
     if (!mounted) {
@@ -167,21 +190,26 @@ export default function MeshPromptTool() {
           />
         </div>
         <FieldLabel>Reference image (optional)</FieldLabel>
-        <input
-          type="file"
-          accept="image/*"
-          onChange={event => {
-            const next = event.target.files?.[0] ?? null;
-            setFile(next);
-            setPreviewUrl(current => {
-              if (current?.startsWith('blob:')) {
-                URL.revokeObjectURL(current);
-              }
-              return next ? URL.createObjectURL(next) : null;
-            });
-          }}
-          className="block w-full text-sm text-[var(--text-muted)]"
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="file"
+            accept="image/*"
+            onChange={event => {
+              const next = event.target.files?.[0] ?? null;
+              setFile(next);
+              setPreviewUrl(current => {
+                if (current?.startsWith('blob:')) {
+                  URL.revokeObjectURL(current);
+                }
+                return next ? URL.createObjectURL(next) : null;
+              });
+            }}
+            className="block min-w-0 flex-1 text-sm text-[var(--text-muted)]"
+          />
+          <ButtonLink href={galleryPickPath('mesh')} variant="secondary" size="sm">
+            Choose from Gallery
+          </ButtonLink>
+        </div>
         {previewUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -234,6 +262,7 @@ export default function MeshPromptTool() {
         <PrimaryButton
           className="mt-4"
           accentClassName={accentButtonClass(ACCENT)}
+          data-action="primary-generate"
           disabled={!output.trim()}
           onClick={() =>
             void actions.sendComfyUi(output, undefined, undefined, {
@@ -273,6 +302,7 @@ export default function MeshPromptTool() {
         disabled={!output.trim()}
         label="Queue mesh"
         status={actions.comfyUiStatus}
+        primaryGenerate
         onQueue={() =>
           void actions.sendComfyUi(output, undefined, undefined, {
             inputImage: file,

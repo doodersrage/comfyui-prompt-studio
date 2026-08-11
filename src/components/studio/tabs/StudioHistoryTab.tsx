@@ -28,8 +28,10 @@ import { buildRegenerateUrl } from '@/lib/regenerate-url';
 import { buildUseAsHintsUrl } from '@/lib/use-as-hints-url';
 import { studioHistoryUrl } from '@/lib/prompt-lineage';
 import {
+  startBackgroundFromGalleryEntry,
   startComposeFromGalleryEntry,
   startControlNetFromGalleryEntry,
+  startImagePromptFromGalleryEntry,
   startInpaintFromGalleryEntry,
   startOutpaintFromGalleryEntry,
   startPromptEditorFromHistoryEntry,
@@ -155,7 +157,15 @@ function HistoryCard({
   onRefine?: () => void;
   /** Open linked gallery output in an edit/media tool. */
   onOpenLinkedEdit?: (
-    target: 'refine' | 'inpaint' | 'outpaint' | 'compose' | 'video' | 'controlnet'
+    target:
+      | 'refine'
+      | 'inpaint'
+      | 'outpaint'
+      | 'compose'
+      | 'video'
+      | 'controlnet'
+      | 'background'
+      | 'imagePrompt'
   ) => void;
   onRequeueBatch?: () => void;
   batchPromptCount?: number;
@@ -315,6 +325,22 @@ function HistoryCard({
                   onClick={() => onOpenLinkedEdit('controlnet')}
                 >
                   Open ControlNet
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="type-caption"
+                  onClick={() => onOpenLinkedEdit('background')}
+                >
+                  Open Background
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="type-caption"
+                  onClick={() => onOpenLinkedEdit('imagePrompt')}
+                >
+                  Open Image → Prompt
                 </Button>
               </>
             ) : null}
@@ -600,7 +626,15 @@ export default function StudioHistoryTab({
           startVideoFromGalleryEntry(galleryEntry);
           return;
         }
-        startControlNetFromGalleryEntry(galleryEntry);
+        if (target === 'controlnet') {
+          startControlNetFromGalleryEntry(galleryEntry);
+          return;
+        }
+        if (target === 'background') {
+          startBackgroundFromGalleryEntry(galleryEntry);
+          return;
+        }
+        startImagePromptFromGalleryEntry(galleryEntry);
       }}
       onRefine={() => {
         const galleryEntry = findGalleryEntryForHistory(entry);

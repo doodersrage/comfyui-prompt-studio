@@ -1024,6 +1024,7 @@ export default function PromptGenerator() {
         disabled={!output.trim()}
         label="Queue generate"
         status={actions.comfyUiStatus}
+        primaryGenerate
         onQueue={() => {
           markComfyQueueIntent();
           void actions.sendComfyUi(output);

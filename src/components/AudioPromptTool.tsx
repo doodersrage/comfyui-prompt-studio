@@ -245,6 +245,7 @@ export default function AudioPromptTool() {
         disabled={!output.trim()}
         label="Queue audio"
         status={actions.comfyUiStatus}
+        primaryGenerate
         onQueue={() =>
           void actions.sendComfyUi(output, undefined, undefined, {
             customTokens: [{ token: AUDIO_SECONDS_TOKEN, value: String(durationSec) }],

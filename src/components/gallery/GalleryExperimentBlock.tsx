@@ -15,6 +15,9 @@ type GalleryExperimentBlockProps = {
   onCrown?: (entryId: string) => void;
   onCompare?: () => void;
   onRequeueSeeds?: () => void;
+  onWinnerUpscale?: (entry: ComfyGalleryEntry) => void;
+  onWinnerRefine?: (entry: ComfyGalleryEntry) => void;
+  onWinnerContinue?: (entry: ComfyGalleryEntry) => void;
   layout: GalleryLayoutMode;
   columns?: number;
   gridClassName: string;
@@ -30,6 +33,9 @@ export default function GalleryExperimentBlock({
   onCrown,
   onCompare,
   onRequeueSeeds,
+  onWinnerUpscale,
+  onWinnerRefine,
+  onWinnerContinue,
   layout,
   columns,
   gridClassName,
@@ -42,6 +48,10 @@ export default function GalleryExperimentBlock({
   const collapsedPreview = entries.find(entry => entry.id === winnerEntryId) ?? entries[0];
   const shown = collapsed ? (collapsedPreview ? [collapsedPreview] : []) : entries;
   const paramDiffChips = useMemo(() => formatExperimentParamDiffChips(entries), [entries]);
+  const winner = winnerEntryId ? (entries.find(entry => entry.id === winnerEntryId) ?? null) : null;
+  const showWinnerActions = Boolean(
+    winner && (onWinnerUpscale || onWinnerRefine || onWinnerContinue)
+  );
 
   return (
     <div
@@ -70,6 +80,40 @@ export default function GalleryExperimentBlock({
                   {chip}
                 </span>
               ))}
+            </div>
+          ) : null}
+          {showWinnerActions && winner ? (
+            <div className="flex flex-wrap gap-1.5 pt-0.5">
+              {onWinnerUpscale ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onWinnerUpscale(winner)}
+                >
+                  Upscale winner
+                </Button>
+              ) : null}
+              {onWinnerRefine ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onWinnerRefine(winner)}
+                >
+                  Refine winner
+                </Button>
+              ) : null}
+              {onWinnerContinue ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onWinnerContinue(winner)}
+                >
+                  Continue winner
+                </Button>
+              ) : null}
             </div>
           ) : null}
         </div>

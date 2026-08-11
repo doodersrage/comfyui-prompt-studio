@@ -244,6 +244,7 @@ export default function LintTool() {
         disabled={!prompt.trim()}
         label="Queue linted prompt"
         status={actions.comfyUiStatus}
+        primaryGenerate
         onQueue={() =>
           void actions.sendComfyUi(prompt, actions.diagnostics?.inferred.sport ?? null)
         }

@@ -489,6 +489,7 @@ export default function FantasyTool() {
         disabled={!output.trim()}
         label="Queue fantasy"
         status={actions.comfyUiStatus}
+        primaryGenerate
         onQueue={() => void actions.sendComfyUi(output)}
       />
     </ToolLayout>

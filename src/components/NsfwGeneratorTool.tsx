@@ -18,6 +18,7 @@ import {
   pickRandomNsfwGeneratorPreset,
 } from '@/lib/nsfw-generator-presets';
 import { DEFAULT_NSFW_GENERATOR_TOOL_CACHE } from '@/lib/settings-cache';
+import { continueEditResultProps } from '@/lib/continue-edit-result-props';
 import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
 import { getReformatTargetLabel } from '@/lib/reformat-target';
 import { readRawPrompt } from '@/lib/raw-prompt';
@@ -443,12 +444,11 @@ export default function NsfwGeneratorTool() {
           })
         }
         onSendComfyUi={() => void actions.sendComfyUi(output)}
-        onImprove={() => actions.improveOutput(output, actions.comfyUiPreviewUrl)}
-        onRefine={() => actions.refineOutput(output, actions.comfyUiPreviewUrl)}
         onEditPrompt={() =>
           actions.editPromptOutput(output, actions.comfyUiPreviewUrl, undefined, toolSettings.hints)
         }
         {...promptResultPreviewProps(actions, output)}
+        {...continueEditResultProps(actions, output)}
         onFixPrompt={() => void actions.fixPrompt(output, setOutput, toolSettings.hints)}
         onCopyPair={() => void actions.copyPromptPair(output)}
         onCompact={() => void actions.compactPrompt(output, setOutput)}
@@ -480,6 +480,7 @@ export default function NsfwGeneratorTool() {
         disabled={!output.trim()}
         label="Queue adult prompt"
         status={actions.comfyUiStatus}
+        primaryGenerate
         onQueue={() => void actions.sendComfyUi(output)}
       />
     </ToolLayout>

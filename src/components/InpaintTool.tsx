@@ -32,6 +32,7 @@ import { isInpaintModel } from '@/lib/model-denoise-defaults';
 import { DEFAULT_INPAINT_TOOL_CACHE } from '@/lib/settings-cache';
 import { createDefaultRegionalSlots } from '@/lib/regional-prompt-slots';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
+import { galleryPickPath, sharedPatchFromGalleryHandoff } from '@/lib/gallery-handoff';
 import {
   ToolBadge,
   ToolLayout,
@@ -41,7 +42,7 @@ import {
 } from '@/components/ui/ToolPageShell';
 import { FieldError, FieldLabel, TextArea } from '@/components/ui/Field';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
-import { PrimaryButton } from '@/components/ui/Button';
+import { ButtonLink, PrimaryButton } from '@/components/ui/Button';
 
 const ACCENT = 'amber' as const;
 const DEFAULT_INPAINT_MODEL: ComfyImageModel = 'flux-inpaint';
@@ -179,6 +180,7 @@ export default function InpaintTool() {
   const applyGalleryHandoff = useCallback(
     (handoff: {
       prompt: string;
+      model?: string;
       queueParams?: WorkflowParamValues;
       file: File | null;
       previewUrl: string | null;
@@ -201,19 +203,20 @@ export default function InpaintTool() {
         setPreviewUrl(handoff.previewUrl);
       }
       clearMaskState();
+      const sharedPatch = sharedPatchFromGalleryHandoff(handoff.payload);
+      const model = handoff.model ?? handoff.payload.model;
+      if (model && isInpaintModel(model)) {
+        updateShared({ model: model as ComfyImageModel, ...sharedPatch });
+      } else if (anatomy) {
+        updateShared({ model: DEFAULT_INPAINT_MODEL, ...sharedPatch });
+      } else if (Object.keys(sharedPatch).length > 0) {
+        updateShared(sharedPatch);
+      }
     },
-    [clearMaskState, setChangeDescription, setMaskDescription]
+    [clearMaskState, setChangeDescription, setMaskDescription, updateShared]
   );
 
-  useGalleryHandoff('inpaint', handoff => {
-    applyGalleryHandoff(handoff);
-    const model = handoff.model ?? handoff.payload.model;
-    if (model && isInpaintModel(model)) {
-      updateShared({ model: model as ComfyImageModel });
-    } else if (isAnatomyRepairHandoff(handoff.payload)) {
-      updateShared({ model: DEFAULT_INPAINT_MODEL });
-    }
-  });
+  useGalleryHandoff('inpaint', applyGalleryHandoff);
 
   const onFileChange = useCallback(
     (nextFile: File | null) => {
@@ -321,12 +324,17 @@ export default function InpaintTool() {
           </p>
         ) : null}
         <FieldLabel>Source image</FieldLabel>
-        <input
-          type="file"
-          accept="image/*"
-          onChange={event => onFileChange(event.target.files?.[0] ?? null)}
-          className="block w-full text-sm text-[var(--text-muted)] file:mr-4 file:rounded-lg file:border-0 file:bg-amber-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60"
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="file"
+            accept="image/*"
+            onChange={event => onFileChange(event.target.files?.[0] ?? null)}
+            className="block min-w-0 flex-1 text-sm text-[var(--text-muted)] file:mr-4 file:rounded-lg file:border-0 file:bg-amber-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60"
+          />
+          <ButtonLink href={galleryPickPath('inpaint')} variant="secondary" size="sm">
+            Choose from Gallery
+          </ButtonLink>
+        </div>
         {previewUrl ? (
           <InpaintMaskEditor
             key={previewUrl}
@@ -470,6 +478,7 @@ export default function InpaintTool() {
         disabled={!output.trim()}
         label="Queue inpaint"
         status={actions.comfyUiStatus}
+        primaryGenerate
         onQueue={() => {
           if (!assertReadyToQueue()) {
             return;

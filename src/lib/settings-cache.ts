@@ -859,6 +859,10 @@ export type ImagePromptToolCache = {
   focus?: 'full' | 'subject' | 'background' | 'style';
   descriptionPreset?: import('./image-prompt-presets').ImagePromptDescriptionPreset;
   extraHints?: string;
+  hintSource?: import('./scene-hint-source').SceneHintSource;
+  historySeedScope?: import('./scene-hint-source').HistorySeedScope;
+  lastHistorySeedEntryId?: string;
+  randomTheme?: string;
 };
 
 export type TopicToolCache = {
@@ -1195,6 +1199,8 @@ export const DEFAULT_IMAGE_PROMPT_TOOL_CACHE: ImagePromptToolCache = {
   focus: 'full',
   descriptionPreset: 'standard',
   extraHints: '',
+  hintSource: 'manual',
+  historySeedScope: 'related',
 };
 
 export const DEFAULT_TOPIC_TOOL_CACHE: TopicToolCache = {

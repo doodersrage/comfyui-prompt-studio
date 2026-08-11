@@ -443,6 +443,7 @@ export default function WorkflowEditorTool() {
         disabled={nodes.length === 0}
         label="Queue workflow"
         status={actions.comfyUiStatus ?? status}
+        primaryGenerate
         onQueue={() => void onQueue()}
       />
     </ToolLayout>

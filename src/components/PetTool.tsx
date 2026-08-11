@@ -400,6 +400,7 @@ export default function PetTool() {
         disabled={!output.trim()}
         label="Queue pet"
         status={actions.comfyUiStatus}
+        primaryGenerate
         onQueue={() => void actions.sendComfyUi(output)}
       />
     </ToolLayout>

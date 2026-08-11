@@ -22,6 +22,15 @@ const TOOL_PATHS: Record<string, string> = {
   video: '/video',
   controlnet: '/controlnet',
   imagePrompt: '/image-prompt',
+  audio: '/audio',
+  mesh: '/mesh',
+  lint: '/lint',
+  format: '/format',
+  'prompt-editor': '/prompt',
+  promptEditor: '/prompt',
+  'workflow-editor': '/workflow-editor',
+  workflowEditor: '/workflow-editor',
+  negative: '/negative',
 };
 
 export function resolveHistoryEntryNavigation(entry: PromptHistoryEntry): HistoryEntryNavigation {

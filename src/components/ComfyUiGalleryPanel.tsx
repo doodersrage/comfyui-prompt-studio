@@ -15,6 +15,7 @@ import {
   startInpaintFromGalleryEntry,
   startOutpaintFromGalleryEntry,
   startReeditComposeFromGalleryEntry,
+  startRefineFromGalleryEntry,
   startReeditRefineFromGalleryEntry,
   startVideoFromGalleryEntry,
 } from '@/lib/improve-output';
@@ -1440,6 +1441,9 @@ export default function ComfyUiGalleryPanel({
                 });
               });
           }}
+          onWinnerUpscale={entry => galleryCardActionsRef.current.upscale(entry.id, 'final')}
+          onWinnerRefine={entry => startRefineFromGalleryEntry(entry)}
+          onWinnerContinue={entry => startReeditRefineFromGalleryEntry(entry)}
           layout={layout}
           density={density}
           compact={compact}

@@ -19,7 +19,11 @@ import type { WorkflowParamValues } from '@/lib/comfyui-config';
 import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-target';
 import { continueEditResultProps } from '@/lib/continue-edit-result-props';
 import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
-import { sharedPatchFromGalleryHandoff, type GalleryHandoffPayload } from '@/lib/gallery-handoff';
+import {
+  galleryPickPath,
+  sharedPatchFromGalleryHandoff,
+  type GalleryHandoffPayload,
+} from '@/lib/gallery-handoff';
 import { DEFAULT_CONTROLNET_TOOL_CACHE, type ControlNetSlotPreset } from '@/lib/settings-cache';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
 import { normalizeControlNetMode, type ControlNetMode } from '@/lib/controlnet-prompt';
@@ -58,7 +62,7 @@ import {
 } from '@/components/ui/ToolPageShell';
 import { FieldLabel } from '@/components/ui/Field';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
-import { Button, PrimaryButton } from '@/components/ui/Button';
+import { Button, ButtonLink, PrimaryButton } from '@/components/ui/Button';
 
 const ACCENT = 'cyan' as const;
 
@@ -593,12 +597,17 @@ export default function ControlNetTool() {
       </ToolSection>
 
       <ToolSection title="Reference image (optional)">
-        <input
-          type="file"
-          accept="image/*"
-          onChange={event => onRefChange(event.target.files?.[0] ?? null)}
-          className="block w-full text-sm text-[var(--text-muted)] file:mr-4 file:rounded-lg file:border-0 file:bg-cyan-700 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white"
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="file"
+            accept="image/*"
+            onChange={event => onRefChange(event.target.files?.[0] ?? null)}
+            className="block min-w-0 flex-1 text-sm text-[var(--text-muted)] file:mr-4 file:rounded-lg file:border-0 file:bg-cyan-700 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white"
+          />
+          <ButtonLink href={galleryPickPath('controlnet')} variant="secondary" size="sm">
+            Choose from Gallery
+          </ButtonLink>
+        </div>
         {refPreview ? (
           <div className="mt-3 flex flex-wrap items-start gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -786,6 +795,7 @@ export default function ControlNetTool() {
           disabled={!output.trim()}
           label="Queue ControlNet"
           status={actions.comfyUiStatus}
+          primaryGenerate
           onQueue={() => void actions.sendComfyUi(output, null, undefined, queueControlNetOptions)}
         />
       ) : null}

@@ -362,6 +362,7 @@ export default function PromptFormatter() {
           disabled={!output.trim()}
           label="Queue formatted"
           status={actions.comfyUiStatus}
+          primaryGenerate
           onQueue={() => void actions.sendComfyUi(output)}
         />
       ) : null}

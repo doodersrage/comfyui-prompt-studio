@@ -151,6 +151,20 @@ export const SUGGESTED_TOOL_QUALITY_RECIPES: ToolQualityRecipe[] = [
     builtin: true,
   },
   {
+    id: 'image-prompt-draft',
+    label: 'Image→Prompt draft',
+    toolIds: ['imagePrompt'],
+    queueQualityProfile: 'draft',
+    builtin: true,
+  },
+  {
+    id: 'image-prompt-keeper',
+    label: 'Image→Prompt keeper',
+    toolIds: ['imagePrompt'],
+    queueQualityProfile: 'final',
+    builtin: true,
+  },
+  {
     id: 'audio-keeper',
     label: 'Audio keeper',
     toolIds: ['audio'],

@@ -982,6 +982,7 @@ export default function CharacterTool() {
         disabled={!output.trim()}
         label="Queue character"
         status={actions.comfyUiStatus}
+        primaryGenerate
         onQueue={() =>
           void actions.sendComfyUi(output, inferredSport, undefined, {
             customTokens: regionalPromptCustomTokens(toolSettings.regionalSegments ?? []),

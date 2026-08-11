@@ -238,9 +238,35 @@ export function startReeditControlNetFromGalleryEntry(entry: ComfyGalleryEntry):
   window.location.href = galleryHandoffPath('controlnet');
 }
 
+export function startReeditInpaintFromGalleryEntry(entry: ComfyGalleryEntry): void {
+  saveGalleryHandoff({
+    ...buildReeditGalleryHandoff(entry, 'inpaint'),
+    model: entry.model === 'flux-inpaint' ? entry.model : 'flux-inpaint',
+  });
+  window.location.href = galleryHandoffPath('inpaint');
+}
+
+export function startReeditOutpaintFromGalleryEntry(entry: ComfyGalleryEntry): void {
+  saveGalleryHandoff({
+    ...buildReeditGalleryHandoff(entry, 'outpaint'),
+    model: entry.model === 'flux-inpaint' ? entry.model : 'flux-inpaint',
+  });
+  window.location.href = galleryHandoffPath('outpaint');
+}
+
 export function startBackgroundFromGalleryEntry(entry: ComfyGalleryEntry): void {
   saveGalleryHandoff(buildGalleryHandoff(entry, 'background'));
   window.location.href = galleryHandoffPath('background');
+}
+
+export function startMeshFromGalleryEntry(entry: ComfyGalleryEntry): void {
+  saveGalleryHandoff(buildGalleryHandoff(entry, 'mesh'));
+  window.location.href = galleryHandoffPath('mesh');
+}
+
+export function startImagePromptFromGalleryEntry(entry: ComfyGalleryEntry): void {
+  saveGalleryHandoff(buildGalleryHandoff(entry, 'imagePrompt'));
+  window.location.href = galleryHandoffPath('imagePrompt');
 }
 
 export function startPromptEditorFromResult(input: {

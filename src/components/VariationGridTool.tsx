@@ -1230,6 +1230,7 @@ export default function VariationGridTool() {
         disabled={results.every(entry => !entry.prompt) || queueLoading || lintLoading}
         label="Queue grid"
         status={queueProgress?.message ?? status}
+        primaryGenerate
         onQueue={() => void queueGrid()}
       />
     </ToolLayout>
