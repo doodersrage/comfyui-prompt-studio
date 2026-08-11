@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import type { VisionBackfillProgress } from '@/lib/gallery-vision-backfill';
 import { COMFYUI_GALLERY_UPDATED_EVENT } from '@/lib/comfyui-gallery';
@@ -28,12 +28,14 @@ const GALLERY_SORT_OPTIONS: { value: ComfyGallerySort; label: string }[] = [
   { value: 'completed-desc', label: 'Recently done' },
   { value: 'tool-asc', label: 'Tool A–Z' },
   { value: 'favorites-first', label: 'Favorites' },
+  { value: 'rating-desc', label: 'Highest rated' },
 ];
 
 type GalleryFiltersBarProps = {
   filter: ComfyGalleryFilter;
   setFilter: React.Dispatch<React.SetStateAction<ComfyGalleryFilter>>;
   tools: string[];
+  models: string[];
   projects: PromptProject[];
   projectFilterId: string;
   setProjectFilterId: (value: string) => void;
@@ -91,6 +93,7 @@ export default function GalleryFiltersBar({
   filter,
   setFilter,
   tools,
+  models,
   projects,
   projectFilterId,
   setProjectFilterId,
@@ -117,6 +120,12 @@ export default function GalleryFiltersBar({
   slideshowAvailable,
   lean = false,
 }: GalleryFiltersBarProps) {
+  const [savedViews, setSavedViews] = useState<GallerySavedView[]>(() => loadGallerySavedViews());
+  const [viewNameDraft, setViewNameDraft] = useState('');
+  const [backfillProgress, setBackfillProgress] = useState<VisionBackfillProgress | null>(null);
+  const [backfillLoading, setBackfillLoading] = useState(false);
+  const [queryDraft, setQueryDraft] = useState(filter.query ?? '');
+
   const activeToggleCount = [
     filter.favoritesOnly,
     filter.semanticSearch,
@@ -124,13 +133,124 @@ export default function GalleryFiltersBar({
     filter.unreviewedOnly,
     filter.reviewAutoAdvance,
     filter.visionTagsOnly,
+    filter.atRiskOnly,
+    filter.model,
+    filter.minRating,
+    filter.tool,
   ].filter(Boolean).length;
 
-  const [savedViews, setSavedViews] = useState<GallerySavedView[]>(() => loadGallerySavedViews());
-  const [viewNameDraft, setViewNameDraft] = useState('');
-  const [backfillProgress, setBackfillProgress] = useState<VisionBackfillProgress | null>(null);
-  const [backfillLoading, setBackfillLoading] = useState(false);
-  const [queryDraft, setQueryDraft] = useState(filter.query ?? '');
+  const activeChips = useMemo(() => {
+    const chips: { key: string; label: string; clear: () => void }[] = [];
+    if (filter.query?.trim()) {
+      chips.push({
+        key: 'query',
+        label: `Search: ${filter.query.trim()}`,
+        clear: () => setFilter(previous => ({ ...previous, query: undefined })),
+      });
+    }
+    if (filter.status && filter.status !== 'all') {
+      chips.push({
+        key: 'status',
+        label: `Status: ${filter.status}`,
+        clear: () => setFilter(previous => ({ ...previous, status: 'all' })),
+      });
+    }
+    if (filter.tool) {
+      chips.push({
+        key: 'tool',
+        label: `Tool: ${filter.tool}`,
+        clear: () => setFilter(previous => ({ ...previous, tool: undefined })),
+      });
+    }
+    if (filter.model) {
+      chips.push({
+        key: 'model',
+        label: `Model: ${filter.model}`,
+        clear: () => setFilter(previous => ({ ...previous, model: undefined })),
+      });
+    }
+    if (filter.minRating) {
+      chips.push({
+        key: 'minRating',
+        label: `≥${filter.minRating}★`,
+        clear: () => setFilter(previous => ({ ...previous, minRating: undefined })),
+      });
+    }
+    if (filter.favoritesOnly) {
+      chips.push({
+        key: 'fav',
+        label: 'Favorites',
+        clear: () => setFilter(previous => ({ ...previous, favoritesOnly: undefined })),
+      });
+    }
+    if (filter.atRiskOnly) {
+      chips.push({
+        key: 'atRisk',
+        label: 'At risk',
+        clear: () => setFilter(previous => ({ ...previous, atRiskOnly: undefined })),
+      });
+    }
+    if (filter.reviewMode) {
+      chips.push({
+        key: 'review',
+        label: 'Review',
+        clear: () =>
+          setFilter(previous => ({
+            ...previous,
+            reviewMode: undefined,
+            unreviewedOnly: undefined,
+            reviewAutoAdvance: undefined,
+          })),
+      });
+    } else if (filter.unreviewedOnly) {
+      chips.push({
+        key: 'unreviewed',
+        label: 'Unreviewed',
+        clear: () => setFilter(previous => ({ ...previous, unreviewedOnly: undefined })),
+      });
+    }
+    if (filter.mediaKind && filter.mediaKind !== 'all') {
+      chips.push({
+        key: 'media',
+        label: filter.mediaKind === 'image' ? 'Stills' : 'Videos',
+        clear: () => setFilter(previous => ({ ...previous, mediaKind: 'all' })),
+      });
+    }
+    if (filter.visionTagsOnly) {
+      chips.push({
+        key: 'vision',
+        label: 'Vision tags',
+        clear: () => setFilter(previous => ({ ...previous, visionTagsOnly: undefined })),
+      });
+    }
+    if (filter.semanticSearch) {
+      chips.push({
+        key: 'semantic',
+        label: 'Semantic',
+        clear: () => setFilter(previous => ({ ...previous, semanticSearch: undefined })),
+      });
+    }
+    if (projectFilterId) {
+      const projectLabel =
+        projectFilterId === 'active'
+          ? 'Active project'
+          : (projects.find(project => project.id === projectFilterId)?.name ?? projectFilterId);
+      chips.push({
+        key: 'project',
+        label: `Project: ${projectLabel}`,
+        clear: () => setProjectFilterId(''),
+      });
+    }
+    if (sort !== 'queued-desc') {
+      const sortLabel = GALLERY_SORT_OPTIONS.find(option => option.value === sort)?.label ?? sort;
+      chips.push({
+        key: 'sort',
+        label: `Sort: ${sortLabel}`,
+        clear: () => setSort('queued-desc'),
+      });
+    }
+    return chips;
+  }, [filter, projectFilterId, projects, setFilter, setProjectFilterId, setSort, sort]);
 
   useEffect(() => {
     scheduleAfterCommit(() => {
@@ -256,9 +376,13 @@ export default function GalleryFiltersBar({
             >
               {(lean
                 ? GALLERY_SORT_OPTIONS.filter(option =>
-                    ['queued-desc', 'queued-asc', 'completed-desc', 'favorites-first'].includes(
-                      option.value
-                    )
+                    [
+                      'queued-desc',
+                      'queued-asc',
+                      'completed-desc',
+                      'favorites-first',
+                      'rating-desc',
+                    ].includes(option.value)
                   )
                 : GALLERY_SORT_OPTIONS
               ).map(option => (
@@ -302,6 +426,160 @@ export default function GalleryFiltersBar({
           {!lean && similarSearchLoading ? ' · ranking similar…' : null}
         </p>
       </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {(
+          [
+            { rating: undefined as 1 | 2 | 3 | 4 | 5 | undefined, label: 'Any ★' },
+            { rating: 5 as const, label: '5★' },
+            { rating: 4 as const, label: '≥4★' },
+            { rating: 3 as const, label: '≥3★' },
+            { rating: 1 as const, label: '≥1★' },
+          ] as const
+        ).map(option => (
+          <FilterChip
+            key={option.label}
+            active={
+              option.rating === undefined ? !filter.minRating : filter.minRating === option.rating
+            }
+            label={option.label}
+            testId={
+              option.rating === undefined
+                ? 'gallery-filter-rating-any'
+                : `gallery-filter-rating-${option.rating}`
+            }
+            onClick={() =>
+              setFilter(previous => ({
+                ...previous,
+                minRating: option.rating,
+              }))
+            }
+          />
+        ))}
+        {models.length > 0 ? (
+          <label className="flex items-center gap-1.5 type-caption text-[var(--text-muted)]">
+            Model
+            <select
+              value={filter.model ?? ''}
+              onChange={event =>
+                setFilter({
+                  ...filter,
+                  model: event.target.value || undefined,
+                })
+              }
+              data-testid="gallery-filter-model"
+              className="ui-input px-2 py-1 text-[11px]"
+            >
+              <option value="">All models</option>
+              {models.map(model => (
+                <option key={model} value={model}>
+                  {model}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+      </div>
+
+      {savedViews.length > 0 || !lean ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="type-caption text-[var(--text-muted)]">Views</span>
+          {savedViews.map(view => (
+            <span key={view.id} className="inline-flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => applySavedView(view)}
+                data-testid={`gallery-saved-view-${view.id}`}
+                className="ui-chip rounded-xl border border-violet-500/45 bg-violet-900/20 text-violet-300 backdrop-blur-xs transition hover:border-violet-400/70 hover:bg-violet-500/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30 active:scale-[0.98]"
+              >
+                {view.name}
+              </button>
+              {!lean ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    deleteGallerySavedView(view.id);
+                    setSavedViews(loadGallerySavedViews());
+                  }}
+                  className="rounded-xl px-1 text-xs text-[var(--text-muted)] transition hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30"
+                  aria-label={`Delete saved view ${view.name}`}
+                >
+                  ×
+                </button>
+              ) : null}
+            </span>
+          ))}
+          {!lean ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="text"
+                value={viewNameDraft}
+                onChange={event => setViewNameDraft(event.target.value)}
+                placeholder="Name this view…"
+                className="ui-input min-w-[10rem] px-2 py-1 text-[11px]"
+              />
+              <button
+                type="button"
+                onClick={saveCurrentView}
+                className="ui-btn-ghost ui-btn-sm rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60 text-xs text-violet-300 backdrop-blur-xs transition hover:border-violet-500/65 hover:bg-violet-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30 active:scale-[0.98]"
+              >
+                Save view
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {activeChips.length > 0 ? (
+        <div
+          data-testid="gallery-active-filters"
+          className="sticky top-[calc(var(--header-offset,0px)+0.5rem)] z-10 flex flex-wrap items-center gap-2 rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-elevated)]/90 px-3 py-2 shadow-[var(--shadow-soft)] backdrop-blur-md"
+        >
+          <span className="type-caption text-[var(--text-muted)]">Active</span>
+          {activeChips.map(chip => (
+            <button
+              key={chip.key}
+              type="button"
+              onClick={chip.clear}
+              className="inline-flex items-center gap-1 rounded-xl border border-violet-500/35 bg-violet-500/12 px-2.5 py-1 text-[11px] font-medium text-violet-200 transition hover:border-violet-400/55 hover:bg-violet-500/22 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40 active:scale-[0.98]"
+            >
+              {chip.label}
+              <span aria-hidden className="text-violet-300/80">
+                ×
+              </span>
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => {
+              setFilter({
+                status: 'all',
+                favoritesOnly: undefined,
+                tool: undefined,
+                model: undefined,
+                minRating: undefined,
+                query: undefined,
+                semanticSearch: undefined,
+                reviewMode: undefined,
+                unreviewedOnly: undefined,
+                reviewAutoAdvance: undefined,
+                visionTagsOnly: undefined,
+                atRiskOnly: undefined,
+                mediaKind: 'all',
+                similarToEntryId: undefined,
+                focusEntryId: undefined,
+                derivativeOfEntryId: undefined,
+                derivedKind: undefined,
+              });
+              setProjectFilterId('');
+              setSort('queued-desc');
+            }}
+            className="ui-btn-ghost ui-btn-sm rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60 text-xs transition hover:border-violet-600/55 hover:bg-violet-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30 active:scale-[0.98]"
+          >
+            Clear all
+          </button>
+        </div>
+      ) : null}
 
       {lean ? (
         <div className="flex flex-wrap items-center gap-2">
@@ -415,6 +693,29 @@ export default function GalleryFiltersBar({
               </label>
             ) : null}
 
+            {models.length > 0 ? (
+              <label className="space-y-1.5">
+                <span className="type-caption text-[var(--text-muted)]">Model</span>
+                <select
+                  value={filter.model ?? ''}
+                  onChange={event =>
+                    setFilter({
+                      ...filter,
+                      model: event.target.value || undefined,
+                    })
+                  }
+                  className="ui-input block w-full px-3 py-(--input-padding-y) type-body"
+                >
+                  <option value="">All models</option>
+                  {models.map(model => (
+                    <option key={model} value={model}>
+                      {model}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+
             <label className="space-y-1.5">
               <span className="type-caption text-[var(--text-muted)]">Project</span>
               <select
@@ -449,50 +750,6 @@ export default function GalleryFiltersBar({
                 </select>
               </label>
             ) : null}
-          </div>
-
-          <div className="space-y-2 rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-subtle)] p-3">
-            <p className="type-caption text-[var(--text-muted)]">Saved views</p>
-            <div className="flex flex-wrap gap-2">
-              {savedViews.map(view => (
-                <span key={view.id} className="inline-flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => applySavedView(view)}
-                    className={`ui-chip rounded-xl border border-violet-500/45 bg-violet-900/20 backdrop-blur-xs transition hover:bg-violet-500/30 hover:border-violet-400/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30 text-violet-400`}
-                  >
-                    {view.name}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      deleteGallerySavedView(view.id);
-                      setSavedViews(loadGallerySavedViews());
-                    }}
-                    className={`rounded-xl px-1 text-xs border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60 transition hover:text-[var(--text-primary)] hover:border-rose-600/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30`}
-                    aria-label={`Delete saved view ${view.name}`}
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                type="text"
-                value={viewNameDraft}
-                onChange={event => setViewNameDraft(event.target.value)}
-                placeholder="Name this filter set…"
-                className="ui-input min-w-[12rem] flex-1 px-3 py-1.5 text-sm"
-              />
-              <button
-                type="button"
-                onClick={saveCurrentView}
-                className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60 backdrop-blur-xs transition hover:bg-violet-500/25 hover:border-violet-500/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30 text-violet-400`}
-              >
-                Save current view
-              </button>
-            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -615,6 +872,10 @@ export default function GalleryFiltersBar({
                     unreviewedOnly: undefined,
                     reviewAutoAdvance: undefined,
                     visionTagsOnly: undefined,
+                    atRiskOnly: undefined,
+                    model: undefined,
+                    minRating: undefined,
+                    tool: undefined,
                   })
                 }
               >

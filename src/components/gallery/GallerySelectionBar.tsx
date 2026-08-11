@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { ComfyGalleryEntry } from '@/lib/comfyui-gallery';
 import type { PromptProject } from '@/lib/prompt-projects';
 import type { ParamExperimentAxis } from '@/lib/param-experiment-queue';
-import { Button } from '@/components/ui/Button';
 import {
   canUpscaleGalleryEntry,
   galleryEntryAlreadyEnrichedForUpscale,
@@ -26,6 +25,7 @@ type GallerySelectionBarProps = {
   onAssignActiveProject: () => void;
   onAssignProject: (projectId: string) => void;
   onFavorite: (favorite: boolean) => void;
+  onRate: (rating: NonNullable<ComfyGalleryEntry['reviewRating']>) => void;
   onDelete: () => void;
   onExportSidecars: () => void;
   onDownloadImages: () => void;
@@ -333,6 +333,13 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
           ))}
           <MenuItem label="Favorite" onClick={() => props.onFavorite(true)} />
           <MenuItem label="Unfavorite" onClick={() => props.onFavorite(false)} />
+          {[5, 4, 3, 2, 1].map(rating => (
+            <MenuItem
+              key={rating}
+              label={`Rate ${rating}★`}
+              onClick={() => props.onRate(rating as NonNullable<ComfyGalleryEntry['reviewRating']>)}
+            />
+          ))}
         </ActionMenu>
 
         <button

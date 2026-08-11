@@ -49,6 +49,10 @@ export type ComfyGalleryFilter = {
   status?: ComfyGalleryJobStatus | 'all';
   favoritesOnly?: boolean;
   tool?: string;
+  /** Exact model id match. */
+  model?: string;
+  /** Keep entries with reviewRating >= this (1–5). */
+  minRating?: 1 | 2 | 3 | 4 | 5;
   query?: string;
   semanticSearch?: boolean;
   similarToEntryId?: string;
@@ -66,10 +70,12 @@ export type ComfyGalleryFilter = {
   reviewAutoAdvance?: boolean;
   /** Only entries with vision LLM tags. */
   visionTagsOnly?: boolean;
+  /** Cap hygiene: show unrated non-favorites most at risk of eviction. */
+  atRiskOnly?: boolean;
 };
 
 export type ComfyGallerySort =
-  'queued-desc' | 'queued-asc' | 'completed-desc' | 'tool-asc' | 'favorites-first';
+  'queued-desc' | 'queued-asc' | 'completed-desc' | 'tool-asc' | 'favorites-first' | 'rating-desc';
 
 export const GALLERY_PAGE_SIZE_OPTIONS = [12, 24, 48] as const;
 export const GALLERY_PAGE_SIZE_ALL = 'all' as const;
@@ -356,6 +362,21 @@ export function filterComfyGalleryEntries(
       idx += 1;
       continue;
     }
+    if (filter.model?.trim() && entry.model !== filter.model.trim()) {
+      idx += 1;
+      continue;
+    }
+    if (filter.minRating && (entry.reviewRating ?? 0) < filter.minRating) {
+      idx += 1;
+      continue;
+    }
+    if (filter.atRiskOnly) {
+      const keeper = Boolean(entry.favorite) || (entry.reviewRating ?? 0) >= 4;
+      if (keeper) {
+        idx += 1;
+        continue;
+      }
+    }
     if (filter.unreviewedOnly && entry.reviewRating) {
       idx += 1;
       continue;
@@ -454,6 +475,10 @@ export function sortGalleryEntries(
         (a, b) =>
           Number(Boolean(b.favorite)) - Number(Boolean(a.favorite)) || b.queuedAt - a.queuedAt
       );
+    case 'rating-desc':
+      return sorted.sort(
+        (a, b) => (b.reviewRating ?? 0) - (a.reviewRating ?? 0) || b.queuedAt - a.queuedAt
+      );
     case 'queued-desc':
     default:
       return sorted.sort((a, b) => b.queuedAt - a.queuedAt);
@@ -480,6 +505,7 @@ export function loadGalleryViewPreferences(): ComfyGalleryViewPreferences {
       'completed-desc',
       'tool-asc',
       'favorites-first',
+      'rating-desc',
     ];
     const sort = sortValues.includes(parsed.sort as ComfyGallerySort)
       ? (parsed.sort as ComfyGallerySort)
@@ -507,6 +533,10 @@ export function saveGalleryViewPreferences(preferences: ComfyGalleryViewPreferen
 
 export function uniqueGalleryTools(entries: ComfyGalleryEntry[]): string[] {
   return [...new Set(entries.map(entry => entry.tool).filter(Boolean) as string[])].sort();
+}
+
+export function uniqueGalleryModels(entries: ComfyGalleryEntry[]): string[] {
+  return [...new Set(entries.map(entry => entry.model).filter(Boolean) as string[])].sort();
 }
 
 export function addComfyGalleryEntry(
@@ -745,6 +775,27 @@ export function setComfyGalleryFavorites(ids: string[], favorite: boolean): void
   const idSet = new Set(ids);
   saveComfyGallery(
     loadComfyGallery().map(entry => (idSet.has(entry.id) ? { ...entry, favorite } : entry))
+  );
+}
+
+export function setComfyGalleryReviewRatings(
+  ids: string[],
+  reviewRating: ComfyGalleryEntry['reviewRating']
+): void {
+  if (ids.length === 0) {
+    return;
+  }
+  const idSet = new Set(ids);
+  saveComfyGallery(
+    loadComfyGallery().map(entry =>
+      idSet.has(entry.id)
+        ? {
+            ...entry,
+            reviewRating,
+            favorite: reviewRating === 5 ? true : entry.favorite,
+          }
+        : entry
+    )
   );
 }
 

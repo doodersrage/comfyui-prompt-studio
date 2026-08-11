@@ -1184,6 +1184,60 @@ describe("comfyui gallery outputs", () => {
     );
   });
 
+  it("filters and sorts gallery entries by model and rating", () => {
+    const entries = [
+      {
+        id: "high",
+        promptId: "a",
+        prompt: "rated",
+        model: "model-a",
+        comfyUrl: "http://127.0.0.1:8188",
+        status: "completed" as const,
+        queuedAt: 1,
+        reviewRating: 5 as const,
+        favorite: true,
+        images: [],
+      },
+      {
+        id: "mid",
+        promptId: "b",
+        prompt: "mid",
+        model: "model-b",
+        comfyUrl: "http://127.0.0.1:8188",
+        status: "completed" as const,
+        queuedAt: 2,
+        reviewRating: 3 as const,
+        images: [],
+      },
+      {
+        id: "risk",
+        promptId: "c",
+        prompt: "risk",
+        model: "model-a",
+        comfyUrl: "http://127.0.0.1:8188",
+        status: "completed" as const,
+        queuedAt: 3,
+        images: [],
+      },
+    ];
+    assert.deepEqual(
+      filterComfyGalleryEntries(entries, { model: "model-a" }).map((e) => e.id),
+      ["high", "risk"],
+    );
+    assert.deepEqual(
+      filterComfyGalleryEntries(entries, { minRating: 4 }).map((e) => e.id),
+      ["high"],
+    );
+    assert.deepEqual(
+      filterComfyGalleryEntries(entries, { atRiskOnly: true }).map((e) => e.id),
+      ["mid", "risk"],
+    );
+    assert.deepEqual(
+      sortGalleryEntries(entries, "rating-desc").map((e) => e.id),
+      ["high", "mid", "risk"],
+    );
+  });
+
   it("filters gallery entries by media kind", () => {
     const entries = [
       {

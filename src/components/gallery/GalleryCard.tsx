@@ -46,7 +46,7 @@ type GalleryCardProps = {
   selected?: boolean;
   reviewFocus?: boolean;
   cardRef?: React.Ref<HTMLElement>;
-  onToggleSelected?: () => void;
+  onToggleSelected?: (event?: { shiftKey?: boolean }) => void;
   previewUrl: string | null;
   imageUrls: string[];
   onRemove: () => void;
@@ -642,7 +642,11 @@ export default function GalleryCard({
                 <input
                   type="checkbox"
                   checked={selected ?? false}
-                  onChange={onToggleSelected}
+                  onClick={event => {
+                    event.preventDefault();
+                    onToggleSelected?.({ shiftKey: event.shiftKey });
+                  }}
+                  onChange={() => undefined}
                   aria-label="Select entry"
                   className="h-3.5 w-3.5 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
                 />
@@ -793,7 +797,11 @@ export default function GalleryCard({
             <input
               type="checkbox"
               checked={selected ?? false}
-              onChange={onToggleSelected}
+              onClick={event => {
+                event.preventDefault();
+                onToggleSelected?.({ shiftKey: event.shiftKey });
+              }}
+              onChange={() => undefined}
               aria-label="Select entry"
               className="h-3.5 w-3.5 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
             />

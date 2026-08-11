@@ -34,9 +34,10 @@ import GalleryReviewTouchBar from '@/components/gallery/GalleryReviewTouchBar';
 import GalleryPanelSkeleton from '@/components/gallery/GalleryPanelSkeleton';
 import GalleryPaginator from '@/components/gallery/GalleryPaginator';
 import StatusToastStrip from '@/components/ui/StatusToastStrip';
-import { assessGalleryCapWarning } from '@/lib/gallery-cap';
+import { assessGalleryCapWarning, GALLERY_CAP_KEEPER_MIN_RATING } from '@/lib/gallery-cap';
 import { galleryDerivedKindChipLabel, galleryDerivedKindLabel } from '@/lib/gallery-derived-kind';
 import { MAX_GALLERY_ENTRIES } from '@/lib/comfyui-gallery-storage-meta';
+import { applyGalleryUrlState, parseGalleryUrlState } from '@/lib/gallery-url-state';
 import { useGalleryReview } from '@/hooks/useGalleryReview';
 import { useGallerySelection } from '@/hooks/useGallerySelection';
 import { useGalleryCompareHandlers } from '@/hooks/useGalleryCompareHandlers';
@@ -47,7 +48,11 @@ import { type ParamExperimentAxis } from '@/lib/param-experiment-queue';
 import { useHeldMaxCount } from '@/hooks/useHeldMaxJobs';
 import { suggestRatingMutations } from '@/lib/rating-prompt-mutations';
 import { loadActiveProjectId, loadPromptProjects } from '@/lib/prompt-projects';
-import { downloadGalleryImage } from '@/lib/comfyui-gallery-export';
+import {
+  downloadGalleryImage,
+  downloadGalleryImagesSequential,
+  downloadGallerySidecarBundle,
+} from '@/lib/comfyui-gallery-export';
 import {
   buildGalleryLineageGroups,
   galleryLineageGroupingEnabled,
@@ -128,10 +133,12 @@ export default function ComfyUiGalleryPanel({
     filter,
     setFilter,
     tools,
+    models,
     removeEntry,
     removeEntries,
     toggleFavorite,
     setFavorites,
+    setReviewRatings,
     setProjectIds,
     clearAll,
     refreshPending,
@@ -143,25 +150,6 @@ export default function ComfyUiGalleryPanel({
     similarSearchLoading,
     embeddingSearchUnavailable,
   } = useComfyUiGallery();
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-    const params = new URLSearchParams(window.location.search);
-    const query = params.get('q');
-    const focus = params.get('focus');
-    const review = params.get('review');
-    if (!query?.trim() && !focus?.trim() && review !== '1') {
-      return;
-    }
-    setFilter(previous => ({
-      ...previous,
-      ...(query?.trim() ? { query: query.trim(), semanticSearch: true } : {}),
-      ...(focus?.trim() ? { focusEntryId: focus.trim() } : {}),
-      ...(review === '1' ? { reviewMode: true, unreviewedOnly: true } : {}),
-    }));
-  }, [setFilter]);
 
   useEffect(() => {
     if (!leanGallery) {
@@ -213,6 +201,7 @@ export default function ComfyUiGalleryPanel({
   const [projectFilterId, setProjectFilterId] = useState<string>('');
   const [projects] = useState(() => loadPromptProjects());
   const [density, setDensity] = useState<GalleryDensity>('comfortable');
+  const [galleryUrlReady, setGalleryUrlReady] = useState(false);
   const entriesRef = useRef(entries);
   const visibleEntriesRef = useRef<ComfyGalleryEntry[]>([]);
   const entryIdsWithDerivatives = useMemo(() => {
@@ -234,6 +223,7 @@ export default function ComfyUiGalleryPanel({
   const clearGalleryFilters = useCallback(() => {
     setFilter({ status: 'all' });
     setProjectFilterId('');
+    setSort('queued-desc');
     setPage(1);
   }, [setFilter]);
 
@@ -274,6 +264,43 @@ export default function ComfyUiGalleryPanel({
       setViewPrefsLoaded(true);
     });
   }, []);
+
+  useEffect(() => {
+    if (!viewPrefsLoaded || typeof window === 'undefined') {
+      return;
+    }
+    scheduleAfterCommit(() => {
+      const parsed = parseGalleryUrlState(new URLSearchParams(window.location.search));
+      const hasFilter = Object.keys(parsed.filter).length > 0;
+      if (hasFilter) {
+        setFilter(previous => ({
+          ...previous,
+          ...parsed.filter,
+          ...(parsed.filter.query?.trim() ? { semanticSearch: true } : {}),
+        }));
+      }
+      if (parsed.sort) {
+        setSort(parsed.sort);
+      }
+      if (parsed.projectFilterId !== undefined) {
+        setProjectFilterId(parsed.projectFilterId);
+      }
+      setGalleryUrlReady(true);
+    });
+  }, [viewPrefsLoaded, setFilter]);
+
+  useEffect(() => {
+    if (!galleryUrlReady || !showFilters || typeof window === 'undefined') {
+      return;
+    }
+    const url = new URL(window.location.href);
+    applyGalleryUrlState(url.searchParams, { filter, sort, projectFilterId });
+    const next = `${url.pathname}${url.search}${url.hash}`;
+    const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (next !== current) {
+      window.history.replaceState(null, '', next);
+    }
+  }, [filter, sort, projectFilterId, galleryUrlReady, showFilters]);
 
   useEffect(() => {
     const onWinners = () => setExperimentWinners(loadExperimentWinners());
@@ -416,7 +443,7 @@ export default function ComfyUiGalleryPanel({
   }, []);
 
   const retryFailedEntries = useCallback(
-    (targets: ComfyGalleryEntry[]) => {
+    (targets: ComfyGalleryEntry[], mode: 'same' | 'new' | 'exact' = 'same') => {
       const failed = targets.filter(entry => entry.status === 'error');
       if (failed.length === 0) {
         return;
@@ -425,18 +452,22 @@ export default function ComfyUiGalleryPanel({
       void import('@/lib/comfyui-requeue')
         .then(({ requeueComfyJobs }) =>
           requeueComfyJobs(
-            failed.map(entry => ({
-              prompt: entry.prompt,
-              negativePrompt: entry.negativePrompt,
-              tool: entry.tool,
-              model: entry.model,
-              queueParams: entry.queueParams,
-              workflowJson: entry.workflowJson,
-              newSeed: false,
-              exactGraph: Boolean(entry.hasStoredWorkflow || entry.workflowJson),
-              parentGalleryEntryId: entry.id,
-              derivedKind: 'variation' as const,
-            })),
+            failed.map(entry => {
+              const canExact = Boolean(entry.hasStoredWorkflow || entry.workflowJson);
+              const exactGraph = mode === 'exact' && canExact;
+              return {
+                prompt: entry.prompt,
+                negativePrompt: entry.negativePrompt,
+                tool: entry.tool,
+                model: entry.model,
+                queueParams: entry.queueParams,
+                workflowJson: entry.workflowJson,
+                newSeed: mode === 'new',
+                exactGraph,
+                parentGalleryEntryId: entry.id,
+                derivedKind: 'variation' as const,
+              };
+            }),
             setRequeueStatus
           )
         )
@@ -450,6 +481,21 @@ export default function ComfyUiGalleryPanel({
     },
     [setRequeueStatus]
   );
+
+  const exportCapKeepers = useCallback(() => {
+    const keepers = entries.filter(
+      entry => Boolean(entry.favorite) || (entry.reviewRating ?? 0) >= GALLERY_CAP_KEEPER_MIN_RATING
+    );
+    if (keepers.length === 0) {
+      setRequeueStatus('No keepers yet — favorite or rate ≥4★ first.');
+      return;
+    }
+    downloadGallerySidecarBundle(keepers);
+    setRequeueStatus(`Exporting ${keepers.length} keeper image(s)…`);
+    void downloadGalleryImagesSequential(keepers).then(count => {
+      setRequeueStatus(`Exported ${count} keeper image(s) + sidecars.`);
+    });
+  }, [entries]);
 
   // Full filtered/sorted set — not just the current page — so slideshow/nav spans the view.
   const lightboxEntries = sortedSource;
@@ -929,6 +975,7 @@ export default function ComfyUiGalleryPanel({
     setProjectIds,
     removeEntries,
     setFavorites,
+    setReviewRatings,
     paramAxis,
     filter,
     setLoraExportScope,
@@ -1100,15 +1147,39 @@ export default function ComfyUiGalleryPanel({
       ) : null}
 
       {galleryCapWarning.message ? (
-        <p
-          className={`rounded-lg border px-3 py-2 text-xs ${
+        <div
+          data-testid="gallery-cap-warning"
+          className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border px-3 py-2 text-xs ${
             galleryCapWarning.level === 'urgent'
               ? 'border-rose-500/30 bg-rose-500/10 text-rose-100'
               : 'border-amber-500/30 bg-amber-500/10 text-amber-100'
           }`}
         >
-          {galleryCapWarning.message}
-        </p>
+          <p className="min-w-0 flex-1">{galleryCapWarning.message}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                setFilter(previous => ({
+                  ...previous,
+                  atRiskOnly: true,
+                  favoritesOnly: undefined,
+                  minRating: undefined,
+                }))
+              }
+              className="rounded-xl border border-current/30 bg-black/10 px-2.5 py-1 text-[11px] font-medium transition hover:bg-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40 active:scale-[0.98]"
+            >
+              Show at-risk
+            </button>
+            <button
+              type="button"
+              onClick={exportCapKeepers}
+              className="rounded-xl border border-current/30 bg-black/10 px-2.5 py-1 text-[11px] font-medium transition hover:bg-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40 active:scale-[0.98]"
+            >
+              Export keepers
+            </button>
+          </div>
+        </div>
       ) : null}
 
       {showFilters && entries.length > 0 ? (
@@ -1131,6 +1202,7 @@ export default function ComfyUiGalleryPanel({
           filter={filter}
           setFilter={setFilter}
           tools={tools}
+          models={models}
           projects={projects}
           projectFilterId={projectFilterId}
           setProjectFilterId={setProjectFilterId}
@@ -1162,12 +1234,19 @@ export default function ComfyUiGalleryPanel({
         <GalleryFailedRecoveryBanner
           failedEntries={visibleEntries.filter(entry => entry.status === 'error')}
           selectedFailedCount={selectedEntries.filter(entry => entry.status === 'error').length}
-          onRetrySelected={() =>
-            retryFailedEntries(selectedEntries.filter(entry => entry.status === 'error'))
+          onRetrySelected={mode =>
+            retryFailedEntries(
+              selectedEntries.filter(entry => entry.status === 'error'),
+              mode
+            )
           }
-          onRetryAllVisible={() =>
-            retryFailedEntries(visibleEntries.filter(entry => entry.status === 'error'))
+          onRetryAllVisible={mode =>
+            retryFailedEntries(
+              visibleEntries.filter(entry => entry.status === 'error'),
+              mode
+            )
           }
+          onRetryCluster={(clusterEntries, mode) => retryFailedEntries(clusterEntries, mode)}
           onClearFailedFilter={() => setFilter(previous => ({ ...previous, status: 'all' }))}
         />
       ) : null}
@@ -1327,6 +1406,7 @@ export default function ComfyUiGalleryPanel({
               clearExperimentWinner(groupId);
             } else {
               markExperimentWinner(groupId, entryId);
+              setReviewRatings([entryId], 5);
             }
             setExperimentWinners(loadExperimentWinners());
           }}

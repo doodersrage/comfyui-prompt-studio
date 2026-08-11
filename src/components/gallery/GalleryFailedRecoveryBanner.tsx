@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import type { ComfyGalleryEntry } from '@/lib/comfyui-gallery';
 import {
@@ -10,22 +10,56 @@ import {
 } from '@/lib/last-failed-queue';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 
+export type GalleryFailedRetryMode = 'same' | 'new' | 'exact';
+
+type FailedCluster = {
+  key: string;
+  label: string;
+  entries: ComfyGalleryEntry[];
+};
+
 type GalleryFailedRecoveryBannerProps = {
   failedEntries: ComfyGalleryEntry[];
-  onRetrySelected: () => void;
-  onRetryAllVisible: () => void;
+  onRetrySelected: (mode: GalleryFailedRetryMode) => void;
+  onRetryAllVisible: (mode: GalleryFailedRetryMode) => void;
+  onRetryCluster: (entries: ComfyGalleryEntry[], mode: GalleryFailedRetryMode) => void;
   onClearFailedFilter: () => void;
   selectedFailedCount: number;
 };
+
+function clusterFailedEntries(entries: ComfyGalleryEntry[]): FailedCluster[] {
+  const map = new Map<string, ComfyGalleryEntry[]>();
+  for (const entry of entries) {
+    const raw = entry.statusMessage?.trim() || 'Unknown error';
+    const label = raw.length > 96 ? `${raw.slice(0, 96)}…` : raw;
+    const key = label.toLowerCase();
+    const bucket = map.get(key);
+    if (bucket) {
+      bucket.push(entry);
+    } else {
+      map.set(key, [entry]);
+    }
+  }
+  return [...map.entries()]
+    .map(([key, clusterEntries]) => ({
+      key,
+      label: clusterEntries[0]?.statusMessage?.trim() || 'Unknown error',
+      entries: clusterEntries,
+    }))
+    .sort((a, b) => b.entries.length - a.entries.length);
+}
 
 export default function GalleryFailedRecoveryBanner({
   failedEntries,
   onRetrySelected,
   onRetryAllVisible,
+  onRetryCluster,
   onClearFailedFilter,
   selectedFailedCount,
 }: GalleryFailedRecoveryBannerProps) {
   const [lastFailed, setLastFailed] = useState<LastFailedQueuePayload | null>(null);
+  const [retryMode, setRetryMode] = useState<GalleryFailedRetryMode>('same');
+  const clusters = useMemo(() => clusterFailedEntries(failedEntries), [failedEntries]);
 
   useEffect(() => {
     scheduleAfterCommit(() => {
@@ -38,42 +72,103 @@ export default function GalleryFailedRecoveryBanner({
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-xl)] border border-rose-500/25 bg-gradient-to-br from-rose-500/12 via-[var(--bg-elevated)]/70 to-transparent px-4 py-3 shadow-[inset_0_1px_0_rgb(255_255_255_/0.03)]">
-      <div className="min-w-0 space-y-0.5">
-        <p className="text-sm font-medium text-rose-100">
-          {failedEntries.length > 0
-            ? `${failedEntries.length} failed job${failedEntries.length === 1 ? '' : 's'}`
-            : 'Last failed queue ready'}
-        </p>
-        <p className="type-caption text-[var(--text-muted)]">
-          Retry with the same seed, a new seed, or exact graph when stored.
-        </p>
+    <div
+      data-testid="gallery-failed-recovery"
+      className="space-y-3 rounded-[var(--radius-xl)] border border-rose-500/25 bg-gradient-to-br from-rose-500/12 via-[var(--bg-elevated)]/70 to-transparent px-4 py-3 shadow-[inset_0_1px_0_rgb(255_255_255_/0.03)]"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0 space-y-0.5">
+          <p className="text-sm font-medium text-rose-100">
+            {failedEntries.length > 0
+              ? `${failedEntries.length} failed job${failedEntries.length === 1 ? '' : 's'}`
+              : 'Last failed queue ready'}
+            {clusters.length > 1 ? ` · ${clusters.length} error groups` : ''}
+          </p>
+          <p className="type-caption text-[var(--text-muted)]">
+            Retry with the same seed, a new seed, or exact graph when stored.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-1.5 type-caption text-rose-100/80">
+            Mode
+            <select
+              value={retryMode}
+              onChange={event => setRetryMode(event.target.value as GalleryFailedRetryMode)}
+              data-testid="gallery-failed-retry-mode"
+              className="ui-input px-2 py-1 text-[11px]"
+            >
+              <option value="same">Same seed</option>
+              <option value="new">New seed</option>
+              <option value="exact">Exact graph</option>
+            </select>
+          </label>
+          {selectedFailedCount > 0 ? (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => onRetrySelected(retryMode)}
+            >
+              Retry selected ({selectedFailedCount})
+            </Button>
+          ) : null}
+          {failedEntries.length > 0 ? (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => onRetryAllVisible(retryMode)}
+            >
+              Retry all visible
+            </Button>
+          ) : null}
+          {lastFailed ? (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => requestRetryLastFailedQueue()}
+            >
+              Retry last failed
+            </Button>
+          ) : null}
+          <Button type="button" variant="ghost" size="sm" onClick={onClearFailedFilter}>
+            Clear filter
+          </Button>
+        </div>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
-        {selectedFailedCount > 0 ? (
-          <Button type="button" variant="secondary" size="sm" onClick={onRetrySelected}>
-            Retry selected ({selectedFailedCount})
-          </Button>
-        ) : null}
-        {failedEntries.length > 0 ? (
-          <Button type="button" variant="secondary" size="sm" onClick={onRetryAllVisible}>
-            Retry all visible
-          </Button>
-        ) : null}
-        {lastFailed ? (
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => requestRetryLastFailedQueue()}
-          >
-            Retry last failed
-          </Button>
-        ) : null}
-        <Button type="button" variant="ghost" size="sm" onClick={onClearFailedFilter}>
-          Clear filter
-        </Button>
-      </div>
+
+      {clusters.length > 0 ? (
+        <div className="flex flex-col gap-2">
+          {clusters.slice(0, 6).map(cluster => (
+            <div
+              key={cluster.key}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-rose-500/15 bg-[var(--bg-base)]/35 px-3 py-2"
+            >
+              <p
+                className="min-w-0 flex-1 truncate text-[11px] text-rose-50/90"
+                title={cluster.label}
+              >
+                <span className="mr-2 font-medium text-rose-100">{cluster.entries.length}×</span>
+                {cluster.label.length > 120 ? `${cluster.label.slice(0, 120)}…` : cluster.label}
+              </p>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => onRetryCluster(cluster.entries, retryMode)}
+              >
+                Retry group
+              </Button>
+            </div>
+          ))}
+          {clusters.length > 6 ? (
+            <p className="type-caption text-[var(--text-muted)]">
+              +{clusters.length - 6} more error group{clusters.length - 6 === 1 ? '' : 's'}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

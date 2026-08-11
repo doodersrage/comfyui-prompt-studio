@@ -19,7 +19,7 @@ import {
 } from '@/lib/gallery-entry-actions';
 
 export type GalleryCardActions = {
-  toggleSelected: (id: string) => void;
+  toggleSelected: (id: string, options?: { shift?: boolean }) => void;
   remove: (id: string) => void;
   toggleFavorite: (id: string) => void;
   requeue: (
@@ -83,7 +83,8 @@ function GalleryCardItem({
   pickLabel,
 }: GalleryCardItemProps) {
   const onToggleSelected = useCallback(
-    () => actionsRef.current.toggleSelected(entry.id),
+    (event?: { shiftKey?: boolean }) =>
+      actionsRef.current.toggleSelected(entry.id, { shift: Boolean(event?.shiftKey) }),
     [actionsRef, entry.id]
   );
   const onRemove = useCallback(() => actionsRef.current.remove(entry.id), [actionsRef, entry.id]);

@@ -90,7 +90,7 @@ export type GalleryBulkExperimentHandlers = Omit<
 
 export type UseGalleryPanelActionsInput = {
   entriesRef: MutableRefObject<ComfyGalleryEntry[]>;
-  toggleSelected: (id: string) => void;
+  toggleSelected: (id: string, options?: { shift?: boolean }) => void;
   removeEntry: (id: string) => void;
   toggleFavorite: (id: string) => void;
   setRequeueStatus: (status: string | null) => void;
@@ -111,6 +111,7 @@ export type UseGalleryPanelActionsInput = {
   setProjectIds: (ids: string[], projectId?: string) => void;
   removeEntries: (ids: string[]) => void;
   setFavorites: (ids: string[], favorite: boolean) => void;
+  setReviewRatings: (ids: string[], rating: ComfyGalleryEntry['reviewRating']) => void;
   paramAxis: ParamExperimentAxis;
   filter: ComfyGalleryFilter;
   setLoraExportScope: (scope: 'favorites' | 'selected') => void;
@@ -137,6 +138,7 @@ export function useGalleryPanelActions({
   setProjectIds,
   removeEntries,
   setFavorites,
+  setReviewRatings,
   paramAxis,
   filter,
   setLoraExportScope,
@@ -541,6 +543,10 @@ export function useGalleryPanelActions({
         setRequeueStatus(`Assigned ${selectedIds.length} entries.`);
       },
       onFavorite: favorite => setFavorites(selectedIds, favorite),
+      onRate: rating => {
+        setReviewRatings(selectedIds, rating);
+        setRequeueStatus(`Rated ${selectedIds.length} selected ${rating}★.`);
+      },
       onDelete: () => {
         const count = selectedIds.length;
         if (
@@ -875,6 +881,7 @@ export function useGalleryPanelActions({
       selectedEntries,
       selectedIds,
       setFavorites,
+      setReviewRatings,
       setFilter,
       setLoraExportOpen,
       setLoraExportScope,

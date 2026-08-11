@@ -18,6 +18,7 @@ import {
   galleryEntrySupportsSoftSecondPass,
   galleryEntrySupportsUpscale,
 } from '@/lib/gallery-entry-actions';
+import { buildGalleryParamDiff } from '@/lib/gallery-param-diff';
 
 export type GalleryComparePanelProps = {
   entries: ComfyGalleryEntry[];
@@ -100,6 +101,9 @@ export default function GalleryComparePanel({
     const caps = entryEnhanceCapabilities(winner);
     return caps.isRapid ? caps.canMoireMax : caps.canUpscaleMax;
   }, [compareWinnerId, entries]);
+
+  const paramDiff = useMemo(() => buildGalleryParamDiff(entries), [entries]);
+  const differingParams = useMemo(() => paramDiff.filter(row => row.differs), [paramDiff]);
 
   if (entries.length === 0) {
     return null;
@@ -197,6 +201,43 @@ export default function GalleryComparePanel({
         </ul>
       ) : null}
       {status ? <p className="text-xs text-violet-300/90">{status}</p> : null}
+      {differingParams.length > 0 ? (
+        <div
+          data-testid="gallery-compare-param-diff"
+          className="overflow-x-auto rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-base)]/40"
+        >
+          <table className="min-w-full text-left text-[11px]">
+            <thead>
+              <tr className="border-b border-[var(--border-subtle)] text-[var(--text-muted)]">
+                <th className="px-3 py-2 font-medium">Param</th>
+                {entries.map((entry, index) => (
+                  <th key={entry.id} className="px-3 py-2 font-medium">
+                    #{index + 1}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {differingParams.map(row => (
+                <tr
+                  key={row.key}
+                  className="border-b border-[var(--border-subtle)]/70 last:border-0"
+                >
+                  <td className="px-3 py-1.5 text-[var(--text-secondary)]">{row.label}</td>
+                  {row.values.map((value, index) => (
+                    <td
+                      key={`${row.key}-${entries[index]?.id ?? index}`}
+                      className="px-3 py-1.5 font-medium text-[var(--accent-text)]"
+                    >
+                      {value}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {entries.map(entry => {
           const url = galleryEntryThumbUrls(entry)[0] ?? null;
@@ -244,6 +285,8 @@ export default function GalleryComparePanel({
               )}
               <p className="text-[11px] text-[var(--text-muted)]">
                 {entry.model} · seed {entry.queueParams?.seed ?? '?'}
+                {entry.queueParams?.cfg != null ? ` · cfg ${entry.queueParams.cfg}` : ''}
+                {entry.queueParams?.steps != null ? ` · ${entry.queueParams.steps} steps` : ''}
                 {entry.reviewRating ? ` · ${entry.reviewRating}★` : ''}
               </p>
               <pre className="max-h-24 overflow-auto whitespace-pre-wrap text-xs text-[var(--text-secondary)]">

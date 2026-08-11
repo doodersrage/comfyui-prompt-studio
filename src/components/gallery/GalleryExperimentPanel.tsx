@@ -19,6 +19,7 @@ export type GalleryExperimentPanelProps = {
   onAssignActiveProject: () => void;
   onAssignProject: (projectId: string) => void;
   onFavorite: (favorite: boolean) => void;
+  onRate: (rating: NonNullable<ComfyGalleryEntry['reviewRating']>) => void;
   onDelete: () => void;
   onExportSidecars: () => void;
   onDownloadImages: () => void;

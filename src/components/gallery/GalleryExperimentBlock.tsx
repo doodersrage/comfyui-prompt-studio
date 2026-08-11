@@ -1,7 +1,8 @@
 'use client';
 
-import type { CSSProperties, ReactNode } from 'react';
+import { useMemo, type CSSProperties, type ReactNode } from 'react';
 import type { ComfyGalleryEntry, GalleryLayoutMode } from '@/lib/comfyui-gallery';
+import { formatExperimentParamDiffChips } from '@/lib/gallery-param-diff';
 import { Button } from '@/components/ui/Button';
 
 type GalleryExperimentBlockProps = {
@@ -40,6 +41,7 @@ export default function GalleryExperimentBlock({
       : undefined;
   const collapsedPreview = entries.find(entry => entry.id === winnerEntryId) ?? entries[0];
   const shown = collapsed ? (collapsedPreview ? [collapsedPreview] : []) : entries;
+  const paramDiffChips = useMemo(() => formatExperimentParamDiffChips(entries), [entries]);
 
   return (
     <div
@@ -50,7 +52,7 @@ export default function GalleryExperimentBlock({
       }
     >
       <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-        <div className="min-w-0 space-y-0.5">
+        <div className="min-w-0 space-y-1">
           <p className="text-[10px] font-medium uppercase tracking-wide text-sky-200/85">
             Experiment · {entries.length} variants
             {winnerEntryId ? ' · crowned' : ''}
@@ -58,6 +60,18 @@ export default function GalleryExperimentBlock({
           <p className="truncate text-xs text-[var(--text-secondary)]" title={label}>
             {label}
           </p>
+          {paramDiffChips.length > 0 ? (
+            <div data-testid="gallery-experiment-param-diff" className="flex flex-wrap gap-1.5">
+              {paramDiffChips.map(chip => (
+                <span
+                  key={chip}
+                  className="rounded-lg border border-sky-500/25 bg-sky-500/10 px-2 py-0.5 text-[10px] text-sky-100/90"
+                >
+                  {chip}
+                </span>
+              ))}
+            </div>
+          ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
           {onCompare ? (

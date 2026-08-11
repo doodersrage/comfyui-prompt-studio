@@ -15,10 +15,12 @@ import {
   removeComfyGalleryEntry,
   setComfyGalleryFavorites,
   setComfyGalleryProjectIds,
+  setComfyGalleryReviewRatings,
   setGalleryReviewRating,
   toggleComfyGalleryFavorite,
   type ComfyGalleryEntry,
   type ComfyGalleryFilter,
+  uniqueGalleryModels,
   uniqueGalleryTools,
 } from '@/lib/comfyui-gallery';
 import { primeGalleryCacheSync } from '@/lib/gallery-db-store';
@@ -136,6 +138,9 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
     filter.semanticSearch,
     filter.status,
     filter.tool,
+    filter.model,
+    filter.minRating,
+    filter.atRiskOnly,
     filter.favoritesOnly,
     filter.projectId,
     filter.unreviewedOnly,
@@ -221,6 +226,7 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
   }, [entries, filter, embeddingRankIds, similarRankIds]);
 
   const tools = useMemo(() => uniqueGalleryTools(entries), [entries]);
+  const models = useMemo(() => uniqueGalleryModels(entries), [entries]);
 
   const removeEntry = useCallback(
     (id: string) => {
@@ -249,6 +255,14 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
   const setFavorites = useCallback(
     (ids: string[], favorite: boolean) => {
       setComfyGalleryFavorites(ids, favorite);
+      refresh();
+    },
+    [refresh]
+  );
+
+  const setReviewRatings = useCallback(
+    (ids: string[], rating: ComfyGalleryEntry['reviewRating']) => {
+      setComfyGalleryReviewRatings(ids, rating);
       refresh();
     },
     [refresh]
@@ -294,11 +308,13 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
     filter,
     setFilter,
     tools,
+    models,
     refresh,
     removeEntry,
     removeEntries,
     toggleFavorite,
     setFavorites,
+    setReviewRatings,
     setProjectIds,
     clearAll,
     refreshPending,
