@@ -4,11 +4,16 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { ToolSection } from '@/components/ui/ToolPageShell';
 import { Button } from '@/components/ui/Button';
+import ImageLightbox, { type ImageLightboxState } from '@/components/ui/ImageLightbox';
 import {
+  buildGalleryLightboxPlaylist,
   galleryEntryThumbUrls,
   loadComfyGallery,
+  resolveGalleryLightboxOpenIndex,
   COMFYUI_GALLERY_UPDATED_EVENT,
+  type ComfyGalleryEntry,
 } from '@/lib/comfyui-gallery';
+import { downloadGalleryImage } from '@/lib/comfyui-gallery-export';
 import type { ExperimentGroup } from '@/lib/experiment-groups';
 import {
   EXPERIMENT_WINNERS_UPDATED_EVENT,
@@ -34,6 +39,8 @@ export default function ExperimentDashboardPanel() {
   const [winners, setWinners] = useState(loadExperimentWinners);
   const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
   const [visionRankingGroupId, setVisionRankingGroupId] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<ImageLightboxState | null>(null);
+  const [lightboxEntries, setLightboxEntries] = useState<ComfyGalleryEntry[]>([]);
 
   async function refresh() {
     setLoading(true);
@@ -71,6 +78,20 @@ export default function ExperimentDashboardPanel() {
     [expandedGroupId, groups]
   );
   const useVirtual = shouldVirtualizeExperimentList(groups.length);
+
+  function openPreview(group: ExperimentGroup, entryId: string) {
+    const playlist = buildGalleryLightboxPlaylist(group.entries);
+    if (playlist.images.length === 0) {
+      return;
+    }
+    const index = resolveGalleryLightboxOpenIndex(group.entries, entryId, 0);
+    setLightboxEntries(group.entries);
+    setLightbox({
+      ...playlist,
+      index,
+      title: playlist.titles[index],
+    });
+  }
 
   function renderGroup(group: ExperimentGroup) {
     const winner = winners[group.id];
@@ -132,14 +153,21 @@ export default function ExperimentDashboardPanel() {
                 }`}
               >
                 {thumb ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={thumb}
-                    alt=""
-                    loading="lazy"
-                    decoding="async"
-                    className="aspect-square w-full object-cover"
-                  />
+                  <button
+                    type="button"
+                    onClick={() => openPreview(group, entry.id)}
+                    className="block w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+                    aria-label="Open preview"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={thumb}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      className="aspect-square w-full object-cover transition hover:opacity-95"
+                    />
+                  </button>
                 ) : (
                   <div className="flex aspect-square items-center justify-center text-xs text-[var(--text-muted)]">
                     No preview
@@ -257,6 +285,28 @@ export default function ExperimentDashboardPanel() {
       title="Experiment dashboard"
       description="Groups gallery outputs by shared prompt text and tracks seed / CFG / steps variants. Crown a winner, compare outputs, or re-queue the group."
     >
+      <ImageLightbox
+        state={lightbox}
+        onClose={() => {
+          setLightbox(null);
+          setLightboxEntries([]);
+        }}
+        onIndexChange={index =>
+          setLightbox(previous =>
+            previous
+              ? { ...previous, index, title: previous.titles?.[index] ?? previous.title }
+              : previous
+          )
+        }
+        onDownloadImage={async displayIndex => {
+          const { resolveGalleryLightboxEntry } = await import('@/lib/comfyui-gallery');
+          const resolved = resolveGalleryLightboxEntry(lightboxEntries, displayIndex);
+          if (!resolved) {
+            return;
+          }
+          await downloadGalleryImage(resolved.entry, resolved.imageIndex);
+        }}
+      />
       <div className="flex flex-wrap gap-2">
         <Button variant="secondary" loading={loading} onClick={() => void refresh()}>
           Refresh experiments

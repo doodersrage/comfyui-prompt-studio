@@ -126,6 +126,11 @@ export function startImproveFromGalleryEntry(
   window.location.href = galleryImprovePath();
 }
 
+export function startComposeFromGalleryEntry(entry: ComfyGalleryEntry): void {
+  saveGalleryHandoff(buildGalleryHandoff(entry, 'compose'));
+  window.location.href = galleryHandoffPath('compose');
+}
+
 export function startPromptEditorFromResult(input: {
   prompt: string;
   negativePrompt?: string;

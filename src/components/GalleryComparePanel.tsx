@@ -35,6 +35,8 @@ export type GalleryComparePanelProps = {
   onMoireClean?: (entry: ComfyGalleryEntry, qualityProfile: 'final' | 'max') => void;
   onRefine?: (entry: ComfyGalleryEntry) => void;
   onSoftSecondPass?: (entry: ComfyGalleryEntry) => void;
+  /** Open the shared image lightbox for a compare entry. */
+  onOpenPreview?: (entry: ComfyGalleryEntry) => void;
   status?: string | null;
 };
 
@@ -76,6 +78,7 @@ export default function GalleryComparePanel({
   onMoireClean,
   onRefine,
   onSoftSecondPass,
+  onOpenPreview,
   status,
 }: GalleryComparePanelProps) {
   const [tournament, setTournament] = useState(false);
@@ -208,14 +211,32 @@ export default function GalleryComparePanel({
               }`}
             >
               {url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={url}
-                  alt=""
-                  loading="lazy"
-                  decoding="async"
-                  className="aspect-square w-full rounded object-cover"
-                />
+                onOpenPreview ? (
+                  <button
+                    type="button"
+                    onClick={() => onOpenPreview(entry)}
+                    className="block w-full overflow-hidden rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+                    aria-label="Open preview"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={url}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      className="aspect-square w-full object-cover transition hover:opacity-95"
+                    />
+                  </button>
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={url}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    className="aspect-square w-full rounded object-cover"
+                  />
+                )
               ) : (
                 <div className="flex aspect-square items-center justify-center rounded bg-[var(--bg-muted)] text-xs text-[var(--text-muted)]">
                   No image

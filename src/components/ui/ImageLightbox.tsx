@@ -1,6 +1,15 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+  type TouchEvent as ReactTouchEvent,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/Button';
 import {
@@ -47,6 +56,52 @@ export type ImageLightboxSlideshowOptions = {
   onFullscreenChange?: (fullscreen: boolean) => void;
 };
 
+export type ImageLightboxSlideMeta = {
+  model?: string;
+  seed?: string;
+  cfg?: string;
+  steps?: string;
+  width?: string;
+  height?: string;
+  tool?: string;
+  prompt?: string;
+  negativePrompt?: string;
+  derivedKind?: string;
+};
+
+/** Per-slide review / iterate actions for the current lightbox index. */
+export type ImageLightboxSlideChrome = {
+  rating?: 1 | 2 | 3 | 4 | 5 | null;
+  favorite?: boolean;
+  onRate?: (rating: 1 | 2 | 3 | 4 | 5) => void;
+  onToggleFavorite?: () => void;
+  onImprove?: () => void;
+  onCompose?: () => void;
+  onInpaint?: () => void;
+  onExactRequeue?: () => void;
+  onRequeue?: () => void;
+  showImprove?: boolean;
+  showCompose?: boolean;
+  showInpaint?: boolean;
+  showExact?: boolean;
+  showRequeue?: boolean;
+  /** Seed / model / prompt details for the Details (M) panel. */
+  meta?: ImageLightboxSlideMeta | null;
+  onCopyPrompt?: () => void;
+  onCopyNegative?: () => void;
+  onAddToCompare?: () => void;
+  compareSelected?: boolean;
+  compareCount?: number;
+  onOpenCompare?: () => void;
+  onRemove?: () => void;
+  onShowParent?: () => void;
+  onShowDerivatives?: () => void;
+  onJumpToSibling?: () => void;
+  hasParent?: boolean;
+  hasDerivatives?: boolean;
+  hasSibling?: boolean;
+};
+
 type ImageLightboxProps = {
   state: ImageLightboxState | null;
   onClose: () => void;
@@ -54,6 +109,8 @@ type ImageLightboxProps = {
   /** Optional per-slide download trigger. */
   onDownloadImage?: (index: number) => Promise<void>;
   slideshow?: ImageLightboxSlideshowOptions;
+  /** Review / iterate chrome for the active slide. */
+  slideChrome?: ImageLightboxSlideChrome | null;
 };
 
 function resolveSlideDirection(
@@ -108,6 +165,7 @@ export default function ImageLightbox({
   onIndexChange,
   onDownloadImage,
   slideshow,
+  slideChrome = null,
 }: ImageLightboxProps) {
   const [mounted, setMounted] = useState(false);
   const [displayIndex, setDisplayIndex] = useState(0);
@@ -115,10 +173,28 @@ export default function ImageLightbox({
   const [slideDirection, setSlideDirection] = useState<1 | -1>(1);
   const [titleAnimating, setTitleAnimating] = useState(false);
   const [currentImageLoaded, setCurrentImageLoaded] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState(false);
+  const [metaOpen, setMetaOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [copyFlash, setCopyFlash] = useState<string | null>(null);
+  const dragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+    moved: boolean;
+    mode: 'pan' | 'swipe';
+  } | null>(null);
   const playlistKeyRef = useRef('');
   const containerRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const zoomRef = useRef(1);
+  const touchPinchRef = useRef<{ distance: number; zoom: number } | null>(null);
   const open = Boolean(state && state.images.length > 0);
-  const images = state?.images ?? [];
+  const images = useMemo(() => state?.images ?? [], [state?.images]);
   const index = state?.index ?? 0;
   const transition = slideshow?.transition ?? 'slide';
   const transitionMs = resolveGallerySlideshowTransitionMs(transition);
@@ -171,12 +247,52 @@ export default function ImageLightbox({
     enterFullscreenPresentation();
   }, [enterFullscreenPresentation, exitFullscreenPresentation, isFullscreen]);
 
-  const goToIndex = (nextIndex: number, manual = false) => {
-    if (manual) {
-      pauseSlideshow();
+  const resetZoom = useCallback(() => {
+    setZoom(1);
+    zoomRef.current = 1;
+    setPan({ x: 0, y: 0 });
+    setDragging(false);
+    dragRef.current = null;
+  }, []);
+
+  const applyZoom = useCallback((next: number) => {
+    const clamped = Math.min(5, Math.max(1, next));
+    zoomRef.current = clamped;
+    setZoom(clamped);
+    if (clamped <= 1) {
+      setPan({ x: 0, y: 0 });
     }
-    onIndexChange(nextIndex);
-  };
+  }, []);
+
+  const toggleZoom = useCallback(() => {
+    setZoom(previous => {
+      if (previous > 1) {
+        setPan({ x: 0, y: 0 });
+        zoomRef.current = 1;
+        return 1;
+      }
+      zoomRef.current = 2;
+      return 2;
+    });
+  }, []);
+
+  const flashCopy = useCallback((label: string) => {
+    setCopyFlash(label);
+    window.setTimeout(() => {
+      setCopyFlash(previous => (previous === label ? null : previous));
+    }, 1400);
+  }, []);
+
+  const goToIndex = useCallback(
+    (nextIndex: number, manual = false) => {
+      if (manual && slideshow?.playing) {
+        slideshow.onPlayingChange(false);
+      }
+      resetZoom();
+      onIndexChange(nextIndex);
+    },
+    [onIndexChange, resetZoom, slideshow]
+  );
 
   useEffect(() => {
     scheduleAfterCommit(() => {
@@ -249,12 +365,50 @@ export default function ImageLightbox({
     document.body.style.overflow = 'hidden';
 
     const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
       if (event.key === 'Escape') {
+        if (helpOpen) {
+          event.preventDefault();
+          setHelpOpen(false);
+          return;
+        }
+        if (metaOpen) {
+          event.preventDefault();
+          setMetaOpen(false);
+          return;
+        }
+        if (zoom > 1) {
+          event.preventDefault();
+          resetZoom();
+          return;
+        }
         if (isFullscreen) {
           exitFullscreenPresentation();
           return;
         }
         onClose();
+        return;
+      }
+
+      if (event.key === '?' || (event.shiftKey && event.key === '/')) {
+        event.preventDefault();
+        setHelpOpen(previous => !previous);
+        return;
+      }
+
+      if ((event.key === 'm' || event.key === 'M') && slideChrome?.meta) {
+        event.preventDefault();
+        setMetaOpen(previous => !previous);
         return;
       }
 
@@ -264,9 +418,97 @@ export default function ImageLightbox({
         return;
       }
 
-      if (slideshowEnabled && (event.key === 'f' || event.key === 'F')) {
+      if (slideshowEnabled && (event.key === 'f' || event.key === 'F') && !event.shiftKey) {
         event.preventDefault();
         toggleFullscreenPresentation();
+        return;
+      }
+
+      if ((event.key === 'd' || event.key === 'D') && onDownloadImage) {
+        event.preventDefault();
+        void onDownloadImage(index);
+        return;
+      }
+
+      if (
+        (event.key === 'z' || event.key === 'Z') &&
+        (state?.mediaKinds?.[index] ?? 'image') !== 'video'
+      ) {
+        event.preventDefault();
+        toggleZoom();
+        return;
+      }
+
+      if (
+        (event.key === 'b' ||
+          event.key === 'B' ||
+          (event.shiftKey && (event.key === 'f' || event.key === 'F'))) &&
+        slideChrome?.onToggleFavorite
+      ) {
+        event.preventDefault();
+        slideChrome.onToggleFavorite();
+        return;
+      }
+
+      if (event.key >= '1' && event.key <= '5' && slideChrome?.onRate) {
+        event.preventDefault();
+        slideChrome.onRate(Number(event.key) as 1 | 2 | 3 | 4 | 5);
+        return;
+      }
+
+      if (
+        (event.key === 'i' || event.key === 'I') &&
+        slideChrome?.onImprove &&
+        slideChrome.showImprove !== false
+      ) {
+        event.preventDefault();
+        slideChrome.onImprove();
+        return;
+      }
+
+      if (
+        (event.key === 'c' || event.key === 'C') &&
+        slideChrome?.onCompose &&
+        slideChrome.showCompose !== false
+      ) {
+        event.preventDefault();
+        slideChrome.onCompose();
+        return;
+      }
+
+      if ((event.key === 'a' || event.key === 'A') && slideChrome?.onAddToCompare) {
+        event.preventDefault();
+        slideChrome.onAddToCompare();
+        return;
+      }
+
+      if (
+        (event.key === 'Delete' || event.key === 'Backspace') &&
+        slideChrome?.onRemove &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey
+      ) {
+        event.preventDefault();
+        slideChrome.onRemove();
+        return;
+      }
+
+      if ((event.key === 'p' || event.key === 'P') && slideChrome?.onShowParent) {
+        event.preventDefault();
+        slideChrome.onShowParent();
+        return;
+      }
+
+      if ((event.key === 'g' || event.key === 'G') && slideChrome?.onShowDerivatives) {
+        event.preventDefault();
+        slideChrome.onShowDerivatives();
+        return;
+      }
+
+      if ((event.key === 's' || event.key === 'S') && slideChrome?.onJumpToSibling) {
+        event.preventDefault();
+        slideChrome.onJumpToSibling();
         return;
       }
 
@@ -288,22 +530,31 @@ export default function ImageLightbox({
       }
     };
 
-    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keydown', onKeyDown, true);
 
     return () => {
       document.body.style.overflow = previousOverflow;
-      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keydown', onKeyDown, true);
     };
   }, [
     open,
     index,
     images.length,
     onClose,
+    onDownloadImage,
     slideshow,
     slideshowEnabled,
     isFullscreen,
     exitFullscreenPresentation,
     toggleFullscreenPresentation,
+    zoom,
+    resetZoom,
+    toggleZoom,
+    slideChrome,
+    state?.mediaKinds,
+    goToIndex,
+    helpOpen,
+    metaOpen,
   ]);
 
   useEffect(() => {
@@ -380,6 +631,140 @@ export default function ImageLightbox({
   useEffect(() => {
     scheduleAfterCommit(() => setCurrentImageLoaded(false));
   }, [currentUrl]);
+
+  useEffect(() => {
+    scheduleAfterCommit(() => {
+      resetZoom();
+    });
+  }, [index, resetZoom]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const el = stageRef.current;
+    if (!el) {
+      return;
+    }
+
+    const onWheel = (event: WheelEvent) => {
+      const mediaKind = state?.mediaKinds?.[index] ?? 'image';
+      if (event.ctrlKey || event.metaKey) {
+        if (mediaKind === 'video') {
+          return;
+        }
+        event.preventDefault();
+        const factor = event.deltaY > 0 ? 0.92 : 1.08;
+        applyZoom(zoomRef.current * factor);
+        return;
+      }
+
+      if (zoomRef.current > 1) {
+        return;
+      }
+
+      if (images.length <= 1) {
+        return;
+      }
+
+      const dominant =
+        Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
+      if (Math.abs(dominant) < 18) {
+        return;
+      }
+
+      event.preventDefault();
+      if (dominant > 0) {
+        const nextIndex = index < images.length - 1 ? index + 1 : slideshow?.playing ? 0 : index;
+        if (nextIndex !== index) {
+          goToIndex(nextIndex, !slideshow?.playing);
+        }
+      } else {
+        const prevIndex = index > 0 ? index - 1 : slideshow?.playing ? images.length - 1 : index;
+        if (prevIndex !== index) {
+          goToIndex(prevIndex, !slideshow?.playing);
+        }
+      }
+    };
+
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', onWheel);
+    };
+  }, [
+    open,
+    index,
+    images.length,
+    goToIndex,
+    slideshow?.playing,
+    state?.mediaKinds,
+    applyZoom,
+    isFullscreen,
+    mounted,
+  ]);
+
+  const onStagePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) {
+      return;
+    }
+    const mode = zoom > 1 ? 'pan' : 'swipe';
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: pan.x,
+      originY: pan.y,
+      moved: false,
+      mode,
+    };
+    setDragging(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const onStagePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) {
+      return;
+    }
+    const dx = event.clientX - drag.startX;
+    const dy = event.clientY - drag.startY;
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
+      drag.moved = true;
+    }
+    if (drag.mode === 'pan' && zoom > 1) {
+      setPan({ x: drag.originX + dx, y: drag.originY + dy });
+    }
+  };
+
+  const onStagePointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) {
+      return;
+    }
+    const dx = event.clientX - drag.startX;
+    const dy = event.clientY - drag.startY;
+    dragRef.current = null;
+    setDragging(false);
+    try {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    } catch {
+      // ignore
+    }
+
+    if (drag.mode === 'swipe' && zoom <= 1 && Math.abs(dx) > 56 && Math.abs(dx) > Math.abs(dy)) {
+      if (dx < 0 && (canGoNext || slideshow?.playing)) {
+        const nextIndex = index < images.length - 1 ? index + 1 : slideshow?.playing ? 0 : index;
+        if (nextIndex !== index) {
+          goToIndex(nextIndex, !slideshow?.playing);
+        }
+      } else if (dx > 0 && (canGoPrevious || slideshow?.playing)) {
+        const prevIndex = index > 0 ? index - 1 : slideshow?.playing ? images.length - 1 : index;
+        if (prevIndex !== index) {
+          goToIndex(prevIndex, !slideshow?.playing);
+        }
+      }
+    }
+  };
 
   if (!mounted || !open || !currentUrl) {
     return null;
@@ -471,13 +856,453 @@ export default function ImageLightbox({
               ? 'opacity-0'
               : 'opacity-100'
           }`}
+          style={
+            isCurrent && zoom > 1
+              ? {
+                  transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                  transformOrigin: 'center center',
+                  cursor: dragging ? 'grabbing' : 'grab',
+                  maxHeight: 'none',
+                  maxWidth: 'none',
+                  height: 'min(var(--lightbox-image-max-h, calc(96vh - 6.5rem)), 100%)',
+                }
+              : isCurrent
+                ? { cursor: 'zoom-in' }
+                : undefined
+          }
+          onDoubleClick={
+            isCurrent
+              ? event => {
+                  event.preventDefault();
+                  toggleZoom();
+                }
+              : undefined
+          }
         />
       </div>
     );
   };
 
+  const chromeBtn = (compact: boolean) =>
+    `${compact ? '!min-h-8 !text-white hover:!bg-white/10' : '!min-h-9'} px-2.5 type-caption`;
+
+  const renderMetaPanel = (compact = false) => {
+    const meta = slideChrome?.meta;
+    if (!metaOpen || !meta) {
+      return null;
+    }
+    const dims =
+      meta.width && meta.height
+        ? `${meta.width}×${meta.height}`
+        : meta.width || meta.height || undefined;
+    const chips = [
+      meta.tool ? `Tool ${meta.tool}` : null,
+      meta.model ? `Model ${meta.model}` : null,
+      meta.seed != null && meta.seed !== '' ? `Seed ${meta.seed}` : null,
+      meta.cfg != null && meta.cfg !== '' ? `CFG ${meta.cfg}` : null,
+      meta.steps != null && meta.steps !== '' ? `Steps ${meta.steps}` : null,
+      dims ? dims : null,
+      meta.derivedKind ? meta.derivedKind : null,
+    ].filter(Boolean) as string[];
+
+    return (
+      <div
+        className={`max-h-[40vh] space-y-2 overflow-y-auto rounded-xl border p-3 shadow-[0_12px_40px_rgb(0_0_0/0.35)] backdrop-blur-md ${
+          compact
+            ? 'border-white/15 bg-black/55 text-white'
+            : 'border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/90 text-[var(--text-secondary)]'
+        }`}
+      >
+        {chips.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {chips.map(chip => (
+              <span
+                key={chip}
+                className={`rounded-md px-2 py-0.5 text-[11px] ${
+                  compact
+                    ? 'bg-white/10 text-white/80'
+                    : 'bg-[var(--bg-muted)] text-[var(--text-muted)]'
+                }`}
+              >
+                {chip}
+              </span>
+            ))}
+          </div>
+        ) : null}
+        {meta.prompt ? (
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <p
+                className={`type-overline ${compact ? 'text-white/45' : 'text-[var(--text-tertiary)]'}`}
+              >
+                Prompt
+              </p>
+              {slideChrome?.onCopyPrompt ? (
+                <Button
+                  variant={compact ? 'ghost' : 'secondary'}
+                  className={chromeBtn(compact)}
+                  onClick={() => {
+                    slideChrome.onCopyPrompt?.();
+                    flashCopy('Prompt copied');
+                  }}
+                >
+                  Copy
+                </Button>
+              ) : null}
+            </div>
+            <p
+              className={`max-h-28 overflow-y-auto whitespace-pre-wrap text-[12px] leading-relaxed ${
+                compact ? 'text-white/85' : 'text-[var(--text-secondary)]'
+              }`}
+            >
+              {meta.prompt}
+            </p>
+          </div>
+        ) : null}
+        {meta.negativePrompt ? (
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <p
+                className={`type-overline ${compact ? 'text-white/45' : 'text-[var(--text-tertiary)]'}`}
+              >
+                Negative
+              </p>
+              {slideChrome?.onCopyNegative ? (
+                <Button
+                  variant={compact ? 'ghost' : 'secondary'}
+                  className={chromeBtn(compact)}
+                  onClick={() => {
+                    slideChrome.onCopyNegative?.();
+                    flashCopy('Negative copied');
+                  }}
+                >
+                  Copy
+                </Button>
+              ) : null}
+            </div>
+            <p
+              className={`max-h-20 overflow-y-auto whitespace-pre-wrap text-[12px] leading-relaxed ${
+                compact ? 'text-white/70' : 'text-[var(--text-muted)]'
+              }`}
+            >
+              {meta.negativePrompt}
+            </p>
+          </div>
+        ) : null}
+        {copyFlash ? (
+          <p className={`type-caption ${compact ? 'text-emerald-300/90' : 'text-emerald-400/90'}`}>
+            {copyFlash}
+          </p>
+        ) : null}
+      </div>
+    );
+  };
+
+  const renderHelpOverlay = (compact = false) => {
+    if (!helpOpen) {
+      return null;
+    }
+    const rows = [
+      ['← / → · wheel', 'Previous / next'],
+      ['Z · double-click · pinch', 'Zoom (Esc resets)'],
+      ['1–5', 'Rate'],
+      ['B · Shift+F', 'Favorite'],
+      ['M', 'Details / metadata'],
+      ['C / I', 'Compose / Improve'],
+      ['A', 'Toggle compare selection'],
+      ['P / G / S', 'Parent / derivatives / sibling'],
+      ['D', 'Download'],
+      ['Delete', 'Remove (confirm)'],
+      ['? · Esc', 'Help / dismiss'],
+    ] as const;
+    return (
+      <div
+        className={`absolute inset-x-4 top-16 z-[40] mx-auto max-w-md rounded-2xl border p-4 shadow-[0_20px_60px_rgb(0_0_0/0.45)] backdrop-blur-xl sm:inset-x-auto ${
+          compact
+            ? 'border-white/20 bg-black/75 text-white'
+            : 'border-[var(--border-subtle)] bg-[var(--bg-base)]/95 text-[var(--text-secondary)]'
+        }`}
+        role="dialog"
+        aria-label="Lightbox shortcuts"
+      >
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <p className="type-heading text-[15px]">Shortcuts</p>
+          <Button
+            variant={compact ? 'ghost' : 'secondary'}
+            className={chromeBtn(compact)}
+            onClick={() => setHelpOpen(false)}
+          >
+            Close
+          </Button>
+        </div>
+        <ul className="space-y-1.5">
+          {rows.map(([keys, label]) => (
+            <li key={keys} className="flex items-baseline justify-between gap-4 text-[12px]">
+              <span
+                className={`font-medium ${compact ? 'text-white' : 'text-[var(--text-primary)]'}`}
+              >
+                {keys}
+              </span>
+              <span className={compact ? 'text-white/65' : 'text-[var(--text-muted)]'}>
+                {label}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  };
+
+  const renderSlideChrome = (compact = false) => (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {slideChrome?.onRate
+        ? ([1, 2, 3, 4, 5] as const).map(rating => (
+            <button
+              key={rating}
+              type="button"
+              onClick={() => slideChrome.onRate?.(rating)}
+              className={`rounded-md px-1.5 py-0.5 text-[11px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 active:scale-[0.97] ${
+                compact
+                  ? slideChrome.rating === rating
+                    ? 'bg-violet-500/40 text-white ring-white/40'
+                    : 'bg-white/10 text-white/75 hover:bg-white/20'
+                  : slideChrome.rating === rating
+                    ? 'bg-violet-500/25 text-violet-100 ring-violet-400/40'
+                    : 'bg-[var(--bg-muted)] text-[var(--text-muted)] hover:bg-[var(--bg-hover)]'
+              }`}
+            >
+              {rating}★
+            </button>
+          ))
+        : null}
+      {slideChrome?.onToggleFavorite ? (
+        <Button
+          variant={compact ? 'ghost' : 'secondary'}
+          className={chromeBtn(compact)}
+          onClick={() => slideChrome.onToggleFavorite?.()}
+        >
+          {slideChrome.favorite ? '★ Fav' : '☆ Fav'}
+        </Button>
+      ) : null}
+      {slideChrome?.meta ? (
+        <Button
+          variant={compact ? 'ghost' : 'secondary'}
+          className={chromeBtn(compact)}
+          onClick={() => setMetaOpen(previous => !previous)}
+          aria-pressed={metaOpen}
+        >
+          {metaOpen ? 'Hide details' : 'Details'}
+        </Button>
+      ) : null}
+      {slideChrome?.showImprove !== false && slideChrome?.onImprove ? (
+        <Button
+          variant={compact ? 'ghost' : 'secondary'}
+          className={chromeBtn(compact)}
+          onClick={() => slideChrome.onImprove?.()}
+        >
+          Improve
+        </Button>
+      ) : null}
+      {slideChrome?.showCompose !== false && slideChrome?.onCompose ? (
+        <Button
+          variant={compact ? 'ghost' : 'secondary'}
+          className={chromeBtn(compact)}
+          onClick={() => slideChrome.onCompose?.()}
+        >
+          Compose
+        </Button>
+      ) : null}
+      {slideChrome?.showInpaint !== false && slideChrome?.onInpaint ? (
+        <Button
+          variant={compact ? 'ghost' : 'secondary'}
+          className={chromeBtn(compact)}
+          onClick={() => slideChrome.onInpaint?.()}
+        >
+          Inpaint
+        </Button>
+      ) : null}
+      {slideChrome?.showExact && slideChrome?.onExactRequeue ? (
+        <Button
+          variant={compact ? 'ghost' : 'secondary'}
+          className={chromeBtn(compact)}
+          onClick={() => slideChrome.onExactRequeue?.()}
+        >
+          Exact
+        </Button>
+      ) : null}
+      {slideChrome?.showRequeue !== false && slideChrome?.onRequeue ? (
+        <Button
+          variant={compact ? 'ghost' : 'secondary'}
+          className={chromeBtn(compact)}
+          onClick={() => slideChrome.onRequeue?.()}
+        >
+          Requeue
+        </Button>
+      ) : null}
+      {slideChrome?.onAddToCompare ? (
+        <Button
+          variant={compact ? 'ghost' : 'secondary'}
+          className={chromeBtn(compact)}
+          onClick={() => slideChrome.onAddToCompare?.()}
+          aria-pressed={Boolean(slideChrome.compareSelected)}
+        >
+          {slideChrome.compareSelected
+            ? `In compare${slideChrome.compareCount ? ` (${slideChrome.compareCount})` : ''}`
+            : 'Compare'}
+        </Button>
+      ) : null}
+      {slideChrome?.onOpenCompare &&
+      (slideChrome.compareCount ?? 0) >= 2 &&
+      (slideChrome.compareCount ?? 0) <= 4 ? (
+        <Button
+          variant={compact ? 'ghost' : 'secondary'}
+          className={chromeBtn(compact)}
+          onClick={() => slideChrome.onOpenCompare?.()}
+        >
+          Open compare
+        </Button>
+      ) : null}
+      {slideChrome?.onShowParent ? (
+        <Button
+          variant={compact ? 'ghost' : 'secondary'}
+          className={chromeBtn(compact)}
+          onClick={() => slideChrome.onShowParent?.()}
+        >
+          Parent
+        </Button>
+      ) : null}
+      {slideChrome?.onShowDerivatives ? (
+        <Button
+          variant={compact ? 'ghost' : 'secondary'}
+          className={chromeBtn(compact)}
+          onClick={() => slideChrome.onShowDerivatives?.()}
+        >
+          Derivatives
+        </Button>
+      ) : null}
+      {slideChrome?.onJumpToSibling ? (
+        <Button
+          variant={compact ? 'ghost' : 'secondary'}
+          className={chromeBtn(compact)}
+          onClick={() => slideChrome.onJumpToSibling?.()}
+        >
+          Sibling
+        </Button>
+      ) : null}
+      {slideChrome?.onRemove ? (
+        <Button
+          variant={compact ? 'ghost' : 'secondary'}
+          className={chromeBtn(compact)}
+          onClick={() => slideChrome.onRemove?.()}
+        >
+          Remove
+        </Button>
+      ) : null}
+      {currentMediaKind !== 'video' ? (
+        <Button
+          variant={compact ? 'ghost' : 'secondary'}
+          className={chromeBtn(compact)}
+          onClick={toggleZoom}
+        >
+          {zoom > 1 ? 'Reset zoom' : 'Zoom'}
+        </Button>
+      ) : null}
+      <Button
+        variant={compact ? 'ghost' : 'secondary'}
+        className={chromeBtn(compact)}
+        onClick={() => setHelpOpen(previous => !previous)}
+        aria-pressed={helpOpen}
+      >
+        ?
+      </Button>
+    </div>
+  );
+
+  const renderFilmstrip = (compact = false) =>
+    images.length > 1 && state?.thumbImages?.length ? (
+      <div
+        className={`flex max-w-full gap-1.5 overflow-x-auto pb-0.5 ${
+          compact ? 'scrollbar-thin' : ''
+        }`}
+      >
+        {images.map((_, thumbIndex) => {
+          const thumb = state.thumbImages?.[thumbIndex];
+          if (!thumb) {
+            return null;
+          }
+          const active = thumbIndex === index;
+          return (
+            <button
+              key={`film-${thumbIndex}`}
+              type="button"
+              onClick={() => goToIndex(thumbIndex, true)}
+              className={`relative h-12 w-12 shrink-0 overflow-hidden rounded-md border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 ${
+                active
+                  ? 'border-violet-400/70 ring-1 ring-violet-400/40'
+                  : compact
+                    ? 'border-white/20 opacity-70 hover:opacity-100'
+                    : 'border-[var(--border-subtle)] opacity-80 hover:opacity-100'
+              }`}
+              aria-label={`Go to image ${thumbIndex + 1}`}
+              aria-current={active ? 'true' : undefined}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={thumb} alt="" className="h-full w-full object-cover" loading="lazy" />
+            </button>
+          );
+        })}
+      </div>
+    ) : null;
+
+  const onStageTouchStart = (event: ReactTouchEvent<HTMLDivElement>) => {
+    if (event.touches.length === 2 && (state?.mediaKinds?.[index] ?? 'image') !== 'video') {
+      const [a, b] = [event.touches[0], event.touches[1]];
+      if (!a || !b) {
+        return;
+      }
+      const distance = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+      touchPinchRef.current = { distance, zoom: zoomRef.current };
+      dragRef.current = null;
+      setDragging(false);
+    }
+  };
+
+  const onStageTouchMove = (event: ReactTouchEvent<HTMLDivElement>) => {
+    const pinch = touchPinchRef.current;
+    if (!pinch || event.touches.length !== 2) {
+      return;
+    }
+    event.preventDefault();
+    const [a, b] = [event.touches[0], event.touches[1]];
+    if (!a || !b) {
+      return;
+    }
+    const distance = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    if (pinch.distance < 8) {
+      return;
+    }
+    applyZoom(pinch.zoom * (distance / pinch.distance));
+  };
+
+  const onStageTouchEnd = () => {
+    touchPinchRef.current = null;
+  };
+
   const renderImageStage = (stageClassName: string) => (
-    <div className={`relative min-h-0 overflow-hidden ${stageClassName}`}>
+    <div
+      ref={stageRef}
+      className={`relative min-h-0 touch-pan-y overflow-hidden ${stageClassName} ${
+        zoom > 1 ? 'cursor-grab' : ''
+      }`}
+      onPointerDown={onStagePointerDown}
+      onPointerMove={onStagePointerMove}
+      onPointerUp={onStagePointerUp}
+      onPointerCancel={onStagePointerUp}
+      onTouchStart={onStageTouchStart}
+      onTouchMove={onStageTouchMove}
+      onTouchEnd={onStageTouchEnd}
+      onTouchCancel={onStageTouchEnd}
+    >
       <div className="relative flex h-full min-h-0 w-full items-center justify-center">
         {previousIndex !== null && images[previousIndex] ? (
           <>
@@ -678,34 +1503,40 @@ export default function ImageLightbox({
           </div>
         </div>
 
+        {renderHelpOverlay(true)}
         {renderImageStage('flex-1 min-h-0')}
 
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[3] bg-gradient-to-t from-black/85 via-black/45 to-transparent px-4 pb-4 pt-12 sm:px-6">
-          <div className="pointer-events-auto flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">{renderSlideshowControls(true)}</div>
-            <div className="flex flex-wrap items-center gap-3">
-              {currentOriginalUrl ? (
-                <a
-                  href={currentOriginalUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="type-caption text-white/70 underline-offset-4 transition-colors hover:text-white hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-                >
-                  Open original
-                </a>
-              ) : null}
-              {onDownloadImage && currentDownloadUrl ? (
-                <Button
-                  variant="secondary"
-                  className="!min-h-9 px-3 type-caption"
-                  onClick={() => void onDownloadImage(displayIndex)}
-                >
-                  Download original
-                </Button>
-              ) : null}
-              <p className="type-caption text-white/45">
-                Space play/pause · ←/→ navigate · F fullscreen · Esc exit
-              </p>
+          <div className="pointer-events-auto space-y-2">
+            {renderMetaPanel(true)}
+            {renderFilmstrip(true)}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                {renderSlideshowControls(true)}
+                {renderSlideChrome(true)}
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                {currentOriginalUrl ? (
+                  <a
+                    href={currentOriginalUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="type-caption text-white/70 underline-offset-4 transition-colors hover:text-white hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+                  >
+                    Open original
+                  </a>
+                ) : null}
+                {onDownloadImage && currentDownloadUrl ? (
+                  <Button
+                    variant="secondary"
+                    className="!min-h-9 px-3 type-caption"
+                    onClick={() => void onDownloadImage(displayIndex)}
+                  >
+                    Download (D)
+                  </Button>
+                ) : null}
+                <p className="type-caption text-white/45">Press ? for shortcuts</p>
+              </div>
             </div>
           </div>
         </div>
@@ -760,58 +1591,71 @@ export default function ImageLightbox({
           </Button>
         </div>
 
+        {renderHelpOverlay(false)}
+
         {renderImageStage(
           'relative flex w-full items-center justify-center overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)] shadow-[var(--shadow-overlay,0_24px_80px_rgb(0_0_0/0.45))]'
         )}
 
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
-          {images.length > 1 ? (
-            <div className="flex flex-wrap items-center gap-2">
-              {renderSlideshowControls()}
-              <Button
-                variant="secondary"
-                className="!min-h-9 px-3 type-caption"
-                disabled={!canGoPrevious || isTransitioning}
-                onClick={() => goToIndex(index - 1, true)}
-              >
-                Previous
-              </Button>
-              <p className="type-caption text-[var(--text-tertiary)]">
-                Image {index + 1} of {images.length}
-              </p>
-              <Button
-                variant="secondary"
-                className="!min-h-9 px-3 type-caption"
-                disabled={!canGoNext || isTransitioning}
-                onClick={() => goToIndex(index + 1, true)}
-              >
-                Next
-              </Button>
+        {renderMetaPanel(false)}
+        {renderFilmstrip(false)}
+
+        <div className="flex shrink-0 flex-col gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            {images.length > 1 ? (
+              <div className="flex flex-wrap items-center gap-2">
+                {renderSlideshowControls()}
+                <Button
+                  variant="secondary"
+                  className="!min-h-9 px-3 type-caption"
+                  disabled={!canGoPrevious || isTransitioning}
+                  onClick={() => goToIndex(index - 1, true)}
+                >
+                  Previous
+                </Button>
+                <p className="type-caption text-[var(--text-tertiary)]">
+                  Image {index + 1} of {images.length}
+                </p>
+                <Button
+                  variant="secondary"
+                  className="!min-h-9 px-3 type-caption"
+                  disabled={!canGoNext || isTransitioning}
+                  onClick={() => goToIndex(index + 1, true)}
+                >
+                  Next
+                </Button>
+              </div>
+            ) : (
+              <span />
+            )}
+            <div className="flex flex-wrap gap-2">
+              {currentOriginalUrl ? (
+                <a
+                  href={currentOriginalUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="ui-btn-ghost !min-h-9 px-4 type-caption focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                >
+                  Open original
+                </a>
+              ) : null}
+              {onDownloadImage && currentDownloadUrl ? (
+                <Button
+                  variant="secondary"
+                  className="!min-h-9 px-3 type-caption focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                  onClick={() => void onDownloadImage(displayIndex)}
+                >
+                  Download (D)
+                </Button>
+              ) : null}
             </div>
-          ) : (
-            <span />
-          )}
-          <div className="flex flex-wrap gap-2">
-            {currentOriginalUrl ? (
-              <a
-                href={currentOriginalUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="ui-btn-ghost !min-h-9 px-4 type-caption focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-              >
-                Open original
-              </a>
-            ) : null}
-            {onDownloadImage && currentDownloadUrl ? (
-              <Button
-                variant="secondary"
-                className="!min-h-9 px-3 type-caption focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-                onClick={() => void onDownloadImage(displayIndex)}
-              >
-                Download original
-              </Button>
-            ) : null}
           </div>
+          {slideChrome || currentMediaKind !== 'video' ? (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              {renderSlideChrome(false)}
+              <p className="type-caption text-[var(--text-muted)]">Press ? for shortcuts</p>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>,

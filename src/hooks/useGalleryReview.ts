@@ -18,6 +18,8 @@ type UseGalleryReviewOptions = {
   setReviewRating: (id: string, rating: NonNullable<ComfyGalleryEntry['reviewRating']>) => void;
   toggleFavorite: (id: string) => void;
   onStatusMessage: (message: string) => void;
+  /** When false, skip global review shortcuts (lightbox owns keyboard). */
+  keyboardEnabled?: boolean;
 };
 
 export function useGalleryReview({
@@ -29,6 +31,7 @@ export function useGalleryReview({
   setReviewRating,
   toggleFavorite,
   onStatusMessage,
+  keyboardEnabled = true,
 }: UseGalleryReviewOptions) {
   const reviewFocusIndex = useMemo(() => {
     if (!filter.reviewMode || visibleEntries.length === 0) {
@@ -138,7 +141,7 @@ export function useGalleryReview({
   }, [filter.reviewMode, reviewFocusEntry?.id, reviewFocusEntry]);
 
   useEffect(() => {
-    if (!filter.reviewMode || !reviewFocusEntry) {
+    if (!keyboardEnabled || !filter.reviewMode || !reviewFocusEntry) {
       return;
     }
 
@@ -192,6 +195,7 @@ export function useGalleryReview({
   }, [
     filter.reviewMode,
     handleReviewRating,
+    keyboardEnabled,
     reviewFocusEntry,
     reviewFocusIndex,
     setSelectedIds,

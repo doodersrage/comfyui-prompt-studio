@@ -45,6 +45,9 @@ import {
 import type { ToolAccent } from '@/lib/tool-theme';
 import { FieldLabel } from '@/components/ui/Field';
 import { Button } from '@/components/ui/Button';
+import ImageLightbox, { type ImageLightboxState } from '@/components/ui/ImageLightbox';
+import { buildGalleryLightboxPlaylist, resolveGalleryLightboxEntry } from '@/lib/comfyui-gallery';
+import { downloadGalleryImage } from '@/lib/comfyui-gallery-export';
 import ListPaginator from '@/components/ui/ListPaginator';
 import {
   DEFAULT_HISTORY_PAGE_SIZE,
@@ -124,6 +127,7 @@ function HistoryCard({
   onRefine,
   onRequeueBatch,
   batchPromptCount = 0,
+  onPreview,
 }: {
   entry: PromptHistoryEntry;
   highlighted?: boolean;
@@ -142,6 +146,7 @@ function HistoryCard({
   onRefine?: () => void;
   onRequeueBatch?: () => void;
   batchPromptCount?: number;
+  onPreview?: () => void;
 }) {
   const regenerateUrl = buildRegenerateUrl(entry);
   const useAsHintsUrl = buildUseAsHintsUrl(entry);
@@ -194,6 +199,11 @@ function HistoryCard({
             <Button variant="ghost" size="sm" className="type-caption" onClick={onCopy}>
               Copy
             </Button>
+            {onPreview ? (
+              <Button variant="ghost" size="sm" className="type-caption" onClick={onPreview}>
+                Preview
+              </Button>
+            ) : null}
             <Button variant="ghost" size="sm" className="type-caption" onClick={onExportSidecar}>
               Sidecar
             </Button>
@@ -371,6 +381,10 @@ export default function StudioHistoryTab({
   const [bulkTagDraft, setBulkTagDraft] = useState('');
   const [savedViews, setSavedViews] = useState<HistorySavedView[]>(() => loadHistorySavedViews());
   const [viewNameDraft, setViewNameDraft] = useState('');
+  const [lightbox, setLightbox] = useState<ImageLightboxState | null>(null);
+  const [lightboxEntries, setLightboxEntries] = useState<
+    NonNullable<ReturnType<typeof findGalleryEntryForHistory>>[]
+  >([]);
 
   const page = pageByFilter[filterKey] ?? 1;
   const setPage = (next: number | ((prev: number) => number)) => {
@@ -549,11 +563,53 @@ export default function StudioHistoryTab({
         });
       }}
       batchPromptCount={readHistoryBatchPrompts(entry).length}
+      onPreview={
+        findGalleryEntryForHistory(entry)
+          ? () => {
+              const galleryEntry = findGalleryEntryForHistory(entry);
+              if (!galleryEntry) {
+                return;
+              }
+              const playlist = buildGalleryLightboxPlaylist([galleryEntry]);
+              if (playlist.images.length === 0) {
+                onBackupStatusChange('Linked gallery entry has no previewable image.');
+                return;
+              }
+              setLightboxEntries([galleryEntry]);
+              setLightbox({
+                ...playlist,
+                index: 0,
+                title: playlist.titles[0],
+              });
+            }
+          : undefined
+      }
     />
   );
 
   return (
     <ToolSection title="Saved prompts">
+      <ImageLightbox
+        state={lightbox}
+        onClose={() => {
+          setLightbox(null);
+          setLightboxEntries([]);
+        }}
+        onIndexChange={index =>
+          setLightbox(previous =>
+            previous
+              ? { ...previous, index, title: previous.titles?.[index] ?? previous.title }
+              : previous
+          )
+        }
+        onDownloadImage={async displayIndex => {
+          const resolved = resolveGalleryLightboxEntry(lightboxEntries, displayIndex);
+          if (!resolved) {
+            return;
+          }
+          await downloadGalleryImage(resolved.entry, resolved.imageIndex);
+        }}
+      />
       <ToolMetaPanel>
         <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <p className="type-heading shrink-0">

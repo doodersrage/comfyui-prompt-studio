@@ -4,7 +4,15 @@ import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState, useCallback, useRef, useLayoutEffect } from 'react';
 import { useGalleryPanelActions } from '@/hooks/useGalleryPanelActions';
-import ImageLightbox, { type ImageLightboxState } from '@/components/ui/ImageLightbox';
+import ImageLightbox, {
+  type ImageLightboxSlideChrome,
+  type ImageLightboxState,
+} from '@/components/ui/ImageLightbox';
+import {
+  startComposeFromGalleryEntry,
+  startImproveFromGalleryEntry,
+  startInpaintFromGalleryEntry,
+} from '@/lib/improve-output';
 import { ButtonLink } from '@/components/ui/Button';
 import { useComfyUiGallery } from '@/hooks/useComfyUiGallery';
 import GalleryVisionReviewButton from '@/components/gallery/GalleryVisionReviewButton';
@@ -21,7 +29,7 @@ import GalleryPanelSkeleton from '@/components/gallery/GalleryPanelSkeleton';
 import GalleryPaginator from '@/components/gallery/GalleryPaginator';
 import StatusToastStrip from '@/components/ui/StatusToastStrip';
 import { assessGalleryCapWarning } from '@/lib/gallery-cap';
-import { galleryDerivedKindChipLabel } from '@/lib/gallery-derived-kind';
+import { galleryDerivedKindChipLabel, galleryDerivedKindLabel } from '@/lib/gallery-derived-kind';
 import { MAX_GALLERY_ENTRIES } from '@/lib/comfyui-gallery-storage-meta';
 import { useGalleryReview } from '@/hooks/useGalleryReview';
 import { useGallerySelection } from '@/hooks/useGallerySelection';
@@ -370,6 +378,7 @@ export default function ComfyUiGalleryPanel({
     setReviewRating,
     toggleFavorite,
     onStatusMessage: setRequeueStatus,
+    keyboardEnabled: !lightbox,
   });
 
   const activeProjectId = useMemo(() => loadActiveProjectId(), []);
@@ -434,23 +443,24 @@ export default function ComfyUiGalleryPanel({
     [setRequeueStatus]
   );
 
+  // Full filtered/sorted set — not just the current page — so slideshow/nav spans the view.
+  const lightboxEntries = sortedSource;
+  const lightboxEntriesRef = useRef(lightboxEntries);
   const lightboxPlaylist = useMemo(
-    () => buildGalleryLightboxPlaylist(visibleEntries),
-    [visibleEntries]
+    () => buildGalleryLightboxPlaylist(lightboxEntries),
+    [lightboxEntries]
   );
 
-  const openEntryLightbox = useCallback(
-    (entry: ComfyGalleryEntry, imageIndex: number) => {
+  useLayoutEffect(() => {
+    lightboxEntriesRef.current = lightboxEntries;
+  }, [lightboxEntries]);
+
+  const applyPlaylistState = useCallback(
+    (index: number, extras?: { playing?: boolean; fullscreen?: boolean }) => {
       if (lightboxPlaylist.images.length === 0) {
         return;
       }
-
-      const index = resolveGalleryLightboxOpenIndex(
-        visibleEntriesRef.current,
-        entry.id,
-        imageIndex
-      );
-
+      const safeIndex = Math.min(Math.max(index, 0), lightboxPlaylist.images.length - 1);
       setLightbox({
         images: lightboxPlaylist.images,
         thumbImages: lightboxPlaylist.thumbImages,
@@ -459,18 +469,72 @@ export default function ComfyUiGalleryPanel({
         downloadFilenames: lightboxPlaylist.downloadFilenames,
         titles: lightboxPlaylist.titles,
         mediaKinds: lightboxPlaylist.mediaKinds,
-        index,
-        title: lightboxPlaylist.titles[index],
+        index: safeIndex,
+        title: lightboxPlaylist.titles[safeIndex],
       });
-      setSlideshowPlaying(false);
-      setSlideshowFullscreen(false);
+      if (extras?.playing != null) {
+        setSlideshowPlaying(extras.playing);
+      }
+      if (extras?.fullscreen != null) {
+        setSlideshowFullscreen(extras.fullscreen);
+      }
     },
     [lightboxPlaylist]
   );
 
+  // Derive live playlist into the open lightbox so filter/sort changes don't require setState sync.
+  const resolvedLightbox = useMemo<ImageLightboxState | null>(() => {
+    if (!lightbox) {
+      return null;
+    }
+    if (lightboxPlaylist.images.length === 0) {
+      return null;
+    }
+    const safeIndex = Math.min(Math.max(lightbox.index, 0), lightboxPlaylist.images.length - 1);
+    return {
+      images: lightboxPlaylist.images,
+      thumbImages: lightboxPlaylist.thumbImages,
+      originalImages: lightboxPlaylist.originalImages,
+      downloadUrls: lightboxPlaylist.downloadUrls,
+      downloadFilenames: lightboxPlaylist.downloadFilenames,
+      titles: lightboxPlaylist.titles,
+      mediaKinds: lightboxPlaylist.mediaKinds,
+      index: safeIndex,
+      title: lightboxPlaylist.titles[safeIndex],
+    };
+  }, [lightbox, lightboxPlaylist]);
+
+  useEffect(() => {
+    if (!lightbox || lightboxPlaylist.images.length > 0) {
+      return;
+    }
+    scheduleAfterCommit(() => {
+      setLightbox(null);
+      setSlideshowPlaying(false);
+      setSlideshowFullscreen(false);
+    });
+  }, [lightbox, lightboxPlaylist.images.length]);
+
+  const openEntryLightbox = useCallback(
+    (entry: ComfyGalleryEntry, imageIndex: number) => {
+      if (lightboxPlaylist.images.length === 0) {
+        return;
+      }
+
+      const index = resolveGalleryLightboxOpenIndex(
+        lightboxEntriesRef.current,
+        entry.id,
+        imageIndex
+      );
+
+      applyPlaylistState(index, { playing: false, fullscreen: false });
+    },
+    [applyPlaylistState, lightboxPlaylist.images.length]
+  );
+
   const openLightboxForEntryId = useCallback(
     (entryId: string, imageIndex: number) => {
-      const entry = visibleEntriesRef.current.find(item => item.id === entryId);
+      const entry = lightboxEntriesRef.current.find(item => item.id === entryId);
       if (entry) {
         openEntryLightbox(entry, imageIndex);
       }
@@ -479,7 +543,7 @@ export default function ComfyUiGalleryPanel({
   );
 
   const prefetchLightboxForEntryId = useCallback((entryId: string, imageIndex: number) => {
-    const entry = visibleEntriesRef.current.find(item => item.id === entryId);
+    const entry = lightboxEntriesRef.current.find(item => item.id === entryId);
     if (!entry) {
       return;
     }
@@ -498,40 +562,16 @@ export default function ComfyUiGalleryPanel({
     if (lightboxPlaylist.images.length === 0) {
       return;
     }
-
-    setLightbox({
-      images: lightboxPlaylist.images,
-      thumbImages: lightboxPlaylist.thumbImages,
-      originalImages: lightboxPlaylist.originalImages,
-      downloadUrls: lightboxPlaylist.downloadUrls,
-      downloadFilenames: lightboxPlaylist.downloadFilenames,
-      titles: lightboxPlaylist.titles,
-      mediaKinds: lightboxPlaylist.mediaKinds,
-      index: 0,
-      title: lightboxPlaylist.titles[0],
-    });
-    setSlideshowFullscreen(false);
-    setSlideshowPlaying(true);
+    const startIndex = resolvedLightbox?.index ?? lightbox?.index ?? 0;
+    applyPlaylistState(startIndex, { playing: true, fullscreen: false });
   };
 
   const startFullscreenSlideshow = () => {
     if (lightboxPlaylist.images.length === 0) {
       return;
     }
-
-    setLightbox({
-      images: lightboxPlaylist.images,
-      thumbImages: lightboxPlaylist.thumbImages,
-      originalImages: lightboxPlaylist.originalImages,
-      downloadUrls: lightboxPlaylist.downloadUrls,
-      downloadFilenames: lightboxPlaylist.downloadFilenames,
-      titles: lightboxPlaylist.titles,
-      mediaKinds: lightboxPlaylist.mediaKinds,
-      index: 0,
-      title: lightboxPlaylist.titles[0],
-    });
-    setSlideshowFullscreen(true);
-    setSlideshowPlaying(true);
+    const startIndex = resolvedLightbox?.index ?? lightbox?.index ?? 0;
+    applyPlaylistState(startIndex, { playing: true, fullscreen: true });
   };
 
   const closeLightbox = () => {
@@ -544,10 +584,195 @@ export default function ComfyUiGalleryPanel({
   };
 
   const onDownloadImage = useCallback(async (displayIndex: number) => {
-    const resolved = resolveGalleryLightboxEntry(visibleEntriesRef.current, displayIndex);
+    const resolved = resolveGalleryLightboxEntry(lightboxEntriesRef.current, displayIndex);
     if (!resolved) return;
     await downloadGalleryImage(resolved.entry, resolved.imageIndex);
   }, []);
+
+  const lightboxSlideChrome = useMemo<ImageLightboxSlideChrome | null>(() => {
+    if (!resolvedLightbox) {
+      return null;
+    }
+    const resolved = resolveGalleryLightboxEntry(lightboxEntries, resolvedLightbox.index);
+    if (!resolved) {
+      return null;
+    }
+    const { entry } = resolved;
+    const isVideo = galleryEntryPrimaryMediaKind(entry) === 'video';
+    const completed = entry.status === 'completed';
+    const qp = entry.queueParams;
+    const parentId = entry.parentGalleryEntryId;
+    const hasParent = Boolean(parentId);
+    const hasDerivatives = entryIdsWithDerivatives.has(entry.id);
+    const hasSibling = Boolean(
+      parentId &&
+      entries.some(item => item.parentGalleryEntryId === parentId && item.id !== entry.id)
+    );
+    const paramString = (value: unknown) =>
+      value === undefined || value === null || value === '' ? undefined : String(value);
+
+    return {
+      rating: entry.reviewRating ?? null,
+      favorite: Boolean(entry.favorite),
+      onRate: rating => handleReviewRating(entry, rating),
+      onToggleFavorite: () => toggleFavorite(entry.id),
+      showImprove: completed && !isVideo,
+      showCompose: completed && !isVideo,
+      showInpaint: completed && !isVideo,
+      showExact: Boolean(entry.hasStoredWorkflow || entry.workflowJson),
+      showRequeue: true,
+      onImprove: () => startImproveFromGalleryEntry(entry),
+      onCompose: () => startComposeFromGalleryEntry(entry),
+      onInpaint: () => startInpaintFromGalleryEntry(entry),
+      onExactRequeue: () => {
+        setRequeueStatus('Replaying exact graph…');
+        void import('@/lib/comfyui-requeue').then(({ requeueComfyJobFromEntry }) =>
+          requeueComfyJobFromEntry(entry, {
+            newSeed: false,
+            exactGraph: true,
+            onStatus: setRequeueStatus,
+          })
+        );
+      },
+      onRequeue: () => {
+        setRequeueStatus('Re-queueing…');
+        void import('@/lib/comfyui-requeue').then(({ requeueComfyJobFromEntry }) =>
+          requeueComfyJobFromEntry(entry, {
+            newSeed: false,
+            onStatus: setRequeueStatus,
+          })
+        );
+      },
+      meta: {
+        model: entry.model,
+        tool: entry.tool,
+        seed: paramString(qp?.seed),
+        cfg: paramString(qp?.cfg),
+        steps: paramString(qp?.steps),
+        width: paramString(qp?.width),
+        height: paramString(qp?.height),
+        prompt: entry.prompt,
+        negativePrompt: entry.negativePrompt,
+        derivedKind: galleryDerivedKindLabel(entry.derivedKind),
+      },
+      onCopyPrompt: entry.prompt
+        ? () => {
+            void navigator.clipboard.writeText(entry.prompt).catch(() => undefined);
+          }
+        : undefined,
+      onCopyNegative: entry.negativePrompt
+        ? () => {
+            void navigator.clipboard.writeText(entry.negativePrompt ?? '').catch(() => undefined);
+          }
+        : undefined,
+      compareSelected: selectedIdSet.has(entry.id),
+      compareCount: selectedIds.length,
+      onAddToCompare: () => {
+        toggleSelected(entry.id);
+        const nextSelected = selectedIdSet.has(entry.id)
+          ? selectedIds.length - 1
+          : selectedIds.length + 1;
+        setRequeueStatus(
+          nextSelected === 0
+            ? 'Removed from compare selection'
+            : `${nextSelected} selected for compare${
+                nextSelected >= 2 && nextSelected <= 4
+                  ? ' · ready'
+                  : nextSelected > 4
+                    ? ' · max 4'
+                    : ''
+              }`
+        );
+      },
+      onOpenCompare: () => {
+        if (selectedIds.length >= 2 && selectedIds.length <= 4) {
+          setCompareOpen(true);
+        } else if (!selectedIdSet.has(entry.id) && selectedIds.length === 1) {
+          toggleSelected(entry.id);
+          setCompareOpen(true);
+        } else {
+          setRequeueStatus('Select 2–4 images to compare');
+        }
+      },
+      onRemove: () => {
+        if (!window.confirm('Remove this entry from the gallery?')) {
+          return;
+        }
+        removeEntry(entry.id);
+        setRequeueStatus('Removed from gallery');
+      },
+      hasParent,
+      hasDerivatives,
+      hasSibling,
+      onShowParent: hasParent
+        ? () => {
+            if (!parentId) {
+              return;
+            }
+            if (lightboxEntries.some(item => item.id === parentId)) {
+              applyPlaylistState(resolveGalleryLightboxOpenIndex(lightboxEntries, parentId, 0));
+              setRequeueStatus('Jumped to parent output');
+              return;
+            }
+            setFilter(previous => ({
+              ...previous,
+              focusEntryId: parentId,
+              derivativeOfEntryId: undefined,
+              similarToEntryId: undefined,
+            }));
+            setRequeueStatus('Showing source output…');
+          }
+        : undefined,
+      onShowDerivatives: hasDerivatives
+        ? () => {
+            setFilter(previous => ({
+              ...previous,
+              derivativeOfEntryId: entry.id,
+              focusEntryId: undefined,
+              similarToEntryId: undefined,
+            }));
+            setRequeueStatus('Showing derived outputs…');
+          }
+        : undefined,
+      onJumpToSibling: hasSibling
+        ? () => {
+            if (!parentId) {
+              return;
+            }
+            const siblings = lightboxEntries.filter(item => item.parentGalleryEntryId === parentId);
+            if (siblings.length >= 2) {
+              const current = siblings.findIndex(item => item.id === entry.id);
+              const next = siblings[(current + 1) % siblings.length];
+              if (next) {
+                applyPlaylistState(resolveGalleryLightboxOpenIndex(lightboxEntries, next.id, 0));
+                setRequeueStatus('Jumped to sibling output');
+              }
+              return;
+            }
+            setFilter(previous => ({
+              ...previous,
+              derivativeOfEntryId: parentId,
+              focusEntryId: undefined,
+              similarToEntryId: undefined,
+            }));
+            setRequeueStatus('Showing sibling outputs…');
+          }
+        : undefined,
+    };
+  }, [
+    applyPlaylistState,
+    entries,
+    entryIdsWithDerivatives,
+    handleReviewRating,
+    lightboxEntries,
+    removeEntry,
+    resolvedLightbox,
+    selectedIdSet,
+    selectedIds.length,
+    setFilter,
+    toggleFavorite,
+    toggleSelected,
+  ]);
 
   const { galleryCardActionsRef, bulkExperimentHandlers } = useGalleryPanelActions({
     entriesRef,
@@ -645,7 +870,7 @@ export default function ComfyUiGalleryPanel({
   return (
     <section className="space-y-6">
       <ImageLightbox
-        state={lightbox}
+        state={resolvedLightbox}
         onClose={closeLightbox}
         onIndexChange={index =>
           setLightbox(previous =>
@@ -653,12 +878,13 @@ export default function ComfyUiGalleryPanel({
               ? {
                   ...previous,
                   index,
-                  title: previous.titles?.[index] ?? previous.title,
+                  title: lightboxPlaylist.titles[index] ?? previous.title,
                 }
               : previous
           )
         }
         onDownloadImage={onDownloadImage}
+        slideChrome={lightboxSlideChrome}
         slideshow={
           lightboxPlaylist.images.length > 1
             ? {
@@ -936,6 +1162,10 @@ export default function ComfyUiGalleryPanel({
           onClose={() => {
             setCompareOpen(false);
             resetCompare();
+          }}
+          onOpenPreview={entry => {
+            setCompareOpen(false);
+            openEntryLightbox(entry, 0);
           }}
           {...compareHandlers}
         />
