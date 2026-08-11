@@ -9,9 +9,13 @@ import InpaintMaskEditor from '@/components/InpaintMaskEditor';
 import RegionalEditPanel, { regionalSlotsQueueExtras } from '@/components/RegionalEditPanel';
 import SharedToolControls from '@/components/SharedToolControls';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
+import EditToolRecipeStrip from '@/components/EditToolRecipeStrip';
+import { HistoryHintSeedPanel } from '@/components/scene-tool/HistoryHintSeedPanel';
 import { resolveCollabFieldValue } from '@/lib/collab-presence';
 import CollabPresenceBar from '@/components/CollabPresenceBar';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
+import { continueEditResultProps } from '@/lib/continue-edit-result-props';
+import { normalizeHistorySeedScope, normalizeSceneHintSource } from '@/lib/scene-hint-source';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
 import { useGalleryHandoff } from '@/hooks/useGalleryHandoff';
@@ -337,6 +341,27 @@ export default function RefineTool() {
       }
     >
       <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.refine} />
+      <EditToolRecipeStrip toolId="refine" shared={shared} onApplied={next => updateShared(next)} />
+      <HistoryHintSeedPanel
+        tool="refine"
+        hintSource={normalizeSceneHintSource(toolSettings.hintSource)}
+        historySeedScope={normalizeHistorySeedScope(toolSettings.historySeedScope)}
+        hints={intentHints}
+        randomTheme={toolSettings.randomTheme ?? ''}
+        lastHistorySeedEntryId={toolSettings.lastHistorySeedEntryId}
+        onHintSourceChange={source => updateToolSettings({ hintSource: source })}
+        onHistorySeedScopeChange={scope => updateToolSettings({ historySeedScope: scope })}
+        onHintsChange={setIntentHints}
+        onRandomThemeChange={theme => updateToolSettings({ randomTheme: theme })}
+        onHistorySeedApplied={result =>
+          updateToolSettings({
+            intentHints: result.hints,
+            lastHistorySeedEntryId: result.entryId,
+            hintSource: 'history',
+          })
+        }
+        accentFocusClassName={accentFocusClass(ACCENT)}
+      />
       <CollabPresenceBar
         tool="refine"
         draft={[intentHints, currentPrompt].filter(Boolean).join('\n\n')}
@@ -489,6 +514,7 @@ export default function RefineTool() {
           void actions.sendComfyUi(output, undefined, undefined, queueImageOptions);
         }}
         {...promptResultPreviewProps(actions, output)}
+        {...continueEditResultProps(actions, output, { queueImageOptions })}
         onFixPrompt={() => void actions.fixPrompt(output, setOutput, intentHints)}
         onCopyPair={() => void actions.copyPromptPair(output)}
         onCompact={() => void actions.compactPrompt(output, setOutput)}
@@ -523,7 +549,16 @@ export default function RefineTool() {
         onQueue={() => {
           void actions.sendComfyUi(output, undefined, undefined, queueImageOptions);
         }}
-      />
+      >
+        <div className="mb-2">
+          <EditToolRecipeStrip
+            toolId="refine"
+            shared={shared}
+            onApplied={next => updateShared(next)}
+            compact
+          />
+        </div>
+      </MobileStickyQueueBar>
     </ToolLayout>
   );
 }

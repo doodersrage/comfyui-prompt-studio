@@ -13,10 +13,23 @@ const RELATED_TOOLS: Record<HistorySeedTool, readonly string[]> = {
   generate: ['generate', 'randomScene', 'character', 'background', 'pet', 'fantasy'],
   character: ['character', 'generate', 'duo', 'compose', 'scene-compose'],
   duo: ['duo', 'character', 'generate', 'compose', 'scene-compose'],
-  compose: ['compose', 'scene-compose', 'character', 'duo', 'generate', 'background'],
+  compose: [
+    'compose',
+    'scene-compose',
+    'character',
+    'duo',
+    'generate',
+    'background',
+    'refine',
+    'inpaint',
+    'outpaint',
+  ],
   background: ['background', 'generate', 'fantasy', 'compose', 'scene-compose'],
   pet: ['pet', 'generate', 'character'],
   fantasy: ['fantasy', 'generate', 'character', 'background'],
+  refine: ['refine', 'compose', 'inpaint', 'outpaint', 'generate', 'character'],
+  inpaint: ['inpaint', 'outpaint', 'refine', 'compose', 'imagePrompt'],
+  outpaint: ['outpaint', 'inpaint', 'refine', 'compose', 'generate'],
 };
 
 const STOPWORDS = new Set([

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useState } from 'react';
 import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
@@ -590,6 +591,19 @@ export default function ImagePromptTool() {
             queueParamsBase: handoffQueueParams,
           })
         }
+        onImprove={() => actions.improveOutput(output, actions.comfyUiPreviewUrl)}
+        onRefine={() => actions.refineOutput(output, actions.comfyUiPreviewUrl)}
+        onEditPrompt={() =>
+          actions.editPromptOutput(
+            output,
+            actions.comfyUiPreviewUrl,
+            undefined,
+            toolSettings.extraHints
+          )
+        }
+        onContinueInpaint={() => actions.inpaintOutput(output, actions.comfyUiPreviewUrl)}
+        onContinueOutpaint={() => actions.outpaintOutput(output, actions.comfyUiPreviewUrl)}
+        onContinueCompose={() => actions.composeOutput(output, actions.comfyUiPreviewUrl)}
         showWeightInspector={Boolean(output)}
         {...promptResultPreviewProps(actions, output, inferredSport)}
         onFixPrompt={() => void actions.fixPrompt(output, setOutput, toolSettings.extraHints)}
@@ -620,6 +634,32 @@ export default function ImagePromptTool() {
         historySaved={actions.historySaved}
         pairCopied={actions.pairCopied}
       />
+      {output.trim() ? (
+        <div
+          data-testid="image-prompt-scene-handoffs"
+          className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/50 px-3 py-2"
+        >
+          <span className="type-caption text-[var(--text-muted)]">Use as hints</span>
+          <Link
+            href={`/?hints=${encodeURIComponent(output.slice(0, 500))}&hintSource=manual`}
+            className="rounded-xl border border-violet-500/35 bg-violet-500/10 px-2.5 py-1 text-[11px] font-medium text-violet-200 transition hover:border-violet-400/55 hover:bg-violet-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40 active:scale-[0.98]"
+          >
+            Scene / Generate
+          </Link>
+          <Link
+            href={`/character?hints=${encodeURIComponent(output.slice(0, 500))}&hintSource=manual&mode=solo`}
+            className="rounded-xl border border-sky-500/35 bg-sky-500/10 px-2.5 py-1 text-[11px] font-medium text-sky-200 transition hover:border-sky-400/55 hover:bg-sky-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40 active:scale-[0.98]"
+          >
+            Character
+          </Link>
+          <Link
+            href={`/character?mode=duo&hints=${encodeURIComponent(output.slice(0, 500))}&hintSource=manual`}
+            className="rounded-xl border border-emerald-500/35 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-200 transition hover:border-emerald-400/55 hover:bg-emerald-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/40 active:scale-[0.98]"
+          >
+            Duo
+          </Link>
+        </div>
+      ) : null}
       <MobileStickyQueueBar
         disabled={!output.trim()}
         label="Queue image prompt"

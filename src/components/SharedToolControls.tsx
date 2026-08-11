@@ -1266,6 +1266,25 @@ export default function SharedToolControls({
                 {systemQualityHint}
               </p>
             ) : null}
+            <p
+              data-testid="queue-seed-quality-clarity"
+              className="rounded-lg border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/40 px-2.5 py-1.5 text-[11px] leading-relaxed text-[var(--text-secondary)]"
+            >
+              Queue uses{' '}
+              <span className="font-medium text-[var(--text-primary)]">
+                {queueQualityProfile === 'followSettings'
+                  ? 'Follow sidebar'
+                  : queueQualityProfile === 'draft'
+                    ? 'Draft'
+                    : queueQualityProfile === 'final'
+                      ? 'Final'
+                      : 'Max'}
+              </span>
+              {' · '}
+              {lockedVariationSeed?.trim()
+                ? `pinned seed ${lockedVariationSeed.trim().slice(0, 24)}${lockedVariationSeed.trim().length > 24 ? '…' : ''}`
+                : 'new seed each send'}
+            </p>
             {systemWorkflowChoice ? (
               <p className="text-xs leading-relaxed text-[var(--text-muted)]">
                 Graph:{' '}
@@ -1385,6 +1404,25 @@ export default function SharedToolControls({
                     toolProfile={toolProfileOverride}
                     onToolProfileChange={handleToolQueueQualityChange}
                   />
+                  <p
+                    data-testid="queue-seed-quality-clarity"
+                    className="rounded-lg border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/40 px-2.5 py-1.5 text-[11px] leading-relaxed text-[var(--text-secondary)]"
+                  >
+                    Queue uses{' '}
+                    <span className="font-medium text-[var(--text-primary)]">
+                      {queueQualityProfile === 'followSettings'
+                        ? 'Follow sidebar'
+                        : queueQualityProfile === 'draft'
+                          ? 'Draft'
+                          : queueQualityProfile === 'final'
+                            ? 'Final'
+                            : 'Max'}
+                    </span>
+                    {' · '}
+                    {lockedVariationSeed?.trim()
+                      ? `pinned seed ${lockedVariationSeed.trim().slice(0, 24)}${lockedVariationSeed.trim().length > 24 ? '…' : ''}`
+                      : 'new seed each send'}
+                  </p>
                   <QueueRecipesPanel
                     toolId={toolId}
                     shared={recipesShared}

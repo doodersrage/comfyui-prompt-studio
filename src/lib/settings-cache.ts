@@ -653,6 +653,10 @@ export type RefineToolCache = {
   intentHints?: string;
   currentPrompt?: string;
   regionalSlots?: import('./regional-prompt-slots').RegionalPromptSlot[];
+  hintSource?: import('./scene-hint-source').SceneHintSource;
+  historySeedScope?: import('./scene-hint-source').HistorySeedScope;
+  lastHistorySeedEntryId?: string;
+  randomTheme?: string;
 };
 
 export type InpaintToolCache = {
@@ -660,6 +664,10 @@ export type InpaintToolCache = {
   changeDescription?: string;
   directPrompt?: string;
   regionalSlots?: import('./regional-prompt-slots').RegionalPromptSlot[];
+  hintSource?: import('./scene-hint-source').SceneHintSource;
+  historySeedScope?: import('./scene-hint-source').HistorySeedScope;
+  lastHistorySeedEntryId?: string;
+  randomTheme?: string;
 };
 
 /** Outpaint / expand — pad canvas + border mask. */
@@ -669,6 +677,10 @@ export type OutpaintToolCache = {
   padRight?: number;
   padBottom?: number;
   padLeft?: number;
+  hintSource?: import('./scene-hint-source').SceneHintSource;
+  historySeedScope?: import('./scene-hint-source').HistorySeedScope;
+  lastHistorySeedEntryId?: string;
+  randomTheme?: string;
 };
 
 /** Compose / Transfer tool — key is `imageCompose` (legacy `compose` was CharacterTool). */
@@ -684,6 +696,10 @@ export type ImageComposeToolCache = {
   /** Identity backend when lock is on (default ipadapter). */
   identityKind?: import('./compose-identity-lock').ComposeIdentityKind;
   regionalSlots?: import('./regional-prompt-slots').RegionalPromptSlot[];
+  hintSource?: import('./scene-hint-source').SceneHintSource;
+  historySeedScope?: import('./scene-hint-source').HistorySeedScope;
+  lastHistorySeedEntryId?: string;
+  randomTheme?: string;
 };
 
 export type ControlNetSlotPreset = {
@@ -1040,12 +1056,16 @@ export const DEFAULT_PROMPT_EDITOR_TOOL_CACHE: PromptEditorToolCache = {
 export const DEFAULT_REFINE_TOOL_CACHE: RefineToolCache = {
   intentHints: '',
   currentPrompt: '',
+  hintSource: 'manual',
+  historySeedScope: 'related',
 };
 
 export const DEFAULT_INPAINT_TOOL_CACHE: InpaintToolCache = {
   maskDescription: '',
   changeDescription: '',
   directPrompt: '',
+  hintSource: 'manual',
+  historySeedScope: 'related',
 };
 
 export const DEFAULT_OUTPAINT_TOOL_CACHE: OutpaintToolCache = {
@@ -1054,6 +1074,8 @@ export const DEFAULT_OUTPAINT_TOOL_CACHE: OutpaintToolCache = {
   padRight: 128,
   padBottom: 128,
   padLeft: 128,
+  hintSource: 'manual',
+  historySeedScope: 'related',
 };
 
 export const DEFAULT_IMAGE_COMPOSE_TOOL_CACHE: ImageComposeToolCache = {
@@ -1063,6 +1085,8 @@ export const DEFAULT_IMAGE_COMPOSE_TOOL_CACHE: ImageComposeToolCache = {
   identityLock: false,
   identityLockStrength: 0.5,
   identityKind: 'ipadapter',
+  hintSource: 'manual',
+  historySeedScope: 'related',
 };
 
 export const DEFAULT_CONTROLNET_TOOL_CACHE: ControlNetToolCache = {

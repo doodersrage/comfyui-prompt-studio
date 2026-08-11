@@ -10,12 +10,16 @@ import InpaintMaskEditor from '@/components/InpaintMaskEditor';
 import RegionalEditPanel, { regionalSlotsQueueExtras } from '@/components/RegionalEditPanel';
 import SharedToolControls from '@/components/SharedToolControls';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
+import EditToolRecipeStrip from '@/components/EditToolRecipeStrip';
+import { HistoryHintSeedPanel } from '@/components/scene-tool/HistoryHintSeedPanel';
 import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
 import { useGalleryHandoff } from '@/hooks/useGalleryHandoff';
 import { usePromptResultActions } from '@/hooks/usePromptResultActions';
+import { continueEditResultProps } from '@/lib/continue-edit-result-props';
+import { normalizeHistorySeedScope, normalizeSceneHintSource } from '@/lib/scene-hint-source';
 import type { ComfyImageModel } from '@/lib/comfy-models/client';
 import type { WorkflowParamValues } from '@/lib/comfyui-config';
 import { getComfyModelDefinition } from '@/lib/comfy-models/client';
@@ -422,6 +426,31 @@ export default function ComposeTool() {
       }
     >
       <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.compose} />
+      <EditToolRecipeStrip
+        toolId="compose"
+        shared={shared}
+        onApplied={next => updateShared(next)}
+      />
+      <HistoryHintSeedPanel
+        tool="compose"
+        hintSource={normalizeSceneHintSource(toolSettings.hintSource)}
+        historySeedScope={normalizeHistorySeedScope(toolSettings.historySeedScope)}
+        hints={instruction}
+        randomTheme={toolSettings.randomTheme ?? ''}
+        lastHistorySeedEntryId={toolSettings.lastHistorySeedEntryId}
+        onHintSourceChange={source => updateToolSettings({ hintSource: source })}
+        onHistorySeedScopeChange={scope => updateToolSettings({ historySeedScope: scope })}
+        onHintsChange={setInstruction}
+        onRandomThemeChange={theme => updateToolSettings({ randomTheme: theme })}
+        onHistorySeedApplied={result =>
+          updateToolSettings({
+            instruction: result.hints,
+            lastHistorySeedEntryId: result.entryId,
+            hintSource: 'history',
+          })
+        }
+        accentFocusClassName={accentFocusClass(ACCENT)}
+      />
       <CollabPresenceBar
         tool="compose"
         draft={instruction}
@@ -790,6 +819,7 @@ export default function ComposeTool() {
           void actions.sendComfyUi(output, undefined, undefined, queueImageOptions);
         }}
         {...promptResultPreviewProps(actions, output)}
+        {...continueEditResultProps(actions, output, { queueImageOptions })}
         onFixPrompt={() => void actions.fixPrompt(output, setOutput, instruction)}
         onCopyPair={() => void actions.copyPromptPair(output)}
         onCompact={() => void actions.compactPrompt(output, setOutput)}
@@ -827,7 +857,16 @@ export default function ComposeTool() {
           }
           void actions.sendComfyUi(output, undefined, undefined, queueImageOptions);
         }}
-      />
+      >
+        <div className="mb-2">
+          <EditToolRecipeStrip
+            toolId="compose"
+            shared={shared}
+            onApplied={next => updateShared(next)}
+            compact
+          />
+        </div>
+      </MobileStickyQueueBar>
     </ToolLayout>
   );
 }

@@ -105,6 +105,13 @@ type EnhancedPromptResultProps = {
   onImprove?: () => void;
   onRefine?: () => void;
   onEditPrompt?: () => void;
+  /** Continue-edit chain from the queued preview image. */
+  onContinueInpaint?: () => void;
+  onContinueOutpaint?: () => void;
+  onContinueCompose?: () => void;
+  /** Queue N fresh-seed variations with the same prompt/images. */
+  onQueueSeedBatch?: () => void;
+  seedBatchLabel?: string;
   workflowPreview?: {
     workflowSource?: string;
     replacements?: {
@@ -174,6 +181,11 @@ export default function EnhancedPromptResult({
   onImprove,
   onRefine,
   onEditPrompt,
+  onContinueInpaint,
+  onContinueOutpaint,
+  onContinueCompose,
+  onQueueSeedBatch,
+  seedBatchLabel,
   workflowPreview,
   previewStatus,
   variationSeed,
@@ -338,7 +350,11 @@ export default function EnhancedPromptResult({
       onPreviewWorkflow ||
       onImprove ||
       onRefine ||
-      onEditPrompt)
+      onEditPrompt ||
+      onContinueInpaint ||
+      onContinueOutpaint ||
+      onContinueCompose ||
+      onQueueSeedBatch)
   );
 
   return (
@@ -673,6 +689,26 @@ export default function EnhancedPromptResult({
                       Edit in Prompt Editor
                     </Button>
                   )}
+                  {onContinueInpaint && (
+                    <Button variant="secondary" onClick={onContinueInpaint}>
+                      Continue in Inpaint
+                    </Button>
+                  )}
+                  {onContinueOutpaint && (
+                    <Button variant="secondary" onClick={onContinueOutpaint}>
+                      Continue in Outpaint
+                    </Button>
+                  )}
+                  {onContinueCompose && (
+                    <Button variant="secondary" onClick={onContinueCompose}>
+                      Continue in Compose
+                    </Button>
+                  )}
+                  {onQueueSeedBatch && (
+                    <Button variant="secondary" onClick={onQueueSeedBatch}>
+                      {seedBatchLabel ?? 'Queue 3 seed variants'}
+                    </Button>
+                  )}
                   {onExportSidecar && (
                     <Button variant="secondary" onClick={onExportSidecar}>
                       Export sidecar JSON
@@ -714,33 +750,88 @@ export default function EnhancedPromptResult({
               className="max-h-80 w-full bg-[var(--bg-subtle)] object-contain"
             />
           </button>
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border-subtle)] px-3 py-2">
-            <span className="type-caption text-[var(--tint-success-text)]">
-              ComfyUI output ready
-            </span>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={openComfyPreviewLightbox}
-                className="type-caption text-[var(--accent-text)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
-              >
-                View image
-              </button>
-              <a
-                href={comfyUiPreviewUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="type-caption text-[var(--accent-text)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
-              >
-                Open in new tab
-              </a>
-              <a
-                href="/gallery"
-                className="type-caption transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
-              >
-                Gallery
-              </a>
+          <div className="space-y-2 border-t border-[var(--border-subtle)] px-3 py-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="type-caption text-[var(--tint-success-text)]">
+                ComfyUI output ready
+              </span>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={openComfyPreviewLightbox}
+                  className="type-caption text-[var(--accent-text)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+                >
+                  View image
+                </button>
+                <a
+                  href={comfyUiPreviewUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="type-caption text-[var(--accent-text)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+                >
+                  Open in new tab
+                </a>
+                <a
+                  href="/gallery"
+                  className="type-caption transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+                >
+                  Gallery
+                </a>
+              </div>
             </div>
+            {onContinueInpaint ||
+            onContinueOutpaint ||
+            onContinueCompose ||
+            onRefine ||
+            onQueueSeedBatch ? (
+              <div data-testid="result-continue-edit" className="flex flex-wrap gap-1.5">
+                {onRefine ? (
+                  <Button
+                    variant="secondary"
+                    className="!min-h-8 px-2.5 text-[11px]"
+                    onClick={onRefine}
+                  >
+                    Refine
+                  </Button>
+                ) : null}
+                {onContinueInpaint ? (
+                  <Button
+                    variant="secondary"
+                    className="!min-h-8 px-2.5 text-[11px]"
+                    onClick={onContinueInpaint}
+                  >
+                    Inpaint
+                  </Button>
+                ) : null}
+                {onContinueOutpaint ? (
+                  <Button
+                    variant="secondary"
+                    className="!min-h-8 px-2.5 text-[11px]"
+                    onClick={onContinueOutpaint}
+                  >
+                    Outpaint
+                  </Button>
+                ) : null}
+                {onContinueCompose ? (
+                  <Button
+                    variant="secondary"
+                    className="!min-h-8 px-2.5 text-[11px]"
+                    onClick={onContinueCompose}
+                  >
+                    Compose
+                  </Button>
+                ) : null}
+                {onQueueSeedBatch ? (
+                  <Button
+                    variant="secondary"
+                    className="!min-h-8 px-2.5 text-[11px]"
+                    onClick={onQueueSeedBatch}
+                  >
+                    {seedBatchLabel ?? '3 seeds'}
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </div>
       )}

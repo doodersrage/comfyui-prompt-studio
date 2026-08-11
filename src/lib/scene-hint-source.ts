@@ -3,7 +3,16 @@ export type SceneHintSource = 'manual' | 'history' | 'random';
 export type HistorySeedScope = 'tool' | 'related' | 'favorites' | 'top-rated';
 
 export type HistorySeedTool =
-  'generate' | 'character' | 'duo' | 'compose' | 'background' | 'pet' | 'fantasy';
+  | 'generate'
+  | 'character'
+  | 'duo'
+  | 'compose'
+  | 'background'
+  | 'pet'
+  | 'fantasy'
+  | 'refine'
+  | 'inpaint'
+  | 'outpaint';
 
 export const SCENE_HINT_SOURCE_OPTIONS: Array<{
   value: SceneHintSource;

@@ -5,11 +5,15 @@ import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
 import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
+import EditToolRecipeStrip from '@/components/EditToolRecipeStrip';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import InpaintMaskEditor from '@/components/InpaintMaskEditor';
 import RegionalEditPanel, { regionalSlotsQueueExtras } from '@/components/RegionalEditPanel';
 import SharedToolControls from '@/components/SharedToolControls';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
+import { HistoryHintSeedPanel } from '@/components/scene-tool/HistoryHintSeedPanel';
+import { continueEditResultProps } from '@/lib/continue-edit-result-props';
+import { normalizeHistorySeedScope, normalizeSceneHintSource } from '@/lib/scene-hint-source';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
 import { useGalleryHandoff } from '@/hooks/useGalleryHandoff';
@@ -284,6 +288,31 @@ export default function InpaintTool() {
       }
     >
       <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.inpaint} />
+      <EditToolRecipeStrip
+        toolId="inpaint"
+        shared={shared}
+        onApplied={next => updateShared(next)}
+      />
+      <HistoryHintSeedPanel
+        tool="inpaint"
+        hintSource={normalizeSceneHintSource(toolSettings.hintSource)}
+        historySeedScope={normalizeHistorySeedScope(toolSettings.historySeedScope)}
+        hints={changeDescription || maskDescription}
+        randomTheme={toolSettings.randomTheme ?? ''}
+        lastHistorySeedEntryId={toolSettings.lastHistorySeedEntryId}
+        onHintSourceChange={source => updateToolSettings({ hintSource: source })}
+        onHistorySeedScopeChange={scope => updateToolSettings({ historySeedScope: scope })}
+        onHintsChange={value => setChangeDescription(value)}
+        onRandomThemeChange={theme => updateToolSettings({ randomTheme: theme })}
+        onHistorySeedApplied={result =>
+          updateToolSettings({
+            changeDescription: result.hints,
+            lastHistorySeedEntryId: result.entryId,
+            hintSource: 'history',
+          })
+        }
+        accentFocusClassName={accentFocusClass(ACCENT)}
+      />
       <ToolSection>
         {anatomyRepairMode ? (
           <p className="mb-4 rounded-xl border border-rose-500/25 bg-rose-500/[0.06] px-3.5 py-3 text-sm leading-relaxed text-rose-100/90">
@@ -396,6 +425,7 @@ export default function InpaintTool() {
           void actions.sendComfyUi(output, undefined, undefined, queueImageOptions);
         }}
         {...promptResultPreviewProps(actions, output)}
+        {...continueEditResultProps(actions, output, { queueImageOptions })}
         onFixPrompt={() => void actions.fixPrompt(output, setDirectPrompt, maskDescription)}
         onCopyPair={() => void actions.copyPromptPair(output)}
         onCompact={() => void actions.compactPrompt(output, setDirectPrompt)}
@@ -433,7 +463,16 @@ export default function InpaintTool() {
           }
           void actions.sendComfyUi(output, undefined, undefined, queueImageOptions);
         }}
-      />
+      >
+        <div className="mb-2">
+          <EditToolRecipeStrip
+            toolId="inpaint"
+            shared={shared}
+            onApplied={next => updateShared(next)}
+            compact
+          />
+        </div>
+      </MobileStickyQueueBar>
     </ToolLayout>
   );
 }

@@ -884,6 +884,8 @@ export default function PromptGenerator() {
             })
           }
           onSendComfyUi={() => void actions.sendComfyUi(output)}
+          onImprove={() => actions.improveOutput(output, actions.comfyUiPreviewUrl)}
+          onRefine={() => actions.refineOutput(output, actions.comfyUiPreviewUrl)}
           onEditPrompt={() =>
             actions.editPromptOutput(
               output,
@@ -892,6 +894,9 @@ export default function PromptGenerator() {
               hintSource === 'random' ? genre : input
             )
           }
+          onContinueInpaint={() => actions.inpaintOutput(output, actions.comfyUiPreviewUrl)}
+          onContinueOutpaint={() => actions.outpaintOutput(output, actions.comfyUiPreviewUrl)}
+          onContinueCompose={() => actions.composeOutput(output, actions.comfyUiPreviewUrl)}
           {...promptResultPreviewProps(actions, output)}
           onFixPrompt={() =>
             void actions.fixPrompt(output, setOutput, hintSource === 'random' ? genre : input)

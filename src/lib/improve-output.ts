@@ -70,6 +70,62 @@ export function startRefineFromResult(input: {
   });
   window.location.href = galleryHandoffPath('refine');
 }
+
+function startEditToolFromResult(
+  target: 'inpaint' | 'outpaint' | 'compose' | 'refine',
+  input: {
+    prompt: string;
+    previewUrl?: string | null;
+    model?: string;
+    tool?: string;
+    negativePrompt?: string;
+  }
+): void {
+  const prefersInpaintModel = target === 'inpaint' || target === 'outpaint';
+  saveGalleryHandoff({
+    source: 'gallery',
+    galleryEntryId: 'result-panel',
+    promptId: 'result-panel',
+    prompt: input.prompt,
+    negativePrompt: input.negativePrompt,
+    model: prefersInpaintModel && input.model !== 'flux-inpaint' ? 'flux-inpaint' : input.model,
+    tool: input.tool,
+    imageUrl: input.previewUrl ?? undefined,
+    target,
+    savedAt: Date.now(),
+  });
+  window.location.href = galleryHandoffPath(target);
+}
+
+export function startInpaintFromResult(input: {
+  prompt: string;
+  previewUrl?: string | null;
+  model?: string;
+  tool?: string;
+  negativePrompt?: string;
+}): void {
+  startEditToolFromResult('inpaint', input);
+}
+
+export function startOutpaintFromResult(input: {
+  prompt: string;
+  previewUrl?: string | null;
+  model?: string;
+  tool?: string;
+  negativePrompt?: string;
+}): void {
+  startEditToolFromResult('outpaint', input);
+}
+
+export function startComposeFromResult(input: {
+  prompt: string;
+  previewUrl?: string | null;
+  model?: string;
+  tool?: string;
+  negativePrompt?: string;
+}): void {
+  startEditToolFromResult('compose', input);
+}
 export function startRefineFromHistoryEntry(entry: {
   id: string;
   prompt: string;

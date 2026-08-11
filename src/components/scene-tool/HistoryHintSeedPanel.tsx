@@ -59,6 +59,21 @@ const HISTORY_EMPTY_GUIDANCE: Partial<
     href: '/fantasy',
     linkLabel: 'Open Fantasy',
   },
+  refine: {
+    message: 'Run a few refine/edit jobs and save prompts to history for intent seeds.',
+    href: '/refine',
+    linkLabel: 'Open Refine',
+  },
+  inpaint: {
+    message: 'Queue inpaint edits and save instructions to history for reuse.',
+    href: '/inpaint',
+    linkLabel: 'Open Inpaint',
+  },
+  outpaint: {
+    message: 'Queue outpaint expands and save border intents to history.',
+    href: '/outpaint',
+    linkLabel: 'Open Outpaint',
+  },
 };
 
 type HistoryHintSeedPanelProps = {

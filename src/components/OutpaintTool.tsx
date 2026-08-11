@@ -2,10 +2,13 @@
 
 import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
+import EditToolRecipeStrip from '@/components/EditToolRecipeStrip';
 import SharedToolControls from '@/components/SharedToolControls';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
+import { HistoryHintSeedPanel } from '@/components/scene-tool/HistoryHintSeedPanel';
 import { Button, PrimaryButton } from '@/components/ui/Button';
 import { FieldError, FieldLabel, TextInput, TextArea } from '@/components/ui/Field';
 import {
@@ -28,9 +31,13 @@ import {
   renderOutpaintPadAndMask,
 } from '@/lib/outpaint-canvas';
 import { sharedPatchFromGalleryHandoff } from '@/lib/gallery-handoff';
+import { continueEditResultProps } from '@/lib/continue-edit-result-props';
+import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
+import { getReformatTargetLabel } from '@/lib/reformat-target';
 import { DEFAULT_OUTPAINT_TOOL_CACHE } from '@/lib/settings-cache';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
+import { normalizeHistorySeedScope, normalizeSceneHintSource } from '@/lib/scene-hint-source';
 
 const ACCENT = 'amber' as const;
 const DEFAULT_OUTPAINT_MODEL: ComfyImageModel = 'flux-inpaint';
@@ -72,6 +79,13 @@ export default function OutpaintTool() {
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [output, setOutput] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [lastQueueOptions, setLastQueueOptions] = useState<{
+    inputImage: File;
+    maskImage: File;
+    queueParamsBase: { width: string; height: string; denoise: string };
+  } | null>(null);
 
   const actions = usePromptResultActions({
     tool: 'outpaint',
@@ -82,6 +96,11 @@ export default function OutpaintTool() {
   });
 
   const selectedModel = getComfyModelDefinition(shared.model);
+  const liveInstruction = useMemo(
+    () => buildOutpaintInstruction(normalizeOutpaintInsets(pad), intent),
+    [intent, pad]
+  );
+  const resultOutput = output.trim() || liveInstruction;
 
   useEffect(() => {
     if (!mounted || modelInitializedRef.current) {
@@ -203,8 +222,7 @@ export default function OutpaintTool() {
         Number.isFinite(shared.editDenoiseStrength)
           ? shared.editDenoiseStrength
           : DEFAULT_OUTPAINT_DENOISE;
-      setStatus('Queueing outpaint…');
-      await actions.sendComfyUi(instruction, undefined, undefined, {
+      const queueOptions = {
         inputImage: imageFile,
         maskImage: maskFile,
         queueParamsBase: {
@@ -212,7 +230,11 @@ export default function OutpaintTool() {
           height: String(rendered.height),
           denoise: String(denoise),
         },
-      });
+      };
+      setLastQueueOptions(queueOptions);
+      setOutput(instruction);
+      setStatus('Queueing outpaint…');
+      await actions.sendComfyUi(instruction, undefined, undefined, queueOptions);
       setStatus(actions.comfyUiStatus ?? 'Outpaint queued.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Outpaint failed.');
@@ -221,6 +243,15 @@ export default function OutpaintTool() {
       setBusy(false);
     }
   }, [actions, intent, pad, shared.editDenoiseStrength, shared.model, sourceUrl, updateShared]);
+
+  const copyOutput = useCallback(async () => {
+    if (!resultOutput.trim()) {
+      return;
+    }
+    await navigator.clipboard.writeText(resultOutput);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1500);
+  }, [resultOutput]);
 
   if (!mounted) {
     return null;
@@ -244,6 +275,31 @@ export default function OutpaintTool() {
       }
     >
       <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.outpaint} />
+      <EditToolRecipeStrip
+        toolId="outpaint"
+        shared={shared}
+        onApplied={next => updateShared(next)}
+      />
+      <HistoryHintSeedPanel
+        tool="outpaint"
+        hintSource={normalizeSceneHintSource(toolSettings.hintSource)}
+        historySeedScope={normalizeHistorySeedScope(toolSettings.historySeedScope)}
+        hints={intent}
+        randomTheme={toolSettings.randomTheme ?? ''}
+        lastHistorySeedEntryId={toolSettings.lastHistorySeedEntryId}
+        onHintSourceChange={source => updateToolSettings({ hintSource: source })}
+        onHistorySeedScopeChange={scope => updateToolSettings({ historySeedScope: scope })}
+        onHintsChange={setIntent}
+        onRandomThemeChange={theme => updateToolSettings({ randomTheme: theme })}
+        onHistorySeedApplied={result =>
+          updateToolSettings({
+            intent: result.hints,
+            lastHistorySeedEntryId: result.entryId,
+            hintSource: 'history',
+          })
+        }
+        accentFocusClassName={accentFocusClass(ACCENT)}
+      />
       <ToolSection title="Source">
         <FieldLabel>Image</FieldLabel>
         <input
@@ -319,12 +375,63 @@ export default function OutpaintTool() {
         </div>
         <FieldError>{error}</FieldError>
       </ToolSection>
+
+      <EnhancedPromptResult
+        output={resultOutput}
+        onOutputChange={setOutput}
+        provider={resultOutput ? 'template' : null}
+        comfyNode={selectedModel.comfyNode}
+        readinessModel={shared.model}
+        readinessDetail={shared.detail}
+        readinessHints={intent}
+        copied={copied}
+        onCopy={() => void copyOutput()}
+        diagnostics={actions.diagnostics}
+        onSaveHistory={() =>
+          actions.saveHistory({
+            prompt: resultOutput,
+            hints: intent,
+          })
+        }
+        onSendComfyUi={() => void runOutpaint()}
+        {...promptResultPreviewProps(actions, resultOutput)}
+        {...continueEditResultProps(actions, resultOutput, {
+          queueImageOptions: lastQueueOptions ?? undefined,
+          includeSeedBatch: Boolean(lastQueueOptions),
+        })}
+        onFixPrompt={() => void actions.fixPrompt(resultOutput, setOutput, intent)}
+        onCopyPair={() => void actions.copyPromptPair(resultOutput)}
+        onCompact={() => void actions.compactPrompt(resultOutput, setOutput)}
+        onReformat={() => void actions.reformatForModel(resultOutput, setOutput)}
+        reformatTargetLabel={getReformatTargetLabel(shared.model)}
+        onExportSidecar={() =>
+          void actions.exportSidecar(resultOutput, { comfyNode: selectedModel.comfyNode })
+        }
+        fixStatus={actions.fixStatus}
+        compactStatus={actions.compactStatus}
+        reformatStatus={actions.reformatStatus}
+        pipelineStatus={actions.pipelineStatus}
+        comfyUiStatus={actions.comfyUiStatus}
+        comfyUiJob={actions.comfyUiJob}
+        comfyUiPreviewUrl={actions.comfyUiPreviewUrl}
+        historySaved={actions.historySaved}
+        pairCopied={actions.pairCopied}
+      />
       <MobileStickyQueueBar
         disabled={busy || !sourceUrl}
         label="Queue outpaint"
         status={status ?? actions.comfyUiStatus}
         onQueue={() => void runOutpaint()}
-      />
+      >
+        <div className="mb-2">
+          <EditToolRecipeStrip
+            toolId="outpaint"
+            shared={shared}
+            onApplied={next => updateShared(next)}
+            compact
+          />
+        </div>
+      </MobileStickyQueueBar>
     </ToolLayout>
   );
 }

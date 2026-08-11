@@ -12,7 +12,10 @@ import { resolveModelForQueueTool } from '@/lib/queue-tool-model';
 import { guardQueueQualityForVram } from '@/lib/vram-queue-guard';
 import { rememberedSamplerOverrides } from '@/lib/sampler-memory';
 import {
+  startComposeFromResult,
   startImproveFromResult,
+  startInpaintFromResult,
+  startOutpaintFromResult,
   startPromptEditorFromResult,
   startRefineFromResult,
 } from '@/lib/improve-output';
@@ -1638,6 +1641,85 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
     [config.hints, config.model, config.tool]
   );
 
+  const inpaintOutput = useCallback(
+    (prompt: string, previewUrl?: string | null, negativePrompt?: string) => {
+      if (!prompt.trim() && !previewUrl) {
+        return;
+      }
+      startInpaintFromResult({
+        prompt: prompt.trim() || 'edit masked region',
+        previewUrl,
+        negativePrompt,
+        model: config.model,
+        tool: config.tool,
+      });
+    },
+    [config.model, config.tool]
+  );
+
+  const outpaintOutput = useCallback(
+    (prompt: string, previewUrl?: string | null, negativePrompt?: string) => {
+      if (!prompt.trim() && !previewUrl) {
+        return;
+      }
+      startOutpaintFromResult({
+        prompt: prompt.trim() || 'continue the scene naturally with matching lighting',
+        previewUrl,
+        negativePrompt,
+        model: config.model,
+        tool: config.tool,
+      });
+    },
+    [config.model, config.tool]
+  );
+
+  const composeOutput = useCallback(
+    (prompt: string, previewUrl?: string | null, negativePrompt?: string) => {
+      if (!prompt.trim() && !previewUrl) {
+        return;
+      }
+      startComposeFromResult({
+        prompt: prompt.trim() || 'compose edit',
+        previewUrl,
+        negativePrompt,
+        model: config.model,
+        tool: config.tool,
+      });
+    },
+    [config.model, config.tool]
+  );
+
+  const sendSeedVariationBatch = useCallback(
+    async (
+      prompt: string,
+      count = 3,
+      sport?: AthleticSport | null,
+      options?: Parameters<typeof sendComfyUi>[3]
+    ) => {
+      const n = Math.max(1, Math.min(4, Math.trunc(count) || 3));
+      if (!prompt.trim()) {
+        return { queued: 0, failed: 0 };
+      }
+      let queued = 0;
+      let failed = 0;
+      for (let i = 0; i < n; i += 1) {
+        try {
+          await sendComfyUi(prompt, sport, undefined, options);
+          queued += 1;
+        } catch {
+          failed += 1;
+        }
+      }
+      setComfyUiStatus(
+        failed > 0
+          ? `Seed batch: ${queued} queued, ${failed} failed.`
+          : `Seed batch: queued ${queued} variation${queued === 1 ? '' : 's'}.`
+      );
+      return { queued, failed };
+    },
+    [sendComfyUi]
+  );
+
   return {
     preDiagnostics,
     diagnostics,
@@ -1670,5 +1752,9 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
     improveOutput,
     refineOutput,
     editPromptOutput,
+    inpaintOutput,
+    outpaintOutput,
+    composeOutput,
+    sendSeedVariationBatch,
   };
 }
