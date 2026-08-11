@@ -88,6 +88,7 @@ type GalleryCardProps = {
   reviewMutationHints?: string[];
   onVisionTagClick?: (tag: string) => void;
   onViewWorkflow?: () => void;
+  onRestoreExactGraph?: () => void;
   /** When set, clicking a pickable card returns the image to the calling tool. */
   pickMode?: boolean;
   pickable?: boolean;
@@ -162,6 +163,7 @@ export default function GalleryCard({
   reviewMutationHints,
   onVisionTagClick,
   onViewWorkflow,
+  onRestoreExactGraph,
   pickMode = false,
   pickable = false,
   pickLabel = 'Use this image',
@@ -534,7 +536,11 @@ export default function GalleryCard({
                 type="button"
                 disabled={!previewUrl || aestheticBusy}
                 onClick={() => void scoreWithVision()}
-                className="pointer-events-auto rounded-full border border-[var(--border-default)]/60 bg-[var(--bg-base)]/70 px-2 py-0.5 text-[10px] text-[var(--text-muted)] backdrop-blur-sm transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/45 active:scale-[0.98] disabled:opacity-50"
+                className={`pointer-events-auto rounded-full border border-[var(--border-default)]/60 bg-[var(--bg-base)]/70 px-2 py-0.5 text-[10px] text-[var(--text-muted)] backdrop-blur-sm transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/45 active:scale-[0.98] disabled:opacity-50 ${
+                  layout === 'dense'
+                    ? 'opacity-0 transition-opacity group-hover/card:opacity-100 group-focus-within/card:opacity-100'
+                    : ''
+                }`}
                 title={
                   aestheticScore.notes.join(' · ') ||
                   'Click to score with vision LLM (falls back to heuristic)'
@@ -547,7 +553,13 @@ export default function GalleryCard({
             ) : null}
           </div>
 
-          <div className="pointer-events-auto flex items-center gap-1">
+          <div
+            className={`pointer-events-auto flex items-center gap-1 ${
+              layout === 'dense' && !entry.favorite
+                ? 'opacity-0 transition-opacity group-hover/card:opacity-100 group-focus-within/card:opacity-100'
+                : ''
+            }`}
+          >
             {selectable ? (
               <label className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border-default)]/70 bg-[var(--bg-base)]/80 backdrop-blur transition hover:border-[var(--border-default)]">
                 <input
@@ -760,7 +772,13 @@ export default function GalleryCard({
       ) : null}
 
       {reviewMode && entry.status === 'completed' && onReviewRating ? (
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div
+          className={`flex flex-wrap items-center gap-1.5 ${
+            layout === 'dense'
+              ? 'opacity-0 transition-opacity group-hover/card:opacity-100 group-focus-within/card:opacity-100'
+              : ''
+          }`}
+        >
           <span className="text-[11px] text-[var(--text-muted)]">Rate</span>
           {[1, 2, 3, 4, 5].map(rating => (
             <button
@@ -779,7 +797,13 @@ export default function GalleryCard({
         </div>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-2 pt-0.5">
+      <div
+        className={`flex flex-wrap items-center gap-2 pt-0.5 ${
+          layout === 'dense'
+            ? 'opacity-0 transition-opacity group-hover/card:opacity-100 group-focus-within/card:opacity-100'
+            : ''
+        }`}
+      >
         <button
           type="button"
           onClick={() => setPromptExpanded(previous => !previous)}
@@ -1043,6 +1067,15 @@ export default function GalleryCard({
                       data-testid="gallery-replay-exact"
                       onClick={() => {
                         onRequeue(false, undefined, { exactGraph: true });
+                        setMenuOpen(false);
+                      }}
+                    />
+                  ) : entry.promptId?.trim() && onRestoreExactGraph ? (
+                    <GalleryMenuButton
+                      label="Restore exact graph from Comfy history"
+                      data-testid="gallery-restore-exact"
+                      onClick={() => {
+                        onRestoreExactGraph();
                         setMenuOpen(false);
                       }}
                     />

@@ -2,7 +2,7 @@
 
 import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import SharedToolControls from '@/components/SharedToolControls';
@@ -16,9 +16,33 @@ import { getComfyModelDefinition } from '@/lib/comfy-models/client';
 import type { WorkflowParamValues } from '@/lib/comfyui-config';
 import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-target';
 import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
-import { DEFAULT_CONTROLNET_TOOL_CACHE } from '@/lib/settings-cache';
+import { DEFAULT_CONTROLNET_TOOL_CACHE, type ControlNetSlotPreset } from '@/lib/settings-cache';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
 import { normalizeControlNetMode, type ControlNetMode } from '@/lib/controlnet-prompt';
+
+function normalizeSlotStrengths(raw: unknown): number[] {
+  const fallback = [1, 1, 1, 1];
+  if (!Array.isArray(raw)) {
+    return fallback;
+  }
+  return fallback.map((_, index) => {
+    const value = Number(raw[index]);
+    if (!Number.isFinite(value)) {
+      return 1;
+    }
+    return Math.min(2, Math.max(0, value));
+  });
+}
+
+function normalizeSlotModes(raw: unknown, primary: ControlNetMode): ControlNetMode[] {
+  const fallback: ControlNetMode[] = [primary, primary, primary, primary];
+  if (!Array.isArray(raw)) {
+    return fallback;
+  }
+  return fallback.map((_, index) =>
+    normalizeControlNetMode(raw[index] ?? (index === 0 ? primary : 'depth'))
+  );
+}
 import {
   ToolBadge,
   CollapsibleSection,
@@ -72,23 +96,82 @@ export default function ControlNetTool() {
   const subject = toolSettings.subject ?? '';
   const scene = toolSettings.scene ?? '';
   const detailNotes = toolSettings.detailNotes ?? '';
-  const [slotStrengths, setSlotStrengths] = useState<number[]>([1, 1, 1, 1]);
-  const [slotModes, setSlotModes] = useState<ControlNetMode[]>([
-    'depth',
-    'depth',
-    'depth',
-    'depth',
-  ]);
+  const slotStrengths = normalizeSlotStrengths(toolSettings.slotStrengths);
+  const slotModes = normalizeSlotModes(toolSettings.slotModes, mode);
+  const presets = useMemo(
+    () => (Array.isArray(toolSettings.presets) ? toolSettings.presets : []),
+    [toolSettings.presets]
+  );
+  const [presetNameDraft, setPresetNameDraft] = useState('');
+  const setSlotStrengths = useCallback(
+    (updater: number[] | ((previous: number[]) => number[])) => {
+      const previous = normalizeSlotStrengths(toolSettings.slotStrengths);
+      const next = typeof updater === 'function' ? updater(previous) : updater;
+      updateToolSettings({ slotStrengths: normalizeSlotStrengths(next) });
+    },
+    [toolSettings.slotStrengths, updateToolSettings]
+  );
+  const setSlotModes = useCallback(
+    (updater: ControlNetMode[] | ((previous: ControlNetMode[]) => ControlNetMode[])) => {
+      const previous = normalizeSlotModes(toolSettings.slotModes, mode);
+      const next = typeof updater === 'function' ? updater(previous) : updater;
+      updateToolSettings({ slotModes: normalizeSlotModes(next, mode) });
+    },
+    [mode, toolSettings.slotModes, updateToolSettings]
+  );
   const setMode = useCallback(
     (value: ControlNetMode) => {
-      updateToolSettings({ mode: value });
-      setSlotModes(previous => {
-        const next = [...previous];
-        next[0] = value;
-        return next;
+      const nextModes = normalizeSlotModes(toolSettings.slotModes, value);
+      nextModes[0] = value;
+      updateToolSettings({ mode: value, slotModes: nextModes });
+    },
+    [toolSettings.slotModes, updateToolSettings]
+  );
+  const saveSlotPreset = useCallback(() => {
+    const name = presetNameDraft.trim() || `Preset ${presets.length + 1}`;
+    const preset: ControlNetSlotPreset = {
+      id: crypto.randomUUID(),
+      name,
+      mode,
+      subject,
+      scene,
+      detailNotes,
+      slotStrengths,
+      slotModes,
+      updatedAt: Date.now(),
+    };
+    updateToolSettings({ presets: [preset, ...presets].slice(0, 24) });
+    setPresetNameDraft('');
+  }, [
+    detailNotes,
+    mode,
+    presetNameDraft,
+    presets,
+    scene,
+    slotModes,
+    slotStrengths,
+    subject,
+    updateToolSettings,
+  ]);
+  const loadSlotPreset = useCallback(
+    (preset: ControlNetSlotPreset) => {
+      const nextMode = normalizeControlNetMode(preset.mode ?? mode);
+      updateToolSettings({
+        mode: nextMode,
+        subject: preset.subject ?? '',
+        scene: preset.scene ?? '',
+        detailNotes: preset.detailNotes ?? '',
+        slotStrengths: normalizeSlotStrengths(preset.slotStrengths),
+        slotModes: normalizeSlotModes(preset.slotModes, nextMode),
       });
     },
-    [updateToolSettings]
+    [mode, updateToolSettings]
+  );
+  const deleteSlotPreset = useCallback(
+    (id: string) => {
+      updateToolSettings({ presets: presets.filter(preset => preset.id !== id) });
+    },
+    [presets, updateToolSettings]
   );
   const setSubject = useCallback(
     (value: string) => {
@@ -416,6 +499,63 @@ export default function ControlNetTool() {
             }
             className={`w-full accent-cyan-500 ${accentFocusClass()}`}
           />
+        </div>
+        <div className="mt-5 space-y-3 rounded-xl border border-[var(--border-subtle)]/80 bg-[color-mix(in_oklab,var(--surface)_86%,transparent)] p-3">
+          <FieldLabel
+            htmlFor="controlnet-preset-name"
+            hint="Saves modes/strengths/text — not images"
+          >
+            Slot presets
+          </FieldLabel>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              id="controlnet-preset-name"
+              value={presetNameDraft}
+              onChange={event => setPresetNameDraft(event.target.value)}
+              placeholder="e.g. Soft depth stack"
+              className={`ui-input min-w-[10rem] flex-1 px-3 py-2 text-sm ${accentFocusClass(ACCENT)}`}
+            />
+            <Button type="button" variant="secondary" size="sm" onClick={saveSlotPreset}>
+              Save preset
+            </Button>
+          </div>
+          {presets.length > 0 ? (
+            <ul className="space-y-1.5">
+              {presets.map(preset => (
+                <li
+                  key={preset.id}
+                  className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--border-subtle)]/70 px-2.5 py-2"
+                >
+                  <span className="min-w-0 flex-1 truncate text-sm text-[var(--text-secondary)]">
+                    {preset.name}
+                    <span className="ml-2 text-xs text-[var(--text-muted)]">
+                      {normalizeControlNetMode(preset.mode ?? 'depth')}
+                    </span>
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => loadSlotPreset(preset)}
+                  >
+                    Load
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => deleteSlotPreset(preset.id)}
+                  >
+                    Delete
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-[var(--text-muted)]">
+              Save the current slot modes and strengths for quick recall.
+            </p>
+          )}
         </div>
       </ToolSection>
 

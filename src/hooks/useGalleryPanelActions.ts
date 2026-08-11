@@ -69,6 +69,7 @@ const EMPTY_GALLERY_CARD_ACTIONS: GalleryCardActions = {
   downloadError: () => undefined,
   visionTagClick: () => undefined,
   viewWorkflow: () => undefined,
+  restoreExactGraph: () => undefined,
   pick: () => undefined,
 };
 
@@ -468,6 +469,26 @@ export function useGalleryPanelActions({
         if (entry) {
           setWorkflowEntry(entry);
         }
+      },
+      restoreExactGraph: (id: string) => {
+        const entry = entriesRef.current.find(item => item.id === id);
+        if (!entry?.promptId?.trim()) {
+          setRequeueStatus('No Comfy prompt id — cannot restore graph.');
+          return;
+        }
+        setRequeueStatus('Restoring exact graph from ComfyUI history…');
+        void loadGalleryRequeue()
+          .then(({ restoreExactGraphFromComfyHistory }) =>
+            restoreExactGraphFromComfyHistory(entry, { onStatus: setRequeueStatus })
+          )
+          .then(result => {
+            setRequeueStatus(result.message);
+          })
+          .catch(error => {
+            setRequeueStatus(
+              error instanceof Error ? error.message : 'Failed to restore exact graph.'
+            );
+          });
       },
       pick: (id: string) => {
         const target = pickFor;

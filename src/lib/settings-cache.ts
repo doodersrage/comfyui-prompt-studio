@@ -686,12 +686,30 @@ export type ImageComposeToolCache = {
   regionalSlots?: import('./regional-prompt-slots').RegionalPromptSlot[];
 };
 
+export type ControlNetSlotPreset = {
+  id: string;
+  name: string;
+  mode?: import('./controlnet-prompt').ControlNetMode;
+  subject?: string;
+  scene?: string;
+  detailNotes?: string;
+  slotStrengths?: number[];
+  slotModes?: import('./controlnet-prompt').ControlNetMode[];
+  updatedAt?: number;
+};
+
 export type ControlNetToolCache = {
   mode?: import('./controlnet-prompt').ControlNetMode;
   subject?: string;
   scene?: string;
   /** Extra constraints — not DetailLevel. */
   detailNotes?: string;
+  /** Per-slot ControlNetApply strengths (up to 4). */
+  slotStrengths?: number[];
+  /** Per-slot conditioning modes (up to 4). */
+  slotModes?: import('./controlnet-prompt').ControlNetMode[];
+  /** Named slot/mode presets (images stay ephemeral). */
+  presets?: ControlNetSlotPreset[];
 };
 
 export type VideoToolCache = {
@@ -1052,6 +1070,9 @@ export const DEFAULT_CONTROLNET_TOOL_CACHE: ControlNetToolCache = {
   subject: '',
   scene: '',
   detailNotes: '',
+  slotStrengths: [1, 1, 1, 1],
+  slotModes: ['depth', 'depth', 'depth', 'depth'],
+  presets: [],
 };
 
 export const DEFAULT_VIDEO_TOOL_CACHE: VideoToolCache = {

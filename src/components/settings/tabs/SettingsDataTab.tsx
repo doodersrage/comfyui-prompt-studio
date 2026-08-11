@@ -18,11 +18,45 @@ import {
 import {
   clearLocalObservability,
   downloadLocalObservabilityExport,
+  failureSparklineSeries,
   loadLocalObservability,
   summarizeLocalReliability,
 } from '@/lib/local-observability';
 import { resetFirstQueueSetupModal } from '@/lib/first-queue-setup';
 import { Button, ButtonLink } from '@/components/ui/Button';
+
+function FailureSparkline({ series }: { series: number[] }) {
+  const max = Math.max(1, ...series);
+  const width = 168;
+  const height = 36;
+  const step = series.length > 1 ? width / (series.length - 1) : width;
+  const points = series
+    .map((value, index) => {
+      const x = index * step;
+      const y = height - (value / max) * (height - 4) - 2;
+      return `${x},${y}`;
+    })
+    .join(' ');
+  return (
+    <svg
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      className="mt-1 overflow-visible text-rose-300/90"
+      role="img"
+      aria-label="Queue failures over the last seven days"
+    >
+      <polyline
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        points={points}
+      />
+    </svg>
+  );
+}
 
 export type SettingsDataTabProps = {
   sharedSettings: SharedToolSettings;
@@ -64,106 +98,116 @@ export default function SettingsDataTab({
       </ToolSection>
 
       <ToolSection title="Reliability">
-        <p className="text-sm text-[var(--text-secondary)]">{reliability.headline}</p>
-        <dl className="mt-4 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[color-mix(in_oklab,var(--surface)_88%,transparent)] p-3">
-            <dt className="text-xs text-[var(--text-muted)]">Exact-replay share</dt>
-            <dd className="mt-1 text-lg text-[var(--text-primary)]">
-              {formatRate(reliability.replayHitRate)}
-            </dd>
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
-              {metrics.exactReplay} replays · {metrics.firstQueueSuccess} first successes
+        <div id="settings-data-reliability" className="scroll-mt-24 space-y-4">
+          <p className="text-sm text-[var(--text-secondary)]">{reliability.headline}</p>
+          <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[color-mix(in_oklab,var(--surface)_88%,transparent)] p-3">
+              <dt className="text-xs text-[var(--text-muted)]">Exact-replay share</dt>
+              <dd className="mt-1 text-lg text-[var(--text-primary)]">
+                {formatRate(reliability.replayHitRate)}
+              </dd>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">
+                {metrics.exactReplay} replays · {metrics.firstQueueSuccess} first successes
+              </p>
+            </div>
+            <div className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[color-mix(in_oklab,var(--surface)_88%,transparent)] p-3">
+              <dt className="text-xs text-[var(--text-muted)]">Playbook CTA rate</dt>
+              <dd className="mt-1 text-lg text-[var(--text-primary)]">
+                {formatRate(reliability.playbookClickRate)}
+              </dd>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">
+                {metrics.playbookCtaClick} opens · {metrics.queueFailures} failures
+              </p>
+            </div>
+            <div className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[color-mix(in_oklab,var(--surface)_88%,transparent)] p-3">
+              <dt className="text-xs text-[var(--text-muted)]">Setup completion</dt>
+              <dd className="mt-1 text-lg text-[var(--text-primary)]">
+                {formatRate(reliability.setupCompletionRate)}
+              </dd>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">
+                {metrics.firstQueueSetupCompleted}/{metrics.firstQueueSetupShown} · dismissals{' '}
+                {metrics.firstQueueSetupDismissed}
+              </p>
+            </div>
+            <div className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[color-mix(in_oklab,var(--surface)_88%,transparent)] p-3">
+              <dt className="text-xs text-[var(--text-muted)]">Failures · 7 days</dt>
+              <dd className="mt-1 text-lg text-[var(--text-primary)]">{metrics.queueFailures}</dd>
+              <FailureSparkline series={failureSparklineSeries(metrics)} />
+            </div>
+          </dl>
+          {metrics.lastFailureMessage ? (
+            <p className="mt-3 text-xs text-[var(--text-muted)]">
+              Last failure
+              {metrics.lastFailureAt
+                ? ` · ${new Date(metrics.lastFailureAt).toLocaleString()}`
+                : ''}
+              : {metrics.lastFailureMessage}
+              {metrics.lastFailureHref ? (
+                <>
+                  {' '}
+                  <Link
+                    href={metrics.lastFailureHref}
+                    className="text-[var(--accent-text)] underline-offset-2 transition hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+                  >
+                    Open fix
+                  </Link>
+                </>
+              ) : null}
             </p>
-          </div>
-          <div className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[color-mix(in_oklab,var(--surface)_88%,transparent)] p-3">
-            <dt className="text-xs text-[var(--text-muted)]">Playbook CTA rate</dt>
-            <dd className="mt-1 text-lg text-[var(--text-primary)]">
-              {formatRate(reliability.playbookClickRate)}
-            </dd>
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
-              {metrics.playbookCtaClick} opens · {metrics.queueFailures} failures
-            </p>
-          </div>
-          <div className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[color-mix(in_oklab,var(--surface)_88%,transparent)] p-3">
-            <dt className="text-xs text-[var(--text-muted)]">Setup completion</dt>
-            <dd className="mt-1 text-lg text-[var(--text-primary)]">
-              {formatRate(reliability.setupCompletionRate)}
-            </dd>
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
-              {metrics.firstQueueSetupCompleted}/{metrics.firstQueueSetupShown} · dismissals{' '}
-              {metrics.firstQueueSetupDismissed}
-            </p>
-          </div>
-        </dl>
-        {metrics.lastFailureMessage ? (
-          <p className="mt-3 text-xs text-[var(--text-muted)]">
-            Last failure
-            {metrics.lastFailureAt
-              ? ` · ${new Date(metrics.lastFailureAt).toLocaleString()}`
-              : ''}: {metrics.lastFailureMessage}
-            {metrics.lastFailureHref ? (
-              <>
-                {' '}
-                <Link
-                  href={metrics.lastFailureHref}
-                  className="text-[var(--accent-text)] underline-offset-2 transition hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
-                >
-                  Open fix
-                </Link>
-              </>
-            ) : null}
-          </p>
-        ) : null}
-        {metrics.lastBlockedSetupStep ? (
-          <p className="mt-2 text-xs text-[var(--text-muted)]">
-            First-queue funnel often blocked on{' '}
-            <span className="text-[var(--text-secondary)]">{metrics.lastBlockedSetupStep}</span>
-            {metrics.firstQueueSetupStepFails[metrics.lastBlockedSetupStep]
-              ? ` (${metrics.firstQueueSetupStepFails[metrics.lastBlockedSetupStep]}×)`
-              : ''}
-            .
-          </p>
-        ) : null}
-        <div className="mt-4 flex flex-wrap gap-2">
-          {metrics.lastFailureHref ? (
-            <ButtonLink href={metrics.lastFailureHref} size="sm" variant="secondary">
-              Open last failure
-            </ButtonLink>
           ) : null}
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            onClick={() => {
-              resetFirstQueueSetupModal();
-              setStatus('First-queue setup reset — queue again or reload to reopen the checklist.');
-            }}
-          >
-            Re-run first-queue setup
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              downloadLocalObservabilityExport();
-              setStatus('Reliability export downloaded.');
-            }}
-          >
-            Export metrics
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              clearLocalObservability();
-              setStatus('Local reliability metrics cleared.');
-              reloadBrowserSettingsState();
-            }}
-          >
-            Clear metrics
-          </Button>
+          {metrics.lastBlockedSetupStep ? (
+            <p className="mt-2 text-xs text-[var(--text-muted)]">
+              First-queue funnel often blocked on{' '}
+              <span className="text-[var(--text-secondary)]">{metrics.lastBlockedSetupStep}</span>
+              {metrics.firstQueueSetupStepFails[metrics.lastBlockedSetupStep]
+                ? ` (${metrics.firstQueueSetupStepFails[metrics.lastBlockedSetupStep]}×)`
+                : ''}
+              .
+            </p>
+          ) : null}
+          <div className="mt-4 flex flex-wrap gap-2">
+            {metrics.lastFailureHref ? (
+              <ButtonLink href={metrics.lastFailureHref} size="sm" variant="secondary">
+                Open last failure
+              </ButtonLink>
+            ) : null}
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                resetFirstQueueSetupModal();
+                setStatus(
+                  'First-queue setup reset — queue again or reload to reopen the checklist.'
+                );
+              }}
+            >
+              Re-run first-queue setup
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                downloadLocalObservabilityExport();
+                setStatus('Reliability export downloaded.');
+              }}
+            >
+              Export metrics
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                clearLocalObservability();
+                setStatus('Local reliability metrics cleared.');
+                reloadBrowserSettingsState();
+              }}
+            >
+              Clear metrics
+            </Button>
+          </div>
         </div>
       </ToolSection>
 

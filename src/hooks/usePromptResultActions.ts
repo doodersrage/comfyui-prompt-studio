@@ -476,6 +476,14 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
       previewGenerationRef.current += 1;
       setComfyUiPreviewUrl(null);
       setComfyUiStatus('Queueing…');
+      let failedQueueSnapshot: {
+        prompt: string;
+        negativePrompt?: string;
+        model?: string;
+        tool?: string;
+        queueParams?: import('@/lib/comfyui-config').WorkflowParamValues;
+        workflowJson?: string;
+      } | null = null;
       try {
         const pluginPreflight = await runPluginQueuePreflight({
           event: 'queue-preflight',
@@ -534,6 +542,13 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           tool: config.tool,
           explicitNegative: options?.explicitNegative ?? pluginNegative,
         });
+        failedQueueSnapshot = {
+          prompt: preparedPrompt,
+          negativePrompt,
+          model: queueModel,
+          tool: config.tool,
+          workflowJson: runtime?.workflowJson,
+        };
 
         const engineAdapter = getEngineAdapter();
         const engineSettings = loadEngineSettings();
@@ -866,6 +881,15 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             ? engineSettings.diffusersApiUrl
             : runtime?.apiUrl?.trim() || loadComfyUiSettings().apiUrl?.trim() || undefined;
 
+        failedQueueSnapshot = {
+          prompt: preparedPrompt,
+          negativePrompt,
+          model: queueModel,
+          tool: config.tool,
+          queueParams,
+          workflowJson: runtime?.workflowJson,
+        };
+
         const queued = await engineAdapter.postPrompt({
           prompt: preparedPrompt,
           negativePrompt,
@@ -996,11 +1020,24 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         void import('@/lib/local-observability').then(({ noteQueueFailureMetric }) => {
           noteQueueFailureMetric({ message, href });
         });
-        toastQueueOutcome({
-          ok: false,
-          text: message,
-          href,
-        });
+        void import('@/lib/last-failed-queue').then(
+          ({ saveLastFailedQueue, RETRY_LAST_FAILED_QUEUE_EVENT }) => {
+            saveLastFailedQueue(
+              failedQueueSnapshot ?? {
+                prompt,
+                model: config.model,
+                tool: config.tool,
+              }
+            );
+            toastQueueOutcome({
+              ok: false,
+              text: message,
+              href,
+              actionLabel: 'Retry',
+              actionEvent: RETRY_LAST_FAILED_QUEUE_EVENT,
+            });
+          }
+        );
       }
     },
     [

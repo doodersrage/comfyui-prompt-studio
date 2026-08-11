@@ -69,46 +69,39 @@ export async function probeStorageConflicts(): Promise<StorageNamespaceConflict[
   const localGallery = loadComfyGallery();
   const localDeleted = loadGalleryDeletedIds();
 
-  let serverSettings: SettingsCache | null = null;
-  const probes = await Promise.all(
-    SYNC_NAMESPACES.map(async namespace => {
-      if (namespace === 'gallery-deleted-ids') {
-        const serverDeleted = await pullNamespaceFromServer<string[] | { ids?: string[] }>(
-          namespace
-        );
-        const serverIds = Array.isArray(serverDeleted)
-          ? serverDeleted
-          : Array.isArray(serverDeleted?.ids)
-            ? serverDeleted.ids
-            : [];
-        return {
-          namespace,
-          local: { count: localDeleted.length, updatedAt: Date.now() },
-          server: { count: serverIds.length },
-        };
-      }
-      const server =
-        namespace === 'settings-cache'
-          ? await pullNamespaceFromServer<SettingsCache>(namespace)
-          : namespace === 'prompt-history'
-            ? await pullNamespaceFromServer<PromptHistoryEntry[]>(namespace)
-            : await pullNamespaceFromServer<ComfyGalleryEntry[]>(namespace);
-      if (namespace === 'settings-cache') {
-        serverSettings = server;
-      }
-      const local =
-        namespace === 'settings-cache'
-          ? localSettings
-          : namespace === 'prompt-history'
-            ? localHistory
-            : localGallery;
-      return {
-        namespace,
-        local: namespaceMeta(local),
-        server: namespaceMeta(server),
-      };
-    })
-  );
+  const [serverSettings, serverHistory, serverGallery, serverDeletedPayload] = await Promise.all([
+    pullNamespaceFromServer<SettingsCache>('settings-cache'),
+    pullNamespaceFromServer<PromptHistoryEntry[]>('prompt-history'),
+    pullNamespaceFromServer<ComfyGalleryEntry[]>('comfy-gallery'),
+    pullNamespaceFromServer<string[] | { ids?: string[] }>('gallery-deleted-ids'),
+  ]);
+  const serverDeletedIds = Array.isArray(serverDeletedPayload)
+    ? serverDeletedPayload
+    : Array.isArray(serverDeletedPayload?.ids)
+      ? serverDeletedPayload.ids
+      : [];
+  const probes = [
+    {
+      namespace: 'settings-cache',
+      local: namespaceMeta(localSettings),
+      server: namespaceMeta(serverSettings),
+    },
+    {
+      namespace: 'prompt-history',
+      local: namespaceMeta(localHistory),
+      server: namespaceMeta(serverHistory),
+    },
+    {
+      namespace: 'comfy-gallery',
+      local: namespaceMeta(localGallery),
+      server: namespaceMeta(serverGallery),
+    },
+    {
+      namespace: 'gallery-deleted-ids',
+      local: { count: localDeleted.length, updatedAt: Date.now() },
+      server: { count: serverDeletedIds.length },
+    },
+  ];
 
   const conflicts = detectStorageConflicts({ namespaces: probes });
   const mapDiffKeys = detectLoaderMapDivergence(

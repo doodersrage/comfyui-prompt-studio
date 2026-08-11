@@ -13,7 +13,9 @@ import {
   getComfyLivePreviewUrl,
 } from '@/lib/comfyui-live-preview-store';
 import type { ComfyGalleryEntry } from '@/lib/comfyui-gallery';
+import { RETRY_LAST_FAILED_QUEUE_EVENT, retryLastFailedQueue } from '@/lib/last-failed-queue';
 import { dismissSystemTrayMessage, type SystemTrayMessage } from '@/lib/system-tray-messages';
+import { toastQueueOutcome } from '@/lib/app-toast';
 import {
   useSystemTrayState,
   type SystemTrayAssetJob,
@@ -38,11 +40,15 @@ function TrayNotice({
   text,
   tone,
   href,
+  actionLabel,
+  actionEvent,
   onDismiss,
 }: {
   text: string;
   tone: TrayNoticeTone;
   href?: string;
+  actionLabel?: string;
+  actionEvent?: string;
   onDismiss: () => void;
 }) {
   return (
@@ -64,12 +70,44 @@ function TrayNotice({
                       notePlaybookCtaClickMetric();
                     }
                   );
+                  void Promise.all([
+                    import('@/lib/last-failed-queue'),
+                    import('@/lib/system-tray-messages'),
+                  ]).then(
+                    ([
+                      { loadLastFailedQueue, RETRY_LAST_FAILED_QUEUE_EVENT },
+                      { pushSystemTrayMessage },
+                    ]) => {
+                      if (!loadLastFailedQueue()) {
+                        return;
+                      }
+                      pushSystemTrayMessage({
+                        text: 'Settings opened — retry the last failed queue when ready.',
+                        tone: 'info',
+                        actionLabel: 'Retry',
+                        actionEvent: RETRY_LAST_FAILED_QUEUE_EVENT,
+                        ttlMs: 20_000,
+                      });
+                    }
+                  );
                 }
                 onDismiss();
               }}
             >
               Open
             </Link>
+          ) : null}
+          {actionLabel && actionEvent ? (
+            <button
+              type="button"
+              className="type-caption text-[var(--accent-text)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+              onClick={() => {
+                window.dispatchEvent(new Event(actionEvent));
+                onDismiss();
+              }}
+            >
+              {actionLabel}
+            </button>
           ) : null}
           <button
             type="button"
@@ -263,6 +301,20 @@ export default function SystemTray() {
   } = useSystemTrayState();
 
   useEffect(() => {
+    const onRetryLastFailed = () => {
+      void retryLastFailedQueue().then(result => {
+        toastQueueOutcome({
+          ok: result.ok,
+          text: result.message,
+          href: result.ok ? '/gallery' : '/queue',
+        });
+      });
+    };
+    window.addEventListener(RETRY_LAST_FAILED_QUEUE_EVENT, onRetryLastFailed);
+    return () => window.removeEventListener(RETRY_LAST_FAILED_QUEUE_EVENT, onRetryLastFailed);
+  }, []);
+
+  useEffect(() => {
     scheduleAfterCommit(() => {
       setAppToasts(getAppToasts());
     });
@@ -336,6 +388,8 @@ export default function SystemTray() {
           text={message.text}
           tone={message.tone}
           href={message.href}
+          actionLabel={message.actionLabel}
+          actionEvent={message.actionEvent}
           onDismiss={() => dismissSystemTrayMessage(message.id)}
         />
       ))}

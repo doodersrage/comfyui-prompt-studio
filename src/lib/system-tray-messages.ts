@@ -7,6 +7,10 @@ export type SystemTrayMessage = {
   text: string;
   tone: SystemTrayMessageTone;
   href?: string;
+  /** Secondary CTA label (e.g. Retry). */
+  actionLabel?: string;
+  /** CustomEvent / window name dispatched on action click. */
+  actionEvent?: string;
   at: number;
 };
 
@@ -34,6 +38,8 @@ export function pushSystemTrayMessage(input: {
   text: string;
   tone?: SystemTrayMessageTone;
   href?: string;
+  actionLabel?: string;
+  actionEvent?: string;
   ttlMs?: number;
 }): string | null {
   const text = input.text.trim();
@@ -49,6 +55,9 @@ export function pushSystemTrayMessage(input: {
     text,
     tone: input.tone ?? 'neutral',
     href: input.href,
+    ...(input.actionLabel?.trim() && input.actionEvent?.trim()
+      ? { actionLabel: input.actionLabel.trim(), actionEvent: input.actionEvent.trim() }
+      : {}),
     at: Date.now(),
   };
   messages = [entry, ...messages].slice(0, MAX_VISIBLE);

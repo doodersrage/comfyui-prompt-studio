@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { StorageNamespaceConflict, MergeChoice } from '@/lib/storage-merge';
 import type { StorageNamespace } from '@/lib/storage-namespaces';
+import { previewMergeChoices } from '@/lib/storage-merge-preview';
 import { Button } from '@/components/ui/Button';
 
 type Props = {
@@ -21,6 +22,7 @@ export default function StorageSyncConflictModal({
   const [choices, setChoices] = useState<Partial<Record<StorageNamespace, MergeChoice>>>(
     () => initialChoices ?? {}
   );
+  const dryRun = useMemo(() => previewMergeChoices(conflicts, choices), [choices, conflicts]);
 
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
@@ -28,7 +30,8 @@ export default function StorageSyncConflictModal({
         <div>
           <h2 className="type-heading text-[var(--text-primary)]">Storage sync conflict</h2>
           <p className="mt-1 text-sm text-[var(--text-muted)]">
-            Browser and server data differ. Choose how to merge each namespace.
+            Browser and server data differ. Choose how to merge each namespace. Preview below is a
+            dry-run from counts (no write yet).
           </p>
         </div>
         <ul className="space-y-3">
@@ -95,6 +98,20 @@ export default function StorageSyncConflictModal({
             </li>
           ))}
         </ul>
+        {dryRun.length > 0 ? (
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[color-mix(in_oklab,var(--surface)_88%,transparent)] p-3">
+            <p className="text-xs font-medium text-[var(--text-secondary)]">Dry-run preview</p>
+            <ul className="mt-2 space-y-1.5 text-xs text-[var(--text-muted)]">
+              {dryRun.map(row => (
+                <li key={row.namespace}>
+                  <span className="text-[var(--text-secondary)]">{row.namespace}</span>
+                  {' · '}
+                  {row.summary}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
         <div className="flex flex-wrap gap-2">
           <Button
             onClick={() => onResolve(choices)}

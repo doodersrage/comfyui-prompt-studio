@@ -29,6 +29,7 @@ import { buildUseAsHintsUrl } from '@/lib/use-as-hints-url';
 import { studioHistoryUrl } from '@/lib/prompt-lineage';
 import { startPromptEditorFromHistoryEntry } from '@/lib/improve-output';
 import { toastBulkQueueSummary, toastHeldMax, toastQueueOutcome } from '@/lib/app-toast';
+import { loadHistoryDensity, saveHistoryDensity, type HistoryDensity } from '@/lib/history-density';
 import {
   downloadTextFile,
   exportHistoryCsv,
@@ -108,6 +109,7 @@ function readHistoryBatchPrompts(entry: PromptHistoryEntry): string[] {
 function HistoryCard({
   entry,
   highlighted,
+  density = 'comfortable',
   onCopy,
   onToggleFavorite,
   onRate,
@@ -125,6 +127,7 @@ function HistoryCard({
 }: {
   entry: PromptHistoryEntry;
   highlighted?: boolean;
+  density?: HistoryDensity;
   onCopy: () => void;
   onToggleFavorite: () => void;
   onRate: (rating: PromptHistoryEntry['rating']) => void;
@@ -146,21 +149,28 @@ function HistoryCard({
     entry.hints?.trim() &&
     entry.prompt.trim() &&
     !entry.prompt.toLowerCase().includes(entry.hints.trim().slice(0, 40).toLowerCase());
+  const compact = density === 'compact';
 
   return (
     <ToolContentPanel
-      className={`ui-block-group min-w-0 ${highlighted ? 'ring-2 ring-violet-500/40' : ''}`}
+      className={`ui-block-group min-w-0 ${highlighted ? 'ring-2 ring-violet-500/40' : ''} ${
+        compact ? '!gap-2' : ''
+      }`}
     >
-      <pre className="type-code max-h-56 overflow-auto whitespace-pre-wrap border border-[var(--border-subtle)] bg-[var(--bg-muted)] p-5 !text-[var(--tint-success-text)]">
+      <pre
+        className={`type-code overflow-auto whitespace-pre-wrap border border-[var(--border-subtle)] bg-[var(--bg-muted)] !text-[var(--tint-success-text)] ${
+          compact ? 'max-h-28 p-3 text-xs' : 'max-h-56 p-5'
+        }`}
+      >
         {entry.prompt}
       </pre>
 
       <ToolMetaPanel>
-        <div className="flex min-w-0 flex-col gap-3">
+        <div className={`flex min-w-0 flex-col ${compact ? 'gap-2' : 'gap-3'}`}>
           <p className="type-caption min-w-0 break-words text-[var(--text-muted)]">
             {entry.tool} · {entry.model} · {new Date(entry.timestamp).toLocaleString()}
           </p>
-          <div className="ui-list-actions w-full justify-start">
+          <div className={`ui-list-actions w-full justify-start ${compact ? 'gap-1.5' : ''}`}>
             <a href={regenerateUrl} className="ui-btn-ghost ui-btn-sm type-caption">
               Regenerate
             </a>
@@ -354,6 +364,7 @@ export default function StudioHistoryTab({
       ? (parsed as HistoryPageSize)
       : DEFAULT_HISTORY_PAGE_SIZE;
   });
+  const [density, setDensity] = useState<HistoryDensity>(() => loadHistoryDensity());
 
   const filterKey = useMemo(() => JSON.stringify(historyFilter), [historyFilter]);
   const [pageByFilter, setPageByFilter] = useState<Record<string, number>>({});
@@ -395,6 +406,7 @@ export default function StudioHistoryTab({
       key={entry.id}
       entry={entry}
       highlighted={highlightHistoryId === entry.id}
+      density={density}
       onCopy={() => onCopy(entry.prompt)}
       onToggleFavorite={() => onToggleFavorite(entry.id)}
       onRate={rating => onRate(entry.id, rating)}
@@ -554,6 +566,31 @@ export default function StudioHistoryTab({
                 : ''}
           </p>
           <div className="ui-list-actions w-full justify-start lg:w-auto lg:justify-end">
+            <div className="flex items-center gap-1 rounded-full border border-[var(--border-subtle)] p-0.5">
+              {(
+                [
+                  ['comfortable', 'Comfortable'],
+                  ['compact', 'Compact'],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={density === value}
+                  className={`rounded-full px-2.5 py-1 text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] ${
+                    density === value
+                      ? 'bg-[color-mix(in_oklab,var(--accent)_72%,#1a1028)] text-white'
+                      : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+                  }`}
+                  onClick={() => {
+                    setDensity(value);
+                    saveHistoryDensity(value);
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
             {favoriteEntries.length > 0 && (
               <Button
                 variant="accent-outline"
@@ -978,7 +1015,11 @@ export default function StudioHistoryTab({
             />
           ) : null}
           {useVirtualHistory ? (
-            <VirtualizedHistoryList entries={filteredEntries} renderEntry={renderHistoryCard} />
+            <VirtualizedHistoryList
+              entries={filteredEntries}
+              renderEntry={renderHistoryCard}
+              density={density}
+            />
           ) : (
             <ToolBlockGroup className="mt-[var(--block-gap)]">
               {visibleEntries.map(entry => renderHistoryCard(entry))}

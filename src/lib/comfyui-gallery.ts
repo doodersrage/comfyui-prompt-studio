@@ -571,6 +571,9 @@ export function updateComfyGalleryEntryById(
       | 'visionTags'
       | 'aestheticScore'
       | 'aestheticScoreMethod'
+      | 'workflowJson'
+      | 'hasStoredWorkflow'
+      | 'workflowJsonOmitted'
     >
   >
 ): ComfyGalleryEntry | null {

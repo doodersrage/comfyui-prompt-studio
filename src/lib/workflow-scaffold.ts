@@ -2402,8 +2402,12 @@ function hunyuanImageScaffold(
   model: ComfyImageModel | string = 'hunyuan-dit'
 ): Record<string, unknown> {
   const isImage21 = /image-?2\.?1|image21/i.test(String(model));
-  const latentWidth = isImage21 ? tokens.width : Math.max(1024, tokens.width);
-  const latentHeight = isImage21 ? tokens.height : Math.max(1024, tokens.height);
+  const widthNum = Number(tokens.width);
+  const heightNum = Number(tokens.height);
+  const baseWidth = Number.isFinite(widthNum) && widthNum > 0 ? widthNum : 1024;
+  const baseHeight = Number.isFinite(heightNum) && heightNum > 0 ? heightNum : 1024;
+  const latentWidth = isImage21 ? baseWidth : Math.max(1024, baseWidth);
+  const latentHeight = isImage21 ? baseHeight : Math.max(1024, baseHeight);
 
   return {
     '1': {

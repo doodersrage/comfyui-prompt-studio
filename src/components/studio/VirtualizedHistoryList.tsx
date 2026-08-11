@@ -7,10 +7,13 @@ import type { PromptHistoryEntry } from '@/hooks/usePromptHistory';
 export const HISTORY_VIRTUALIZE_THRESHOLD = 48;
 /** Initial estimate only — measureElement corrects per-row height. */
 export const HISTORY_ROW_ESTIMATE_PX = 480;
+export const HISTORY_ROW_ESTIMATE_COMPACT_PX = 320;
 
 type VirtualizedHistoryListProps = {
   entries: PromptHistoryEntry[];
   renderEntry: (entry: PromptHistoryEntry) => ReactNode;
+  /** Affects initial row estimate before measureElement runs. */
+  density?: 'comfortable' | 'compact';
 };
 
 export function shouldVirtualizeHistoryList(count: number): boolean {
@@ -20,9 +23,12 @@ export function shouldVirtualizeHistoryList(count: number): boolean {
 export default function VirtualizedHistoryList({
   entries,
   renderEntry,
+  density = 'comfortable',
 }: VirtualizedHistoryListProps) {
   const parentRef = useRef<HTMLDivElement>(null);
   const [scrollMargin, setScrollMargin] = useState(0);
+  const rowEstimate =
+    density === 'compact' ? HISTORY_ROW_ESTIMATE_COMPACT_PX : HISTORY_ROW_ESTIMATE_PX;
 
   useLayoutEffect(() => {
     const updateScrollMargin = () => {
@@ -35,14 +41,14 @@ export default function VirtualizedHistoryList({
 
   const virtualizer = useWindowVirtualizer({
     count: entries.length,
-    estimateSize: () => HISTORY_ROW_ESTIMATE_PX,
+    estimateSize: () => rowEstimate,
     overscan: 6,
     scrollMargin,
   });
 
   useEffect(() => {
     virtualizer.measure();
-  }, [entries.length, virtualizer]);
+  }, [entries.length, density, virtualizer]);
 
   return (
     <div ref={parentRef} className="relative w-full">

@@ -71,12 +71,17 @@ export function toastQueueOutcome(input: {
   ok: boolean;
   text: string;
   href?: string;
+  actionLabel?: string;
+  actionEvent?: string;
+  ttlMs?: number;
 }): string | null {
   return pushSystemTrayMessage({
     text: input.text,
     tone: input.ok ? 'success' : 'danger',
     href: input.href ?? (input.ok ? '/gallery' : '/queue'),
-    ttlMs: input.ok ? 5000 : 9000,
+    actionLabel: input.actionLabel,
+    actionEvent: input.actionEvent,
+    ttlMs: input.ttlMs ?? (input.ok ? 5000 : 9000),
   });
 }
 

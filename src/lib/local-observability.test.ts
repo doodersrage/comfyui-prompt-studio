@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { afterEach, describe, it } from 'node:test';
 import { resetBrowserStorageCache } from './browser-storage';
 import {
+  failureSparklineSeries,
   incrementLocalObservability,
   loadLocalObservability,
   LOCAL_OBSERVABILITY_KEY,
@@ -40,7 +41,11 @@ describe('local-observability', () => {
     const afterFail = loadLocalObservability();
     assert.equal(afterFail.queueFailures, 1);
     assert.match(afterFail.lastFailureMessage ?? '', /CUDA/);
+    assert.equal(afterFail.failureTimeline?.length, 1);
     const summary = summarizeLocalReliability(afterFail);
     assert.match(summary.headline, /CUDA|failure/i);
+    const spark = failureSparklineSeries(afterFail, { buckets: 7 });
+    assert.equal(spark.length, 7);
+    assert.ok(spark.reduce((sum, value) => sum + value, 0) >= 1);
   });
 });

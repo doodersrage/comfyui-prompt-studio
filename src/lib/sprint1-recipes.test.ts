@@ -121,7 +121,11 @@ describe("session recipes", () => {
       skin: { strengthModel: 0.55, strengthClip: 0.7 },
     });
     const applied = applySessionRecipeShared(
-      { model: "flux-dev", sessionActiveLoraIds: [] },
+      {
+        model: "flux-dev",
+        sessionActiveLoraIds: [],
+        sessionLoraStrengthOverrides: {},
+      },
       normalized!,
     );
     assert.deepEqual(applied.sessionLoraStrengthOverrides, {

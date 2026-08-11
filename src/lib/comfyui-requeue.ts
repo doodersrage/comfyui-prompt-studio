@@ -1035,6 +1035,16 @@ export async function requeueComfyJobFromEntry(
         if (history.workflow && typeof history.workflow === 'object') {
           workflowJson = JSON.stringify(history.workflow);
           options?.onStatus?.('Replaying exact graph from ComfyUI history.');
+          void import('./comfyui-gallery').then(({ updateComfyGalleryEntryById }) => {
+            updateComfyGalleryEntryById(entry.id, {
+              workflowJson,
+              hasStoredWorkflow: true,
+              workflowJsonOmitted: false,
+            });
+          });
+          void import('./local-observability').then(({ noteExactReplayMetric }) => {
+            noteExactReplayMetric();
+          });
         }
       }
     } catch {
@@ -1061,6 +1071,60 @@ export async function requeueComfyJobFromEntry(
     derivedKind: isVariation ? 'variation' : undefined,
     onStatus: options?.onStatus,
   });
+}
+
+/** Fetch Comfy history graph for an entry and persist it for later exact replay. */
+export async function restoreExactGraphFromComfyHistory(
+  entry: Pick<ComfyGalleryEntry, 'id' | 'promptId' | 'comfyUrl'>,
+  options?: { onStatus?: (message: string) => void; comfyUrlOverride?: string }
+): Promise<{ ok: boolean; message: string; workflowJson?: string }> {
+  const promptId = entry.promptId?.trim();
+  if (!promptId) {
+    return { ok: false, message: 'No Comfy prompt id — cannot fetch history graph.' };
+  }
+  try {
+    const params = new URLSearchParams({ promptId });
+    const comfyUrl = options?.comfyUrlOverride?.trim() || entry.comfyUrl?.trim();
+    if (comfyUrl) {
+      params.set('comfyUrl', comfyUrl);
+    }
+    options?.onStatus?.('Fetching exact graph from ComfyUI history…');
+    const response = await fetch(`/api/comfyui/history/workflow?${params.toString()}`);
+    if (!response.ok) {
+      return {
+        ok: false,
+        message: `Comfy history fetch failed (${response.status}).`,
+      };
+    }
+    const history = (await response.json()) as {
+      ok?: boolean;
+      workflow?: Record<string, unknown>;
+      error?: string;
+    };
+    if (!history.workflow || typeof history.workflow !== 'object') {
+      return {
+        ok: false,
+        message: history.error?.trim() || 'No workflow in ComfyUI history for this prompt id.',
+      };
+    }
+    const workflowJson = JSON.stringify(history.workflow);
+    const { updateComfyGalleryEntryById } = await import('./comfyui-gallery');
+    updateComfyGalleryEntryById(entry.id, {
+      workflowJson,
+      hasStoredWorkflow: true,
+      workflowJsonOmitted: false,
+    });
+    void import('./local-observability').then(({ noteExactReplayMetric }) => {
+      noteExactReplayMetric();
+    });
+    options?.onStatus?.('Exact graph restored to gallery entry.');
+    return { ok: true, message: 'Exact graph restored from ComfyUI history.', workflowJson };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : 'Failed to restore graph from history.',
+    };
+  }
 }
 
 export function requeueComfyJobFromHistory(

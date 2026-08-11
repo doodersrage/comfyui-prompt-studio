@@ -104,6 +104,7 @@ export function saveWebhookSettings(settings: WebhookSettings): void {
 }
 
 export type WebhookJobPayload = {
+  metadata?: Record<string, unknown>;
   event: WebhookEvent;
   promptId?: string;
   prompt?: string;

@@ -264,6 +264,31 @@ export default function SettingsTool() {
       if (nextTab === 'comfyui' && section) {
         window.setTimeout(() => scrollToComfyUiSection(section), 120);
       }
+      if (nextTab === 'data' && params.get('section') === 'reliability') {
+        window.setTimeout(() => {
+          const element = document.getElementById('settings-data-reliability');
+          if (!element) {
+            return;
+          }
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          element.classList.add(
+            'ring-2',
+            'ring-[var(--accent-ring)]',
+            'ring-offset-2',
+            'ring-offset-[var(--bg-base)]',
+            'transition'
+          );
+          window.setTimeout(() => {
+            element.classList.remove(
+              'ring-2',
+              'ring-[var(--accent-ring)]',
+              'ring-offset-2',
+              'ring-offset-[var(--bg-base)]',
+              'transition'
+            );
+          }, 2600);
+        }, 120);
+      }
     });
   }, [workspaceMode, scrollToComfyUiSection]);
 

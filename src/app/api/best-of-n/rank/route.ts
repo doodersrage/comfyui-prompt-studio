@@ -12,7 +12,9 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as RankBody;
     const prompts = Array.isArray(body.prompts)
-      ? body.prompts.filter((entry): entry is string => typeof entry === 'string' && entry.trim())
+      ? body.prompts.filter(
+          (entry): entry is string => typeof entry === 'string' && entry.trim().length > 0
+        )
       : [];
     const keep = Number.isFinite(body.keep) ? Math.max(1, Math.floor(body.keep!)) : 1;
 

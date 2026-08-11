@@ -43,6 +43,7 @@ export type GalleryCardActions = {
   downloadError: (message: string | null) => void;
   visionTagClick: (tag: string) => void;
   viewWorkflow: (id: string) => void;
+  restoreExactGraph: (id: string) => void;
   pick?: (id: string) => void;
 };
 
@@ -156,6 +157,10 @@ function GalleryCardItem({
     () => actionsRef.current.viewWorkflow(entry.id),
     [actionsRef, entry.id]
   );
+  const onRestoreExactGraph = useCallback(
+    () => actionsRef.current.restoreExactGraph(entry.id),
+    [actionsRef, entry.id]
+  );
   const onPick = useCallback(() => actionsRef.current.pick?.(entry.id), [actionsRef, entry.id]);
 
   return (
@@ -218,6 +223,7 @@ function GalleryCardItem({
       onVisionTagClick={onVisionTagClick}
       onReviewRating={onReviewRating}
       onViewWorkflow={onViewWorkflow}
+      onRestoreExactGraph={onRestoreExactGraph}
       pickMode={pickMode}
       pickable={pickable}
       pickLabel={pickLabel}

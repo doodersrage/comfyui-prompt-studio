@@ -4,6 +4,12 @@ export const LOCAL_OBSERVABILITY_KEY = 'comfy-local-observability-v1';
 
 export type FirstQueueSetupStepId = 'storage' | 'comfy' | 'systemWorkflows';
 
+export type FailureTimelinePoint = {
+  at: number;
+  /** 1 = failure event (sparkline amplitude). */
+  value: number;
+};
+
 export type LocalObservabilityCounters = {
   firstQueueSuccess: number;
   exactReplay: number;
@@ -17,8 +23,12 @@ export type LocalObservabilityCounters = {
   lastFailureHref?: string;
   lastFailureAt?: number;
   lastBlockedSetupStep?: FirstQueueSetupStepId;
+  /** Recent failure timestamps for sparkline (capped). */
+  failureTimeline?: FailureTimelinePoint[];
   updatedAt?: number;
 };
+
+const MAX_FAILURE_TIMELINE = 48;
 
 const DEFAULT_COUNTERS: LocalObservabilityCounters = {
   firstQueueSuccess: 0,
@@ -72,8 +82,30 @@ export function loadLocalObservability(): LocalObservabilityCounters {
     raw?.lastBlockedSetupStep === 'systemWorkflows'
       ? { lastBlockedSetupStep: raw.lastBlockedSetupStep }
       : {}),
+    failureTimeline: normalizeFailureTimeline(raw?.failureTimeline),
     ...(typeof raw?.updatedAt === 'number' ? { updatedAt: raw.updatedAt } : {}),
   };
+}
+
+function normalizeFailureTimeline(raw: unknown): FailureTimelinePoint[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  const points: FailureTimelinePoint[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') {
+      continue;
+    }
+    const at = Number((item as FailureTimelinePoint).at);
+    if (!Number.isFinite(at) || at <= 0) {
+      continue;
+    }
+    points.push({ at, value: 1 });
+    if (points.length >= MAX_FAILURE_TIMELINE) {
+      break;
+    }
+  }
+  return points;
 }
 
 function persist(next: LocalObservabilityCounters): LocalObservabilityCounters {
@@ -124,14 +156,40 @@ export function noteQueueFailureMetric(input: {
     return { ...DEFAULT_COUNTERS, firstQueueSetupStepFails: {} };
   }
   const base = loadLocalObservability();
+  const at = Date.now();
+  const failureTimeline = [...(base.failureTimeline ?? []), { at, value: 1 as const }].slice(
+    -MAX_FAILURE_TIMELINE
+  );
   return persist({
     ...base,
     queueFailures: (base.queueFailures ?? 0) + 1,
     lastFailureMessage: input.message.trim().slice(0, 400) || 'Queue failed.',
     ...(input.href?.trim() ? { lastFailureHref: input.href.trim() } : {}),
-    lastFailureAt: Date.now(),
-    updatedAt: Date.now(),
+    lastFailureAt: at,
+    failureTimeline,
+    updatedAt: at,
   });
+}
+
+/** Bucket failure counts into `buckets` columns over the last `windowMs` (default 7d). */
+export function failureSparklineSeries(
+  counters = loadLocalObservability(),
+  options?: { buckets?: number; windowMs?: number }
+): number[] {
+  const buckets = Math.max(4, Math.min(48, options?.buckets ?? 14));
+  const windowMs = options?.windowMs ?? 7 * 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  const start = now - windowMs;
+  const series = Array.from({ length: buckets }, () => 0);
+  for (const point of counters.failureTimeline ?? []) {
+    if (point.at < start || point.at > now) {
+      continue;
+    }
+    const ratio = (point.at - start) / windowMs;
+    const index = Math.min(buckets - 1, Math.max(0, Math.floor(ratio * buckets)));
+    series[index] += 1;
+  }
+  return series;
 }
 
 export function noteFirstQueueSetupShownMetric(): void {
