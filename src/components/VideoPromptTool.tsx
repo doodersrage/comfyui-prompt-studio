@@ -7,7 +7,7 @@ import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
 import SharedToolControls from '@/components/SharedToolControls';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
-import ComfyPackImportControl from '@/components/ComfyPackImportControl';
+import MediaScaffoldReadyPanel from '@/components/MediaScaffoldReadyPanel';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { useGalleryHandoff } from '@/hooks/useGalleryHandoff';
 import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
@@ -469,10 +469,9 @@ export default function VideoPromptTool() {
             {workflowStatus}
           </p>
         ) : null}
-        <div className="mb-4 rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-3">
-          <ComfyPackImportControl
-            preferKind="video"
-            compact
+        <div className="mb-4">
+          <MediaScaffoldReadyPanel
+            kind="video"
             onImported={(summary, result) => {
               if (result.sharedPatch) {
                 updateShared(result.sharedPatch);

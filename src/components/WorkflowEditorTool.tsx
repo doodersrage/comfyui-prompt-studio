@@ -39,6 +39,12 @@ import {
 } from '@/lib/comfyui-workflow-files';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { usePromptResultActions } from '@/hooks/usePromptResultActions';
+import { optimizeWorkflowForQueue } from '@/lib/workflow-queue-optimizer';
+import { assignWorkflowToInferredModels } from '@/lib/model-workflow-map';
+import { loadSettingsCache, saveSharedSettings } from '@/lib/settings-cache';
+import { placeholderTokensFromSettings, loadComfyUiSettings } from '@/lib/comfyui-settings';
+import { fetchWorkflowPreview } from '@/lib/comfyui-requeue';
+import { inferModelsFromWorkflowLabel } from '@/lib/workflow-category-defaults';
 
 function ComfyNodeCard({ data, selected }: NodeProps) {
   const nodeData = data as WorkflowRfNode['data'];
@@ -75,7 +81,7 @@ export default function WorkflowEditorTool() {
     'Load a Comfy API workflow, edit widgets and links, save to the library, and queue through the existing optimizer path.',
     'Edit a workflow graph, save to library, and queue when ready.'
   );
-  const { shared } = useCachedSettings('format', {
+  const { shared, updateShared } = useCachedSettings('format', {
     mode: 'positive',
     smartFormat: true,
     draft: '',
@@ -84,12 +90,13 @@ export default function WorkflowEditorTool() {
     tool: 'workflow-editor',
     model: shared.model,
   });
-  const [library] = useState<ComfyWorkflowFile[]>(() =>
+  const [library, setLibrary] = useState<ComfyWorkflowFile[]>(() =>
     typeof window === 'undefined' ? [] : loadComfyWorkflowFiles()
   );
   const [selectedId, setSelectedId] = useState<string>('');
   const [rawJson, setRawJson] = useState('');
   const [status, setStatus] = useState<string | null>(null);
+  const [busyAction, setBusyAction] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -151,11 +158,15 @@ export default function WorkflowEditorTool() {
     return (nodes as WorkflowRfNode[]).find(node => node.id === selectedNodeId) ?? null;
   }, [nodes, selectedNodeId]);
 
-  const onSaveLibrary = useCallback(() => {
-    const workflow = reactFlowToComfyApiWorkflow(
+  const buildWorkflowFromGraph = useCallback(() => {
+    return reactFlowToComfyApiWorkflow(
       nodes as WorkflowRfNode[],
       edges as import('@/lib/workflow-react-flow').WorkflowRfEdge[]
     );
+  }, [edges, nodes]);
+
+  const onSaveLibrary = useCallback(() => {
+    const workflow = buildWorkflowFromGraph();
     const json = JSON.stringify(workflow, null, 2);
     const existing = loadComfyWorkflowFiles();
     const name = selectedId
@@ -171,16 +182,125 @@ export default function WorkflowEditorTool() {
     };
     const next = [nextFile, ...existing.filter(entry => entry.id !== id)];
     saveComfyWorkflowFiles(next);
+    setLibrary(next);
     setRawJson(json);
     setSelectedId(id);
     setStatus(`Saved “${name}” to workflow library.`);
-  }, [edges, nodes, selectedId]);
+    return nextFile;
+  }, [buildWorkflowFromGraph, selectedId]);
+
+  const onOptimize = useCallback(() => {
+    if (nodes.length === 0) {
+      setStatus('Load a workflow first.');
+      return;
+    }
+    setBusyAction('optimize');
+    try {
+      const workflow = buildWorkflowFromGraph();
+      const tokens = placeholderTokensFromSettings(loadComfyUiSettings());
+      const optimized = optimizeWorkflowForQueue({
+        workflow,
+        tokens,
+        model: shared.model,
+        qualityProfile: shared.queueQualityProfile,
+      });
+      loadWorkflowObject(optimized.workflow, 'optimized graph');
+      const changeNotes = optimized.changes
+        .filter(change => change.kind !== 'audit')
+        .slice(0, 2)
+        .map(change => change.message);
+      setStatus(
+        changeNotes.length > 0
+          ? `Optimized for ${shared.model} · ${changeNotes.join(' · ')}.`
+          : `Optimized for ${shared.model} · ${optimized.changes.length} note(s).`
+      );
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Optimize failed.');
+    } finally {
+      setBusyAction(null);
+    }
+  }, [
+    buildWorkflowFromGraph,
+    loadWorkflowObject,
+    nodes.length,
+    shared.model,
+    shared.queueQualityProfile,
+  ]);
+
+  const onSetActive = useCallback(() => {
+    const saved = onSaveLibrary();
+    if (!saved) {
+      return;
+    }
+    const inferred = inferModelsFromWorkflowLabel({
+      name: saved.name,
+      filename: `${saved.name}.json`,
+    });
+    const models = inferred.length > 0 ? inferred : [shared.model];
+    const cache = loadSettingsCache();
+    const nextMap = assignWorkflowToInferredModels(
+      saved.id,
+      models,
+      cache.shared.modelWorkflowMap,
+      true
+    );
+    saveSharedSettings(
+      {
+        ...cache.shared,
+        modelWorkflowMap: nextMap,
+        selectedWorkflowFileId: saved.id,
+      },
+      { notify: false }
+    );
+    updateShared({ modelWorkflowMap: nextMap, selectedWorkflowFileId: saved.id });
+    setStatus(`Active workflow set for ${models.join(', ')}.`);
+  }, [onSaveLibrary, shared.model, updateShared]);
+
+  const onDryRun = useCallback(async () => {
+    if (nodes.length === 0) {
+      setStatus('Load a workflow first.');
+      return;
+    }
+    setBusyAction('dry-run');
+    setStatus('Dry-run preview…');
+    try {
+      const saved = onSaveLibrary();
+      const workflow = buildWorkflowFromGraph();
+      const positive = Object.values(workflow).find(node => {
+        const n = node as { class_type?: string; inputs?: { text?: string } };
+        return (
+          n.class_type === 'CLIPTextEncode' &&
+          typeof n.inputs?.text === 'string' &&
+          n.inputs.text.trim()
+        );
+      }) as { inputs?: { text?: string } } | undefined;
+      const prompt = positive?.inputs?.text?.trim() || 'workflow editor dry-run';
+      const preview = await fetchWorkflowPreview({
+        prompt,
+        model: shared.model,
+        comfy: {
+          ...loadComfyUiSettings(),
+          workflowJson: JSON.stringify(workflow),
+          workflowFileId: saved?.id,
+        },
+      });
+      if (preview.error) {
+        setStatus(preview.error);
+        return;
+      }
+      const issues = preview.preflightIssues?.length
+        ? ` · ${preview.preflightIssues.length} preflight issue(s)`
+        : '';
+      setStatus(`Dry-run ok · source ${preview.workflowSource ?? 'editor'}${issues}`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Dry-run failed.');
+    } finally {
+      setBusyAction(null);
+    }
+  }, [buildWorkflowFromGraph, nodes.length, onSaveLibrary, shared.model]);
 
   const onQueue = useCallback(async () => {
-    const workflow = reactFlowToComfyApiWorkflow(
-      nodes as WorkflowRfNode[],
-      edges as import('@/lib/workflow-react-flow').WorkflowRfEdge[]
-    );
+    const workflow = buildWorkflowFromGraph();
     const positive = Object.values(workflow).find(node => {
       const n = node as { class_type?: string; inputs?: { text?: string } };
       return (
@@ -191,14 +311,10 @@ export default function WorkflowEditorTool() {
     }) as { inputs?: { text?: string } } | undefined;
     const prompt = positive?.inputs?.text?.trim() || 'workflow editor queue';
     setStatus('Queueing from editor…');
-    // Persist into runtime via settings is heavy; queue with prompt and rely on selected library file.
-    if (selectedId) {
-      // Ensure library has latest graph before queue.
-      onSaveLibrary();
-    }
+    onSaveLibrary();
     await actions.sendComfyUi(prompt);
     setStatus(actions.comfyUiStatus ?? 'Queued.');
-  }, [actions, edges, nodes, onSaveLibrary, selectedId]);
+  }, [actions, buildWorkflowFromGraph, onSaveLibrary]);
 
   return (
     <ToolLayout
@@ -230,6 +346,30 @@ export default function WorkflowEditorTool() {
           </Button>
           <Button type="button" variant="secondary" onClick={onSaveLibrary}>
             Save to library
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={onOptimize}
+            disabled={nodes.length === 0 || busyAction === 'optimize'}
+          >
+            Optimize
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={onSetActive}
+            disabled={nodes.length === 0}
+          >
+            Set active
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => void onDryRun()}
+            disabled={nodes.length === 0 || busyAction === 'dry-run'}
+          >
+            Dry-run
           </Button>
           <PrimaryButton type="button" onClick={() => void onQueue()} disabled={nodes.length === 0}>
             Queue

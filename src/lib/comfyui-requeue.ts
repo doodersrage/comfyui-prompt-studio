@@ -12,7 +12,7 @@ import {
 } from './comfyui-config';
 import { resolveQueueInputImageFilename } from './queue-input-image';
 import { resolveRuntimeForQueue } from './comfyui-runtime-for-model';
-import { normalizeQueueQualityProfile, type QueueQualityProfile } from './queue-quality-profile';
+import type { QueueQualityProfile } from './queue-quality-profile';
 import { resolveComfyUiRuntime } from './comfyui-runtime';
 import { resolveQueueNegativePrompt } from './queue-negative';
 import { resolveQueueParams } from './queue-params-settings';
@@ -981,15 +981,45 @@ export async function bulkRefineGalleryEntries(
   return { queued, failed, skipped, errors };
 }
 
-export function requeueComfyJobFromEntry(
+export async function requeueComfyJobFromEntry(
   entry: ComfyGalleryEntry,
   options?: Pick<
     RequeueComfyJobInput,
-    'newSeed' | 'onStatus' | 'hints' | 'qualityProfile' | 'comfyUrlOverride'
-  >
+    'newSeed' | 'onStatus' | 'hints' | 'qualityProfile' | 'comfyUrlOverride' | 'workflowJson'
+  > & {
+    /** When true (default), prefer the exact Comfy history graph for this promptId. */
+    exactGraph?: boolean;
+  }
 ): Promise<RequeueComfyJobResult> {
   const urls = resolveRequeueImageUrlsFromEntry(entry);
   const isVariation = Boolean(options?.newSeed || options?.qualityProfile);
+
+  let workflowJson = options?.workflowJson?.trim() || undefined;
+  if (!workflowJson && options?.exactGraph !== false && entry.promptId?.trim()) {
+    try {
+      // Use the API route — never import comfyui-history-workflow on the client
+      // (it pulls comfyui-client → node:crypto / node:fs).
+      const params = new URLSearchParams({ promptId: entry.promptId.trim() });
+      const comfyUrl = options?.comfyUrlOverride?.trim() || entry.comfyUrl?.trim();
+      if (comfyUrl) {
+        params.set('comfyUrl', comfyUrl);
+      }
+      const response = await fetch(`/api/comfyui/history/workflow?${params.toString()}`);
+      if (response.ok) {
+        const history = (await response.json()) as {
+          ok?: boolean;
+          workflow?: Record<string, unknown>;
+        };
+        if (history.workflow && typeof history.workflow === 'object') {
+          workflowJson = JSON.stringify(history.workflow);
+          options?.onStatus?.('Replaying exact graph from ComfyUI history.');
+        }
+      }
+    } catch {
+      // Fall back to library/scaffold rebuild.
+    }
+  }
+
   return requeueComfyJob({
     prompt: entry.prompt,
     negativePrompt: entry.negativePrompt,
@@ -1004,6 +1034,7 @@ export function requeueComfyJobFromEntry(
     hints: options?.hints,
     qualityProfile: options?.qualityProfile,
     comfyUrlOverride: options?.comfyUrlOverride,
+    workflowJson,
     parentGalleryEntryId: isVariation ? entry.id : undefined,
     derivedKind: isVariation ? 'variation' : undefined,
     onStatus: options?.onStatus,

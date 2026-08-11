@@ -7,6 +7,7 @@ import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import SharedToolControls from '@/components/SharedToolControls';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
+import MediaScaffoldReadyPanel from '@/components/MediaScaffoldReadyPanel';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
 import { useGalleryHandoff } from '@/hooks/useGalleryHandoff';
@@ -273,6 +274,17 @@ export default function ControlNetTool() {
       }
     >
       <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.controlnet} />
+      <div className="mb-4">
+        <MediaScaffoldReadyPanel
+          kind="controlnet"
+          onImported={(_summary, result) => {
+            if (result.sharedPatch) {
+              updateShared(result.sharedPatch);
+            }
+            setError(null);
+          }}
+        />
+      </div>
       <ToolSection title="Conditioning mode">
         <div className="flex flex-wrap gap-2">
           {MODES.map(entry => (

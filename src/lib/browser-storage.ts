@@ -7,7 +7,34 @@ let ready = false;
 let readyPromise: Promise<void> | null = null;
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
 let flushListenersAttached = false;
+let lastSavedAt: number | null = null;
+let lastError: string | null = null;
 const PERSIST_DEBOUNCE_MS = 350;
+
+export const BROWSER_STORAGE_HEALTH_EVENT = 'browser-storage-health';
+
+export type BrowserStorageHealth = {
+  ready: boolean;
+  lastSavedAt: number | null;
+  lastError: string | null;
+  dirtyCount: number;
+};
+
+function notifyBrowserStorageHealth(): void {
+  if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') {
+    return;
+  }
+  window.dispatchEvent(new Event(BROWSER_STORAGE_HEALTH_EVENT));
+}
+
+export function getBrowserStorageHealth(): BrowserStorageHealth {
+  return {
+    ready,
+    lastSavedAt,
+    lastError,
+    dirtyCount: dirtyKeys.size,
+  };
+}
 
 /** Theme/ambient/density only — small keys read before paint. */
 const SYNC_LOCALSTORAGE_KEYS = new Set([
@@ -387,7 +414,9 @@ async function persistBrowserKey(key: string): Promise<void> {
         writeLegacyLocalStorageValue(key, value);
       }
     }
-  } catch {
+  } catch (error) {
+    lastError = error instanceof Error ? error.message : 'Browser storage write failed';
+    notifyBrowserStorageHealth();
     const value = cache.get(key);
     if (
       value !== undefined &&
@@ -401,7 +430,15 @@ async function persistBrowserKey(key: string): Promise<void> {
 async function persistDirtyBrowserKeys(): Promise<void> {
   const keys = [...dirtyKeys];
   dirtyKeys.clear();
+  if (keys.length === 0) {
+    return;
+  }
   await Promise.all(keys.map(key => persistBrowserKey(key)));
+  lastSavedAt = Date.now();
+  if (!lastError) {
+    lastError = null;
+  }
+  notifyBrowserStorageHealth();
 }
 
 /** One-time: move legacy localStorage copies into IndexedDB, then delete LS copies. */
@@ -541,6 +578,7 @@ export async function initBrowserStorage(): Promise<void> {
     }
 
     ready = true;
+    notifyBrowserStorageHealth();
   })();
 
   return readyPromise;

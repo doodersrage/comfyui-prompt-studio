@@ -27,6 +27,10 @@ const WorkspaceWelcome = dynamic(() => import('@/components/WorkspaceWelcome'), 
   ssr: false,
 });
 
+const FirstQueueSetupModal = dynamic(() => import('@/components/FirstQueueSetupModal'), {
+  ssr: false,
+});
+
 function scheduleIdle(callback: () => void, timeoutMs: number): () => void {
   if (typeof window.requestIdleCallback === 'function') {
     const id = window.requestIdleCallback(callback, { timeout: timeoutMs });
@@ -93,6 +97,7 @@ export default function DeferredShellClient() {
           <CommandPalette />
           <GalleryPwaRegister />
           <WorkspaceWelcome />
+          <FirstQueueSetupModal />
         </>
       ) : null}
     </>

@@ -39,6 +39,11 @@ function withMockLocalStorage(run: () => void | Promise<void>): Promise<void> {
         },
       },
       indexedDB: undefined,
+      setTimeout: globalThis.setTimeout.bind(globalThis),
+      clearTimeout: globalThis.clearTimeout.bind(globalThis),
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => true,
     },
   });
   Object.defineProperty(globalThis, "document", {

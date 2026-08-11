@@ -1,6 +1,7 @@
 'use client';
 
 import ServerEnvPanel from '@/components/settings/ServerEnvPanel';
+import StorageHealthChip from '@/components/StorageHealthChip';
 import { ToolSection, HealthCard } from '@/components/ui/ToolPageShell';
 import { Button } from '@/components/ui/Button';
 import type { SharedToolSettings } from '@/lib/settings-cache';
@@ -43,6 +44,9 @@ export default function SettingsOverviewTab({
       </ToolSection>
 
       <ToolSection title="Service health">
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <StorageHealthChip />
+        </div>
         <div className="mb-4 rounded-[var(--radius-xl)] border border-[var(--accent-border)] bg-[var(--accent-muted)] p-4 shadow-[var(--shadow-surface)]">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0 space-y-1">

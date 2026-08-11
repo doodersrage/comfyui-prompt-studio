@@ -14,11 +14,13 @@ import {
 import {
   isPluginIframeHostMessage,
   postPluginIframeHostContext,
+  postPluginIframeHostQueueResult,
   postPluginIframeHostReady,
   resolveEmbeddablePluginIframeUrl,
   resolvePluginIframeTargetOrigin,
   type PluginIframeHostContext,
 } from '@/lib/plugin-iframe-host';
+import { applyPromptFromPlugin, queuePromptFromPlugin } from '@/lib/plugin-iframe-queue';
 import { loadSettingsCache } from '@/lib/settings-cache';
 import { loadLastToolDraft } from '@/lib/tool-draft-memory';
 import { toastQueueOutcome } from '@/lib/app-toast';
@@ -65,9 +67,12 @@ export default function PluginDetailPage({ params }: PluginDetailPageProps) {
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
-      if (!isPluginIframeHostMessage(event.data)) {
+      if (!isPluginIframeHostMessage(event.data) || !plugin) {
         return;
       }
+      const iframeUrl = resolveEmbeddablePluginIframeUrl(primaryToolForPlugin(plugin)?.iframeUrl);
+      const origin = iframeUrl ? resolvePluginIframeTargetOrigin(iframeUrl) : '*';
+
       if (event.data.type === 'plugin:resize' && Number.isFinite(event.data.height)) {
         setIframeHeight(Math.min(Math.max(event.data.height, 320), 1200));
         return;
@@ -78,12 +83,39 @@ export default function PluginDetailPage({ params }: PluginDetailPageProps) {
       }
       if (event.data.type === 'plugin:toast' && event.data.message.trim()) {
         toastQueueOutcome({ ok: true, text: event.data.message.trim() });
+        return;
+      }
+      if (event.data.type === 'plugin:apply-prompt') {
+        void applyPromptFromPlugin(plugin.id, event.data).then(result => {
+          toastQueueOutcome({ ok: result.ok, text: result.message });
+          postPluginIframeHostQueueResult(
+            iframeRef.current,
+            { pluginId: plugin.id, ok: result.ok, message: result.message },
+            origin
+          );
+        });
+        return;
+      }
+      if (event.data.type === 'plugin:queue') {
+        void queuePromptFromPlugin(plugin.id, event.data).then(result => {
+          toastQueueOutcome({ ok: result.ok, text: result.message });
+          postPluginIframeHostQueueResult(
+            iframeRef.current,
+            {
+              pluginId: plugin.id,
+              ok: result.ok,
+              message: result.message,
+              promptId: result.promptId,
+            },
+            origin
+          );
+        });
       }
     };
 
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [router]);
+  }, [plugin, router]);
 
   if (plugin === undefined) {
     return (
