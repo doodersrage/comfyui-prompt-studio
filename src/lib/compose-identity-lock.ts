@@ -157,6 +157,7 @@ export function formatKleinEnhancerIdentityHint(input: {
   preset?: import('./klein-enhancer-workflow-patch').KleinEnhancerIdentityPreset;
   textEnhancerEnabled?: boolean;
   colorAnchorEnabled?: boolean;
+  model?: string | null;
 }): string {
   if (input.enabled === false) {
     return 'Off — stock ReferenceLatent chain (no Identity Feature Transfer Final).';
@@ -164,6 +165,7 @@ export function formatKleinEnhancerIdentityHint(input: {
   const preset = resolveKleinEnhancerIdentityPreset({
     preset: input.preset,
     identityLockStrength: input.identityLockStrength,
+    model: input.model,
   });
   const parts = [
     `Flux2 Klein Enhancer · Identity Feature Transfer Final (${preset.replace('_', ' ')})`,
@@ -175,6 +177,26 @@ export function formatKleinEnhancerIdentityHint(input: {
   if (input.colorAnchorEnabled !== false) {
     parts.push('Color Anchor on model path');
   }
+  return `${parts.join('; ')}.`;
+}
+
+/** Hint when pack is on but Compose identity lock is off (Multi Ref without Final). */
+export function formatKleinEnhancerComposeHint(input: {
+  enabled?: boolean;
+  textEnhancerEnabled?: boolean;
+  colorAnchorEnabled?: boolean;
+}): string {
+  if (input.enabled === false) {
+    return 'Off — stock ReferenceLatent chain.';
+  }
+  const parts = ['Flux2 Klein Enhancer · Multi ReferenceLatent for figures'];
+  if (input.textEnhancerEnabled !== false) {
+    parts.push('Text Enhancer on prompt conditioning');
+  }
+  if (input.colorAnchorEnabled !== false) {
+    parts.push('Color Anchor on model path');
+  }
+  parts.push('enable Identity lock for Feature Transfer Final');
   return `${parts.join('; ')}.`;
 }
 

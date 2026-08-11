@@ -43,6 +43,7 @@ import {
 import { ensureKleinReferenceLatentWiringInWorkflow } from './workflow-img2img-patch';
 import {
   ensureKleinEnhancerPackWiringInWorkflow,
+  kleinEnhancerPackAvailable,
   type KleinEnhancerIdentityPreset,
 } from './klein-enhancer-workflow-patch';
 import { ensureFluxGuidanceInWorkflow } from './flux-guidance-patch';
@@ -1634,10 +1635,19 @@ export function patchWorkflowDirectParams(
     input.params?.inputImageFilename,
     input.params?.inputImageFilenames
   );
-  const willUseKleinEnhancer =
+  const kleinIdentityLockRequested = Boolean(
+    String(input.ipAdapterImageFilename ?? '').trim() ||
+    String(
+      input.ipAdapterImageFilenames?.[0] ?? input.params?.ipAdapterImageFilenames?.[0] ?? ''
+    ).trim()
+  );
+  // Only strip IP-Adapter / InstantID when Identity Feature Transfer Final will replace it.
+  const willUseKleinEnhancerIdentity =
     input.kleinEnhancerEnabled !== false &&
     isFluxKleinModel(input.model) &&
-    kleinFigures.length > 0;
+    kleinFigures.length > 0 &&
+    kleinIdentityLockRequested &&
+    kleinEnhancerPackAvailable(input.availableNodeTypes);
 
   const controlPatch = patchControlNetInWorkflow(loraStackPatch.workflow, {
     controlNetModelFilename: input.controlNetModelFilename,
@@ -1649,14 +1659,14 @@ export function patchWorkflowDirectParams(
     controlNetStrengths: input.params?.controlNetStrengths,
   });
   const ipAdapterPatch = patchIpAdapterInWorkflow(controlPatch.workflow, {
-    ipAdapterImageFilename: willUseKleinEnhancer ? undefined : input.ipAdapterImageFilename,
-    ipAdapterImageFilenames: willUseKleinEnhancer
+    ipAdapterImageFilename: willUseKleinEnhancerIdentity ? undefined : input.ipAdapterImageFilename,
+    ipAdapterImageFilenames: willUseKleinEnhancerIdentity
       ? undefined
       : (input.ipAdapterImageFilenames ?? input.params?.ipAdapterImageFilenames),
-    ipAdapterStrength: willUseKleinEnhancer ? undefined : input.ipAdapterStrength,
-    ipAdapterModelFilename: willUseKleinEnhancer ? undefined : input.ipAdapterModelFilename,
+    ipAdapterStrength: willUseKleinEnhancerIdentity ? undefined : input.ipAdapterStrength,
+    ipAdapterModelFilename: willUseKleinEnhancerIdentity ? undefined : input.ipAdapterModelFilename,
     availableNodeTypes: input.availableNodeTypes,
-    identityKind: willUseKleinEnhancer
+    identityKind: willUseKleinEnhancerIdentity
       ? 'ipadapter'
       : (input.params?.identityKind ?? input.identityKind),
   });
@@ -1708,8 +1718,10 @@ export function patchWorkflowDirectParams(
     availableNodeTypes: input.availableNodeTypes,
     enabled: input.kleinEnhancerEnabled,
     identityPreset: input.kleinEnhancerIdentityPreset,
+    identityLockEnabled: kleinIdentityLockRequested,
     identityLockStrength:
       input.ipAdapterStrength != null ? Number(input.ipAdapterStrength) : undefined,
+    steps: input.params?.steps,
     textEnhancerEnabled: input.kleinEnhancerTextEnabled,
     colorAnchorEnabled: input.kleinEnhancerColorAnchorEnabled,
     colorAnchorStrength: input.kleinEnhancerColorAnchorStrength,

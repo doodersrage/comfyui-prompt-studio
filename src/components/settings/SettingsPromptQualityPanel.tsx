@@ -146,9 +146,10 @@ export default function SettingsPromptQualityPanel({
               >
                 ComfyUI-Flux2Klein-Enhancer
               </a>{' '}
-              nodes at queue time when installed: Multi ReferenceLatent + Identity Feature Transfer
-              Final on compose / multi-reference; Text Enhancer on plain Klein T2I; optional Color
-              Anchor on compose. Identity lock strength maps to HARD/MID/SOFT presets.
+              nodes at queue time when installed: Multi ReferenceLatent on compose (plus Identity
+              Feature Transfer Final when Identity lock is on); Text Enhancer on Klein T2I; optional
+              Color Anchor with few-step ramp tuning. Identity lock strength maps to HARD/MID/SOFT
+              (4B caps at MID).
             </span>
           </span>
         </label>

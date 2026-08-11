@@ -44,6 +44,7 @@ import {
 import {
   DEFAULT_COMPOSE_IDENTITY_LOCK_STRENGTH,
   formatComposeIdentityLockHint,
+  formatKleinEnhancerComposeHint,
   formatKleinEnhancerIdentityHint,
   normalizeComposeIdentityKind,
   normalizeComposeIdentityLockStrength,
@@ -299,6 +300,14 @@ export default function ComposeTool() {
         preset: shared.kleinEnhancerIdentityPreset,
         textEnhancerEnabled: shared.kleinEnhancerTextEnabled,
         colorAnchorEnabled: shared.kleinEnhancerColorAnchorEnabled,
+        model: shared.model,
+      });
+    }
+    if (kleinEnhancerActive) {
+      return formatKleinEnhancerComposeHint({
+        enabled: shared.kleinEnhancerEnabled,
+        textEnhancerEnabled: shared.kleinEnhancerTextEnabled,
+        colorAnchorEnabled: shared.kleinEnhancerColorAnchorEnabled,
       });
     }
     return formatComposeIdentityLockHint({
@@ -315,6 +324,7 @@ export default function ComposeTool() {
     shared.kleinEnhancerEnabled,
     shared.kleinEnhancerIdentityPreset,
     shared.kleinEnhancerTextEnabled,
+    shared.model,
   ]);
   const regionalSlots = toolSettings.regionalSlots ?? createDefaultRegionalSlots();
   const regionalQueue = useMemo(() => regionalSlotsQueueExtras(regionalSlots), [regionalSlots]);

@@ -1,6 +1,7 @@
 /**
  * ComfyUI-Flux2Klein-Enhancer pack wiring:
- * - Compose / multi-reference: Multi ReferenceLatent + Identity Feature Transfer Final + Color Anchor
+ * - Compose / multi-reference: Multi ReferenceLatent (+ Identity Feature Transfer Final when
+ *   identity lock is on) + Color Anchor
  * - Plain Klein T2I: Text Enhancer on positive conditioning
  * @see https://github.com/capitan01R/ComfyUI-Flux2Klein-Enhancer
  */
@@ -16,9 +17,18 @@ export const KLEIN_COLOR_ANCHOR_NODE = 'Flux2KleinColorAnchor';
 
 export type KleinEnhancerIdentityPreset = 'HARD_LOCK' | 'MID_LOCK' | 'SOFT_LOCK';
 
+/** Pack HARD_SINGLE schedule (Identity Feature Transfer Final presets). */
+export const KLEIN_IDENTITY_HARD_DOUBLE = '0-7:mid_img=0.55';
+export const KLEIN_IDENTITY_HARD_SINGLE =
+  '0:mid_img=0.22; 1:mid_img=0.24; 3:mid_img=0.28; 4:mid_img=0.22; 6:mid_img=0.26; 7:mid_img=0.27; 8:mid_img=0.25; 10:mid_img=0.27; 13:mid_img=0.27';
+
 export const DEFAULT_KLEIN_TEXT_ENHANCER_MAGNITUDE = 1.08;
 export const DEFAULT_KLEIN_TEXT_ENHANCER_CONTRAST = 0.1;
 export const DEFAULT_KLEIN_COLOR_ANCHOR_STRENGTH = 0.45;
+/** Pack default for longer base schedules. */
+export const DEFAULT_KLEIN_COLOR_ANCHOR_RAMP = 1.5;
+/** Pack guidance: 2–4 engages faster on 4–8 step distilled schedules. */
+export const FEW_STEP_KLEIN_COLOR_ANCHOR_RAMP = 2.5;
 
 type WorkflowNode = {
   class_type?: string;
@@ -34,8 +44,16 @@ export type KleinEnhancerPackWiringOptions = {
   /** When false, skip all enhancer wiring. Default true. */
   enabled?: boolean;
   identityPreset?: KleinEnhancerIdentityPreset;
+  /**
+   * When false, keep Multi ReferenceLatent / Text / Color but skip Identity Feature Transfer
+   * Final (prompt-driven compose without identity pull). Default true when unset for backward
+   * compat only if identityLockStrength is provided; prefer passing this explicitly.
+   */
+  identityLockEnabled?: boolean;
   /** Compose identity-lock strength maps to HARD/MID/SOFT when preset is unset. */
   identityLockStrength?: number;
+  /** Sampler steps — used to tune Color Anchor ramp for few-step distilled Klein. */
+  steps?: number | string | null;
   /** Wire Flux2KleinTextEnhancer on positive conditioning (T2I + compose). Default true. */
   textEnhancerEnabled?: boolean;
   textEnhancerMagnitude?: number;
@@ -49,8 +67,9 @@ export type KleinEnhancerPackWiringResult = {
   workflow: Record<string, unknown>;
   wired: boolean;
   insertedNodeIds: string[];
-  /** True when Multi ReferenceLatent + Identity Feature Transfer Final were applied. */
+  /** True when Multi ReferenceLatent was applied (identity transfer optional). */
   usedEnhancer: boolean;
+  usedIdentityTransfer?: boolean;
   usedTextEnhancer?: boolean;
   usedColorAnchor?: boolean;
 };
@@ -81,6 +100,13 @@ export function kleinEnhancerPackAvailable(availableNodeTypes?: Iterable<string>
   );
 }
 
+/** Multi-ref alone (no identity transfer) — still better than chained ReferenceLatent. */
+export function kleinMultiReferenceAvailable(
+  availableNodeTypes?: Iterable<string> | null
+): boolean {
+  return nodeTypeAvailable(availableNodeTypes, KLEIN_MULTI_REF_NODE);
+}
+
 export function kleinTextEnhancerAvailable(availableNodeTypes?: Iterable<string> | null): boolean {
   return nodeTypeAvailable(availableNodeTypes, KLEIN_TEXT_ENHANCER_NODE);
 }
@@ -89,24 +115,91 @@ export function kleinColorAnchorAvailable(availableNodeTypes?: Iterable<string> 
   return nodeTypeAvailable(availableNodeTypes, KLEIN_COLOR_ANCHOR_NODE);
 }
 
+export function isFluxKlein9bModel(model?: string | null): boolean {
+  return /flux-2-klein-9b|flux2-klein-9b|klein[_-]?9b/i.test(String(model ?? ''));
+}
+
+export function isFluxKleinDistilledModel(model?: string | null): boolean {
+  return /distill/i.test(String(model ?? ''));
+}
+
+export function resolveKleinIdentityLockEnabled(input: {
+  identityLockEnabled?: boolean;
+  identityLockStrength?: number;
+}): boolean {
+  if (input.identityLockEnabled === true) {
+    return true;
+  }
+  if (input.identityLockEnabled === false) {
+    return false;
+  }
+  // Legacy: strength alone implied lock intent when the flag was not plumbed.
+  return input.identityLockStrength != null && Number.isFinite(Number(input.identityLockStrength));
+}
+
 export function resolveKleinEnhancerIdentityPreset(input: {
   preset?: KleinEnhancerIdentityPreset;
   identityLockStrength?: number;
+  /** 4B schedules are not pack-validated — cap HARD at MID. */
+  model?: string | null;
 }): KleinEnhancerIdentityPreset {
+  let preset: KleinEnhancerIdentityPreset | undefined;
   if (input.preset === 'HARD_LOCK' || input.preset === 'MID_LOCK' || input.preset === 'SOFT_LOCK') {
-    return input.preset;
+    preset = input.preset;
+  } else {
+    const strength = Number(input.identityLockStrength);
+    if (!Number.isFinite(strength)) {
+      preset = 'MID_LOCK';
+    } else if (strength >= 0.75) {
+      preset = 'HARD_LOCK';
+    } else if (strength >= 0.45) {
+      preset = 'MID_LOCK';
+    } else {
+      preset = 'SOFT_LOCK';
+    }
   }
-  const strength = Number(input.identityLockStrength);
-  if (!Number.isFinite(strength)) {
+  // Pack hook schedules target 9B; keep 4B gentler.
+  if (preset === 'HARD_LOCK' && !isFluxKlein9bModel(input.model)) {
     return 'MID_LOCK';
   }
-  if (strength >= 0.75) {
-    return 'HARD_LOCK';
+  return preset;
+}
+
+export function resolveKleinColorAnchorRampCurve(input: {
+  model?: string | null;
+  steps?: number | string | null;
+}): number {
+  if (isFluxKleinDistilledModel(input.model)) {
+    return FEW_STEP_KLEIN_COLOR_ANCHOR_RAMP;
   }
-  if (strength >= 0.45) {
-    return 'MID_LOCK';
+  const steps = Number(input.steps);
+  if (Number.isFinite(steps) && steps > 0 && steps <= 8) {
+    return FEW_STEP_KLEIN_COLOR_ANCHOR_RAMP;
   }
-  return 'SOFT_LOCK';
+  return DEFAULT_KLEIN_COLOR_ANCHOR_RAMP;
+}
+
+/** Soften prompt boost when identity transfer is strong so refs are not fought. */
+export function resolveKleinTextEnhancerDefaults(input: {
+  identityTransfer?: boolean;
+  preset?: KleinEnhancerIdentityPreset;
+}): { magnitude: number; contrast: number } {
+  if (!input.identityTransfer) {
+    return {
+      magnitude: DEFAULT_KLEIN_TEXT_ENHANCER_MAGNITUDE,
+      contrast: DEFAULT_KLEIN_TEXT_ENHANCER_CONTRAST,
+    };
+  }
+  if (input.preset === 'HARD_LOCK') {
+    return { magnitude: 1, contrast: 0 };
+  }
+  if (input.preset === 'MID_LOCK') {
+    return { magnitude: 1.04, contrast: 0.05 };
+  }
+  return {
+    magnitude: DEFAULT_KLEIN_TEXT_ENHANCER_MAGNITUDE,
+    contrast: DEFAULT_KLEIN_TEXT_ENHANCER_CONTRAST,
+  };
 }
 
 function normalizeColorAnchorStrength(value: unknown): number {
@@ -176,6 +269,19 @@ function findPrimaryModelLink(
   return null;
 }
 
+/** Optional SIGMAS producer for Identity Final equal-energy scaling (custom graphs). */
+function findSigmasSourceRef(workflow: Record<string, WorkflowNode>): [string, number] | null {
+  const preferred = ['Flux2Scheduler', 'BasicScheduler', 'ManualSigmas', 'AlignYourStepsScheduler'];
+  for (const classType of preferred) {
+    for (const [nodeId, node] of Object.entries(workflow)) {
+      if (node?.class_type === classType) {
+        return [nodeId, 0];
+      }
+    }
+  }
+  return null;
+}
+
 function workflowHasEnhancerIdentity(workflow: Record<string, WorkflowNode>): boolean {
   return Object.values(workflow).some(
     node =>
@@ -196,10 +302,27 @@ function peelReferenceLatentChain(
   refNodeIds: string[];
 } {
   let cursor = positiveRef[0];
+  let outputSlot = positiveRef[1];
   const latentEncodes: [string, number][] = [];
   const refNodeIds: string[] = [];
   const visited = new Set<string>();
 
+  // Peel FluxGuidance (or similar) wrappers so we reach the ReferenceLatent chain.
+  while (cursor && !visited.has(cursor)) {
+    visited.add(cursor);
+    const node = workflow[cursor];
+    if (node?.class_type === FLUX_GUIDANCE_NODE_TYPE) {
+      const source = node.inputs?.conditioning;
+      if (isNodeOutputRef(source)) {
+        cursor = source[0];
+        outputSlot = source[1];
+        continue;
+      }
+    }
+    break;
+  }
+
+  visited.clear();
   while (cursor && !visited.has(cursor)) {
     visited.add(cursor);
     const node = workflow[cursor];
@@ -212,11 +335,16 @@ function peelReferenceLatentChain(
     }
     refNodeIds.push(cursor);
     const prev = node.inputs?.conditioning;
-    cursor = isNodeOutputRef(prev) ? prev[0] : '';
+    if (isNodeOutputRef(prev)) {
+      cursor = prev[0];
+      outputSlot = prev[1];
+    } else {
+      cursor = '';
+    }
   }
 
   return {
-    textCond: [cursor, positiveRef[1]],
+    textCond: [cursor, outputSlot],
     latentEncodes,
     refNodeIds,
   };
@@ -350,8 +478,9 @@ function wireKleinT2ITextEnhancer(
   }
 
   const next = structuredClone(workflow) as Record<string, WorkflowNode>;
-  const magnitude = options.textEnhancerMagnitude ?? DEFAULT_KLEIN_TEXT_ENHANCER_MAGNITUDE;
-  const contrast = options.textEnhancerContrast ?? DEFAULT_KLEIN_TEXT_ENHANCER_CONTRAST;
+  const textDefaults = resolveKleinTextEnhancerDefaults({ identityTransfer: false });
+  const magnitude = options.textEnhancerMagnitude ?? textDefaults.magnitude;
+  const contrast = options.textEnhancerContrast ?? textDefaults.contrast;
   const textEnhancerId = insertTextEnhancerNode(
     next,
     insertPoint.conditioningSource,
@@ -386,6 +515,10 @@ function wireKleinComposeEnhancerPack(
     usedEnhancer: false,
   };
 
+  if (!kleinMultiReferenceAvailable(options.availableNodeTypes)) {
+    return empty;
+  }
+
   const typed = workflow as Record<string, WorkflowNode>;
   if (workflowHasEnhancerIdentity(typed)) {
     return empty;
@@ -406,14 +539,26 @@ function wireKleinComposeEnhancerPack(
     return empty;
   }
 
+  const identityLockOn = resolveKleinIdentityLockEnabled(options);
+  const wireIdentity =
+    identityLockOn && nodeTypeAvailable(options.availableNodeTypes, KLEIN_IDENTITY_FINAL_NODE);
+
   const modelLink = findPrimaryModelLink(typed);
-  if (!modelLink) {
+  if (wireIdentity && !modelLink) {
     return empty;
   }
 
   const next = structuredClone(workflow) as Record<string, WorkflowNode>;
   const insertedNodeIds: string[] = [];
-  const preset = resolveKleinEnhancerIdentityPreset(options);
+  const preset = resolveKleinEnhancerIdentityPreset({
+    preset: options.identityPreset,
+    identityLockStrength: options.identityLockStrength,
+    model: options.model,
+  });
+  const textDefaults = resolveKleinTextEnhancerDefaults({
+    identityTransfer: wireIdentity,
+    preset,
+  });
 
   let multiRefConditioning: [string, number] = textCond;
   let usedTextEnhancer = false;
@@ -425,8 +570,8 @@ function wireKleinComposeEnhancerPack(
     const textEnhancerId = insertTextEnhancerNode(
       next,
       textCond,
-      options.textEnhancerMagnitude ?? DEFAULT_KLEIN_TEXT_ENHANCER_MAGNITUDE,
-      options.textEnhancerContrast ?? DEFAULT_KLEIN_TEXT_ENHANCER_CONTRAST
+      options.textEnhancerMagnitude ?? textDefaults.magnitude,
+      options.textEnhancerContrast ?? textDefaults.contrast
     );
     insertedNodeIds.push(textEnhancerId);
     multiRefConditioning = [textEnhancerId, 0];
@@ -448,27 +593,6 @@ function wireKleinComposeEnhancerPack(
   };
   insertedNodeIds.push(multiRefId);
 
-  const identityId = nextWorkflowNodeId(next);
-  next[identityId] = {
-    class_type: KLEIN_IDENTITY_FINAL_NODE,
-    inputs: {
-      model: [modelLink.modelLinkId, 0],
-      preset,
-      enabled: true,
-      reference_index: 0,
-      reference_indices: 'all',
-      similarity_floor: 0.04,
-      softmax_temperature: 0.025,
-      mask_threshold: 1,
-      double_blocks: '0-7:mid_img=0.55',
-      single_blocks: '0:mid_img=0.22; 1:mid_img=0.24; 3:mid_img=0.28',
-      debug: false,
-      mask_behavior: 'focus_only',
-    },
-    _meta: { title: 'Prompt Studio — Klein identity transfer' },
-  };
-  insertedNodeIds.push(identityId);
-
   for (const refId of refNodeIds) {
     delete next[refId];
   }
@@ -478,24 +602,61 @@ function wireKleinComposeEnhancerPack(
     samplerNode.inputs.positive = [multiRefId, 0];
   }
 
-  let modelOutputRef: [string, number] = [identityId, 0];
+  let modelOutputRef: [string, number] | null = null;
+  let usedIdentityTransfer = false;
+
+  if (wireIdentity && modelLink) {
+    const identityId = nextWorkflowNodeId(next);
+    const identityInputs: Record<string, unknown> = {
+      model: [modelLink.modelLinkId, 0],
+      preset,
+      enabled: true,
+      reference_index: 0,
+      reference_indices: 'all',
+      similarity_floor: 0.04,
+      softmax_temperature: 0.025,
+      mask_threshold: 1,
+      double_blocks: KLEIN_IDENTITY_HARD_DOUBLE,
+      single_blocks: KLEIN_IDENTITY_HARD_SINGLE,
+      debug: false,
+      mask_behavior: 'focus_only',
+    };
+    const sigmasRef = findSigmasSourceRef(next);
+    if (sigmasRef) {
+      identityInputs.sigmas = sigmasRef;
+    }
+    next[identityId] = {
+      class_type: KLEIN_IDENTITY_FINAL_NODE,
+      inputs: identityInputs,
+      _meta: { title: 'Prompt Studio — Klein identity transfer' },
+    };
+    insertedNodeIds.push(identityId);
+    modelOutputRef = [identityId, 0];
+    usedIdentityTransfer = true;
+  }
+
   let usedColorAnchor = false;
   const colorStrength = normalizeColorAnchorStrength(options.colorAnchorStrength);
   if (
     options.colorAnchorEnabled !== false &&
     colorStrength > 0 &&
-    kleinColorAnchorAvailable(options.availableNodeTypes)
+    kleinColorAnchorAvailable(options.availableNodeTypes) &&
+    modelLink
   ) {
+    const colorSourceModel: [string, number] = modelOutputRef ?? [modelLink.modelLinkId, 0];
     const colorAnchorId = nextWorkflowNodeId(next);
     next[colorAnchorId] = {
       class_type: KLEIN_COLOR_ANCHOR_NODE,
       inputs: {
-        model: [identityId, 0],
+        model: colorSourceModel,
         conditioning: [multiRefId, 0],
         strength: colorStrength,
-        ramp_curve: 1.5,
+        ramp_curve: resolveKleinColorAnchorRampCurve({
+          model: options.model,
+          steps: options.steps,
+        }),
         ref_index: 0,
-        channel_weights: 'uniform',
+        channel_weights: 'by_variance',
         debug: false,
       },
       _meta: { title: 'Prompt Studio — Klein color anchor' },
@@ -505,9 +666,11 @@ function wireKleinComposeEnhancerPack(
     usedColorAnchor = true;
   }
 
-  const consumer = next[modelLink.consumerId];
-  if (consumer?.inputs) {
-    consumer.inputs[modelLink.inputKey] = modelOutputRef;
+  if (modelOutputRef && modelLink) {
+    const consumer = next[modelLink.consumerId];
+    if (consumer?.inputs) {
+      consumer.inputs[modelLink.inputKey] = modelOutputRef;
+    }
   }
 
   return {
@@ -515,6 +678,7 @@ function wireKleinComposeEnhancerPack(
     wired: true,
     insertedNodeIds,
     usedEnhancer: true,
+    usedIdentityTransfer,
     usedTextEnhancer,
     usedColorAnchor,
   };
@@ -543,7 +707,7 @@ export function ensureKleinEnhancerPackWiringInWorkflow(
     options.inputImageFilenames ?? undefined
   );
 
-  if (figures.length > 0 && kleinEnhancerPackAvailable(options.availableNodeTypes)) {
+  if (figures.length > 0 && kleinMultiReferenceAvailable(options.availableNodeTypes)) {
     const composeResult = wireKleinComposeEnhancerPack(workflow, options);
     if (composeResult.wired) {
       return composeResult;
