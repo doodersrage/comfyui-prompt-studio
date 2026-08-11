@@ -2,11 +2,25 @@ import type { ComfyGalleryEntry } from './comfyui-gallery';
 import { resolveGalleryOutputImageUrl } from './gallery-output-upscale';
 import { isQwenRapidAioModel } from './model-denoise-defaults';
 import { isQwenLightningModel } from './model-sampling-patch';
-import { normalizeQueueQualityProfile, type QueueQualityProfile } from './queue-quality-profile';
+import {
+  normalizeQueueQualityProfile,
+  profileSkipsOutputUpscaleForModel,
+  type QueueQualityProfile,
+} from './queue-quality-profile';
 
 /** Gallery Upscale is for models that benefit from Lanczos/neural — not distilled ones. */
-export function galleryEntrySupportsUpscale(model?: string): boolean {
-  return !isQwenLightningModel(model) && !isQwenRapidAioModel(model);
+export function galleryEntrySupportsUpscale(
+  model?: string,
+  qualityProfile?: Extract<QueueQualityProfile, 'final' | 'max'>
+): boolean {
+  if (isQwenLightningModel(model) || isQwenRapidAioModel(model)) {
+    return false;
+  }
+  // Klein Base / Turbo distilled: Final/Max image-space enlarge is a no-op (scale 1).
+  if (qualityProfile && profileSkipsOutputUpscaleForModel(qualityProfile, { model })) {
+    return false;
+  }
+  return true;
 }
 
 /**
@@ -87,7 +101,7 @@ export function canUpscaleGalleryEntry(
   if (entry.status !== 'completed') {
     return false;
   }
-  if (!galleryEntrySupportsUpscale(entry.model)) {
+  if (!galleryEntrySupportsUpscale(entry.model, qualityProfile)) {
     return false;
   }
   if (qualityProfile && galleryEntryAlreadyEnrichedForUpscale(entry, qualityProfile)) {

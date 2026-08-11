@@ -12,6 +12,7 @@ import {
 } from './model-resolution-defaults';
 import { loadSettingsCache } from './settings-cache';
 import { isFluxFineTuneCheckpointModel } from './model-checkpoint-map';
+import { isFluxKleinModel } from './model-denoise-defaults';
 
 /** CFG-1 few-step T2I stacks (Boogu/Z-Image Turbo, etc.) — post upscale/sharpen over-cooks output. */
 export function isDistilledFewStepImageModel(model?: string | null): boolean {
@@ -191,7 +192,7 @@ export function formatQueueQualityProfileHint(
   } else if (isDistilledTurbo) {
     upscaleNote =
       profile === 'final' || profile === 'max'
-        ? ' · native decode (no Lanczos) · CFG-1 distilled'
+        ? ` · mild Lanczos ~${upscaleScaleForProfile(profile, { model })}× · CFG-1 distilled (no neural)`
         : ' · CFG-1 distilled';
   } else if (isLightning) {
     upscaleNote =
@@ -206,10 +207,10 @@ export function formatQueueQualityProfileHint(
   } else if (isFluxFineTuneCheckpointModel(model) && profileUsesUpscaleEnrich(profile)) {
     upscaleNote =
       profile === 'max'
-        ? ` · mild neural ~${upscaleScaleForProfile(profile, { model })}× (no Lanczos)`
+        ? ` · mild ~${upscaleScaleForProfile(profile, { model })}× (neural preferred, Lanczos fallback)`
         : ' · native decode (no Lanczos)';
-  } else if (isKleinBaseModel(model) && profileUsesUpscaleEnrich(profile)) {
-    upscaleNote = ' · native decode (no Lanczos)';
+  } else if (isFluxKleinModel(model) && profileUsesUpscaleEnrich(profile)) {
+    upscaleNote = ` · mild Lanczos ~${upscaleScaleForProfile(profile, { model })}× (no neural)`;
   } else if (profileUsesUpscaleEnrich(profile)) {
     const targetScale = upscaleScaleForProfile(profile, { model });
     const usesNeural =
@@ -480,13 +481,9 @@ export function profileSkipsOutputUpscaleForModel(
   if (/^qwen-rapid-aio-/i.test(model)) {
     return true;
   }
-  // UltraReal Fine-Tune: Final stays native (Lanczos plastics skin). Max uses mild neural.
-  // Klein Base: skip all Final/Max image-space enlarge (same plastic mush).
+  // UltraReal Fine-Tune: Final stays native (Lanczos plastics skin). Max uses mild neural/Lanczos.
   if (isFluxFineTuneCheckpointModel(model)) {
     return normalizeQueueQualityProfile(profile) !== 'max';
-  }
-  if (isKleinBaseModel(model)) {
-    return true;
   }
   // Edit-2511 Lightning T2I: skip Final/Max Lanczos (enlarges soft mush).
   // Compose I2I keeps a light polish pass (see upscaleScaleForProfile).
@@ -497,10 +494,8 @@ export function profileSkipsOutputUpscaleForModel(
   if (/qwen-image-2512-lightning/i.test(model) && options?.hasInputImage !== true) {
     return true;
   }
-  // Boogu / Z-Image Turbo: Final/Max Lanczos + neural upscale over-sharpens 4-step output.
-  if (isDistilledFewStepImageModel(model)) {
-    return true;
-  }
+  // Klein / Boogu·Z-Image Turbo: mild Lanczos is allowed (see upscaleScaleForProfile);
+  // neural stays off via profileUsesNeuralUpscaleEnrich.
   return false;
 }
 
@@ -525,8 +520,13 @@ export function upscaleScaleForProfile(
   if (options?.model && /lightning-(4|8)\b/i.test(options.model)) {
     return mode === 'max' ? 1.12 : 1.08;
   }
+  // Boogu / Z-Image Turbo / Schnell: light Lanczos only — neural over-sharpens CFG-1.
   if (options?.model && isDistilledFewStepImageModel(options.model)) {
-    return 1;
+    return mode === 'max' ? 1.12 : 1.08;
+  }
+  // FLUX.2 Klein: mild Lanczos only (neural plastics skin / fries distilled).
+  if (options?.model && isFluxKleinModel(options.model)) {
+    return mode === 'max' ? 1.15 : 1.08;
   }
   // UltraReal Max: mild neural target — enough to recover soft VAE decode without
   // the old 1.5× Lanczos mush.
@@ -648,7 +648,8 @@ export function profileUsesNeuralUpscaleEnrich(
     // Max only — mild UltraSharp recovery; Final stays native decode.
     return normalizeQueueQualityProfile(profile) === 'max';
   }
-  if (isKleinBaseModel(options?.model ?? '')) {
+  // All Klein (Base + Distilled): Lanczos only — neural plastics / fries CFG-1.
+  if (isFluxKleinModel(options?.model ?? '')) {
     return false;
   }
   return true;
@@ -662,7 +663,7 @@ export function lanczosPolishScaleAfterNeural(options?: { model?: string }): num
   if (isFluxFineTuneCheckpointModel(options?.model)) {
     return 1;
   }
-  if (isKleinBaseModel(options?.model ?? '')) {
+  if (isFluxKleinModel(options?.model ?? '')) {
     return 1;
   }
   return 1.05;
@@ -681,7 +682,7 @@ export function profileUsesNeuralUpscalePolish(
   if (isFluxFineTuneCheckpointModel(options?.model)) {
     return false;
   }
-  if (isKleinBaseModel(options?.model ?? '')) {
+  if (isFluxKleinModel(options?.model ?? '')) {
     return false;
   }
   return normalizeQueueQualityProfile(profile) === 'max';

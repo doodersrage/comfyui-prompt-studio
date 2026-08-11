@@ -1227,5 +1227,34 @@ describe("workflow-graph-enrich", () => {
     assert.ok(
       maxResult.changes.some((change) => /UpscaleModelLoader|neural/i.test(change.message)),
     );
+
+    const maxLanczos = enrichWorkflowGraph({
+      workflow: structuredClone(workflow),
+      tokens: TOKENS,
+      model: "flux-ultrareal-v4",
+      qualityProfile: "max",
+      enrichSampling: false,
+    });
+    assert.ok(
+      maxLanczos.changes.some((change) => /mild Lanczos/i.test(change.message)),
+    );
+    const lanczosSave = maxLanczos.workflow["8"] as {
+      inputs: { images: [string, number] };
+    };
+    let nodeId = lanczosSave.inputs.images[0];
+    let sawLanczos = false;
+    while (nodeId && nodeId !== "7") {
+      const node = maxLanczos.workflow[nodeId] as {
+        class_type?: string;
+        inputs?: { image?: [string, number]; scale_by?: number };
+      };
+      if (node?.class_type === "ImageScaleBy") {
+        sawLanczos = true;
+        assert.equal(node.inputs?.scale_by, 1.35);
+        break;
+      }
+      nodeId = node?.inputs?.image?.[0] ?? "";
+    }
+    assert.equal(sawLanczos, true);
   });
 });

@@ -1030,24 +1030,25 @@ function enrichUpscaleNodes(input: {
     ];
   }
 
-  // UltraReal must never fall back to Lanczos — that path plastics skin.
-  if (isFluxFineTuneCheckpointModel(input.model)) {
-    return [
-      {
-        kind: 'audit',
-        severity: 'warn',
-        message:
-          'UltraReal Max neural upscaler missing — keeping native decode (Lanczos fallback skipped). Install/map 4x-UltraSharp in Settings → Upscale.',
-      },
-    ];
-  }
-
   const lanczosChanges = enrichLanczosUpscaleNodes({
     workflow: input.workflow,
     qualityProfile: input.qualityProfile,
     enrichSharpen: input.enrichSharpen,
     model: input.model,
   });
+
+  if (isFluxFineTuneCheckpointModel(input.model)) {
+    return [
+      {
+        kind: 'audit',
+        severity: 'warn',
+        message: mapped
+          ? `UltraReal Max neural “${mapped}” missing — using mild Lanczos (~1.35×). Install/map 4x-UltraSharp in Settings → Upscale for sharper recovery.`
+          : 'UltraReal Max — no neural upscaler mapped; using mild Lanczos (~1.35×). Map 4x-UltraSharp in Settings → Upscale when available.',
+      },
+      ...lanczosChanges,
+    ];
+  }
 
   if (mapped) {
     return [

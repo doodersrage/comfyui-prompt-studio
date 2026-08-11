@@ -12,7 +12,10 @@ import {
 } from './comfyui-config';
 import { resolveQueueInputImageFilename } from './queue-input-image';
 import { resolveRuntimeForQueue } from './comfyui-runtime-for-model';
-import type { QueueQualityProfile } from './queue-quality-profile';
+import {
+  profileSkipsOutputUpscaleForModel,
+  type QueueQualityProfile,
+} from './queue-quality-profile';
 import { resolveComfyUiRuntime } from './comfyui-runtime';
 import { resolveQueueNegativePrompt } from './queue-negative';
 import { resolveQueueParams } from './queue-params-settings';
@@ -27,8 +30,11 @@ import { runWorkflowPreflight } from './workflow-preflight';
 import {
   buildGalleryMoireCleanWorkflow,
   buildGalleryUpscaleWorkflow,
+  GalleryUpscaleBuildError,
   resolveGalleryOutputImageUrl,
+  resolveGalleryOutputImageUrls,
 } from './gallery-output-upscale';
+import { isFluxFineTuneCheckpointModel } from './model-checkpoint-map';
 import { isQwenLightningModel } from './model-sampling-patch';
 import { isQwenRapidAioModel } from './model-denoise-defaults';
 import {
@@ -37,7 +43,10 @@ import {
   galleryRefineQueueParams,
   type GalleryRefineMode,
 } from './gallery-output-refine';
-import { findLibraryUpscaleWorkflowForModel } from './workflow-library-upscale';
+import {
+  findLibraryUpscaleWorkflowForModel,
+  libraryUpscaleWorkflowEnlarges,
+} from './workflow-library-upscale';
 import { findLibraryFaceDetailerWorkflow } from './workflow-library-face-detailer';
 import { buildAutoFaceDetailerWorkflow } from './facedetailer-workflow-patch';
 import {
@@ -275,28 +284,25 @@ export async function requeueUpscaleFromGalleryEntry(
     };
   }
 
-  const outputUrl = resolveGalleryOutputImageUrl(entry);
-  if (!outputUrl) {
-    return { ok: false, error: 'No gallery output image available to upscale.' };
-  }
-
-  options.onStatus?.('Uploading gallery output…');
-
-  let inputImageFilename: string | undefined;
-  try {
-    inputImageFilename = await resolveQueueInputImageFilename({
-      imageUrl: outputUrl,
-      model,
-    });
-  } catch (error) {
+  if (profileSkipsOutputUpscaleForModel(qualityProfile, { model })) {
+    if (isFluxFineTuneCheckpointModel(model) && vramDowngraded) {
+      return {
+        ok: false,
+        error:
+          'Max → Final (VRAM); UltraReal Final stays native — free VRAM and retry Upscale → Max.',
+        vramDowngraded: true,
+      };
+    }
     return {
       ok: false,
-      error: error instanceof Error ? error.message : 'Could not upload gallery output.',
+      error: `Upscale → ${qualityProfile} would not enlarge this model’s output (image-space enlarge is skipped).`,
+      vramDowngraded,
     };
   }
 
-  if (!inputImageFilename?.trim()) {
-    return { ok: false, error: 'Could not upload gallery output to ComfyUI.' };
+  const outputUrls = resolveGalleryOutputImageUrls(entry);
+  if (outputUrls.length === 0) {
+    return { ok: false, error: 'No gallery output image available to upscale.' };
   }
 
   const shared = loadSettingsCache().shared;
@@ -320,20 +326,74 @@ export async function requeueUpscaleFromGalleryEntry(
       ? mappedUpscale
       : undefined;
   if (mappedUpscale && !upscaleModelFilename) {
-    options.onStatus?.(`Neural upscaler “${mappedUpscale}” not installed — using Lanczos…`);
+    options.onStatus?.(
+      isFluxFineTuneCheckpointModel(model)
+        ? `UltraReal neural “${mappedUpscale}” not installed — using mild Lanczos…`
+        : `Neural upscaler “${mappedUpscale}” not installed — using Lanczos…`
+    );
+  } else if (isFluxFineTuneCheckpointModel(model) && !upscaleModelFilename) {
+    options.onStatus?.('UltraReal Max — no neural upscaler mapped; using mild Lanczos…');
   }
 
   const baseRuntime = resolveRuntimeForQueue(model, entry.tool);
   const enrichOptions = resolveWorkflowGraphEnrichOptions(baseRuntime);
 
-  const queueUpscale = async (neuralModel?: string): Promise<RequeueComfyJobResult> => {
-    const libraryWorkflow =
+  const queueUpscaleForUrl = async (
+    outputUrl: string,
+    neuralModel: string | undefined,
+    imageIndex: number,
+    imageCount: number
+  ): Promise<RequeueComfyJobResult> => {
+    options.onStatus?.(
+      imageCount > 1
+        ? `Uploading gallery output ${imageIndex + 1}/${imageCount}…`
+        : 'Uploading gallery output…'
+    );
+
+    let inputImageFilename: string | undefined;
+    try {
+      inputImageFilename = await resolveQueueInputImageFilename({
+        imageUrl: outputUrl,
+        model,
+      });
+    } catch (error) {
+      return {
+        ok: false,
+        error: error instanceof Error ? error.message : 'Could not upload gallery output.',
+      };
+    }
+
+    if (!inputImageFilename?.trim()) {
+      return { ok: false, error: 'Could not upload gallery output to ComfyUI.' };
+    }
+
+    let libraryWorkflow =
       shared.useLibraryUpscaleWorkflow === true
         ? findLibraryUpscaleWorkflowForModel(model)
         : undefined;
-    const workflow = libraryWorkflow
-      ? (JSON.parse(libraryWorkflow.workflowJson) as Record<string, unknown>)
-      : buildGalleryUpscaleWorkflow({
+    let libraryGraph: Record<string, unknown> | undefined;
+    if (libraryWorkflow) {
+      try {
+        libraryGraph = JSON.parse(libraryWorkflow.workflowJson) as Record<string, unknown>;
+      } catch {
+        libraryGraph = undefined;
+      }
+      if (!libraryGraph || !libraryUpscaleWorkflowEnlarges(libraryGraph)) {
+        options.onStatus?.(
+          libraryWorkflow
+            ? `Library upscale “${libraryWorkflow.name}” is identity / unwired — using Prompt Studio scaffold…`
+            : 'Library upscale workflow invalid — using Prompt Studio scaffold…'
+        );
+        libraryWorkflow = undefined;
+        libraryGraph = undefined;
+      }
+    }
+
+    let workflow: Record<string, unknown>;
+    try {
+      workflow =
+        libraryGraph ??
+        buildGalleryUpscaleWorkflow({
           qualityProfile,
           upscaleModelFilename: neuralModel,
           enrichNeuralPolish: enrichOptions.enrichNeuralPolish,
@@ -342,6 +402,12 @@ export async function requeueUpscaleFromGalleryEntry(
           availableUpscaleModels: objectInfo?.models.upscaleModels,
           supportsNeuralUpscaleTileSize: objectInfo?.supportsNeuralUpscaleTileSize,
         });
+    } catch (error) {
+      if (error instanceof GalleryUpscaleBuildError) {
+        return { ok: false, error: error.message, vramDowngraded };
+      }
+      throw error;
+    }
 
     const runtime: ComfyUiRuntimeConfig = {
       ...baseRuntime,
@@ -357,12 +423,12 @@ export async function requeueUpscaleFromGalleryEntry(
 
     options.onStatus?.(
       libraryWorkflow
-        ? `Queueing library upscale workflow “${libraryWorkflow.name}”…`
-        : isLightning
-          ? 'Queueing Lightning pass-through (no reprocess)…'
-          : neuralModel
-            ? 'Queueing neural upscale…'
-            : 'Queueing Lanczos upscale…'
+        ? `Queueing library upscale workflow “${libraryWorkflow.name}”${
+            imageCount > 1 ? ` (${imageIndex + 1}/${imageCount})` : ''
+          }…`
+        : neuralModel
+          ? `Queueing neural upscale${imageCount > 1 ? ` ${imageIndex + 1}/${imageCount}` : ''}…`
+          : `Queueing Lanczos upscale${imageCount > 1 ? ` ${imageIndex + 1}/${imageCount}` : ''}…`
     );
 
     const queued = await getEngineAdapter().postPrompt({
@@ -399,7 +465,7 @@ export async function requeueUpscaleFromGalleryEntry(
       historyId: entry.historyId,
       ...inheritGallerySessionFields(entry),
     });
-    if (options.refineAfterComplete && !isLightning) {
+    if (options.refineAfterComplete && !isLightning && imageIndex === 0) {
       scheduleRefineAfterUpscaleComplete(queued.promptId, options.refineAfterComplete);
     }
     void scheduleComfyGalleryPoll(queued.promptId, {
@@ -417,15 +483,51 @@ export async function requeueUpscaleFromGalleryEntry(
     };
   };
 
-  let result = await queueUpscale(upscaleModelFilename);
-  if (!result.ok && upscaleModelFilename) {
-    options.onStatus?.(
-      `Neural upscale failed (${result.error ?? 'queue error'}) — retrying with Lanczos…`
-    );
-    result = await queueUpscale(undefined);
+  let queuedCount = 0;
+  let lastPromptId: string | undefined;
+  let lastComfyUrl: string | undefined;
+  const errors: string[] = [];
+
+  for (let i = 0; i < outputUrls.length; i += 1) {
+    const outputUrl = outputUrls[i]!;
+    let result = await queueUpscaleForUrl(outputUrl, upscaleModelFilename, i, outputUrls.length);
+    if (!result.ok && upscaleModelFilename) {
+      options.onStatus?.(
+        `Neural upscale failed (${result.error ?? 'queue error'}) — retrying with Lanczos…`
+      );
+      result = await queueUpscaleForUrl(outputUrl, undefined, i, outputUrls.length);
+    }
+    if (result.ok) {
+      queuedCount += 1;
+      lastPromptId = result.promptId ?? lastPromptId;
+      lastComfyUrl = result.comfyUrl ?? lastComfyUrl;
+    } else {
+      errors.push(result.error ?? 'queue failed');
+    }
   }
 
-  return { ...result, vramDowngraded };
+  if (queuedCount === 0) {
+    return {
+      ok: false,
+      error: errors[0] ?? 'Upscale failed.',
+      vramDowngraded,
+    };
+  }
+
+  if (outputUrls.length > 1) {
+    options.onStatus?.(
+      `Queued ${queuedCount}/${outputUrls.length} upscale job(s)${
+        errors.length ? ` · ${errors.length} failed` : ''
+      }`
+    );
+  }
+
+  return {
+    ok: true,
+    promptId: lastPromptId,
+    comfyUrl: lastComfyUrl,
+    vramDowngraded,
+  };
 }
 
 export async function requeueMoireCleanFromGalleryEntry(

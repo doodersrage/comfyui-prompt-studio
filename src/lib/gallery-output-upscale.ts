@@ -7,6 +7,8 @@ import {
   neuralTargetScaleAfterUpscale,
   neuralUpscaleTileSizeForProfile,
   parseNeuralUpscaleFactor,
+  profileSkipsOutputUpscaleForModel,
+  profileUsesNeuralUpscaleEnrich,
   profileUsesNeuralUpscalePolish,
   profileUsesSharpenAfterNeuralUpscale,
   rapidAioMoireBlurRadius,
@@ -41,17 +43,34 @@ export type BuildGalleryUpscaleWorkflowInput = {
   supportsNeuralUpscaleTileSize?: boolean;
 };
 
+/** Thrown when a gallery upscale would not change output pixel size. */
+export class GalleryUpscaleBuildError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'GalleryUpscaleBuildError';
+  }
+}
+
 export function resolveGalleryOutputImageUrl(
   entry: Pick<ComfyGalleryEntry, 'comfyUrl' | 'images' | 'sourceImageUrl'>
 ): string | undefined {
+  return resolveGalleryOutputImageUrls(entry)[0];
+}
+
+/** All output view URLs for a gallery entry (batch-aware). */
+export function resolveGalleryOutputImageUrls(
+  entry: Pick<ComfyGalleryEntry, 'comfyUrl' | 'images' | 'sourceImageUrl'>
+): string[] {
   const comfyUrl = entry.comfyUrl?.replace(/\/+$/, '') ?? '';
-  if (entry.images[0] && comfyUrl) {
-    return buildComfyViewPath(comfyUrl, entry.images[0]);
+  const fromImages =
+    comfyUrl && entry.images.length > 0
+      ? entry.images.map(image => buildComfyViewPath(comfyUrl, image))
+      : [];
+  if (fromImages.length > 0) {
+    return fromImages;
   }
-  if (entry.sourceImageUrl?.trim()) {
-    return entry.sourceImageUrl.trim();
-  }
-  return undefined;
+  const fallback = entry.sourceImageUrl?.trim();
+  return fallback ? [fallback] : [];
 }
 
 /**
@@ -165,11 +184,30 @@ export function buildGalleryMoireCleanWorkflow(
   return workflow;
 }
 
+function refuseIdentityUpscale(model: string | undefined, qualityProfile: string): never {
+  if (isFluxFineTuneCheckpointModel(model) && qualityProfile === 'final') {
+    throw new GalleryUpscaleBuildError(
+      'UltraReal Final stays native size. Use Upscale → Max (neural preferred; mild Lanczos if no upscaler is mapped).'
+    );
+  }
+  throw new GalleryUpscaleBuildError(
+    `Upscale → ${qualityProfile} would not enlarge this model’s output (image-space enlarge is skipped). Use Re-queue with a different quality profile or model.`
+  );
+}
+
 export function buildGalleryUpscaleWorkflow(
   input: BuildGalleryUpscaleWorkflowInput
 ): Record<string, WorkflowNode> {
   if (isQwenLightningModel(input.model)) {
     return buildLightningGalleryUpscaleWorkflow();
+  }
+
+  const targetOut = upscaleScaleForProfile(input.qualityProfile, { model: input.model });
+  if (
+    profileSkipsOutputUpscaleForModel(input.qualityProfile, { model: input.model }) ||
+    targetOut <= 1.001
+  ) {
+    refuseIdentityUpscale(input.model, input.qualityProfile);
   }
 
   let nextId = 1;
@@ -187,7 +225,7 @@ export function buildGalleryUpscaleWorkflow(
   let outputNodeId = loadId;
   const modelName = input.upscaleModelFilename?.trim();
   const useNeural =
-    (input.qualityProfile === 'final' || input.qualityProfile === 'max') &&
+    profileUsesNeuralUpscaleEnrich(input.qualityProfile, { model: input.model }) &&
     Boolean(modelName) &&
     isUpscaleModelInstalled(modelName, input.availableUpscaleModels);
 
@@ -255,14 +293,19 @@ export function buildGalleryUpscaleWorkflow(
       };
       outputNodeId = polishId;
     }
-  } else if (!isFluxFineTuneCheckpointModel(input.model)) {
+  } else {
+    // UltraReal Max: mild Lanczos (~1.35×) when neural is unavailable.
+    const scaleBy = upscaleScaleForProfile(input.qualityProfile, { model: input.model });
+    if (scaleBy <= 1.001) {
+      refuseIdentityUpscale(input.model, input.qualityProfile);
+    }
     const scaleId = id();
     workflow[scaleId] = {
       class_type: IMAGE_SCALE_BY_NODE_TYPE,
       inputs: {
         image: [outputNodeId, 0],
         upscale_method: 'lanczos',
-        scale_by: upscaleScaleForProfile(input.qualityProfile, { model: input.model }),
+        scale_by: scaleBy,
       },
       _meta: { title: 'Prompt Studio — output upscale' },
     };
@@ -270,7 +313,7 @@ export function buildGalleryUpscaleWorkflow(
   }
 
   const forceUltraRealMildSharpen =
-    isFluxFineTuneCheckpointModel(input.model) && input.qualityProfile === 'max' && useNeural;
+    isFluxFineTuneCheckpointModel(input.model) && input.qualityProfile === 'max';
   if (
     (input.enrichSharpen === true || forceUltraRealMildSharpen) &&
     profileUsesSharpenAfterNeuralUpscale(input.qualityProfile, {

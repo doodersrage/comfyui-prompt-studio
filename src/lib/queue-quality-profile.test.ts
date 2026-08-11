@@ -254,11 +254,27 @@ describe("queue-quality-profile", () => {
     );
     assert.equal(
       profileSkipsOutputUpscaleForModel("max", { model: "flux-2-klein-9b" }),
-      true,
+      false,
     );
     assert.equal(
       profileSkipsOutputUpscaleForModel("final", { model: "boogu-image-turbo" }),
-      true,
+      false,
+    );
+    assert.equal(
+      upscaleScaleForProfile("final", { model: "flux-2-klein-9b" }),
+      1.08,
+    );
+    assert.equal(
+      upscaleScaleForProfile("max", { model: "flux-2-klein-9b" }),
+      1.15,
+    );
+    assert.equal(
+      upscaleScaleForProfile("final", { model: "boogu-image-turbo" }),
+      1.08,
+    );
+    assert.equal(
+      upscaleScaleForProfile("max", { model: "z-image-turbo" }),
+      1.12,
     );
     assert.equal(
       profileUsesNeuralUpscaleEnrich("max", { model: "boogu-image-turbo" }),
@@ -266,6 +282,10 @@ describe("queue-quality-profile", () => {
     );
     assert.equal(
       profileUsesNeuralUpscaleEnrich("max", { model: "flux-2-klein-9b" }),
+      false,
+    );
+    assert.equal(
+      profileUsesNeuralUpscaleEnrich("max", { model: "flux-2-klein-9b-distilled" }),
       false,
     );
     assert.equal(profileUsesNeuralUpscaleEnrich("max"), true);

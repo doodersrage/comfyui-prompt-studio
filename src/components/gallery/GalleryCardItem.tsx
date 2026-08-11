@@ -186,11 +186,14 @@ function GalleryCardItem({
       onFaceDetail={onFaceDetail}
       onAnatomyRepair={onAnatomyRepair}
       onMoireClean={onMoireClean}
-      showUpscaleActions={galleryEntrySupportsUpscale(entry.model)}
+      showUpscaleActions={
+        galleryEntrySupportsUpscale(entry.model, 'final') ||
+        galleryEntrySupportsUpscale(entry.model, 'max')
+      }
       showUpscaleFinal={canUpscaleGalleryEntry(entry, 'final')}
       showUpscaleMax={canUpscaleGalleryEntry(entry, 'max')}
       showForceUpscaleMax={
-        galleryEntrySupportsUpscale(entry.model) &&
+        galleryEntrySupportsUpscale(entry.model, 'max') &&
         entry.status === 'completed' &&
         galleryEntryAlreadyEnrichedForUpscale(entry, 'max')
       }

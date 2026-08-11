@@ -160,4 +160,61 @@ describe("comfyui-requeue upscale guards", () => {
       true,
     );
   });
+
+  it("allows Upscale Max for Klein / Turbo with mild Lanczos", () => {
+    for (const model of ["flux-2-klein-9b", "z-image-turbo", "boogu-image-turbo"] as const) {
+      assert.equal(
+        canUpscaleGalleryEntry(
+          {
+            status: "completed",
+            images: [{ filename: "out.png", subfolder: "", type: "output" }],
+            comfyUrl: "http://127.0.0.1:8188",
+            model,
+          },
+          "max",
+        ),
+        true,
+      );
+    }
+  });
+
+  it("allows Upscale Max for flux-dev and UltraReal", () => {
+    assert.equal(
+      canUpscaleGalleryEntry(
+        {
+          status: "completed",
+          images: [{ filename: "out.png", subfolder: "", type: "output" }],
+          comfyUrl: "http://127.0.0.1:8188",
+          model: "flux-dev",
+        },
+        "max",
+      ),
+      true,
+    );
+    assert.equal(
+      canUpscaleGalleryEntry(
+        {
+          status: "completed",
+          images: [{ filename: "out.png", subfolder: "", type: "output" }],
+          comfyUrl: "http://127.0.0.1:8188",
+          model: "flux-ultrareal-v4",
+        },
+        "max",
+      ),
+      true,
+    );
+    // UltraReal Final stays native — no gallery Final upscale.
+    assert.equal(
+      canUpscaleGalleryEntry(
+        {
+          status: "completed",
+          images: [{ filename: "out.png", subfolder: "", type: "output" }],
+          comfyUrl: "http://127.0.0.1:8188",
+          model: "flux-ultrareal-v4",
+        },
+        "final",
+      ),
+      false,
+    );
+  });
 });
