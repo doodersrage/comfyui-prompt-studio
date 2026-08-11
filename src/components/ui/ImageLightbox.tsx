@@ -23,6 +23,12 @@ import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import type { ComfyOutputMediaKind } from '@/lib/comfyui-outputs';
 import { prefetchGalleryImageUrl } from '@/lib/gallery-image-prefetch';
 import { stripGalleryViewWidthParam } from '@/lib/comfyui-outputs';
+import {
+  loadGalleryLightboxUiPreferences,
+  markGalleryLightboxTutorialSeen,
+  saveGalleryLightboxUiPreferences,
+  type GalleryLightboxFit,
+} from '@/lib/gallery-lightbox-prefs';
 
 export type ImageLightboxState = {
   images: string[];
@@ -69,6 +75,12 @@ export type ImageLightboxSlideMeta = {
   derivedKind?: string;
 };
 
+export type ImageLightboxJobChrome = {
+  status: 'pending' | 'running' | 'completed' | 'error';
+  label: string;
+  percent?: number | null;
+};
+
 /** Per-slide review / iterate actions for the current lightbox index. */
 export type ImageLightboxSlideChrome = {
   rating?: 1 | 2 | 3 | 4 | 5 | null;
@@ -100,6 +112,18 @@ export type ImageLightboxSlideChrome = {
   hasParent?: boolean;
   hasDerivatives?: boolean;
   hasSibling?: boolean;
+  /** Parent/before image URL for wipe compare. */
+  beforeAfterUrl?: string;
+  beforeAfterLabel?: string;
+  job?: ImageLightboxJobChrome | null;
+  onOutpaint?: () => void;
+  onControlNet?: () => void;
+  onVideo?: () => void;
+  onReeditRefine?: () => void;
+  onReeditCompose?: () => void;
+  showOutpaint?: boolean;
+  showControlNet?: boolean;
+  showVideo?: boolean;
 };
 
 type ImageLightboxProps = {
@@ -179,6 +203,14 @@ export default function ImageLightbox({
   const [metaOpen, setMetaOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [copyFlash, setCopyFlash] = useState<string | null>(null);
+  const [fitMode, setFitMode] = useState<GalleryLightboxFit>('contain');
+  const [baOpen, setBaOpen] = useState(false);
+  const [baPosition, setBaPosition] = useState(50);
+  const [dualMode, setDualMode] = useState(false);
+  const [dualIndex, setDualIndex] = useState<number | null>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [tutorialVisible, setTutorialVisible] = useState(false);
+  const prefsHydratedRef = useRef(false);
   const dragRef = useRef<{
     pointerId: number;
     startX: number;
@@ -297,8 +329,35 @@ export default function ImageLightbox({
   useEffect(() => {
     scheduleAfterCommit(() => {
       setMounted(true);
+      if (!prefsHydratedRef.current) {
+        prefsHydratedRef.current = true;
+        const prefs = loadGalleryLightboxUiPreferences();
+        setFitMode(prefs.fit);
+        setTutorialVisible(!prefs.tutorialSeen);
+      }
     });
   }, []);
+
+  useEffect(() => {
+    if (!prefsHydratedRef.current) {
+      return;
+    }
+    saveGalleryLightboxUiPreferences({
+      fit: fitMode,
+      tutorialSeen: !tutorialVisible,
+    });
+  }, [fitMode, tutorialVisible]);
+
+  useEffect(() => {
+    scheduleAfterCommit(() => {
+      setBaOpen(false);
+      setBaPosition(50);
+      setMoreOpen(false);
+      if (dualMode && dualIndex === index) {
+        setDualIndex(null);
+      }
+    });
+  }, [index, dualMode, dualIndex]);
 
   useEffect(() => {
     scheduleAfterCommit(() => {
@@ -409,6 +468,43 @@ export default function ImageLightbox({
       if ((event.key === 'm' || event.key === 'M') && slideChrome?.meta) {
         event.preventDefault();
         setMetaOpen(previous => !previous);
+        return;
+      }
+
+      if (event.key === 'v' || event.key === 'V') {
+        event.preventDefault();
+        setFitMode(previous =>
+          previous === 'contain' ? 'cover' : previous === 'cover' ? 'actual' : 'contain'
+        );
+        return;
+      }
+
+      if (
+        (event.key === 'x' || event.key === 'X') &&
+        slideChrome?.beforeAfterUrl &&
+        (state?.mediaKinds?.[index] ?? 'image') !== 'video'
+      ) {
+        event.preventDefault();
+        setBaOpen(previous => !previous);
+        setDualMode(false);
+        return;
+      }
+
+      if ((event.key === 'y' || event.key === 'Y') && images.length > 1) {
+        event.preventDefault();
+        setDualMode(previous => {
+          const next = !previous;
+          if (!next) {
+            setDualIndex(null);
+          } else {
+            setBaOpen(false);
+            const fallback = index < images.length - 1 ? index + 1 : Math.max(0, index - 1);
+            setDualIndex(previousDual =>
+              previousDual != null && previousDual !== index ? previousDual : fallback
+            );
+          }
+          return next;
+        });
         return;
       }
 
@@ -776,10 +872,14 @@ export default function ImageLightbox({
   );
   const imageClassName = isFullscreen
     ? 'relative flex h-full w-full max-h-[100vh] max-w-[100vw] items-center justify-center'
-    : 'relative mx-auto flex max-h-[calc(96vh-6.5rem)] max-w-full items-center justify-center bg-[var(--bg-subtle)]';
+    : 'relative mx-auto flex h-full max-h-full max-w-full items-center justify-center bg-[var(--bg-subtle)]';
   const currentMediaKind = state?.mediaKinds?.[displayIndex] ?? 'image';
   const previousMediaKind =
     previousIndex !== null ? (state?.mediaKinds?.[previousIndex] ?? 'image') : 'image';
+
+  const stopStagePointer = (event: ReactPointerEvent<HTMLElement>) => {
+    event.stopPropagation();
+  };
 
   const renderSlide = (
     url: string,
@@ -815,6 +915,18 @@ export default function ImageLightbox({
       Boolean(options?.placeholderUrl) &&
       options?.placeholderUrl !== url &&
       !currentImageLoaded;
+    const fitClass =
+      fitMode === 'cover'
+        ? 'object-cover'
+        : fitMode === 'actual'
+          ? 'object-none'
+          : 'object-contain';
+    const sizeClass =
+      fitMode === 'actual'
+        ? 'max-h-none max-w-none'
+        : 'max-h-[var(--lightbox-image-max-h,calc(96vh-6.5rem))] max-w-full';
+    const beforeUrl =
+      isCurrent && baOpen && slideChrome?.beforeAfterUrl ? slideChrome.beforeAfterUrl : null;
 
     return (
       <div key={key} className={className}>
@@ -825,60 +937,108 @@ export default function ImageLightbox({
             alt=""
             aria-hidden
             decoding="async"
-            className="absolute inset-0 m-auto max-h-[var(--lightbox-image-max-h,calc(96vh-6.5rem))] max-w-full object-contain opacity-90 blur-sm scale-[1.02]"
+            className={`absolute inset-0 m-auto ${sizeClass} ${fitClass} opacity-90 blur-sm scale-[1.02]`}
           />
         ) : null}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={url}
-          alt={ariaHidden ? '' : (currentTitle ?? 'Gallery image preview')}
-          aria-hidden={ariaHidden || undefined}
-          decoding={isCurrent ? 'sync' : 'async'}
-          fetchPriority={isCurrent ? 'high' : 'auto'}
-          ref={
-            isCurrent
-              ? el => {
-                  if (el?.complete && el.naturalWidth > 0) {
+        {beforeUrl ? (
+          <div
+            className="relative z-[1] inline-block max-w-full"
+            style={
+              zoom > 1
+                ? {
+                    transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                    transformOrigin: 'center center',
+                  }
+                : undefined
+            }
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={url}
+              alt={ariaHidden ? '' : (currentTitle ?? 'Gallery image preview')}
+              className={`block ${sizeClass} ${fitClass}`}
+              onLoad={() => setCurrentImageLoaded(true)}
+            />
+            <div
+              className="absolute inset-0 overflow-hidden border-r-2 border-white/80"
+              style={{ width: `${baPosition}%` }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={beforeUrl}
+                alt=""
+                aria-hidden
+                className={`absolute left-0 top-0 h-full max-w-none ${fitClass}`}
+                style={{ width: `${(100 / Math.max(baPosition, 1)) * 100}%` }}
+              />
+            </div>
+            <label className="absolute inset-x-4 bottom-3 z-[2] flex items-center gap-3 rounded-full bg-black/55 px-3 py-1.5 text-[11px] text-white/85 backdrop-blur-md">
+              <span className="shrink-0">{slideChrome?.beforeAfterLabel ?? 'Before'} / After</span>
+              <input
+                type="range"
+                min={5}
+                max={95}
+                value={baPosition}
+                onChange={event => setBaPosition(Number(event.target.value))}
+                className="w-full accent-violet-300"
+                aria-label="Before after wipe position"
+                onPointerDown={stopStagePointer}
+              />
+            </label>
+          </div>
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={url}
+            alt={ariaHidden ? '' : (currentTitle ?? 'Gallery image preview')}
+            aria-hidden={ariaHidden || undefined}
+            decoding={isCurrent ? 'sync' : 'async'}
+            fetchPriority={isCurrent ? 'high' : 'auto'}
+            ref={
+              isCurrent
+                ? el => {
+                    if (el?.complete && el.naturalWidth > 0) {
+                      setCurrentImageLoaded(true);
+                    }
+                  }
+                : undefined
+            }
+            onLoad={
+              isCurrent
+                ? () => {
                     setCurrentImageLoaded(true);
                   }
-                }
-              : undefined
-          }
-          onLoad={
-            isCurrent
-              ? () => {
-                  setCurrentImageLoaded(true);
-                }
-              : undefined
-          }
-          className={`relative z-[1] max-h-[var(--lightbox-image-max-h,calc(96vh-6.5rem))] max-w-full object-contain transition-opacity duration-200 ${
-            isCurrent && !currentImageLoaded && options?.placeholderUrl
-              ? 'opacity-0'
-              : 'opacity-100'
-          }`}
-          style={
-            isCurrent && zoom > 1
-              ? {
-                  transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-                  transformOrigin: 'center center',
-                  cursor: dragging ? 'grabbing' : 'grab',
-                  maxHeight: 'none',
-                  maxWidth: 'none',
-                  height: 'min(var(--lightbox-image-max-h, calc(96vh - 6.5rem)), 100%)',
-                }
-              : isCurrent
-                ? { cursor: 'zoom-in' }
                 : undefined
-          }
-          onDoubleClick={
-            isCurrent
-              ? event => {
-                  event.preventDefault();
-                  toggleZoom();
-                }
-              : undefined
-          }
-        />
+            }
+            className={`relative z-[1] ${sizeClass} ${fitClass} transition-opacity duration-200 ${
+              isCurrent && !currentImageLoaded && options?.placeholderUrl
+                ? 'opacity-0'
+                : 'opacity-100'
+            }`}
+            style={
+              isCurrent && zoom > 1
+                ? {
+                    transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                    transformOrigin: 'center center',
+                    cursor: dragging ? 'grabbing' : 'grab',
+                    maxHeight: 'none',
+                    maxWidth: 'none',
+                    height: 'min(var(--lightbox-image-max-h, calc(96vh - 6.5rem)), 100%)',
+                  }
+                : isCurrent
+                  ? { cursor: 'zoom-in' }
+                  : undefined
+            }
+            onDoubleClick={
+              isCurrent
+                ? event => {
+                    event.preventDefault();
+                    toggleZoom();
+                  }
+                : undefined
+            }
+          />
+        )}
       </div>
     );
   };
@@ -1008,6 +1168,9 @@ export default function ImageLightbox({
       ['1–5', 'Rate'],
       ['B · Shift+F', 'Favorite'],
       ['M', 'Details / metadata'],
+      ['V', 'Fit: contain → cover → 1:1'],
+      ['X', 'Before / after wipe'],
+      ['Y', 'Side-by-side pair mode'],
       ['C / I', 'Compose / Improve'],
       ['A', 'Toggle compare selection'],
       ['P / G / S', 'Parent / derivatives / sibling'],
@@ -1198,6 +1361,54 @@ export default function ImageLightbox({
           Remove
         </Button>
       ) : null}
+      {slideChrome?.beforeAfterUrl && currentMediaKind !== 'video' ? (
+        <Button
+          variant={compact ? 'ghost' : 'secondary'}
+          className={chromeBtn(compact)}
+          onClick={() => {
+            setBaOpen(previous => !previous);
+            setDualMode(false);
+          }}
+          aria-pressed={baOpen}
+        >
+          {baOpen ? 'Exit B/A' : 'Before/After'}
+        </Button>
+      ) : null}
+      {images.length > 1 ? (
+        <Button
+          variant={compact ? 'ghost' : 'secondary'}
+          className={chromeBtn(compact)}
+          onClick={() => {
+            setDualMode(previous => {
+              const next = !previous;
+              if (!next) {
+                setDualIndex(null);
+              } else {
+                setBaOpen(false);
+                const fallback = index < images.length - 1 ? index + 1 : Math.max(0, index - 1);
+                setDualIndex(current =>
+                  current != null && current !== index ? current : fallback
+                );
+              }
+              return next;
+            });
+          }}
+          aria-pressed={dualMode}
+        >
+          {dualMode ? 'Exit pair' : 'Pair'}
+        </Button>
+      ) : null}
+      <Button
+        variant={compact ? 'ghost' : 'secondary'}
+        className={chromeBtn(compact)}
+        onClick={() =>
+          setFitMode(previous =>
+            previous === 'contain' ? 'cover' : previous === 'cover' ? 'actual' : 'contain'
+          )
+        }
+      >
+        Fit {fitMode === 'contain' ? 'contain' : fitMode === 'cover' ? 'cover' : '1:1'}
+      </Button>
       {currentMediaKind !== 'video' ? (
         <Button
           variant={compact ? 'ghost' : 'secondary'}
@@ -1206,6 +1417,67 @@ export default function ImageLightbox({
         >
           {zoom > 1 ? 'Reset zoom' : 'Zoom'}
         </Button>
+      ) : null}
+      {slideChrome?.onOutpaint ||
+      slideChrome?.onControlNet ||
+      slideChrome?.onVideo ||
+      slideChrome?.onReeditRefine ||
+      slideChrome?.onReeditCompose ? (
+        <div className="relative">
+          <Button
+            variant={compact ? 'ghost' : 'secondary'}
+            className={chromeBtn(compact)}
+            onClick={() => setMoreOpen(previous => !previous)}
+            aria-expanded={moreOpen}
+          >
+            More
+          </Button>
+          {moreOpen ? (
+            <div
+              className={`absolute bottom-full left-0 z-40 mb-1.5 min-w-[11rem] rounded-xl border p-1.5 shadow-[0_16px_40px_rgb(0_0_0/0.4)] backdrop-blur-md ${
+                compact
+                  ? 'border-white/20 bg-black/80'
+                  : 'border-[var(--border-subtle)] bg-[var(--bg-base)]/95'
+              }`}
+            >
+              {[
+                slideChrome.showOutpaint !== false && slideChrome.onOutpaint
+                  ? { label: 'Outpaint', run: slideChrome.onOutpaint }
+                  : null,
+                slideChrome.showControlNet !== false && slideChrome.onControlNet
+                  ? { label: 'ControlNet', run: slideChrome.onControlNet }
+                  : null,
+                slideChrome.showVideo !== false && slideChrome.onVideo
+                  ? { label: 'Video', run: slideChrome.onVideo }
+                  : null,
+                slideChrome.onReeditRefine
+                  ? { label: 'Re-edit · Refine', run: slideChrome.onReeditRefine }
+                  : null,
+                slideChrome.onReeditCompose
+                  ? { label: 'Re-edit · Compose', run: slideChrome.onReeditCompose }
+                  : null,
+              ]
+                .filter(Boolean)
+                .map(item => (
+                  <button
+                    key={item!.label}
+                    type="button"
+                    className={`block w-full rounded-lg px-2.5 py-1.5 text-left text-[12px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 ${
+                      compact
+                        ? 'text-white/85 hover:bg-white/10'
+                        : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
+                    }`}
+                    onClick={() => {
+                      setMoreOpen(false);
+                      item!.run();
+                    }}
+                  >
+                    {item!.label}
+                  </button>
+                ))}
+            </div>
+          ) : null}
+        </div>
       ) : null}
       <Button
         variant={compact ? 'ghost' : 'secondary'}
@@ -1218,39 +1490,131 @@ export default function ImageLightbox({
     </div>
   );
 
-  const renderFilmstrip = (compact = false) =>
-    images.length > 1 && state?.thumbImages?.length ? (
+  const renderJobBadge = (compact = false) => {
+    const job = slideChrome?.job;
+    if (!job || (job.status !== 'pending' && job.status !== 'running' && job.status !== 'error')) {
+      return null;
+    }
+    return (
       <div
-        className={`flex max-w-full gap-1.5 overflow-x-auto pb-0.5 ${
-          compact ? 'scrollbar-thin' : ''
+        className={`flex items-center gap-2 rounded-full px-3 py-1 text-[11px] backdrop-blur-md ${
+          compact
+            ? 'bg-black/55 text-white/85'
+            : 'border border-[var(--border-subtle)] bg-[var(--bg-base)]/80 text-[var(--text-secondary)]'
         }`}
       >
-        {images.map((_, thumbIndex) => {
-          const thumb = state.thumbImages?.[thumbIndex];
-          if (!thumb) {
-            return null;
-          }
-          const active = thumbIndex === index;
-          return (
-            <button
-              key={`film-${thumbIndex}`}
-              type="button"
-              onClick={() => goToIndex(thumbIndex, true)}
-              className={`relative h-12 w-12 shrink-0 overflow-hidden rounded-md border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 ${
-                active
-                  ? 'border-violet-400/70 ring-1 ring-violet-400/40'
-                  : compact
-                    ? 'border-white/20 opacity-70 hover:opacity-100'
-                    : 'border-[var(--border-subtle)] opacity-80 hover:opacity-100'
-              }`}
-              aria-label={`Go to image ${thumbIndex + 1}`}
-              aria-current={active ? 'true' : undefined}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={thumb} alt="" className="h-full w-full object-cover" loading="lazy" />
-            </button>
-          );
-        })}
+        <span
+          className={`h-2 w-2 rounded-full ${
+            job.status === 'error'
+              ? 'bg-rose-400'
+              : job.status === 'running'
+                ? 'animate-pulse bg-amber-300'
+                : 'bg-sky-300'
+          }`}
+        />
+        <span>{job.label}</span>
+        {job.percent != null ? (
+          <span className={compact ? 'text-white/55' : 'text-[var(--text-muted)]'}>
+            {job.percent}%
+          </span>
+        ) : null}
+      </div>
+    );
+  };
+
+  const renderTutorialTip = (compact = false) => {
+    if (!tutorialVisible || helpOpen) {
+      return null;
+    }
+    return (
+      <div
+        className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border px-3 py-2 text-[12px] shadow-[0_12px_32px_rgb(0_0_0/0.28)] backdrop-blur-md ${
+          compact
+            ? 'border-white/20 bg-black/60 text-white/85'
+            : 'border-[var(--border-subtle)] bg-[var(--bg-base)]/90 text-[var(--text-secondary)]'
+        }`}
+      >
+        <p>
+          Tip: press <span className="font-medium">?</span> for lightbox shortcuts (zoom, rate,
+          compose, before/after…).
+        </p>
+        <div className="flex gap-1.5">
+          <Button
+            variant={compact ? 'ghost' : 'secondary'}
+            className={chromeBtn(compact)}
+            onClick={() => setHelpOpen(true)}
+          >
+            Show shortcuts
+          </Button>
+          <Button
+            variant={compact ? 'ghost' : 'secondary'}
+            className={chromeBtn(compact)}
+            onClick={() => {
+              setTutorialVisible(false);
+              markGalleryLightboxTutorialSeen();
+            }}
+          >
+            Got it
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderFilmstrip = (compact = false) =>
+    images.length > 1 && state?.thumbImages?.length ? (
+      <div className="space-y-1">
+        {dualMode ? (
+          <p className={`type-caption ${compact ? 'text-white/55' : 'text-[var(--text-muted)]'}`}>
+            Pair mode: click a thumb to set the right pane
+          </p>
+        ) : null}
+        <div
+          className={`flex max-w-full gap-1.5 overflow-x-auto pb-0.5 ${
+            compact ? 'scrollbar-thin' : ''
+          }`}
+        >
+          {images.map((_, thumbIndex) => {
+            const thumb = state.thumbImages?.[thumbIndex];
+            if (!thumb) {
+              return null;
+            }
+            const active = thumbIndex === index;
+            const paired = dualMode && dualIndex === thumbIndex;
+            return (
+              <button
+                key={`film-${thumbIndex}`}
+                type="button"
+                onClick={() => {
+                  if (dualMode) {
+                    if (thumbIndex === index) {
+                      return;
+                    }
+                    setDualIndex(thumbIndex);
+                    return;
+                  }
+                  goToIndex(thumbIndex, true);
+                }}
+                className={`relative h-12 w-12 shrink-0 overflow-hidden rounded-md border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 ${
+                  active
+                    ? 'border-violet-400/70 ring-1 ring-violet-400/40'
+                    : paired
+                      ? 'border-amber-300/80 ring-1 ring-amber-300/50'
+                      : compact
+                        ? 'border-white/20 opacity-70 hover:opacity-100'
+                        : 'border-[var(--border-subtle)] opacity-80 hover:opacity-100'
+                }`}
+                aria-label={
+                  dualMode ? `Set pair image ${thumbIndex + 1}` : `Go to image ${thumbIndex + 1}`
+                }
+                aria-current={active ? 'true' : undefined}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={thumb} alt="" className="h-full w-full object-cover" loading="lazy" />
+              </button>
+            );
+          })}
+        </div>
       </div>
     ) : null;
 
@@ -1304,7 +1668,29 @@ export default function ImageLightbox({
       onTouchCancel={onStageTouchEnd}
     >
       <div className="relative flex h-full min-h-0 w-full items-center justify-center">
-        {previousIndex !== null && images[previousIndex] ? (
+        {dualMode && dualIndex != null && images[dualIndex] ? (
+          <div className="grid h-full min-h-0 w-full grid-cols-2 gap-2 p-1">
+            {renderSlide(
+              currentUrl,
+              currentMediaKind,
+              `relative ${imageClassName} min-h-0`,
+              `dual-left-${displayIndex}`,
+              {
+                isCurrent: true,
+                placeholderUrl: currentThumbUrl,
+              }
+            )}
+            {renderSlide(
+              images[dualIndex],
+              state?.mediaKinds?.[dualIndex] ?? 'image',
+              `relative ${imageClassName} min-h-0`,
+              `dual-right-${dualIndex}`,
+              {
+                placeholderUrl: state?.thumbImages?.[dualIndex],
+              }
+            )}
+          </div>
+        ) : previousIndex !== null && images[previousIndex] ? (
           <>
             {renderSlide(
               images[previousIndex],
@@ -1337,12 +1723,17 @@ export default function ImageLightbox({
           )
         )}
       </div>
+    </div>
+  );
 
-      {isFullscreen && images.length > 1 ? (
+  const renderSideNav = () =>
+    images.length > 1 ? (
+      isFullscreen ? (
         <>
           <button
             type="button"
-            className="absolute inset-y-0 left-0 z-20 w-[22%] cursor-w-resize bg-gradient-to-r from-black/35 via-black/10 to-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/40"
+            className="absolute inset-y-0 left-0 z-30 w-[18%] cursor-w-resize bg-gradient-to-r from-black/35 via-black/10 to-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/40"
+            onPointerDown={stopStagePointer}
             onClick={() => {
               const prevIndex = index > 0 ? index - 1 : slideshow?.playing ? images.length - 1 : 0;
               goToIndex(prevIndex, !slideshow?.playing);
@@ -1351,7 +1742,8 @@ export default function ImageLightbox({
           />
           <button
             type="button"
-            className="absolute inset-y-0 right-0 z-20 w-[22%] cursor-e-resize bg-gradient-to-l from-black/35 via-black/10 to-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/40"
+            className="absolute inset-y-0 right-0 z-30 w-[18%] cursor-e-resize bg-gradient-to-l from-black/35 via-black/10 to-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/40"
+            onPointerDown={stopStagePointer}
             onClick={() => {
               const nextIndex =
                 index < images.length - 1 ? index + 1 : slideshow?.playing ? 0 : images.length - 1;
@@ -1360,14 +1752,13 @@ export default function ImageLightbox({
             aria-label="Next image"
           />
         </>
-      ) : null}
-
-      {!isFullscreen && images.length > 1 ? (
+      ) : (
         <>
           <Button
             variant="secondary"
-            className="absolute left-3 top-1/2 z-20 !min-h-10 -translate-y-1/2 border border-white/30 !bg-[var(--bg-base)]/85 px-3.5 type-caption !text-white shadow-[0_8px_28px_rgb(0_0_0/0.55)] backdrop-blur-md hover:!bg-[var(--bg-muted)]/95 hover:!text-white focus-visible:ring-2 focus-visible:ring-white/40 disabled:!bg-[var(--bg-base)]/40 disabled:!text-white/35"
-            disabled={!canGoPrevious || isTransitioning}
+            className="absolute left-3 top-1/2 z-30 !min-h-10 -translate-y-1/2 border border-white/30 !bg-[var(--bg-base)]/85 px-3.5 type-caption !text-white shadow-[0_8px_28px_rgb(0_0_0/0.55)] backdrop-blur-md hover:!bg-[var(--bg-muted)]/95 hover:!text-white focus-visible:ring-2 focus-visible:ring-white/40 disabled:!bg-[var(--bg-base)]/40 disabled:!text-white/35"
+            disabled={!canGoPrevious}
+            onPointerDown={stopStagePointer}
             onClick={() => goToIndex(index - 1, true)}
             aria-label="Previous image"
           >
@@ -1375,17 +1766,17 @@ export default function ImageLightbox({
           </Button>
           <Button
             variant="secondary"
-            className="absolute right-3 top-1/2 z-20 !min-h-10 -translate-y-1/2 border border-white/30 !bg-[var(--bg-base)]/85 px-3.5 type-caption !text-white shadow-[0_8px_28px_rgb(0_0_0/0.55)] backdrop-blur-md hover:!bg-[var(--bg-muted)]/95 hover:!text-white focus-visible:ring-2 focus-visible:ring-white/40 disabled:!bg-[var(--bg-base)]/40 disabled:!text-white/35"
-            disabled={!canGoNext || isTransitioning}
+            className="absolute right-3 top-1/2 z-30 !min-h-10 -translate-y-1/2 border border-white/30 !bg-[var(--bg-base)]/85 px-3.5 type-caption !text-white shadow-[0_8px_28px_rgb(0_0_0/0.55)] backdrop-blur-md hover:!bg-[var(--bg-muted)]/95 hover:!text-white focus-visible:ring-2 focus-visible:ring-white/40 disabled:!bg-[var(--bg-base)]/40 disabled:!text-white/35"
+            disabled={!canGoNext}
+            onPointerDown={stopStagePointer}
             onClick={() => goToIndex(index + 1, true)}
             aria-label="Next image"
           >
             Next →
           </Button>
         </>
-      ) : null}
-    </div>
-  );
+      )
+    ) : null;
 
   const renderSlideshowControls = (compact = false) =>
     slideshowEnabled ? (
@@ -1504,10 +1895,15 @@ export default function ImageLightbox({
         </div>
 
         {renderHelpOverlay(true)}
-        {renderImageStage('flex-1 min-h-0')}
+        <div className="relative min-h-0 flex-1">
+          {renderImageStage('h-full min-h-0')}
+          {renderSideNav()}
+        </div>
 
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[3] bg-gradient-to-t from-black/85 via-black/45 to-transparent px-4 pb-4 pt-12 sm:px-6">
-          <div className="pointer-events-auto space-y-2">
+          <div className="pointer-events-auto max-h-[min(48vh,30rem)] space-y-2 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
+            {renderTutorialTip(true)}
+            {renderJobBadge(true)}
             {renderMetaPanel(true)}
             {renderFilmstrip(true)}
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1555,7 +1951,8 @@ export default function ImageLightbox({
       style={
         {
           '--lightbox-transition-duration': `${transitionMs}ms`,
-          '--lightbox-image-max-h': 'calc(96vh - 6.5rem)',
+          // Stage is flex-sized; image fills remaining space above chrome.
+          '--lightbox-image-max-h': '100%',
         } as CSSProperties
       }
     >
@@ -1567,7 +1964,7 @@ export default function ImageLightbox({
       />
 
       <div
-        className="relative z-10 flex max-h-[96vh] w-full max-w-[min(98vw,1800px)] flex-col gap-2"
+        className="relative z-10 flex h-[min(96vh,100%)] max-h-[96vh] w-full max-w-[min(98vw,1800px)] flex-col gap-2 overflow-hidden"
         onClick={event => event.stopPropagation()}
       >
         <div className="flex shrink-0 items-start justify-between gap-4">
@@ -1593,69 +1990,77 @@ export default function ImageLightbox({
 
         {renderHelpOverlay(false)}
 
-        {renderImageStage(
-          'relative flex w-full items-center justify-center overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)] shadow-[var(--shadow-overlay,0_24px_80px_rgb(0_0_0/0.45))]'
-        )}
+        <div className="relative min-h-0 w-full flex-1">
+          {renderImageStage(
+            'relative flex h-full min-h-0 w-full items-center justify-center overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)] shadow-[var(--shadow-overlay,0_24px_80px_rgb(0_0_0/0.45))]'
+          )}
+          {renderSideNav()}
+        </div>
 
-        {renderMetaPanel(false)}
-        {renderFilmstrip(false)}
+        <div className="flex max-h-[min(46vh,28rem)] shrink-0 flex-col gap-2 overflow-y-auto overscroll-contain pb-0.5 [scrollbar-gutter:stable]">
+          {renderTutorialTip(false)}
+          {renderJobBadge(false)}
+          {renderMetaPanel(false)}
+          {renderFilmstrip(false)}
 
-        <div className="flex shrink-0 flex-col gap-2">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            {images.length > 1 ? (
-              <div className="flex flex-wrap items-center gap-2">
-                {renderSlideshowControls()}
-                <Button
-                  variant="secondary"
-                  className="!min-h-9 px-3 type-caption"
-                  disabled={!canGoPrevious || isTransitioning}
-                  onClick={() => goToIndex(index - 1, true)}
-                >
-                  Previous
-                </Button>
-                <p className="type-caption text-[var(--text-tertiary)]">
-                  Image {index + 1} of {images.length}
-                </p>
-                <Button
-                  variant="secondary"
-                  className="!min-h-9 px-3 type-caption"
-                  disabled={!canGoNext || isTransitioning}
-                  onClick={() => goToIndex(index + 1, true)}
-                >
-                  Next
-                </Button>
+          <div className="flex shrink-0 flex-col gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              {images.length > 1 ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  {renderSlideshowControls()}
+                  <Button
+                    variant="secondary"
+                    className="!min-h-9 px-3 type-caption"
+                    disabled={!canGoPrevious}
+                    onClick={() => goToIndex(index - 1, true)}
+                  >
+                    Previous
+                  </Button>
+                  <p className="type-caption text-[var(--text-tertiary)]">
+                    Image {index + 1} of {images.length}
+                    {dualMode && dualIndex != null ? ` · pair ${dualIndex + 1}` : ''}
+                  </p>
+                  <Button
+                    variant="secondary"
+                    className="!min-h-9 px-3 type-caption"
+                    disabled={!canGoNext}
+                    onClick={() => goToIndex(index + 1, true)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              ) : (
+                <span />
+              )}
+              <div className="flex flex-wrap gap-2">
+                {currentOriginalUrl ? (
+                  <a
+                    href={currentOriginalUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="ui-btn-ghost !min-h-9 px-4 type-caption focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                  >
+                    Open original
+                  </a>
+                ) : null}
+                {onDownloadImage && currentDownloadUrl ? (
+                  <Button
+                    variant="secondary"
+                    className="!min-h-9 px-3 type-caption focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                    onClick={() => void onDownloadImage(displayIndex)}
+                  >
+                    Download (D)
+                  </Button>
+                ) : null}
               </div>
-            ) : (
-              <span />
-            )}
-            <div className="flex flex-wrap gap-2">
-              {currentOriginalUrl ? (
-                <a
-                  href={currentOriginalUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="ui-btn-ghost !min-h-9 px-4 type-caption focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-                >
-                  Open original
-                </a>
-              ) : null}
-              {onDownloadImage && currentDownloadUrl ? (
-                <Button
-                  variant="secondary"
-                  className="!min-h-9 px-3 type-caption focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-                  onClick={() => void onDownloadImage(displayIndex)}
-                >
-                  Download (D)
-                </Button>
-              ) : null}
             </div>
+            {slideChrome || currentMediaKind !== 'video' ? (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                {renderSlideChrome(false)}
+                <p className="type-caption text-[var(--text-muted)]">Press ? for shortcuts</p>
+              </div>
+            ) : null}
           </div>
-          {slideChrome || currentMediaKind !== 'video' ? (
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              {renderSlideChrome(false)}
-              <p className="type-caption text-[var(--text-muted)]">Press ? for shortcuts</p>
-            </div>
-          ) : null}
         </div>
       </div>
     </div>,

@@ -2,6 +2,7 @@
 
 import {
   buildGalleryHandoff,
+  buildReeditGalleryHandoff,
   galleryHandoffPath,
   galleryImprovePath,
   galleryPromptEditorPathFromHistory,
@@ -128,6 +129,26 @@ export function startImproveFromGalleryEntry(
 
 export function startComposeFromGalleryEntry(entry: ComfyGalleryEntry): void {
   saveGalleryHandoff(buildGalleryHandoff(entry, 'compose'));
+  window.location.href = galleryHandoffPath('compose');
+}
+
+export function startControlNetFromGalleryEntry(entry: ComfyGalleryEntry): void {
+  saveGalleryHandoff(buildGalleryHandoff(entry, 'controlnet'));
+  window.location.href = galleryHandoffPath('controlnet');
+}
+
+export function startVideoFromGalleryEntry(entry: ComfyGalleryEntry): void {
+  saveGalleryHandoff(buildGalleryHandoff(entry, 'video'));
+  window.location.href = galleryHandoffPath('video');
+}
+
+export function startReeditRefineFromGalleryEntry(entry: ComfyGalleryEntry): void {
+  saveGalleryHandoff(buildReeditGalleryHandoff(entry, 'refine'));
+  window.location.href = galleryHandoffPath('refine');
+}
+
+export function startReeditComposeFromGalleryEntry(entry: ComfyGalleryEntry): void {
+  saveGalleryHandoff(buildReeditGalleryHandoff(entry, 'compose'));
   window.location.href = galleryHandoffPath('compose');
 }
 

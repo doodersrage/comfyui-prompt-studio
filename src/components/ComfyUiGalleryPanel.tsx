@@ -10,9 +10,15 @@ import ImageLightbox, {
 } from '@/components/ui/ImageLightbox';
 import {
   startComposeFromGalleryEntry,
+  startControlNetFromGalleryEntry,
   startImproveFromGalleryEntry,
   startInpaintFromGalleryEntry,
+  startOutpaintFromGalleryEntry,
+  startReeditComposeFromGalleryEntry,
+  startReeditRefineFromGalleryEntry,
+  startVideoFromGalleryEntry,
 } from '@/lib/improve-output';
+import { comfyUiJobProgressPercent, comfyUiJobStatusLabel } from '@/lib/comfyui-job-status';
 import { ButtonLink } from '@/components/ui/Button';
 import { useComfyUiGallery } from '@/hooks/useComfyUiGallery';
 import GalleryVisionReviewButton from '@/components/gallery/GalleryVisionReviewButton';
@@ -60,6 +66,7 @@ import {
   galleryEntryLightboxUrls,
   galleryEntryMediaKinds,
   galleryEntryPrimaryMediaKind,
+  galleryEntryPrimaryThumbUrl,
   galleryEntryStripThumbUrls,
   galleryEntryViewUrls,
   GALLERY_PAGE_SIZE_ALL,
@@ -583,6 +590,52 @@ export default function ComfyUiGalleryPanel({
     setSlideshowFullscreen(false);
   };
 
+  const deepLinkOpenedRef = useRef<string | null>(null);
+
+  // Open from ?lightbox=<entryId> once gallery data is ready.
+  useEffect(() => {
+    if (!storeReady || lightboxPlaylist.images.length === 0) {
+      return;
+    }
+    const id = searchParams.get('lightbox')?.trim();
+    if (!id || deepLinkOpenedRef.current === id) {
+      return;
+    }
+    const entry =
+      lightboxEntriesRef.current.find(item => item.id === id) ??
+      entries.find(item => item.id === id);
+    if (!entry) {
+      return;
+    }
+    deepLinkOpenedRef.current = id;
+    openEntryLightbox(entry, 0);
+  }, [storeReady, lightboxPlaylist.images.length, searchParams, entries, openEntryLightbox]);
+
+  // Keep ?lightbox= in sync with the open preview for shareable links.
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const url = new URL(window.location.href);
+    if (!resolvedLightbox) {
+      if (url.searchParams.has('lightbox')) {
+        url.searchParams.delete('lightbox');
+        window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+      }
+      return;
+    }
+    const resolved = resolveGalleryLightboxEntry(lightboxEntries, resolvedLightbox.index);
+    if (!resolved) {
+      return;
+    }
+    if (url.searchParams.get('lightbox') === resolved.entry.id) {
+      return;
+    }
+    url.searchParams.set('lightbox', resolved.entry.id);
+    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+    deepLinkOpenedRef.current = resolved.entry.id;
+  }, [resolvedLightbox, lightboxEntries]);
+
   const onDownloadImage = useCallback(async (displayIndex: number) => {
     const resolved = resolveGalleryLightboxEntry(lightboxEntriesRef.current, displayIndex);
     if (!resolved) return;
@@ -610,6 +663,29 @@ export default function ComfyUiGalleryPanel({
     );
     const paramString = (value: unknown) =>
       value === undefined || value === null || value === '' ? undefined : String(value);
+    const parentEntry = parentId ? entries.find(item => item.id === parentId) : undefined;
+    const beforeAfterUrl = parentEntry
+      ? galleryEntryLightboxUrls(parentEntry)[0] ||
+        galleryEntryPrimaryThumbUrl(parentEntry) ||
+        undefined
+      : undefined;
+    const jobLive =
+      entry.status === 'pending' || entry.status === 'running' || entry.status === 'error'
+        ? {
+            status: entry.status,
+            label:
+              entry.statusMessage?.trim() ||
+              comfyUiJobStatusLabel({
+                status: entry.status,
+                progressValue: entry.progressValue,
+                progressMax: entry.progressMax,
+                progressNode: entry.progressNode,
+                queuePosition: entry.queuePosition,
+                promptId: entry.promptId,
+              }),
+            percent: comfyUiJobProgressPercent(entry),
+          }
+        : null;
 
     return {
       rating: entry.reviewRating ?? null,
@@ -704,6 +780,21 @@ export default function ComfyUiGalleryPanel({
       hasParent,
       hasDerivatives,
       hasSibling,
+      beforeAfterUrl,
+      beforeAfterLabel: beforeAfterUrl
+        ? galleryDerivedKindLabel(entry.derivedKind) || 'Parent'
+        : undefined,
+      job: jobLive,
+      showOutpaint: completed && !isVideo,
+      showControlNet: completed && !isVideo,
+      showVideo: completed && !isVideo,
+      onOutpaint: completed && !isVideo ? () => startOutpaintFromGalleryEntry(entry) : undefined,
+      onControlNet:
+        completed && !isVideo ? () => startControlNetFromGalleryEntry(entry) : undefined,
+      onVideo: completed && !isVideo ? () => startVideoFromGalleryEntry(entry) : undefined,
+      onReeditRefine: completed ? () => startReeditRefineFromGalleryEntry(entry) : undefined,
+      onReeditCompose:
+        completed && !isVideo ? () => startReeditComposeFromGalleryEntry(entry) : undefined,
       onShowParent: hasParent
         ? () => {
             if (!parentId) {
