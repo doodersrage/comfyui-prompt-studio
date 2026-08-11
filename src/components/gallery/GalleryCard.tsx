@@ -579,6 +579,15 @@ export default function GalleryCard({
                 {entry.reviewRating}★
               </span>
             ) : null}
+            {entry.reviewNote?.trim() ? (
+              <span
+                className="max-w-[9rem] truncate rounded-full border border-amber-400/30 bg-amber-500/15 px-2 py-0.5 text-[10px] text-amber-100 backdrop-blur-sm"
+                title={entry.reviewNote.trim()}
+                data-testid="gallery-card-review-note"
+              >
+                Note
+              </span>
+            ) : null}
             {entry.hasStoredWorkflow || entry.workflowJson ? (
               <span
                 className="rounded-full border border-sky-400/30 bg-sky-500/15 px-2 py-0.5 text-[10px] text-sky-100 backdrop-blur-sm"
@@ -699,6 +708,15 @@ export default function GalleryCard({
           </span>
           {entry.reviewRating ? (
             <span className="text-[10px] text-violet-300">{entry.reviewRating}★</span>
+          ) : null}
+          {entry.reviewNote?.trim() ? (
+            <span
+              className="max-w-[12rem] truncate rounded-full border border-amber-400/30 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-100"
+              title={entry.reviewNote.trim()}
+              data-testid="gallery-card-review-note"
+            >
+              Note · {entry.reviewNote.trim()}
+            </span>
           ) : null}
           {entry.hasStoredWorkflow || entry.workflowJson ? (
             <span className="rounded-full border border-sky-400/30 bg-sky-500/10 px-2 py-0.5 text-[10px] text-sky-100">

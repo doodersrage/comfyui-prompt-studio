@@ -15,16 +15,66 @@ function emptyChannels(): number[] {
 }
 
 /**
+ * Prefer same-origin `/api/comfyui/view` (optionally with a small `w`) so canvas
+ * sampling is not CORS-tainted by raw Comfy host URLs.
+ */
+export function resolveHistogramSampleUrl(url: string): string {
+  if (!url) {
+    return url;
+  }
+
+  if (url.startsWith('/api/')) {
+    try {
+      const parsed = new URL(url, 'http://local.invalid');
+      if (!parsed.searchParams.has('w')) {
+        parsed.searchParams.set('w', '160');
+      }
+      return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    } catch {
+      return url;
+    }
+  }
+
+  try {
+    const parsed = new URL(url);
+    const path = parsed.pathname.replace(/\/+$/, '') || '/';
+    if (path.endsWith('/view')) {
+      const filename = parsed.searchParams.get('filename');
+      if (filename?.trim()) {
+        const params = new URLSearchParams({
+          filename: filename.trim(),
+          subfolder: parsed.searchParams.get('subfolder') ?? '',
+          type: parsed.searchParams.get('type') ?? 'output',
+          comfyUrl: `${parsed.protocol}//${parsed.host}`,
+          w: '160',
+        });
+        return `/api/comfyui/view?${params.toString()}`;
+      }
+    }
+  } catch {
+    // keep original
+  }
+
+  return url;
+}
+
+/**
  * Sample an image URL into coarse RGB histograms.
- * Returns null when the canvas is tainted (CORS) or the image fails to load.
+ * Uses fetch→blob when possible so same-origin proxy URLs never taint the canvas.
  */
 export async function computeLightboxHistogram(url: string): Promise<LightboxHistogram | null> {
   if (typeof window === 'undefined' || !url) {
     return null;
   }
 
+  const sampleUrl = resolveHistogramSampleUrl(url);
+  let objectUrl: string | null = null;
+
   try {
-    const image = await loadImage(url);
+    const image = await loadImageForSampling(sampleUrl).then(result => {
+      objectUrl = result.objectUrl;
+      return result.image;
+    });
     const maxEdge = 160;
     const scale = Math.min(1, maxEdge / Math.max(image.naturalWidth, image.naturalHeight, 1));
     const width = Math.max(1, Math.round(image.naturalWidth * scale));
@@ -94,14 +144,39 @@ export async function computeLightboxHistogram(url: string): Promise<LightboxHis
     return { r, g, b, meanLuma, exposure };
   } catch {
     return null;
+  } finally {
+    if (objectUrl) {
+      URL.revokeObjectURL(objectUrl);
+    }
   }
 }
 
-function loadImage(url: string): Promise<HTMLImageElement> {
+async function loadImageForSampling(
+  url: string
+): Promise<{ image: HTMLImageElement; objectUrl: string | null }> {
+  // Same-origin (and rewritten proxy) URLs: fetch as blob so getImageData is never tainted.
+  if (url.startsWith('/') || url.startsWith(window.location.origin)) {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`histogram fetch failed (${response.status})`);
+    }
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const image = await loadImageElement(objectUrl, false);
+    return { image, objectUrl };
+  }
+
+  const image = await loadImageElement(url, true);
+  return { image, objectUrl: null };
+}
+
+function loadImageElement(url: string, anonymous: boolean): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image();
     image.decoding = 'async';
-    image.crossOrigin = 'anonymous';
+    if (anonymous) {
+      image.crossOrigin = 'anonymous';
+    }
     image.onload = () => resolve(image);
     image.onerror = () => reject(new Error('image load failed'));
     image.src = url;

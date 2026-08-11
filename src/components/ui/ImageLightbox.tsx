@@ -1438,6 +1438,33 @@ export default function ImageLightbox({
     );
   };
 
+  const iconActionClass = (compactUi: boolean) =>
+    `${chromeBtn(compactUi)} !min-h-8 !min-w-8 justify-center px-1.5 font-medium tracking-tight`;
+
+  const renderIconAction = (
+    compactUi: boolean,
+    opts: {
+      label: string;
+      title: string;
+      onClick: () => void;
+      pressed?: boolean;
+      testId?: string;
+    }
+  ) => (
+    <Button
+      key={opts.title}
+      variant={compactUi ? 'ghost' : 'secondary'}
+      className={iconActionClass(compactUi)}
+      onClick={opts.onClick}
+      title={opts.title}
+      aria-label={opts.title}
+      aria-pressed={opts.pressed}
+      data-testid={opts.testId}
+    >
+      {opts.label}
+    </Button>
+  );
+
   const renderSlideChrome = (compact = false) => {
     const showExtended = !chromeCompact || actionsOpen;
     const primary = (
@@ -1448,6 +1475,9 @@ export default function ImageLightbox({
                 key={rating}
                 type="button"
                 onClick={() => slideChrome.onRate?.(rating)}
+                data-testid={`lightbox-rate-${rating}`}
+                aria-label={`${rating}★`}
+                title={`Rate ${rating}`}
                 className={`rounded-md px-1.5 py-0.5 text-[11px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 active:scale-[0.97] ${
                   compact
                     ? slideChrome.rating === rating
@@ -1493,6 +1523,7 @@ export default function ImageLightbox({
             }
           }}
           aria-expanded={showExtended}
+          data-testid="lightbox-actions-toggle"
         >
           {chromeCompact ? (actionsOpen ? 'Hide actions' : 'Actions') : 'Compact'}
         </Button>
@@ -1508,268 +1539,224 @@ export default function ImageLightbox({
     );
 
     const extended = showExtended ? (
-      <>
-        {slideChrome?.showImprove !== false && slideChrome?.onImprove ? (
-          <Button
-            variant={compact ? 'ghost' : 'secondary'}
-            className={chromeBtn(compact)}
-            onClick={() => slideChrome.onImprove?.()}
-          >
-            Improve
-          </Button>
-        ) : null}
-        {slideChrome?.showCompose !== false && slideChrome?.onCompose ? (
-          <Button
-            variant={compact ? 'ghost' : 'secondary'}
-            className={chromeBtn(compact)}
-            onClick={() => slideChrome.onCompose?.()}
-          >
-            Compose
-          </Button>
-        ) : null}
-        {slideChrome?.showInpaint !== false && slideChrome?.onInpaint ? (
-          <Button
-            variant={compact ? 'ghost' : 'secondary'}
-            className={chromeBtn(compact)}
-            onClick={() => slideChrome.onInpaint?.()}
-          >
-            Inpaint
-          </Button>
-        ) : null}
-        {slideChrome?.showExact && slideChrome?.onExactRequeue ? (
-          <Button
-            variant={compact ? 'ghost' : 'secondary'}
-            className={chromeBtn(compact)}
-            onClick={() => slideChrome.onExactRequeue?.()}
-          >
-            Exact
-          </Button>
-        ) : null}
-        {slideChrome?.showRequeue !== false && slideChrome?.onRequeue ? (
-          <Button
-            variant={compact ? 'ghost' : 'secondary'}
-            className={chromeBtn(compact)}
-            onClick={() => slideChrome.onRequeue?.()}
-          >
-            Requeue
-          </Button>
-        ) : null}
-        {slideChrome?.showSeedVariation !== false && slideChrome?.onRequeueNewSeed ? (
-          <Button
-            variant={compact ? 'ghost' : 'secondary'}
-            className={chromeBtn(compact)}
-            onClick={() => slideChrome.onRequeueNewSeed?.()}
-          >
-            New seed
-          </Button>
-        ) : null}
-        {slideChrome?.showSeedVariation !== false && slideChrome?.onRequeueSeedPlusOne ? (
-          <Button
-            variant={compact ? 'ghost' : 'secondary'}
-            className={chromeBtn(compact)}
-            onClick={() => slideChrome.onRequeueSeedPlusOne?.()}
-          >
-            Seed +1
-          </Button>
-        ) : null}
-        {slideChrome?.onAddToCompare ? (
-          <Button
-            variant={compact ? 'ghost' : 'secondary'}
-            className={chromeBtn(compact)}
-            onClick={() => slideChrome.onAddToCompare?.()}
-            aria-pressed={Boolean(slideChrome.compareSelected)}
-          >
-            {slideChrome.compareSelected
-              ? `In compare${slideChrome.compareCount ? ` (${slideChrome.compareCount})` : ''}`
-              : 'Compare'}
-          </Button>
-        ) : null}
+      <div
+        className="flex flex-wrap items-center gap-1"
+        data-testid="lightbox-actions-rail"
+        role="toolbar"
+        aria-label="Lightbox actions"
+      >
+        {slideChrome?.showImprove !== false && slideChrome?.onImprove
+          ? renderIconAction(compact, {
+              label: '↑',
+              title: 'Improve (I)',
+              onClick: () => slideChrome.onImprove?.(),
+              testId: 'lightbox-action-improve',
+            })
+          : null}
+        {slideChrome?.showCompose !== false && slideChrome?.onCompose
+          ? renderIconAction(compact, {
+              label: 'C',
+              title: 'Compose (C)',
+              onClick: () => slideChrome.onCompose?.(),
+              testId: 'lightbox-action-compose',
+            })
+          : null}
+        {slideChrome?.showInpaint !== false && slideChrome?.onInpaint
+          ? renderIconAction(compact, {
+              label: '✂',
+              title: 'Inpaint',
+              onClick: () => slideChrome.onInpaint?.(),
+            })
+          : null}
+        {slideChrome?.showExact && slideChrome?.onExactRequeue
+          ? renderIconAction(compact, {
+              label: 'Exact',
+              title: 'Exact requeue',
+              onClick: () => slideChrome.onExactRequeue?.(),
+            })
+          : null}
+        {slideChrome?.showRequeue !== false && slideChrome?.onRequeue
+          ? renderIconAction(compact, {
+              label: '↻',
+              title: 'Requeue same seed',
+              onClick: () => slideChrome.onRequeue?.(),
+            })
+          : null}
+        {slideChrome?.showSeedVariation !== false && slideChrome?.onRequeueNewSeed
+          ? renderIconAction(compact, {
+              label: '🎲',
+              title: 'Requeue with new seed',
+              onClick: () => slideChrome.onRequeueNewSeed?.(),
+              testId: 'lightbox-action-new-seed',
+            })
+          : null}
+        {slideChrome?.showSeedVariation !== false && slideChrome?.onRequeueSeedPlusOne
+          ? renderIconAction(compact, {
+              label: '+1',
+              title: 'Requeue with seed +1',
+              onClick: () => slideChrome.onRequeueSeedPlusOne?.(),
+            })
+          : null}
+        {slideChrome?.onAddToCompare
+          ? renderIconAction(compact, {
+              label: '⧉',
+              title: slideChrome.compareSelected ? 'Remove from compare (A)' : 'Add to compare (A)',
+              onClick: () => slideChrome.onAddToCompare?.(),
+              pressed: Boolean(slideChrome.compareSelected),
+            })
+          : null}
         {slideChrome?.onOpenCompare &&
         (slideChrome.compareCount ?? 0) >= 2 &&
-        (slideChrome.compareCount ?? 0) <= 4 ? (
-          <Button
-            variant={compact ? 'ghost' : 'secondary'}
-            className={chromeBtn(compact)}
-            onClick={() => slideChrome.onOpenCompare?.()}
-          >
-            Open compare
-          </Button>
-        ) : null}
-        {slideChrome?.onShowParent ? (
-          <Button
-            variant={compact ? 'ghost' : 'secondary'}
-            className={chromeBtn(compact)}
-            onClick={() => slideChrome.onShowParent?.()}
-          >
-            Parent
-          </Button>
-        ) : null}
-        {slideChrome?.onShowDerivatives ? (
-          <Button
-            variant={compact ? 'ghost' : 'secondary'}
-            className={chromeBtn(compact)}
-            onClick={() => slideChrome.onShowDerivatives?.()}
-          >
-            Derivatives
-          </Button>
-        ) : null}
-        {slideChrome?.onJumpToSibling ? (
-          <Button
-            variant={compact ? 'ghost' : 'secondary'}
-            className={chromeBtn(compact)}
-            onClick={() => slideChrome.onJumpToSibling?.()}
-          >
-            Sibling
-          </Button>
-        ) : null}
-        {slideChrome?.onRemove ? (
-          <Button
-            variant={compact ? 'ghost' : 'secondary'}
-            className={chromeBtn(compact)}
-            onClick={() => slideChrome.onRemove?.()}
-          >
-            Remove
-          </Button>
-        ) : null}
-        {slideChrome?.beforeAfterUrl && currentMediaKind !== 'video' ? (
-          <Button
-            variant={compact ? 'ghost' : 'secondary'}
-            className={chromeBtn(compact)}
-            onClick={() => {
-              setBaOpen(previous => !previous);
-              setDualMode(false);
-            }}
-            aria-pressed={baOpen}
-          >
-            {baOpen ? 'Exit B/A' : 'Before/After'}
-          </Button>
-        ) : null}
-        {images.length > 1 ? (
-          <Button
-            variant={compact ? 'ghost' : 'secondary'}
-            className={chromeBtn(compact)}
-            onClick={() => {
-              setDualMode(previous => {
-                const next = !previous;
-                if (!next) {
-                  setDualIndex(null);
-                } else {
-                  setBaOpen(false);
-                  const fallback = index < images.length - 1 ? index + 1 : Math.max(0, index - 1);
-                  setDualIndex(current =>
-                    current != null && current !== index ? current : fallback
-                  );
-                }
-                return next;
-              });
-            }}
-            aria-pressed={dualMode}
-          >
-            {dualMode ? 'Exit pair' : 'Pair'}
-          </Button>
-        ) : null}
-        <Button
-          variant={compact ? 'ghost' : 'secondary'}
-          className={chromeBtn(compact)}
-          onClick={() =>
+        (slideChrome.compareCount ?? 0) <= 4
+          ? renderIconAction(compact, {
+              label: 'Cmp',
+              title: 'Open compare',
+              onClick: () => slideChrome.onOpenCompare?.(),
+            })
+          : null}
+        {slideChrome?.onShowParent
+          ? renderIconAction(compact, {
+              label: '↖',
+              title: 'Parent (P)',
+              onClick: () => slideChrome.onShowParent?.(),
+            })
+          : null}
+        {slideChrome?.onShowDerivatives
+          ? renderIconAction(compact, {
+              label: '↘',
+              title: 'Derivatives (G)',
+              onClick: () => slideChrome.onShowDerivatives?.(),
+            })
+          : null}
+        {slideChrome?.onJumpToSibling
+          ? renderIconAction(compact, {
+              label: '⇄',
+              title: 'Sibling (S)',
+              onClick: () => slideChrome.onJumpToSibling?.(),
+            })
+          : null}
+        {slideChrome?.onRemove
+          ? renderIconAction(compact, {
+              label: '⌫',
+              title: 'Remove (Delete)',
+              onClick: () => slideChrome.onRemove?.(),
+            })
+          : null}
+        {slideChrome?.beforeAfterUrl && currentMediaKind !== 'video'
+          ? renderIconAction(compact, {
+              label: 'B/A',
+              title: baOpen ? 'Exit before/after (X)' : 'Before/after wipe (X)',
+              onClick: () => {
+                setBaOpen(previous => !previous);
+                setDualMode(false);
+              },
+              pressed: baOpen,
+            })
+          : null}
+        {images.length > 1
+          ? renderIconAction(compact, {
+              label: '‖',
+              title: dualMode ? 'Exit pair mode (Y)' : 'Side-by-side pair (Y)',
+              onClick: () => {
+                setDualMode(previous => {
+                  const next = !previous;
+                  if (!next) {
+                    setDualIndex(null);
+                  } else {
+                    setBaOpen(false);
+                    const fallback = index < images.length - 1 ? index + 1 : Math.max(0, index - 1);
+                    setDualIndex(current =>
+                      current != null && current !== index ? current : fallback
+                    );
+                  }
+                  return next;
+                });
+              },
+              pressed: dualMode,
+            })
+          : null}
+        {renderIconAction(compact, {
+          label: fitMode === 'actual' ? '1:1' : fitMode === 'cover' ? 'Fill' : 'Fit',
+          title: 'Cycle fit mode (V)',
+          onClick: () =>
             setFitMode(previous =>
               previous === 'contain' ? 'cover' : previous === 'cover' ? 'actual' : 'contain'
-            )
-          }
-        >
-          Fit {fitMode === 'contain' ? 'contain' : fitMode === 'cover' ? 'cover' : '1:1'}
-        </Button>
-        {currentMediaKind !== 'video' ? (
-          <>
-            <Button
-              variant={compact ? 'ghost' : 'secondary'}
-              className={chromeBtn(compact)}
-              onClick={() => applyZoomPreset('fit')}
-            >
-              Zoom fit
-            </Button>
-            <Button
-              variant={compact ? 'ghost' : 'secondary'}
-              className={chromeBtn(compact)}
-              onClick={() => applyZoomPreset('center')}
-            >
-              Zoom 2×
-            </Button>
-            <Button
-              variant={compact ? 'ghost' : 'secondary'}
-              className={chromeBtn(compact)}
-              onClick={() => applyZoomPreset('face')}
-            >
-              Face zoom
-            </Button>
-            <Button
-              variant={compact ? 'ghost' : 'secondary'}
-              className={chromeBtn(compact)}
-              onClick={() => applyZoomPreset('actual')}
-            >
-              1:1
-            </Button>
-          </>
-        ) : null}
-        {currentMediaKind !== 'video' ? (
-          <Button
-            variant={compact ? 'ghost' : 'secondary'}
-            className={chromeBtn(compact)}
-            onClick={() => {
-              if (histogramOpen) {
-                setHistogramOpen(false);
-              } else {
-                void loadHistogram();
-              }
-            }}
-            aria-pressed={histogramOpen}
-          >
-            Colors
-          </Button>
-        ) : null}
-        {hasDistinctFullRes ? (
-          <Button
-            variant={compact ? 'ghost' : 'secondary'}
-            className={chromeBtn(compact)}
-            onClick={() => {
-              setPreferFullRes(previous => {
-                const next = !previous;
-                if (next) {
-                  setFullResLoading(true);
-                  setCurrentImageLoaded(false);
+            ),
+        })}
+        {currentMediaKind !== 'video'
+          ? renderIconAction(compact, {
+              label: '⊡',
+              title: 'Zoom fit',
+              onClick: () => applyZoomPreset('fit'),
+            })
+          : null}
+        {currentMediaKind !== 'video'
+          ? renderIconAction(compact, {
+              label: '2×',
+              title: 'Zoom 2× center',
+              onClick: () => applyZoomPreset('center'),
+            })
+          : null}
+        {currentMediaKind !== 'video'
+          ? renderIconAction(compact, {
+              label: '☺',
+              title: 'Face-zone zoom',
+              onClick: () => applyZoomPreset('face'),
+            })
+          : null}
+        {currentMediaKind !== 'video'
+          ? renderIconAction(compact, {
+              label: '🎨',
+              title: histogramOpen ? 'Hide colors (H)' : 'Color histogram (H)',
+              onClick: () => {
+                if (histogramOpen) {
+                  setHistogramOpen(false);
+                } else {
+                  void loadHistogram();
                 }
-                return next;
-              });
-            }}
-            aria-pressed={preferFullRes}
-          >
-            {preferFullRes ? (fullResLoading ? 'Full-res…' : 'Mid-res') : 'Full-res'}
-          </Button>
-        ) : null}
-        <Button
-          variant={compact ? 'ghost' : 'secondary'}
-          className={chromeBtn(compact)}
-          onClick={() => {
+              },
+              pressed: histogramOpen,
+              testId: 'lightbox-action-colors',
+            })
+          : null}
+        {hasDistinctFullRes
+          ? renderIconAction(compact, {
+              label: preferFullRes ? (fullResLoading ? '…' : 'Mid') : 'Full',
+              title: preferFullRes ? 'Show mid-res (O)' : 'Show full-res (O)',
+              onClick: () => {
+                setPreferFullRes(previous => {
+                  const next = !previous;
+                  if (next) {
+                    setFullResLoading(true);
+                    setCurrentImageLoaded(false);
+                  }
+                  return next;
+                });
+              },
+              pressed: preferFullRes,
+            })
+          : null}
+        {renderIconAction(compact, {
+          label: chromeCompact ? 'Pin' : 'Unpin',
+          title: chromeCompact ? 'Pin actions open' : 'Collapse actions by default',
+          onClick: () => {
             setChromeCompact(previous => !previous);
             setActionsOpen(true);
-          }}
-        >
-          {chromeCompact ? 'Pin actions' : 'Unpin actions'}
-        </Button>
+          },
+        })}
         {slideChrome?.onOutpaint ||
         slideChrome?.onControlNet ||
         slideChrome?.onVideo ||
         slideChrome?.onReeditRefine ||
         slideChrome?.onReeditCompose ? (
           <div className="relative">
-            <Button
-              variant={compact ? 'ghost' : 'secondary'}
-              className={chromeBtn(compact)}
-              onClick={() => setMoreOpen(previous => !previous)}
-              aria-expanded={moreOpen}
-            >
-              More
-            </Button>
+            {renderIconAction(compact, {
+              label: '⋯',
+              title: 'More handoffs',
+              onClick: () => setMoreOpen(previous => !previous),
+              pressed: moreOpen,
+              testId: 'lightbox-action-more',
+            })}
             {moreOpen ? (
               <div
                 className={`absolute bottom-full left-0 z-40 mb-1.5 min-w-[11rem] rounded-xl border p-1.5 shadow-[0_16px_40px_rgb(0_0_0/0.4)] backdrop-blur-md ${
@@ -1817,7 +1804,7 @@ export default function ImageLightbox({
             ) : null}
           </div>
         ) : null}
-      </>
+      </div>
     ) : null;
 
     return (
@@ -2251,6 +2238,8 @@ export default function ImageLightbox({
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
                   {renderSlideshowControls(true)}
+                  {/* Zoom presets touch zoomRef inside click handlers only. */}
+                  {/* eslint-disable-next-line react-hooks/refs -- action handlers, not render reads */}
                   {renderSlideChrome(true)}
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
@@ -2291,6 +2280,7 @@ export default function ImageLightbox({
       role="dialog"
       aria-modal="true"
       aria-label={state?.title ?? 'Image preview'}
+      data-testid="image-lightbox"
       style={
         {
           '--lightbox-transition-duration': `${transitionMs}ms`,
@@ -2405,6 +2395,7 @@ export default function ImageLightbox({
               </div>
               {slideChrome || currentMediaKind !== 'video' ? (
                 <div className="flex flex-wrap items-center justify-between gap-2">
+                  {/* eslint-disable-next-line react-hooks/refs -- action handlers, not render reads */}
                   {renderSlideChrome(false)}
                   <p className="type-caption text-[var(--text-muted)]">Press ? for shortcuts</p>
                 </div>

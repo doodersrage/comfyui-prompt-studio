@@ -13,6 +13,17 @@ const FIXTURE = {
   images: [{ filename: 'e2e-fixture.png', subfolder: '', type: 'output' }],
 };
 
+const FIXTURE_B = {
+  ...FIXTURE,
+  id: 'e2e-gallery-fixture-b',
+  promptId: 'e2e-prompt-b',
+  prompt: 'e2e gallery fixture b',
+  queuedAt: Date.now() - 1_000,
+  completedAt: Date.now() - 1_000,
+  images: [{ filename: 'e2e-fixture-b.png', subfolder: '', type: 'output' }],
+  reviewNote: 'keeper candidate',
+};
+
 /** Ensure Studio workspace so advanced Filters / layout chips render (hidden in Simple). */
 export async function ensureStudioWorkspace(page: Page): Promise<void> {
   await page.addInitScript(() => {
@@ -53,4 +64,25 @@ export async function seedGalleryFixture(page: Page): Promise<void> {
       // ignore
     }
   }, FIXTURE);
+}
+
+/** Seed two entries for lightbox next/prev + review-note badge coverage. */
+export async function seedGalleryLightboxFixtures(page: Page): Promise<void> {
+  await ensureStudioWorkspace(page);
+  const entries = [FIXTURE, FIXTURE_B];
+  await page.addInitScript(items => {
+    try {
+      localStorage.setItem('comfyui-gallery-v1', JSON.stringify(items));
+    } catch {
+      // ignore
+    }
+  }, entries);
+  await page.evaluate(items => {
+    try {
+      localStorage.setItem('comfyui-gallery-v1', JSON.stringify(items));
+      window.dispatchEvent(new Event('comfyui-gallery-updated'));
+    } catch {
+      // ignore
+    }
+  }, entries);
 }
