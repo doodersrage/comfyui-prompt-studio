@@ -11,7 +11,7 @@ import {
   SESSION_LORA_PREFS_KEY,
 } from './settings-cache';
 
-function withMockLocalStorage(run: () => void | Promise<void>): void {
+async function withMockLocalStorage(run: () => void | Promise<void>): Promise<void> {
   const storage = new Map<string, string>();
   const originalWindow = globalThis.window;
   Object.defineProperty(globalThis, 'window', {
@@ -31,11 +31,12 @@ function withMockLocalStorage(run: () => void | Promise<void>): void {
         key: (index: number) => [...storage.keys()][index] ?? null,
       },
       setTimeout: globalThis.setTimeout.bind(globalThis),
+      clearTimeout: globalThis.clearTimeout.bind(globalThis),
       dispatchEvent: () => true,
     },
   });
   try {
-    void run();
+    await run();
   } finally {
     if (originalWindow === undefined) {
       // @ts-expect-error test cleanup
@@ -50,12 +51,12 @@ function withMockLocalStorage(run: () => void | Promise<void>): void {
 }
 
 describe('settings persistence sidecars', () => {
-  beforeEach(() => {
-    withMockLocalStorage(() => resetBrowserStorageCache());
+  beforeEach(async () => {
+    await withMockLocalStorage(() => resetBrowserStorageCache());
   });
 
-  afterEach(() => {
-    withMockLocalStorage(() => resetBrowserStorageCache());
+  afterEach(async () => {
+    await withMockLocalStorage(() => resetBrowserStorageCache());
   });
 
   it('persists useSystemWorkflows via sidecar and reloads after cache reset', async () => {

@@ -42,6 +42,11 @@ export const ONBOARDING_STEPS: Omit<OnboardingStep, 'done'>[] = [
     href: '/queue',
   },
   {
+    id: 'first-queue-success',
+    label: 'Land your first completed render (Simple mode)',
+    href: '/gallery',
+  },
+  {
     id: 'review-gallery',
     label: 'Rate an output in Gallery review mode',
     href: '/gallery?review=1',
@@ -72,6 +77,7 @@ const CORE_STEP_IDS = new Set([
   'system-workflows',
   'first-generate',
   'first-queue',
+  'first-queue-success',
   'review-gallery',
 ]);
 

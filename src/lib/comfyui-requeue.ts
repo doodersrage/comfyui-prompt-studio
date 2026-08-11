@@ -391,6 +391,7 @@ export async function requeueUpscaleFromGalleryEntry(
       comfyUrl: queued.engineUrl ?? entry.comfyUrl ?? 'http://127.0.0.1:8188',
       clientId: queued.clientId,
       queueParams: { inputImageFilename },
+      workflowJson: runtime.workflowJson,
       sourceImageUrl: outputUrl,
       queueQualityProfile: qualityProfile,
       parentGalleryEntryId: entry.id,
@@ -524,6 +525,7 @@ export async function requeueMoireCleanFromGalleryEntry(
     comfyUrl: queued.engineUrl ?? entry.comfyUrl ?? 'http://127.0.0.1:8188',
     clientId: queued.clientId,
     queueParams: { inputImageFilename },
+    workflowJson: runtime.workflowJson,
     sourceImageUrl: outputUrl,
     queueQualityProfile: qualityProfile,
     parentGalleryEntryId: entry.id,
@@ -671,6 +673,7 @@ export async function requeueRefineFromGalleryEntry(
     comfyUrl: queued.engineUrl ?? entry.comfyUrl ?? 'http://127.0.0.1:8188',
     clientId: queued.clientId,
     queueParams: params,
+    workflowJson: runtime.workflowJson,
     sourceImageUrl: outputUrl,
     queueQualityProfile: profile,
     parentGalleryEntryId: entry.id,
@@ -827,6 +830,7 @@ export async function requeueFaceDetailFromGalleryEntry(
     comfyUrl: queued.engineUrl ?? entry.comfyUrl ?? 'http://127.0.0.1:8188',
     clientId: queued.clientId,
     queueParams: faceDetailParams,
+    workflowJson: runtime.workflowJson,
     sourceImageUrl: outputUrl,
     queueQualityProfile: entry.queueQualityProfile,
     parentGalleryEntryId: entry.id,
@@ -994,7 +998,10 @@ export async function requeueComfyJobFromEntry(
   const urls = resolveRequeueImageUrlsFromEntry(entry);
   const isVariation = Boolean(options?.newSeed || options?.qualityProfile);
 
-  let workflowJson = options?.workflowJson?.trim() || undefined;
+  let workflowJson = options?.workflowJson?.trim() || entry.workflowJson?.trim() || undefined;
+  if (workflowJson && !options?.workflowJson?.trim() && entry.workflowJson?.trim()) {
+    options?.onStatus?.('Replaying stored gallery workflow graph.');
+  }
   if (!workflowJson && options?.exactGraph !== false && entry.promptId?.trim()) {
     try {
       // Use the API route — never import comfyui-history-workflow on the client
@@ -1236,6 +1243,7 @@ export async function requeueComfyJob(input: RequeueComfyJobInput): Promise<Requ
     clientId: queued.clientId,
     engineId: queued.engineId,
     queueParams: params,
+    workflowJson,
     sourceImageUrl: input.sourceImageUrl,
     maskImageUrl: input.maskImageUrl,
     queueQualityProfile: effectiveQualityProfile,

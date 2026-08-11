@@ -125,6 +125,7 @@ Installable manifests live in the client settings cache (Dexie), not on the serv
 - Nav merges into the sidebar catalog
 - Queue hooks run via `runPluginQueuePreflight` before Comfy queue
 - Custom tools render at `/plugins/[id]` (`src/app/plugins/[id]/page.tsx`)
+- Iframe host protocol (queue / apply-prompt / toast): [plugin-iframe-host.md](plugin-iframe-host.md); example at `/plugin-examples/hello-iframe.html`
 
 Bookmarks (non-manifest) are separate: `src/lib/tool-plugin-registry.ts`. Example hook: `src/app/api/plugin-hooks/denoise-rewrite/route.ts`.
 

@@ -16,6 +16,8 @@ import { resolveWorkflowGraphInput } from './workflow-graph-input';
 export type WorkflowPreflightIssue = {
   severity: 'error' | 'warn';
   message: string;
+  /** Optional deep-link for queue-failure playbooks / toasts. */
+  href?: string;
 };
 
 export type WorkflowGraphPreflightInput = {

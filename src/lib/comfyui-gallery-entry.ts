@@ -14,9 +14,15 @@ export type ComfyGalleryEntry = {
   /** Gallery entry this job was derived from (upscale, refine, variation). */
   parentGalleryEntryId?: string;
   /** How this entry was derived from parentGalleryEntryId. */
-  derivedKind?: 'upscale' | 'refine' | 'soft-pass' | 'variation' | 'moire-clean' | 'face-detail';
+  derivedKind?:
+    'upscale' | 'refine' | 'soft-pass' | 'variation' | 'moire-clean' | 'face-detail' | 'controlnet';
   /** Resolved queue params (seed, width, cfg, etc.). */
   queueParams?: WorkflowParamValues;
+  /**
+   * Exact workflow JSON queued for this job (capped). Preferred for exact replay
+   * before fetching ComfyUI history.
+   */
+  workflowJson?: string;
   /** Original source image URL at queue time (Comfy view or app proxy). */
   sourceImageUrl?: string;
   /** Inpaint mask URL at queue time when available. */

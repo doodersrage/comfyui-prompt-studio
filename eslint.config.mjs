@@ -18,6 +18,48 @@ const eslintConfig = defineConfig([
     'services/**/.venv/**',
     '**/node_modules/**',
   ]),
+  {
+    // Client UI surfaces — catch server-only imports early (script also scans 'use client').
+    files: ['src/components/**/*.{ts,tsx}', 'src/hooks/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'node:crypto',
+              message: 'Do not import node:crypto from client UI code.',
+            },
+            {
+              name: 'node:fs',
+              message: 'Do not import node:fs from client UI code.',
+            },
+            {
+              name: '@/lib/comfyui-client',
+              message: 'Server-only. Use /api/comfyui* routes from client code.',
+            },
+            {
+              name: '@/lib/comfyui-server-workflows',
+              message: 'Server-only. Use API routes for server workflow files.',
+            },
+            {
+              name: '@/lib/comfyui-history-workflow',
+              message:
+                'Server-only value import. Use /api/comfyui/history/workflow (type-only imports OK).',
+            },
+            {
+              name: '@/lib/export-encryption',
+              message: 'Server-only encryption helpers.',
+            },
+            {
+              name: '@/lib/auth/password',
+              message: 'Server-only auth.',
+            },
+          ],
+        },
+      ],
+    },
+  },
 ]);
 
 export default eslintConfig;

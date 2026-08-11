@@ -18,6 +18,7 @@ describe("onboarding-store", () => {
         "system-workflows",
         "first-generate",
         "first-queue",
+        "first-queue-success",
         "review-gallery",
       ],
     );

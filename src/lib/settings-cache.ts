@@ -76,6 +76,108 @@ export const SETTINGS_CACHE_UPDATED_EVENT = 'settings-cache-updated';
 /** Sidecar — small, always fits in localStorage even when the main settings blob is huge. */
 export const SYSTEM_WORKFLOWS_PREF_KEY = 'comfy-use-system-workflows-v1';
 export const SESSION_LORA_PREFS_KEY = 'comfy-session-lora-prefs-v1';
+/** Peels heavy tool/plugin/map payloads out of the main settings blob. */
+export const SETTINGS_TOOLS_SIDECAR_KEY = 'comfy-prompt-tool-settings-tools-v1';
+export const SETTINGS_PLUGINS_SIDECAR_KEY = 'comfy-prompt-tool-settings-plugins-v1';
+export const SETTINGS_MAPS_SIDECAR_KEY = 'comfy-prompt-tool-settings-maps-v1';
+
+type SettingsMapsSidecar = {
+  modelCheckpointMap?: SharedToolSettings['modelCheckpointMap'];
+  modelVaeMap?: SharedToolSettings['modelVaeMap'];
+  modelRefinerMap?: SharedToolSettings['modelRefinerMap'];
+  modelUpscaleMap?: SharedToolSettings['modelUpscaleMap'];
+  modelLoraMap?: SharedToolSettings['modelLoraMap'];
+  modelControlNetMap?: SharedToolSettings['modelControlNetMap'];
+  modelWorkflowMap?: SharedToolSettings['modelWorkflowMap'];
+  modelSamplerMemory?: SharedToolSettings['modelSamplerMemory'];
+  updatedAt?: number;
+};
+
+function peelSettingsMaps(shared: SharedToolSettings): SettingsMapsSidecar {
+  return {
+    modelCheckpointMap: shared.modelCheckpointMap,
+    modelVaeMap: shared.modelVaeMap,
+    modelRefinerMap: shared.modelRefinerMap,
+    modelUpscaleMap: shared.modelUpscaleMap,
+    modelLoraMap: shared.modelLoraMap,
+    modelControlNetMap: shared.modelControlNetMap,
+    modelWorkflowMap: shared.modelWorkflowMap,
+    modelSamplerMemory: shared.modelSamplerMemory,
+  };
+}
+
+function applySettingsMapsSidecar(
+  shared: SharedToolSettings,
+  maps: SettingsMapsSidecar | null
+): void {
+  if (!maps) {
+    return;
+  }
+  if (maps.modelCheckpointMap) {
+    shared.modelCheckpointMap = { ...shared.modelCheckpointMap, ...maps.modelCheckpointMap };
+  }
+  if (maps.modelVaeMap) {
+    shared.modelVaeMap = { ...shared.modelVaeMap, ...maps.modelVaeMap };
+  }
+  if (maps.modelRefinerMap) {
+    shared.modelRefinerMap = { ...shared.modelRefinerMap, ...maps.modelRefinerMap };
+  }
+  if (maps.modelUpscaleMap) {
+    shared.modelUpscaleMap = { ...shared.modelUpscaleMap, ...maps.modelUpscaleMap };
+  }
+  if (maps.modelLoraMap) {
+    shared.modelLoraMap = { ...shared.modelLoraMap, ...maps.modelLoraMap };
+  }
+  if (maps.modelControlNetMap) {
+    shared.modelControlNetMap = { ...shared.modelControlNetMap, ...maps.modelControlNetMap };
+  }
+  if (maps.modelWorkflowMap) {
+    shared.modelWorkflowMap = { ...shared.modelWorkflowMap, ...maps.modelWorkflowMap };
+  }
+  if (maps.modelSamplerMemory) {
+    shared.modelSamplerMemory = { ...shared.modelSamplerMemory, ...maps.modelSamplerMemory };
+  }
+}
+
+function persistSettingsBlobSidecars(cache: SettingsCache): void {
+  const updatedAt = typeof cache.updatedAt === 'number' ? cache.updatedAt : Date.now();
+  writeBrowserValue(SETTINGS_TOOLS_SIDECAR_KEY, {
+    tools: cache.tools ?? {},
+    updatedAt,
+  });
+  writeBrowserValue(SETTINGS_PLUGINS_SIDECAR_KEY, {
+    installedPlugins: cache.installedPlugins ?? [],
+    updatedAt,
+  });
+  writeBrowserValue(SETTINGS_MAPS_SIDECAR_KEY, {
+    ...peelSettingsMaps(cache.shared),
+    updatedAt,
+  });
+}
+
+function loadSettingsBlobSidecars(): {
+  tools?: ToolSettingsCache;
+  installedPlugins?: SettingsCache['installedPlugins'];
+  maps?: SettingsMapsSidecar | null;
+} {
+  const toolsRaw = readBrowserValue<{ tools?: unknown; updatedAt?: number }>(
+    SETTINGS_TOOLS_SIDECAR_KEY
+  );
+  const pluginsRaw = readBrowserValue<{
+    installedPlugins?: SettingsCache['installedPlugins'];
+    updatedAt?: number;
+  }>(SETTINGS_PLUGINS_SIDECAR_KEY);
+  const mapsRaw = readBrowserValue<SettingsMapsSidecar>(SETTINGS_MAPS_SIDECAR_KEY);
+  const tools =
+    toolsRaw?.tools && typeof toolsRaw.tools === 'object'
+      ? (toolsRaw.tools as ToolSettingsCache)
+      : undefined;
+  return {
+    tools,
+    installedPlugins: pluginsRaw?.installedPlugins,
+    maps: mapsRaw ?? null,
+  };
+}
 
 type SessionLoraPrefs = {
   sessionActiveLoraIdsByModel?: SessionActiveLoraIdsByModel;
@@ -176,12 +278,13 @@ function mergePendingSettingsCache(base: SettingsCache | null, next: SettingsCac
   if (!base) {
     return next;
   }
-  const mergedTools = { ...base.tools };
+  const mergedTools = { ...base.tools } as ToolSettingsCache;
   for (const [toolKey, toolPatch] of Object.entries(next.tools ?? {})) {
-    mergedTools[toolKey as keyof ToolSettingsCache] = {
-      ...(mergedTools[toolKey as keyof ToolSettingsCache] ?? {}),
-      ...toolPatch,
-    } as ToolSettingsCache[keyof ToolSettingsCache];
+    const key = toolKey as keyof ToolSettingsCache;
+    (mergedTools as Record<string, unknown>)[key] = {
+      ...((mergedTools as Record<string, unknown>)[key] as object | undefined),
+      ...(toolPatch as object),
+    };
   }
   return {
     shared: { ...base.shared, ...next.shared },
@@ -1230,8 +1333,16 @@ export function loadSettingsCache(): SettingsCache {
       shared.sessionLoraStrengthOverridesByModel = {};
     }
 
-    const rawTools = parsed.tools ?? {};
+    const sidecars = loadSettingsBlobSidecars();
+    applySettingsMapsSidecar(shared, sidecars.maps ?? null);
+
+    const rawTools = sidecars.tools ?? parsed.tools ?? {};
     const migrated = migrateLegacyToolSettings(rawTools);
+    const installedPlugins = Array.isArray(sidecars.installedPlugins)
+      ? sidecars.installedPlugins
+      : Array.isArray(parsed.installedPlugins)
+        ? (parsed.installedPlugins as SettingsCache['installedPlugins'])
+        : [];
 
     const repair = repairSystemWorkflowsFromOnboarding(shared);
     if (repair.repaired) {
@@ -1239,9 +1350,6 @@ export function loadSettingsCache(): SettingsCache {
     }
 
     if (migrated.changed && typeof window !== 'undefined') {
-      const installedPlugins = Array.isArray(parsed.installedPlugins)
-        ? (parsed.installedPlugins as SettingsCache['installedPlugins'])
-        : [];
       scheduleAfterCommit(() => {
         saveSettingsCache({ shared, tools: migrated.tools, installedPlugins });
       });
@@ -1250,20 +1358,28 @@ export function loadSettingsCache(): SettingsCache {
         saveSettingsCache({
           shared,
           tools: migrated.tools,
-          installedPlugins: Array.isArray(parsed.installedPlugins)
-            ? (parsed.installedPlugins as SettingsCache['installedPlugins'])
-            : [],
+          installedPlugins,
         });
         void flushBrowserStorageNowWithTimeout();
+      });
+    } else if (
+      typeof window !== 'undefined' &&
+      isBrowserStorageReady() &&
+      (!sidecars.tools || !sidecars.maps || sidecars.installedPlugins === undefined)
+    ) {
+      // One-time peel: write tools/plugins/maps sidecars without a full notify cycle.
+      persistSettingsBlobSidecars({
+        shared,
+        tools: migrated.tools,
+        installedPlugins,
+        ...(typeof parsed.updatedAt === 'number' ? { updatedAt: parsed.updatedAt } : {}),
       });
     }
 
     const result = withPendingSettingsOverlay({
       shared,
       tools: migrated.tools,
-      installedPlugins: Array.isArray(parsed.installedPlugins)
-        ? (parsed.installedPlugins as SettingsCache['installedPlugins'])
-        : [],
+      installedPlugins,
       ...(typeof parsed.updatedAt === 'number' ? { updatedAt: parsed.updatedAt } : {}),
     });
 
@@ -1310,6 +1426,7 @@ export function saveSettingsCache(cache: SettingsCache, options?: SaveSettingsOp
     cachedLoadResult = pendingSettingsCache;
     cachedBrowserVersion = pendingSettingsCache;
     persistCriticalSharedPrefs(stamped.shared);
+    persistSettingsBlobSidecars(stamped);
     if (shouldNotify) {
       notifySettingsCacheUpdated();
     }
@@ -1317,6 +1434,7 @@ export function saveSettingsCache(cache: SettingsCache, options?: SaveSettingsOp
   }
 
   writeBrowserValue(SETTINGS_CACHE_KEY, stamped);
+  persistSettingsBlobSidecars(stamped);
   const storedVersion = readBrowserValue<unknown>(SETTINGS_CACHE_KEY);
   cachedLoadResult = stamped;
   cachedBrowserVersion = storedVersion;

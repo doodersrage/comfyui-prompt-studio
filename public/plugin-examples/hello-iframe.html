@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Plugin iframe example</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: "Segoe UI", system-ui, sans-serif;
+      }
+      body {
+        margin: 0;
+        padding: 1.25rem 1.5rem 1.75rem;
+        background:
+          radial-gradient(120% 80% at 10% 0%, rgba(56, 189, 248, 0.12), transparent 55%),
+          #0f1419;
+        color: #e8eef4;
+      }
+      h1 {
+        margin: 0 0 0.35rem;
+        font-size: 1.15rem;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+      }
+      p {
+        margin: 0 0 1rem;
+        color: #9aabbc;
+        font-size: 0.9rem;
+        line-height: 1.45;
+      }
+      label {
+        display: block;
+        font-size: 0.75rem;
+        color: #8fa0b2;
+        margin-bottom: 0.35rem;
+      }
+      textarea {
+        width: 100%;
+        min-height: 5.5rem;
+        box-sizing: border-box;
+        resize: vertical;
+        border-radius: 0.75rem;
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        background: rgba(15, 23, 32, 0.72);
+        color: inherit;
+        padding: 0.75rem 0.85rem;
+        font: inherit;
+      }
+      textarea:focus-visible {
+        outline: 2px solid rgba(56, 189, 248, 0.55);
+        outline-offset: 2px;
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.55rem;
+        margin-top: 0.85rem;
+      }
+      button {
+        border: 0;
+        border-radius: 0.65rem;
+        padding: 0.55rem 0.9rem;
+        font: inherit;
+        font-size: 0.875rem;
+        font-weight: 550;
+        cursor: pointer;
+        transition:
+          background 140ms ease,
+          transform 120ms ease,
+          box-shadow 140ms ease;
+      }
+      button:hover {
+        transform: translateY(-1px);
+      }
+      button:active {
+        transform: translateY(0);
+      }
+      button:focus-visible {
+        outline: 2px solid rgba(56, 189, 248, 0.65);
+        outline-offset: 2px;
+      }
+      .primary {
+        background: linear-gradient(180deg, #38bdf8, #0ea5e9);
+        color: #041018;
+        box-shadow: 0 8px 22px rgba(14, 165, 233, 0.28);
+      }
+      .ghost {
+        background: rgba(148, 163, 184, 0.12);
+        color: #d7e3ef;
+      }
+      #status {
+        margin-top: 0.9rem;
+        min-height: 1.25rem;
+        font-size: 0.8rem;
+        color: #7dd3fc;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Hello iframe plugin</h1>
+    <p>
+      Demo of the Prompt Studio host channel. Point a plugin tool
+      <code>iframeUrl</code> at <code>/plugin-examples/hello-iframe.html</code>.
+    </p>
+    <label for="prompt">Prompt</label>
+    <textarea id="prompt">a cat sitting on a windowsill, soft daylight</textarea>
+    <div class="row">
+      <button type="button" class="primary" id="queue">Queue via host</button>
+      <button type="button" class="ghost" id="apply">Apply prompt only</button>
+      <button type="button" class="ghost" id="toast">Toast</button>
+    </div>
+    <div id="status" role="status" aria-live="polite"></div>
+    <script>
+      const CHANNEL = 'comfyui-prompt-studio-plugin-host';
+      const statusEl = document.getElementById('status');
+      const promptEl = document.getElementById('prompt');
+
+      function post(message) {
+        window.parent.postMessage({ channel: CHANNEL, ...message }, '*');
+      }
+
+      function setStatus(text) {
+        statusEl.textContent = text;
+      }
+
+      window.addEventListener('message', event => {
+        const data = event.data;
+        if (!data || data.channel !== CHANNEL) return;
+        if (data.type === 'host:ready') {
+          setStatus('Host ready');
+          post({ type: 'plugin:resize', height: document.documentElement.scrollHeight });
+        }
+        if (data.type === 'host:context') {
+          setStatus(`Context · model ${data.context?.model || '—'}`);
+        }
+        if (data.type === 'host:queue-result') {
+          setStatus(data.ok ? `Queued ${data.promptId || ''}`.trim() : data.message || 'Queue failed');
+        }
+      });
+
+      document.getElementById('queue').addEventListener('click', () => {
+        post({ type: 'plugin:queue', prompt: promptEl.value });
+        setStatus('Queue requested…');
+      });
+      document.getElementById('apply').addEventListener('click', () => {
+        post({ type: 'plugin:apply-prompt', prompt: promptEl.value });
+        setStatus('Prompt applied to host');
+      });
+      document.getElementById('toast').addEventListener('click', () => {
+        post({ type: 'plugin:toast', message: 'Hello from the iframe example' });
+      });
+    </script>
+  </body>
+</html>

@@ -58,6 +58,9 @@ const CRITICAL_LOCALSTORAGE_MIRROR_KEYS = new Set([
  */
 export const IDB_ONLY_KEYS = new Set([
   'comfy-prompt-tool-settings-v1',
+  'comfy-prompt-tool-settings-tools-v1',
+  'comfy-prompt-tool-settings-plugins-v1',
+  'comfy-prompt-tool-settings-maps-v1',
   'comfy-prompt-tool-history-v1',
   'comfyui-settings-v4',
   'comfy-onboarding-v2',
@@ -68,6 +71,9 @@ export const IDB_ONLY_KEYS = new Set([
 /** Keys loaded before the full KV table so settings/history hydrate sooner. */
 const HOT_KV_KEYS = [
   'comfy-prompt-tool-settings-v1',
+  'comfy-prompt-tool-settings-tools-v1',
+  'comfy-prompt-tool-settings-plugins-v1',
+  'comfy-prompt-tool-settings-maps-v1',
   'comfy-use-system-workflows-v1',
   'comfy-session-lora-prefs-v1',
   'comfyui-settings-v4',

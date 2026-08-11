@@ -46,6 +46,7 @@ import { joinQueueStatusNotes } from '@/lib/queue-status-notes';
 import { runPluginQueuePreflight } from '@/lib/plugin-queue-hooks';
 import { dispatchWebhook } from '@/lib/webhook-settings';
 import { markOnboardingFirstQueue } from '@/lib/onboarding-hooks';
+import { resolveQueueFailureHref } from '@/lib/queue-failure-playbook';
 import { formatComfyUiJobStatusLine, type ComfyUiJobTrackerState } from '@/lib/comfyui-job-status';
 
 type WorkflowPreviewResult = Awaited<
@@ -104,6 +105,11 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         clientId?: string;
         historyId?: string;
         queueParams?: WorkflowParamValues;
+        workflowJson?: string;
+        parentGalleryEntryId?: string;
+        derivedKind?: import('@/lib/comfyui-gallery-entry').ComfyGalleryEntry['derivedKind'];
+        sourceImageUrl?: string;
+        maskImageUrl?: string;
         queueQualityProfile?: import('@/lib/queue-quality-profile').QueueQualityProfile;
         /** Actual model queued (may differ from picker when Generate remaps Edit Lightning). */
         model?: ComfyImageModel;
@@ -125,6 +131,11 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         clientId: input.clientId,
         historyId: input.historyId,
         queueParams: input.queueParams,
+        workflowJson: input.workflowJson,
+        parentGalleryEntryId: input.parentGalleryEntryId,
+        derivedKind: input.derivedKind,
+        sourceImageUrl: input.sourceImageUrl,
+        maskImageUrl: input.maskImageUrl,
         queueQualityProfile: input.queueQualityProfile,
         sessionActiveLoraIds: input.sessionActiveLoraIds,
         sessionLoraStrengthOverrides: input.sessionLoraStrengthOverrides,
@@ -452,6 +463,10 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         identityLock?: boolean;
         identityLockStrength?: number;
         identityKind?: import('@/lib/compose-identity-lock').ComposeIdentityKind;
+        /** Gallery lineage when queueing a derived job (e.g. ControlNet from gallery). */
+        parentGalleryEntryId?: string;
+        derivedKind?: import('@/lib/comfyui-gallery-entry').ComfyGalleryEntry['derivedKind'];
+        sourceImageUrl?: string;
       }
     ) => {
       if (!prompt) {
@@ -938,6 +953,14 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             clientId: queued.clientId,
             historyId: resolvedHistoryId,
             queueParams,
+            workflowJson: runtime?.workflowJson,
+            parentGalleryEntryId: options?.parentGalleryEntryId,
+            derivedKind: options?.derivedKind,
+            sourceImageUrl:
+              options?.sourceImageUrl ||
+              options?.controlImageUrl ||
+              options?.inputImageUrl ||
+              undefined,
             queueQualityProfile: runtime?.queueQualityProfile,
             model: queueModel,
             sessionActiveLoraIds: resolveSharedEffectiveSessionLoraIds(queueModel),
@@ -965,7 +988,11 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
       } catch (err) {
         const message = err instanceof Error ? err.message : 'ComfyUI failed.';
         setComfyUiStatus(message);
-        toastQueueOutcome({ ok: false, text: message, href: '/queue' });
+        toastQueueOutcome({
+          ok: false,
+          text: message,
+          href: resolveQueueFailureHref(message) ?? '/queue',
+        });
       }
     },
     [

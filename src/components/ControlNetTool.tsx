@@ -133,9 +133,26 @@ export default function ControlNetTool() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [handoffQueueParams, setHandoffQueueParams] = useState<WorkflowParamValues | undefined>();
+  const [handoffParentGalleryEntryId, setHandoffParentGalleryEntryId] = useState<
+    string | undefined
+  >();
+  const [handoffSourceImageUrl, setHandoffSourceImageUrl] = useState<string | undefined>();
 
   const selectedModel = getComfyModelDefinition(shared.model);
   const hintText = [subject, scene, detailNotes].filter(Boolean).join(' · ');
+
+  const queueControlNetOptions = {
+    controlImage: refFile,
+    controlImages: [null, ...extraRefFiles] as Array<File | null>,
+    controlImageUrl: !refFile ? handoffSourceImageUrl : undefined,
+    parentGalleryEntryId: handoffParentGalleryEntryId,
+    derivedKind: handoffParentGalleryEntryId ? ('controlnet' as const) : undefined,
+    sourceImageUrl: handoffSourceImageUrl || refPreview || undefined,
+    queueParamsBase: {
+      ...handoffQueueParams,
+      controlNetMode: mode,
+    },
+  };
 
   const onRefChange = useCallback(
     (file: File | null) => {
@@ -171,10 +188,15 @@ export default function ControlNetTool() {
       queueParams?: WorkflowParamValues;
       file: File | null;
       previewUrl: string | null;
+      payload: { galleryEntryId?: string; imageUrl?: string };
     }) => {
       setOutput(handoff.prompt);
       setSubject(handoff.prompt.slice(0, 800));
       setHandoffQueueParams(handoff.queueParams);
+      setHandoffParentGalleryEntryId(handoff.payload.galleryEntryId?.trim() || undefined);
+      setHandoffSourceImageUrl(
+        handoff.previewUrl?.trim() || handoff.payload.imageUrl?.trim() || undefined
+      );
       if (handoff.model) {
         updateShared({ model: handoff.model as typeof shared.model });
       }
@@ -421,14 +443,7 @@ export default function ControlNetTool() {
             rawPrompt={rawPrompt}
             onSaveHistory={() => actions.saveHistory({ prompt: output, hints: hintText })}
             onSendComfyUi={() =>
-              void actions.sendComfyUi(output, null, undefined, {
-                controlImage: refFile,
-                controlImages: [null, ...extraRefFiles],
-                queueParamsBase: {
-                  ...handoffQueueParams,
-                  controlNetMode: mode,
-                },
-              })
+              void actions.sendComfyUi(output, null, undefined, queueControlNetOptions)
             }
             onFixPrompt={() => void actions.fixPrompt(output, setOutput, hintText)}
             onCopyPair={() => void actions.copyPromptPair(output, null)}
@@ -450,16 +465,7 @@ export default function ControlNetTool() {
           disabled={!output.trim()}
           label="Queue ControlNet"
           status={actions.comfyUiStatus}
-          onQueue={() =>
-            void actions.sendComfyUi(output, null, undefined, {
-              controlImage: refFile,
-              controlImages: [null, ...extraRefFiles],
-              queueParamsBase: {
-                ...handoffQueueParams,
-                controlNetMode: mode,
-              },
-            })
-          }
+          onQueue={() => void actions.sendComfyUi(output, null, undefined, queueControlNetOptions)}
         />
       ) : null}
     </ToolLayout>

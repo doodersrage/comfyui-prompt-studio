@@ -50,6 +50,7 @@ nav:
       - Data catalogs: data-catalogs.md
   - Contributors:
       - Architecture: architecture.md
+      - Plugin iframe host: plugin-iframe-host.md
       - Performance & scripts: performance/guide.md
   - External:
       - Main README (GitHub): https://github.com/doodersrage/comfyui-prompt-studio/blob/main/README.md

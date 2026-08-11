@@ -17,7 +17,6 @@ import GalleryExperimentPanel from '@/components/gallery/GalleryExperimentPanel'
 import GalleryStatsBar from '@/components/gallery/GalleryStatsBar';
 import GalleryReviewTouchBar from '@/components/gallery/GalleryReviewTouchBar';
 import GalleryPanelSkeleton from '@/components/gallery/GalleryPanelSkeleton';
-import GalleryCompareModal from '@/components/gallery/GalleryCompareModal';
 import GalleryPaginator from '@/components/gallery/GalleryPaginator';
 import StatusToastStrip from '@/components/ui/StatusToastStrip';
 import { assessGalleryCapWarning } from '@/lib/gallery-cap';
@@ -73,6 +72,10 @@ import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import LoraDatasetExportDialog from '@/components/LoraDatasetExportDialog';
 
 const GalleryWorkflowModal = dynamic(() => import('@/components/gallery/GalleryWorkflowModal'), {
+  loading: () => null,
+});
+
+const GalleryCompareModal = dynamic(() => import('@/components/gallery/GalleryCompareModal'), {
   loading: () => null,
 });
 
@@ -851,15 +854,17 @@ export default function ComfyUiGalleryPanel({
         />
       ) : null}
 
-      <GalleryCompareModal
-        open={compareOpen}
-        entries={selectedEntries}
-        onClose={() => {
-          setCompareOpen(false);
-          resetCompare();
-        }}
-        {...compareHandlers}
-      />
+      {compareOpen ? (
+        <GalleryCompareModal
+          open={compareOpen}
+          entries={selectedEntries}
+          onClose={() => {
+            setCompareOpen(false);
+            resetCompare();
+          }}
+          {...compareHandlers}
+        />
+      ) : null}
 
       {workflowEntry ? (
         <GalleryWorkflowModal entry={workflowEntry} onClose={() => setWorkflowEntry(null)} />

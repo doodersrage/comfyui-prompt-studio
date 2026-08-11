@@ -1,6 +1,10 @@
+import { settingsComfyUiSectionHref } from './settings-comfyui-nav';
+
 export type WorkflowNodeTypeIssue = {
   severity: 'error' | 'warn';
   message: string;
+  /** Optional deep-link for queue-failure playbooks / toasts. */
+  href?: string;
 };
 
 export function listWorkflowClassTypes(
@@ -52,6 +56,7 @@ export function auditWorkflowNodeTypes(input: {
       issues.push({
         severity: 'error',
         message: `Workflow node type “${classType}” is not installed in ComfyUI — install the custom node pack or pick a different workflow.`,
+        href: settingsComfyUiSectionHref('workflow-map'),
       });
     }
   }

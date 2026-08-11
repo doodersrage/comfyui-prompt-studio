@@ -25,6 +25,11 @@ export function markOnboardingFirstQueue(): void {
   markOnboardingStepDone('first-queue');
 }
 
+/** First completed render in Simple workspace (success metric, not just accept). */
+export function markOnboardingFirstQueueSuccess(): void {
+  markOnboardingStepDone('first-queue-success');
+}
+
 export function markOnboardingGalleryReview(): void {
   markOnboardingStepDone('review-gallery');
 }

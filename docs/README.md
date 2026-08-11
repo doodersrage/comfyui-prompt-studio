@@ -50,6 +50,7 @@ Quick jumps inside [features.md](features.md):
 | Doc | Contents |
 | --- | --- |
 | [Architecture](architecture.md) | Storage, queue path, auth, plugins, engine adapter |
+| [Plugin iframe host](plugin-iframe-host.md) | postMessage protocol + example HTML for iframe tools |
 | [Performance & scripts](performance/guide.md) | npm scripts, build, Prettier, monitoring checklist |
 | [Diffusers engine](../services/diffusers-engine/README.md) | Optional FastAPI txt2img sidecar |
 

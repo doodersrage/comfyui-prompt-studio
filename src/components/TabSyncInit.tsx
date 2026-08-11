@@ -5,6 +5,9 @@ import { subscribeTabSync } from '@/lib/tab-sync';
 import { COMFYUI_GALLERY_UPDATED_EVENT } from '@/lib/comfyui-gallery-storage-meta';
 import {
   SETTINGS_CACHE_KEY,
+  SETTINGS_TOOLS_SIDECAR_KEY,
+  SETTINGS_PLUGINS_SIDECAR_KEY,
+  SETTINGS_MAPS_SIDECAR_KEY,
   SYSTEM_WORKFLOWS_PREF_KEY,
   SESSION_LORA_PREFS_KEY,
   invalidateSettingsCache,
@@ -35,6 +38,9 @@ export default function TabSyncInit() {
         void import('@/lib/browser-storage').then(async ({ reloadBrowserStorageKeys }) => {
           await reloadBrowserStorageKeys([
             SETTINGS_CACHE_KEY,
+            SETTINGS_TOOLS_SIDECAR_KEY,
+            SETTINGS_PLUGINS_SIDECAR_KEY,
+            SETTINGS_MAPS_SIDECAR_KEY,
             SYSTEM_WORKFLOWS_PREF_KEY,
             SESSION_LORA_PREFS_KEY,
           ]);

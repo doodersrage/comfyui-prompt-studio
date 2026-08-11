@@ -855,6 +855,10 @@ export default function SharedToolControls({
       void saveSessionLoraSelectionNow({
         ...baseShared,
         ...patch,
+      }).then(() => {
+        void import('@/lib/app-toast').then(({ pushAppToast }) => {
+          pushAppToast({ text: 'Saved — LoRA session', tone: 'success', ttlMs: 1800 });
+        });
       });
     }
   };
@@ -877,6 +881,7 @@ export default function SharedToolControls({
     if (onSharedSettingsChange) {
       onSharedSettingsChange(patch);
     } else {
+      // Strength tweaks persist quietly — stack pick/clear already toasts.
       void saveSessionLoraSelectionNow({
         ...baseShared,
         ...patch,

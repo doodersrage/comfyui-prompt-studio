@@ -29,6 +29,20 @@ import { attemptOomAutoRetry } from './oom-retry';
 import { resolveGalleryRenderDurationMs } from './comfyui-render-duration';
 import { forgetPendingGalleryPoll } from './gallery-pending-polls';
 
+/** Cap stored workflow graphs so gallery IndexedDB stays bounded. */
+export const MAX_GALLERY_WORKFLOW_CHARS = 400_000;
+
+export function clampGalleryWorkflowJson(workflowJson?: string): string | undefined {
+  const trimmed = workflowJson?.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  if (trimmed.length > MAX_GALLERY_WORKFLOW_CHARS) {
+    return undefined;
+  }
+  return trimmed;
+}
+
 export type RegisterComfyGalleryJobInput = {
   promptId: string;
   prompt: string;
@@ -39,6 +53,8 @@ export type RegisterComfyGalleryJobInput = {
   parentGalleryEntryId?: string;
   derivedKind?: ComfyGalleryEntry['derivedKind'];
   queueParams?: WorkflowParamValues;
+  /** Exact workflow JSON used at queue time (capped). */
+  workflowJson?: string;
   sourceImageUrl?: string;
   maskImageUrl?: string;
   queueQualityProfile?: import('./queue-quality-profile').QueueQualityProfile;
@@ -112,6 +128,7 @@ export function registerComfyGalleryJob(input: RegisterComfyGalleryJobInput): Co
     maskImageUrl: input.maskImageUrl,
   });
 
+  const workflowJson = clampGalleryWorkflowJson(input.workflowJson);
   const entry = addComfyGalleryEntry({
     promptId: input.promptId,
     prompt: input.prompt,
@@ -122,6 +139,7 @@ export function registerComfyGalleryJob(input: RegisterComfyGalleryJobInput): Co
     parentGalleryEntryId: input.parentGalleryEntryId,
     derivedKind: input.derivedKind,
     queueParams: input.queueParams,
+    ...(workflowJson ? { workflowJson } : {}),
     sourceImageUrl: imageUrls.sourceImageUrl,
     maskImageUrl: imageUrls.maskImageUrl,
     queueQualityProfile: input.queueQualityProfile,
@@ -421,6 +439,16 @@ function applyComfyJobStatus(
       imageCount: entry.images.length,
       queueParams: entry.queueParams,
       completedAt: entry.completedAt ?? Date.now(),
+    });
+
+    // Simple-mode first completed render (success metric beyond queue accept).
+    void import('./workspace-mode').then(({ loadWorkspaceMode }) => {
+      if (loadWorkspaceMode() !== 'simple') {
+        return;
+      }
+      void import('./onboarding-hooks').then(({ markOnboardingFirstQueueSuccess }) => {
+        markOnboardingFirstQueueSuccess();
+      });
     });
 
     const pendingRefine = consumePendingRefineAfterUpscale(promptId);

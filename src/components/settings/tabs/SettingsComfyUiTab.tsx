@@ -336,6 +336,15 @@ export default function SettingsComfyUiTab({
                   setSystemWorkflowsSaveHint(
                     enabled ? 'Saved — stays on after refresh.' : 'Saved — system workflows off.'
                   );
+                  void import('@/lib/app-toast').then(({ pushAppToast }) => {
+                    pushAppToast({
+                      text: enabled
+                        ? 'Saved — system workflows on'
+                        : 'Saved — system workflows off',
+                      tone: 'success',
+                      ttlMs: 2500,
+                    });
+                  });
                 } catch {
                   setSystemWorkflowsSaveHint(
                     'Could not save. Your browser may be blocking storage.'
