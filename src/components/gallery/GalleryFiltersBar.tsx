@@ -19,6 +19,7 @@ import {
   upsertGallerySavedView,
   type GallerySavedView,
 } from '@/lib/gallery-saved-views';
+import type { GalleryDensity } from '@/lib/gallery-density';
 import { CollapsibleSection } from '@/components/ui/ToolPageShell';
 
 const GALLERY_SORT_OPTIONS: { value: ComfyGallerySort; label: string }[] = [
@@ -47,6 +48,8 @@ type GalleryFiltersBarProps = {
   embeddingSearchUnavailable?: boolean;
   layout: GalleryLayoutMode;
   setLayout: (value: GalleryLayoutMode) => void;
+  density: GalleryDensity;
+  setDensity: (value: GalleryDensity) => void;
   totalFiltered: number;
   totalEntries: number;
   currentPage: number;
@@ -55,7 +58,7 @@ type GalleryFiltersBarProps = {
   onStartSlideshow?: () => void;
   onStartFullscreenSlideshow?: () => void;
   slideshowAvailable?: boolean;
-  /** Simple workspace — search, status, and basic sort only. */
+  /** Simple workspace — search, status, review, and basic sort (advanced menus hidden). */
   lean?: boolean;
 };
 
@@ -102,6 +105,8 @@ export default function GalleryFiltersBar({
   embeddingSearchUnavailable = false,
   layout,
   setLayout,
+  density,
+  setDensity,
   totalFiltered,
   totalEntries,
   currentPage,
@@ -176,6 +181,9 @@ export default function GalleryFiltersBar({
       filter,
       sort,
       projectFilterId,
+      layout,
+      pageSize,
+      density,
     });
     setSavedViews(loadGallerySavedViews());
     setViewNameDraft('');
@@ -188,6 +196,15 @@ export default function GalleryFiltersBar({
     }
     if (view.projectFilterId !== undefined) {
       setProjectFilterId(view.projectFilterId);
+    }
+    if (view.layout) {
+      setLayout(view.layout);
+    }
+    if (view.pageSize) {
+      setPageSize(view.pageSize);
+    }
+    if (view.density) {
+      setDensity(view.density);
     }
   }
 
@@ -253,19 +270,29 @@ export default function GalleryFiltersBar({
           </label>
         ) : null}
 
-        {!lean ? (
-          <div className="flex flex-wrap items-center gap-2">
-            {(['grid', 'dense', 'list'] as const).map(mode => (
-              <FilterChip
-                key={mode}
-                active={layout === mode}
-                label={mode === 'grid' ? 'Grid' : mode === 'dense' ? 'Dense' : 'List'}
-                testId={`gallery-layout-${mode}`}
-                onClick={() => setLayout(mode)}
-              />
-            ))}
-          </div>
-        ) : null}
+        <div className="flex flex-wrap items-center gap-2">
+          {(['grid', 'dense', 'list'] as const).map(mode => (
+            <FilterChip
+              key={mode}
+              active={layout === mode}
+              label={mode === 'grid' ? 'Grid' : mode === 'dense' ? 'Dense' : 'List'}
+              testId={`gallery-layout-${mode}`}
+              onClick={() => setLayout(mode)}
+            />
+          ))}
+          <FilterChip
+            active={density === 'comfortable'}
+            label="Comfort"
+            testId="gallery-density-comfortable"
+            onClick={() => setDensity('comfortable')}
+          />
+          <FilterChip
+            active={density === 'compact'}
+            label="Compact"
+            testId="gallery-density-compact"
+            onClick={() => setDensity('compact')}
+          />
+        </div>
 
         <p className="shrink-0 type-caption text-[var(--text-muted)]">
           {totalFiltered} of {totalEntries}
@@ -308,6 +335,52 @@ export default function GalleryFiltersBar({
               }))
             }
           />
+          <FilterChip
+            active={Boolean(filter.reviewMode)}
+            label="Review"
+            onClick={() =>
+              setFilter(previous => ({
+                ...previous,
+                reviewMode: previous.reviewMode ? undefined : true,
+                unreviewedOnly: previous.reviewMode ? undefined : true,
+              }))
+            }
+          />
+          <FilterChip
+            active={Boolean(filter.unreviewedOnly)}
+            label="Unreviewed"
+            onClick={() =>
+              setFilter(previous => ({
+                ...previous,
+                unreviewedOnly: previous.unreviewedOnly ? undefined : true,
+                reviewMode: previous.unreviewedOnly ? previous.reviewMode : true,
+              }))
+            }
+          />
+          {paginationEnabled ? (
+            <label className="flex items-center gap-1.5 type-caption text-[var(--text-muted)]">
+              Page size
+              <select
+                value={String(pageSize)}
+                onChange={event => {
+                  const value = event.target.value;
+                  setPageSize(
+                    value === GALLERY_PAGE_SIZE_ALL
+                      ? GALLERY_PAGE_SIZE_ALL
+                      : (Number(value) as GalleryPageSize)
+                  );
+                }}
+                className="ui-input px-2 py-1 text-[11px]"
+              >
+                {GALLERY_PAGE_SIZE_OPTIONS.map(option => (
+                  <option key={String(option)} value={String(option)}>
+                    {option}
+                  </option>
+                ))}
+                <option value={GALLERY_PAGE_SIZE_ALL}>All</option>
+              </select>
+            </label>
+          ) : null}
         </div>
       ) : null}
 

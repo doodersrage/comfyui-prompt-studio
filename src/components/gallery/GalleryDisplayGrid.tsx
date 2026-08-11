@@ -10,14 +10,17 @@ import {
   type CSSProperties,
   type ReactNode,
 } from 'react';
+import GalleryExperimentBlock from '@/components/gallery/GalleryExperimentBlock';
 import GalleryLineageBlock from '@/components/gallery/GalleryLineageBlock';
 import {
   buildGalleryDisplayRows,
   countGalleryDisplayEntries,
   type GalleryDisplayRow,
 } from '@/lib/gallery-display-rows';
+import type { ExperimentGroup } from '@/lib/experiment-groups';
 import type { GalleryLineageGroup } from '@/lib/gallery-lineage-groups';
 import type { ComfyGalleryEntry, GalleryLayoutMode } from '@/lib/comfyui-gallery';
+import type { GalleryDensity } from '@/lib/gallery-density';
 import {
   galleryGridColumnCount,
   shouldVirtualizeGalleryGrid,
@@ -34,7 +37,15 @@ type GalleryDisplayGridProps = {
   lineageGroups: GalleryLineageGroup[] | null;
   collapsedLineageGroups: Set<string>;
   onToggleLineageGroup: (rootId: string) => void;
+  experimentGroups?: ExperimentGroup[] | null;
+  collapsedExperimentGroups?: Set<string>;
+  onToggleExperimentGroup?: (groupId: string) => void;
+  experimentWinners?: Record<string, { entryId: string }>;
+  onCrownExperiment?: (groupId: string, entryId: string) => void;
+  onCompareExperiment?: (entries: ComfyGalleryEntry[]) => void;
+  onRequeueExperiment?: (entries: ComfyGalleryEntry[]) => void;
   layout: GalleryLayoutMode;
+  density?: GalleryDensity;
   compact: boolean;
   gridClassName: string;
   virtualGridClassName: string;
@@ -81,6 +92,10 @@ function DisplayRowView({
   columns,
   gridClassName,
   onToggleLineageGroup,
+  onToggleExperimentGroup,
+  onCrownExperiment,
+  onCompareExperiment,
+  onRequeueExperiment,
   renderCard,
 }: {
   row: GalleryDisplayRow;
@@ -88,12 +103,36 @@ function DisplayRowView({
   columns: number;
   gridClassName: string;
   onToggleLineageGroup: (rootId: string) => void;
+  onToggleExperimentGroup?: (groupId: string) => void;
+  onCrownExperiment?: (groupId: string, entryId: string) => void;
+  onCompareExperiment?: (entries: ComfyGalleryEntry[]) => void;
+  onRequeueExperiment?: (entries: ComfyGalleryEntry[]) => void;
   renderCard: (entry: ComfyGalleryEntry) => ReactNode;
 }) {
   if (row.kind === 'cards') {
     return (
       <CardsRow
         entries={row.entries}
+        layout={layout}
+        columns={columns}
+        gridClassName={gridClassName}
+        renderCard={renderCard}
+      />
+    );
+  }
+
+  if (row.kind === 'experiment') {
+    return (
+      <GalleryExperimentBlock
+        groupId={row.groupId}
+        label={row.label}
+        entries={row.entries}
+        winnerEntryId={row.winnerEntryId}
+        collapsed={row.collapsed}
+        onToggle={() => onToggleExperimentGroup?.(row.groupId)}
+        onCrown={onCrownExperiment ? entryId => onCrownExperiment(row.groupId, entryId) : undefined}
+        onCompare={onCompareExperiment ? () => onCompareExperiment(row.entries) : undefined}
+        onRequeueSeeds={onRequeueExperiment ? () => onRequeueExperiment(row.entries) : undefined}
         layout={layout}
         columns={columns}
         gridClassName={gridClassName}
@@ -115,24 +154,44 @@ function DisplayRowView({
   );
 }
 
+function rowKey(row: GalleryDisplayRow, index: number): string {
+  if (row.kind === 'lineage') {
+    return `lineage-${row.groupId}`;
+  }
+  if (row.kind === 'experiment') {
+    return `experiment-${row.groupId}`;
+  }
+  return `cards-${index}-${row.entries.map(entry => entry.id).join('-')}`;
+}
+
 function VirtualizedDisplayRows({
   rows,
   layout,
   compact,
+  density,
   columns,
   gridClassName,
   virtualGridClassName,
   onToggleLineageGroup,
+  onToggleExperimentGroup,
+  onCrownExperiment,
+  onCompareExperiment,
+  onRequeueExperiment,
   renderCard,
   estimateRowHeight,
 }: {
   rows: GalleryDisplayRow[];
   layout: GalleryLayoutMode;
   compact: boolean;
+  density: GalleryDensity;
   columns: number;
   gridClassName: string;
   virtualGridClassName: string;
   onToggleLineageGroup: (rootId: string) => void;
+  onToggleExperimentGroup?: (groupId: string) => void;
+  onCrownExperiment?: (groupId: string, entryId: string) => void;
+  onCompareExperiment?: (entries: ComfyGalleryEntry[]) => void;
+  onRequeueExperiment?: (entries: ComfyGalleryEntry[]) => void;
   renderCard: (entry: ComfyGalleryEntry) => ReactNode;
   estimateRowHeight: number;
 }) {
@@ -160,7 +219,17 @@ function VirtualizedDisplayRows({
   }, []);
 
   const gapPx =
-    layout === 'list' ? (compact ? 12 : 16) : compact ? 8 : layout === 'dense' ? 10 : 16;
+    density === 'compact'
+      ? 8
+      : layout === 'list'
+        ? compact
+          ? 12
+          : 16
+        : compact
+          ? 8
+          : layout === 'dense'
+            ? 10
+            : 16;
   const rowEstimate = estimateRowHeight + gapPx;
 
   const virtualizer = useWindowVirtualizer({
@@ -172,7 +241,7 @@ function VirtualizedDisplayRows({
 
   useEffect(() => {
     virtualizer.measure();
-  }, [columns, rowEstimate, rows.length, virtualizer]);
+  }, [columns, density, rowEstimate, rows.length, virtualizer]);
 
   return (
     <div ref={listRef} className="relative w-full">
@@ -196,8 +265,10 @@ function VirtualizedDisplayRows({
               <div
                 className={
                   layout === 'list'
-                    ? 'pb-3'
-                    : layout === 'dense'
+                    ? density === 'compact'
+                      ? 'pb-2'
+                      : 'pb-3'
+                    : layout === 'dense' || density === 'compact'
                       ? `${virtualGridClassName} pb-2`
                       : `${virtualGridClassName} pb-4`
                 }
@@ -208,6 +279,10 @@ function VirtualizedDisplayRows({
                   columns={columns}
                   gridClassName={gridClassName}
                   onToggleLineageGroup={onToggleLineageGroup}
+                  onToggleExperimentGroup={onToggleExperimentGroup}
+                  onCrownExperiment={onCrownExperiment}
+                  onCompareExperiment={onCompareExperiment}
+                  onRequeueExperiment={onRequeueExperiment}
                   renderCard={renderCard}
                 />
               </div>
@@ -224,7 +299,15 @@ export default function GalleryDisplayGrid({
   lineageGroups,
   collapsedLineageGroups,
   onToggleLineageGroup,
+  experimentGroups = null,
+  collapsedExperimentGroups,
+  onToggleExperimentGroup,
+  experimentWinners,
+  onCrownExperiment,
+  onCompareExperiment,
+  onRequeueExperiment,
   layout,
+  density = 'comfortable',
   compact,
   gridClassName,
   virtualGridClassName,
@@ -254,17 +337,37 @@ export default function GalleryDisplayGrid({
   }, []);
 
   const columns = useMemo(
-    () => galleryGridColumnCount(layout, compact, width),
-    [compact, layout, width]
+    () => galleryGridColumnCount(layout, compact || density === 'compact', width),
+    [compact, density, layout, width]
   );
 
   const rows = useMemo(
-    () => buildGalleryDisplayRows(lineageGroups, visibleEntries, collapsedLineageGroups, columns),
-    [collapsedLineageGroups, columns, lineageGroups, visibleEntries]
+    () =>
+      buildGalleryDisplayRows(lineageGroups, visibleEntries, collapsedLineageGroups, columns, {
+        experimentGroups,
+        collapsedExperimentGroups,
+        winners: experimentWinners,
+      }),
+    [
+      collapsedExperimentGroups,
+      collapsedLineageGroups,
+      columns,
+      experimentGroups,
+      experimentWinners,
+      lineageGroups,
+      visibleEntries,
+    ]
   );
 
   const virtualize = shouldVirtualizeGalleryGrid(countGalleryDisplayEntries(rows));
-  const estimateRowHeight = layout === 'list' ? 180 : layout === 'dense' || compact ? 280 : 360;
+  const estimateRowHeight =
+    layout === 'list'
+      ? density === 'compact'
+        ? 140
+        : 180
+      : layout === 'dense' || compact || density === 'compact'
+        ? 260
+        : 360;
 
   if (!virtualize) {
     return (
@@ -274,12 +377,16 @@ export default function GalleryDisplayGrid({
       >
         {rows.map((row, index) => (
           <DisplayRowView
-            key={row.kind === 'lineage' ? `lineage-${row.groupId}` : `cards-${index}`}
+            key={rowKey(row, index)}
             row={row}
             layout={layout}
             columns={columns}
             gridClassName={gridClassName}
             onToggleLineageGroup={onToggleLineageGroup}
+            onToggleExperimentGroup={onToggleExperimentGroup}
+            onCrownExperiment={onCrownExperiment}
+            onCompareExperiment={onCompareExperiment}
+            onRequeueExperiment={onRequeueExperiment}
             renderCard={renderCard}
           />
         ))}
@@ -293,10 +400,15 @@ export default function GalleryDisplayGrid({
         rows={rows}
         layout={layout}
         compact={compact}
+        density={density}
         columns={columns}
         gridClassName={gridClassName}
         virtualGridClassName={virtualGridClassName}
         onToggleLineageGroup={onToggleLineageGroup}
+        onToggleExperimentGroup={onToggleExperimentGroup}
+        onCrownExperiment={onCrownExperiment}
+        onCompareExperiment={onCompareExperiment}
+        onRequeueExperiment={onRequeueExperiment}
         renderCard={renderCard}
         estimateRowHeight={estimateRowHeight}
       />

@@ -298,7 +298,7 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
                 disabled={!singleSelected}
               />
               <MenuItem
-                label="Mutate winner → text diff prompt"
+                label="Mutate crowned winner → text diff prompt"
                 onClick={props.onMutateWinner}
                 disabled={!singleSelected}
               />

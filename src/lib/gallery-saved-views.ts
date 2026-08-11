@@ -1,6 +1,12 @@
 'use client';
 
-import type { ComfyGalleryFilter, ComfyGallerySort } from './comfyui-gallery';
+import type {
+  ComfyGalleryFilter,
+  ComfyGallerySort,
+  GalleryLayoutMode,
+  GalleryPageSize,
+} from './comfyui-gallery';
+import type { GalleryDensity } from './gallery-density';
 import { readBrowserValue, writeBrowserValue } from './browser-storage';
 
 export type GallerySavedView = {
@@ -9,6 +15,9 @@ export type GallerySavedView = {
   filter: ComfyGalleryFilter;
   sort?: ComfyGallerySort;
   projectFilterId?: string;
+  layout?: GalleryLayoutMode;
+  pageSize?: GalleryPageSize;
+  density?: GalleryDensity;
   createdAt: number;
 };
 

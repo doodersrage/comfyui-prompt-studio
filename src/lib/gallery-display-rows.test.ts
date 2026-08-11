@@ -67,4 +67,29 @@ describe("gallery-display-rows", () => {
 
     assert.equal(countGalleryDisplayEntries(rows), 1);
   });
+
+  it("surfaces experiment clusters ahead of flat cards", () => {
+    const a = { ...entry("a"), prompt: "same prompt here" };
+    const b = { ...entry("b"), prompt: "same prompt here" };
+    const c = entry("solo");
+    const rows = buildGalleryDisplayRows(null, [a, b, c], new Set(), 2, {
+      experimentGroups: [
+        {
+          id: "same-prompt",
+          label: "same prompt here",
+          parentPrompt: "same prompt here",
+          entries: [a, b],
+          variants: { seeds: ["1", "2"], cfgValues: [], stepValues: [] },
+        },
+      ],
+      winners: { "same-prompt": { entryId: "a" } },
+    });
+
+    assert.equal(rows[0]?.kind, "experiment");
+    if (rows[0]?.kind === "experiment") {
+      assert.equal(rows[0].winnerEntryId, "a");
+      assert.equal(rows[0].entries.length, 2);
+    }
+    assert.ok(rows.some(row => row.kind === "cards"));
+  });
 });

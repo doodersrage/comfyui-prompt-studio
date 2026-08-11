@@ -473,6 +473,45 @@ export default function GalleryCard({
                         Inpaint
                       </button>
                     ) : null}
+                    {entry.hasStoredWorkflow || entry.workflowJson ? (
+                      <button
+                        type="button"
+                        onClick={() => onRequeue(false, undefined, { exactGraph: true })}
+                        className="shrink-0 whitespace-nowrap rounded-lg border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[10px] text-sky-100 backdrop-blur transition hover:bg-sky-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/45 active:scale-[0.98]"
+                      >
+                        Exact
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => onRequeue(false)}
+                        className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)]/70 px-2 py-0.5 text-[10px] text-[var(--text-secondary)] backdrop-blur transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/45 active:scale-[0.98]"
+                      >
+                        Requeue
+                      </button>
+                    )}
+                    {showFaceDetailAction && onFaceDetail ? (
+                      <button
+                        type="button"
+                        onClick={() => onFaceDetail()}
+                        className="shrink-0 whitespace-nowrap rounded-lg border border-fuchsia-500/30 bg-fuchsia-500/10 px-2 py-0.5 text-[10px] text-fuchsia-100 backdrop-blur transition hover:bg-fuchsia-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-400/45 active:scale-[0.98]"
+                      >
+                        Face
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void downloadGalleryImage(entry, 0).catch(error => {
+                          onDownloadError(
+                            error instanceof Error ? error.message : 'Download failed'
+                          );
+                        });
+                      }}
+                      className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)]/70 px-2 py-0.5 text-[10px] text-[var(--text-secondary)] backdrop-blur transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/45 active:scale-[0.98]"
+                    >
+                      ↓
+                    </button>
                   </>
                 ) : null}
               </div>
@@ -491,10 +530,39 @@ export default function GalleryCard({
           </button>
         </div>
       ) : (
-        <div className="flex h-full items-center justify-center px-4 text-center text-xs text-[var(--text-muted)]">
-          {entry.status === 'error'
-            ? (entry.statusMessage ?? 'Generation failed')
-            : 'No image output'}
+        <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center">
+          <p className="text-xs text-[var(--text-muted)]">
+            {entry.status === 'error'
+              ? (entry.statusMessage ?? 'Generation failed')
+              : 'No image output'}
+          </p>
+          {entry.status === 'error' ? (
+            <div className="flex flex-wrap items-center justify-center gap-1.5">
+              {entry.hasStoredWorkflow || entry.workflowJson ? (
+                <button
+                  type="button"
+                  onClick={() => onRequeue(false, undefined, { exactGraph: true })}
+                  className="rounded-lg border border-sky-500/35 bg-sky-500/15 px-2.5 py-1 text-[11px] text-sky-100 transition hover:bg-sky-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/45 active:scale-[0.98]"
+                >
+                  Replay exact
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => onRequeue(false)}
+                className="rounded-lg border border-rose-500/35 bg-rose-500/15 px-2.5 py-1 text-[11px] text-rose-100 transition hover:bg-rose-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/45 active:scale-[0.98]"
+              >
+                Retry
+              </button>
+              <button
+                type="button"
+                onClick={() => onRequeue(true)}
+                className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-muted)]/80 px-2.5 py-1 text-[11px] text-[var(--text-secondary)] transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/45 active:scale-[0.98]"
+              >
+                New seed
+              </button>
+            </div>
+          ) : null}
         </div>
       )}
 

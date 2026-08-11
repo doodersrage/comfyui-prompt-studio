@@ -40,6 +40,7 @@ import {
   type ComfyGalleryEntry,
   type ComfyGalleryFilter,
 } from '@/lib/comfyui-gallery';
+import { resolveExperimentWinnerEntry } from '@/lib/experiment-winners';
 import {
   buildGalleryHandoff,
   galleryHandoffPath,
@@ -688,9 +689,9 @@ export function useGalleryPanelActions({
           });
       },
       onMutateWinner: () => {
-        const entry = selectedEntries[0];
+        const entry = resolveExperimentWinnerEntry(selectedEntries) ?? selectedEntries[0];
         if (!entry) return;
-        setRequeueStatus('Mutating winner…');
+        setRequeueStatus('Mutating crowned winner…');
         void queueMutatedGalleryJobs({
           entry,
           kinds: ['variation', 'location', 'wardrobe'],

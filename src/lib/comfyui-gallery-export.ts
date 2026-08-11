@@ -59,6 +59,42 @@ export function downloadGallerySidecar(entry: ComfyGalleryEntry): void {
   URL.revokeObjectURL(url);
 }
 
+async function resolveGalleryImageBlob(viewUrl: string): Promise<Blob> {
+  // Prefer Cache API / service-worker hits when Comfy is offline.
+  if (typeof caches !== 'undefined') {
+    try {
+      const cached = await caches.match(viewUrl, { ignoreSearch: false });
+      if (cached?.ok) {
+        return cached.blob();
+      }
+      // Thumbs often cache with w=; try common widths then the bare view URL.
+      const url = new URL(
+        viewUrl,
+        typeof window !== 'undefined' ? window.location.origin : 'http://local'
+      );
+      for (const width of [null, '512', '1024', '256']) {
+        if (width) {
+          url.searchParams.set('w', width);
+        } else {
+          url.searchParams.delete('w');
+        }
+        const hit = await caches.match(url.toString(), { ignoreSearch: false });
+        if (hit?.ok) {
+          return hit.blob();
+        }
+      }
+    } catch {
+      // fall through to network
+    }
+  }
+
+  const response = await fetch(viewUrl);
+  if (!response.ok) {
+    throw new Error(`Download failed (HTTP ${response.status})`);
+  }
+  return response.blob();
+}
+
 export async function downloadGalleryImage(
   entry: ComfyGalleryEntry,
   imageIndex = 0
@@ -69,12 +105,7 @@ export async function downloadGalleryImage(
   }
 
   const viewUrl = buildComfyViewPath(entry.comfyUrl, image);
-  const response = await fetch(viewUrl);
-  if (!response.ok) {
-    throw new Error(`Download failed (HTTP ${response.status})`);
-  }
-
-  const blob = await response.blob();
+  const blob = await resolveGalleryImageBlob(viewUrl);
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;

@@ -15,6 +15,8 @@ import { toastHeldMax } from '@/lib/app-toast';
 import { startImproveFromGalleryEntry } from '@/lib/improve-output';
 import type { ComfyGalleryEntry } from '@/lib/comfyui-gallery';
 import type { GalleryComparePanelProps } from '@/components/GalleryComparePanel';
+import { experimentGroupIdForPrompt } from '@/lib/experiment-groups';
+import { markExperimentWinner } from '@/lib/experiment-winners';
 
 const loadGalleryRequeue = () => import('@/lib/comfyui-requeue');
 
@@ -42,6 +44,10 @@ export function useGalleryCompareHandlers({
   const onPickWinner = useCallback<NonNullable<GalleryComparePanelProps['onPickWinner']>>(
     entry => {
       setCompareWinnerId(entry.id);
+      const groupId = experimentGroupIdForPrompt(entry.prompt);
+      if (groupId) {
+        markExperimentWinner(groupId, entry.id);
+      }
       const compareIds = selectedEntries.slice(0, 4).map(item => item.id);
       setFavorites(
         compareIds.filter(id => id !== entry.id),

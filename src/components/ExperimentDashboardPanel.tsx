@@ -11,6 +11,7 @@ import {
 } from '@/lib/comfyui-gallery';
 import type { ExperimentGroup } from '@/lib/experiment-groups';
 import {
+  EXPERIMENT_WINNERS_UPDATED_EVENT,
   clearExperimentWinner,
   loadExperimentWinners,
   markExperimentWinner,
@@ -56,8 +57,13 @@ export default function ExperimentDashboardPanel() {
       void refresh();
     });
     const handler = () => void refresh();
+    const onWinners = () => setWinners(loadExperimentWinners());
     window.addEventListener(COMFYUI_GALLERY_UPDATED_EVENT, handler);
-    return () => window.removeEventListener(COMFYUI_GALLERY_UPDATED_EVENT, handler);
+    window.addEventListener(EXPERIMENT_WINNERS_UPDATED_EVENT, onWinners);
+    return () => {
+      window.removeEventListener(COMFYUI_GALLERY_UPDATED_EVENT, handler);
+      window.removeEventListener(EXPERIMENT_WINNERS_UPDATED_EVENT, onWinners);
+    };
   }, []);
 
   const expandedGroup = useMemo(

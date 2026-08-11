@@ -16,6 +16,15 @@ function normalizePromptKey(prompt: string): string {
   return prompt.trim().toLowerCase().slice(0, 120);
 }
 
+/** Stable experiment-winner key shared by Gallery Compare, Experiments, and Mutate. */
+export function experimentGroupIdForPrompt(prompt: string): string | null {
+  const key = normalizePromptKey(prompt);
+  if (!key) {
+    return null;
+  }
+  return key.slice(0, 32);
+}
+
 export function groupGalleryExperiments(entries: ComfyGalleryEntry[]): ExperimentGroup[] {
   const map = new Map<string, ExperimentGroup>();
 
