@@ -14,8 +14,6 @@ test("gallery layout toggles and review mode shows banner", async ({ page }) => 
   await expect(page.getByRole("heading", { name: /ComfyUI Gallery/i })).toBeVisible();
   await dismissBlockingOverlays(page);
 
-  await page.locator("summary").filter({ hasText: "Filters" }).click();
-
   const denseLayout = page.getByTestId("gallery-layout-dense");
   await expect(denseLayout).toBeVisible({ timeout: 15_000 });
   await denseLayout.click();
@@ -36,7 +34,11 @@ test("gallery review mode via filter chip", async ({ page }) => {
   await gotoStable(page, "/gallery");
   await dismissBlockingOverlays(page);
 
-  await page.locator("summary").filter({ hasText: "Filters" }).click();
+  const filtersSummary = page.locator("details.ui-collapsible summary").filter({
+    hasText: "Filters",
+  });
+  await expect(filtersSummary).toBeVisible({ timeout: 15_000 });
+  await filtersSummary.click();
   await page.getByTestId("gallery-filter-review-mode").click();
   await expect(page.getByTestId("gallery-review-banner")).toBeVisible({ timeout: 15_000 });
 });

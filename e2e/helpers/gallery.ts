@@ -13,8 +13,29 @@ const FIXTURE = {
   images: [{ filename: 'e2e-fixture.png', subfolder: '', type: 'output' }],
 };
 
+/** Ensure Studio workspace so advanced Filters / layout chips render (hidden in Simple). */
+export async function ensureStudioWorkspace(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem('comfy-workspace-mode-v1', 'studio');
+      localStorage.setItem('comfy-workspace-mode-chosen-v1', '1');
+    } catch {
+      // ignore quota / private mode
+    }
+  });
+  await page.evaluate(() => {
+    try {
+      localStorage.setItem('comfy-workspace-mode-v1', 'studio');
+      localStorage.setItem('comfy-workspace-mode-chosen-v1', '1');
+    } catch {
+      // ignore
+    }
+  });
+}
+
 /** Seed one completed gallery entry so selection-bar e2e can run on empty CI stores. */
 export async function seedGalleryFixture(page: Page): Promise<void> {
+  await ensureStudioWorkspace(page);
   await page.addInitScript(entry => {
     try {
       localStorage.setItem('comfyui-gallery-v1', JSON.stringify([entry]));
