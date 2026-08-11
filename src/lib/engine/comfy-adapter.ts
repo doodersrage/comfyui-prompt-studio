@@ -43,6 +43,7 @@ export const comfyEngineAdapter: EngineAdapter = {
       clientId: result.clientId,
       engineUrl: result.comfyUrl,
       error: result.error,
+      href: result.href,
       status: result.status,
       workflowSource: result.workflowSource,
       engineId: result.engineId ?? 'comfyui',

@@ -1022,6 +1022,7 @@ export default function GalleryCard({
                   {entry.hasStoredWorkflow || entry.workflowJson ? (
                     <GalleryMenuButton
                       label="Replay exact graph"
+                      data-testid="gallery-replay-exact"
                       onClick={() => {
                         onRequeue(false, undefined, { exactGraph: true });
                         setMenuOpen(false);
@@ -1269,11 +1270,13 @@ function GalleryMenuButton(props: {
   label: string;
   onClick: () => void;
   tone?: 'default' | 'danger';
+  'data-testid'?: string;
 }) {
   return (
     <button
       type="button"
       role="menuitem"
+      data-testid={props['data-testid']}
       onClick={props.onClick}
       className={`block w-full rounded-xl border-[var(--border-subtle)]/60 bg-[var(--bg-base)]/70 px-3.5 py-2 text-left text-xs backdrop-blur-xs transition ${
         props.tone === 'danger'

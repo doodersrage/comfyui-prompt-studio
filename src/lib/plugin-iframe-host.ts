@@ -93,10 +93,11 @@ export function isPluginIframeHostMessage(value: unknown): value is PluginIframe
   return typeof raw.type === 'string' && INBOUND_TYPES.has(raw.type);
 }
 
-/** Reject cross-origin posts unless the iframe URL allows that origin. */
+/** Reject cross-origin posts unless the iframe URL or user allowlist permits that origin. */
 export function isAllowedPluginMessageOrigin(
   eventOrigin: string,
-  iframeUrl: string | null | undefined
+  iframeUrl: string | null | undefined,
+  allowlist: string[] = []
 ): boolean {
   if (!iframeUrl) {
     return false;
@@ -105,7 +106,10 @@ export function isAllowedPluginMessageOrigin(
   if (expected === '*') {
     return true;
   }
-  return eventOrigin === expected;
+  if (eventOrigin === expected) {
+    return true;
+  }
+  return allowlist.includes(eventOrigin);
 }
 
 export function postPluginIframeHostReady(

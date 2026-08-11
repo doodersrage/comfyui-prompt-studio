@@ -70,6 +70,36 @@ describe("buildGalleryImageUrlsFromQueueParams", () => {
     assert.match(urls.sourceImageUrl ?? "", /source\.png/);
     assert.match(urls.maskImageUrl ?? "", /mask\.png/);
   });
+
+  it("dedupes multi-ControlNet filenames into controlImageUrls", () => {
+    const urls = buildGalleryImageUrlsFromQueueParams({
+      comfyUrl: "http://127.0.0.1:8188",
+      queueParams: {
+        controlImageFilename: "pose.png",
+        controlImageFilenames: ["pose.png", "depth.png", "canny.png"],
+      },
+    });
+    assert.equal(urls.controlImageUrls?.length, 3);
+    assert.match(urls.controlImageUrls?.[0] ?? "", /pose\.png/);
+    assert.match(urls.controlImageUrls?.[1] ?? "", /depth\.png/);
+    assert.match(urls.controlImageUrls?.[2] ?? "", /canny\.png/);
+    assert.match(urls.sourceImageUrl ?? "", /pose\.png/);
+  });
+});
+
+describe("resolveRequeueImageUrlsFromEntry control lineage", () => {
+  it("prefers stored controlImageUrls over rebuilt filenames", () => {
+    const urls = resolveRequeueImageUrlsFromEntry({
+      comfyUrl: "http://127.0.0.1:8188",
+      images: [],
+      sourceImageUrl: "/api/source.png",
+      controlImageUrls: ["/api/control-a.png", "/api/control-b.png"],
+      queueParams: {
+        controlImageFilename: "ignored.png",
+      },
+    });
+    assert.deepEqual(urls.controlImageUrls, ["/api/control-a.png", "/api/control-b.png"]);
+  });
 });
 
 describe("auditRequeueImageReadiness", () => {

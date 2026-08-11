@@ -31,6 +31,7 @@ import {
 import { loadLastToolDraft } from '@/lib/tool-draft-memory';
 import { toastQueueOutcome } from '@/lib/app-toast';
 import { galleryPickPath } from '@/lib/gallery-handoff';
+import { loadPluginOriginAllowlist } from '@/lib/plugin-origin-allowlist';
 
 type PluginDetailPageProps = {
   params: Promise<{ id: string }>;
@@ -77,7 +78,7 @@ export default function PluginDetailPage({ params }: PluginDetailPageProps) {
         return;
       }
       const iframeUrl = resolveEmbeddablePluginIframeUrl(primaryToolForPlugin(plugin)?.iframeUrl);
-      if (!isAllowedPluginMessageOrigin(event.origin, iframeUrl)) {
+      if (!isAllowedPluginMessageOrigin(event.origin, iframeUrl, loadPluginOriginAllowlist())) {
         return;
       }
       const origin = iframeUrl ? resolvePluginIframeTargetOrigin(iframeUrl) : '*';

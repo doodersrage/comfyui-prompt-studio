@@ -32,6 +32,8 @@ export type ComfyGalleryEntry = {
   sourceImageUrl?: string;
   /** Inpaint mask URL at queue time when available. */
   maskImageUrl?: string;
+  /** ControlNet reference view URLs at queue time (multi-ref stack). */
+  controlImageUrls?: string[];
   /** Queue quality profile used when this job was queued (draft / final / max). */
   queueQualityProfile?: import('./queue-quality-profile').QueueQualityProfile;
   /** Session LoRA library ids active when this job was queued (for re-edit same stack). */

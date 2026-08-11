@@ -1013,6 +1013,9 @@ export async function requeueComfyJobFromEntry(
     (entry.workflowJson?.trim() || storedEntry?.workflowJson?.trim())
   ) {
     options?.onStatus?.('Replaying stored gallery workflow graph.');
+    void import('./local-observability').then(({ noteExactReplayMetric }) => {
+      noteExactReplayMetric();
+    });
   }
   if (!workflowJson && options?.exactGraph !== false && entry.promptId?.trim()) {
     try {

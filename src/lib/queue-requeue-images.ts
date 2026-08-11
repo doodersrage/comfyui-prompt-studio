@@ -35,13 +35,30 @@ function loadRequeueResolutionSizeTier() {
 export function resolveRequeueImageUrlsFromEntry(
   entry: Pick<
     ComfyGalleryEntry,
-    'comfyUrl' | 'images' | 'tool' | 'model' | 'queueParams' | 'sourceImageUrl' | 'maskImageUrl'
+    | 'comfyUrl'
+    | 'images'
+    | 'tool'
+    | 'model'
+    | 'queueParams'
+    | 'sourceImageUrl'
+    | 'maskImageUrl'
+    | 'controlImageUrls'
   >
-): { sourceImageUrl?: string; maskImageUrl?: string } {
+): { sourceImageUrl?: string; maskImageUrl?: string; controlImageUrls?: string[] } {
+  const fromParams = buildGalleryImageUrlsFromQueueParams({
+    comfyUrl: entry.comfyUrl ?? '',
+    queueParams: entry.queueParams,
+    sourceImageUrl: entry.sourceImageUrl,
+    maskImageUrl: entry.maskImageUrl,
+  });
+  const controlImageUrls =
+    entry.controlImageUrls?.map(url => url.trim()).filter(Boolean) ?? fromParams.controlImageUrls;
+
   if (entry.sourceImageUrl?.trim()) {
     return {
       sourceImageUrl: entry.sourceImageUrl.trim(),
       maskImageUrl: entry.maskImageUrl?.trim() || undefined,
+      ...(controlImageUrls?.length ? { controlImageUrls } : {}),
     };
   }
 
@@ -77,6 +94,7 @@ export function resolveRequeueImageUrlsFromEntry(
   return {
     sourceImageUrl: inputFromParams ?? (needsInput ? outputUrl : undefined),
     maskImageUrl: entry.maskImageUrl?.trim() ?? maskFromParams,
+    ...(controlImageUrls?.length ? { controlImageUrls } : {}),
   };
 }
 
@@ -183,13 +201,28 @@ export function buildGalleryImageUrlsFromQueueParams(input: {
   queueParams?: WorkflowParamValues;
   sourceImageUrl?: string;
   maskImageUrl?: string;
-}): { sourceImageUrl?: string; maskImageUrl?: string } {
+}): {
+  sourceImageUrl?: string;
+  maskImageUrl?: string;
+  controlImageUrls?: string[];
+} {
   const comfyUrl = input.comfyUrl.replace(/\/+$/, '');
+  const controlFilenames = [
+    input.queueParams?.controlImageFilename?.trim() || '',
+    ...(input.queueParams?.controlImageFilenames ?? []).map(name => name?.trim() || ''),
+  ].filter(Boolean);
+  // Dedupe while preserving order (index 0 often repeats controlImageFilename).
+  const uniqueControl = [...new Set(controlFilenames)];
+  const controlImageUrls = uniqueControl.map(name =>
+    buildComfyUploadedImageViewUrl(comfyUrl, name)
+  );
+
   const sourceImageUrl =
     input.sourceImageUrl?.trim() ||
     (input.queueParams?.inputImageFilename?.trim()
       ? buildComfyUploadedImageViewUrl(comfyUrl, input.queueParams.inputImageFilename.trim())
-      : undefined);
+      : undefined) ||
+    (uniqueControl[0] ? buildComfyUploadedImageViewUrl(comfyUrl, uniqueControl[0]) : undefined);
   const maskImageUrl =
     input.maskImageUrl?.trim() ||
     (input.queueParams?.maskImageFilename?.trim()
@@ -199,6 +232,7 @@ export function buildGalleryImageUrlsFromQueueParams(input: {
   return {
     ...(sourceImageUrl ? { sourceImageUrl } : {}),
     ...(maskImageUrl ? { maskImageUrl } : {}),
+    ...(controlImageUrls.length > 0 ? { controlImageUrls } : {}),
   };
 }
 

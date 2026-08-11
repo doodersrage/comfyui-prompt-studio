@@ -137,6 +137,9 @@ export default function ControlNetTool() {
     string | undefined
   >();
   const [handoffSourceImageUrl, setHandoffSourceImageUrl] = useState<string | undefined>();
+  const [handoffControlImageUrls, setHandoffControlImageUrls] = useState<Array<string | undefined>>(
+    []
+  );
 
   const selectedModel = getComfyModelDefinition(shared.model);
   const hintText = [subject, scene, detailNotes].filter(Boolean).join(' · ');
@@ -144,7 +147,13 @@ export default function ControlNetTool() {
   const queueControlNetOptions = {
     controlImage: refFile,
     controlImages: [null, ...extraRefFiles] as Array<File | null>,
-    controlImageUrl: !refFile ? handoffSourceImageUrl : undefined,
+    controlImageUrl: !refFile ? handoffControlImageUrls[0] || handoffSourceImageUrl : undefined,
+    controlImageUrls: [
+      undefined,
+      ...extraRefFiles.map((file, index) =>
+        file ? undefined : handoffControlImageUrls[index + 1]
+      ),
+    ] as Array<string | undefined>,
     parentGalleryEntryId: handoffParentGalleryEntryId,
     derivedKind: handoffParentGalleryEntryId ? ('controlnet' as const) : undefined,
     sourceImageUrl: handoffSourceImageUrl || refPreview || undefined,
@@ -186,6 +195,7 @@ export default function ControlNetTool() {
       prompt: string;
       model?: string;
       queueParams?: WorkflowParamValues;
+      controlImageUrls?: string[];
       file: File | null;
       previewUrl: string | null;
       payload: { galleryEntryId?: string; imageUrl?: string };
@@ -194,16 +204,36 @@ export default function ControlNetTool() {
       setSubject(handoff.prompt.slice(0, 800));
       setHandoffQueueParams(handoff.queueParams);
       setHandoffParentGalleryEntryId(handoff.payload.galleryEntryId?.trim() || undefined);
-      setHandoffSourceImageUrl(
-        handoff.previewUrl?.trim() || handoff.payload.imageUrl?.trim() || undefined
-      );
+      const controlUrls = (handoff.controlImageUrls ?? [])
+        .map(url => url?.trim() || '')
+        .filter(Boolean);
+      setHandoffControlImageUrls(controlUrls);
+      const primaryUrl =
+        controlUrls[0] ||
+        handoff.previewUrl?.trim() ||
+        handoff.payload.imageUrl?.trim() ||
+        undefined;
+      setHandoffSourceImageUrl(primaryUrl);
       if (handoff.model) {
         updateShared({ model: handoff.model as typeof shared.model });
       }
       if (handoff.file) {
         onRefChange(handoff.file);
-      } else if (handoff.previewUrl) {
-        setRefPreview(handoff.previewUrl);
+      } else if (primaryUrl) {
+        setRefPreview(primaryUrl);
+      }
+      const extras = controlUrls.slice(1, 4);
+      if (extras.length > 0) {
+        setExtraRefPreviews(previous => {
+          const next = [...previous];
+          for (let i = 0; i < 3; i += 1) {
+            if (next[i]) {
+              URL.revokeObjectURL(next[i]!);
+            }
+            next[i] = extras[i] ?? null;
+          }
+          return next;
+        });
       }
     },
     [onRefChange, updateShared]

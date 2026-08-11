@@ -22,6 +22,8 @@ export type EngineQueueResult = {
   /** Engine host URL (Comfy `comfyUrl` today). */
   engineUrl?: string;
   error?: string;
+  /** Optional Settings deep-link from server playbooks. */
+  href?: string;
   status?: number;
   workflowSource?: string;
   /** Backend that accepted the job (Diffusers-first may fall back to Comfy). */

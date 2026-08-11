@@ -19,6 +19,7 @@ export function useGalleryHandoff(
     sessionActiveLoraIds?: string[];
     queueQualityProfile?: GalleryHandoffPayload['queueQualityProfile'];
     handoffMode?: GalleryHandoffPayload['handoffMode'];
+    controlImageUrls?: string[];
     file: File | null;
     previewUrl: string | null;
     payload: GalleryHandoffPayload;
@@ -62,6 +63,7 @@ export function useGalleryHandoff(
         sessionActiveLoraIds: payload.sessionActiveLoraIds,
         queueQualityProfile: payload.queueQualityProfile,
         handoffMode: payload.handoffMode,
+        controlImageUrls: payload.controlImageUrls,
         file,
         previewUrl,
         payload,

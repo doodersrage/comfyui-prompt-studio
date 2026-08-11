@@ -11,7 +11,16 @@ import {
   type WorkflowParamValues,
 } from '@/lib/comfyui-config';
 import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
+import { resolveQueueFailureHref } from '@/lib/queue-failure-playbook';
 import { NextResponse } from 'next/server';
+
+function apiQueueError(message: string, status: number, extra?: Record<string, unknown>) {
+  const href = resolveQueueFailureHref(message);
+  return apiError(message, status, {
+    ...(extra ?? {}),
+    ...(href ? { href } : {}),
+  });
+}
 
 export const runtime = 'nodejs';
 
@@ -55,11 +64,11 @@ export async function POST(request: Request) {
       (body.prompt?.trim() ? [body.prompt.trim()] : []);
 
     if (prompts.length === 0) {
-      return apiError('Prompt is required.', 400);
+      return apiQueueError('Prompt is required.', 400);
     }
 
     if (prompts.length > COMFYUI_MAX_BATCH_PROMPTS) {
-      return apiError(
+      return apiQueueError(
         `At most ${COMFYUI_MAX_BATCH_PROMPTS} prompts can be queued per request.`,
         400
       );
@@ -84,7 +93,7 @@ export async function POST(request: Request) {
       );
 
       if (!result.ok) {
-        return apiError(result.error ?? 'ComfyUI queue failed.', 502, {
+        return apiQueueError(result.error ?? 'ComfyUI queue failed.', 502, {
           comfyUrl: result.comfyUrl,
           engineUrl: result.comfyUrl,
           workflowSource: result.workflowSource,
@@ -123,14 +132,14 @@ export async function POST(request: Request) {
     );
 
     if (!batch.ok) {
-      return apiError('No prompts were queued to ComfyUI.', 502, batch);
+      return apiQueueError('No prompts were queued to ComfyUI.', 502, batch);
     }
 
     return apiJson(batch);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'ComfyUI request failed.';
     const status = /not allowed|Invalid URL|URL is required|allowlist/i.test(message) ? 400 : 500;
-    return apiError(message, status);
+    return apiQueueError(message, status);
   }
 }
 

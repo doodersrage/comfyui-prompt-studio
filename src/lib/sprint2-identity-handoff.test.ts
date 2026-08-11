@@ -148,4 +148,19 @@ describe("gallery re-edit handoff", () => {
     assert.deepEqual(patch.sessionActiveLoraIds, ["skin", "anypose"]);
     assert.equal(patch.queueQualityProfile, "final");
   });
+
+  it("controlnet handoff carries multi-ref controlImageUrls", () => {
+    const payload = buildGalleryHandoff(
+      fakeEntry({
+        controlImageUrls: [
+          "http://127.0.0.1:8188/view?filename=pose.png",
+          "http://127.0.0.1:8188/view?filename=depth.png",
+        ],
+      }),
+      "controlnet",
+    );
+    assert.equal(payload.target, "controlnet");
+    assert.equal(payload.controlImageUrls?.length, 2);
+    assert.match(payload.controlImageUrls?.[0] ?? "", /pose\.png/);
+  });
 });

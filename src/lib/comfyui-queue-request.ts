@@ -19,6 +19,7 @@ export type ComfyUiQueueRequestResult = {
   clientId?: string;
   comfyUrl?: string;
   error?: string;
+  href?: string;
   workflowSource?: string;
   engineId?: 'comfyui' | 'diffusers';
   family?: string;
@@ -113,6 +114,7 @@ export async function postComfyUiPrompt(
         (typeof raw.engineUrl === 'string' && raw.engineUrl.trim()) ||
         (typeof raw.comfyUrl === 'string' ? raw.comfyUrl : undefined),
       error: typeof raw.error === 'string' ? raw.error : undefined,
+      href: typeof raw.href === 'string' ? raw.href : undefined,
       workflowSource: typeof raw.workflowSource === 'string' ? raw.workflowSource : undefined,
       engineId:
         raw.engineId === 'diffusers' || raw.engineId === 'comfyui' ? raw.engineId : undefined,

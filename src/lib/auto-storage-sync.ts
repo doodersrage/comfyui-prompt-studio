@@ -176,13 +176,27 @@ export async function applyStorageMerge(
 
     if (choice === 'merge' && local && server) {
       if (namespace === 'settings-cache') {
+        // loadSettingsCache() already rehydrates tools/plugins/maps sidecars into memory.
         const merged = mergeSettingsCache(local as SettingsCache, server as SettingsCache);
         const localShared = (local as SettingsCache).shared;
         if (localShared?.useSystemWorkflows === true) {
           merged.shared = { ...merged.shared, useSystemWorkflows: true };
         }
+        // Prefer local LoRA session stacks when present (critical sidecar).
+        if (
+          localShared?.sessionActiveLoraIdsByModel &&
+          Object.keys(localShared.sessionActiveLoraIdsByModel).length > 0
+        ) {
+          merged.shared = {
+            ...merged.shared,
+            sessionActiveLoraIdsByModel: {
+              ...(merged.shared.sessionActiveLoraIdsByModel ?? {}),
+              ...localShared.sessionActiveLoraIdsByModel,
+            },
+          };
+        }
         saveSettingsCache(merged);
-        await syncNamespaceToServer(namespace, merged);
+        await syncNamespaceToServer(namespace, loadSettingsCache());
       } else if (namespace === 'prompt-history') {
         const merged = mergeArraysById(
           local as PromptHistoryEntry[],

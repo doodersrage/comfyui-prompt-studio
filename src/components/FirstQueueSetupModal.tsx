@@ -13,8 +13,13 @@ import {
 } from '@/lib/browser-storage';
 import { settingsComfyUiSectionHref } from '@/lib/settings-comfyui-nav';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
+import { ONBOARDING_UPDATED_EVENT, loadOnboardingState } from '@/lib/onboarding-store';
+import {
+  dismissFirstQueueSetupModal,
+  FIRST_QUEUE_SETUP_DISMISS_KEY,
+} from '@/lib/first-queue-setup';
 
-const DISMISS_KEY = 'comfy-first-queue-setup-dismiss-v1';
+const DISMISS_KEY = FIRST_QUEUE_SETUP_DISMISS_KEY;
 
 type StepState = {
   storageReady: boolean;
@@ -71,8 +76,16 @@ export default function FirstQueueSetupModal() {
 
     const onIntent = () => scheduleAfterCommit(maybeOpen);
     const onSettings = () => scheduleAfterCommit(refresh);
+    const onOnboarding = () => {
+      const success = loadOnboardingState().find(step => step.id === 'first-queue-success');
+      if (success?.done) {
+        writeBrowserValue(DISMISS_KEY, true);
+        setOpen(false);
+      }
+    };
     window.addEventListener(COMFY_QUEUE_INTENT_EVENT, onIntent);
     window.addEventListener(SETTINGS_CACHE_UPDATED_EVENT, onSettings);
+    window.addEventListener(ONBOARDING_UPDATED_EVENT, onOnboarding);
 
     void fetch('/api/health')
       .then(response => response.json())
@@ -91,6 +104,7 @@ export default function FirstQueueSetupModal() {
       cancelled = true;
       window.removeEventListener(COMFY_QUEUE_INTENT_EVENT, onIntent);
       window.removeEventListener(SETTINGS_CACHE_UPDATED_EVENT, onSettings);
+      window.removeEventListener(ONBOARDING_UPDATED_EVENT, onOnboarding);
     };
   }, [refresh]);
 
@@ -99,7 +113,7 @@ export default function FirstQueueSetupModal() {
   }
 
   const dismiss = () => {
-    writeBrowserValue(DISMISS_KEY, true);
+    dismissFirstQueueSetupModal();
     setOpen(false);
   };
 

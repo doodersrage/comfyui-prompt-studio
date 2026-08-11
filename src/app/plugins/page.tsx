@@ -24,6 +24,10 @@ import {
   upsertInstalledPlugin,
   type PluginManifest,
 } from '@/lib/plugin-manifest';
+import {
+  loadPluginOriginAllowlist,
+  savePluginOriginAllowlist,
+} from '@/lib/plugin-origin-allowlist';
 import queueRewriteExample from '../../../examples/queue-rewrite-plugin.json';
 
 const EMPTY_FORM = {
@@ -51,6 +55,8 @@ export default function PluginsPage() {
   const [installed, setInstalled] = useState<PluginManifest[]>([]);
   const [manifestError, setManifestError] = useState<string | null>(null);
   const [manifestStatus, setManifestStatus] = useState<string | null>(null);
+  const [originAllowlistText, setOriginAllowlistText] = useState('');
+  const [originStatus, setOriginStatus] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -68,6 +74,7 @@ export default function PluginsPage() {
     setCustomJson(JSON.stringify(custom, null, 2));
     setHooks(loadPluginQueueHooks());
     setInstalled(loadInstalledPlugins());
+    setOriginAllowlistText(loadPluginOriginAllowlist().join('\n'));
   }
 
   function saveCustom() {
@@ -287,6 +294,41 @@ export default function PluginsPage() {
             ))}
           </ul>
         )}
+      </ToolSection>
+
+      <ToolSection title="Iframe origin allowlist">
+        <p className="type-caption">
+          Same-origin iframe tools always work. Add extra{' '}
+          <code className="text-violet-300">https://host</code> origins (one per line) for remote
+          plugin iframes. Messages from other origins are ignored.
+        </p>
+        <MonoTextArea
+          className="mt-3 min-h-28"
+          value={originAllowlistText}
+          onChange={event => setOriginAllowlistText(event.target.value)}
+          placeholder={'https://plugins.example.com'}
+        />
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              const next = savePluginOriginAllowlist(originAllowlistText.split(/\r?\n/));
+              setOriginAllowlistText(next.join('\n'));
+              setOriginStatus(
+                next.length
+                  ? `Saved ${next.length} allowed origin${next.length === 1 ? '' : 's'}.`
+                  : 'Allowlist cleared — same-origin iframes only.'
+              );
+            }}
+          >
+            Save allowlist
+          </Button>
+        </div>
+        {originStatus ? (
+          <p className="type-caption mt-2 text-[var(--text-secondary)]">{originStatus}</p>
+        ) : null}
       </ToolSection>
 
       <ToolSection title="Queue preflight hooks">

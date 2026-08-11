@@ -886,12 +886,16 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
 
         try {
           if (!queued.ok || !queued.promptId) {
-            throw new Error(
+            const error = new Error(
               queued.error ??
                 (engineAdapter.id === 'diffusers'
                   ? 'Diffusers queue failed.'
                   : 'ComfyUI queue failed.')
             );
+            if (queued.href?.trim()) {
+              (error as Error & { href?: string }).href = queued.href.trim();
+            }
+            throw error;
           }
 
           setComfyUiStatus(
@@ -1181,7 +1185,11 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           };
 
           if (!queued.ok) {
-            throw new Error(queued.error ?? data.error ?? 'ComfyUI batch queue failed.');
+            const error = new Error(queued.error ?? data.error ?? 'ComfyUI batch queue failed.');
+            if (queued.href?.trim()) {
+              (error as Error & { href?: string }).href = queued.href.trim();
+            }
+            throw error;
           }
 
           for (const [index, result] of (data.results ?? []).entries()) {

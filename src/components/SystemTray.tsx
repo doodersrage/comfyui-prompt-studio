@@ -57,7 +57,16 @@ function TrayNotice({
             <Link
               href={href}
               className="type-caption text-[var(--accent-text)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
-              onClick={onDismiss}
+              onClick={() => {
+                if (/settings|workflow-map|model-assets|lora|connection/i.test(href)) {
+                  void import('@/lib/local-observability').then(
+                    ({ notePlaybookCtaClickMetric }) => {
+                      notePlaybookCtaClickMetric();
+                    }
+                  );
+                }
+                onDismiss();
+              }}
             >
               Open
             </Link>

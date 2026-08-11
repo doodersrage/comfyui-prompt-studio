@@ -9,7 +9,9 @@ import { DEFAULT_COMFYUI_SETTINGS, resetComfyUiSettings } from '@/lib/comfyui-se
 import type { SharedToolSettings } from '@/lib/settings-cache';
 import type { ComfyUiSettings } from '@/lib/comfyui-settings';
 import { ToolSection, accentFocusClass } from '@/components/ui/ToolPageShell';
-import { TextArea } from '@/components/ui/Field';
+import { TextArea, FieldLabel, TextInput } from '@/components/ui/Field';
+import { normalizeGalleryWorkflowRetentionDays } from '@/lib/gallery-workflow-hygiene';
+import { loadLocalObservability } from '@/lib/local-observability';
 
 export type SettingsDataTabProps = {
   sharedSettings: SharedToolSettings;
@@ -32,10 +34,44 @@ export default function SettingsDataTab({
   updateSettings,
   setStatus,
 }: SettingsDataTabProps) {
+  const metrics = loadLocalObservability();
+
   return (
     <>
       <ToolSection>
         <ComfyUiGalleryPanel limit={6} compact showHeader />
+      </ToolSection>
+
+      <ToolSection title="Gallery exact-replay graphs">
+        <p className="text-sm text-[var(--text-secondary)]">
+          Stored workflow JSON enables Replay exact graph. Older graphs are pruned to keep IndexedDB
+          lean (0 = keep forever). Sidecar/ZIP exports omit graph bodies by default.
+        </p>
+        <FieldLabel
+          htmlFor="gallery-workflow-retention"
+          hint="Days to keep stored exact-replay graphs"
+        >
+          Retention (days)
+        </FieldLabel>
+        <TextInput
+          id="gallery-workflow-retention"
+          type="number"
+          min={0}
+          max={365}
+          value={normalizeGalleryWorkflowRetentionDays(sharedSettings.galleryWorkflowRetentionDays)}
+          onChange={event =>
+            updateSharedSettings({
+              galleryWorkflowRetentionDays: normalizeGalleryWorkflowRetentionDays(
+                Number(event.target.value)
+              ),
+            })
+          }
+          className={accentFocusClass()}
+        />
+        <p className="mt-2 text-xs text-[var(--text-muted)]">
+          Local metrics · first success {metrics.firstQueueSuccess} · exact replay{' '}
+          {metrics.exactReplay} · playbook opens {metrics.playbookCtaClick}
+        </p>
       </ToolSection>
 
       <ToolSection title="Active character descriptor">

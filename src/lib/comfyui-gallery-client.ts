@@ -68,6 +68,7 @@ export type RegisterComfyGalleryJobInput = {
   workflowJson?: string;
   sourceImageUrl?: string;
   maskImageUrl?: string;
+  controlImageUrls?: string[];
   queueQualityProfile?: import('./queue-quality-profile').QueueQualityProfile;
   /** Session LoRA ids active at queue time (for re-edit same stack). */
   sessionActiveLoraIds?: string[];
@@ -166,6 +167,9 @@ export function registerComfyGalleryJob(input: RegisterComfyGalleryJobInput): Co
     ...(clamped.omitted ? { workflowJsonOmitted: true } : {}),
     sourceImageUrl: imageUrls.sourceImageUrl,
     maskImageUrl: imageUrls.maskImageUrl,
+    controlImageUrls: input.controlImageUrls?.length
+      ? input.controlImageUrls
+      : imageUrls.controlImageUrls,
     queueQualityProfile: input.queueQualityProfile,
     sessionActiveLoraIds: input.sessionActiveLoraIds,
     sessionLoraStrengthOverrides: input.sessionLoraStrengthOverrides,
@@ -475,6 +479,12 @@ function applyComfyJobStatus(
         if (!first) {
           return;
         }
+        void import('./local-observability').then(({ noteFirstQueueSuccessMetric }) => {
+          noteFirstQueueSuccessMetric();
+        });
+        void import('./first-queue-setup').then(({ dismissFirstQueueSetupModal }) => {
+          dismissFirstQueueSetupModal();
+        });
         void import('./app-toast').then(({ pushAppToast }) => {
           pushAppToast({
             text: 'First render complete — rate it in Gallery next.',

@@ -99,6 +99,7 @@ export function mergeSettingsCache<
     updatedAt?: number;
     shared?: Record<string, unknown>;
     tools?: Record<string, unknown>;
+    installedPlugins?: Array<{ id: string; updatedAt?: number } & Record<string, unknown>>;
   },
 >(local: T, server: T): T {
   const localTime = local.updatedAt ?? 0;
@@ -106,6 +107,45 @@ export function mergeSettingsCache<
   const preferLocal = localTime >= serverTime;
   const winner = preferLocal ? local : server;
   const loser = preferLocal ? server : local;
+  const localPlugins = Array.isArray(local.installedPlugins) ? local.installedPlugins : [];
+  const serverPlugins = Array.isArray(server.installedPlugins) ? server.installedPlugins : [];
+  const installedPlugins =
+    localPlugins.length > 0 || serverPlugins.length > 0
+      ? mergeArraysById(localPlugins, serverPlugins, (a, b) =>
+          (a.updatedAt ?? 0) >= (b.updatedAt ?? 0) ? a : b
+        )
+      : winner.installedPlugins;
+
+  // Prefer fuller loader maps when one side was slimmed for local IDB.
+  const mergeMapField = (key: string): Record<string, unknown> | undefined => {
+    const a = (local.shared?.[key] ?? {}) as Record<string, unknown>;
+    const b = (server.shared?.[key] ?? {}) as Record<string, unknown>;
+    const aKeys = Object.keys(a).length;
+    const bKeys = Object.keys(b).length;
+    if (aKeys === 0 && bKeys === 0) {
+      return undefined;
+    }
+    return { ...b, ...a };
+  };
+
+  const mapKeys = [
+    'modelCheckpointMap',
+    'modelVaeMap',
+    'modelRefinerMap',
+    'modelUpscaleMap',
+    'modelLoraMap',
+    'modelControlNetMap',
+    'modelWorkflowMap',
+    'modelSamplerMemory',
+  ] as const;
+  const sharedMaps: Record<string, unknown> = {};
+  for (const key of mapKeys) {
+    const merged = mergeMapField(key);
+    if (merged) {
+      sharedMaps[key] = merged;
+    }
+  }
+
   return {
     ...loser,
     ...winner,
@@ -113,10 +153,12 @@ export function mergeSettingsCache<
     shared: {
       ...(loser.shared ?? {}),
       ...(winner.shared ?? {}),
+      ...sharedMaps,
     },
     tools: {
       ...(loser.tools ?? {}),
       ...(winner.tools ?? {}),
     },
+    ...(installedPlugins ? { installedPlugins } : {}),
   } as T;
 }

@@ -1,34 +1,48 @@
-import { buildPromptSidecar, readSidecarOutputImage, type PromptSidecar } from './prompt-sidecar';
+import { buildPromptSidecar } from './prompt-sidecar';
 import type { ComfyGalleryEntry } from './comfyui-gallery';
 import { buildComfyViewPath } from './comfyui-outputs';
+import { getGalleryEntryById } from './gallery-db-store';
+import { stripGalleryWorkflowJsonForExport } from './gallery-workflow-hygiene';
 
 export { readSidecarOutputImage, sidecarOutputViewUrl } from './prompt-sidecar';
 
-export function buildGallerySidecar(entry: ComfyGalleryEntry) {
-  const outputImage = entry.images[0];
+export function buildGallerySidecar(
+  entry: ComfyGalleryEntry,
+  options?: { includeWorkflowJson?: boolean }
+) {
+  const full = getGalleryEntryById(entry.id) ?? entry;
+  const exportEntry =
+    options?.includeWorkflowJson === true ? full : stripGalleryWorkflowJsonForExport(full);
+  const outputImage = exportEntry.images[0];
   return buildPromptSidecar({
-    positive: entry.prompt,
-    negative: entry.negativePrompt,
-    model: entry.model ?? 'unknown',
-    tool: entry.tool,
-    hints: entry.prompt.slice(0, 200),
+    positive: exportEntry.prompt,
+    negative: exportEntry.negativePrompt,
+    model: exportEntry.model ?? 'unknown',
+    tool: exportEntry.tool,
+    hints: exportEntry.prompt.slice(0, 200),
     metadata: {
-      promptId: entry.promptId,
-      galleryEntryId: entry.id,
-      comfyUrl: entry.comfyUrl,
-      status: entry.status,
-      queuedAt: entry.queuedAt,
-      completedAt: entry.completedAt,
+      promptId: exportEntry.promptId,
+      galleryEntryId: exportEntry.id,
+      comfyUrl: exportEntry.comfyUrl,
+      status: exportEntry.status,
+      queuedAt: exportEntry.queuedAt,
+      completedAt: exportEntry.completedAt,
       outputImage,
-      images: entry.images,
-      queueParams: entry.queueParams,
+      images: exportEntry.images,
+      queueParams: exportEntry.queueParams,
       sourceImageUrl:
-        entry.sourceImageUrl ??
-        (outputImage ? buildComfyViewPath(entry.comfyUrl, outputImage) : undefined),
-      maskImageUrl: entry.maskImageUrl,
-      queueQualityProfile: entry.queueQualityProfile,
-      parentGalleryEntryId: entry.parentGalleryEntryId,
-      derivedKind: entry.derivedKind,
+        exportEntry.sourceImageUrl ??
+        (outputImage ? buildComfyViewPath(exportEntry.comfyUrl, outputImage) : undefined),
+      maskImageUrl: exportEntry.maskImageUrl,
+      controlImageUrls: exportEntry.controlImageUrls,
+      queueQualityProfile: exportEntry.queueQualityProfile,
+      parentGalleryEntryId: exportEntry.parentGalleryEntryId,
+      derivedKind: exportEntry.derivedKind,
+      hasStoredWorkflow: exportEntry.hasStoredWorkflow,
+      workflowJsonOmitted: exportEntry.workflowJsonOmitted,
+      ...(options?.includeWorkflowJson && full.workflowJson
+        ? { workflowJson: full.workflowJson }
+        : {}),
     },
   });
 }

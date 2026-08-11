@@ -23,6 +23,8 @@ export type GalleryHandoffPayload = {
   historyId?: string;
   imageUrl?: string;
   imageFilename?: string;
+  /** Multi-ControlNet reference URLs (index 0 = primary). */
+  controlImageUrls?: string[];
   target:
     | 'refine'
     | 'imagePrompt'
@@ -96,6 +98,10 @@ export function buildGalleryHandoff(
   const handoffMode = options?.handoffMode ?? 'open';
   const includeLoras = options?.includeSessionLoras ?? handoffMode === 'reedit';
   const identityKind = entry.queueParams?.identityKind;
+  const controlImageUrls =
+    target === 'controlnet' || handoffMode === 'reedit'
+      ? resolveControlImageUrlsForHandoff(entry)
+      : undefined;
   return {
     source: 'gallery',
     galleryEntryId: entry.id,
@@ -107,6 +113,7 @@ export function buildGalleryHandoff(
     historyId: entry.historyId,
     imageUrl: image ? buildComfyViewPath(entry.comfyUrl, image) : undefined,
     imageFilename: image?.filename,
+    ...(controlImageUrls?.length ? { controlImageUrls } : {}),
     // Re-edit restores sampler/size/LoRA stack; plain open only carries the image.
     queueParams: handoffMode === 'reedit' ? entry.queueParams : undefined,
     queueQualityProfile: handoffMode === 'reedit' ? entry.queueQualityProfile : undefined,
@@ -116,6 +123,27 @@ export function buildGalleryHandoff(
     target,
     savedAt: Date.now(),
   };
+}
+
+function resolveControlImageUrlsForHandoff(entry: ComfyGalleryEntry): string[] | undefined {
+  if (entry.controlImageUrls?.length) {
+    return entry.controlImageUrls.map(url => url.trim()).filter(Boolean);
+  }
+  const comfyUrl = entry.comfyUrl?.replace(/\/+$/, '') ?? '';
+  if (!comfyUrl) {
+    return undefined;
+  }
+  const names = [
+    entry.queueParams?.controlImageFilename?.trim() || '',
+    ...(entry.queueParams?.controlImageFilenames ?? []).map(name => name?.trim() || ''),
+  ].filter(Boolean);
+  const unique = [...new Set(names)];
+  if (unique.length === 0) {
+    return undefined;
+  }
+  return unique.map(filename =>
+    buildComfyViewPath(comfyUrl, { filename, subfolder: '', type: 'input' })
+  );
 }
 
 /** Re-edit with the same LoRA stack / quality when available. */

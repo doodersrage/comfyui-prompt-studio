@@ -134,6 +134,7 @@ export const diffusersEngineAdapter: EngineAdapter = {
             ok: false,
             status: response.status,
             error: typeof raw.error === 'string' ? raw.error : 'Diffusers workflow queue failed.',
+            href: typeof raw.href === 'string' ? raw.href : undefined,
             engineUrl,
             engineId,
             raw,
