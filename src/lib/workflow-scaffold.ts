@@ -93,7 +93,7 @@ function fluxVaeFilename(model?: ComfyImageModel | string): string {
       return suggested;
     }
   }
-  // Never default to ae — reserved for UltraReal Fine-Tune v4 only.
+  // Unknown FLUX id — prefer FLUX.2 VAE over guessing ae (Klein/FLUX.2 family).
   return 'flux2-vae.safetensors';
 }
 
@@ -355,19 +355,11 @@ function zImageScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unkno
   };
 }
 
-/** Z-Image Compose: Figure 1 img2img via VAEEncode; Figures 2–4 are LoadImage placeholders (prompt-only). */
-function zImageImg2imgScaffold(
-  tokens: WorkflowPlaceholderTokens,
-  options?: { multiFigure?: boolean }
-): Record<string, unknown> {
-  const figureTokens = [
-    tokens.inputImage?.trim() || DEFAULT_INPUT_IMAGE_TOKEN,
-    DEFAULT_INPUT_IMAGE_2_TOKEN,
-    DEFAULT_INPUT_IMAGE_3_TOKEN,
-    DEFAULT_INPUT_IMAGE_4_TOKEN,
-  ];
+/** Z-Image Refine / Compose / Image→Prompt: Figure 1 img2img via VAEEncode. */
+function zImageImg2imgScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknown> {
+  const inputToken = tokens.inputImage?.trim() || DEFAULT_INPUT_IMAGE_TOKEN;
 
-  const graph: Record<string, unknown> = {
+  return {
     '1': {
       class_type: 'UNETLoader',
       inputs: { unet_name: DEFAULT_UNET_TOKEN, weight_dtype: 'default' },
@@ -403,8 +395,8 @@ function zImageImg2imgScaffold(
     },
     '900': {
       class_type: 'LoadImage',
-      inputs: { image: figureTokens[0] },
-      _meta: { title: options?.multiFigure ? 'Figure 1' : 'Input Image' },
+      inputs: { image: inputToken },
+      _meta: { title: 'Input Image' },
     },
     '901': {
       class_type: 'VAEEncode',
@@ -438,30 +430,6 @@ function zImageImg2imgScaffold(
       _meta: { title: 'Save Image' },
     },
   };
-
-  if (options?.multiFigure) {
-    graph['902'] = {
-      class_type: 'LoadImage',
-      inputs: { image: figureTokens[1] },
-      _meta: { title: 'Figure 2' },
-    };
-    graph['903'] = {
-      class_type: 'LoadImage',
-      inputs: { image: figureTokens[2] },
-      _meta: { title: 'Figure 3' },
-    };
-    graph['904'] = {
-      class_type: 'LoadImage',
-      inputs: { image: figureTokens[3] },
-      _meta: { title: 'Figure 4' },
-    };
-  }
-
-  return graph;
-}
-
-function zImageComposeScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknown> {
-  return zImageImg2imgScaffold(tokens, { multiFigure: true });
 }
 
 function booguLoaderFilenames(): {
@@ -617,12 +585,27 @@ function booguEditScaffold(
 ): Record<string, unknown> {
   const loaders = booguLoaderFilenames();
   const turbo = options?.turbo === true;
+  const compose = options?.compose === true;
   const figureTokens = [
     tokens.inputImage?.trim() || DEFAULT_INPUT_IMAGE_TOKEN,
     DEFAULT_INPUT_IMAGE_2_TOKEN,
     DEFAULT_INPUT_IMAGE_3_TOKEN,
     DEFAULT_INPUT_IMAGE_4_TOKEN,
   ];
+
+  const encodeInputs: Record<string, unknown> = {
+    prompt: tokens.positive,
+    negative_prompt: turbo ? '' : tokens.negative,
+    clip: ['2', 0],
+    vae: ['3', 0],
+    // Soft-wire Figure 1 so exported scaffolds are runnable without queue prep.
+    'images.image_1': ['900', 0],
+  };
+  if (compose) {
+    encodeInputs['images.image_2'] = ['901', 0];
+    encodeInputs['images.image_3'] = ['902', 0];
+    encodeInputs['images.image_4'] = ['903', 0];
+  }
 
   return {
     '1': {
@@ -645,12 +628,7 @@ function booguEditScaffold(
     },
     '4': {
       class_type: 'TextEncodeBooguEdit',
-      inputs: {
-        prompt: tokens.positive,
-        negative_prompt: turbo ? '' : tokens.negative,
-        clip: ['2', 0],
-        vae: ['3', 0],
-      },
+      inputs: encodeInputs,
       _meta: { title: 'Boogu Edit Encode' },
     },
     '6': {
@@ -698,7 +676,7 @@ function booguEditScaffold(
       inputs: { image: figureTokens[0] },
       _meta: { title: 'Figure 1' },
     },
-    ...(options?.compose
+    ...(compose
       ? {
           '901': {
             class_type: 'LoadImage',
@@ -1233,7 +1211,20 @@ function qwenEditImg2imgScaffold(
       '4': {
         class_type: encodeClass,
         inputs: buildQwenEditEncoderInputs(encodeClass, tokens, ['1', 1], ['1', 2], ['900', 0]),
-        _meta: { title: 'Qwen Edit Encode' },
+        _meta: { title: 'Qwen Edit Encode (+)' },
+      },
+      '5': {
+        class_type: encodeClass,
+        inputs: {
+          ...buildQwenEditEncoderInputs(encodeClass, tokens, ['1', 1], ['1', 2], ['900', 0]),
+          prompt: tokens.negative,
+        },
+        _meta: { title: 'Qwen Edit Encode (−)' },
+      },
+      '7': {
+        class_type: 'ModelSamplingAuraFlow',
+        inputs: { model: ['1', 0], shift: tokens.shift },
+        _meta: { title: 'ModelSamplingAuraFlow' },
       },
       '8': {
         class_type: 'KSampler',
@@ -1244,9 +1235,9 @@ function qwenEditImg2imgScaffold(
           sampler_name: tokens.sampler,
           scheduler: tokens.scheduler,
           denoise: tokens.denoise,
-          model: ['1', 0],
+          model: ['7', 0],
           positive: ['4', 0],
-          negative: ['4', 0],
+          negative: ['5', 0],
           latent_image: ['901', 0],
         },
         _meta: { title: 'KSampler' },
@@ -2799,7 +2790,9 @@ export function buildWorkflowScaffoldForModel(
 ): WorkflowScaffoldResult {
   const resolvedTokens = resolveBindingTokens(tokens);
   const category = resolveScaffoldCategory(model);
-  const useKleinComposeScaffold = options?.tool === 'compose' && isFluxKleinModel(model);
+  const useKleinEditScaffold =
+    isFluxKleinModel(model) &&
+    (options?.tool === 'compose' || options?.tool === 'refine' || options?.tool === 'imagePrompt');
   const useBooguComposeScaffold = options?.tool === 'compose' && isBooguEditModel(model);
   const useZImageImg2imgScaffold = isZImageModel(model) && isZImageImg2imgQueueTool(options?.tool);
   const useQwenComposeScaffold =
@@ -2812,7 +2805,7 @@ export function buildWorkflowScaffoldForModel(
   const useLightningScaffold = category === 'qwen' && isQwenLightningModel(model);
   const useCheckpointScaffold =
     category === 'qwen' && usesQwenCheckpointLoader(model) && !useLightningScaffold;
-  const graph = useKleinComposeScaffold
+  const graph = useKleinEditScaffold
     ? fluxKleinEditScaffold(resolvedTokens, model)
     : useBooguComposeScaffold
       ? booguEditScaffold(resolvedTokens, {
@@ -2820,9 +2813,7 @@ export function buildWorkflowScaffoldForModel(
           turbo: isBooguEditTurboModel(model),
         })
       : useZImageImg2imgScaffold
-        ? zImageImg2imgScaffold(resolvedTokens, {
-            multiFigure: options?.tool === 'compose',
-          })
+        ? zImageImg2imgScaffold(resolvedTokens)
         : useQwenComposeScaffold
           ? qwenEditComposeScaffold(resolvedTokens, model)
           : useInstructPix2pixScaffold
@@ -2869,13 +2860,15 @@ export function buildWorkflowScaffoldForModel(
   const videoLatentClass = category === 'video' ? resolveVideoLatentClass(model) : null;
   const notes = [
     'Starter graph with app placeholders — verify loader filenames match your ComfyUI models folder.',
-    useKleinComposeScaffold
-      ? 'Klein Compose scaffold uses EmptyFlux2LatentImage + ReferenceLatent (instruction edit, denoise 1). Figure 1–4 attach via ReferenceLatent at queue time — not soft img2img.'
+    useKleinEditScaffold
+      ? options?.tool === 'compose'
+        ? 'Klein Compose scaffold uses EmptyFlux2LatentImage + ReferenceLatent (instruction edit, denoise 1). Extra figures attach via ReferenceLatent at queue time — not soft img2img.'
+        : 'Klein Refine / Image→Prompt scaffold uses EmptyFlux2LatentImage + ReferenceLatent (instruction edit, denoise 1) — not soft img2img.'
       : useBooguComposeScaffold
-        ? 'Boogu Edit Compose uses TextEncodeBooguEdit + EmptyLatentImage (denoise 1). Figure 1–4 wire to images.image_1…images.image_4 at queue time — vision + reference latents.'
+        ? 'Boogu Edit Compose uses TextEncodeBooguEdit + EmptyLatentImage (denoise 1). Figure 1–4 wire to images.image_1…images.image_4 — vision + reference latents.'
         : useZImageImg2imgScaffold
           ? options?.tool === 'compose'
-            ? 'Z-Image Compose uses Figure 1 img2img (VAEEncode → KSampler, soft denoise ~0.65). Figures 2–4 are prompt references only — no vision encode stack.'
+            ? 'Z-Image Compose uses Figure 1 img2img (VAEEncode → KSampler, soft denoise ~0.65). Extra figures are prompt-only — no unused LoadImage nodes.'
             : 'Z-Image Refine uses VAEEncode img2img (soft denoise ~0.65). Upload a reference image — instruction edits in text, not ReferenceLatent.'
           : useQwenComposeScaffold
             ? 'Qwen Edit Compose scaffold uses EmptySD3LatentImage + TextEncodeQwenImageEditPlus (no encode VAE). Figure 1–4 attach via ReferenceLatent + external VAEEncode at queue time — denoise 1.'
@@ -2883,7 +2876,7 @@ export function buildWorkflowScaffoldForModel(
               ? isBooguEditModel(model)
                 ? isBooguEditTurboModel(model)
                   ? 'Boogu Edit Turbo uses TextEncodeBooguEdit (empty negative) — UNET-only, no AuraFlow (CFG 1, 4 steps). Do not stack Lightning or turbo-distillation LoRAs; the Edit Turbo weights are already distilled.'
-                  : 'Boogu Edit scaffold uses TextEncodeBooguEdit + EmptyLatentImage (denoise 1). Wire Figure 1 via images.image_1 at queue time — reference latents preserve identity under CFG.'
+                  : 'Boogu Edit scaffold uses TextEncodeBooguEdit + EmptyLatentImage (denoise 1). Figure 1 soft-wires to images.image_1 — reference latents preserve identity under CFG.'
                 : isQwenEditModel(model)
                   ? isQwenLightningModel(model)
                     ? 'Lightning edit scaffold uses TextEncodeQwenImageEditPlus + EmptyLatent + Lightning LoRA (denoise 1). Figure 1–4 LoadImages use {{INPUT_IMAGE}}…{{INPUT_IMAGE_4}} but encode slots stay empty for Generate; Compose/Refine queue wires refs when you upload sources.'

@@ -41,10 +41,22 @@ describe("workflow scaffold", () => {
     assert.match(result.notes.join(" "), /ReferenceLatent/i);
   });
 
+  it("builds Klein Refine / Image→Prompt scaffolds as ReferenceLatent instruction edit", () => {
+    for (const tool of ["refine", "imagePrompt"] as const) {
+      const result = buildWorkflowScaffoldForModel("flux-2-klein-9b", undefined, { tool });
+      assert.match(result.json, /ReferenceLatent/);
+      assert.match(result.json, /EmptyFlux2LatentImage/);
+      assert.match(result.json, /VAEEncode/);
+      assert.doesNotMatch(result.json, /"denoise": 0\./);
+      assert.match(result.notes.join(" "), /ReferenceLatent/i);
+    }
+  });
+
   it("builds flux-dev scaffold with clip_l + t5xxl DualCLIP", () => {
     const result = buildWorkflowScaffoldForModel("flux-dev");
     assert.match(result.json, /clip_l\.safetensors/);
     assert.match(result.json, /t5xxl_fp16\.safetensors/);
+    assert.match(result.json, /ae\.safetensors/);
     assert.match(result.json, /EmptySD3LatentImage/);
     assert.match(result.json, /FluxGuidance/);
     assert.match(result.json, /"cfg": 1/);
@@ -110,14 +122,14 @@ describe("workflow scaffold", () => {
     assert.match(result.notes.join(" "), /ReferenceLatent/i);
   });
 
-  it("builds Z-Image Compose scaffold as Figure 1 img2img", () => {
+  it("builds Z-Image Compose scaffold as single-image img2img", () => {
     const result = buildWorkflowScaffoldForModel("z-image-turbo", undefined, {
       tool: "compose",
     });
     assert.match(result.json, /ModelSamplingAuraFlow/);
     assert.match(result.json, /VAEEncode/);
-    assert.match(result.json, /Figure 1/);
-    assert.match(result.json, /Figure 2/);
+    assert.match(result.json, /Input Image/);
+    assert.doesNotMatch(result.json, /Figure 2/);
     assert.doesNotMatch(result.json, /EmptySD3LatentImage/);
     assert.match(result.notes.join(" "), /img2img/i);
   });
@@ -168,6 +180,7 @@ describe("workflow scaffold", () => {
     assert.match(result.json, /"type": "boogu"/);
     assert.match(result.json, /EmptyLatentImage/);
     assert.match(result.json, /ModelSamplingAuraFlow/);
+    assert.match(result.json, /"images\.image_1"/);
     assert.match(result.notes.join(" "), /TextEncodeBooguEdit/i);
   });
 
@@ -189,6 +202,8 @@ describe("workflow scaffold", () => {
     assert.match(result.json, /TextEncodeBooguEdit/);
     assert.match(result.json, /Figure 1/);
     assert.match(result.json, /Figure 4/);
+    assert.match(result.json, /"images\.image_1"/);
+    assert.match(result.json, /"images\.image_4"/);
     assert.match(result.notes.join(" "), /image_1/i);
   });
 
@@ -312,6 +327,16 @@ describe("workflow scaffold", () => {
     assert.match(result.json, /CheckpointLoaderSimple/);
     assert.match(result.json, /TextEncodeQwenImageEditPlus/);
     assert.match(result.json, /VAEEncode/);
+    assert.match(result.json, /ModelSamplingAuraFlow/);
+    assert.match(result.json, /Qwen Edit Encode \(\+\)/);
+    assert.match(result.json, /Qwen Edit Encode \(−\)/);
+    const graph = JSON.parse(result.json) as Record<
+      string,
+      { inputs?: { model?: [string, number]; positive?: [string, number]; negative?: [string, number] } }
+    >;
+    assert.deepEqual(graph["8"]?.inputs?.model, ["7", 0]);
+    assert.deepEqual(graph["8"]?.inputs?.positive, ["4", 0]);
+    assert.deepEqual(graph["8"]?.inputs?.negative, ["5", 0]);
   });
 
   it("builds rapid aio SFW/NSFW T2I scaffolds from checkpoint loader (no UNET)", () => {

@@ -937,7 +937,7 @@ export function softBindScaffoldFromInventory(
   }
 
   const lightningLora =
-    isLightningDistilledModel(model) || isLightningModelId(model) || model === 'flux-schnell'
+    isLightningDistilledModel(model) || isLightningModelId(model)
       ? pickLightningLoraFromInventory(model, inventory.loras)
       : undefined;
 
@@ -1409,7 +1409,7 @@ function softFillLightningTokenForGraph(
   tokens: CustomWorkflowToken[],
   inventory?: ComfyUiModelLists | null
 ): CustomWorkflowToken[] {
-  if (!isLightningDistilledModel(model) && !isLightningModelId(model) && model !== 'flux-schnell') {
+  if (!isLightningDistilledModel(model) && !isLightningModelId(model)) {
     return tokens;
   }
   if (hasMatchingBoundLightningToken(tokens, model)) {

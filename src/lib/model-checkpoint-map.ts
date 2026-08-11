@@ -99,8 +99,9 @@ export const SUGGESTED_MODEL_VAE_MAP: ModelVaeMap = {
   'flux-2-klein-4b-distilled': 'flux2-vae.safetensors',
   'flux-2-klein-9b': 'flux2-vae.safetensors',
   'flux-2-klein-9b-distilled': 'flux2-vae.safetensors',
-  // ae.safetensors is UltraReal-only — do not map flux-dev/Schnell here or it
-  // sticky-binds into Settings and leaks onto Qwen Edit (gray mosaic decode).
+  // Keep UltraReal in the sticky Settings map. FLUX.1 Dev/Schnell get ae via
+  // suggestedVaeFilenameForModel() (not this map) so Settings merge won't leak
+  // ae onto Qwen Edit as a default sticky VAE.
   'flux-ultrareal-v4': 'ae.safetensors',
   'qwen-image-2512': 'qwen_image_vae.safetensors',
   'qwen-image-2512-lightning-4': 'qwen_image_vae.safetensors',
@@ -274,8 +275,8 @@ export function suggestedVaeFilenameForModel(model: ComfyImageModel | string): s
   if (fromHint) {
     return fromHint;
   }
-  // ae.safetensors is reserved for UltraReal Fine-Tune v4 only.
-  if (isFluxFineTuneCheckpointModel(model)) {
+  // UltraReal Fine-Tune v4 and classic FLUX.1 (Dev/Schnell/inpaint) use ae.
+  if (isFluxFineTuneCheckpointModel(model) || isFlux1FamilyModel(model)) {
     return 'ae.safetensors';
   }
   if (isFluxKleinModel(model) || model === 'flux2') {
@@ -296,10 +297,9 @@ export function isVaeFilenameIncompatibleWithModel(
   if (!actual) {
     return false;
   }
-  // ae is UltraReal-only in this studio — never leave it on Klein / FLUX.2 / Qwen / etc.
-  // Boogu Edit and Z-Image intentionally use Flux AE (ae.safetensors or flux1_vae_bf16).
+  // ae is for UltraReal / FLUX.1 / Boogu / Z-Image — never leave it on Klein / FLUX.2 / Qwen.
   if (/^ae\.safetensors$/i.test(actual) && !isFluxFineTuneCheckpointModel(model)) {
-    if (isBooguFamilyModel(model) || isZImageModel(model)) {
+    if (isBooguFamilyModel(model) || isZImageModel(model) || isFlux1FamilyModel(model)) {
       return false;
     }
     return true;

@@ -107,9 +107,10 @@ describe("model checkpoint map", () => {
     );
   });
 
-  it("uses ae.safetensors only for UltraReal; Klein keeps flux2-vae", () => {
+  it("uses ae.safetensors for FLUX.1 / UltraReal; Klein keeps flux2-vae", () => {
     assert.equal(suggestedVaeFilenameForModel("flux-ultrareal-v4"), "ae.safetensors");
-    assert.equal(suggestedVaeFilenameForModel("flux-dev"), undefined);
+    assert.equal(suggestedVaeFilenameForModel("flux-dev"), "ae.safetensors");
+    assert.equal(suggestedVaeFilenameForModel("flux-schnell"), "ae.safetensors");
     assert.equal(suggestedVaeFilenameForModel("flux-2-klein-9b"), "flux2-vae.safetensors");
     assert.equal(
       isVaeFilenameIncompatibleWithModel("flux-ultrareal-v4", "flux2-vae.safetensors"),
@@ -125,6 +126,10 @@ describe("model checkpoint map", () => {
     );
     assert.equal(
       isVaeFilenameIncompatibleWithModel("flux-dev", "ae.safetensors"),
+      false,
+    );
+    assert.equal(
+      isVaeFilenameIncompatibleWithModel("flux-dev", "flux2-vae.safetensors"),
       true,
     );
   });
