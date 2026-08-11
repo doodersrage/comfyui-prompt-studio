@@ -1,15 +1,18 @@
 'use client';
 
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import type { ExperimentGroup } from '@/lib/experiment-groups';
 
 export const EXPERIMENT_VIRTUALIZE_THRESHOLD = 48;
+/** Initial estimate only — measureElement corrects per-row height. */
 export const EXPERIMENT_ROW_ESTIMATE_PX = 380;
 
 type VirtualizedExperimentListProps = {
   groups: ExperimentGroup[];
   renderGroup: (group: ExperimentGroup) => ReactNode;
+  /** Remeasure when expand/collapse changes row height. */
+  measureKey?: string | number | null;
 };
 
 export function shouldVirtualizeExperimentList(count: number): boolean {
@@ -19,6 +22,7 @@ export function shouldVirtualizeExperimentList(count: number): boolean {
 export default function VirtualizedExperimentList({
   groups,
   renderGroup,
+  measureKey = null,
 }: VirtualizedExperimentListProps) {
   const parentRef = useRef<HTMLDivElement>(null);
   const [scrollMargin, setScrollMargin] = useState(0);
@@ -39,6 +43,10 @@ export default function VirtualizedExperimentList({
     scrollMargin,
   });
 
+  useEffect(() => {
+    virtualizer.measure();
+  }, [groups.length, measureKey, virtualizer]);
+
   return (
     <div ref={parentRef} className="relative mt-4 w-full">
       <div className="relative w-full" style={{ height: `${virtualizer.getTotalSize()}px` }}>
@@ -49,13 +57,15 @@ export default function VirtualizedExperimentList({
           }
           return (
             <div
-              key={group.id}
-              className="absolute left-0 top-0 w-full pb-[var(--block-gap)]"
+              key={virtualRow.key}
+              data-index={virtualRow.index}
+              ref={virtualizer.measureElement}
+              className="absolute left-0 top-0 w-full"
               style={{
                 transform: `translateY(${virtualRow.start - virtualizer.options.scrollMargin}px)`,
               }}
             >
-              {renderGroup(group)}
+              <div className="pb-[var(--block-gap)]">{renderGroup(group)}</div>
             </div>
           );
         })}

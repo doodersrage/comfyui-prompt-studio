@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  COMFYUI_ESSENTIAL_SECTION_IDS,
+  comfyUiSectionsForEssentials,
   filterComfyUiSettingsSections,
   normalizeComfyUiSettingsSection,
   settingsComfyUiSectionHref,
@@ -58,6 +60,21 @@ describe("settings-comfyui-nav", () => {
     assert.equal(
       settingsComfyUiSectionHref("inference-engine"),
       "/settings?tab=comfyui&section=inference-engine",
+    );
+  });
+
+  it("limits jump-nav sections in essentials mode", () => {
+    const essentials = comfyUiSectionsForEssentials(true);
+    assert.equal(essentials.length, COMFYUI_ESSENTIAL_SECTION_IDS.length);
+    assert.ok(essentials.every((section) => COMFYUI_ESSENTIAL_SECTION_IDS.includes(section.id)));
+    assert.equal(
+      filterComfyUiSettingsSections("kohya", { essentialsOnly: true }).length,
+      0,
+    );
+    assert.ok(
+      filterComfyUiSettingsSections("download", { essentialsOnly: true }).some(
+        (section) => section.id === "model-assets",
+      ),
     );
   });
 });

@@ -71,22 +71,23 @@ export default function ExperimentDashboardPanel() {
     const winnerEntry = winner
       ? group.entries.find(entry => entry.id === winner.entryId)
       : undefined;
+    const expanded = expandedGroupId === group.id && expandedGroup?.id === group.id;
     return (
-      <li
+      <article
         key={group.id}
-        className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)]/40 p-4"
+        className="rounded-[var(--radius-xl)] border border-[var(--border-subtle)]/80 bg-[color-mix(in_oklab,var(--surface)_88%,transparent)] p-5 shadow-[inset_0_1px_0_rgb(255_255_255_/0.03)]"
       >
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0 flex-1 space-y-1.5">
             <p className="text-sm font-medium text-[var(--text-primary)]">{group.label}</p>
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
+            <p className="type-caption text-[var(--text-muted)]">
               {group.entries.length} outputs · seeds: {group.variants.seeds.join(', ') || '—'}
               {group.variants.cfgValues.length
                 ? ` · CFG: ${group.variants.cfgValues.join(', ')}`
                 : ''}
             </p>
             {winnerEntry ? (
-              <p className="mt-1 text-xs text-emerald-300">
+              <p className="type-caption text-emerald-300/90">
                 Winner: seed {winnerEntry.queueParams?.seed ?? '—'}
                 {winnerEntry.reviewRating ? ` · rated ${winnerEntry.reviewRating}/5` : ''}
               </p>
@@ -95,31 +96,33 @@ export default function ExperimentDashboardPanel() {
           <div className="flex flex-wrap gap-2">
             <Button
               variant="ghost"
-              className="!min-h-8 px-2 text-xs"
+              size="sm"
               onClick={() =>
                 setExpandedGroupId(previous => (previous === group.id ? null : group.id))
               }
             >
-              {expandedGroupId === group.id ? 'Hide' : 'Expand'}
+              {expanded ? 'Hide actions' : 'Expand'}
             </Button>
             <Link
               href={`/gallery?q=${encodeURIComponent(group.parentPrompt.slice(0, 120))}`}
-              className="ui-btn-secondary !min-h-8 px-3 text-xs"
+              className="ui-btn-secondary ui-btn-sm"
             >
               Open in gallery
             </Link>
           </div>
         </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {group.entries.slice(0, 4).map(entry => {
             const thumb = galleryEntryThumbUrls(entry)[0];
             const isWinner = winner?.entryId === entry.id;
             return (
               <div
                 key={entry.id}
-                className={`overflow-hidden rounded-lg border ${
-                  isWinner ? 'border-emerald-500/60' : 'border-[var(--border-subtle)]'
+                className={`overflow-hidden rounded-[var(--radius-lg)] border bg-[var(--bg-base)]/50 ${
+                  isWinner
+                    ? 'border-emerald-500/50 shadow-[0_0_0_1px_rgba(16,185,129,0.12)]'
+                    : 'border-[var(--border-subtle)]/80'
                 }`}
               >
                 {thumb ? (
@@ -132,22 +135,20 @@ export default function ExperimentDashboardPanel() {
                     className="aspect-square w-full object-cover"
                   />
                 ) : (
-                  <div className="flex aspect-square items-center justify-center text-[10px] text-[var(--text-muted)]">
+                  <div className="flex aspect-square items-center justify-center text-xs text-[var(--text-muted)]">
                     No preview
                   </div>
                 )}
-                <div className="space-y-1 p-2">
-                  <p className="text-[10px] text-[var(--text-muted)]">
+                <div className="space-y-2 p-2.5">
+                  <p className="type-caption text-[var(--text-muted)]">
                     seed {entry.queueParams?.seed ?? '—'}
                     {entry.reviewRating ? ` · ${entry.reviewRating}/5` : ''}
                   </p>
-                  <button
+                  <Button
                     type="button"
-                    className={`w-full rounded border px-2 py-1 text-[10px] ${
-                      isWinner
-                        ? 'border-emerald-500/50 text-emerald-200'
-                        : 'border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--border-default)]'
-                    }`}
+                    variant={isWinner ? 'secondary' : 'ghost'}
+                    size="sm"
+                    className="w-full"
                     onClick={() => {
                       if (isWinner) {
                         clearExperimentWinner(group.id);
@@ -158,18 +159,18 @@ export default function ExperimentDashboardPanel() {
                     }}
                   >
                     {isWinner ? 'Winner ✓' : 'Crown winner'}
-                  </button>
+                  </Button>
                 </div>
               </div>
             );
           })}
         </div>
 
-        {expandedGroupId === group.id && expandedGroup?.id === group.id ? (
-          <div className="mt-4 flex flex-wrap gap-2 border-t border-[var(--border-subtle)] pt-4">
+        {expanded ? (
+          <div className="mt-5 flex flex-wrap gap-2 border-t border-[var(--border-subtle)]/70 pt-4">
             <Button
               variant="secondary"
-              className="!min-h-8"
+              size="sm"
               loading={visionRankingGroupId === group.id}
               disabled={group.entries.length < 2}
               onClick={() => {
@@ -193,7 +194,7 @@ export default function ExperimentDashboardPanel() {
             </Button>
             <Button
               variant="secondary"
-              className="!min-h-8"
+              size="sm"
               disabled={group.entries.length < 2}
               onClick={() => downloadCompareExport(group.entries.slice(0, 4), 'html')}
             >
@@ -201,7 +202,7 @@ export default function ExperimentDashboardPanel() {
             </Button>
             <Button
               variant="secondary"
-              className="!min-h-8"
+              size="sm"
               disabled={group.entries.length < 2}
               onClick={() => downloadCompareExport(group.entries.slice(0, 4), 'json')}
             >
@@ -209,7 +210,7 @@ export default function ExperimentDashboardPanel() {
             </Button>
             <Button
               variant="secondary"
-              className="!min-h-8"
+              size="sm"
               onClick={() => {
                 setStatus('Re-queueing experiment group…');
                 void requeueComfyJobs(
@@ -241,17 +242,16 @@ export default function ExperimentDashboardPanel() {
             </Button>
           </div>
         ) : null}
-      </li>
+      </article>
     );
   }
 
   return (
-    <ToolSection title="Experiment dashboard">
-      <p className="text-sm text-[var(--text-muted)]">
-        Groups gallery outputs by shared prompt text and tracks seed / CFG / steps variants. Crown a
-        winner, compare outputs, or re-queue the group.
-      </p>
-      <div className="mt-3 flex flex-wrap gap-2">
+    <ToolSection
+      title="Experiment dashboard"
+      description="Groups gallery outputs by shared prompt text and tracks seed / CFG / steps variants. Crown a winner, compare outputs, or re-queue the group."
+    >
+      <div className="flex flex-wrap gap-2">
         <Button variant="secondary" loading={loading} onClick={() => void refresh()}>
           Refresh experiments
         </Button>
@@ -267,9 +267,15 @@ export default function ExperimentDashboardPanel() {
           action={{ label: 'Open Gallery', href: '/gallery' }}
         />
       ) : useVirtual ? (
-        <VirtualizedExperimentList groups={groups} renderGroup={renderGroup} />
+        <VirtualizedExperimentList
+          groups={groups}
+          renderGroup={renderGroup}
+          measureKey={expandedGroupId}
+        />
       ) : (
-        <ul className="mt-4 space-y-3">{groups.map(group => renderGroup(group))}</ul>
+        <div className="mt-4 flex flex-col gap-[var(--block-gap)]">
+          {groups.map(group => renderGroup(group))}
+        </div>
       )}
 
       {status ? <p className="mt-4 text-sm text-emerald-400">{status}</p> : null}

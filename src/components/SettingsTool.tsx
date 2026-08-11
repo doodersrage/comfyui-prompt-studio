@@ -149,6 +149,7 @@ const PLAYBOOK_SECTION_CHECKLISTS: Partial<Record<ComfyUiSettingsSectionId, stri
 export default function SettingsTool() {
   const { mounted, settings, updateSettings } = useComfyUiSettings();
   const workspaceMode = useWorkspaceMode();
+  // Start in essentials view for every workspace mode — full Settings is a click away.
   const [showAllSettings, setShowAllSettings] = useState(false);
   const [tab, setTab] = useState<SettingsTab>('overview');
   const [comfyUiSection, setComfyUiSection] = useState<ComfyUiSettingsSectionId | null>(null);
@@ -204,7 +205,7 @@ export default function SettingsTool() {
     [workspaceMode, showAllSettings]
   );
 
-  const slimSettings = workspaceMode === 'simple' && !showAllSettings;
+  const slimSettings = !showAllSettings;
   const description = useSettingsPageDescriptionRich(slimSettings);
 
   useEffect(() => {
@@ -773,7 +774,7 @@ export default function SettingsTool() {
               >
                 All settings…
               </Button>
-            ) : workspaceMode === 'simple' && showAllSettings ? (
+            ) : (
               <Button
                 type="button"
                 variant="ghost"
@@ -783,7 +784,7 @@ export default function SettingsTool() {
               >
                 Show essentials only
               </Button>
-            ) : null
+            )
           }
         />
         <div className="min-w-0 space-y-[var(--section-gap)]">
@@ -797,6 +798,13 @@ export default function SettingsTool() {
               sharedSettings={sharedSettings}
               updateSharedSettings={updateSharedSettings}
               setStatus={setStatus}
+              slimSettings={slimSettings}
+              onOpenComfyUiSection={section => {
+                setTab('comfyui');
+                setComfyUiSection(section);
+                window.setTimeout(() => scrollToComfyUiSection(section), 80);
+              }}
+              onShowAllSettings={() => setShowAllSettings(true)}
             />
           )}
 
@@ -828,6 +836,8 @@ export default function SettingsTool() {
 
           {tab === 'comfyui' && (
             <SettingsComfyUiTab
+              slimSettings={slimSettings}
+              onShowAllSettings={() => setShowAllSettings(true)}
               comfyUiSection={comfyUiSection}
               handleComfyUiSectionJump={handleComfyUiSectionJump}
               sharedSettings={sharedSettings}

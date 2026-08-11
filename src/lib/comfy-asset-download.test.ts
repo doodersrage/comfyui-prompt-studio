@@ -11,6 +11,7 @@ import {
 } from "./comfy-asset-catalog";
 import {
   __resetComfyAssetJobsForTests,
+  cancelComfyAssetDownload,
   getComfyAssetJob,
   isRetryableDownloadError,
   retryComfyAssetDownload,
@@ -377,6 +378,74 @@ describe("comfy asset download", () => {
         }
         await new Promise((resolve) => setTimeout(resolve, 20));
       }
+      const done = getComfyAssetJob(job.id);
+      assert.ok(
+        done?.status === "complete" || /SHA-256|mismatch/i.test(done?.error ?? ""),
+        done?.error,
+      );
+    } finally {
+      await fsp.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("cancels a queued download and resumes from .partial via Range", async () => {
+    const root = await fsp.mkdtemp(path.join(os.tmpdir(), "comfy-dl-cancel-"));
+    try {
+      await fsp.mkdir(path.join(root, "models", "upscale_models"), {
+        recursive: true,
+      });
+      const payload = Buffer.alloc(8 * 1024, 7);
+      const job = startComfyAssetDownload({
+        assetId: "ultrasharp-4x",
+        root,
+        deferStart: true,
+        fetchImpl: async () => new Response("should-not-run"),
+      });
+      const cancelled = cancelComfyAssetDownload(job.id);
+      assert.equal(cancelled?.status, "cancelled");
+      assert.equal(isRetryableDownloadError("Cancelled."), false);
+
+      const { partialPath } = resolveAssetDestinationPath({
+        root,
+        kind: "upscale",
+        filename: "4x-UltraSharp.pth",
+      });
+      await fsp.writeFile(partialPath, payload.subarray(0, 1024));
+
+      let rangeHeader = "";
+      const restarted = retryComfyAssetDownload(job.id, {
+        fetchImpl: async (_url, init) => {
+          rangeHeader = new Headers(init?.headers).get("range") ?? "";
+          const start = rangeHeader.startsWith("bytes=")
+            ? Number(rangeHeader.slice("bytes=".length).split("-")[0] || 0)
+            : 0;
+          const body = payload.subarray(Number.isFinite(start) ? start : 0);
+          return new Response(body, {
+            status: start > 0 ? 206 : 200,
+            headers: {
+              "content-length": String(body.length),
+              ...(start > 0
+                ? {
+                    "content-range": `bytes ${start}-${payload.length - 1}/${payload.length}`,
+                  }
+                : {}),
+            },
+          });
+        },
+      });
+      assert.equal(restarted?.status, "queued");
+      await runComfyAssetDownloadJob(job.id);
+      for (let i = 0; i < 100; i += 1) {
+        const current = getComfyAssetJob(job.id);
+        if (current?.status === "complete" || current?.status === "error") {
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      assert.ok(
+        rangeHeader.startsWith("bytes=1024-"),
+        `expected Range resume, got ${rangeHeader}`,
+      );
       const done = getComfyAssetJob(job.id);
       assert.ok(
         done?.status === "complete" || /SHA-256|mismatch/i.test(done?.error ?? ""),

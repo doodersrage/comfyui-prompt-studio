@@ -11,7 +11,8 @@ import {
   resolveAssetDestinationPath,
 } from './comfy-asset-paths';
 
-export type ComfyAssetJobStatus = 'queued' | 'downloading' | 'verifying' | 'complete' | 'error';
+export type ComfyAssetJobStatus =
+  'queued' | 'downloading' | 'verifying' | 'complete' | 'error' | 'cancelled';
 
 export type ComfyAssetJob = {
   id: string;
@@ -49,6 +50,7 @@ type ComfyAssetDownloadRuntime = {
   runningJobIds: Set<string>;
   downloadHandles: Set<Promise<void>>;
   downloadQueue: Promise<void>;
+  abortControllers: Map<string, AbortController>;
 };
 
 const RUNTIME_KEY = Symbol.for('comfy.promptStudio.assetDownloadRuntime');
@@ -64,6 +66,7 @@ function getRuntime(): ComfyAssetDownloadRuntime {
       runningJobIds: new Set(),
       downloadHandles: new Set(),
       downloadQueue: Promise.resolve(),
+      abortControllers: new Map(),
     };
     queueMicrotask(() => {
       resumeInterruptedComfyAssetDownloads();
@@ -197,11 +200,27 @@ function jobRetryDelayMs(runAttempt: number): number {
   return base + Math.floor(Math.random() * 1_000);
 }
 
+function formatBytesForJob(value: number): string {
+  if (value < 1024) {
+    return `${value} B`;
+  }
+  if (value < 1024 * 1024) {
+    return `${(value / 1024).toFixed(1)} KB`;
+  }
+  if (value < 1024 * 1024 * 1024) {
+    return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+  }
+  return `${(value / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
 export function isRetryableDownloadError(
   message: string,
   err?: Pick<NodeJS.ErrnoException, 'code'>
 ): boolean {
   if (err?.code === 'EACCES' || err?.code === 'EPERM') {
+    return false;
+  }
+  if (/^cancelled\.?$/i.test(message.trim())) {
     return false;
   }
   if (
@@ -323,7 +342,7 @@ export function startComfyAssetDownload(options: StartComfyAssetDownloadOptions)
     ) {
       return existing;
     }
-    if (existing.status === 'error') {
+    if (existing.status === 'error' || existing.status === 'cancelled') {
       const restarted = retryComfyAssetDownload(existing.id, {
         deferStart: options.deferStart,
         fetchImpl: options.fetchImpl,
@@ -370,14 +389,36 @@ export function startComfyAssetDownload(options: StartComfyAssetDownloadOptions)
   return job;
 }
 
-/** Restart a failed download (same job id). */
+/** Cancel a queued/active download. Keeps `.partial` for a later resume. */
+export function cancelComfyAssetDownload(jobId: string): ComfyAssetJob | undefined {
+  const runtime = getRuntime();
+  const job = runtime.jobs.get(jobId);
+  if (!job) {
+    return undefined;
+  }
+  if (job.status !== 'queued' && job.status !== 'downloading' && job.status !== 'verifying') {
+    return job;
+  }
+  const controller = runtime.abortControllers.get(jobId);
+  controller?.abort();
+  runtime.abortControllers.delete(jobId);
+  runtime.pendingDownloadParams.delete(jobId);
+  runtime.runningJobIds.delete(jobId);
+  return saveJob({
+    ...job,
+    status: 'cancelled',
+    error: 'Cancelled.',
+  });
+}
+
+/** Restart a failed or cancelled download (same job id). Resumes from `.partial` when present. */
 export function retryComfyAssetDownload(
   jobId: string,
   options: Pick<StartComfyAssetDownloadOptions, 'deferStart' | 'fetchImpl'> = {}
 ): ComfyAssetJob | undefined {
   const runtime = getRuntime();
   const job = runtime.jobs.get(jobId);
-  if (!job || job.status !== 'error') {
+  if (!job || (job.status !== 'error' && job.status !== 'cancelled')) {
     return job;
   }
 
@@ -460,14 +501,34 @@ function scheduleComfyAssetDownloadJob(jobId: string, params: DownloadParams): P
   return handle;
 }
 
+function jobWasCancelled(jobId: string): boolean {
+  return getRuntime().jobs.get(jobId)?.status === 'cancelled';
+}
+
+function registerAbortController(jobId: string): AbortController {
+  const runtime = getRuntime();
+  runtime.abortControllers.get(jobId)?.abort();
+  const controller = new AbortController();
+  runtime.abortControllers.set(jobId, controller);
+  return controller;
+}
+
+function clearAbortController(jobId: string): void {
+  getRuntime().abortControllers.delete(jobId);
+}
+
 async function fetchWithRetries(input: {
   jobId: string;
   url: string;
   fetchImpl: typeof fetch;
+  rangeStart?: number;
 }): Promise<Response> {
   let lastError: Error | null = null;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+    if (jobWasCancelled(input.jobId)) {
+      throw new Error('Cancelled.');
+    }
     const job = getRuntime().jobs.get(input.jobId);
     if (job) {
       saveJob({
@@ -478,19 +539,23 @@ async function fetchWithRetries(input: {
       });
     }
 
-    const connectController = new AbortController();
+    const connectController = registerAbortController(input.jobId);
     const connectTimer = setTimeout(() => connectController.abort(), CONNECT_TIMEOUT_MS);
     const overallTimer = setTimeout(() => connectController.abort(), TOTAL_TIMEOUT_MS);
 
     try {
+      const headers = buildDownloadHeaders();
+      if (input.rangeStart && input.rangeStart > 0) {
+        headers.Range = `bytes=${input.rangeStart}-`;
+      }
       const response = await input.fetchImpl(withDownloadQuery(input.url), {
         redirect: 'follow',
-        headers: buildDownloadHeaders(),
+        headers,
         signal: connectController.signal,
       });
       clearTimeout(connectTimer);
 
-      if (response.ok) {
+      if (response.ok || response.status === 206) {
         clearTimeout(overallTimer);
         // Caller owns the body; keep overall timer tied via stall watchdog instead.
         // Clear overall here — body read has its own stall detection.
@@ -526,6 +591,9 @@ async function fetchWithRetries(input: {
     } catch (error) {
       clearTimeout(connectTimer);
       clearTimeout(overallTimer);
+      if (jobWasCancelled(input.jobId)) {
+        throw new Error('Cancelled.');
+      }
       const aborted =
         error instanceof Error &&
         (error.name === 'AbortError' ||
@@ -579,43 +647,67 @@ async function runDownload(input: {
   let total: number | null = input.expectedBytes ?? null;
   let lastProgressWrite = 0;
   let contentLength = 0;
+  let keepPartial = false;
 
   try {
     await fsp.mkdir(path.dirname(input.destPath), { recursive: true });
     await fsp.mkdir(input.modelsDir, { recursive: true });
 
+    let rangeStart = 0;
+    try {
+      const partialStat = await fsp.stat(input.partialPath);
+      if (partialStat.isFile() && partialStat.size > 0) {
+        rangeStart = partialStat.size;
+        received = partialStat.size;
+      }
+    } catch {
+      rangeStart = 0;
+    }
+
     saveJob({
       ...current,
       status: 'downloading',
-      progress: 0,
-      error: undefined,
+      progress: rangeStart > 0 && total ? Math.min(0.99, rangeStart / total) : 0,
+      bytesReceived: received,
+      error: rangeStart > 0 ? `Resuming from ${formatBytesForJob(rangeStart)}…` : undefined,
       attempt: 1,
     });
-
-    // Resume-friendly: drop any leftover partial before a fresh attempt chain.
-    try {
-      await fsp.unlink(input.partialPath);
-    } catch {
-      // ignore
-    }
 
     const response = await fetchWithRetries({
       jobId: input.jobId,
       url: input.url,
       fetchImpl: input.fetchImpl,
+      rangeStart: rangeStart > 0 ? rangeStart : undefined,
     });
 
     if (!response.body) {
       throw new Error('Download response had no body.');
     }
 
+    // Server ignored Range — restart from byte 0.
+    if (rangeStart > 0 && response.status === 200) {
+      rangeStart = 0;
+      received = 0;
+      try {
+        await fsp.unlink(input.partialPath);
+      } catch {
+        // ignore
+      }
+    }
+
     contentLength = Number(response.headers.get('content-length') || 0);
     const linkedSize = Number(response.headers.get('x-linked-size') || 0);
+    const contentRange = response.headers.get('content-range') || '';
+    const rangeTotalMatch = /\/(\d+)\s*$/.exec(contentRange);
+    const rangeTotal = rangeTotalMatch ? Number(rangeTotalMatch[1]) : 0;
     // Prefer the largest credible size — HF often sends a short content-length
     // for the first hop while x-linked-size / catalog bytes are the real total.
-    const sizeCandidates = [contentLength, linkedSize, input.expectedBytes ?? 0].filter(
-      value => Number.isFinite(value) && value > 0
-    );
+    const sizeCandidates = [
+      rangeTotal,
+      rangeStart > 0 && contentLength > 0 ? rangeStart + contentLength : contentLength,
+      linkedSize,
+      input.expectedBytes ?? 0,
+    ].filter(value => Number.isFinite(value) && value > 0);
     total = sizeCandidates.length > 0 ? Math.max(...sizeCandidates) : null;
 
     const started = getRuntime().jobs.get(input.jobId);
@@ -624,15 +716,27 @@ async function runDownload(input: {
         ...started,
         status: 'downloading',
         error: undefined,
+        bytesReceived: received,
         bytesTotal: total,
       });
     }
 
-    const file = fs.createWriteStream(input.partialPath);
+    const file = fs.createWriteStream(input.partialPath, {
+      flags: rangeStart > 0 && response.status === 206 ? 'a' : 'w',
+    });
     const reader = response.body.getReader();
 
     try {
       while (true) {
+        if (jobWasCancelled(input.jobId)) {
+          keepPartial = true;
+          try {
+            await reader.cancel('cancelled');
+          } catch {
+            // ignore
+          }
+          throw new Error('Cancelled.');
+        }
         let stallTimer: ReturnType<typeof setTimeout> | undefined;
         let result: ReadableStreamReadResult<Uint8Array>;
         try {
@@ -651,6 +755,7 @@ async function runDownload(input: {
             } catch {
               // ignore
             }
+            keepPartial = true;
             throw new Error(`Download stalled — no data for ${Math.round(STALL_MS / 1000)}s.`);
           }
           throw error;
@@ -729,6 +834,7 @@ async function runDownload(input: {
     }
 
     await fsp.rename(input.partialPath, input.destPath);
+    clearAbortController(input.jobId);
     const done = getRuntime().jobs.get(input.jobId);
     if (done) {
       saveJob({
@@ -742,37 +848,52 @@ async function runDownload(input: {
       });
     }
   } catch (error) {
-    try {
-      await fsp.unlink(input.partialPath);
-    } catch {
-      // ignore cleanup errors
+    const message = error instanceof Error ? error.message : 'Download failed.';
+    const cancelled = /^cancelled\.?$/i.test(message.trim()) || jobWasCancelled(input.jobId);
+    if (!keepPartial && !cancelled && !isRetryableDownloadError(message)) {
+      try {
+        await fsp.unlink(input.partialPath);
+      } catch {
+        // ignore cleanup errors
+      }
     }
+    clearAbortController(input.jobId);
     const failed = getRuntime().jobs.get(input.jobId);
     if (failed) {
-      let message = error instanceof Error ? error.message : 'Download failed.';
+      if (cancelled || failed.status === 'cancelled') {
+        saveJob({
+          ...failed,
+          status: 'cancelled',
+          error: 'Cancelled.',
+          bytesReceived: received,
+          bytesTotal: total,
+        });
+        return;
+      }
+      let nextMessage = message;
       const err = error as NodeJS.ErrnoException;
       if (
         err?.code === 'EACCES' ||
         err?.code === 'EPERM' ||
-        /eacces|permission denied/i.test(message)
+        /eacces|permission denied/i.test(nextMessage)
       ) {
         const root = getComfyUiRoot();
-        message = root
+        nextMessage = root
           ? comfyModelsWriteErrorMessage(root)
           : 'Permission denied writing model files.';
       }
 
       const runAttempt = failed.runAttempt ?? 1;
-      if (isRetryableDownloadError(message, err) && runAttempt < MAX_RUN_ATTEMPTS) {
+      if (isRetryableDownloadError(nextMessage, err) && runAttempt < MAX_RUN_ATTEMPTS) {
         const waitMs = jobRetryDelayMs(runAttempt);
         const nextRunAttempt = runAttempt + 1;
         saveJob({
           ...failed,
           status: 'queued',
-          bytesReceived: 0,
-          progress: 0,
+          bytesReceived: received,
+          progress: total && total > 0 ? Math.min(0.99, received / total) : failed.progress,
           runAttempt: nextRunAttempt,
-          error: `${message} Retrying in ${Math.ceil(waitMs / 1000)}s (run ${nextRunAttempt}/${MAX_RUN_ATTEMPTS})…`,
+          error: `${nextMessage} Retrying in ${Math.ceil(waitMs / 1000)}s (run ${nextRunAttempt}/${MAX_RUN_ATTEMPTS})…`,
         });
         void sleep(waitMs).then(() => {
           const waiting = getRuntime().jobs.get(input.jobId);
@@ -789,7 +910,7 @@ async function runDownload(input: {
         status: 'error',
         bytesReceived: received,
         bytesTotal: total,
-        error: message,
+        error: nextMessage,
       });
     }
   }

@@ -4,7 +4,6 @@ import { useMemo, useState } from 'react';
 import { ChipButton } from '@/components/ui/Field';
 import { accentFocusClass } from '@/components/ui/ToolPageShell';
 import {
-  COMFYUI_SETTINGS_SECTIONS,
   filterComfyUiSettingsSections,
   type ComfyUiSettingsSectionId,
 } from '@/lib/settings-comfyui-nav';
@@ -12,12 +11,21 @@ import {
 export default function ComfyUiSettingsJumpNav({
   activeSection,
   onJump,
+  essentialsOnly = false,
 }: {
   activeSection?: ComfyUiSettingsSectionId | null;
   onJump: (section: ComfyUiSettingsSectionId) => void;
+  essentialsOnly?: boolean;
 }) {
   const [query, setQuery] = useState('');
-  const sections = useMemo(() => filterComfyUiSettingsSections(query), [query]);
+  const sections = useMemo(
+    () => filterComfyUiSettingsSections(query, { essentialsOnly }),
+    [essentialsOnly, query]
+  );
+  const fallbackSections = useMemo(
+    () => filterComfyUiSettingsSections('', { essentialsOnly }),
+    [essentialsOnly]
+  );
 
   return (
     <div className="ui-surface-inset space-y-3">
@@ -25,7 +33,9 @@ export default function ComfyUiSettingsJumpNav({
         <div>
           <p className="type-overline text-[var(--text-muted)]">Jump to</p>
           <p className="type-caption mt-1 text-[var(--text-muted)]">
-            Search or jump within the ComfyUI settings tab.
+            {essentialsOnly
+              ? 'Essentials only — connection, workflows, downloads, and queue basics.'
+              : 'Search or jump within the ComfyUI settings tab.'}
           </p>
         </div>
         <label className="block min-w-[12rem] flex-1 sm:max-w-xs">
@@ -40,7 +50,7 @@ export default function ComfyUiSettingsJumpNav({
         </label>
       </div>
       <div className="flex flex-wrap gap-1.5">
-        {(sections.length ? sections : COMFYUI_SETTINGS_SECTIONS).map(section => (
+        {(sections.length ? sections : fallbackSections).map(section => (
           <ChipButton
             key={section.id}
             active={activeSection === section.id}

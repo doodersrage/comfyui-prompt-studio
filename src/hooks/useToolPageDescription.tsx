@@ -47,11 +47,16 @@ export function useToolSectionDescription(full: string): string | undefined {
 /** Settings full description with env hint (Studio/Full only). */
 export function useSettingsPageDescriptionRich(slimSettings: boolean): ReactNode {
   const mode = useWorkspaceMode();
-  if (mode === 'simple') {
-    const copy = slimSettings
-      ? HUB_PAGE_DESCRIPTIONS.settings
-      : HUB_PAGE_DESCRIPTIONS.settingsExpanded;
+  if (slimSettings) {
+    const copy = HUB_PAGE_DESCRIPTIONS.settings;
     return descriptionForWorkspace(mode, copy.full, copy.simple);
+  }
+  if (mode === 'simple') {
+    return descriptionForWorkspace(
+      mode,
+      HUB_PAGE_DESCRIPTIONS.settingsExpanded.full,
+      HUB_PAGE_DESCRIPTIONS.settingsExpanded.simple
+    );
   }
   return (
     <>

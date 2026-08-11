@@ -21,6 +21,8 @@ import {
   type SystemTrayAssetJob,
   type SystemTrayPrimary,
 } from '@/hooks/useSystemTrayState';
+import { COMFY_ASSET_JOBS_UPDATED_EVENT } from '@/lib/comfy-asset-events';
+import { settingsComfyUiSectionHref } from '@/lib/settings-comfyui-nav';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 
 type TrayNoticeTone = AppToast['tone'];
@@ -269,13 +271,30 @@ function GalleryTrayRow({ entry }: { entry: ComfyGalleryEntry }) {
   );
 }
 
-function AssetTrayRow({ job }: { job: SystemTrayAssetJob }) {
+function AssetTrayRow({
+  job,
+  onCancel,
+}: {
+  job: SystemTrayAssetJob;
+  onCancel: (jobId: string) => void;
+}) {
   const percent = Math.round(job.progress * 100);
   return (
     <li className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/80 px-3 py-2.5">
-      <p className="truncate text-sm text-[var(--text-primary)]">{job.label}</p>
-      <p className="mt-1 type-caption text-[var(--text-tertiary)]">{assetStatusLabel(job)}</p>
-      {job.status === 'downloading' ? (
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate text-sm text-[var(--text-primary)]">{job.label}</p>
+          <p className="mt-1 type-caption text-[var(--text-tertiary)]">{assetStatusLabel(job)}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => onCancel(job.id)}
+          className="shrink-0 rounded-lg border border-[var(--border-subtle)] px-2 py-1 text-[11px] text-[var(--text-secondary)] transition hover:border-[var(--border-default)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
+        >
+          Cancel
+        </button>
+      </div>
+      {job.status === 'downloading' || job.status === 'verifying' ? (
         <div className="mt-2">
           <TrayProgressBar percent={percent} />
         </div>
@@ -298,7 +317,23 @@ export default function SystemTray() {
     totalActiveCount,
     hasActivity,
     trayMessages,
+    refresh,
   } = useSystemTrayState();
+
+  const cancelAssetJob = (jobId: string) => {
+    void fetch('/api/comfyui/assets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'cancel', jobId }),
+    })
+      .then(() => {
+        window.dispatchEvent(new CustomEvent(COMFY_ASSET_JOBS_UPDATED_EVENT));
+        refresh();
+      })
+      .catch(() => {
+        // tray cancel is best-effort
+      });
+  };
 
   useEffect(() => {
     const onRetryLastFailed = () => {
@@ -479,6 +514,15 @@ export default function SystemTray() {
                   >
                     Gallery
                   </Link>
+                  {assetJobs.length > 0 ? (
+                    <Link
+                      href={settingsComfyUiSectionHref('model-assets')}
+                      className="type-caption text-[var(--accent-text)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+                      onClick={() => setExpanded(false)}
+                    >
+                      Assets
+                    </Link>
+                  ) : null}
                 </div>
               </div>
 
@@ -530,7 +574,7 @@ export default function SystemTray() {
                   </h3>
                   <ul className="space-y-2">
                     {assetJobs.map(job => (
-                      <AssetTrayRow key={job.id} job={job} />
+                      <AssetTrayRow key={job.id} job={job} onCancel={cancelAssetJob} />
                     ))}
                   </ul>
                 </section>

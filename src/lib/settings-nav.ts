@@ -62,10 +62,10 @@ export function settingsTabHref(tab: SettingsTab): string {
 }
 
 export function settingsTabsForWorkspaceMode(
-  mode: WorkspaceMode,
+  _mode: WorkspaceMode,
   showAll = false
 ): SettingsTabDefinition[] {
-  if (mode !== 'simple' || showAll) {
+  if (showAll) {
     return SETTINGS_TABS;
   }
   return SETTINGS_TABS.filter(tab => SIMPLE_SETTINGS_TAB_IDS.includes(tab.id));

@@ -128,12 +128,40 @@ export function normalizeComfyUiSettingsSection(
     : null;
 }
 
-export function filterComfyUiSettingsSections(query: string): ComfyUiSettingsSection[] {
-  const normalized = query.trim().toLowerCase();
-  if (!normalized) {
+/** ComfyUI sections shown when Settings is in essentials / slim mode. */
+export const COMFYUI_ESSENTIAL_SECTION_IDS: ComfyUiSettingsSectionId[] = [
+  'connection',
+  'workflow-map',
+  'model-assets',
+  'queue-params',
+  'prompt-quality',
+  'vram-guard',
+  'inference-engine',
+];
+
+const ESSENTIAL_SECTION_ID_SET = new Set<ComfyUiSettingsSectionId>(COMFYUI_ESSENTIAL_SECTION_IDS);
+
+export function isEssentialComfyUiSection(id: ComfyUiSettingsSectionId): boolean {
+  return ESSENTIAL_SECTION_ID_SET.has(id);
+}
+
+export function comfyUiSectionsForEssentials(essentialsOnly: boolean): ComfyUiSettingsSection[] {
+  if (!essentialsOnly) {
     return COMFYUI_SETTINGS_SECTIONS;
   }
-  return COMFYUI_SETTINGS_SECTIONS.filter(section => {
+  return COMFYUI_SETTINGS_SECTIONS.filter(section => ESSENTIAL_SECTION_ID_SET.has(section.id));
+}
+
+export function filterComfyUiSettingsSections(
+  query: string,
+  options?: { essentialsOnly?: boolean }
+): ComfyUiSettingsSection[] {
+  const base = comfyUiSectionsForEssentials(Boolean(options?.essentialsOnly));
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) {
+    return base;
+  }
+  return base.filter(section => {
     const haystack = [section.label, section.id, ...section.keywords].join(' ').toLowerCase();
     return haystack.includes(normalized);
   });

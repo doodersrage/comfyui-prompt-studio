@@ -4,9 +4,11 @@ import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
 import { stripEmptyComfyUiRuntime } from '@/lib/comfyui-config';
 import { fetchComfyObjectInfoPayload } from '@/lib/comfyui-object-info';
 import {
+  cancelComfyAssetDownload,
   getComfyAssetJob,
   listComfyAssetJobs,
   resumeInterruptedComfyAssetDownloads,
+  retryComfyAssetDownload,
   runComfyAssetDownloadJob,
   startComfyAssetDownload,
 } from '@/lib/comfy-asset-download';
@@ -72,11 +74,34 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  let body: { assetId?: string; modelId?: string } = {};
+  let body: { assetId?: string; modelId?: string; action?: string; jobId?: string } = {};
   try {
     body = (await request.json()) as typeof body;
   } catch {
     return apiError('Invalid JSON body.', 400);
+  }
+
+  const action = body.action?.trim().toLowerCase();
+  if (action === 'cancel' || action === 'retry') {
+    const jobId = body.jobId?.trim();
+    if (!jobId) {
+      return apiError('jobId is required.', 400);
+    }
+    if (action === 'cancel') {
+      const job = cancelComfyAssetDownload(jobId);
+      if (!job) {
+        return apiError('Download job not found.', 404);
+      }
+      return apiJson({ ok: true, job, jobs: listComfyAssetJobs() });
+    }
+    const job = retryComfyAssetDownload(jobId, { deferStart: true });
+    if (!job) {
+      return apiError('Download job not found.', 404);
+    }
+    if (job.status === 'queued') {
+      after(() => runComfyAssetDownloadJob(job.id));
+    }
+    return apiJson({ ok: true, job, jobs: listComfyAssetJobs() });
   }
 
   const assetId = body.assetId?.trim();

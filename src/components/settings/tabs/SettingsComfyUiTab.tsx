@@ -77,6 +77,8 @@ const ComfyWorkflowLibraryPanel = dynamic(() => import('@/components/ComfyWorkfl
 const ACCENT = SETTINGS_TOOL_ACCENT;
 
 export type SettingsComfyUiTabProps = {
+  slimSettings?: boolean;
+  onShowAllSettings?: () => void;
   comfyUiSection: ComfyUiSettingsSectionId | null;
   handleComfyUiSectionJump: (section: ComfyUiSettingsSectionId) => void;
   sharedSettings: SharedToolSettings;
@@ -132,6 +134,8 @@ export type SettingsComfyUiTabProps = {
 };
 
 export default function SettingsComfyUiTab({
+  slimSettings = false,
+  onShowAllSettings,
   comfyUiSection,
   handleComfyUiSectionJump,
   sharedSettings,
@@ -187,10 +191,27 @@ export default function SettingsComfyUiTab({
 }: SettingsComfyUiTabProps) {
   const [systemWorkflowsSaveHint, setSystemWorkflowsSaveHint] = useState<string | null>(null);
   const [systemWorkflowsSaving, setSystemWorkflowsSaving] = useState(false);
+  const showAdvanced = !slimSettings;
 
   return (
     <>
-      <ComfyUiSettingsJumpNav activeSection={comfyUiSection} onJump={handleComfyUiSectionJump} />
+      <ComfyUiSettingsJumpNav
+        activeSection={comfyUiSection}
+        onJump={handleComfyUiSectionJump}
+        essentialsOnly={slimSettings}
+      />
+      {slimSettings ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-xl)] border border-[var(--border-subtle)] bg-[color-mix(in_oklab,var(--surface)_90%,transparent)] px-4 py-3 shadow-[inset_0_1px_0_rgb(255_255_255_/0.03)]">
+          <p className="type-caption text-[var(--text-secondary)]">
+            Essentials view — connection, workflow map, model downloads, and queue basics.
+          </p>
+          {onShowAllSettings ? (
+            <Button type="button" variant="secondary" size="sm" onClick={onShowAllSettings}>
+              Show all ComfyUI settings
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
       <ToolSection
         id="settings-comfyui-inference-engine"
         title="Inference engine"
@@ -303,14 +324,16 @@ export default function SettingsComfyUiTab({
           .
         </p>
       </ToolSection>
-      <SettingsBrowserPresetsPanel
-        disabled={!sharedMounted || !mounted}
-        onApply={preset => {
-          updateSharedSettings(preset.shared);
-          updateSettings(preset.comfyUi);
-          setStatus(`Applied ${preset.label} browser preset.`);
-        }}
-      />
+      {showAdvanced ? (
+        <SettingsBrowserPresetsPanel
+          disabled={!sharedMounted || !mounted}
+          onApply={preset => {
+            updateSharedSettings(preset.shared);
+            updateSettings(preset.comfyUi);
+            setStatus(`Applied ${preset.label} browser preset.`);
+          }}
+        />
+      ) : null}
       <ToolSection id="settings-comfyui-workflow-map" title="Model → workflow map">
         <label className="mb-3 flex cursor-pointer items-start gap-3">
           <input
@@ -608,711 +631,736 @@ export default function SettingsComfyUiTab({
         />
       </ToolSection>
 
-      <ToolSection id="settings-comfyui-workflow-patching" title="Workflow patching & checkpoints">
-        <p className="text-sm text-[var(--text-secondary)]">
-          Direct patching updates{' '}
-          <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-            EmptyLatentImage
-          </code>{' '}
-          and loader nodes at queue time even when placeholders are missing. Disable to compare
-          against raw workflow JSON.
-        </p>
-        <label className="mb-3 flex cursor-pointer items-start gap-3">
-          <input
-            type="checkbox"
-            checked={sharedSettings.directWorkflowPatching !== false}
-            onChange={event =>
-              updateSharedSettings({
-                directWorkflowPatching: event.target.checked,
-              })
-            }
-            disabled={!sharedMounted}
-            className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] ${accentFocusClass(ACCENT)}`}
-          />
-          <span className="space-y-1">
-            <span className="block text-sm font-medium text-[var(--text-primary)]">
-              Direct workflow patching on queue
-            </span>
-            <span className="block text-xs text-[var(--text-muted)]">
-              Patches latent size and checkpoint/UNET/VAE loader filenames from model defaults
-              below. KSampler and model-sampling nodes are always patched when params are resolved.
-            </span>
-          </span>
-        </label>
-        <label className="mb-3 flex cursor-pointer items-start gap-3">
-          <input
-            type="checkbox"
-            checked={sharedSettings.syncWorkflowLoadersToModel === true}
-            onChange={event =>
-              updateSharedSettings({
-                syncWorkflowLoadersToModel: event.target.checked,
-              })
-            }
-            disabled={!sharedMounted || sharedSettings.directWorkflowPatching === false}
-            className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] ${accentFocusClass(ACCENT)}`}
-          />
-          <span className="space-y-1">
-            <span className="block text-sm font-medium text-[var(--text-primary)]">
-              Sync loaders to model on queue
-            </span>
-            <span className="block text-xs text-[var(--text-muted)]">
-              Overwrites hardcoded checkpoint/UNET/VAE/CLIP filenames with the target model at queue
-              time. Use when switching model families on an imported workflow — otherwise leave off
-              to preserve hand-picked weights inside the JSON.
-            </span>
-          </span>
-        </label>
-        <label className="mb-3 flex cursor-pointer items-start gap-3">
-          <input
-            type="checkbox"
-            checked={sharedSettings.workflowQueueOptimize !== false}
-            onChange={event =>
-              updateSharedSettings({
-                workflowQueueOptimize: event.target.checked,
-              })
-            }
-            disabled={!sharedMounted}
-            className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] ${accentFocusClass(ACCENT)}`}
-          />
-          <span className="space-y-1">
-            <span className="block text-sm font-medium text-[var(--text-primary)]">
-              Optimize workflows on queue
-            </span>
-            <span className="block text-xs text-[var(--text-muted)]">
-              Auto-binds missing placeholders (prompt, latent, sampler, loaders) on imported
-              workflows before injection — turns community JSON into app-controlled templates. Use{' '}
-              <strong className="font-medium text-[var(--text-secondary)]">
-                Optimize &amp; save copy
-              </strong>{' '}
-              in the workflow library to persist the result.
-            </span>
-          </span>
-        </label>
-        <label className="mb-3 flex cursor-pointer items-start gap-3">
-          <input
-            type="checkbox"
-            checked={sharedSettings.compactDraftSaves !== false}
-            onChange={event =>
-              updateSharedSettings({
-                compactDraftSaves: event.target.checked,
-              })
-            }
-            disabled={!sharedMounted}
-            className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] ${accentFocusClass(ACCENT)}`}
-          />
-          <span className="space-y-1">
-            <span className="block text-sm font-medium text-[var(--text-primary)]">
-              Compact Draft saves (WebP when available)
-            </span>
-            <span className="block text-xs text-[var(--text-muted)]">
-              On <strong className="font-medium text-[var(--text-secondary)]">Draft</strong>,
-              rewrite SaveImage to a WebP-capable custom node when ComfyUI has one installed (e.g.
-              SaveImageExtended).{' '}
-              <strong className="font-medium text-[var(--text-secondary)]">Final/Max</strong> stay
-              PNG for keepers. Stock SaveImage alone cannot emit WebP — install a save custom node
-              to shrink draft files on disk.
-            </span>
-          </span>
-        </label>
-        <CompactDraftSavesStatus
-          enabled={sharedMounted && sharedSettings.compactDraftSaves !== false}
-        />
-        <label className="mb-3 flex cursor-pointer items-start gap-3">
-          <input
-            type="checkbox"
-            checked={sharedSettings.workflowGraphEnrich !== false}
-            onChange={event =>
-              updateSharedSettings({
-                workflowGraphEnrich: event.target.checked,
-              })
-            }
-            disabled={!sharedMounted}
-            className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] ${accentFocusClass(ACCENT)}`}
-          />
-          <span className="space-y-1">
-            <span className="block text-sm font-medium text-[var(--text-primary)]">
-              Insert model-sampling nodes on queue
-            </span>
-            <span className="block text-xs text-[var(--text-muted)]">
-              For FLUX and SD3-family workflows, inserts{' '}
+      {showAdvanced ? (
+        <>
+          <ToolSection
+            id="settings-comfyui-workflow-patching"
+            title="Workflow patching & checkpoints"
+          >
+            <p className="text-sm text-[var(--text-secondary)]">
+              Direct patching updates{' '}
               <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-                ModelSamplingFlux
+                EmptyLatentImage
               </code>{' '}
-              or shift patch nodes when a loader connects directly to KSampler. On{' '}
-              <strong className="font-medium text-[var(--text-secondary)]">Final/Max</strong>, SDXL
-              may get a latent refiner pass and Flux a soft latent detail pass (vanilla Qwen skips
-              that — anatomy guard); outputs then get neural or Lanczos upscale capped to
-              ~1.25×/1.5× net (vanilla 2512 stays Lanczos-only; Max Lanczos polish + Max sharpen
-              when enabled).
-            </span>
-          </span>
-        </label>
-        {sharedSettings.workflowGraphEnrich !== false ? (
-          <div className="mb-4 ml-7 space-y-2 border-l border-[var(--border-subtle)] pl-4">
-            <label className="flex cursor-pointer items-start gap-3">
+              and loader nodes at queue time even when placeholders are missing. Disable to compare
+              against raw workflow JSON.
+            </p>
+            <label className="mb-3 flex cursor-pointer items-start gap-3">
               <input
                 type="checkbox"
-                checked={sharedSettings.workflowSdxlRefinerEnrich !== false}
+                checked={sharedSettings.directWorkflowPatching !== false}
                 onChange={event =>
                   updateSharedSettings({
-                    workflowSdxlRefinerEnrich: event.target.checked,
+                    directWorkflowPatching: event.target.checked,
                   })
                 }
                 disabled={!sharedMounted}
                 className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] ${accentFocusClass(ACCENT)}`}
               />
               <span className="space-y-1">
-                <span className="block text-sm text-[var(--text-secondary)]">
-                  SDXL refiner pass (Final/Max)
+                <span className="block text-sm font-medium text-[var(--text-primary)]">
+                  Direct workflow patching on queue
                 </span>
                 <span className="block text-xs text-[var(--text-muted)]">
-                  Latent upscale + refiner KSampler before VAEDecode when a refiner map is
-                  configured.
+                  Patches latent size and checkpoint/UNET/VAE loader filenames from model defaults
+                  below. KSampler and model-sampling nodes are always patched when params are
+                  resolved.
                 </span>
               </span>
             </label>
-            <label className="flex cursor-pointer items-start gap-3">
+            <label className="mb-3 flex cursor-pointer items-start gap-3">
               <input
                 type="checkbox"
-                checked={sharedSettings.workflowNeuralUpscalePolish !== false}
+                checked={sharedSettings.syncWorkflowLoadersToModel === true}
                 onChange={event =>
                   updateSharedSettings({
-                    workflowNeuralUpscalePolish: event.target.checked,
+                    syncWorkflowLoadersToModel: event.target.checked,
+                  })
+                }
+                disabled={!sharedMounted || sharedSettings.directWorkflowPatching === false}
+                className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] ${accentFocusClass(ACCENT)}`}
+              />
+              <span className="space-y-1">
+                <span className="block text-sm font-medium text-[var(--text-primary)]">
+                  Sync loaders to model on queue
+                </span>
+                <span className="block text-xs text-[var(--text-muted)]">
+                  Overwrites hardcoded checkpoint/UNET/VAE/CLIP filenames with the target model at
+                  queue time. Use when switching model families on an imported workflow — otherwise
+                  leave off to preserve hand-picked weights inside the JSON.
+                </span>
+              </span>
+            </label>
+            <label className="mb-3 flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                checked={sharedSettings.workflowQueueOptimize !== false}
+                onChange={event =>
+                  updateSharedSettings({
+                    workflowQueueOptimize: event.target.checked,
                   })
                 }
                 disabled={!sharedMounted}
                 className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] ${accentFocusClass(ACCENT)}`}
               />
               <span className="space-y-1">
-                <span className="block text-sm text-[var(--text-secondary)]">
-                  Lanczos polish after neural upscale (Max)
+                <span className="block text-sm font-medium text-[var(--text-primary)]">
+                  Optimize workflows on queue
                 </span>
                 <span className="block text-xs text-[var(--text-muted)]">
-                  Chains a 1.05× Lanczos pass after UpscaleModel on Max profile.
+                  Auto-binds missing placeholders (prompt, latent, sampler, loaders) on imported
+                  workflows before injection — turns community JSON into app-controlled templates.
+                  Use{' '}
+                  <strong className="font-medium text-[var(--text-secondary)]">
+                    Optimize &amp; save copy
+                  </strong>{' '}
+                  in the workflow library to persist the result.
                 </span>
               </span>
             </label>
-            <label className="flex cursor-pointer items-start gap-3">
+            <label className="mb-3 flex cursor-pointer items-start gap-3">
               <input
                 type="checkbox"
-                checked={sharedSettings.workflowSharpenAfterUpscale === true}
+                checked={sharedSettings.compactDraftSaves !== false}
                 onChange={event =>
                   updateSharedSettings({
-                    workflowSharpenAfterUpscale: event.target.checked,
+                    compactDraftSaves: event.target.checked,
                   })
                 }
                 disabled={!sharedMounted}
                 className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] ${accentFocusClass(ACCENT)}`}
               />
               <span className="space-y-1">
-                <span className="block text-sm text-[var(--text-secondary)]">
-                  Subtle sharpen after upscale (Max)
+                <span className="block text-sm font-medium text-[var(--text-primary)]">
+                  Compact Draft saves (WebP when available)
                 </span>
                 <span className="block text-xs text-[var(--text-muted)]">
-                  ImageSharpen after neural UpscaleModel on Max quality (not Lanczos-only). On by
-                  default for Max; uncheck if edges look waxy. Qwen/Klein use a lighter alpha.
+                  On <strong className="font-medium text-[var(--text-secondary)]">Draft</strong>,
+                  rewrite SaveImage to a WebP-capable custom node when ComfyUI has one installed
+                  (e.g. SaveImageExtended).{' '}
+                  <strong className="font-medium text-[var(--text-secondary)]">Final/Max</strong>{' '}
+                  stay PNG for keepers. Stock SaveImage alone cannot emit WebP — install a save
+                  custom node to shrink draft files on disk.
                 </span>
               </span>
             </label>
-            <label className="flex cursor-pointer items-start gap-3">
+            <CompactDraftSavesStatus
+              enabled={sharedMounted && sharedSettings.compactDraftSaves !== false}
+            />
+            <label className="mb-3 flex cursor-pointer items-start gap-3">
               <input
                 type="checkbox"
-                checked={sharedSettings.useLibraryUpscaleWorkflow === true}
+                checked={sharedSettings.workflowGraphEnrich !== false}
                 onChange={event =>
                   updateSharedSettings({
-                    useLibraryUpscaleWorkflow: event.target.checked,
+                    workflowGraphEnrich: event.target.checked,
                   })
                 }
                 disabled={!sharedMounted}
                 className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] ${accentFocusClass(ACCENT)}`}
               />
               <span className="space-y-1">
-                <span className="block text-sm text-[var(--text-secondary)]">
-                  Prefer library upscale workflows
+                <span className="block text-sm font-medium text-[var(--text-primary)]">
+                  Insert model-sampling nodes on queue
                 </span>
                 <span className="block text-xs text-[var(--text-muted)]">
-                  Gallery upscale actions use a mapped library workflow with UpscaleModel nodes when
-                  available instead of the minimal scaffold.
+                  For FLUX and SD3-family workflows, inserts{' '}
+                  <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
+                    ModelSamplingFlux
+                  </code>{' '}
+                  or shift patch nodes when a loader connects directly to KSampler. On{' '}
+                  <strong className="font-medium text-[var(--text-secondary)]">Final/Max</strong>,
+                  SDXL may get a latent refiner pass and Flux a soft latent detail pass (vanilla
+                  Qwen skips that — anatomy guard); outputs then get neural or Lanczos upscale
+                  capped to ~1.25×/1.5× net (vanilla 2512 stays Lanczos-only; Max Lanczos polish +
+                  Max sharpen when enabled).
                 </span>
               </span>
             </label>
-            <label className="block space-y-2">
-              <span className="block text-sm text-[var(--text-secondary)]">
-                Neural upscale tile size (Max)
+            {sharedSettings.workflowGraphEnrich !== false ? (
+              <div className="mb-4 ml-7 space-y-2 border-l border-[var(--border-subtle)] pl-4">
+                <label className="flex cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={sharedSettings.workflowSdxlRefinerEnrich !== false}
+                    onChange={event =>
+                      updateSharedSettings({
+                        workflowSdxlRefinerEnrich: event.target.checked,
+                      })
+                    }
+                    disabled={!sharedMounted}
+                    className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] ${accentFocusClass(ACCENT)}`}
+                  />
+                  <span className="space-y-1">
+                    <span className="block text-sm text-[var(--text-secondary)]">
+                      SDXL refiner pass (Final/Max)
+                    </span>
+                    <span className="block text-xs text-[var(--text-muted)]">
+                      Latent upscale + refiner KSampler before VAEDecode when a refiner map is
+                      configured.
+                    </span>
+                  </span>
+                </label>
+                <label className="flex cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={sharedSettings.workflowNeuralUpscalePolish !== false}
+                    onChange={event =>
+                      updateSharedSettings({
+                        workflowNeuralUpscalePolish: event.target.checked,
+                      })
+                    }
+                    disabled={!sharedMounted}
+                    className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] ${accentFocusClass(ACCENT)}`}
+                  />
+                  <span className="space-y-1">
+                    <span className="block text-sm text-[var(--text-secondary)]">
+                      Lanczos polish after neural upscale (Max)
+                    </span>
+                    <span className="block text-xs text-[var(--text-muted)]">
+                      Chains a 1.05× Lanczos pass after UpscaleModel on Max profile.
+                    </span>
+                  </span>
+                </label>
+                <label className="flex cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={sharedSettings.workflowSharpenAfterUpscale === true}
+                    onChange={event =>
+                      updateSharedSettings({
+                        workflowSharpenAfterUpscale: event.target.checked,
+                      })
+                    }
+                    disabled={!sharedMounted}
+                    className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] ${accentFocusClass(ACCENT)}`}
+                  />
+                  <span className="space-y-1">
+                    <span className="block text-sm text-[var(--text-secondary)]">
+                      Subtle sharpen after upscale (Max)
+                    </span>
+                    <span className="block text-xs text-[var(--text-muted)]">
+                      ImageSharpen after neural UpscaleModel on Max quality (not Lanczos-only). On
+                      by default for Max; uncheck if edges look waxy. Qwen/Klein use a lighter
+                      alpha.
+                    </span>
+                  </span>
+                </label>
+                <label className="flex cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={sharedSettings.useLibraryUpscaleWorkflow === true}
+                    onChange={event =>
+                      updateSharedSettings({
+                        useLibraryUpscaleWorkflow: event.target.checked,
+                      })
+                    }
+                    disabled={!sharedMounted}
+                    className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] ${accentFocusClass(ACCENT)}`}
+                  />
+                  <span className="space-y-1">
+                    <span className="block text-sm text-[var(--text-secondary)]">
+                      Prefer library upscale workflows
+                    </span>
+                    <span className="block text-xs text-[var(--text-muted)]">
+                      Gallery upscale actions use a mapped library workflow with UpscaleModel nodes
+                      when available instead of the minimal scaffold.
+                    </span>
+                  </span>
+                </label>
+                <label className="block space-y-2">
+                  <span className="block text-sm text-[var(--text-secondary)]">
+                    Neural upscale tile size (Max)
+                  </span>
+                  <span className="block text-xs text-[var(--text-muted)]">
+                    Only applied when ComfyUI’s ImageUpscaleWithModel declares tile_size. Set 0 to
+                    disable.
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={2048}
+                    step={64}
+                    value={sharedSettings.neuralUpscaleTileSize ?? 512}
+                    onChange={event =>
+                      updateSharedSettings({
+                        neuralUpscaleTileSize: Number(event.target.value),
+                      })
+                    }
+                    disabled={!sharedMounted}
+                    className={`ui-input w-32 ${accentFocusClass(ACCENT)}`}
+                  />
+                </label>
+              </div>
+            ) : null}
+            <div className="mb-4 space-y-2">
+              <p className="text-sm font-medium text-[var(--text-primary)]">
+                Per-tool queue quality
+              </p>
+              <p className="text-xs text-[var(--text-muted)]">
+                Set default Draft / Final / Max profiles for individual tools. Overrides the global
+                sidebar profile when that tool queues to ComfyUI.
+              </p>
+              <ToolQualityProfilesSettings
+                profiles={sharedSettings.toolQueueQualityProfiles ?? {}}
+                disabled={!sharedMounted}
+                onChange={toolQueueQualityProfiles =>
+                  updateSharedSettings({ toolQueueQualityProfiles })
+                }
+              />
+            </div>
+            <p className="mb-2 text-sm text-[var(--text-secondary)]">
+              Checkpoint map — one line per model:{' '}
+              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
+                modelId=filename.safetensors
+              </code>
+              . Used for both CheckpointLoader and UNETLoader when a workflow has those nodes.
+            </p>
+            <textarea
+              value={modelCheckpointMapText}
+              onChange={event => {
+                const text = event.target.value;
+                setModelCheckpointMapText(text);
+                updateSharedSettings({
+                  modelCheckpointMap: parseModelCheckpointMap(text),
+                });
+              }}
+              rows={5}
+              spellCheck={false}
+              disabled={!sharedMounted}
+              placeholder={`qwen-image-2512=qwen_image_2512_bf16.safetensors\nflux-2-klein-9b=flux-2-klein-9b.safetensors`}
+              className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
+            />
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={!sharedMounted}
+                onClick={applySuggestedLoaderMaps}
+                className={`rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-1.5 text-xs text-violet-200 transition hover:bg-violet-500/20 ${accentFocusClass(ACCENT)}`}
+              >
+                Merge suggested loader maps
+              </button>
+              <button
+                type="button"
+                disabled={!sharedMounted}
+                onClick={() => void syncLoaderMapsFromComfyInventory()}
+                className={`rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-200 transition hover:bg-emerald-500/20 ${accentFocusClass(ACCENT)}`}
+              >
+                Sync from ComfyUI inventory
+              </button>
+            </div>
+            {loaderMapMergeHint ? (
+              <p className="mt-2 text-xs leading-relaxed text-emerald-300/90">
+                {loaderMapMergeHint}
+              </p>
+            ) : (
+              <p className="mt-2 text-xs leading-relaxed text-[var(--text-muted)]">
+                Suggested maps are applied automatically on load. Use this button after clearing a
+                map or on a new install — feedback appears here.
+              </p>
+            )}
+            <p className="mb-2 mt-4 text-sm text-[var(--text-secondary)]">
+              VAE map — override{' '}
+              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
+                {'{{VAE}}'}
+              </code>{' '}
+              /{' '}
+              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
+                VAELoader
+              </code>{' '}
+              filenames per model.{' '}
+              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
+                ae.safetensors
+              </code>{' '}
+              is UltraReal Fine-Tune v4 only — do not set it as{' '}
+              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">default</code>{' '}
+              or on Qwen. FLUX Klein workflows need{' '}
+              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
+                flux2-vae.safetensors
+              </code>
+              .
+            </p>
+            <textarea
+              value={modelVaeMapText}
+              onChange={event => {
+                const text = event.target.value;
+                setModelVaeMapText(text);
+                updateSharedSettings({
+                  modelVaeMap: parseModelVaeMap(text),
+                });
+              }}
+              rows={3}
+              spellCheck={false}
+              disabled={!sharedMounted}
+              placeholder={`flux-2-klein-9b=flux2-vae.safetensors\ndefault=flux2-vae.safetensors`}
+              className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
+            />
+            <p className="mb-2 mt-4 text-sm text-[var(--text-secondary)]">
+              SDXL refiner map — checkpoint for the hi-res refiner pass on{' '}
+              <strong className="font-medium text-[var(--text-secondary)]">Final/Max</strong> SDXL
+              queues (
+              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
+                sd_xl_refiner_1.0.safetensors
+              </code>{' '}
+              by default). Inserts latent upscale + refiner KSampler before VAEDecode on single-pass
+              base workflows.
+            </p>
+            <textarea
+              value={modelRefinerMapText}
+              onChange={event => {
+                const text = event.target.value;
+                setModelRefinerMapText(text);
+                updateSharedSettings({
+                  modelRefinerMap: parseModelRefinerMap(text),
+                });
+              }}
+              rows={3}
+              spellCheck={false}
+              disabled={!sharedMounted}
+              placeholder={`sdxl=sd_xl_refiner_1.0.safetensors\ndefault=sd_xl_refiner_1.0.safetensors`}
+              className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
+            />
+            <p className="mb-2 mt-4 text-sm text-[var(--text-secondary)]">
+              Upscale model map — optional. Leave empty to use Lanczos upscale on Final/Max. Set{' '}
+              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
+                default=your-model.pth
+              </code>{' '}
+              only when the file exists in ComfyUI{' '}
+              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
+                models/upscale_models/
+              </code>
+              . Patches{' '}
+              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
+                UpscaleModel
+              </code>{' '}
+              nodes and replaces{' '}
+              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
+                {'{{UPSCALE_MODEL}}'}
+              </code>{' '}
+              placeholders at queue time.
+            </p>
+            <textarea
+              value={modelUpscaleMapText}
+              onChange={event => {
+                const text = event.target.value;
+                setModelUpscaleMapText(text);
+                updateSharedSettings({
+                  modelUpscaleMap: parseModelUpscaleMap(text),
+                });
+              }}
+              rows={3}
+              spellCheck={false}
+              disabled={!sharedMounted}
+              placeholder={`# Final/Max neural upscale (must exist in models/upscale_models/)\ndefault=4x-UltraSharp.pth\nqwen-image-2512=4x_NMKD-Siax_200k.pth\nflux-dev=4x-UltraSharp.pth`}
+              className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
+            />
+            <p className="mb-2 mt-4 text-sm text-[var(--text-secondary)]">
+              ControlNet model map — optional. Patches{' '}
+              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
+                ControlNetLoader
+              </code>{' '}
+              nodes and replaces{' '}
+              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
+                {'{{CONTROLNET_MODEL}}'}
+              </code>{' '}
+              at queue time.
+            </p>
+            <textarea
+              value={modelControlNetMapText}
+              onChange={event => {
+                const text = event.target.value;
+                setModelControlNetMapText(text);
+                updateSharedSettings({
+                  modelControlNetMap: parseModelControlNetMap(text),
+                });
+              }}
+              rows={3}
+              spellCheck={false}
+              disabled={!sharedMounted}
+              placeholder={`# optional — file in ComfyUI models/controlnet/\ndefault=control_v11p_sd15_openpose.pth`}
+              className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
+            />
+            <p className="mb-2 mt-4 text-sm text-[var(--text-secondary)]">
+              Model LoRA map — default library entries per model:{' '}
+              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
+                modelId=loraId1,loraId2
+              </code>
+              . Values are{' '}
+              <strong className="font-medium text-[var(--text-secondary)]">library ids</strong> from
+              the LoRA library panel (not filenames). Empty value (
+              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">modelId=</code>
+              ) means no LoRAs for that model. Applied when the session picker is still following
+              defaults.
+            </p>
+            <textarea
+              value={modelLoraMapText}
+              onChange={event => {
+                const text = event.target.value;
+                setModelLoraMapText(text);
+                updateSharedSettings({
+                  modelLoraMap: parseModelLoraMap(text),
+                });
+              }}
+              rows={4}
+              spellCheck={false}
+              disabled={!sharedMounted}
+              placeholder={`# library ids from Settings → LoRA library\nwan-video=skin,motion\nflux-dev=`}
+              className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
+            />
+            <label className="mb-3 mt-3 flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                checked={sharedSettings.autoSelectLorasForModel !== false}
+                onChange={event =>
+                  updateSharedSettings({
+                    autoSelectLorasForModel: event.target.checked,
+                  })
+                }
+                disabled={!sharedMounted}
+                className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] ${accentFocusClass(ACCENT)}`}
+              />
+              <span className="space-y-1">
+                <span className="block text-sm font-medium text-[var(--text-primary)]">
+                  Auto-select LoRAs for model
+                </span>
+                <span className="block text-xs text-[var(--text-muted)]">
+                  When you change the target model, load that model&apos;s stored LoRA picks (or the
+                  map above). Explicit picks are remembered per model and never overwrite another
+                  model&apos;s stack.
+                </span>
+              </span>
+            </label>
+            <label className="mt-4 block space-y-2">
+              <span className="block text-sm font-medium text-[var(--text-primary)]">
+                Edit denoise strength
               </span>
               <span className="block text-xs text-[var(--text-muted)]">
-                Only applied when ComfyUI’s ImageUpscaleWithModel declares tile_size. Set 0 to
-                disable.
+                Applied when queueing with an input image or from Refine / Image → Prompt. FLUX
+                Inpaint uses 0.75 by default; other edit flows use this value (0.05–1).
               </span>
               <input
                 type="number"
-                min={0}
-                max={2048}
-                step={64}
-                value={sharedSettings.neuralUpscaleTileSize ?? 512}
+                min={0.05}
+                max={1}
+                step={0.05}
+                value={sharedSettings.editDenoiseStrength ?? 0.65}
                 onChange={event =>
                   updateSharedSettings({
-                    neuralUpscaleTileSize: Number(event.target.value),
+                    editDenoiseStrength: Number(event.target.value),
                   })
                 }
                 disabled={!sharedMounted}
                 className={`ui-input w-32 ${accentFocusClass(ACCENT)}`}
               />
             </label>
-          </div>
-        ) : null}
-        <div className="mb-4 space-y-2">
-          <p className="text-sm font-medium text-[var(--text-primary)]">Per-tool queue quality</p>
-          <p className="text-xs text-[var(--text-muted)]">
-            Set default Draft / Final / Max profiles for individual tools. Overrides the global
-            sidebar profile when that tool queues to ComfyUI.
-          </p>
-          <ToolQualityProfilesSettings
-            profiles={sharedSettings.toolQueueQualityProfiles ?? {}}
-            disabled={!sharedMounted}
-            onChange={toolQueueQualityProfiles =>
-              updateSharedSettings({ toolQueueQualityProfiles })
-            }
-          />
-        </div>
-        <p className="mb-2 text-sm text-[var(--text-secondary)]">
-          Checkpoint map — one line per model:{' '}
-          <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-            modelId=filename.safetensors
-          </code>
-          . Used for both CheckpointLoader and UNETLoader when a workflow has those nodes.
-        </p>
-        <textarea
-          value={modelCheckpointMapText}
-          onChange={event => {
-            const text = event.target.value;
-            setModelCheckpointMapText(text);
-            updateSharedSettings({
-              modelCheckpointMap: parseModelCheckpointMap(text),
-            });
-          }}
-          rows={5}
-          spellCheck={false}
-          disabled={!sharedMounted}
-          placeholder={`qwen-image-2512=qwen_image_2512_bf16.safetensors\nflux-2-klein-9b=flux-2-klein-9b.safetensors`}
-          className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
-        />
-        <div className="mt-2 flex flex-wrap gap-2">
-          <button
-            type="button"
-            disabled={!sharedMounted}
-            onClick={applySuggestedLoaderMaps}
-            className={`rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-1.5 text-xs text-violet-200 transition hover:bg-violet-500/20 ${accentFocusClass(ACCENT)}`}
-          >
-            Merge suggested loader maps
-          </button>
-          <button
-            type="button"
-            disabled={!sharedMounted}
-            onClick={() => void syncLoaderMapsFromComfyInventory()}
-            className={`rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-200 transition hover:bg-emerald-500/20 ${accentFocusClass(ACCENT)}`}
-          >
-            Sync from ComfyUI inventory
-          </button>
-        </div>
-        {loaderMapMergeHint ? (
-          <p className="mt-2 text-xs leading-relaxed text-emerald-300/90">{loaderMapMergeHint}</p>
-        ) : (
-          <p className="mt-2 text-xs leading-relaxed text-[var(--text-muted)]">
-            Suggested maps are applied automatically on load. Use this button after clearing a map
-            or on a new install — feedback appears here.
-          </p>
-        )}
-        <p className="mb-2 mt-4 text-sm text-[var(--text-secondary)]">
-          VAE map — override{' '}
-          <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">{'{{VAE}}'}</code>{' '}
-          / <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">VAELoader</code>{' '}
-          filenames per model.{' '}
-          <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-            ae.safetensors
-          </code>{' '}
-          is UltraReal Fine-Tune v4 only — do not set it as{' '}
-          <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">default</code> or
-          on Qwen. FLUX Klein workflows need{' '}
-          <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-            flux2-vae.safetensors
-          </code>
-          .
-        </p>
-        <textarea
-          value={modelVaeMapText}
-          onChange={event => {
-            const text = event.target.value;
-            setModelVaeMapText(text);
-            updateSharedSettings({
-              modelVaeMap: parseModelVaeMap(text),
-            });
-          }}
-          rows={3}
-          spellCheck={false}
-          disabled={!sharedMounted}
-          placeholder={`flux-2-klein-9b=flux2-vae.safetensors\ndefault=flux2-vae.safetensors`}
-          className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
-        />
-        <p className="mb-2 mt-4 text-sm text-[var(--text-secondary)]">
-          SDXL refiner map — checkpoint for the hi-res refiner pass on{' '}
-          <strong className="font-medium text-[var(--text-secondary)]">Final/Max</strong> SDXL
-          queues (
-          <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-            sd_xl_refiner_1.0.safetensors
-          </code>{' '}
-          by default). Inserts latent upscale + refiner KSampler before VAEDecode on single-pass
-          base workflows.
-        </p>
-        <textarea
-          value={modelRefinerMapText}
-          onChange={event => {
-            const text = event.target.value;
-            setModelRefinerMapText(text);
-            updateSharedSettings({
-              modelRefinerMap: parseModelRefinerMap(text),
-            });
-          }}
-          rows={3}
-          spellCheck={false}
-          disabled={!sharedMounted}
-          placeholder={`sdxl=sd_xl_refiner_1.0.safetensors\ndefault=sd_xl_refiner_1.0.safetensors`}
-          className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
-        />
-        <p className="mb-2 mt-4 text-sm text-[var(--text-secondary)]">
-          Upscale model map — optional. Leave empty to use Lanczos upscale on Final/Max. Set{' '}
-          <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-            default=your-model.pth
-          </code>{' '}
-          only when the file exists in ComfyUI{' '}
-          <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-            models/upscale_models/
-          </code>
-          . Patches{' '}
-          <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">UpscaleModel</code>{' '}
-          nodes and replaces{' '}
-          <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-            {'{{UPSCALE_MODEL}}'}
-          </code>{' '}
-          placeholders at queue time.
-        </p>
-        <textarea
-          value={modelUpscaleMapText}
-          onChange={event => {
-            const text = event.target.value;
-            setModelUpscaleMapText(text);
-            updateSharedSettings({
-              modelUpscaleMap: parseModelUpscaleMap(text),
-            });
-          }}
-          rows={3}
-          spellCheck={false}
-          disabled={!sharedMounted}
-          placeholder={`# Final/Max neural upscale (must exist in models/upscale_models/)\ndefault=4x-UltraSharp.pth\nqwen-image-2512=4x_NMKD-Siax_200k.pth\nflux-dev=4x-UltraSharp.pth`}
-          className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
-        />
-        <p className="mb-2 mt-4 text-sm text-[var(--text-secondary)]">
-          ControlNet model map — optional. Patches{' '}
-          <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-            ControlNetLoader
-          </code>{' '}
-          nodes and replaces{' '}
-          <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-            {'{{CONTROLNET_MODEL}}'}
-          </code>{' '}
-          at queue time.
-        </p>
-        <textarea
-          value={modelControlNetMapText}
-          onChange={event => {
-            const text = event.target.value;
-            setModelControlNetMapText(text);
-            updateSharedSettings({
-              modelControlNetMap: parseModelControlNetMap(text),
-            });
-          }}
-          rows={3}
-          spellCheck={false}
-          disabled={!sharedMounted}
-          placeholder={`# optional — file in ComfyUI models/controlnet/\ndefault=control_v11p_sd15_openpose.pth`}
-          className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
-        />
-        <p className="mb-2 mt-4 text-sm text-[var(--text-secondary)]">
-          Model LoRA map — default library entries per model:{' '}
-          <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-            modelId=loraId1,loraId2
-          </code>
-          . Values are{' '}
-          <strong className="font-medium text-[var(--text-secondary)]">library ids</strong> from the
-          LoRA library panel (not filenames). Empty value (
-          <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">modelId=</code>)
-          means no LoRAs for that model. Applied when the session picker is still following
-          defaults.
-        </p>
-        <textarea
-          value={modelLoraMapText}
-          onChange={event => {
-            const text = event.target.value;
-            setModelLoraMapText(text);
-            updateSharedSettings({
-              modelLoraMap: parseModelLoraMap(text),
-            });
-          }}
-          rows={4}
-          spellCheck={false}
-          disabled={!sharedMounted}
-          placeholder={`# library ids from Settings → LoRA library\nwan-video=skin,motion\nflux-dev=`}
-          className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
-        />
-        <label className="mb-3 mt-3 flex cursor-pointer items-start gap-3">
-          <input
-            type="checkbox"
-            checked={sharedSettings.autoSelectLorasForModel !== false}
-            onChange={event =>
-              updateSharedSettings({
-                autoSelectLorasForModel: event.target.checked,
-              })
-            }
-            disabled={!sharedMounted}
-            className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] ${accentFocusClass(ACCENT)}`}
-          />
-          <span className="space-y-1">
-            <span className="block text-sm font-medium text-[var(--text-primary)]">
-              Auto-select LoRAs for model
-            </span>
-            <span className="block text-xs text-[var(--text-muted)]">
-              When you change the target model, load that model&apos;s stored LoRA picks (or the map
-              above). Explicit picks are remembered per model and never overwrite another
-              model&apos;s stack.
-            </span>
-          </span>
-        </label>
-        <label className="mt-4 block space-y-2">
-          <span className="block text-sm font-medium text-[var(--text-primary)]">
-            Edit denoise strength
-          </span>
-          <span className="block text-xs text-[var(--text-muted)]">
-            Applied when queueing with an input image or from Refine / Image → Prompt. FLUX Inpaint
-            uses 0.75 by default; other edit flows use this value (0.05–1).
-          </span>
-          <input
-            type="number"
-            min={0.05}
-            max={1}
-            step={0.05}
-            value={sharedSettings.editDenoiseStrength ?? 0.65}
-            onChange={event =>
-              updateSharedSettings({
-                editDenoiseStrength: Number(event.target.value),
-              })
-            }
-            disabled={!sharedMounted}
-            className={`ui-input w-32 ${accentFocusClass(ACCENT)}`}
-          />
-        </label>
-        <label className="mt-4 block space-y-2">
-          <span className="block text-sm font-medium text-[var(--text-primary)]">
-            Face detail denoise
-          </span>
-          <span className="block text-xs text-[var(--text-muted)]">
-            Gallery → Face detail strength for{' '}
-            <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-              {'{{FACE_DETAIL_DENOISE}}'}
-            </code>{' '}
-            (0.05–1). Requires a pinned FaceDetailer/ReActor workflow.
-          </span>
-          <input
-            type="number"
-            min={0.05}
-            max={1}
-            step={0.05}
-            value={sharedSettings.faceDetailerDenoise ?? 0.35}
-            onChange={event =>
-              updateSharedSettings({
-                faceDetailerDenoise: Number(event.target.value),
-              })
-            }
-            disabled={!sharedMounted}
-            className={`ui-input w-32 ${accentFocusClass(ACCENT)}`}
-          />
-        </label>
-        <FaceDetailerHealthChip refreshKey={workflowHealthRefresh} />
-        <IdentityPackHealthChips refreshKey={workflowHealthRefresh} />
-      </ToolSection>
-
-      <ToolSection id="settings-comfyui-ipadapter" title="IP-Adapter identity reference">
-        <p className="text-sm text-[var(--text-secondary)]">
-          Session-wide identity/style reference (not Image → Prompt&apos;s text multi-ref). At queue
-          time, with a reference image set, the app updates existing{' '}
-          <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-            {DEFAULT_IPADAPTER_IMAGE_TOKEN}
-          </code>
-          {' / '}
-          <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-            {DEFAULT_IPADAPTER_STRENGTH_TOKEN}
-          </code>
-          {' / '}
-          <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-            {DEFAULT_IPADAPTER_MODEL_TOKEN}
-          </code>{' '}
-          tokens{' '}
-          <strong className="font-medium text-[var(--text-secondary)]">or auto-inserts</strong> a
-          minimal LoadImage → IPAdapterModelLoader → IPAdapterAdvanced chain when none exist.
-          Requires ComfyUI-IPAdapter-Plus-class nodes installed. Extra reference filenames stack
-          additional Apply nodes. When IP-Adapter Plus is missing but InstantID/PuLID nodes are
-          installed, Studio falls back to auto-inserting those instead. You can also import a BYO
-          InstantID / PuLID scaffold from the Workflow library.
-        </p>
-
-        <div className="space-y-2">
-          <FieldLabel htmlFor="settings-ipadapter-image">Reference image filename</FieldLabel>
-          <input
-            id="settings-ipadapter-image"
-            value={sharedSettings.ipAdapterImageFilename ?? ''}
-            onChange={event => updateSharedSettings({ ipAdapterImageFilename: event.target.value })}
-            placeholder="already-uploaded-file.png (or upload below)"
-            disabled={!sharedMounted}
-            className={`ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body ${accentFocusClass(ACCENT)}`}
-          />
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="cursor-pointer rounded-lg border border-[var(--border-default)] px-4 py-2 text-sm text-[var(--text-primary)] hover:border-[var(--border-strong)]">
-              {ipAdapterUploading ? 'Uploading…' : 'Upload reference image'}
+            <label className="mt-4 block space-y-2">
+              <span className="block text-sm font-medium text-[var(--text-primary)]">
+                Face detail denoise
+              </span>
+              <span className="block text-xs text-[var(--text-muted)]">
+                Gallery → Face detail strength for{' '}
+                <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
+                  {'{{FACE_DETAIL_DENOISE}}'}
+                </code>{' '}
+                (0.05–1). Requires a pinned FaceDetailer/ReActor workflow.
+              </span>
               <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                disabled={!sharedMounted || ipAdapterUploading}
-                onChange={event => {
-                  const file = event.target.files?.[0];
-                  if (!file) {
-                    return;
-                  }
-                  setIpAdapterUploading(true);
-                  setIpAdapterUploadStatus(null);
-                  void uploadComfyInputImage({ file, model: sharedSettings.model })
-                    .then(uploaded => {
-                      updateSharedSettings({ ipAdapterImageFilename: uploaded.name });
-                      setIpAdapterUploadStatus(`Uploaded as ${uploaded.name}.`);
-                    })
-                    .catch(err => {
-                      setIpAdapterUploadStatus(
-                        err instanceof Error ? err.message : 'Upload failed.'
-                      );
-                    })
-                    .finally(() => setIpAdapterUploading(false));
-                }}
+                type="number"
+                min={0.05}
+                max={1}
+                step={0.05}
+                value={sharedSettings.faceDetailerDenoise ?? 0.35}
+                onChange={event =>
+                  updateSharedSettings({
+                    faceDetailerDenoise: Number(event.target.value),
+                  })
+                }
+                disabled={!sharedMounted}
+                className={`ui-input w-32 ${accentFocusClass(ACCENT)}`}
               />
             </label>
-            {ipAdapterUploadStatus ? (
-              <span className="text-xs text-[var(--text-muted)]">{ipAdapterUploadStatus}</span>
-            ) : null}
+            <FaceDetailerHealthChip refreshKey={workflowHealthRefresh} />
+            <IdentityPackHealthChips refreshKey={workflowHealthRefresh} />
+          </ToolSection>
+
+          <ToolSection id="settings-comfyui-ipadapter" title="IP-Adapter identity reference">
+            <p className="text-sm text-[var(--text-secondary)]">
+              Session-wide identity/style reference (not Image → Prompt&apos;s text multi-ref). At
+              queue time, with a reference image set, the app updates existing{' '}
+              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
+                {DEFAULT_IPADAPTER_IMAGE_TOKEN}
+              </code>
+              {' / '}
+              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
+                {DEFAULT_IPADAPTER_STRENGTH_TOKEN}
+              </code>
+              {' / '}
+              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
+                {DEFAULT_IPADAPTER_MODEL_TOKEN}
+              </code>{' '}
+              tokens{' '}
+              <strong className="font-medium text-[var(--text-secondary)]">or auto-inserts</strong>{' '}
+              a minimal LoadImage → IPAdapterModelLoader → IPAdapterAdvanced chain when none exist.
+              Requires ComfyUI-IPAdapter-Plus-class nodes installed. Extra reference filenames stack
+              additional Apply nodes. When IP-Adapter Plus is missing but InstantID/PuLID nodes are
+              installed, Studio falls back to auto-inserting those instead. You can also import a
+              BYO InstantID / PuLID scaffold from the Workflow library.
+            </p>
+
+            <div className="space-y-2">
+              <FieldLabel htmlFor="settings-ipadapter-image">Reference image filename</FieldLabel>
+              <input
+                id="settings-ipadapter-image"
+                value={sharedSettings.ipAdapterImageFilename ?? ''}
+                onChange={event =>
+                  updateSharedSettings({ ipAdapterImageFilename: event.target.value })
+                }
+                placeholder="already-uploaded-file.png (or upload below)"
+                disabled={!sharedMounted}
+                className={`ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body ${accentFocusClass(ACCENT)}`}
+              />
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="cursor-pointer rounded-lg border border-[var(--border-default)] px-4 py-2 text-sm text-[var(--text-primary)] hover:border-[var(--border-strong)]">
+                  {ipAdapterUploading ? 'Uploading…' : 'Upload reference image'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={!sharedMounted || ipAdapterUploading}
+                    onChange={event => {
+                      const file = event.target.files?.[0];
+                      if (!file) {
+                        return;
+                      }
+                      setIpAdapterUploading(true);
+                      setIpAdapterUploadStatus(null);
+                      void uploadComfyInputImage({ file, model: sharedSettings.model })
+                        .then(uploaded => {
+                          updateSharedSettings({ ipAdapterImageFilename: uploaded.name });
+                          setIpAdapterUploadStatus(`Uploaded as ${uploaded.name}.`);
+                        })
+                        .catch(err => {
+                          setIpAdapterUploadStatus(
+                            err instanceof Error ? err.message : 'Upload failed.'
+                          );
+                        })
+                        .finally(() => setIpAdapterUploading(false));
+                    }}
+                  />
+                </label>
+                {ipAdapterUploadStatus ? (
+                  <span className="text-xs text-[var(--text-muted)]">{ipAdapterUploadStatus}</span>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-2">
+              <FieldLabel htmlFor="settings-ipadapter-extra">
+                Extra reference filenames (multi-ref stack)
+              </FieldLabel>
+              <input
+                id="settings-ipadapter-extra"
+                value={(sharedSettings.ipAdapterImageFilenames ?? []).join(', ')}
+                onChange={event => {
+                  const names = event.target.value
+                    .split(',')
+                    .map(entry => entry.trim())
+                    .filter(Boolean);
+                  updateSharedSettings({
+                    ipAdapterImageFilenames: names.length > 0 ? names : undefined,
+                    ...(names[0] && !sharedSettings.ipAdapterImageFilename?.trim()
+                      ? { ipAdapterImageFilename: names[0] }
+                      : {}),
+                  });
+                }}
+                placeholder="ref-a.png, ref-b.png (comma-separated; index 0 can mirror the primary)"
+                disabled={!sharedMounted}
+                className={`ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body ${accentFocusClass(ACCENT)}`}
+              />
+              <p className="text-xs text-[var(--text-muted)]">
+                Two or more filenames stack additional IPAdapterAdvanced nodes onto the sampler
+                model chain at queue time.
+              </p>
+            </div>
+
+            <label className="mt-4 block space-y-2">
+              <span className="block text-sm font-medium text-[var(--text-primary)]">
+                Strength — {(sharedSettings.ipAdapterStrength ?? 0.6).toFixed(2)}
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.01}
+                value={sharedSettings.ipAdapterStrength ?? 0.6}
+                onChange={event =>
+                  updateSharedSettings({ ipAdapterStrength: Number(event.target.value) })
+                }
+                disabled={!sharedMounted}
+                className={`w-full accent-violet-500 ${accentFocusClass(ACCENT)}`}
+              />
+            </label>
+
+            <div className="mt-4 space-y-2">
+              <FieldLabel htmlFor="settings-ipadapter-model">
+                IP-Adapter model filename (optional)
+              </FieldLabel>
+              <input
+                id="settings-ipadapter-model"
+                value={sharedSettings.ipAdapterModelFilename ?? ''}
+                onChange={event =>
+                  updateSharedSettings({ ipAdapterModelFilename: event.target.value })
+                }
+                placeholder="ip-adapter-plus_sdxl.safetensors (leave blank to keep the workflow's default)"
+                disabled={!sharedMounted}
+                className={`ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body ${accentFocusClass(ACCENT)}`}
+              />
+            </div>
+          </ToolSection>
+
+          <ToolSection id="settings-comfyui-wildcards" title="Custom wildcard lists">
+            <WildcardListsEditor
+              lists={sharedSettings.wildcardLists}
+              disabled={!sharedMounted}
+              focusClassName={accentFocusClass(ACCENT)}
+              onChange={wildcardLists =>
+                updateSharedSettings({
+                  wildcardLists: Object.keys(wildcardLists).length > 0 ? wildcardLists : undefined,
+                })
+              }
+            />
+          </ToolSection>
+
+          <div id="settings-comfyui-workflow-library" className="scroll-mt-28 space-y-6">
+            <ComfyWorkflowLibraryPanel
+              placeholderTokens={placeholderTokensFromSettings(settings)}
+              onStatus={msg => {
+                setStatus(msg);
+                setWorkflowHealthRefresh(n => n + 1);
+              }}
+            />
+
+            <WorkflowHealthPanel refreshKey={workflowHealthRefresh} />
+
+            <WorkflowDiffPanel />
           </div>
-        </div>
 
-        <div className="mt-4 space-y-2">
-          <FieldLabel htmlFor="settings-ipadapter-extra">
-            Extra reference filenames (multi-ref stack)
-          </FieldLabel>
-          <input
-            id="settings-ipadapter-extra"
-            value={(sharedSettings.ipAdapterImageFilenames ?? []).join(', ')}
-            onChange={event => {
-              const names = event.target.value
-                .split(',')
-                .map(entry => entry.trim())
-                .filter(Boolean);
-              updateSharedSettings({
-                ipAdapterImageFilenames: names.length > 0 ? names : undefined,
-                ...(names[0] && !sharedSettings.ipAdapterImageFilename?.trim()
-                  ? { ipAdapterImageFilename: names[0] }
-                  : {}),
-              });
-            }}
-            placeholder="ref-a.png, ref-b.png (comma-separated; index 0 can mirror the primary)"
-            disabled={!sharedMounted}
-            className={`ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body ${accentFocusClass(ACCENT)}`}
-          />
-          <p className="text-xs text-[var(--text-muted)]">
-            Two or more filenames stack additional IPAdapterAdvanced nodes onto the sampler model
-            chain at queue time.
-          </p>
-        </div>
+          <ToolSection id="settings-comfyui-lora-library" title="LoRA library">
+            <LoraLibrarySettingsPanel
+              library={settings.loraLibrary}
+              comfyUrl={settings.apiUrl}
+              onChange={loraLibrary => updateSettings({ loraLibrary })}
+            />
+          </ToolSection>
 
-        <label className="mt-4 block space-y-2">
-          <span className="block text-sm font-medium text-[var(--text-primary)]">
-            Strength — {(sharedSettings.ipAdapterStrength ?? 0.6).toFixed(2)}
-          </span>
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.01}
-            value={sharedSettings.ipAdapterStrength ?? 0.6}
-            onChange={event =>
-              updateSharedSettings({ ipAdapterStrength: Number(event.target.value) })
-            }
-            disabled={!sharedMounted}
-            className={`w-full accent-violet-500 ${accentFocusClass(ACCENT)}`}
-          />
-        </label>
-
-        <div className="mt-4 space-y-2">
-          <FieldLabel htmlFor="settings-ipadapter-model">
-            IP-Adapter model filename (optional)
-          </FieldLabel>
-          <input
-            id="settings-ipadapter-model"
-            value={sharedSettings.ipAdapterModelFilename ?? ''}
-            onChange={event => updateSharedSettings({ ipAdapterModelFilename: event.target.value })}
-            placeholder="ip-adapter-plus_sdxl.safetensors (leave blank to keep the workflow's default)"
-            disabled={!sharedMounted}
-            className={`ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body ${accentFocusClass(ACCENT)}`}
-          />
-        </div>
-      </ToolSection>
-
-      <ToolSection id="settings-comfyui-wildcards" title="Custom wildcard lists">
-        <WildcardListsEditor
-          lists={sharedSettings.wildcardLists}
-          disabled={!sharedMounted}
-          focusClassName={accentFocusClass(ACCENT)}
-          onChange={wildcardLists =>
-            updateSharedSettings({
-              wildcardLists: Object.keys(wildcardLists).length > 0 ? wildcardLists : undefined,
-            })
-          }
-        />
-      </ToolSection>
-
-      <div id="settings-comfyui-workflow-library" className="scroll-mt-28 space-y-6">
-        <ComfyWorkflowLibraryPanel
-          placeholderTokens={placeholderTokensFromSettings(settings)}
-          onStatus={msg => {
-            setStatus(msg);
-            setWorkflowHealthRefresh(n => n + 1);
-          }}
-        />
-
-        <WorkflowHealthPanel refreshKey={workflowHealthRefresh} />
-
-        <WorkflowDiffPanel />
-      </div>
-
-      <ToolSection id="settings-comfyui-lora-library" title="LoRA library">
-        <LoraLibrarySettingsPanel
-          library={settings.loraLibrary}
-          comfyUrl={settings.apiUrl}
-          onChange={loraLibrary => updateSettings({ loraLibrary })}
-        />
-      </ToolSection>
-
-      <ToolSection
-        id="settings-comfyui-lora-train"
-        title="LoRA train loop"
-        description="External trainer jobs — webhook or command — then register weights into the library."
-      >
-        <LoraTrainPanel onStatus={setStatus} />
-      </ToolSection>
+          <ToolSection
+            id="settings-comfyui-lora-train"
+            title="LoRA train loop"
+            description="External trainer jobs — webhook or command — then register weights into the library."
+          >
+            <LoraTrainPanel onStatus={setStatus} />
+          </ToolSection>
+        </>
+      ) : null}
 
       <ToolSection id="settings-comfyui-connection" title="ComfyUI connection & injection">
         <p className="text-sm text-[var(--text-secondary)]">
@@ -1592,258 +1640,273 @@ export default function SettingsComfyUiTab({
           </CollapsibleSection>
         </div>
 
-        <ToolSection id="settings-comfyui-auto-improve" title="Auto-improve on gallery ratings">
-          <p className="text-sm text-[var(--text-secondary)]">
-            Rating-driven queue actions. Prefer the calm preset if you do not want surprise Max
-            jobs.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                updateSettings({
-                  autoRequeueFinalOnHighRating: true,
-                  autoRequeueMaxOnFiveStar: false,
-                  autoImg2imgRefineOnFiveStar: false,
-                  autoMutateOnHighRating: false,
-                  autoSeedExperimentOnHighRating: false,
-                  autoRefineOnLowRating: true,
-                });
-                setStatus('Auto-improve preset: calm (Final on 4–5★, Max off).');
-              }}
+        {showAdvanced ? (
+          <>
+            <ToolSection id="settings-comfyui-auto-improve" title="Auto-improve on gallery ratings">
+              <p className="text-sm text-[var(--text-secondary)]">
+                Rating-driven queue actions. Prefer the calm preset if you do not want surprise Max
+                jobs.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    updateSettings({
+                      autoRequeueFinalOnHighRating: true,
+                      autoRequeueMaxOnFiveStar: false,
+                      autoImg2imgRefineOnFiveStar: false,
+                      autoMutateOnHighRating: false,
+                      autoSeedExperimentOnHighRating: false,
+                      autoRefineOnLowRating: true,
+                    });
+                    setStatus('Auto-improve preset: calm (Final on 4–5★, Max off).');
+                  }}
+                >
+                  Calm preset
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    updateSettings({
+                      autoRequeueFinalOnHighRating: true,
+                      autoRequeueMaxOnFiveStar: true,
+                      autoImg2imgRefineOnFiveStar: false,
+                      autoMutateOnHighRating: false,
+                      autoSeedExperimentOnHighRating: false,
+                      autoRefineOnLowRating: true,
+                    });
+                    setStatus('Auto-improve preset: aggressive (Final + Max).');
+                  }}
+                >
+                  Aggressive preset
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    updateSettings({
+                      autoRequeueFinalOnHighRating: false,
+                      autoRequeueMaxOnFiveStar: false,
+                      autoImg2imgRefineOnFiveStar: false,
+                      autoMutateOnHighRating: false,
+                      autoSeedExperimentOnHighRating: false,
+                      autoRefineOnLowRating: false,
+                    });
+                    setStatus('Auto-improve disabled.');
+                  }}
+                >
+                  Off
+                </Button>
+              </div>
+              <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                <input
+                  type="checkbox"
+                  checked={settings.autoRequeueFinalOnHighRating !== false}
+                  onChange={event =>
+                    updateSettings({ autoRequeueFinalOnHighRating: event.target.checked })
+                  }
+                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
+                />
+                Auto improve 4–5★ → Final (upscale / moiré / Lightning re-seed)
+              </label>
+              <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                <input
+                  type="checkbox"
+                  checked={settings.autoRequeueMaxOnFiveStar !== false}
+                  onChange={event =>
+                    updateSettings({ autoRequeueMaxOnFiveStar: event.target.checked })
+                  }
+                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
+                />
+                Auto improve 5★ → Max
+              </label>
+              <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                <input
+                  type="checkbox"
+                  checked={settings.autoImg2imgRefineOnFiveStar === true}
+                  onChange={event =>
+                    updateSettings({ autoImg2imgRefineOnFiveStar: event.target.checked })
+                  }
+                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
+                />
+                After 5★ upscale, also queue low-denoise refine (experimental)
+              </label>
+              <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                <input
+                  type="checkbox"
+                  checked={settings.autoRefineOnLowRating !== false}
+                  onChange={event =>
+                    updateSettings({ autoRefineOnLowRating: event.target.checked })
+                  }
+                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
+                />
+                Auto-open Refine when rated 1–2★
+              </label>
+            </ToolSection>
+
+            <CollapsibleSection
+              title="Queue automation & notifications"
+              summary="Auto-save, mutate/seed fallbacks, WebSocket progress, and browser alerts."
+              defaultOpen={false}
+              persistKey="settings-queue-automation"
             >
-              Calm preset
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                updateSettings({
-                  autoRequeueFinalOnHighRating: true,
-                  autoRequeueMaxOnFiveStar: true,
-                  autoImg2imgRefineOnFiveStar: false,
-                  autoMutateOnHighRating: false,
-                  autoSeedExperimentOnHighRating: false,
-                  autoRefineOnLowRating: true,
-                });
-                setStatus('Auto-improve preset: aggressive (Final + Max).');
-              }}
-            >
-              Aggressive preset
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                updateSettings({
-                  autoRequeueFinalOnHighRating: false,
-                  autoRequeueMaxOnFiveStar: false,
-                  autoImg2imgRefineOnFiveStar: false,
-                  autoMutateOnHighRating: false,
-                  autoSeedExperimentOnHighRating: false,
-                  autoRefineOnLowRating: false,
-                });
-                setStatus('Auto-improve disabled.');
-              }}
-            >
-              Off
-            </Button>
-          </div>
-          <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-            <input
-              type="checkbox"
-              checked={settings.autoRequeueFinalOnHighRating !== false}
-              onChange={event =>
-                updateSettings({ autoRequeueFinalOnHighRating: event.target.checked })
-              }
-              className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
-            />
-            Auto improve 4–5★ → Final (upscale / moiré / Lightning re-seed)
-          </label>
-          <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-            <input
-              type="checkbox"
-              checked={settings.autoRequeueMaxOnFiveStar !== false}
-              onChange={event => updateSettings({ autoRequeueMaxOnFiveStar: event.target.checked })}
-              className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
-            />
-            Auto improve 5★ → Max
-          </label>
-          <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-            <input
-              type="checkbox"
-              checked={settings.autoImg2imgRefineOnFiveStar === true}
-              onChange={event =>
-                updateSettings({ autoImg2imgRefineOnFiveStar: event.target.checked })
-              }
-              className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
-            />
-            After 5★ upscale, also queue low-denoise refine (experimental)
-          </label>
-          <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-            <input
-              type="checkbox"
-              checked={settings.autoRefineOnLowRating !== false}
-              onChange={event => updateSettings({ autoRefineOnLowRating: event.target.checked })}
-              className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
-            />
-            Auto-open Refine when rated 1–2★
-          </label>
-        </ToolSection>
+              <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                <input
+                  type="checkbox"
+                  checked={settings.autoSaveHistoryOnQueue !== false}
+                  onChange={event =>
+                    updateSettings({ autoSaveHistoryOnQueue: event.target.checked })
+                  }
+                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
+                />
+                Auto-save to history when queueing from result panels (skips if already saved)
+              </label>
 
-        <CollapsibleSection
-          title="Queue automation & notifications"
-          summary="Auto-save, mutate/seed fallbacks, WebSocket progress, and browser alerts."
-          defaultOpen={false}
-          persistKey="settings-queue-automation"
-        >
-          <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-            <input
-              type="checkbox"
-              checked={settings.autoSaveHistoryOnQueue !== false}
-              onChange={event => updateSettings({ autoSaveHistoryOnQueue: event.target.checked })}
-              className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
-            />
-            Auto-save to history when queueing from result panels (skips if already saved)
-          </label>
+              <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                <input
+                  type="checkbox"
+                  checked={sharedSettings.promptVersioningEnabled !== false}
+                  onChange={event =>
+                    updateSharedSettings({
+                      promptVersioningEnabled: event.target.checked,
+                    })
+                  }
+                  disabled={!sharedMounted}
+                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
+                />
+                Named prompt versions (vN labels + lineage on history saves)
+              </label>
 
-          <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-            <input
-              type="checkbox"
-              checked={sharedSettings.promptVersioningEnabled !== false}
-              onChange={event =>
-                updateSharedSettings({
-                  promptVersioningEnabled: event.target.checked,
-                })
-              }
-              disabled={!sharedMounted}
-              className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
-            />
-            Named prompt versions (vN labels + lineage on history saves)
-          </label>
+              <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                <input
+                  type="checkbox"
+                  checked={settings.autoMutateOnHighRating ?? false}
+                  onChange={event =>
+                    updateSettings({ autoMutateOnHighRating: event.target.checked })
+                  }
+                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
+                />
+                Auto-queue mutations when a gallery output is rated 4–5★ (fallback when Final/Max
+                improve is off or fails)
+              </label>
 
-          <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-            <input
-              type="checkbox"
-              checked={settings.autoMutateOnHighRating ?? false}
-              onChange={event => updateSettings({ autoMutateOnHighRating: event.target.checked })}
-              className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
-            />
-            Auto-queue mutations when a gallery output is rated 4–5★ (fallback when Final/Max
-            improve is off or fails)
-          </label>
+              <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                <input
+                  type="checkbox"
+                  checked={settings.autoSeedExperimentOnHighRating ?? false}
+                  onChange={event =>
+                    updateSettings({ autoSeedExperimentOnHighRating: event.target.checked })
+                  }
+                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
+                />
+                Auto-queue seed experiments when a gallery output is rated 4–5★
+              </label>
 
-          <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-            <input
-              type="checkbox"
-              checked={settings.autoSeedExperimentOnHighRating ?? false}
-              onChange={event =>
-                updateSettings({ autoSeedExperimentOnHighRating: event.target.checked })
-              }
-              className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
-            />
-            Auto-queue seed experiments when a gallery output is rated 4–5★
-          </label>
+              <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                <input
+                  type="checkbox"
+                  checked={settings.autoSeedExperimentOnFavorite ?? false}
+                  onChange={event =>
+                    updateSettings({ autoSeedExperimentOnFavorite: event.target.checked })
+                  }
+                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
+                />
+                Auto-queue seed experiments when an output is favorited
+              </label>
 
-          <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-            <input
-              type="checkbox"
-              checked={settings.autoSeedExperimentOnFavorite ?? false}
-              onChange={event =>
-                updateSettings({ autoSeedExperimentOnFavorite: event.target.checked })
-              }
-              className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
-            />
-            Auto-queue seed experiments when an output is favorited
-          </label>
+              <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                <input
+                  type="checkbox"
+                  checked={settings.autoNegativeOnQueue !== false}
+                  onChange={event => updateSettings({ autoNegativeOnQueue: event.target.checked })}
+                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
+                />
+                Auto-generate negative prompt when queueing SD-family models
+              </label>
 
-          <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-            <input
-              type="checkbox"
-              checked={settings.autoNegativeOnQueue !== false}
-              onChange={event => updateSettings({ autoNegativeOnQueue: event.target.checked })}
-              className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
-            />
-            Auto-generate negative prompt when queueing SD-family models
-          </label>
+              <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                <input
+                  type="checkbox"
+                  checked={settings.useWebSocketProgress !== false}
+                  onChange={event => updateSettings({ useWebSocketProgress: event.target.checked })}
+                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
+                />
+                Use ComfyUI WebSocket for faster job progress updates
+              </label>
 
-          <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-            <input
-              type="checkbox"
-              checked={settings.useWebSocketProgress !== false}
-              onChange={event => updateSettings({ useWebSocketProgress: event.target.checked })}
-              className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
-            />
-            Use ComfyUI WebSocket for faster job progress updates
-          </label>
+              <div className="ui-surface-inset space-y-2">
+                <p className="text-xs font-medium text-[var(--text-secondary)]">
+                  Negative profile library
+                </p>
+                <select
+                  value={settings.selectedNegativeProfileId ?? 'general-sd'}
+                  onChange={event =>
+                    updateSettings({ selectedNegativeProfileId: event.target.value })
+                  }
+                  className="ui-input w-full px-3 py-2 text-sm"
+                >
+                  {(settings.negativeProfiles?.length
+                    ? settings.negativeProfiles
+                    : DEFAULT_NEGATIVE_PROFILES
+                  ).map((profile: NegativeProfile) => (
+                    <option key={profile.id} value={profile.id}>
+                      {profile.label}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateSettings({
+                      negativeProfiles: DEFAULT_NEGATIVE_PROFILES,
+                    })
+                  }
+                  className="text-xs text-violet-300 hover:text-violet-200"
+                >
+                  Reset profiles to defaults
+                </button>
+              </div>
 
-          <div className="ui-surface-inset space-y-2">
-            <p className="text-xs font-medium text-[var(--text-secondary)]">
-              Negative profile library
-            </p>
-            <select
-              value={settings.selectedNegativeProfileId ?? 'general-sd'}
-              onChange={event => updateSettings({ selectedNegativeProfileId: event.target.value })}
-              className="ui-input w-full px-3 py-2 text-sm"
-            >
-              {(settings.negativeProfiles?.length
-                ? settings.negativeProfiles
-                : DEFAULT_NEGATIVE_PROFILES
-              ).map((profile: NegativeProfile) => (
-                <option key={profile.id} value={profile.id}>
-                  {profile.label}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={() =>
-                updateSettings({
-                  negativeProfiles: DEFAULT_NEGATIVE_PROFILES,
-                })
-              }
-              className="text-xs text-violet-300 hover:text-violet-200"
-            >
-              Reset profiles to defaults
-            </button>
-          </div>
+              <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                <input
+                  type="checkbox"
+                  checked={settings.notifyOnComplete ?? false}
+                  disabled={notificationPermission === 'unsupported'}
+                  onChange={event => updateSettings({ notifyOnComplete: event.target.checked })}
+                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
+                />
+                Notify when ComfyUI jobs complete
+                {notificationPermission !== 'granted' &&
+                  notificationPermission !== 'unsupported' && (
+                    <button
+                      type="button"
+                      onClick={() => void handleEnableNotifications()}
+                      className="text-xs text-violet-300 hover:text-violet-200"
+                    >
+                      Enable permission
+                    </button>
+                  )}
+              </label>
+              {notificationPermission === 'unsupported' && (
+                <p className="text-xs text-[var(--text-muted)]">
+                  Browser notifications are not supported in this environment.
+                </p>
+              )}
 
-          <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-            <input
-              type="checkbox"
-              checked={settings.notifyOnComplete ?? false}
-              disabled={notificationPermission === 'unsupported'}
-              onChange={event => updateSettings({ notifyOnComplete: event.target.checked })}
-              className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
-            />
-            Notify when ComfyUI jobs complete
-            {notificationPermission !== 'granted' && notificationPermission !== 'unsupported' && (
-              <button
-                type="button"
-                onClick={() => void handleEnableNotifications()}
-                className="text-xs text-violet-300 hover:text-violet-200"
-              >
-                Enable permission
-              </button>
-            )}
-          </label>
-          {notificationPermission === 'unsupported' && (
-            <p className="text-xs text-[var(--text-muted)]">
-              Browser notifications are not supported in this environment.
-            </p>
-          )}
-
-          <label className="mt-3 flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-            <input
-              type="checkbox"
-              checked={settings.autoVisionTags !== false}
-              onChange={event => updateSettings({ autoVisionTags: event.target.checked })}
-              className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
-            />
-            Auto-tag completed gallery images with vision LLM tags (also on LLM tab)
-          </label>
-        </CollapsibleSection>
+              <label className="mt-3 flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                <input
+                  type="checkbox"
+                  checked={settings.autoVisionTags !== false}
+                  onChange={event => updateSettings({ autoVisionTags: event.target.checked })}
+                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
+                />
+                Auto-tag completed gallery images with vision LLM tags (also on LLM tab)
+              </label>
+            </CollapsibleSection>
+          </>
+        ) : null}
 
         <div className="flex flex-wrap gap-2 text-sm">
           <PrimaryButton
@@ -1899,106 +1962,110 @@ export default function SettingsComfyUiTab({
         }
       />
 
-      <ToolSection id="settings-comfyui-hold-max" title="Queue Max hold">
-        <p className="text-sm text-[var(--text-secondary)]">
-          When on, Max Generate / re-queue / Upscale / Moiré / Refine wait until the ComfyUI queue
-          is idle, then flush from Queue → Orchestration.
-        </p>
-        <label className="flex cursor-pointer items-start gap-3">
-          <input
-            type="checkbox"
-            checked={sharedSettings.holdMaxUntilIdle === true}
-            onChange={event => {
-              updateSharedSettings({ holdMaxUntilIdle: event.target.checked });
-              setStatus(
-                event.target.checked
-                  ? 'Hold Max until idle enabled.'
-                  : 'Hold Max until idle disabled.'
-              );
-            }}
-            className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] ${accentFocusClass(ACCENT)}`}
-          />
-          <span className="space-y-1">
-            <span className="block text-sm font-medium text-[var(--text-primary)]">
-              Hold Max until idle
-            </span>
-            <span className="block text-xs text-[var(--text-muted)]">
-              Avoid stacking Max enrich while ComfyUI is already busy. Also shown on Queue →
-              Orchestration.
-            </span>
-          </span>
-        </label>
-      </ToolSection>
-
-      <ToolSection id="settings-comfyui-sampler-memory" title="Sampler memory">
-        <p className="text-sm text-[var(--text-secondary)]">
-          4–5★ gallery ratings remember per-model CFG / steps / sampler / scheduler for the next
-          queue (Lightning and Rapid AIO stay CFG-1).
-        </p>
-        {(() => {
-          const memory = sharedSettings.modelSamplerMemory ?? {};
-          const entries = Object.entries(memory).sort(([a], [b]) => a.localeCompare(b));
-          if (entries.length === 0) {
-            return (
-              <EmptyState
-                compact
-                icon="inbox"
-                title="No sampler memory yet"
-                description="Rate a completed gallery image 4–5★ to remember its sampler params for that model."
+      {showAdvanced ? (
+        <>
+          <ToolSection id="settings-comfyui-hold-max" title="Queue Max hold">
+            <p className="text-sm text-[var(--text-secondary)]">
+              When on, Max Generate / re-queue / Upscale / Moiré / Refine wait until the ComfyUI
+              queue is idle, then flush from Queue → Orchestration.
+            </p>
+            <label className="flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                checked={sharedSettings.holdMaxUntilIdle === true}
+                onChange={event => {
+                  updateSharedSettings({ holdMaxUntilIdle: event.target.checked });
+                  setStatus(
+                    event.target.checked
+                      ? 'Hold Max until idle enabled.'
+                      : 'Hold Max until idle disabled.'
+                  );
+                }}
+                className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] ${accentFocusClass(ACCENT)}`}
               />
-            );
-          }
-          return (
-            <div className="space-y-2">
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    updateSharedSettings({ modelSamplerMemory: {} });
-                    setStatus('Cleared all sampler memory.');
-                  }}
-                >
-                  Clear all
-                </Button>
-              </div>
-              <ul className="space-y-2">
-                {entries.map(([model, remembered]) => (
-                  <li
-                    key={model}
-                    className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-muted)]/40 px-3 py-2"
-                  >
-                    <div className="min-w-0 space-y-0.5">
-                      <p className="truncate text-sm text-[var(--text-primary)]">{model}</p>
-                      <p className="type-caption text-[var(--text-muted)]">
-                        {[
-                          remembered.cfg ? `CFG ${remembered.cfg}` : null,
-                          remembered.steps ? `${remembered.steps} steps` : null,
-                          remembered.samplerName,
-                          remembered.scheduler,
-                        ]
-                          .filter(Boolean)
-                          .join(' · ') || '—'}
-                      </p>
-                    </div>
+              <span className="space-y-1">
+                <span className="block text-sm font-medium text-[var(--text-primary)]">
+                  Hold Max until idle
+                </span>
+                <span className="block text-xs text-[var(--text-muted)]">
+                  Avoid stacking Max enrich while ComfyUI is already busy. Also shown on Queue →
+                  Orchestration.
+                </span>
+              </span>
+            </label>
+          </ToolSection>
+
+          <ToolSection id="settings-comfyui-sampler-memory" title="Sampler memory">
+            <p className="text-sm text-[var(--text-secondary)]">
+              4–5★ gallery ratings remember per-model CFG / steps / sampler / scheduler for the next
+              queue (Lightning and Rapid AIO stay CFG-1).
+            </p>
+            {(() => {
+              const memory = sharedSettings.modelSamplerMemory ?? {};
+              const entries = Object.entries(memory).sort(([a], [b]) => a.localeCompare(b));
+              if (entries.length === 0) {
+                return (
+                  <EmptyState
+                    compact
+                    icon="inbox"
+                    title="No sampler memory yet"
+                    description="Rate a completed gallery image 4–5★ to remember its sampler params for that model."
+                  />
+                );
+              }
+              return (
+                <div className="space-y-2">
+                  <div className="flex flex-wrap gap-2">
                     <Button
-                      variant="ghost"
-                      size="sm"
+                      variant="secondary"
                       onClick={() => {
-                        const next = { ...(sharedSettings.modelSamplerMemory ?? {}) };
-                        delete next[model];
-                        updateSharedSettings({ modelSamplerMemory: next });
-                        setStatus(`Cleared sampler memory for ${model}.`);
+                        updateSharedSettings({ modelSamplerMemory: {} });
+                        setStatus('Cleared all sampler memory.');
                       }}
                     >
-                      Clear
+                      Clear all
                     </Button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          );
-        })()}
-      </ToolSection>
+                  </div>
+                  <ul className="space-y-2">
+                    {entries.map(([model, remembered]) => (
+                      <li
+                        key={model}
+                        className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-muted)]/40 px-3 py-2"
+                      >
+                        <div className="min-w-0 space-y-0.5">
+                          <p className="truncate text-sm text-[var(--text-primary)]">{model}</p>
+                          <p className="type-caption text-[var(--text-muted)]">
+                            {[
+                              remembered.cfg ? `CFG ${remembered.cfg}` : null,
+                              remembered.steps ? `${remembered.steps} steps` : null,
+                              remembered.samplerName,
+                              remembered.scheduler,
+                            ]
+                              .filter(Boolean)
+                              .join(' · ') || '—'}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            const next = { ...(sharedSettings.modelSamplerMemory ?? {}) };
+                            delete next[model];
+                            updateSharedSettings({ modelSamplerMemory: next });
+                            setStatus(`Cleared sampler memory for ${model}.`);
+                          }}
+                        >
+                          Clear
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })()}
+          </ToolSection>
+        </>
+      ) : null}
     </>
   );
 }

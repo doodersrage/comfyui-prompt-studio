@@ -194,7 +194,9 @@ export default function ComfyModelAssetsPanel({
         const nextJobs = data.jobs ?? (data.job ? [data.job] : []);
         setJobs(nextJobs);
         const justFinished = nextJobs.some(
-          job => activeIds.includes(job.id) && (job.status === 'complete' || job.status === 'error')
+          job =>
+            activeIds.includes(job.id) &&
+            (job.status === 'complete' || job.status === 'error' || job.status === 'cancelled')
         );
         if (justFinished) {
           const failed = nextJobs.find(job => activeIds.includes(job.id) && job.status === 'error');
@@ -257,6 +259,7 @@ export default function ComfyModelAssetsPanel({
           void fetchComfyObjectInfoCached({ forceRefresh: true }).catch(() => null);
           onInstalled?.();
         }
+        window.dispatchEvent(new CustomEvent(COMFY_ASSET_JOBS_UPDATED_EVENT));
         return data.job;
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Install failed.');
@@ -266,6 +269,43 @@ export default function ComfyModelAssetsPanel({
       }
     },
     [load, onInstalled, onStatus]
+  );
+
+  const jobAction = useCallback(
+    async (jobId: string, action: 'cancel' | 'retry') => {
+      setBusyId(jobId);
+      setError(null);
+      try {
+        const response = await fetch('/api/comfyui/assets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action, jobId }),
+        });
+        const data = (await response.json()) as AssetsResponse & { job?: AssetJob };
+        if (!response.ok || !data.job) {
+          throw new Error(data.error || `Could not ${action} download.`);
+        }
+        if (data.jobs) {
+          setJobs(data.jobs);
+        } else {
+          setJobs(prev => {
+            const without = prev.filter(job => job.id !== data.job!.id);
+            return [data.job!, ...without];
+          });
+        }
+        onStatus?.(
+          action === 'cancel'
+            ? `Cancelled ${data.job.label} (partial kept for resume).`
+            : `Retrying ${data.job.label}…`
+        );
+        window.dispatchEvent(new CustomEvent(COMFY_ASSET_JOBS_UPDATED_EVENT));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : `Could not ${action} download.`);
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [onStatus]
   );
 
   const waitForJob = useCallback(async (jobId: string) => {
@@ -282,7 +322,7 @@ export default function ComfyModelAssetsPanel({
           return null;
         }
         setJobs(data.jobs ?? [job]);
-        if (job.status === 'complete' || job.status === 'error') {
+        if (job.status === 'complete' || job.status === 'error' || job.status === 'cancelled') {
           return job;
         }
       } catch {
@@ -331,6 +371,17 @@ export default function ComfyModelAssetsPanel({
     row => row.status === 'missing' && row.downloadable
   ).length;
 
+  const queueJobs = useMemo(
+    () =>
+      jobs.filter(job =>
+        ['queued', 'downloading', 'verifying', 'error', 'cancelled'].includes(job.status)
+      ),
+    [jobs]
+  );
+  const activeQueueCount = queueJobs.filter(job =>
+    ['queued', 'downloading', 'verifying'].includes(job.status)
+  ).length;
+
   const installMissingForModel = useCallback(async () => {
     const missing = visibleRows.filter(row => row.status === 'missing' && row.downloadable);
     if (missing.length === 0) {
@@ -366,11 +417,91 @@ export default function ComfyModelAssetsPanel({
         <code className="rounded bg-[var(--bg-muted)] px-1 text-violet-300">
           COMFYUI_ROOT/models/…
         </code>
-        . Only allowlisted Hugging Face URLs run; gated or third-party rows stay manual. Custom
-        nodes are not included. Optional{' '}
+        . Downloads run one at a time, resume from{' '}
+        <code className="rounded bg-[var(--bg-muted)] px-1 text-violet-300">.partial</code> after
+        cancel or stall, and show up in the system tray. Only allowlisted Hugging Face URLs run;
+        gated or third-party rows stay manual. Optional{' '}
         <code className="rounded bg-[var(--bg-muted)] px-1 text-violet-300">HF_TOKEN</code> helps
         with gated repos / 403s.
       </p>
+
+      {queueJobs.length > 0 ? (
+        <section className="space-y-2 rounded-[var(--radius-xl)] border border-sky-500/20 bg-gradient-to-br from-sky-500/10 via-[var(--bg-elevated)]/80 to-transparent px-3.5 py-3 shadow-[inset_0_1px_0_rgb(255_255_255_/0.04)]">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-[0.08em] text-sky-200/90">
+                Download queue
+              </p>
+              <p className="type-caption text-[var(--text-muted)]">
+                {activeQueueCount > 0
+                  ? `${activeQueueCount} active · serial · resume-safe`
+                  : 'Idle · retry cancelled or failed jobs below'}
+              </p>
+            </div>
+          </div>
+          <ul className="space-y-2">
+            {queueJobs.map(job => {
+              const active =
+                job.status === 'queued' ||
+                job.status === 'downloading' ||
+                job.status === 'verifying';
+              return (
+                <li
+                  key={job.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)]/50 px-3 py-2"
+                >
+                  <div className="min-w-0 space-y-0.5">
+                    <p className="truncate text-sm text-[var(--text-primary)]">{job.label}</p>
+                    <p className="type-caption text-[var(--text-muted)]">
+                      {job.status}
+                      {job.runAttempt && job.runAttempt > 1 ? ` · run ${job.runAttempt}` : ''}
+                      {' · '}
+                      {job.bytesTotal && job.bytesReceived <= job.bytesTotal * 1.02
+                        ? `${Math.round(job.progress * 100)}% · ${formatBytes(job.bytesReceived)} / ${formatBytes(job.bytesTotal)}`
+                        : job.bytesReceived
+                          ? `${formatBytes(job.bytesReceived)} received`
+                          : `${Math.round(job.progress * 100)}%`}
+                      {job.error ? ` · ${job.error}` : ''}
+                    </p>
+                    {active && job.bytesTotal && job.bytesTotal > 0 ? (
+                      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[var(--bg-muted)]">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-sky-500/80 to-emerald-400/70 transition-[width] duration-300"
+                          style={{ width: `${Math.min(100, Math.round(job.progress * 100))}%` }}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="flex shrink-0 flex-wrap gap-1.5">
+                    {active ? (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        disabled={busyId === job.id}
+                        onClick={() => void jobAction(job.id, 'cancel')}
+                      >
+                        {busyId === job.id ? 'Cancelling…' : 'Cancel'}
+                      </Button>
+                    ) : null}
+                    {job.status === 'error' || job.status === 'cancelled' ? (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        disabled={busyId === job.id || !rootConfigured || !rootWritable}
+                        onClick={() => void jobAction(job.id, 'retry')}
+                      >
+                        {busyId === job.id ? 'Retrying…' : 'Resume'}
+                      </Button>
+                    ) : null}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
         <label className="flex cursor-pointer items-center gap-2 text-xs text-[var(--text-secondary)]">
@@ -508,35 +639,54 @@ export default function ComfyModelAssetsPanel({
                               {job.error ? ` · ${job.error}` : ''}
                             </p>
                           ) : null}
-                          {job?.status === 'error' ? (
-                            <p className="type-caption text-rose-300/90">{job.error}</p>
+                          {job?.status === 'error' || job?.status === 'cancelled' ? (
+                            <p className="type-caption text-rose-300/90">
+                              {job.error ?? (job.status === 'cancelled' ? 'Cancelled.' : null)}
+                            </p>
                           ) : null}
                         </div>
-                        {row.downloadable && row.status !== 'installed' ? (
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            disabled={
-                              !rootConfigured ||
-                              !rootWritable ||
-                              busyId === row.id ||
-                              Boolean(installing) ||
-                              row.status === 'root-missing'
-                            }
-                            onClick={() => void install(row.id)}
-                          >
-                            {installing
-                              ? 'Downloading…'
-                              : job?.status === 'error'
-                                ? busyId === row.id
-                                  ? 'Retrying…'
-                                  : 'Retry'
-                                : busyId === row.id
-                                  ? 'Starting…'
-                                  : 'Install'}
-                          </Button>
-                        ) : null}
+                        <div className="flex shrink-0 flex-wrap gap-1.5">
+                          {installing && job ? (
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              disabled={busyId === job.id}
+                              onClick={() => void jobAction(job.id, 'cancel')}
+                            >
+                              {busyId === job.id ? 'Cancelling…' : 'Cancel'}
+                            </Button>
+                          ) : null}
+                          {row.downloadable && row.status !== 'installed' ? (
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              disabled={
+                                !rootConfigured ||
+                                !rootWritable ||
+                                busyId === row.id ||
+                                Boolean(installing) ||
+                                row.status === 'root-missing'
+                              }
+                              onClick={() =>
+                                job && (job.status === 'error' || job.status === 'cancelled')
+                                  ? void jobAction(job.id, 'retry')
+                                  : void install(row.id)
+                              }
+                            >
+                              {installing
+                                ? 'Downloading…'
+                                : job?.status === 'error' || job?.status === 'cancelled'
+                                  ? busyId === row.id || busyId === job.id
+                                    ? 'Resuming…'
+                                    : 'Resume'
+                                  : busyId === row.id
+                                    ? 'Starting…'
+                                    : 'Install'}
+                            </Button>
+                          ) : null}
+                        </div>
                       </div>
                     </li>
                   );

@@ -15,10 +15,10 @@ const StyleTransplantPanel = dynamic(() => import('@/components/studio/StyleTran
 
 export default function StudioExperimentsTab() {
   return (
-    <>
+    <div className="ui-section-stack">
       <ExperimentDashboardPanel />
       <DuplicatePromptsPanel />
       <StyleTransplantPanel />
-    </>
+    </div>
   );
 }
