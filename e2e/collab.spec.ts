@@ -19,6 +19,7 @@ test.describe('Shared-project collab', () => {
 
   test('collab apply draft control appears when remote draft is signaled', async ({ page }) => {
     await gotoStable(page, '/');
+    await expect(page.getByText(/Live ·/)).toBeVisible();
     await page.evaluate(() => {
       const channel = new BroadcastChannel('cps-collab-default');
       channel.postMessage({
@@ -30,11 +31,14 @@ test.describe('Shared-project collab', () => {
           draft: 'remote keyword draft',
           fields: { hints: 'remote keyword draft' },
           changedFields: ['hints'],
-          updatedAt: Date.now(),
+          // Must beat local draft timestamp + 250ms skew guard.
+          updatedAt: Date.now() + 5_000,
         },
       });
       channel.close();
     });
-    await expect(page.getByRole('button', { name: 'Apply draft' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Apply draft' })).toBeVisible({
+      timeout: 10_000,
+    });
   });
 });

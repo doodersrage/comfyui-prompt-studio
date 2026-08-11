@@ -53,15 +53,15 @@ test('studio analytics tab loads', async ({ page }) => {
 });
 
 test('settings comfyui loader maps section loads', async ({ page }) => {
-  // Desktop tab buttons include description text in the accessible name.
-  await gotoStable(page, '/settings?tab=comfyui');
+  // Loader maps live under workflow-patching (not the top of the ComfyUI tab).
+  await gotoStable(page, '/settings?tab=comfyui&section=workflow-patching');
+  await expect(page.getByText(/Checkpoint map/i)).toBeVisible({ timeout: 20_000 });
   await expect(page.getByRole('button', { name: /Merge suggested loader maps/i })).toBeVisible({
     timeout: 15_000,
   });
   await expect(page.getByRole('button', { name: /Optimize all in library/i })).toBeVisible({
     timeout: 30_000,
   });
-  await expect(page.getByText(/Checkpoint map/i)).toBeVisible();
 });
 
 test('settings workflow health panel loads', async ({ page }) => {
