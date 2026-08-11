@@ -16,6 +16,12 @@ const TOOL_PATHS: Record<string, string> = {
   randomScene: '/',
   topics: '/topics',
   variations: '/variations',
+  refine: '/refine',
+  inpaint: '/inpaint',
+  outpaint: '/outpaint',
+  video: '/video',
+  controlnet: '/controlnet',
+  imagePrompt: '/image-prompt',
 };
 
 export function resolveHistoryEntryNavigation(entry: PromptHistoryEntry): HistoryEntryNavigation {

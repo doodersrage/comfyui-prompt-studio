@@ -134,6 +134,7 @@ export const COMFYUI_ESSENTIAL_SECTION_IDS: ComfyUiSettingsSectionId[] = [
   'workflow-map',
   'model-assets',
   'queue-params',
+  'hold-max',
   'prompt-quality',
   'vram-guard',
   'inference-engine',

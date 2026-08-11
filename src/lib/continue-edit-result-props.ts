@@ -20,6 +20,8 @@ export function continueEditResultProps(
     onContinueInpaint: () => actions.inpaintOutput(output, preview),
     onContinueOutpaint: () => actions.outpaintOutput(output, preview),
     onContinueCompose: () => actions.composeOutput(output, preview),
+    onContinueVideo: () => actions.videoOutput(output, preview),
+    onContinueControlNet: () => actions.controlNetOutput(output, preview),
     ...(options?.includeSeedBatch !== false
       ? {
           onQueueSeedBatch: () => {

@@ -1962,108 +1962,115 @@ export default function SettingsComfyUiTab({
         }
       />
 
+      <ToolSection id="settings-comfyui-hold-max" title="Queue Max hold">
+        <p className="text-sm text-[var(--text-secondary)]">
+          When on, Max Generate / re-queue / Upscale / Moiré / Refine wait until the ComfyUI queue
+          is idle, then flush from Queue → Orchestration.
+        </p>
+        <label className="flex cursor-pointer items-start gap-3">
+          <input
+            type="checkbox"
+            checked={sharedSettings.holdMaxUntilIdle === true}
+            onChange={event => {
+              updateSharedSettings({ holdMaxUntilIdle: event.target.checked });
+              setStatus(
+                event.target.checked
+                  ? 'Hold Max until idle enabled.'
+                  : 'Hold Max until idle disabled.'
+              );
+            }}
+            className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] ${accentFocusClass(ACCENT)}`}
+          />
+          <span className="space-y-1">
+            <span className="block text-sm font-medium text-[var(--text-primary)]">
+              Hold Max until idle
+            </span>
+            <span className="block text-xs text-[var(--text-muted)]">
+              Avoid stacking Max enrich while ComfyUI is already busy. Also shown on Queue →
+              Orchestration.
+            </span>
+          </span>
+        </label>
+      </ToolSection>
+
       {showAdvanced ? (
         <>
-          <ToolSection id="settings-comfyui-hold-max" title="Queue Max hold">
-            <p className="text-sm text-[var(--text-secondary)]">
-              When on, Max Generate / re-queue / Upscale / Moiré / Refine wait until the ComfyUI
-              queue is idle, then flush from Queue → Orchestration.
-            </p>
-            <label className="flex cursor-pointer items-start gap-3">
-              <input
-                type="checkbox"
-                checked={sharedSettings.holdMaxUntilIdle === true}
-                onChange={event => {
-                  updateSharedSettings({ holdMaxUntilIdle: event.target.checked });
-                  setStatus(
-                    event.target.checked
-                      ? 'Hold Max until idle enabled.'
-                      : 'Hold Max until idle disabled.'
+          <CollapsibleSection
+            title="Sampler memory"
+            summary="Per-model CFG/steps remembered from 4–5★ ratings."
+            defaultOpen={false}
+            persistKey="settings-comfyui-sampler-memory"
+          >
+            <ToolSection id="settings-comfyui-sampler-memory" title="Sampler memory">
+              <p className="text-sm text-[var(--text-secondary)]">
+                4–5★ gallery ratings remember per-model CFG / steps / sampler / scheduler for the
+                next queue (Lightning and Rapid AIO stay CFG-1).
+              </p>
+              {(() => {
+                const memory = sharedSettings.modelSamplerMemory ?? {};
+                const entries = Object.entries(memory).sort(([a], [b]) => a.localeCompare(b));
+                if (entries.length === 0) {
+                  return (
+                    <EmptyState
+                      compact
+                      icon="inbox"
+                      title="No sampler memory yet"
+                      description="Rate a completed gallery image 4–5★ to remember its sampler params for that model."
+                    />
                   );
-                }}
-                className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] ${accentFocusClass(ACCENT)}`}
-              />
-              <span className="space-y-1">
-                <span className="block text-sm font-medium text-[var(--text-primary)]">
-                  Hold Max until idle
-                </span>
-                <span className="block text-xs text-[var(--text-muted)]">
-                  Avoid stacking Max enrich while ComfyUI is already busy. Also shown on Queue →
-                  Orchestration.
-                </span>
-              </span>
-            </label>
-          </ToolSection>
-
-          <ToolSection id="settings-comfyui-sampler-memory" title="Sampler memory">
-            <p className="text-sm text-[var(--text-secondary)]">
-              4–5★ gallery ratings remember per-model CFG / steps / sampler / scheduler for the next
-              queue (Lightning and Rapid AIO stay CFG-1).
-            </p>
-            {(() => {
-              const memory = sharedSettings.modelSamplerMemory ?? {};
-              const entries = Object.entries(memory).sort(([a], [b]) => a.localeCompare(b));
-              if (entries.length === 0) {
+                }
                 return (
-                  <EmptyState
-                    compact
-                    icon="inbox"
-                    title="No sampler memory yet"
-                    description="Rate a completed gallery image 4–5★ to remember its sampler params for that model."
-                  />
-                );
-              }
-              return (
-                <div className="space-y-2">
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      variant="secondary"
-                      onClick={() => {
-                        updateSharedSettings({ modelSamplerMemory: {} });
-                        setStatus('Cleared all sampler memory.');
-                      }}
-                    >
-                      Clear all
-                    </Button>
-                  </div>
-                  <ul className="space-y-2">
-                    {entries.map(([model, remembered]) => (
-                      <li
-                        key={model}
-                        className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-muted)]/40 px-3 py-2"
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="secondary"
+                        onClick={() => {
+                          updateSharedSettings({ modelSamplerMemory: {} });
+                          setStatus('Cleared all sampler memory.');
+                        }}
                       >
-                        <div className="min-w-0 space-y-0.5">
-                          <p className="truncate text-sm text-[var(--text-primary)]">{model}</p>
-                          <p className="type-caption text-[var(--text-muted)]">
-                            {[
-                              remembered.cfg ? `CFG ${remembered.cfg}` : null,
-                              remembered.steps ? `${remembered.steps} steps` : null,
-                              remembered.samplerName,
-                              remembered.scheduler,
-                            ]
-                              .filter(Boolean)
-                              .join(' · ') || '—'}
-                          </p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            const next = { ...(sharedSettings.modelSamplerMemory ?? {}) };
-                            delete next[model];
-                            updateSharedSettings({ modelSamplerMemory: next });
-                            setStatus(`Cleared sampler memory for ${model}.`);
-                          }}
+                        Clear all
+                      </Button>
+                    </div>
+                    <ul className="space-y-2">
+                      {entries.map(([model, remembered]) => (
+                        <li
+                          key={model}
+                          className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-muted)]/40 px-3 py-2"
                         >
-                          Clear
-                        </Button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              );
-            })()}
-          </ToolSection>
+                          <div className="min-w-0 space-y-0.5">
+                            <p className="truncate text-sm text-[var(--text-primary)]">{model}</p>
+                            <p className="type-caption text-[var(--text-muted)]">
+                              {[
+                                remembered.cfg ? `CFG ${remembered.cfg}` : null,
+                                remembered.steps ? `${remembered.steps} steps` : null,
+                                remembered.samplerName,
+                                remembered.scheduler,
+                              ]
+                                .filter(Boolean)
+                                .join(' · ') || '—'}
+                            </p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              const next = { ...(sharedSettings.modelSamplerMemory ?? {}) };
+                              delete next[model];
+                              updateSharedSettings({ modelSamplerMemory: next });
+                              setStatus(`Cleared sampler memory for ${model}.`);
+                            }}
+                          >
+                            Clear
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })()}
+            </ToolSection>
+          </CollapsibleSection>
         </>
       ) : null}
     </>

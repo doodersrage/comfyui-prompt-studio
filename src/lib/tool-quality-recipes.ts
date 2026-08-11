@@ -137,6 +137,20 @@ export const SUGGESTED_TOOL_QUALITY_RECIPES: ToolQualityRecipe[] = [
     builtin: true,
   },
   {
+    id: 'controlnet-draft',
+    label: 'ControlNet draft',
+    toolIds: ['controlnet'],
+    queueQualityProfile: 'draft',
+    builtin: true,
+  },
+  {
+    id: 'controlnet-keeper',
+    label: 'ControlNet keeper',
+    toolIds: ['controlnet'],
+    queueQualityProfile: 'final',
+    builtin: true,
+  },
+  {
     id: 'audio-keeper',
     label: 'Audio keeper',
     toolIds: ['audio'],

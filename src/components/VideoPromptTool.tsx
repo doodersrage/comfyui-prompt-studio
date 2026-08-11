@@ -4,6 +4,8 @@ import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
 
 import { useCallback, useEffect, useState } from 'react';
 import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
+import EditToolRecipeStrip from '@/components/EditToolRecipeStrip';
+import { HistoryHintSeedPanel } from '@/components/scene-tool/HistoryHintSeedPanel';
 import SharedToolControls from '@/components/SharedToolControls';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
@@ -13,9 +15,11 @@ import { useGalleryHandoff } from '@/hooks/useGalleryHandoff';
 import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
 import { usePromptResultActions } from '@/hooks/usePromptResultActions';
 import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
+import { continueEditResultProps } from '@/lib/continue-edit-result-props';
 import { getReformatTargetLabel } from '@/lib/reformat-target';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
 import { DEFAULT_VIDEO_TOOL_CACHE, loadSettingsCache } from '@/lib/settings-cache';
+import { normalizeHistorySeedScope, normalizeSceneHintSource } from '@/lib/scene-hint-source';
 import { isVideoModel, resolvePreferredVideoModel } from '@/lib/queue-tool-model';
 import type { ComfyImageModel } from '@/lib/comfy-models/client';
 import {
@@ -463,6 +467,27 @@ export default function VideoPromptTool() {
       }
     >
       <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.video} />
+      <EditToolRecipeStrip toolId="video" shared={shared} onApplied={next => updateShared(next)} />
+      <HistoryHintSeedPanel
+        tool="video"
+        hintSource={normalizeSceneHintSource(toolSettings.hintSource)}
+        historySeedScope={normalizeHistorySeedScope(toolSettings.historySeedScope)}
+        hints={subject}
+        randomTheme={toolSettings.randomTheme ?? ''}
+        lastHistorySeedEntryId={toolSettings.lastHistorySeedEntryId}
+        onHintSourceChange={source => updateToolSettings({ hintSource: source })}
+        onHistorySeedScopeChange={scope => updateToolSettings({ historySeedScope: scope })}
+        onHintsChange={setSubject}
+        onRandomThemeChange={theme => updateToolSettings({ randomTheme: theme })}
+        onHistorySeedApplied={result => {
+          setSubject(result.hints);
+          updateToolSettings({
+            lastHistorySeedEntryId: result.entryId,
+            hintSource: 'history',
+          });
+        }}
+        accentFocusClassName={accentFocusClass(ACCENT)}
+      />
       <ToolSection>
         {workflowStatus ? (
           <p className="mb-3 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">
@@ -647,6 +672,7 @@ export default function VideoPromptTool() {
 
         <PrimaryButton
           accentClassName={accentButtonClass(ACCENT)}
+          data-action="primary-generate"
           onClick={() => void generate()}
           disabled={!mounted || !subject.trim()}
           loading={loading}
@@ -673,6 +699,7 @@ export default function VideoPromptTool() {
           onSendComfyUi={queueVideo}
           onExportSidecar={() => actions.exportSidecar(output, { metadata: { hints: motion } })}
           {...promptResultPreviewProps(actions, output, null)}
+          {...continueEditResultProps(actions, output)}
           onFixPrompt={() => void actions.fixPrompt(output, setOutput, motion)}
           onCopyPair={() => void actions.copyPromptPair(output, null)}
           onReformat={() => void actions.reformatForModel(output, setOutput)}

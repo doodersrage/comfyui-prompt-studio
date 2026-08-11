@@ -20,6 +20,7 @@ import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import { presetOptionsFromFantasyCache, resolveFantasyFocus } from '@/lib/fantasy-options';
 import { getComfyModelDefinition } from '@/lib/comfy-models/client';
 import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
+import { continueEditResultProps } from '@/lib/continue-edit-result-props';
 import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-target';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
 import { applyHintSourceFromSearchParams } from '@/lib/tool-url-params';
@@ -446,12 +447,11 @@ export default function FantasyTool() {
           })
         }
         onSendComfyUi={() => void actions.sendComfyUi(output)}
-        onImprove={() => actions.improveOutput(output, actions.comfyUiPreviewUrl)}
-        onRefine={() => actions.refineOutput(output, actions.comfyUiPreviewUrl)}
         onEditPrompt={() =>
           actions.editPromptOutput(output, actions.comfyUiPreviewUrl, undefined, toolSettings.hints)
         }
         {...promptResultPreviewProps(actions, output)}
+        {...continueEditResultProps(actions, output)}
         onFixPrompt={() => void actions.fixPrompt(output, setOutput, toolSettings.hints)}
         onCopyPair={() => void actions.copyPromptPair(output)}
         onCompact={() => void actions.compactPrompt(output, setOutput)}

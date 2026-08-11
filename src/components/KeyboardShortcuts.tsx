@@ -3,23 +3,27 @@
 import { useEffect } from 'react';
 import { loadKeyboardShortcuts, parseCombo } from '@/lib/keyboard-shortcuts-store';
 
+/** Queue/generate shortcuts stay available while typing in fields. */
+const TYPING_OK_ACTIONS = new Set(['primary-generate', 'send-comfyui']);
+
 export default function KeyboardShortcuts() {
   useEffect(() => {
     const bindings = loadKeyboardShortcuts();
     const handler = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
-      if (
+      const inField = Boolean(
         target &&
         (target.tagName === 'INPUT' ||
           target.tagName === 'TEXTAREA' ||
           target.tagName === 'SELECT' ||
           target.isContentEditable)
-      ) {
-        return;
-      }
+      );
 
       for (const binding of bindings) {
         if (!binding.selector || binding.action === 'command-palette') {
+          continue;
+        }
+        if (inField && !TYPING_OK_ACTIONS.has(binding.action)) {
           continue;
         }
         const combo = parseCombo(binding.combo);

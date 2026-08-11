@@ -27,7 +27,15 @@ import { findGalleryEntryForHistory } from '@/lib/prompt-lineage';
 import { buildRegenerateUrl } from '@/lib/regenerate-url';
 import { buildUseAsHintsUrl } from '@/lib/use-as-hints-url';
 import { studioHistoryUrl } from '@/lib/prompt-lineage';
-import { startPromptEditorFromHistoryEntry } from '@/lib/improve-output';
+import {
+  startComposeFromGalleryEntry,
+  startControlNetFromGalleryEntry,
+  startInpaintFromGalleryEntry,
+  startOutpaintFromGalleryEntry,
+  startPromptEditorFromHistoryEntry,
+  startRefineFromGalleryEntry,
+  startVideoFromGalleryEntry,
+} from '@/lib/improve-output';
 import { toastBulkQueueSummary, toastHeldMax, toastQueueOutcome } from '@/lib/app-toast';
 import { loadHistoryDensity, saveHistoryDensity, type HistoryDensity } from '@/lib/history-density';
 import {
@@ -125,6 +133,7 @@ function HistoryCard({
   onRequeue,
   onUpscale,
   onRefine,
+  onOpenLinkedEdit,
   onRequeueBatch,
   batchPromptCount = 0,
   onPreview,
@@ -144,6 +153,10 @@ function HistoryCard({
   onRequeue: (newSeed: boolean) => void;
   onUpscale?: (qualityProfile: 'final' | 'max') => void;
   onRefine?: () => void;
+  /** Open linked gallery output in an edit/media tool. */
+  onOpenLinkedEdit?: (
+    target: 'refine' | 'inpaint' | 'outpaint' | 'compose' | 'video' | 'controlnet'
+  ) => void;
   onRequeueBatch?: () => void;
   batchPromptCount?: number;
   onPreview?: () => void;
@@ -252,6 +265,58 @@ function HistoryCard({
               >
                 Refine (low denoise)
               </Button>
+            ) : null}
+            {onOpenLinkedEdit ? (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="type-caption"
+                  onClick={() => onOpenLinkedEdit('refine')}
+                >
+                  Open Refine
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="type-caption"
+                  onClick={() => onOpenLinkedEdit('inpaint')}
+                >
+                  Open Inpaint
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="type-caption"
+                  onClick={() => onOpenLinkedEdit('outpaint')}
+                >
+                  Open Outpaint
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="type-caption"
+                  onClick={() => onOpenLinkedEdit('compose')}
+                >
+                  Open Compose
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="type-caption"
+                  onClick={() => onOpenLinkedEdit('video')}
+                >
+                  Open Video
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="type-caption"
+                  onClick={() => onOpenLinkedEdit('controlnet')}
+                >
+                  Open ControlNet
+                </Button>
+              </>
             ) : null}
             {batchPromptCount > 1 && onRequeueBatch ? (
               <Button
@@ -506,6 +571,36 @@ export default function StudioHistoryTab({
           onBackupStatusChange(message);
           toastQueueOutcome({ ok: true, text: message });
         });
+      }}
+      onOpenLinkedEdit={target => {
+        const galleryEntry = findGalleryEntryForHistory(entry);
+        if (!galleryEntry) {
+          onBackupStatusChange(
+            'No linked gallery output — queue from a tool first, then open edit tools from history.'
+          );
+          return;
+        }
+        if (target === 'refine') {
+          startRefineFromGalleryEntry(galleryEntry);
+          return;
+        }
+        if (target === 'inpaint') {
+          startInpaintFromGalleryEntry(galleryEntry);
+          return;
+        }
+        if (target === 'outpaint') {
+          startOutpaintFromGalleryEntry(galleryEntry);
+          return;
+        }
+        if (target === 'compose') {
+          startComposeFromGalleryEntry(galleryEntry);
+          return;
+        }
+        if (target === 'video') {
+          startVideoFromGalleryEntry(galleryEntry);
+          return;
+        }
+        startControlNetFromGalleryEntry(galleryEntry);
       }}
       onRefine={() => {
         const galleryEntry = findGalleryEntryForHistory(entry);

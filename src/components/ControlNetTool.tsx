@@ -4,6 +4,8 @@ import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
 
 import { useCallback, useMemo, useState } from 'react';
 import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
+import EditToolRecipeStrip from '@/components/EditToolRecipeStrip';
+import { HistoryHintSeedPanel } from '@/components/scene-tool/HistoryHintSeedPanel';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import SharedToolControls from '@/components/SharedToolControls';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
@@ -15,10 +17,13 @@ import { usePromptResultActions } from '@/hooks/usePromptResultActions';
 import { getComfyModelDefinition } from '@/lib/comfy-models/client';
 import type { WorkflowParamValues } from '@/lib/comfyui-config';
 import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-target';
+import { continueEditResultProps } from '@/lib/continue-edit-result-props';
 import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
+import { sharedPatchFromGalleryHandoff, type GalleryHandoffPayload } from '@/lib/gallery-handoff';
 import { DEFAULT_CONTROLNET_TOOL_CACHE, type ControlNetSlotPreset } from '@/lib/settings-cache';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
 import { normalizeControlNetMode, type ControlNetMode } from '@/lib/controlnet-prompt';
+import { normalizeHistorySeedScope, normalizeSceneHintSource } from '@/lib/scene-hint-source';
 
 function normalizeSlotStrengths(raw: unknown): number[] {
   const fallback = [1, 1, 1, 1];
@@ -302,12 +307,13 @@ export default function ControlNetTool() {
     controlImageUrls?: string[];
     file: File | null;
     previewUrl: string | null;
-    payload: { galleryEntryId?: string; imageUrl?: string };
+    payload: GalleryHandoffPayload;
   }) {
     setOutput(handoff.prompt);
     setSubject(handoff.prompt.slice(0, 800));
     setHandoffQueueParams(handoff.queueParams);
     setHandoffParentGalleryEntryId(handoff.payload.galleryEntryId?.trim() || undefined);
+    const sharedPatch = sharedPatchFromGalleryHandoff(handoff.payload);
     const restoredModes = (
       handoff.queueParams?.controlNetModes?.length
         ? handoff.queueParams.controlNetModes
@@ -346,7 +352,9 @@ export default function ControlNetTool() {
       controlUrls[0] || handoff.previewUrl?.trim() || handoff.payload.imageUrl?.trim() || undefined;
     setHandoffSourceImageUrl(primaryUrl);
     if (handoff.model) {
-      updateShared({ model: handoff.model as typeof shared.model });
+      updateShared({ model: handoff.model as typeof shared.model, ...sharedPatch });
+    } else if (Object.keys(sharedPatch).length > 0) {
+      updateShared(sharedPatch);
     }
     if (handoff.file) {
       onRefChange(handoff.file);
@@ -455,6 +463,31 @@ export default function ControlNetTool() {
       }
     >
       <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.controlnet} />
+      <EditToolRecipeStrip
+        toolId="controlnet"
+        shared={shared}
+        onApplied={next => updateShared(next)}
+      />
+      <HistoryHintSeedPanel
+        tool="controlnet"
+        hintSource={normalizeSceneHintSource(toolSettings.hintSource)}
+        historySeedScope={normalizeHistorySeedScope(toolSettings.historySeedScope)}
+        hints={subject}
+        randomTheme={toolSettings.randomTheme ?? ''}
+        lastHistorySeedEntryId={toolSettings.lastHistorySeedEntryId}
+        onHintSourceChange={source => updateToolSettings({ hintSource: source })}
+        onHistorySeedScopeChange={scope => updateToolSettings({ historySeedScope: scope })}
+        onHintsChange={setSubject}
+        onRandomThemeChange={theme => updateToolSettings({ randomTheme: theme })}
+        onHistorySeedApplied={result => {
+          setSubject(result.hints);
+          updateToolSettings({
+            lastHistorySeedEntryId: result.entryId,
+            hintSource: 'history',
+          });
+        }}
+        accentFocusClassName={accentFocusClass(ACCENT)}
+      />
       <div className="mb-4">
         <MediaScaffoldReadyPanel
           kind="controlnet"
@@ -698,6 +731,7 @@ export default function ControlNetTool() {
           </div>
           <PrimaryButton
             accentClassName={accentButtonClass(ACCENT)}
+            data-action="primary-generate"
             loading={loading}
             disabled={!mounted || (!subject.trim() && !refFile)}
             onClick={() => void generate()}
@@ -736,6 +770,9 @@ export default function ControlNetTool() {
             reformatTargetLabel={getReformatTargetLabel(shared.model)}
             onExportSidecar={() => actions.exportSidecar(output, { metadata: { hints: hintText } })}
             {...promptResultPreviewProps(actions, output, null)}
+            {...continueEditResultProps(actions, output, {
+              queueImageOptions: queueControlNetOptions,
+            })}
             comfyUiStatus={actions.comfyUiStatus}
             comfyUiJob={actions.comfyUiJob}
             comfyUiPreviewUrl={actions.comfyUiPreviewUrl}

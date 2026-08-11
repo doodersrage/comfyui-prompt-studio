@@ -354,6 +354,7 @@ export default function OutpaintTool() {
           <PrimaryButton
             accentClassName={accentButtonClass(ACCENT)}
             type="button"
+            data-action="primary-generate"
             disabled={busy || !sourceUrl}
             onClick={() => void runOutpaint()}
           >

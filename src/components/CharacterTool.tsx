@@ -8,6 +8,7 @@ import BackgroundPresetControls from '@/components/BackgroundPresetControls';
 import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
 import RegionalPromptBuilderPanel from '@/components/RegionalPromptBuilderPanel';
 import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
+import { continueEditResultProps } from '@/lib/continue-edit-result-props';
 import { readRawPrompt } from '@/lib/raw-prompt';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import { applySceneStarterWorkflowHints } from '@/lib/scene-starter-workflow-hints';
@@ -882,12 +883,11 @@ export default function CharacterTool() {
             customTokens: regionalPromptCustomTokens(toolSettings.regionalSegments ?? []),
           })
         }
-        onImprove={() => actions.improveOutput(output, actions.comfyUiPreviewUrl)}
-        onRefine={() => actions.refineOutput(output, actions.comfyUiPreviewUrl)}
         onEditPrompt={() =>
           actions.editPromptOutput(output, actions.comfyUiPreviewUrl, undefined, toolSettings.hints)
         }
         {...promptResultPreviewProps(actions, output, inferredSport)}
+        {...continueEditResultProps(actions, output)}
         onFixPrompt={() => void actions.fixPrompt(output, setOutput, toolSettings.hints)}
         onCopyPair={() => void actions.copyPromptPair(output, inferredSport)}
         onCompact={() => void actions.compactPrompt(output, setOutput)}

@@ -12,7 +12,9 @@ export type HistorySeedTool =
   | 'fantasy'
   | 'refine'
   | 'inpaint'
-  | 'outpaint';
+  | 'outpaint'
+  | 'video'
+  | 'controlnet';
 
 export const SCENE_HINT_SOURCE_OPTIONS: Array<{
   value: SceneHintSource;

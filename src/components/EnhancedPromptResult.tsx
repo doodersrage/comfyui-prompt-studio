@@ -109,6 +109,8 @@ type EnhancedPromptResultProps = {
   onContinueInpaint?: () => void;
   onContinueOutpaint?: () => void;
   onContinueCompose?: () => void;
+  onContinueVideo?: () => void;
+  onContinueControlNet?: () => void;
   /** Queue N fresh-seed variations with the same prompt/images. */
   onQueueSeedBatch?: () => void;
   seedBatchLabel?: string;
@@ -184,6 +186,8 @@ export default function EnhancedPromptResult({
   onContinueInpaint,
   onContinueOutpaint,
   onContinueCompose,
+  onContinueVideo,
+  onContinueControlNet,
   onQueueSeedBatch,
   seedBatchLabel,
   workflowPreview,
@@ -354,6 +358,8 @@ export default function EnhancedPromptResult({
       onContinueInpaint ||
       onContinueOutpaint ||
       onContinueCompose ||
+      onContinueVideo ||
+      onContinueControlNet ||
       onQueueSeedBatch)
   );
 
@@ -704,6 +710,16 @@ export default function EnhancedPromptResult({
                       Continue in Compose
                     </Button>
                   )}
+                  {onContinueVideo && (
+                    <Button variant="secondary" onClick={onContinueVideo}>
+                      Continue in Video
+                    </Button>
+                  )}
+                  {onContinueControlNet && (
+                    <Button variant="secondary" onClick={onContinueControlNet}>
+                      Continue in ControlNet
+                    </Button>
+                  )}
                   {onQueueSeedBatch && (
                     <Button variant="secondary" onClick={onQueueSeedBatch}>
                       {seedBatchLabel ?? 'Queue 3 seed variants'}
@@ -782,6 +798,8 @@ export default function EnhancedPromptResult({
             {onContinueInpaint ||
             onContinueOutpaint ||
             onContinueCompose ||
+            onContinueVideo ||
+            onContinueControlNet ||
             onRefine ||
             onQueueSeedBatch ? (
               <div data-testid="result-continue-edit" className="flex flex-wrap gap-1.5">
@@ -819,6 +837,24 @@ export default function EnhancedPromptResult({
                     onClick={onContinueCompose}
                   >
                     Compose
+                  </Button>
+                ) : null}
+                {onContinueVideo ? (
+                  <Button
+                    variant="secondary"
+                    className="!min-h-8 px-2.5 text-[11px]"
+                    onClick={onContinueVideo}
+                  >
+                    Video
+                  </Button>
+                ) : null}
+                {onContinueControlNet ? (
+                  <Button
+                    variant="secondary"
+                    className="!min-h-8 px-2.5 text-[11px]"
+                    onClick={onContinueControlNet}
+                  >
+                    ControlNet
                   </Button>
                 ) : null}
                 {onQueueSeedBatch ? (

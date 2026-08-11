@@ -384,6 +384,19 @@ export default function InpaintTool() {
         <div className="flex flex-wrap gap-2">
           <PrimaryButton
             accentClassName={accentButtonClass(ACCENT)}
+            data-action="primary-generate"
+            onClick={() => {
+              if (!assertReadyToQueue()) {
+                return;
+              }
+              void actions.sendComfyUi(output, undefined, undefined, queueImageOptions);
+            }}
+            disabled={!output.trim()}
+          >
+            Queue inpaint
+          </PrimaryButton>
+          <PrimaryButton
+            accentClassName={accentButtonClass(ACCENT)}
             onClick={() => void lintAndSetDirectPrompt()}
             disabled={!output.trim()}
           >

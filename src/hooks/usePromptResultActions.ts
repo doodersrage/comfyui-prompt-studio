@@ -13,11 +13,13 @@ import { guardQueueQualityForVram } from '@/lib/vram-queue-guard';
 import { rememberedSamplerOverrides } from '@/lib/sampler-memory';
 import {
   startComposeFromResult,
+  startControlNetFromResult,
   startImproveFromResult,
   startInpaintFromResult,
   startOutpaintFromResult,
   startPromptEditorFromResult,
   startRefineFromResult,
+  startVideoFromResult,
 } from '@/lib/improve-output';
 import type { WorkflowParamValues } from '@/lib/comfyui-config';
 import { parseWorkflowJson } from '@/lib/comfyui-config';
@@ -1689,6 +1691,38 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
     [config.model, config.tool]
   );
 
+  const videoOutput = useCallback(
+    (prompt: string, previewUrl?: string | null, negativePrompt?: string) => {
+      if (!prompt.trim() && !previewUrl) {
+        return;
+      }
+      startVideoFromResult({
+        prompt: prompt.trim() || 'cinematic motion',
+        previewUrl,
+        negativePrompt,
+        model: config.model,
+        tool: config.tool,
+      });
+    },
+    [config.model, config.tool]
+  );
+
+  const controlNetOutput = useCallback(
+    (prompt: string, previewUrl?: string | null, negativePrompt?: string) => {
+      if (!prompt.trim() && !previewUrl) {
+        return;
+      }
+      startControlNetFromResult({
+        prompt: prompt.trim() || 'guided composition',
+        previewUrl,
+        negativePrompt,
+        model: config.model,
+        tool: config.tool,
+      });
+    },
+    [config.model, config.tool]
+  );
+
   const sendSeedVariationBatch = useCallback(
     async (
       prompt: string,
@@ -1755,6 +1789,8 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
     inpaintOutput,
     outpaintOutput,
     composeOutput,
+    videoOutput,
+    controlNetOutput,
     sendSeedVariationBatch,
   };
 }

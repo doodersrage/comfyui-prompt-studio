@@ -5,6 +5,7 @@ import { useCallback, useState } from 'react';
 import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
+import { continueEditResultProps } from '@/lib/continue-edit-result-props';
 import { readRawPrompt } from '@/lib/raw-prompt';
 import SharedToolControls from '@/components/SharedToolControls';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
@@ -528,6 +529,7 @@ export default function ImagePromptTool() {
 
         <PrimaryButton
           accentClassName={accentButtonClass(ACCENT)}
+          data-action="primary-generate"
           onClick={() => void generate()}
           disabled={!mounted || refImages.length === 0}
           loading={loading}
@@ -591,8 +593,6 @@ export default function ImagePromptTool() {
             queueParamsBase: handoffQueueParams,
           })
         }
-        onImprove={() => actions.improveOutput(output, actions.comfyUiPreviewUrl)}
-        onRefine={() => actions.refineOutput(output, actions.comfyUiPreviewUrl)}
         onEditPrompt={() =>
           actions.editPromptOutput(
             output,
@@ -601,11 +601,14 @@ export default function ImagePromptTool() {
             toolSettings.extraHints
           )
         }
-        onContinueInpaint={() => actions.inpaintOutput(output, actions.comfyUiPreviewUrl)}
-        onContinueOutpaint={() => actions.outpaintOutput(output, actions.comfyUiPreviewUrl)}
-        onContinueCompose={() => actions.composeOutput(output, actions.comfyUiPreviewUrl)}
         showWeightInspector={Boolean(output)}
         {...promptResultPreviewProps(actions, output, inferredSport)}
+        {...continueEditResultProps(actions, output, {
+          queueImageOptions: {
+            inputImage: refImages[0]?.file ?? null,
+            queueParamsBase: handoffQueueParams,
+          },
+        })}
         onFixPrompt={() => void actions.fixPrompt(output, setOutput, toolSettings.extraHints)}
         onCopyPair={() => void actions.copyPromptPair(output, inferredSport)}
         onCompact={() => void actions.compactPrompt(output, setOutput)}

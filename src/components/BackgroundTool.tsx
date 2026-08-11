@@ -3,6 +3,7 @@
 import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
 
 import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
+import { continueEditResultProps } from '@/lib/continue-edit-result-props';
 import { readRawPrompt } from '@/lib/raw-prompt';
 import { useCallback, useEffect, useState } from 'react';
 import BackgroundPresetControls from '@/components/BackgroundPresetControls';
@@ -18,8 +19,10 @@ import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import SharedToolControls from '@/components/SharedToolControls';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
+import { useGalleryHandoff } from '@/hooks/useGalleryHandoff';
 import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
 import { usePromptResultActions } from '@/hooks/usePromptResultActions';
+import type { ComfyImageModel } from '@/lib/comfy-models/client';
 import { useRecentLocations } from '@/hooks/useRecentLocations';
 import { useLocationBlocklist } from '@/hooks/useLocationBlocklist';
 import { presetOptionsFromBackgroundCache } from '@/lib/background-options';
@@ -105,6 +108,29 @@ export default function BackgroundTool() {
       updateShared({ lockedVariationSeed: seed.trim() });
     }
   }, [updateShared, updateToolSettings]);
+
+  const applyGalleryHandoff = useCallback(
+    (handoff: { prompt: string; model?: string; payload: { hints?: string } }) => {
+      const seed = handoff.payload.hints?.trim() || handoff.prompt.trim();
+      if (seed) {
+        const tags = splitBackgroundHintSeed(seed);
+        updateToolSettings({
+          settingType: tags.settingType,
+          timeOfDay: tags.timeOfDay,
+          mood: tags.mood,
+          hintSource: 'manual',
+        });
+      }
+      if (handoff.model) {
+        updateShared({ model: handoff.model as ComfyImageModel });
+      }
+      if (handoff.prompt.trim()) {
+        setOutput(handoff.prompt.trim());
+      }
+    },
+    [updateShared, updateToolSettings]
+  );
+  useGalleryHandoff('background', applyGalleryHandoff);
 
   const generate = useCallback(async () => {
     setLoading(true);
@@ -289,6 +315,7 @@ export default function BackgroundTool() {
         }
         onSendComfyUi={() => void actions.sendComfyUi(output)}
         {...promptResultPreviewProps(actions, output)}
+        {...continueEditResultProps(actions, output)}
         onFixPrompt={() => void actions.fixPrompt(output, setOutput)}
         onCopyPair={() => void actions.copyPromptPair(output)}
         onCompact={() => void actions.compactPrompt(output, setOutput)}

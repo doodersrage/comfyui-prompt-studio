@@ -780,6 +780,7 @@ export default function ComposeTool() {
 
         <PrimaryButton
           accentClassName={accentButtonClass(ACCENT)}
+          data-action="primary-generate"
           onClick={() => {
             if (!assertReadyToQueue()) {
               return;

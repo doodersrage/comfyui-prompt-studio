@@ -1,6 +1,7 @@
 'use client';
 
 import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
+import { continueEditResultProps } from '@/lib/continue-edit-result-props';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { applySceneStarterWorkflowHints } from '@/lib/scene-starter-workflow-hints';
@@ -884,8 +885,6 @@ export default function PromptGenerator() {
             })
           }
           onSendComfyUi={() => void actions.sendComfyUi(output)}
-          onImprove={() => actions.improveOutput(output, actions.comfyUiPreviewUrl)}
-          onRefine={() => actions.refineOutput(output, actions.comfyUiPreviewUrl)}
           onEditPrompt={() =>
             actions.editPromptOutput(
               output,
@@ -894,10 +893,8 @@ export default function PromptGenerator() {
               hintSource === 'random' ? genre : input
             )
           }
-          onContinueInpaint={() => actions.inpaintOutput(output, actions.comfyUiPreviewUrl)}
-          onContinueOutpaint={() => actions.outpaintOutput(output, actions.comfyUiPreviewUrl)}
-          onContinueCompose={() => actions.composeOutput(output, actions.comfyUiPreviewUrl)}
           {...promptResultPreviewProps(actions, output)}
+          {...continueEditResultProps(actions, output)}
           onFixPrompt={() =>
             void actions.fixPrompt(output, setOutput, hintSource === 'random' ? genre : input)
           }

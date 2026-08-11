@@ -74,6 +74,16 @@ const HISTORY_EMPTY_GUIDANCE: Partial<
     href: '/outpaint',
     linkLabel: 'Open Outpaint',
   },
+  video: {
+    message: 'Build a few video prompts and save them to history for motion seeds.',
+    href: '/video',
+    linkLabel: 'Open Video',
+  },
+  controlnet: {
+    message: 'Queue ControlNet jobs and save guided prompts to history.',
+    href: '/controlnet',
+    linkLabel: 'Open ControlNet',
+  },
 };
 
 type HistoryHintSeedPanelProps = {

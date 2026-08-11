@@ -19,6 +19,7 @@ import {
 } from '@/lib/comfyui-render-duration';
 import {
   startAnatomyRepairFromGalleryEntry,
+  startBackgroundFromGalleryEntry,
   startImproveFromGalleryEntry,
   startInpaintFromGalleryEntry,
   startOutpaintFromGalleryEntry,
@@ -1116,6 +1117,23 @@ export default function GalleryCard({
                           onClick={() => {
                             saveGalleryHandoff(buildGalleryHandoff(entry, 'controlnet'));
                             router.push(galleryHandoffPath('controlnet'));
+                            setMenuOpen(false);
+                          }}
+                        />
+                        {entry.status === 'completed' ? (
+                          <GalleryMenuButton
+                            label="Re-edit · ControlNet (same stack)"
+                            onClick={() => {
+                              saveGalleryHandoff(buildReeditGalleryHandoff(entry, 'controlnet'));
+                              router.push(galleryHandoffPath('controlnet'));
+                              setMenuOpen(false);
+                            }}
+                          />
+                        ) : null}
+                        <GalleryMenuButton
+                          label="Background"
+                          onClick={() => {
+                            startBackgroundFromGalleryEntry(entry);
                             setMenuOpen(false);
                           }}
                         />

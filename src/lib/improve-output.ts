@@ -72,7 +72,7 @@ export function startRefineFromResult(input: {
 }
 
 function startEditToolFromResult(
-  target: 'inpaint' | 'outpaint' | 'compose' | 'refine',
+  target: 'inpaint' | 'outpaint' | 'compose' | 'refine' | 'video' | 'controlnet',
   input: {
     prompt: string;
     previewUrl?: string | null;
@@ -126,6 +126,26 @@ export function startComposeFromResult(input: {
 }): void {
   startEditToolFromResult('compose', input);
 }
+
+export function startVideoFromResult(input: {
+  prompt: string;
+  previewUrl?: string | null;
+  model?: string;
+  tool?: string;
+  negativePrompt?: string;
+}): void {
+  startEditToolFromResult('video', input);
+}
+
+export function startControlNetFromResult(input: {
+  prompt: string;
+  previewUrl?: string | null;
+  model?: string;
+  tool?: string;
+  negativePrompt?: string;
+}): void {
+  startEditToolFromResult('controlnet', input);
+}
 export function startRefineFromHistoryEntry(entry: {
   id: string;
   prompt: string;
@@ -172,6 +192,11 @@ export function startOutpaintFromGalleryEntry(entry: ComfyGalleryEntry): void {
   window.location.href = galleryHandoffPath('outpaint');
 }
 
+export function startRefineFromGalleryEntry(entry: ComfyGalleryEntry): void {
+  saveGalleryHandoff(buildGalleryHandoff(entry, 'refine'));
+  window.location.href = galleryHandoffPath('refine');
+}
+
 export function startImproveFromGalleryEntry(
   entry: ComfyGalleryEntry,
   options?: { intent?: string }
@@ -206,6 +231,16 @@ export function startReeditRefineFromGalleryEntry(entry: ComfyGalleryEntry): voi
 export function startReeditComposeFromGalleryEntry(entry: ComfyGalleryEntry): void {
   saveGalleryHandoff(buildReeditGalleryHandoff(entry, 'compose'));
   window.location.href = galleryHandoffPath('compose');
+}
+
+export function startReeditControlNetFromGalleryEntry(entry: ComfyGalleryEntry): void {
+  saveGalleryHandoff(buildReeditGalleryHandoff(entry, 'controlnet'));
+  window.location.href = galleryHandoffPath('controlnet');
+}
+
+export function startBackgroundFromGalleryEntry(entry: ComfyGalleryEntry): void {
+  saveGalleryHandoff(buildGalleryHandoff(entry, 'background'));
+  window.location.href = galleryHandoffPath('background');
 }
 
 export function startPromptEditorFromResult(input: {

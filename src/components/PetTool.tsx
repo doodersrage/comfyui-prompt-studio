@@ -14,6 +14,7 @@ import { usePromptResultActions } from '@/hooks/usePromptResultActions';
 import { useRecentLocations } from '@/hooks/useRecentLocations';
 import { useLocationBlocklist } from '@/hooks/useLocationBlocklist';
 import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
+import { continueEditResultProps } from '@/lib/continue-edit-result-props';
 import { readRawPrompt } from '@/lib/raw-prompt';
 import { presetOptionsFromPetCache } from '@/lib/pet-options';
 import { getComfyModelDefinition } from '@/lib/comfy-models/client';
@@ -357,12 +358,11 @@ export default function PetTool() {
           })
         }
         onSendComfyUi={() => void actions.sendComfyUi(output)}
-        onImprove={() => actions.improveOutput(output, actions.comfyUiPreviewUrl)}
-        onRefine={() => actions.refineOutput(output, actions.comfyUiPreviewUrl)}
         onEditPrompt={() =>
           actions.editPromptOutput(output, actions.comfyUiPreviewUrl, undefined, toolSettings.hints)
         }
         {...promptResultPreviewProps(actions, output)}
+        {...continueEditResultProps(actions, output)}
         onFixPrompt={() => void actions.fixPrompt(output, setOutput, toolSettings.hints)}
         onCopyPair={() => void actions.copyPromptPair(output)}
         onCompact={() => void actions.compactPrompt(output, setOutput)}

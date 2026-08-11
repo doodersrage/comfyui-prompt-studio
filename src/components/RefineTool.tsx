@@ -452,6 +452,7 @@ export default function RefineTool() {
 
         <PrimaryButton
           accentClassName={accentButtonClass(ACCENT)}
+          data-action="primary-generate"
           onClick={() => void refine()}
           disabled={!file && !previewUrl}
           loading={loading}

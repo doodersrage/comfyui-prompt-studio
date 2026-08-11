@@ -726,6 +726,10 @@ export type ControlNetToolCache = {
   slotModes?: import('./controlnet-prompt').ControlNetMode[];
   /** Named slot/mode presets (images stay ephemeral). */
   presets?: ControlNetSlotPreset[];
+  hintSource?: import('./scene-hint-source').SceneHintSource;
+  historySeedScope?: import('./scene-hint-source').HistorySeedScope;
+  lastHistorySeedEntryId?: string;
+  randomTheme?: string;
 };
 
 export type VideoToolCache = {
@@ -742,6 +746,10 @@ export type VideoToolCache = {
   frames?: number;
   /** Output frame rate fed to {{VIDEO_FPS}} at queue time. */
   fps?: number;
+  hintSource?: import('./scene-hint-source').SceneHintSource;
+  historySeedScope?: import('./scene-hint-source').HistorySeedScope;
+  lastHistorySeedEntryId?: string;
+  randomTheme?: string;
 };
 
 export type AudioToolCache = {
@@ -1097,6 +1105,8 @@ export const DEFAULT_CONTROLNET_TOOL_CACHE: ControlNetToolCache = {
   slotStrengths: [1, 1, 1, 1],
   slotModes: ['depth', 'depth', 'depth', 'depth'],
   presets: [],
+  hintSource: 'manual',
+  historySeedScope: 'related',
 };
 
 export const DEFAULT_VIDEO_TOOL_CACHE: VideoToolCache = {
@@ -1105,6 +1115,8 @@ export const DEFAULT_VIDEO_TOOL_CACHE: VideoToolCache = {
   camera: '',
   style: '',
   durationSec: 4,
+  hintSource: 'manual',
+  historySeedScope: 'related',
 };
 
 export const DEFAULT_AUDIO_TOOL_CACHE: AudioToolCache = {

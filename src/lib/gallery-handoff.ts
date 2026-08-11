@@ -33,7 +33,8 @@ export type GalleryHandoffPayload = {
     | 'outpaint'
     | 'controlnet'
     | 'video'
-    | 'compose';
+    | 'compose'
+    | 'background';
   improveIntent?: string;
   /** Gallery → Anatomy repair opens Inpaint with pre-filled limb-fix prompts. */
   anatomyRepair?: boolean;
@@ -150,7 +151,7 @@ function resolveControlImageUrlsForHandoff(entry: ComfyGalleryEntry): string[] |
 /** Re-edit with the same LoRA stack / quality when available. */
 export function buildReeditGalleryHandoff(
   entry: ComfyGalleryEntry,
-  target: Extract<GalleryHandoffPayload['target'], 'compose' | 'refine' | 'video'>
+  target: Extract<GalleryHandoffPayload['target'], 'compose' | 'refine' | 'video' | 'controlnet'>
 ): GalleryHandoffPayload {
   return buildGalleryHandoff(entry, target, {
     handoffMode: 'reedit',
@@ -238,6 +239,9 @@ export function galleryHandoffPath(target: GalleryHandoffPayload['target']): str
   if (target === 'video') {
     return '/video?from=gallery';
   }
+  if (target === 'background') {
+    return '/background?from=gallery';
+  }
   return '/image-prompt?from=gallery';
 }
 
@@ -259,6 +263,7 @@ const GALLERY_PICK_TARGETS = new Set<GalleryHandoffPayload['target']>([
   'controlnet',
   'video',
   'compose',
+  'background',
 ]);
 
 export function parseGalleryPickTarget(
@@ -289,6 +294,8 @@ export function galleryPickPurposeLabel(target: GalleryHandoffPayload['target'])
       return 'Image → Prompt reference';
     case 'promptEditor':
       return 'Prompt editor';
+    case 'background':
+      return 'Background reference';
     default:
       return 'tool reference';
   }
@@ -310,6 +317,8 @@ export function galleryPickActionLabel(target: GalleryHandoffPayload['target']):
       return 'Use for Compose';
     case 'imagePrompt':
       return 'Use for Image → Prompt';
+    case 'background':
+      return 'Use for Background';
     default:
       return 'Use this image';
   }
