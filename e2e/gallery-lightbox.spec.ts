@@ -36,7 +36,7 @@ test('lightbox opens, rates, expands actions, and navigates', async ({ page }) =
     await expect(lightbox.getByText(/Image 1 of/i)).toBeVisible();
   }
 
-  await lightbox.getByRole('button', { name: 'Close' }).click();
+  await lightbox.getByRole('button', { name: 'Close', exact: true }).click();
   await expect(lightbox).toHaveCount(0);
 });
 

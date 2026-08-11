@@ -639,13 +639,22 @@ export default function ComfyUiGalleryPanel({
   };
 
   const deepLinkOpenedRef = useRef<string | null>(null);
+  /** Preserve ?lightbox= across early URL sync clears until the store can open it. */
+  const pendingLightboxDeepLinkRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const id = searchParams.get('lightbox')?.trim();
+    if (id) {
+      pendingLightboxDeepLinkRef.current = id;
+    }
+  }, [searchParams]);
 
   // Open from ?lightbox=<entryId> once gallery data is ready.
   useEffect(() => {
     if (!storeReady || lightboxPlaylist.images.length === 0) {
       return;
     }
-    const id = searchParams.get('lightbox')?.trim();
+    const id = pendingLightboxDeepLinkRef.current ?? searchParams.get('lightbox')?.trim();
     if (!id || deepLinkOpenedRef.current === id) {
       return;
     }
@@ -666,6 +675,20 @@ export default function ComfyUiGalleryPanel({
     }
     const url = new URL(window.location.href);
     if (!resolvedLightbox) {
+      // Don't strip deep-link targets before the gallery store is ready to open them.
+      if (!storeReady) {
+        return;
+      }
+      const pending =
+        url.searchParams.get('lightbox')?.trim() || pendingLightboxDeepLinkRef.current;
+      if (pending && deepLinkOpenedRef.current !== pending) {
+        const exists =
+          lightboxEntriesRef.current.some(item => item.id === pending) ||
+          entries.some(item => item.id === pending);
+        if (exists) {
+          return;
+        }
+      }
       if (url.searchParams.has('lightbox')) {
         url.searchParams.delete('lightbox');
         window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
@@ -682,7 +705,7 @@ export default function ComfyUiGalleryPanel({
     url.searchParams.set('lightbox', resolved.entry.id);
     window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
     deepLinkOpenedRef.current = resolved.entry.id;
-  }, [resolvedLightbox, lightboxEntries]);
+  }, [resolvedLightbox, lightboxEntries, storeReady, entries]);
 
   const onDownloadImage = useCallback(async (displayIndex: number) => {
     const resolved = resolveGalleryLightboxEntry(lightboxEntriesRef.current, displayIndex);

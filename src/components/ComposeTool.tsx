@@ -556,16 +556,21 @@ export default function ComposeTool() {
                     </button>
                   ) : null}
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="space-y-2">
                   <input
                     type="file"
                     accept="image/*"
                     disabled={disabled}
                     onChange={event => setFigure(index, event.target.files?.[0] ?? null)}
-                    className="block min-w-0 flex-1 text-sm text-[var(--text-secondary)] file:mr-3 file:rounded-lg file:border-0 file:bg-cyan-700/80 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white hover:file:bg-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60 disabled:opacity-50"
+                    className="block w-full text-sm text-[var(--text-secondary)] file:mr-3 file:rounded-lg file:border-0 file:bg-cyan-700/80 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white hover:file:bg-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60 disabled:opacity-50"
                   />
                   {index === 0 ? (
-                    <ButtonLink href={galleryPickPath('compose')} variant="secondary" size="sm">
+                    <ButtonLink
+                      href={galleryPickPath('compose')}
+                      variant="secondary"
+                      size="sm"
+                      className="w-full justify-center"
+                    >
                       Choose from Gallery
                     </ButtonLink>
                   ) : null}

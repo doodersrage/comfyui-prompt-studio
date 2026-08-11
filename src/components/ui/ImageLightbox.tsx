@@ -2316,7 +2316,12 @@ export default function ImageLightbox({
               </p>
             ) : null}
           </div>
-          <Button variant="ghost" className="!min-h-9 shrink-0 px-3 type-caption" onClick={onClose}>
+          <Button
+            variant="ghost"
+            className="!min-h-9 shrink-0 px-3 type-caption"
+            onClick={onClose}
+            aria-label="Close"
+          >
             Close
           </Button>
         </div>
