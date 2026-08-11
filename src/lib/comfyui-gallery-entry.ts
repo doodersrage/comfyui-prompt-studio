@@ -42,6 +42,8 @@ export type ComfyGalleryEntry = {
   sessionLoraStrengthOverrides?: import('./lora-stack').SessionLoraStrengthOverrides;
   /** Quick review rating from gallery review mode. */
   reviewRating?: 1 | 2 | 3 | 4 | 5;
+  /** Short freeform review note from lightbox / review mode. */
+  reviewNote?: string;
   /** Optional project/campaign id. */
   projectId?: string;
   /** Owner account when user auth is enabled. */

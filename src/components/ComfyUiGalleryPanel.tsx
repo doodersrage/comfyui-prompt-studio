@@ -78,6 +78,7 @@ import {
   resolveGalleryLightboxEntry,
   resolveGalleryLightboxOpenIndex,
   saveGalleryViewPreferences,
+  setGalleryReviewNote,
   sortGalleryEntries,
   type ComfyGalleryEntry,
   type ComfyGallerySort,
@@ -718,6 +719,49 @@ export default function ComfyUiGalleryPanel({
             onStatus: setRequeueStatus,
           })
         );
+      },
+      showSeedVariation: completed,
+      onRequeueNewSeed: completed
+        ? () => {
+            setRequeueStatus('Re-queueing with new seed…');
+            void import('@/lib/comfyui-requeue').then(({ requeueComfyJobFromEntry }) =>
+              requeueComfyJobFromEntry(entry, {
+                newSeed: true,
+                exactGraph: false,
+                onStatus: setRequeueStatus,
+              })
+            );
+          }
+        : undefined,
+      onRequeueSeedPlusOne: completed
+        ? () => {
+            const currentSeed = Number(entry.queueParams?.seed);
+            if (!Number.isFinite(currentSeed)) {
+              setRequeueStatus('Re-queueing with new seed…');
+              void import('@/lib/comfyui-requeue').then(({ requeueComfyJobFromEntry }) =>
+                requeueComfyJobFromEntry(entry, {
+                  newSeed: true,
+                  exactGraph: false,
+                  onStatus: setRequeueStatus,
+                })
+              );
+              return;
+            }
+            const nextSeed = Math.trunc(currentSeed) + 1;
+            setRequeueStatus(`Re-queueing with seed ${nextSeed}…`);
+            void import('@/lib/comfyui-requeue').then(({ requeueComfyJobFromEntry }) =>
+              requeueComfyJobFromEntry(entry, {
+                seedOverride: nextSeed,
+                exactGraph: false,
+                onStatus: setRequeueStatus,
+              })
+            );
+          }
+        : undefined,
+      note: entry.reviewNote ?? '',
+      onNoteChange: note => {
+        setGalleryReviewNote(entry.id, note);
+        setRequeueStatus(note.trim() ? 'Review note saved' : 'Review note cleared');
       },
       meta: {
         model: entry.model,

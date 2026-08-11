@@ -993,10 +993,16 @@ export async function requeueComfyJobFromEntry(
   > & {
     /** When true (default), prefer the exact Comfy history graph for this promptId. */
     exactGraph?: boolean;
+    /** Force a specific seed (e.g. seed+1). Marks the job as a variation. */
+    seedOverride?: string | number;
   }
 ): Promise<RequeueComfyJobResult> {
   const urls = resolveRequeueImageUrlsFromEntry(entry);
-  const isVariation = Boolean(options?.newSeed || options?.qualityProfile);
+  const seedOverride =
+    options?.seedOverride === undefined || options?.seedOverride === null
+      ? undefined
+      : String(options.seedOverride);
+  const isVariation = Boolean(options?.newSeed || options?.qualityProfile || seedOverride != null);
 
   const storedEntry =
     !options?.workflowJson?.trim() && !entry.workflowJson?.trim()
@@ -1057,12 +1063,14 @@ export async function requeueComfyJobFromEntry(
     negativePrompt: entry.negativePrompt,
     tool: entry.tool,
     model: entry.model,
-    queueParams: entry.queueParams,
+    queueParams:
+      seedOverride != null ? { ...entry.queueParams, seed: seedOverride } : entry.queueParams,
     sourceImageUrl: urls.sourceImageUrl,
     maskImageUrl: urls.maskImageUrl,
     storedQualityProfile: entry.queueQualityProfile,
     sessionActiveLoraIds: resolveRequeueSessionLoraIds(entry),
-    newSeed: options?.newSeed,
+    // seedOverride already applied — don't randomize on top of it.
+    newSeed: seedOverride != null ? false : options?.newSeed,
     hints: options?.hints,
     qualityProfile: options?.qualityProfile,
     comfyUrlOverride: options?.comfyUrlOverride,

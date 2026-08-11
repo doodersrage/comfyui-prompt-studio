@@ -84,6 +84,7 @@ export function galleryEntryRenderKey(entry: ComfyGalleryEntry): string {
     entry.status,
     entry.favorite ? 1 : 0,
     entry.reviewRating ?? 0,
+    entry.reviewNote ?? '',
     entry.derivedKind ?? '',
     entry.parentGalleryEntryId ?? '',
     entry.statusMessage ?? '',
@@ -538,7 +539,8 @@ function applyGalleryEntryPatch<T extends Partial<ComfyGalleryEntry>>(
   if (
     patch.negativePrompt !== undefined ||
     patch.statusMessage !== undefined ||
-    patch.promptId !== undefined
+    patch.promptId !== undefined ||
+    patch.reviewNote !== undefined
   ) {
     delete updated._corpus;
     updated._corpus = galleryEntryCorpus(updated);
@@ -567,6 +569,7 @@ export function updateComfyGalleryEntryById(
       | 'negativePrompt'
       | 'queueParams'
       | 'reviewRating'
+      | 'reviewNote'
       | 'projectId'
       | 'visionTags'
       | 'aestheticScore'
@@ -697,6 +700,11 @@ export function setGalleryReviewRating(
         : entry
     )
   );
+}
+
+export function setGalleryReviewNote(id: string, reviewNote?: string): void {
+  const trimmed = reviewNote?.trim() || undefined;
+  updateComfyGalleryEntryById(id, { reviewNote: trimmed });
 }
 
 export function removeComfyGalleryEntry(id: string): void {
