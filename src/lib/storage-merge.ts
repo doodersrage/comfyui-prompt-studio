@@ -1,3 +1,10 @@
+export type LoaderMapDiffSample = {
+  mapKey: string;
+  entryKey: string;
+  localValue: string;
+  serverValue: string;
+};
+
 export type StorageNamespaceConflict = {
   namespace: string;
   localUpdatedAt?: number;
@@ -6,6 +13,8 @@ export type StorageNamespaceConflict = {
   serverCount?: number;
   /** Loader-map keys that differ between local and server (settings-cache). */
   mapDiffKeys?: string[];
+  /** Short before/after samples for diverging map entries. */
+  mapDiffSamples?: LoaderMapDiffSample[];
   detail?: string;
 };
 
@@ -53,6 +62,51 @@ export function detectLoaderMapDivergence(
     }
   }
   return diffs;
+}
+
+function formatMapSampleValue(value: unknown): string {
+  if (value == null) {
+    return '—';
+  }
+  if (typeof value === 'string') {
+    return value.length > 48 ? `${value.slice(0, 45)}…` : value;
+  }
+  try {
+    const json = JSON.stringify(value);
+    return json.length > 48 ? `${json.slice(0, 45)}…` : json;
+  } catch {
+    return String(value);
+  }
+}
+
+/** Collect up to `limit` concrete entry diffs across diverging loader maps. */
+export function buildLoaderMapDiffSamples(
+  localShared: Record<string, unknown> | undefined,
+  serverShared: Record<string, unknown> | undefined,
+  mapKeys: string[],
+  limit = 4
+): LoaderMapDiffSample[] {
+  const samples: LoaderMapDiffSample[] = [];
+  for (const mapKey of mapKeys) {
+    if (samples.length >= limit) {
+      break;
+    }
+    const localMap = (localShared?.[mapKey] ?? {}) as Record<string, unknown>;
+    const serverMap = (serverShared?.[mapKey] ?? {}) as Record<string, unknown>;
+    const keys = [...new Set([...Object.keys(localMap), ...Object.keys(serverMap)])].sort();
+    for (const entryKey of keys) {
+      if (samples.length >= limit) {
+        break;
+      }
+      const localValue = formatMapSampleValue(localMap[entryKey]);
+      const serverValue = formatMapSampleValue(serverMap[entryKey]);
+      if (localValue === serverValue) {
+        continue;
+      }
+      samples.push({ mapKey, entryKey, localValue, serverValue });
+    }
+  }
+  return samples;
 }
 
 export type MergeChoice = 'local' | 'server' | 'merge';

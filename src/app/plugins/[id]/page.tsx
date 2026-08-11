@@ -228,7 +228,9 @@ export default function PluginDetailPage({ params }: PluginDetailPageProps) {
             onLoad={pushHostContext}
             className="block w-full bg-[var(--surface)]"
             style={{ height: `min(78vh, ${iframeHeight}px)` }}
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads"
+            referrerPolicy="strict-origin-when-cross-origin"
+            allow="clipboard-write"
           />
         </div>
       </ToolLayout>

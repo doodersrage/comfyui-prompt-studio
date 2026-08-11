@@ -370,7 +370,7 @@ export default function GalleryCard({
         layout === 'list'
           ? 'h-28 w-28 shrink-0 rounded-xl sm:h-32 sm:w-36'
           : layout === 'dense'
-            ? 'aspect-[3/4] rounded-t-2xl'
+            ? 'aspect-square rounded-t-xl'
             : 'aspect-[4/5] rounded-t-2xl sm:aspect-square'
       } ${pickMode && !pickable ? 'opacity-45' : ''}`}
     >
@@ -510,13 +510,18 @@ export default function GalleryCard({
               </span>
             ) : null}
             {entry.hasStoredWorkflow || entry.workflowJson ? (
-              <span className="rounded-full border border-sky-400/30 bg-sky-500/15 px-2 py-0.5 text-[10px] text-sky-100 backdrop-blur-sm">
+              <span
+                className="rounded-full border border-sky-400/30 bg-sky-500/15 px-2 py-0.5 text-[10px] text-sky-100 backdrop-blur-sm"
+                title="Stored workflow JSON available for exact replay"
+              >
                 Exact graph
               </span>
-            ) : null}
-            {entry.workflowJsonOmitted ? (
-              <span className="rounded-full border border-amber-400/30 bg-amber-500/15 px-2 py-0.5 text-[10px] text-amber-100 backdrop-blur-sm">
-                Graph omitted
+            ) : entry.workflowJsonOmitted ? (
+              <span
+                className="rounded-full border border-amber-400/30 bg-amber-500/15 px-2 py-0.5 text-[10px] text-amber-100 backdrop-blur-sm"
+                title="Graph was pruned (age/size budget) or too large to store"
+              >
+                Graph pruned
               </span>
             ) : null}
             {primaryMediaKind === 'video' ? (
@@ -583,7 +588,15 @@ export default function GalleryCard({
   );
 
   const bodyBlock = (
-    <div className={`min-w-0 flex-1 space-y-2.5 ${layout === 'list' ? 'py-1' : 'p-3.5'}`}>
+    <div
+      className={`min-w-0 flex-1 ${
+        layout === 'list'
+          ? 'space-y-2.5 py-1'
+          : layout === 'dense'
+            ? 'space-y-1.5 p-2'
+            : 'space-y-2.5 p-3.5'
+      }`}
+    >
       {pickMode && pickable && onPick ? (
         <button
           type="button"
@@ -611,10 +624,9 @@ export default function GalleryCard({
             <span className="rounded-full border border-sky-400/30 bg-sky-500/10 px-2 py-0.5 text-[10px] text-sky-100">
               Exact graph
             </span>
-          ) : null}
-          {entry.workflowJsonOmitted ? (
+          ) : entry.workflowJsonOmitted ? (
             <span className="rounded-full border border-amber-400/30 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-100">
-              Graph omitted
+              Graph pruned
             </span>
           ) : null}
           {reviewFocus ? (
@@ -632,7 +644,11 @@ export default function GalleryCard({
           ) : (
             <p
               className={`leading-snug text-[var(--text-secondary)] ${
-                layout === 'list' ? 'line-clamp-3 text-sm' : 'line-clamp-2 text-sm'
+                layout === 'list'
+                  ? 'line-clamp-3 text-sm'
+                  : layout === 'dense'
+                    ? 'line-clamp-1 text-xs'
+                    : 'line-clamp-2 text-sm'
               }`}
             >
               {entry.prompt}
@@ -785,6 +801,8 @@ export default function GalleryCard({
           <button
             ref={menuButtonRef}
             type="button"
+            data-testid="gallery-card-menu"
+            aria-label="More actions"
             aria-expanded={menuOpen}
             aria-haspopup="menu"
             onClick={() => {
@@ -1214,8 +1232,14 @@ export default function GalleryCard({
     <article
       ref={cardRef}
       data-gallery-entry={entry.id}
-      className={`group/card relative min-w-0 rounded-2xl border bg-gradient-to-b from-[var(--bg-base)]/80 to-[var(--bg-base)]/40 shadow-[0_12px_40px_-24px_rgba(0,0,0,0.8)] transition hover:border-[var(--border-default)]/80 ${
-        menuOpen ? 'z-30' : 'z-0 [content-visibility:auto] [contain-intrinsic-size:auto_320px]'
+      className={`group/card relative min-w-0 border bg-gradient-to-b from-[var(--bg-base)]/80 to-[var(--bg-base)]/40 shadow-[0_12px_40px_-24px_rgba(0,0,0,0.8)] transition hover:border-[var(--border-default)]/80 ${
+        layout === 'dense' ? 'rounded-xl' : 'rounded-2xl'
+      } ${
+        menuOpen
+          ? 'z-30'
+          : layout === 'dense'
+            ? 'z-0 [content-visibility:auto] [contain-intrinsic-size:auto_220px]'
+            : 'z-0 [content-visibility:auto] [contain-intrinsic-size:auto_320px]'
       } ${cardTone}`}
     >
       {layout === 'list' ? (

@@ -193,7 +193,15 @@ function VirtualizedDisplayRows({
                 transform: `translateY(${virtualRow.start - scrollMargin}px)`,
               }}
             >
-              <div className={layout === 'list' ? 'pb-3' : `${virtualGridClassName} pb-4`}>
+              <div
+                className={
+                  layout === 'list'
+                    ? 'pb-3'
+                    : layout === 'dense'
+                      ? `${virtualGridClassName} pb-2`
+                      : `${virtualGridClassName} pb-4`
+                }
+              >
                 <DisplayRowView
                   row={row}
                   layout={layout}

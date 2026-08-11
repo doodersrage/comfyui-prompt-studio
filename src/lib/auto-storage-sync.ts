@@ -15,6 +15,7 @@ import {
   saveGalleryDeletedIds,
 } from './gallery-deleted-ids';
 import {
+  buildLoaderMapDiffSamples,
   detectLoaderMapDivergence,
   detectStorageConflicts,
   mergeArraysById,
@@ -117,8 +118,14 @@ export async function probeStorageConflicts(): Promise<StorageNamespaceConflict[
   if (mapDiffKeys.length > 0) {
     const existing = conflicts.find(conflict => conflict.namespace === 'settings-cache');
     const detail = `Loader maps differ: ${mapDiffKeys.join(', ')}`;
+    const mapDiffSamples = buildLoaderMapDiffSamples(
+      localSettings.shared as Record<string, unknown>,
+      serverSettings?.shared as Record<string, unknown> | undefined,
+      mapDiffKeys
+    );
     if (existing) {
       existing.mapDiffKeys = mapDiffKeys;
+      existing.mapDiffSamples = mapDiffSamples;
       existing.detail = detail;
     } else {
       conflicts.push({
@@ -128,6 +135,7 @@ export async function probeStorageConflicts(): Promise<StorageNamespaceConflict[
         localCount: 1,
         serverCount: serverSettings ? 1 : 0,
         mapDiffKeys,
+        mapDiffSamples,
         detail,
       });
     }

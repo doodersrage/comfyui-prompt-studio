@@ -16,14 +16,11 @@ export function galleryGridColumnCount(
   }
 
   if (layout === 'dense') {
-    if (compact) {
-      if (width >= 1024) return 4;
-      if (width >= 640) return 3;
-      return 2;
-    }
-    if (width >= 1536) return 6;
-    if (width >= 1280) return 5;
-    if (width >= 1024) return 4;
+    // Dense always uses the denser column ladder; compact only tightens gaps.
+    if (width >= 1536) return 7;
+    if (width >= 1280) return 6;
+    if (width >= 1024) return 5;
+    if (width >= 768) return 4;
     if (width >= 640) return 3;
     return 2;
   }
@@ -101,7 +98,7 @@ export default function VirtualizedGalleryGrid<T>({
 
   const gapPx = useMemo(() => {
     if (layout === 'list') return compact ? 12 : 16;
-    if (layout === 'dense') return compact ? 8 : 10;
+    if (layout === 'dense') return compact ? 6 : 8;
     return compact ? 12 : 16;
   }, [layout, compact]);
 

@@ -17,6 +17,7 @@ import { ONBOARDING_UPDATED_EVENT, loadOnboardingState } from '@/lib/onboarding-
 import {
   dismissFirstQueueSetupModal,
   FIRST_QUEUE_SETUP_DISMISS_KEY,
+  FIRST_QUEUE_SETUP_RESET_EVENT,
 } from '@/lib/first-queue-setup';
 import {
   noteFirstQueueSetupBlockedStep,
@@ -102,6 +103,11 @@ export default function FirstQueueSetupModal() {
 
     const onIntent = () => scheduleAfterCommit(maybeOpen);
     const onSettings = () => scheduleAfterCommit(refresh);
+    const onReset = () => {
+      setOpen(true);
+      noteFirstQueueSetupShownMetric();
+      refresh();
+    };
     const onOnboarding = () => {
       const success = loadOnboardingState().find(step => step.id === 'first-queue-success');
       if (success?.done) {
@@ -112,6 +118,7 @@ export default function FirstQueueSetupModal() {
     window.addEventListener(COMFY_QUEUE_INTENT_EVENT, onIntent);
     window.addEventListener(SETTINGS_CACHE_UPDATED_EVENT, onSettings);
     window.addEventListener(ONBOARDING_UPDATED_EVENT, onOnboarding);
+    window.addEventListener(FIRST_QUEUE_SETUP_RESET_EVENT, onReset);
 
     void fetch('/api/health')
       .then(response => response.json())
@@ -131,6 +138,7 @@ export default function FirstQueueSetupModal() {
       window.removeEventListener(COMFY_QUEUE_INTENT_EVENT, onIntent);
       window.removeEventListener(SETTINGS_CACHE_UPDATED_EVENT, onSettings);
       window.removeEventListener(ONBOARDING_UPDATED_EVENT, onOnboarding);
+      window.removeEventListener(FIRST_QUEUE_SETUP_RESET_EVENT, onReset);
     };
   }, [refresh]);
 

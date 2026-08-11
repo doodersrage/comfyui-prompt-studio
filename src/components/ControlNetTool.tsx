@@ -72,8 +72,22 @@ export default function ControlNetTool() {
   const subject = toolSettings.subject ?? '';
   const scene = toolSettings.scene ?? '';
   const detailNotes = toolSettings.detailNotes ?? '';
+  const [slotStrengths, setSlotStrengths] = useState<number[]>([1, 1, 1, 1]);
+  const [slotModes, setSlotModes] = useState<ControlNetMode[]>([
+    'depth',
+    'depth',
+    'depth',
+    'depth',
+  ]);
   const setMode = useCallback(
-    (value: ControlNetMode) => updateToolSettings({ mode: value }),
+    (value: ControlNetMode) => {
+      updateToolSettings({ mode: value });
+      setSlotModes(previous => {
+        const next = [...previous];
+        next[0] = value;
+        return next;
+      });
+    },
     [updateToolSettings]
   );
   const setSubject = useCallback(
@@ -140,22 +154,18 @@ export default function ControlNetTool() {
   const [handoffControlImageUrls, setHandoffControlImageUrls] = useState<Array<string | undefined>>(
     []
   );
-  const [controlStrength, setControlStrength] = useState(1);
 
   const selectedModel = getComfyModelDefinition(shared.model);
   const hintText = [subject, scene, detailNotes].filter(Boolean).join(' · ');
-  const activeSlotCount =
-    1 +
-    extraRefFiles.filter(Boolean).length +
-    handoffControlImageUrls.slice(1).filter(url => url?.trim()).length;
-  const controlNetStrengths = Array.from(
-    { length: Math.max(1, Math.min(4, activeSlotCount)) },
-    () => controlStrength
-  );
-  const controlNetModes = Array.from(
-    { length: Math.max(1, Math.min(4, activeSlotCount)) },
-    () => mode
-  );
+  const activeSlotFlags = [
+    Boolean(refFile || handoffControlImageUrls[0] || handoffSourceImageUrl || refPreview),
+    Boolean(extraRefFiles[0] || handoffControlImageUrls[1]),
+    Boolean(extraRefFiles[1] || handoffControlImageUrls[2]),
+    Boolean(extraRefFiles[2] || handoffControlImageUrls[3]),
+  ];
+  const activeSlotCount = Math.max(1, activeSlotFlags.filter(Boolean).length);
+  const controlNetStrengths = slotStrengths.slice(0, activeSlotCount);
+  const controlNetModes = slotModes.slice(0, activeSlotCount);
 
   const queueControlNetOptions = {
     controlImage: refFile,
@@ -172,7 +182,7 @@ export default function ControlNetTool() {
     sourceImageUrl: handoffSourceImageUrl || refPreview || undefined,
     queueParamsBase: {
       ...handoffQueueParams,
-      controlNetMode: mode,
+      controlNetMode: slotModes[0] || mode,
       controlNetModes,
       controlNetStrengths,
     },
@@ -215,19 +225,35 @@ export default function ControlNetTool() {
     setSubject(handoff.prompt.slice(0, 800));
     setHandoffQueueParams(handoff.queueParams);
     setHandoffParentGalleryEntryId(handoff.payload.galleryEntryId?.trim() || undefined);
-    const restoredMode = normalizeControlNetMode(
-      handoff.queueParams?.controlNetModes?.[0] || handoff.queueParams?.controlNetMode
-    );
-    setMode(restoredMode);
-    const strengthRaw = handoff.queueParams?.controlNetStrengths?.[0];
-    const strengthNum =
-      typeof strengthRaw === 'number'
-        ? strengthRaw
-        : typeof strengthRaw === 'string'
-          ? Number(strengthRaw)
-          : NaN;
-    if (Number.isFinite(strengthNum)) {
-      setControlStrength(Math.min(2, Math.max(0, strengthNum)));
+    const restoredModes = (
+      handoff.queueParams?.controlNetModes?.length
+        ? handoff.queueParams.controlNetModes
+        : [handoff.queueParams?.controlNetMode]
+    )
+      .map(value => normalizeControlNetMode(value))
+      .filter(Boolean) as ControlNetMode[];
+    if (restoredModes[0]) {
+      setMode(restoredModes[0]);
+    }
+    setSlotModes(previous => {
+      const next = [...previous];
+      for (let i = 0; i < 4; i += 1) {
+        next[i] = restoredModes[i] ?? restoredModes[0] ?? next[i]!;
+      }
+      return next;
+    });
+    const restoredStrengths = (handoff.queueParams?.controlNetStrengths ?? []).map(value => {
+      const num = typeof value === 'number' ? value : Number(value);
+      return Number.isFinite(num) ? Math.min(2, Math.max(0, num)) : 1;
+    });
+    if (restoredStrengths.length > 0) {
+      setSlotStrengths(previous => {
+        const next = [...previous];
+        for (let i = 0; i < 4; i += 1) {
+          next[i] = restoredStrengths[i] ?? restoredStrengths[0] ?? next[i]!;
+        }
+        return next;
+      });
     }
     const controlUrls = (handoff.controlImageUrls ?? [])
       .map(url => url?.trim() || '')
@@ -371,20 +397,23 @@ export default function ControlNetTool() {
           ))}
         </div>
         <div className="mt-4 space-y-2">
-          <FieldLabel
-            htmlFor="controlnet-strength"
-            hint="Applied to each active ControlNetApply slot"
-          >
-            Strength ({controlStrength.toFixed(2)})
+          <FieldLabel htmlFor="controlnet-strength-0" hint="Primary ControlNetApply strength">
+            Strength · slot 1 ({slotStrengths[0]!.toFixed(2)})
           </FieldLabel>
           <input
-            id="controlnet-strength"
+            id="controlnet-strength-0"
             type="range"
             min={0}
             max={2}
             step={0.05}
-            value={controlStrength}
-            onChange={event => setControlStrength(Number(event.target.value))}
+            value={slotStrengths[0]}
+            onChange={event =>
+              setSlotStrengths(previous => {
+                const next = [...previous];
+                next[0] = Number(event.target.value);
+                return next;
+              })
+            }
             className={`w-full accent-cyan-500 ${accentFocusClass()}`}
           />
         </div>
@@ -425,25 +454,72 @@ export default function ControlNetTool() {
             Second–fourth images append additional ControlNetApply chains at queue time.
           </p>
           <div className="mt-3 grid gap-3 sm:grid-cols-3">
-            {[0, 1, 2].map(index => (
-              <div key={index} className="space-y-2">
-                <FieldLabel>Control {index + 2}</FieldLabel>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={event => onExtraRefChange(index, event.target.files?.[0] ?? null)}
-                  className="block w-full text-xs text-[var(--text-muted)] file:mr-2 file:rounded-md file:border-0 file:bg-[var(--bg-muted)] file:px-2 file:py-1.5 file:text-xs file:text-[var(--text-primary)]"
-                />
-                {extraRefPreviews[index] ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={extraRefPreviews[index]!}
-                    alt={`Control ${index + 2}`}
-                    className="max-h-28 rounded-lg border border-[var(--border-subtle)] object-contain"
+            {[0, 1, 2].map(index => {
+              const slotIndex = index + 1;
+              const hasImage = Boolean(extraRefFiles[index] || handoffControlImageUrls[slotIndex]);
+              return (
+                <div
+                  key={index}
+                  className="space-y-2 rounded-lg border border-[var(--border-subtle)]/70 p-2.5"
+                >
+                  <FieldLabel>Control {slotIndex + 1}</FieldLabel>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={event => onExtraRefChange(index, event.target.files?.[0] ?? null)}
+                    className="block w-full text-xs text-[var(--text-muted)] file:mr-2 file:rounded-md file:border-0 file:bg-[var(--bg-muted)] file:px-2 file:py-1.5 file:text-xs file:text-[var(--text-primary)]"
                   />
-                ) : null}
-              </div>
-            ))}
+                  {extraRefPreviews[index] ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={extraRefPreviews[index]!}
+                      alt={`Control ${slotIndex + 1}`}
+                      className="max-h-28 rounded-lg border border-[var(--border-subtle)] object-contain"
+                    />
+                  ) : null}
+                  {hasImage ? (
+                    <>
+                      <select
+                        value={slotModes[slotIndex]}
+                        onChange={event =>
+                          setSlotModes(previous => {
+                            const next = [...previous];
+                            next[slotIndex] = normalizeControlNetMode(event.target.value);
+                            return next;
+                          })
+                        }
+                        className={`ui-input w-full px-2 py-1.5 text-xs ${accentFocusClass(ACCENT)}`}
+                      >
+                        {MODES.map(entry => (
+                          <option key={entry.id} value={entry.id}>
+                            {entry.label}
+                          </option>
+                        ))}
+                      </select>
+                      <FieldLabel htmlFor={`controlnet-strength-${slotIndex}`}>
+                        Strength ({slotStrengths[slotIndex]!.toFixed(2)})
+                      </FieldLabel>
+                      <input
+                        id={`controlnet-strength-${slotIndex}`}
+                        type="range"
+                        min={0}
+                        max={2}
+                        step={0.05}
+                        value={slotStrengths[slotIndex]}
+                        onChange={event =>
+                          setSlotStrengths(previous => {
+                            const next = [...previous];
+                            next[slotIndex] = Number(event.target.value);
+                            return next;
+                          })
+                        }
+                        className={`w-full accent-cyan-500 ${accentFocusClass()}`}
+                      />
+                    </>
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
         </CollapsibleSection>
       </ToolSection>

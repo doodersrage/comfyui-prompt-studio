@@ -133,6 +133,19 @@ const COMFYUI_SECTION_ELEMENT_IDS: Record<ComfyUiSettingsSectionId, string> = {
   'sampler-memory': 'settings-comfyui-sampler-memory',
 };
 
+const PLAYBOOK_SECTION_CHECKLISTS: Partial<Record<ComfyUiSettingsSectionId, string>> = {
+  'workflow-map':
+    'Checklist: install the missing custom node pack in ComfyUI → refresh object_info → remap the model workflow.',
+  'model-assets':
+    'Checklist: confirm checkpoint/VAE/upscale filenames match ComfyUI input folders → save loader maps.',
+  'lora-library':
+    'Checklist: enable the LoRA in the session stack → verify filename on disk → re-queue.',
+  connection: 'Checklist: verify ComfyUI URL/port → allow CORS if remote → retry health probe.',
+  'inference-engine':
+    'Checklist: confirm Diffusers host is running → or switch engine back to ComfyUI.',
+  'vram-guard': 'Checklist: lower queue quality / enable OOM downgrade → free VRAM → re-queue.',
+};
+
 export default function SettingsTool() {
   const { mounted, settings, updateSettings } = useComfyUiSettings();
   const workspaceMode = useWorkspaceMode();
@@ -204,6 +217,37 @@ export default function SettingsTool() {
     });
   }, []);
 
+  const [guidedFixHint, setGuidedFixHint] = useState<string | null>(null);
+
+  const scrollToComfyUiSection = useCallback((section: ComfyUiSettingsSectionId) => {
+    const element = document.getElementById(COMFYUI_SECTION_ELEMENT_IDS[section]);
+    if (!element) {
+      return;
+    }
+    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    element.classList.add(
+      'ring-2',
+      'ring-[var(--accent-ring)]',
+      'ring-offset-2',
+      'ring-offset-[var(--bg-base)]',
+      'transition'
+    );
+    window.setTimeout(() => {
+      element.classList.remove(
+        'ring-2',
+        'ring-[var(--accent-ring)]',
+        'ring-offset-2',
+        'ring-offset-[var(--bg-base)]',
+        'transition'
+      );
+    }, 2600);
+    const hint = PLAYBOOK_SECTION_CHECKLISTS[section];
+    if (hint) {
+      setGuidedFixHint(hint);
+      window.setTimeout(() => setGuidedFixHint(null), 8000);
+    }
+  }, []);
+
   useEffect(() => {
     if (typeof window === 'undefined') {
       return;
@@ -211,18 +255,17 @@ export default function SettingsTool() {
     scheduleAfterCommit(() => {
       const params = new URLSearchParams(window.location.search);
       const nextTab = normalizeSettingsTab(params.get('tab'));
+      const section = normalizeComfyUiSettingsSection(params.get('section'));
       setTab(nextTab);
-      setComfyUiSection(normalizeComfyUiSettingsSection(params.get('section')));
+      setComfyUiSection(section);
       if (workspaceMode === 'simple' && !isSimpleSettingsTab(nextTab)) {
         setShowAllSettings(true);
       }
+      if (nextTab === 'comfyui' && section) {
+        window.setTimeout(() => scrollToComfyUiSection(section), 120);
+      }
     });
-  }, [workspaceMode]);
-
-  const scrollToComfyUiSection = useCallback((section: ComfyUiSettingsSectionId) => {
-    const element = document.getElementById(COMFYUI_SECTION_ELEMENT_IDS[section]);
-    element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, []);
+  }, [workspaceMode, scrollToComfyUiSection]);
 
   const handleTabChange = useCallback((next: SettingsTab) => {
     setTab(next);
@@ -681,6 +724,14 @@ export default function SettingsTool() {
       description={description}
     >
       <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.settings} />
+      {guidedFixHint ? (
+        <div
+          role="status"
+          className="mb-4 rounded-[var(--radius-lg)] border border-[var(--accent)]/35 bg-[color-mix(in_oklab,var(--accent)_12%,var(--surface))] px-4 py-3 text-sm text-[var(--text-primary)] shadow-[var(--shadow-soft)]"
+        >
+          {guidedFixHint}
+        </div>
+      ) : null}
       <div className="md:grid md:grid-cols-[minmax(14rem,17rem)_minmax(0,1fr)] md:items-start md:gap-8">
         <SettingsSubNav
           activeTab={tab}

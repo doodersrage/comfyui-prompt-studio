@@ -10,7 +10,29 @@ comfyui-prompt-studio-plugin-host
 
 Source of truth: `src/lib/plugin-iframe-host.ts`. Host page: `src/app/plugins/[id]/page.tsx`.
 
-The host rejects messages whose `event.origin` does not match the iframe URL origin (same-origin relative URLs use the Studio origin).
+## Origin security (default-deny)
+
+- Messages are accepted only when `event.origin` matches the iframe URL origin, **or** an origin listed under Plugins → Iframe origin allowlist.
+- Unresolvable / wildcard iframe targets are **denied** unless the posting origin is explicitly allowlisted.
+- Same-origin relative `iframeUrl` values (starting with `/`) use the Studio page origin.
+
+Recommended remote plugin host headers:
+
+```http
+Content-Security-Policy: frame-ancestors 'self' https://your-studio.example
+X-Content-Type-Options: nosniff
+Referrer-Policy: strict-origin-when-cross-origin
+```
+
+The host iframe uses:
+
+```html
+sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads"
+referrerPolicy="strict-origin-when-cross-origin"
+allow="clipboard-write"
+```
+
+Do **not** add `allow-top-navigation` unless you fully trust the plugin. Prefer `plugin:navigate` for in-app routes.
 
 ## Host → plugin
 
@@ -45,7 +67,8 @@ window.addEventListener('message', event => {
   const data = event.data;
   if (!data || data.channel !== CHANNEL) return;
   if (data.type === 'host:ready') {
-    // optional: window.parent.postMessage({ channel: CHANNEL, type: 'plugin:resize', height: 420 }, '*');
+    // Prefer posting back to event.origin instead of '*'.
+    // window.parent.postMessage({ channel: CHANNEL, type: 'plugin:resize', height: 420 }, event.origin);
   }
   if (data.type === 'host:queue-result') {
     console.log(data.ok ? 'queued' : 'failed', data.message, data.promptId);
@@ -58,7 +81,7 @@ window.parent.postMessage(
     type: 'plugin:queue',
     prompt: 'a cat sitting on a windowsill, soft daylight',
   },
-  '*'
+  window.location.origin
 );
 ```
 

@@ -164,6 +164,38 @@ export function noteFirstQueueSetupBlockedStep(
   });
 }
 
+export function clearLocalObservability(): LocalObservabilityCounters {
+  if (typeof window === 'undefined') {
+    return { ...DEFAULT_COUNTERS, firstQueueSetupStepFails: {} };
+  }
+  return persist({ ...DEFAULT_COUNTERS, firstQueueSetupStepFails: {}, updatedAt: Date.now() });
+}
+
+export function exportLocalObservabilityJson(counters = loadLocalObservability()): string {
+  return JSON.stringify(
+    {
+      exportedAt: new Date().toISOString(),
+      counters,
+      summary: summarizeLocalReliability(counters),
+    },
+    null,
+    2
+  );
+}
+
+export function downloadLocalObservabilityExport(): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  const blob = new Blob([exportLocalObservabilityJson()], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `prompt-studio-reliability-${Date.now()}.json`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
 /** Compact reliability summary for Settings UI. */
 export function summarizeLocalReliability(counters = loadLocalObservability()): {
   replayHitRate: number | null;

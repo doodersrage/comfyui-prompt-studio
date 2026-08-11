@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  buildLoaderMapDiffSamples,
   detectLoaderMapDivergence,
   detectStorageConflicts,
   suggestMergeChoice,
@@ -47,6 +48,18 @@ describe("detectLoaderMapDivergence", () => {
       },
     );
     assert.deepEqual(diffs, ["modelCheckpointMap"]);
+  });
+
+  it("builds short before/after samples", () => {
+    const samples = buildLoaderMapDiffSamples(
+      { modelCheckpointMap: { "flux-dev": "a.safetensors" } },
+      { modelCheckpointMap: { "flux-dev": "b.safetensors" } },
+      ["modelCheckpointMap"],
+    );
+    assert.equal(samples.length, 1);
+    assert.equal(samples[0]?.entryKey, "flux-dev");
+    assert.match(samples[0]?.localValue ?? "", /a\.safetensors/);
+    assert.match(samples[0]?.serverValue ?? "", /b\.safetensors/);
   });
 });
 

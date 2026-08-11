@@ -1,11 +1,12 @@
 'use client';
 
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import type { PromptHistoryEntry } from '@/hooks/usePromptHistory';
 
 export const HISTORY_VIRTUALIZE_THRESHOLD = 48;
-export const HISTORY_ROW_ESTIMATE_PX = 220;
+/** Initial estimate only — measureElement corrects per-row height. */
+export const HISTORY_ROW_ESTIMATE_PX = 480;
 
 type VirtualizedHistoryListProps = {
   entries: PromptHistoryEntry[];
@@ -39,6 +40,10 @@ export default function VirtualizedHistoryList({
     scrollMargin,
   });
 
+  useEffect(() => {
+    virtualizer.measure();
+  }, [entries.length, virtualizer]);
+
   return (
     <div ref={parentRef} className="relative w-full">
       <div className="relative w-full" style={{ height: `${virtualizer.getTotalSize()}px` }}>
@@ -49,13 +54,15 @@ export default function VirtualizedHistoryList({
           }
           return (
             <div
-              key={entry.id}
-              className="absolute left-0 top-0 w-full pb-[var(--block-gap)]"
+              key={virtualRow.key}
+              data-index={virtualRow.index}
+              ref={virtualizer.measureElement}
+              className="absolute left-0 top-0 w-full"
               style={{
                 transform: `translateY(${virtualRow.start - virtualizer.options.scrollMargin}px)`,
               }}
             >
-              {renderEntry(entry)}
+              <div className="pb-[var(--block-gap)]">{renderEntry(entry)}</div>
             </div>
           );
         })}

@@ -36,7 +36,6 @@ async function seedExactReplayEntry(page: import('@playwright/test').Page) {
       // ignore
     }
 
-    // Prefer IndexedDB when the app DB already exists (migration skips LS otherwise).
     await new Promise<void>((resolve, reject) => {
       const request = indexedDB.open('comfy-prompt-studio-v1');
       request.onerror = () => reject(request.error ?? new Error('idb open failed'));
@@ -89,16 +88,15 @@ test('gallery replay exact graph queues via mocked Comfy API', async ({ page }) 
   await dismissBlockingOverlays(page);
 
   await expect(page.getByRole('heading', { name: /ComfyUI Gallery/i })).toBeVisible();
-  await expect(page.getByText('Exact graph').first()).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(/Exact graph|Graph pruned/i).first()).toBeVisible({
+    timeout: 15_000,
+  });
 
   const replay = page.getByTestId('gallery-replay-exact');
-  if (!(await replay.count())) {
-    const menuTrigger = page.getByRole('button', { name: /more|menu|actions/i }).first();
-    if (await menuTrigger.count()) {
-      await menuTrigger.click();
-    } else {
-      await page.locator('button').filter({ hasText: '⋯' }).first().click();
-    }
+  if (!(await replay.isVisible().catch(() => false))) {
+    const menu = page.getByTestId('gallery-card-menu').first();
+    await expect(menu).toBeVisible({ timeout: 10_000 });
+    await menu.click();
   }
 
   await expect(page.getByTestId('gallery-replay-exact')).toBeVisible({ timeout: 10_000 });

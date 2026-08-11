@@ -323,20 +323,12 @@ export default function ComfyUiGalleryPanel({
   );
   const galleryCardGridClass =
     layout === 'dense'
-      ? compact
-        ? 'grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4'
-        : 'grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6'
+      ? 'grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7'
       : compact
         ? 'grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4'
         : 'grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4';
   const galleryVirtualGridClass =
-    layout === 'dense'
-      ? compact
-        ? 'grid gap-3'
-        : 'grid gap-4'
-      : compact
-        ? 'grid gap-4'
-        : 'grid gap-6';
+    layout === 'dense' ? 'grid gap-2' : compact ? 'grid gap-4' : 'grid gap-6';
 
   const {
     selectedIds,

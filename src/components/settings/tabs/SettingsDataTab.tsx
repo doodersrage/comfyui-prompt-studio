@@ -15,7 +15,14 @@ import {
   normalizeGalleryWorkflowMaxBytes,
   normalizeGalleryWorkflowRetentionDays,
 } from '@/lib/gallery-workflow-hygiene';
-import { loadLocalObservability, summarizeLocalReliability } from '@/lib/local-observability';
+import {
+  clearLocalObservability,
+  downloadLocalObservabilityExport,
+  loadLocalObservability,
+  summarizeLocalReliability,
+} from '@/lib/local-observability';
+import { resetFirstQueueSetupModal } from '@/lib/first-queue-setup';
+import { Button, ButtonLink } from '@/components/ui/Button';
 
 export type SettingsDataTabProps = {
   sharedSettings: SharedToolSettings;
@@ -117,6 +124,47 @@ export default function SettingsDataTab({
             .
           </p>
         ) : null}
+        <div className="mt-4 flex flex-wrap gap-2">
+          {metrics.lastFailureHref ? (
+            <ButtonLink href={metrics.lastFailureHref} size="sm" variant="secondary">
+              Open last failure
+            </ButtonLink>
+          ) : null}
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              resetFirstQueueSetupModal();
+              setStatus('First-queue setup reset — queue again or reload to reopen the checklist.');
+            }}
+          >
+            Re-run first-queue setup
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              downloadLocalObservabilityExport();
+              setStatus('Reliability export downloaded.');
+            }}
+          >
+            Export metrics
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              clearLocalObservability();
+              setStatus('Local reliability metrics cleared.');
+              reloadBrowserSettingsState();
+            }}
+          >
+            Clear metrics
+          </Button>
+        </div>
       </ToolSection>
 
       <ToolSection title="Gallery exact-replay graphs">

@@ -43,12 +43,29 @@ export default function StorageSyncConflictModal({
                 {conflict.detail ? ` · ${conflict.detail}` : ''}
               </p>
               {conflict.mapDiffKeys?.length ? (
-                <p className="mt-1 text-xs text-amber-200/90">
-                  Diverging maps: {conflict.mapDiffKeys.join(', ')}. Choose{' '}
-                  <span className="font-medium">local</span> /{' '}
-                  <span className="font-medium">server</span> to prefer one side, or{' '}
-                  <span className="font-medium">merge</span> to union keys (local wins on overlap).
-                </p>
+                <div className="mt-1 space-y-1.5 text-xs text-amber-200/90">
+                  <p>
+                    Diverging maps: {conflict.mapDiffKeys.join(', ')}. Choose{' '}
+                    <span className="font-medium">Keep local</span> /{' '}
+                    <span className="font-medium">Prefer server</span>, or{' '}
+                    <span className="font-medium">Merge</span> to union keys (local wins on
+                    overlap).
+                  </p>
+                  {conflict.mapDiffSamples?.length ? (
+                    <ul className="space-y-1 rounded-lg border border-amber-500/20 bg-amber-500/5 p-2 font-mono text-[10px] text-amber-100/90">
+                      {conflict.mapDiffSamples.map(sample => (
+                        <li key={`${sample.mapKey}:${sample.entryKey}`}>
+                          <span className="text-amber-200/70">{sample.mapKey}</span>.
+                          {sample.entryKey}
+                          <br />
+                          local: {sample.localValue}
+                          <br />
+                          server: {sample.serverValue}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
               ) : null}
               <div className="mt-2 flex flex-wrap gap-2">
                 {(['local', 'server', 'merge'] as MergeChoice[]).map(choice => (
