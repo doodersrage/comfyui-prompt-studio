@@ -78,9 +78,9 @@ export default function EditToolRecipeStrip({
   return (
     <div
       data-testid="edit-tool-recipe-strip"
-      className="flex flex-wrap items-center gap-2 rounded-xl border border-cyan-500/20 bg-cyan-500/[0.05] px-3 py-2"
+      className="ui-recipe-shell flex flex-wrap items-center gap-2"
     >
-      <span className="type-caption shrink-0 text-cyan-200/75">Recipes</span>
+      <span className="type-caption shrink-0 text-[var(--accent-text)]">Recipes</span>
       {recipes.map(recipe => (
         <ChipButton
           key={recipe.id}
@@ -112,7 +112,7 @@ export default function EditToolRecipeStrip({
           ))
         : null}
       {status ? (
-        <span className="type-caption text-cyan-100/70" role="status">
+        <span className="type-caption text-[var(--accent-text)]" role="status">
           {status}
         </span>
       ) : null}

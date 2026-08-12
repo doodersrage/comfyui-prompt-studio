@@ -425,7 +425,7 @@ export default function ComfyModelAssetsPanel({
         <section className="ui-panel-accent space-y-2 px-3.5 py-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <p className="text-xs font-medium uppercase tracking-[0.08em] text-sky-200/90">
+              <p className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--tint-info-text)]/90">
                 Download queue
               </p>
               <p className="type-caption text-[var(--text-muted)]">
@@ -560,11 +560,11 @@ export default function ComfyModelAssetsPanel({
         {rootConfigured ? (
           <>
             Root:{' '}
-            <code className="rounded bg-[var(--bg-muted)] px-1 text-emerald-200/90">
+            <code className="rounded bg-[var(--bg-muted)] px-1 text-[var(--tint-success-text)]">
               {rootPath}
             </code>
             {!rootWritable ? (
-              <span className="mt-1 block text-amber-300/90">
+              <span className="mt-1 block text-[var(--tint-warning-text)]">
                 {rootHint ??
                   'Not writable by this app process — Install cannot save files until COMFYUI_ROOT/models allows write access.'}
               </span>
@@ -606,7 +606,7 @@ export default function ComfyModelAssetsPanel({
                           <p className="text-sm font-medium text-[var(--text-primary)]">
                             {row.label}
                           </p>
-                          <p className="font-mono text-[11px] text-emerald-200/80">
+                          <p className="font-mono text-[11px] text-[var(--tint-success-text)]">
                             {row.filename}
                           </p>
                           <p className="type-caption text-[var(--text-muted)]">
@@ -620,7 +620,7 @@ export default function ComfyModelAssetsPanel({
                             <p className="type-caption text-[var(--text-muted)]">{row.notes}</p>
                           ) : null}
                           {job && (installing || job.status === 'queued') ? (
-                            <p className="type-caption text-sky-200/90">
+                            <p className="type-caption text-[var(--tint-info-text)]/90">
                               {job.status}
                               {job.runAttempt && job.runAttempt > 1
                                 ? ` · run ${job.runAttempt}`

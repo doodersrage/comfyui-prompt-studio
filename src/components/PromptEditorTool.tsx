@@ -192,7 +192,7 @@ export default function PromptEditorTool() {
       <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.promptEditor} />
       {sourceMeta ? (
         <ToolSection>
-          <div className="flex flex-wrap items-start gap-4 rounded-2xl border border-sky-800/35 bg-gradient-to-br from-sky-950/30 to-[var(--bg-base)]/40 p-4 shadow-[inset_0_1px_0_rgba(125,211,252,0.06)]">
+          <div className="flex flex-wrap items-start gap-4 rounded-2xl border border-[var(--tint-info-border)] bg-gradient-to-br from-[var(--tint-info-bg)] to-[var(--bg-base)]/40 p-4 ">
             {sourceMeta.imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -202,7 +202,7 @@ export default function PromptEditorTool() {
               />
             ) : null}
             <div className="min-w-0 flex-1 space-y-1">
-              <p className="text-sm font-medium text-sky-100">
+              <p className="text-sm font-medium text-[var(--tint-info-text)]">
                 Loaded from {sourceMeta.source === 'gallery' ? 'gallery' : 'history'}
                 {sourceMeta.tool ? ` · ${sourceMeta.tool}` : ''}
               </p>
@@ -213,7 +213,7 @@ export default function PromptEditorTool() {
                 {sourceMeta.source === 'gallery' ? (
                   <Link
                     href="/gallery"
-                    className="text-xs text-sky-300 transition hover:text-sky-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40"
+                    className="text-xs text-[var(--tint-info-text)] transition hover:text-[var(--tint-info-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
                   >
                     Back to gallery
                   </Link>
@@ -221,7 +221,7 @@ export default function PromptEditorTool() {
                 {sourceMeta.historyId ? (
                   <Link
                     href={`/studio?history=${sourceMeta.historyId}`}
-                    className="text-xs text-sky-300 transition hover:text-sky-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40"
+                    className="text-xs text-[var(--tint-info-text)] transition hover:text-[var(--tint-info-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
                   >
                     Open in Studio
                   </Link>
@@ -249,7 +249,7 @@ export default function PromptEditorTool() {
           onChange={event => setPositive(event.target.value)}
           placeholder="Paste or type your positive prompt…"
           rows={10}
-          className={`font-mono text-emerald-300 ${accentFocusClass(ACCENT)}`}
+          className={`font-mono text-[var(--tint-success-text)] ${accentFocusClass(ACCENT)}`}
         />
 
         {usesNegative ? (
@@ -265,7 +265,7 @@ export default function PromptEditorTool() {
                 type="button"
                 onClick={() => void generateNegative()}
                 disabled={!positive.trim() && !hints.trim()}
-                className="rounded-lg border border-sky-700/50 px-3 py-1.5 text-xs font-medium text-sky-200 transition hover:border-sky-600/70 hover:bg-sky-950/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40 disabled:opacity-50"
+                className="rounded-lg border border-[var(--tint-info-border)] px-3 py-1.5 text-xs font-medium text-[var(--tint-info-text)] transition hover:border-[var(--tint-info-border)] hover:bg-[var(--tint-info-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:opacity-50"
               >
                 Auto-generate negative
               </button>
@@ -275,7 +275,7 @@ export default function PromptEditorTool() {
               onChange={event => setNegative(event.target.value)}
               placeholder="Optional — leave blank to auto-resolve on queue"
               rows={4}
-              className={`font-mono text-rose-200/90 ${accentFocusClass(ACCENT)}`}
+              className={`font-mono text-[var(--tint-danger-text)]/90 ${accentFocusClass(ACCENT)}`}
             />
             {negativeStatus ? (
               <p className="text-xs text-[var(--text-muted)]">{negativeStatus}</p>
@@ -301,7 +301,7 @@ export default function PromptEditorTool() {
             type="button"
             onClick={() => void runLint()}
             disabled={!mounted || !positive.trim()}
-            className="rounded-xl border border-sky-700/60 px-5 py-2 text-sm font-medium text-sky-200 transition hover:border-sky-600/70 hover:bg-sky-950/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40 disabled:opacity-50"
+            className="rounded-xl border border-[var(--tint-info-border)] px-5 py-2 text-sm font-medium text-[var(--tint-info-text)] transition hover:border-[var(--tint-info-border)] hover:bg-[var(--accent-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:opacity-50"
           >
             Run lint
           </button>
@@ -309,7 +309,7 @@ export default function PromptEditorTool() {
             type="button"
             onClick={() => void actions.fixPrompt(positive, setPositive, hints)}
             disabled={!positive.trim()}
-            className="rounded-xl border border-sky-700/60 px-5 py-2 text-sm font-medium text-sky-200 transition hover:border-sky-600/70 hover:bg-sky-950/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40 disabled:opacity-50"
+            className="rounded-xl border border-[var(--tint-info-border)] px-5 py-2 text-sm font-medium text-[var(--tint-info-text)] transition hover:border-[var(--tint-info-border)] hover:bg-[var(--accent-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:opacity-50"
           >
             Fix prompt (rules)
           </button>

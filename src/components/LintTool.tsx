@@ -140,7 +140,7 @@ export default function LintTool() {
           onChange={event => setPrompt(event.target.value)}
           placeholder="Paste generated or hand-written prompt to lint…"
           rows={8}
-          className={`font-mono text-emerald-300 ${accentFocusClass(ACCENT)}`}
+          className={`font-mono text-[var(--tint-success-text)] ${accentFocusClass(ACCENT)}`}
         />
 
         <div className="flex flex-wrap gap-3">
@@ -155,7 +155,7 @@ export default function LintTool() {
             type="button"
             onClick={() => void actions.fixPrompt(prompt, setPrompt, hints)}
             disabled={!prompt.trim()}
-            className="rounded-xl border border-amber-700/60 px-5 py-2 text-sm font-medium text-amber-200 disabled:opacity-50"
+            className="ui-btn-secondary rounded-xl px-5 py-2 text-sm disabled:opacity-50"
           >
             Fix prompt (rules)
           </button>

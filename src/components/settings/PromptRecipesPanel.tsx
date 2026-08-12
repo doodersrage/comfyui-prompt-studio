@@ -120,7 +120,7 @@ export default function PromptRecipesPanel() {
         placeholder="Sample prompt to test a recipe…"
         className="ui-input mt-4 w-full"
       />
-      {status ? <p className="mt-2 text-sm text-emerald-400">{status}</p> : null}
+      {status ? <p className="mt-2 text-sm text-[var(--tint-success-text)]">{status}</p> : null}
     </ToolSection>
   );
 }

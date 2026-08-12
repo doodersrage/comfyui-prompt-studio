@@ -71,7 +71,7 @@ export default function ComfyWorkflowSelector({
         )}
       </select>
       {!selectedExists && (
-        <p className="text-xs text-amber-400/90">
+        <p className="text-xs text-[var(--tint-warning-text)]">
           The selected workflow file was removed. Using {defaultLabel.toLowerCase()}.
         </p>
       )}

@@ -9,9 +9,10 @@ type PromptDiagnosticsPanelProps = {
 };
 
 const severityStyles = {
-  error: 'border-rose-500/40 bg-rose-500/10 text-rose-200',
-  warn: 'border-amber-500/40 bg-amber-500/10 text-amber-200',
-  info: 'border-sky-500/40 bg-sky-500/10 text-sky-200',
+  error:
+    'border-[var(--tint-danger-border)] bg-[var(--tint-danger-bg)] text-[var(--tint-danger-text)]',
+  warn: 'border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] text-[var(--tint-warning-text)]',
+  info: 'border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] text-[var(--tint-info-text)]',
 } as const;
 
 export default function PromptDiagnosticsPanel({
@@ -90,7 +91,7 @@ export default function PromptDiagnosticsPanel({
       )}
 
       {diagnostics.issues.length === 0 && diagnostics.suggestions.length === 0 && (
-        <p className="text-xs text-emerald-400/90">No issues detected.</p>
+        <p className="text-xs text-[var(--tint-success-text)]/90">No issues detected.</p>
       )}
     </section>
   );

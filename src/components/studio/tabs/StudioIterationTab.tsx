@@ -229,7 +229,7 @@ function IterationTreeNodeCard({
             <button
               type="button"
               onClick={() => onDiffWithParent(parentHistoryId)}
-              className="type-caption text-amber-300 hover:text-amber-200"
+              className="type-caption text-[var(--tint-warning-text)] hover:text-[var(--tint-warning-text)]"
             >
               Diff vs parent
             </button>

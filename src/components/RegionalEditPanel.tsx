@@ -75,9 +75,9 @@ export default function RegionalEditPanel({
 
   const healthTone =
     health.status === 'ready'
-      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-100'
+      ? 'border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] text-[var(--tint-success-text)]'
       : health.status === 'fallback-text'
-        ? 'border-amber-500/30 bg-amber-500/10 text-amber-100'
+        ? 'border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] text-[var(--tint-warning-text)]'
         : 'border-[var(--border-default)]/50 bg-[var(--bg-muted)]/60 text-[var(--text-muted)]';
 
   return (

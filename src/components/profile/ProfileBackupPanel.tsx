@@ -56,7 +56,7 @@ export default function ProfileBackupPanel() {
           />
         </label>
       </div>
-      {status ? <p className="mt-2 text-sm text-emerald-400">{status}</p> : null}
+      {status ? <p className="mt-2 text-sm text-[var(--tint-success-text)]">{status}</p> : null}
     </ToolSection>
   );
 }

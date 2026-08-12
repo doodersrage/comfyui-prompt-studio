@@ -57,13 +57,13 @@ export default function GalleryExperimentBlock({
     <div
       className={
         layout === 'list'
-          ? 'space-y-3 rounded-2xl border border-sky-500/20 bg-gradient-to-br from-sky-500/10 via-[var(--bg-elevated)]/40 to-transparent p-3'
-          : 'col-span-full space-y-3 rounded-2xl border border-sky-500/20 bg-gradient-to-br from-sky-500/10 via-[var(--bg-elevated)]/40 to-transparent p-3'
+          ? 'space-y-3 rounded-2xl border border-[var(--tint-info-border)] bg-gradient-to-br from-[var(--tint-info-bg)] via-[var(--bg-elevated)]/40 to-transparent p-3'
+          : 'col-span-full space-y-3 rounded-2xl border border-[var(--tint-info-border)] bg-gradient-to-br from-[var(--tint-info-bg)] via-[var(--bg-elevated)]/40 to-transparent p-3'
       }
     >
       <div className="flex flex-wrap items-center justify-between gap-2 px-1">
         <div className="min-w-0 space-y-1">
-          <p className="text-[10px] font-medium uppercase tracking-wide text-sky-200/85">
+          <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--tint-info-text)]">
             Experiment · {entries.length} variants
             {winnerEntryId ? ' · crowned' : ''}
           </p>
@@ -75,7 +75,7 @@ export default function GalleryExperimentBlock({
               {paramDiffChips.map(chip => (
                 <span
                   key={chip}
-                  className="rounded-lg border border-sky-500/25 bg-sky-500/10 px-2 py-0.5 text-[10px] text-sky-100/90"
+                  className="rounded-lg border border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] px-2 py-0.5 text-[10px] text-[var(--tint-info-text)]"
                 >
                   {chip}
                 </span>
@@ -131,7 +131,7 @@ export default function GalleryExperimentBlock({
           <button
             type="button"
             onClick={onToggle}
-            className="rounded-lg border border-sky-500/25 bg-sky-500/10 px-2 py-0.5 text-[10px] font-medium text-sky-200 backdrop-blur-sm transition hover:border-sky-400/45 hover:bg-sky-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/45 active:scale-[0.98]"
+            className="rounded-lg border border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] px-2 py-0.5 text-[10px] font-medium text-[var(--tint-info-text)] backdrop-blur-sm transition hover:border-[var(--tint-info-border)] hover:bg-[var(--tint-info-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
           >
             {collapsed ? 'Expand' : 'Collapse'}
           </button>
@@ -145,10 +145,10 @@ export default function GalleryExperimentBlock({
               <button
                 type="button"
                 onClick={() => onCrown(entry.id)}
-                className={`absolute left-2 top-2 z-20 rounded-full border px-2 py-0.5 text-[10px] font-medium backdrop-blur transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50 active:scale-[0.98] ${
+                className={`absolute left-2 top-2 z-20 rounded-full border px-2 py-0.5 text-[10px] font-medium backdrop-blur transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98] ${
                   winnerEntryId === entry.id
-                    ? 'border-amber-400/50 bg-amber-500/25 text-amber-50'
-                    : 'border-[var(--border-subtle)] bg-[var(--bg-base)]/70 text-[var(--text-secondary)] hover:border-amber-400/40 hover:text-amber-100'
+                    ? 'border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] text-[var(--tint-warning-text)]'
+                    : 'border-[var(--border-subtle)] bg-[var(--bg-base)]/70 text-[var(--text-secondary)] hover:border-[var(--tint-warning-border)] hover:text-[var(--tint-warning-text)]'
                 }`}
                 title={winnerEntryId === entry.id ? 'Crowned winner' : 'Crown as winner'}
               >

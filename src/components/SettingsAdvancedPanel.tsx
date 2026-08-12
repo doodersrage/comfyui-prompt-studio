@@ -438,7 +438,7 @@ export default function SettingsAdvancedPanel() {
       <NegativeLearnerPanel />
       <ModelShootoutPanel />
 
-      {status ? <p className="text-sm text-emerald-400">{status}</p> : null}
+      {status ? <p className="text-sm text-[var(--tint-success-text)]">{status}</p> : null}
     </>
   );
 }

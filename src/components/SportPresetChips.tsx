@@ -33,7 +33,7 @@ export default function SportPresetChips({
               onClick={() => onSelect(preset)}
               className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
                 active
-                  ? 'border-emerald-500 bg-emerald-500/15 text-emerald-200'
+                  ? 'border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] text-[var(--tint-success-text)]'
                   : 'border-[var(--border-default)] text-[var(--text-muted)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]'
               }`}
             >

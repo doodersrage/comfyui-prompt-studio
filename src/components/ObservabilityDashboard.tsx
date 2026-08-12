@@ -99,7 +99,7 @@ export default function ObservabilityDashboard() {
           <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
             Recent errors
           </p>
-          <ul className="mt-2 space-y-1 text-xs text-rose-300">
+          <ul className="mt-2 space-y-1 text-xs text-[var(--tint-danger-text)]">
             {recentErrors.map((entry, index) => (
               <li key={`${entry.path}-${entry.at}-${index}`}>
                 {entry.status} {entry.method} {entry.path} · {entry.durationMs}ms

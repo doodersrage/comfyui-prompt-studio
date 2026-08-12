@@ -427,7 +427,7 @@ export default function RefineTool() {
             onMaskChange={onMaskChange}
           />
         ) : needsInpaintMask ? (
-          <p className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2.5 text-xs text-amber-100/85">
+          <p className="rounded-xl border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-3 py-2.5 text-xs text-[var(--tint-warning-text)]">
             Upload a reference image first, then draw or upload an inpaint mask.
           </p>
         ) : null}
@@ -475,12 +475,10 @@ export default function RefineTool() {
       {output && beforePrompt && beforePrompt !== output ? (
         <ToolSection title="Refine diff">
           <div className="grid gap-4 lg:grid-cols-2">
-            <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)] p-3 text-xs text-[var(--text-muted)]">
+            <pre className="ui-code-block max-h-48 overflow-auto p-3 text-xs" data-tone="muted">
               {beforePrompt}
             </pre>
-            <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)] p-3 text-xs text-emerald-300">
-              {output}
-            </pre>
+            <pre className="ui-code-block max-h-48 overflow-auto p-3 text-xs">{output}</pre>
           </div>
           {diffPromptWords(beforePrompt, output)
             .segments.filter(segment => segment.type === 'add')

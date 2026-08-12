@@ -302,7 +302,7 @@ export default function SettingsOverviewTab({
                     preferredComfyHost: event.target.value.trim() || undefined,
                   })
                 }
-                className="w-full rounded-xl border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2.5 text-sm text-[var(--text-primary)] shadow-inner shadow-[var(--shadow-surface)] transition hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40 active:border-[var(--border-strong)]"
+                className="w-full rounded-xl border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2.5 text-sm text-[var(--text-primary)] shadow-inner shadow-[var(--shadow-surface)] transition hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:border-[var(--border-strong)]"
               >
                 <option value="">Auto (VRAM / round-robin)</option>
                 {health.comfyuiPool.endpoints.map(endpoint => (
@@ -326,7 +326,7 @@ export default function SettingsOverviewTab({
                     comfyPoolLoadBalance: event.target.checked,
                   })
                 }
-                className="mt-0.5 rounded border-[var(--border-default)] bg-[var(--bg-muted)] text-[var(--text-primary)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40 active:scale-[0.98]"
+                className="mt-0.5 rounded border-[var(--border-default)] bg-[var(--bg-muted)] text-[var(--text-primary)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
               />
               <span className="space-y-0.5">
                 <span className="block text-sm text-[var(--text-primary)]">
@@ -360,7 +360,7 @@ export default function SettingsOverviewTab({
                         Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined,
                     });
                   }}
-                  className="w-full max-w-[8rem] rounded-xl border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2.5 text-sm text-[var(--text-primary)] shadow-inner shadow-[var(--shadow-surface)] transition hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40 active:border-[var(--border-strong)]"
+                  className="w-full max-w-[8rem] rounded-xl border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2.5 text-sm text-[var(--text-primary)] shadow-inner shadow-[var(--shadow-surface)] transition hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:border-[var(--border-strong)]"
                 />
                 <p className="text-[11px] leading-relaxed text-[var(--text-muted)]">
                   Hosts at or above this queue depth are skipped. Override server default with{' '}

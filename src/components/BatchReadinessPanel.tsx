@@ -83,7 +83,9 @@ export default function BatchReadinessPanel(props: {
             <span className="text-[var(--text-secondary)]">
               {row.label?.trim() || `Row ${row.index + 1}`}
             </span>
-            {!row.queueAllowed ? <span className="text-amber-300/90">Below threshold</span> : null}
+            {!row.queueAllowed ? (
+              <span className="text-[var(--tint-warning-text)]">Below threshold</span>
+            ) : null}
           </li>
         ))}
       </ul>

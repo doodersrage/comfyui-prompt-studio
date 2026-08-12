@@ -21,7 +21,7 @@ export default function PromptWeightInspector(props: {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="font-medium text-[var(--text-primary)]">Token / weight inspector</p>
         <p
-          className={`text-xs ${inspection.overLimit ? 'text-amber-300' : 'text-[var(--text-muted)]'}`}
+          className={`text-xs ${inspection.overLimit ? 'text-[var(--tint-warning-text)]' : 'text-[var(--text-muted)]'}`}
         >
           ~{inspection.estimatedTokens}/{inspection.tokenLimit} tokens
         </p>
@@ -57,7 +57,7 @@ export default function PromptWeightInspector(props: {
       )}
 
       {inspection.suggestions.length > 0 ? (
-        <ul className="space-y-1 text-xs text-amber-200/90">
+        <ul className="space-y-1 text-xs text-[var(--tint-warning-text)]">
           {inspection.suggestions.map(suggestion => (
             <li key={suggestion}>• {suggestion}</li>
           ))}

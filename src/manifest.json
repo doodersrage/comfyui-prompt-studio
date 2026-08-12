@@ -4,7 +4,7 @@
   "description": "Prompt, queue, and gallery studio for ComfyUI — image, video, audio, and 3D workflows.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0b0f14",
+  "background_color": "#0c0c10",
   "theme_color": "#0c0c10",
   "icons": [
     {

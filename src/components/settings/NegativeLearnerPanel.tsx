@@ -78,7 +78,7 @@ export default function NegativeLearnerPanel() {
               key={item.token}
               className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/35 px-3 py-2"
             >
-              <span className="text-sm text-rose-100">
+              <span className="text-sm text-[var(--tint-danger-text)]">
                 {item.token} · {item.count}×
               </span>
               <button
@@ -87,7 +87,7 @@ export default function NegativeLearnerPanel() {
                   addAvoidedToken(item.token);
                   setStatus(`Added “${item.token}” to avoided tokens.`);
                 }}
-                className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-xs text-amber-100 transition hover:border-amber-400/50"
+                className="rounded-full border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-2.5 py-0.5 text-xs text-[var(--tint-warning-text)] transition hover:border-[var(--tint-warning-border)]"
               >
                 Avoid
               </button>
@@ -112,7 +112,7 @@ export default function NegativeLearnerPanel() {
           ))}
         </ul>
       )}
-      {status ? <p className="mt-3 text-xs text-emerald-400">{status}</p> : null}
+      {status ? <p className="mt-3 text-xs text-[var(--tint-success-text)]">{status}</p> : null}
       <button
         type="button"
         className="mt-3 text-xs text-[var(--text-muted)] underline underline-offset-2"

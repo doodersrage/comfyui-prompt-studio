@@ -186,7 +186,7 @@ export default function StudioCompareTab({
                   className="w-full rounded-xl border border-[var(--border-subtle)]"
                 />
               ) : (
-                <p className="text-sm text-amber-300/90">
+                <p className="text-sm text-[var(--tint-warning-text)]">
                   {visualA.held
                     ? 'Held Max until ComfyUI is idle'
                     : (visualA.error ?? 'No preview')}
@@ -205,7 +205,7 @@ export default function StudioCompareTab({
                   className="w-full rounded-xl border border-[var(--border-subtle)]"
                 />
               ) : (
-                <p className="text-sm text-amber-300/90">
+                <p className="text-sm text-[var(--tint-warning-text)]">
                   {visualB.held
                     ? 'Held Max until ComfyUI is idle'
                     : (visualB.error ?? 'No preview')}

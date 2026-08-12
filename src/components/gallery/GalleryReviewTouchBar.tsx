@@ -16,7 +16,7 @@ export default function GalleryReviewTouchBar({
   const ratingColors = [
     'border-[var(--tint-danger-border)] bg-[var(--tint-danger-bg)] text-[var(--tint-danger-text)] hover:brightness-110',
     'border-orange-600/50 bg-orange-900/18 text-orange-400 hover:bg-orange-500/35 hover:border-orange-500/75',
-    'border-sky-600/45 bg-sky-900/15 text-sky-400 hover:bg-sky-500/30 hover:border-sky-500/70',
+    'border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] text-[var(--tint-info-text)] hover:bg-[var(--tint-info-bg)] hover:border-[var(--tint-info-border)]',
     'border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] text-[var(--tint-success-text)] hover:brightness-110',
     'border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)] hover:brightness-110',
   ];
@@ -46,7 +46,7 @@ export default function GalleryReviewTouchBar({
         <button
           type="button"
           onClick={onFavorite}
-          className={`ui-btn-secondary min-h-11 rounded-xl border border-amber-600/55 bg-amber-900/20 backdrop-blur-xs transition hover:bg-amber-500/40 hover:border-amber-500/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/30 text-amber-400`}
+          className={`ui-btn-secondary min-h-11 rounded-xl border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] backdrop-blur-xs transition hover:bg-[var(--tint-warning-bg)] hover:border-[var(--tint-warning-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] text-[var(--tint-warning-text)]`}
         >
           ★
         </button>

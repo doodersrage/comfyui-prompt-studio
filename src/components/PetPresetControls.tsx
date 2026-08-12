@@ -131,7 +131,7 @@ export default function PetPresetControls({ mounted, settings, onChange }: PetPr
         <p className="type-heading">Pet presets (optional)</p>
         <div className="flex items-center gap-2 text-xs">
           {selectionCount > 0 ? (
-            <span className="text-rose-300">{selectionCount} active</span>
+            <span className="text-[var(--tint-danger-text)]">{selectionCount} active</span>
           ) : (
             <span className="text-[var(--text-muted)]">Optional refinements</span>
           )}

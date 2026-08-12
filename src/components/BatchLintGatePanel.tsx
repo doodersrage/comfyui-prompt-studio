@@ -23,14 +23,14 @@ export default function BatchLintGatePanel({
   }
 
   return (
-    <div className="space-y-3 rounded-xl border border-amber-700/40 bg-amber-950/20 p-3">
-      <p className="text-sm font-medium text-amber-100">
+    <div className="space-y-3 rounded-xl border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] p-3">
+      <p className="text-sm font-medium text-[var(--tint-warning-text)]">
         {loading
           ? 'Linting batch…'
           : `Batch lint: ${summary?.totalErrors ?? 0} errors, ${summary?.totalWarnings ?? 0} warnings`}
       </p>
       {summary && summary.blockedIndexes.length > 0 ? (
-        <ul className="max-h-40 space-y-1 overflow-y-auto text-xs text-amber-100/90">
+        <ul className="max-h-40 space-y-1 overflow-y-auto text-xs text-[var(--tint-warning-text)]">
           {summary.items
             .filter(item => item.errorCount > 0)
             .slice(0, 8)
@@ -42,7 +42,7 @@ export default function BatchLintGatePanel({
             ))}
         </ul>
       ) : summary ? (
-        <p className="text-xs text-emerald-200">No blocking lint errors found.</p>
+        <p className="text-xs text-[var(--tint-success-text)]">No blocking lint errors found.</p>
       ) : null}
       <div className="flex flex-wrap gap-2">
         {onFixAll ? (

@@ -102,7 +102,7 @@ export default function WildcardListsEditor({
           type="button"
           disabled={disabled || !active}
           onClick={removeList}
-          className="rounded-lg border border-[var(--border-default)] px-3 py-2 text-sm text-[var(--text-secondary)] transition hover:border-rose-500/40 hover:text-[var(--tint-danger-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/40 active:scale-[0.98] disabled:opacity-40"
+          className="rounded-lg border border-[var(--border-default)] px-3 py-2 text-sm text-[var(--text-secondary)] transition hover:border-[var(--tint-danger-border)] hover:text-[var(--tint-danger-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98] disabled:opacity-40"
         >
           Remove
         </button>

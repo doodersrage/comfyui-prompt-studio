@@ -74,7 +74,7 @@ function ActionMenu(props: { label: string; children: ReactNode; disabled?: bool
 
   const menuTone =
     props.label === 'Export'
-      ? 'border-sky-600/35 bg-sky-900/15 text-sky-400 hover:border-sky-500/50'
+      ? 'border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] text-[var(--tint-info-text)] hover:border-[var(--tint-info-border)]'
       : props.label === 'Queue'
         ? 'border-slate-600/35 bg-slate-900/15 text-slate-400 hover:border-slate-500/50'
         : props.label === 'Send'

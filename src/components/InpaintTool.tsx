@@ -318,9 +318,10 @@ export default function InpaintTool() {
       />
       <ToolSection>
         {anatomyRepairMode ? (
-          <p className="mb-4 rounded-xl border border-rose-500/25 bg-rose-500/[0.06] px-3.5 py-3 text-sm leading-relaxed text-rose-100/90">
-            <span className="font-medium text-rose-50">Anatomy repair</span> — mask only the bad
-            limb or hand. Prompts are pre-filled; tweak if needed, then queue with FLUX Inpaint.
+          <p className="mb-4 rounded-xl border border-[var(--tint-danger-border)] bg-[var(--tint-danger-bg)] px-3.5 py-3 text-sm leading-relaxed text-[var(--tint-danger-text)]">
+            <span className="font-medium text-[var(--tint-danger-text)]">Anatomy repair</span> —
+            mask only the bad limb or hand. Prompts are pre-filled; tweak if needed, then queue with
+            FLUX Inpaint.
           </p>
         ) : null}
         <FieldLabel>Source image</FieldLabel>
@@ -329,7 +330,7 @@ export default function InpaintTool() {
             type="file"
             accept="image/*"
             onChange={event => onFileChange(event.target.files?.[0] ?? null)}
-            className="block min-w-0 flex-1 text-sm text-[var(--text-muted)] file:mr-4 file:rounded-lg file:border-0 file:bg-amber-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60"
+            className="ui-file-input min-w-0 flex-1"
           />
           <ButtonLink href={galleryPickPath('inpaint')} variant="secondary" size="sm">
             Choose from Gallery
@@ -342,7 +343,7 @@ export default function InpaintTool() {
             onMaskChange={onMaskChange}
           />
         ) : (
-          <p className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2.5 text-xs text-amber-100/85">
+          <p className="rounded-xl border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-3 py-2.5 text-xs text-[var(--tint-warning-text)]">
             Upload a source image to draw or upload the inpaint mask.
           </p>
         )}

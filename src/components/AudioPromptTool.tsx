@@ -147,7 +147,7 @@ export default function AudioPromptTool() {
       <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.audio} />
       <ToolSection>
         {workflowStatus ? (
-          <p className="mb-3 rounded-xl border border-sky-500/25 bg-sky-500/10 px-3 py-2 text-xs text-sky-100">
+          <p className="mb-3 rounded-xl border border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] px-3 py-2 text-xs text-[var(--tint-info-text)]">
             {workflowStatus}
           </p>
         ) : null}

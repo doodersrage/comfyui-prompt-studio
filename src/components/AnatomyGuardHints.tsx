@@ -19,10 +19,10 @@ export default function AnatomyGuardHints({ mode, onModeChange, model }: Anatomy
     ANATOMY_GUARD_OPTIONS.find(option => option.id === mode) ?? ANATOMY_GUARD_OPTIONS[0];
 
   return (
-    <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 px-3 py-2.5">
+    <div className="rounded-xl border border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] px-3 py-2.5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
-          <p className="type-caption text-sky-200/85">Anatomy guard on queue</p>
+          <p className="type-caption text-[var(--tint-info-text)]">Anatomy guard on queue</p>
           <p className="text-xs text-[var(--text-secondary)]">
             {formatAnatomyGuardHint(mode, model)}
           </p>

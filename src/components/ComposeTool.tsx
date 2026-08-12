@@ -489,9 +489,9 @@ export default function ComposeTool() {
                 onClick={() => setMode(entry.id)}
                 className={[
                   'rounded-xl border px-3.5 py-2 text-sm transition',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]',
                   active
-                    ? 'border-cyan-400/40 bg-cyan-500/15 text-cyan-50 shadow-[0_0_24px_-12px_rgba(34,211,238,0.55)]'
+                    ? 'border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)]'
                     : 'border-[var(--border-subtle)] bg-[var(--bg-muted)] text-[var(--text-secondary)] hover:border-[var(--border-default)] hover:bg-[var(--bg-muted)]/60 hover:text-[var(--text-primary)]',
                 ].join(' ')}
               >
@@ -503,23 +503,25 @@ export default function ComposeTool() {
         </div>
 
         {showPoseUnlockHint ? (
-          <div className="rounded-xl border border-amber-500/25 bg-amber-500/8 px-3.5 py-3 text-xs leading-relaxed text-amber-100/90">
-            <p className="font-medium text-amber-50/95">
+          <div className="rounded-xl border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-3.5 py-3 text-xs leading-relaxed text-[var(--tint-warning-text)]">
+            <p className="font-medium text-[var(--tint-warning-text)]/95">
               {booguEditModel ? 'Boogu Edit' : 'Qwen Edit'} locks Image 1 pose
             </p>
-            <p className="mt-1.5 text-amber-100/80">
+            <p className="mt-1.5 text-[var(--tint-warning-text)]/80">
               ReferenceLatent + vision encoding anchor Image 1&apos;s body pose and framing —
               denoise 1 is correct and won&apos;t unlock a sitting subject by itself.
             </p>
-            <ul className="mt-2 list-inside list-disc space-y-1 text-amber-100/75">
+            <ul className="mt-2 list-inside list-disc space-y-1 text-[var(--tint-warning-text)]/75">
               <li>
-                <strong className="font-medium text-amber-50/90">Pose changes:</strong> use{' '}
-                <strong className="font-medium">Transfer</strong> — Image 1 = face, Image 2 =
+                <strong className="font-medium text-[var(--tint-warning-text)]/90">
+                  Pose changes:
+                </strong>{' '}
+                use <strong className="font-medium">Transfer</strong> — Image 1 = face, Image 2 =
                 standing/action reference photo.
               </li>
               <li>
-                <strong className="font-medium text-amber-50/90">Modify</strong> works best for
-                relight, wardrobe, and background swaps on the existing pose.
+                <strong className="font-medium text-[var(--tint-warning-text)]/90">Modify</strong>{' '}
+                works best for relight, wardrobe, and background swaps on the existing pose.
               </li>
               {identityLock ? (
                 <li>
@@ -552,7 +554,9 @@ export default function ComposeTool() {
                   <p className="text-sm font-medium text-[var(--text-primary)]">
                     Image {index + 1}
                     {required ? (
-                      <span className="ml-1.5 text-xs font-normal text-cyan-300/80">required</span>
+                      <span className="ml-1.5 text-xs font-normal text-[var(--accent-text)]">
+                        required
+                      </span>
                     ) : null}
                   </p>
                   {slot.previewUrl ? (
@@ -560,7 +564,7 @@ export default function ComposeTool() {
                       type="button"
                       disabled={disabled}
                       onClick={() => setFigure(index, null)}
-                      className="rounded-lg px-2 py-1 text-xs text-[var(--text-muted)] transition hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50 disabled:pointer-events-none"
+                      className="rounded-lg px-2 py-1 text-xs text-[var(--text-muted)] transition hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:pointer-events-none"
                     >
                       Clear
                     </button>
@@ -572,7 +576,7 @@ export default function ComposeTool() {
                     accept="image/*"
                     disabled={disabled}
                     onChange={event => setFigure(index, event.target.files?.[0] ?? null)}
-                    className="block w-full text-sm text-[var(--text-secondary)] file:mr-3 file:rounded-lg file:border-0 file:bg-cyan-700/80 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white hover:file:bg-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60 disabled:opacity-50"
+                    className="ui-file-input w-full disabled:opacity-50"
                   />
                   {index === 0 ? (
                     <ButtonLink
@@ -620,17 +624,17 @@ export default function ComposeTool() {
         ) : null}
 
         {!zImageModel ? (
-          <div className="space-y-2 rounded-2xl border border-cyan-500/20 bg-cyan-500/[0.04] px-3.5 py-3 shadow-[0_0_28px_-18px_rgba(34,211,238,0.4)]">
+          <div className="ui-recipe-shell space-y-2">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
                 <input
                   type="checkbox"
                   checked={identityLock}
                   onChange={event => updateToolSettings({ identityLock: event.target.checked })}
-                  className="mt-1 rounded border-[var(--border-default)] bg-[var(--bg-muted)] text-cyan-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50"
+                  className="ui-checkbox mt-1 accent-[var(--accent)]"
                 />
                 <span className="min-w-0 space-y-1">
-                  <span className="block text-sm font-medium text-cyan-50/95">
+                  <span className="block text-sm font-medium text-[var(--accent-text)]">
                     Lock identity from Image 1
                   </span>
                   <span className="block text-xs leading-relaxed text-[var(--text-muted)]">
@@ -639,7 +643,7 @@ export default function ComposeTool() {
                 </span>
               </label>
               <label className="shrink-0 space-y-1">
-                <span className="type-caption text-cyan-200/70">Kind</span>
+                <span className="type-caption text-[var(--accent-text)]">Kind</span>
                 <select
                   value={identityKind}
                   disabled={!identityLock}
@@ -648,7 +652,7 @@ export default function ComposeTool() {
                       identityKind: normalizeComposeIdentityKind(event.target.value),
                     })
                   }
-                  className="block rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-muted)]/70 px-2.5 py-1.5 text-sm text-[var(--text-primary)] transition hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="block rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-muted)]/70 px-2.5 py-1.5 text-sm text-[var(--text-primary)] transition hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {(
                     [
@@ -667,7 +671,7 @@ export default function ComposeTool() {
             </div>
             {identityLock ? (
               <label className="block space-y-1.5 pl-7">
-                <span className="type-caption text-cyan-200/70">
+                <span className="type-caption text-[var(--accent-text)]">
                   {identityKind === 'ipadapter'
                     ? 'IP-Adapter'
                     : identityKind === 'instantid'
@@ -690,7 +694,7 @@ export default function ComposeTool() {
                       ),
                     })
                   }
-                  className="w-full accent-cyan-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40"
+                  className="w-full accent-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
                 />
               </label>
             ) : null}
@@ -704,10 +708,10 @@ export default function ComposeTool() {
             disabled={!fig1Preview}
             className={[
               'rounded-xl border px-3 py-2 text-sm transition',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]',
               'disabled:cursor-not-allowed disabled:opacity-40',
               showMaskEditor
-                ? 'border-cyan-400/35 bg-cyan-500/10 text-cyan-100'
+                ? 'border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)]'
                 : 'border-[var(--border-subtle)] bg-[var(--bg-muted)] text-[var(--text-secondary)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]',
             ].join(' ')}
           >
@@ -764,10 +768,10 @@ export default function ComposeTool() {
                         onClick={() => applyTemplate(template.instruction)}
                         className={[
                           'rounded-xl border px-3 py-1.5 text-xs transition',
-                          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50',
+                          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]',
                           disabled
                             ? 'cursor-not-allowed border-[var(--border-subtle)]/60 bg-[var(--bg-muted)]/30 text-[var(--text-muted)]'
-                            : 'border-[var(--border-subtle)] bg-[var(--bg-muted)]/45 text-[var(--text-secondary)] hover:border-cyan-500/30 hover:bg-cyan-500/10 hover:text-cyan-50 active:scale-[0.98]',
+                            : 'border-[var(--border-subtle)] bg-[var(--bg-muted)]/45 text-[var(--text-secondary)] hover:border-[var(--accent-border)] hover:bg-[var(--accent-muted)] hover:text-[var(--accent-text)] active:scale-[0.98]',
                         ].join(' ')}
                       >
                         {template.label}

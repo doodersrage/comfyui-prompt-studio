@@ -550,7 +550,9 @@ export default function EnhancedPromptResult({
                     variant="primary"
                     onClick={handleSendComfyUi}
                     data-action="send-comfyui"
-                    className={!queueReadinessAllowed ? 'border-amber-500/50' : undefined}
+                    className={
+                      !queueReadinessAllowed ? 'border-[var(--tint-warning-border)]' : undefined
+                    }
                   >
                     {queueReadinessAllowed ? 'Queue generate' : 'Queue generate (below readiness)'}
                   </Button>
@@ -603,7 +605,9 @@ export default function EnhancedPromptResult({
                     variant="primary"
                     onClick={handleSendComfyUi}
                     data-action="send-comfyui"
-                    className={!queueReadinessAllowed ? 'border-amber-500/50' : undefined}
+                    className={
+                      !queueReadinessAllowed ? 'border-[var(--tint-warning-border)]' : undefined
+                    }
                   >
                     {queueReadinessAllowed ? 'Queue generate' : 'Queue generate (below readiness)'}
                   </Button>

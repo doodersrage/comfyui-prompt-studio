@@ -35,19 +35,19 @@ export default function WorkflowDiffPanel() {
         />
       </div>
       {diff ? (
-        <pre className="mt-3 max-h-64 overflow-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)]/50 p-3 text-xs">
+        <pre className="ui-code-block mt-3 max-h-64 overflow-auto p-3 text-xs">
           {diff.lines.map((line, index) => (
             <div
               key={`${index}-${line.type}`}
               className={
                 line.type === 'add'
-                  ? 'text-emerald-300'
+                  ? 'text-[var(--tint-success-text)]'
                   : line.type === 'remove'
-                    ? 'text-rose-300'
+                    ? 'text-[var(--tint-danger-text)]'
                     : 'text-[var(--text-muted)]'
               }
             >
-              {line.type === 'add' ? '+ ' : line.type === 'remove' ? '- ' : '  '}
+              {line.type === 'add' ? '+ ' : line.type === 'remove' ? '- ' : ''}
               {line.text}
             </div>
           ))}

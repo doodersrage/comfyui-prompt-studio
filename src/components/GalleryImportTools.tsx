@@ -80,7 +80,7 @@ export default function GalleryImportTools() {
         <div className="ui-surface-inset space-y-3">
           <p className="line-clamp-3 type-body">{importedSidecar.positive}</p>
           {!canUpscaleRefine ? (
-            <p className="text-xs text-amber-200/80">
+            <p className="text-xs text-[var(--tint-warning-text)]">
               Upscale and refine need an output or source image URL in the sidecar metadata.
             </p>
           ) : null}

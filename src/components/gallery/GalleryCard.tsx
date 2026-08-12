@@ -121,7 +121,7 @@ function statusTone(status: ComfyGalleryEntry['status']): string {
     return 'border-[var(--tint-danger-border)] bg-[var(--tint-danger-bg)] text-[var(--tint-danger-text)]';
   }
   if (status === 'running') {
-    return 'border-amber-500/30 bg-amber-500/10 text-amber-100';
+    return 'border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] text-[var(--tint-warning-text)]';
   }
   return 'border-[var(--border-default)]/40 bg-[var(--bg-muted)]/60 text-[var(--text-secondary)]';
 }
@@ -472,7 +472,7 @@ export default function GalleryCard({
                       <button
                         type="button"
                         onClick={() => startInpaintFromGalleryEntry(entry)}
-                        className="shrink-0 whitespace-nowrap rounded-lg border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-100 backdrop-blur transition hover:bg-amber-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/45 active:scale-[0.98]"
+                        className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-2 py-0.5 text-[10px] text-[var(--tint-warning-text)] backdrop-blur transition hover:bg-[var(--tint-warning-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
                       >
                         Inpaint
                       </button>
@@ -481,7 +481,7 @@ export default function GalleryCard({
                       <button
                         type="button"
                         onClick={() => onRequeue(false, undefined, { exactGraph: true })}
-                        className="shrink-0 whitespace-nowrap rounded-lg border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[10px] text-sky-100 backdrop-blur transition hover:bg-sky-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/45 active:scale-[0.98]"
+                        className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] px-2 py-0.5 text-[10px] text-[var(--tint-info-text)] backdrop-blur transition hover:bg-[var(--tint-info-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
                       >
                         Exact
                       </button>
@@ -546,7 +546,7 @@ export default function GalleryCard({
                 <button
                   type="button"
                   onClick={() => onRequeue(false, undefined, { exactGraph: true })}
-                  className="rounded-lg border border-sky-500/35 bg-sky-500/15 px-2.5 py-1 text-[11px] text-sky-100 transition hover:bg-sky-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/45 active:scale-[0.98]"
+                  className="rounded-lg border border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] px-2.5 py-1 text-[11px] text-[var(--tint-info-text)] transition hover:bg-[var(--tint-info-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
                 >
                   Replay exact
                 </button>
@@ -585,7 +585,7 @@ export default function GalleryCard({
             ) : null}
             {entry.reviewNote?.trim() ? (
               <span
-                className="max-w-[9rem] truncate rounded-full border border-amber-400/30 bg-amber-500/15 px-2 py-0.5 text-[10px] text-amber-100 backdrop-blur-sm"
+                className="max-w-[9rem] truncate rounded-full border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-2 py-0.5 text-[10px] text-[var(--tint-warning-text)] backdrop-blur-sm"
                 title={entry.reviewNote.trim()}
                 data-testid="gallery-card-review-note"
               >
@@ -594,21 +594,21 @@ export default function GalleryCard({
             ) : null}
             {entry.hasStoredWorkflow || entry.workflowJson ? (
               <span
-                className="rounded-full border border-sky-400/30 bg-sky-500/15 px-2 py-0.5 text-[10px] text-sky-100 backdrop-blur-sm"
+                className="rounded-full border border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] px-2 py-0.5 text-[10px] text-[var(--tint-info-text)] backdrop-blur-sm"
                 title="Stored workflow JSON available for exact replay"
               >
                 Exact graph
               </span>
             ) : entry.workflowJsonOmitted ? (
               <span
-                className="rounded-full border border-amber-400/30 bg-amber-500/15 px-2 py-0.5 text-[10px] text-amber-100 backdrop-blur-sm"
+                className="rounded-full border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-2 py-0.5 text-[10px] text-[var(--tint-warning-text)] backdrop-blur-sm"
                 title="Graph was pruned (age/size budget) or too large to store"
               >
                 Graph pruned
               </span>
             ) : null}
             {primaryMediaKind === 'video' ? (
-              <span className="rounded-full border border-sky-500/30 bg-sky-500/15 px-2 py-0.5 text-[10px] text-sky-100 backdrop-blur-sm">
+              <span className="rounded-full border border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] px-2 py-0.5 text-[10px] text-[var(--tint-info-text)] backdrop-blur-sm">
                 {entry.sourceImageUrl?.trim() ? 'I2V' : 'Video'}
               </span>
             ) : null}
@@ -669,10 +669,10 @@ export default function GalleryCard({
               type="button"
               onClick={onToggleFavorite}
               title={entry.favorite ? 'Remove favorite' : 'Add favorite'}
-              className={`flex h-8 w-8 items-center justify-center rounded-full border text-sm backdrop-blur transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50 ${
+              className={`flex h-8 w-8 items-center justify-center rounded-full border text-sm backdrop-blur transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] ${
                 entry.favorite
-                  ? 'border-amber-500/50 bg-amber-500/20 text-amber-100 hover:bg-amber-500/30'
-                  : 'border-[var(--border-default)]/70 bg-[var(--bg-base)]/80 text-[var(--text-muted)] hover:border-amber-500/40 hover:text-amber-100'
+                  ? 'border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] text-[var(--tint-warning-text)] hover:bg-[var(--tint-warning-bg)]'
+                  : 'border-[var(--border-default)]/70 bg-[var(--bg-base)]/80 text-[var(--text-muted)] hover:border-[var(--tint-warning-border)] hover:text-[var(--tint-warning-text)]'
               }`}
             >
               {entry.favorite ? '★' : '☆'}
@@ -728,7 +728,7 @@ export default function GalleryCard({
           ) : null}
           {entry.reviewNote?.trim() ? (
             <span
-              className="max-w-[12rem] truncate rounded-full border border-amber-400/30 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-100"
+              className="max-w-[12rem] truncate rounded-full border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-2 py-0.5 text-[10px] text-[var(--tint-warning-text)]"
               title={entry.reviewNote.trim()}
               data-testid="gallery-card-review-note"
             >
@@ -736,11 +736,11 @@ export default function GalleryCard({
             </span>
           ) : null}
           {entry.hasStoredWorkflow || entry.workflowJson ? (
-            <span className="rounded-full border border-sky-400/30 bg-sky-500/10 px-2 py-0.5 text-[10px] text-sky-100">
+            <span className="rounded-full border border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] px-2 py-0.5 text-[10px] text-[var(--tint-info-text)]">
               Exact graph
             </span>
           ) : entry.workflowJsonOmitted ? (
-            <span className="rounded-full border border-amber-400/30 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-100">
+            <span className="rounded-full border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-2 py-0.5 text-[10px] text-[var(--tint-warning-text)]">
               Graph pruned
             </span>
           ) : null}
@@ -799,7 +799,7 @@ export default function GalleryCard({
                   key={tag}
                   type="button"
                   onClick={() => onVisionTagClick?.(tag)}
-                  className="rounded-full border border-sky-500/25 bg-sky-500/10 px-2 py-0.5 text-[10px] text-sky-100 transition hover:border-sky-400/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40"
+                  className="rounded-full border border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] px-2 py-0.5 text-[10px] text-[var(--tint-info-text)] transition hover:border-[var(--tint-info-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
                 >
                   {tag}
                 </button>
@@ -882,7 +882,7 @@ export default function GalleryCard({
       ) : null}
 
       {reviewMode && reviewMutationHints && reviewMutationHints.length > 0 ? (
-        <ul className="space-y-1 rounded-xl border border-amber-500/15 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-100/90">
+        <ul className="space-y-1 rounded-xl border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-3 py-2 text-[11px] text-[var(--tint-warning-text)]">
           {reviewMutationHints.map(hint => (
             <li key={hint}>· {hint}</li>
           ))}
@@ -1015,7 +1015,7 @@ export default function GalleryCard({
                     <Link
                       href={studioHistoryUrl(entry.historyId)}
                       role="menuitem"
-                      className="block rounded-lg px-3 py-2 text-xs text-sky-300 transition hover:bg-[var(--bg-muted)] hover:text-sky-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:bg-[var(--bg-muted)]/80"
+                      className="block rounded-lg px-3 py-2 text-xs text-[var(--tint-info-text)] transition hover:bg-[var(--bg-muted)] hover:text-[var(--tint-info-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:bg-[var(--bg-muted)]/80"
                       onClick={() => setMenuOpen(false)}
                     >
                       Studio history
@@ -1466,15 +1466,15 @@ export default function GalleryCard({
 function GalleryMenuGroup({ label, children }: { label?: string; children: React.ReactNode }) {
   const groupTone =
     label === 'Export'
-      ? 'border-sky-700/50 bg-sky-900/35 text-sky-400' // cool accent
+      ? 'border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] text-[var(--tint-info-text)]' // cool accent
       : label === 'Edit'
-        ? 'border-amber-600/45 bg-amber-800/30 text-amber-400' // creative
+        ? 'border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] text-[var(--tint-warning-text)]' // creative
         : label === 'Queue'
           ? 'border-slate-700/50 bg-slate-900/35 text-slate-400' // grounded
           : label === 'Enhance'
             ? 'border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)]' // premium
             : label === 'Lineage'
-              ? 'border-cyan-700/50 bg-cyan-900/35 text-cyan-400' // ancestry
+              ? 'border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)]' // ancestry
               : label === 'Manage'
                 ? 'border-[var(--border-default)]/45 bg-[var(--bg-muted)]/25 text-[var(--text-muted)]' // utility
                 : 'border-[var(--border-default)]/60 bg-[var(--bg-muted)]/30 text-[var(--text-muted)]'; // default

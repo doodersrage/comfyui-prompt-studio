@@ -490,7 +490,7 @@ export default function VideoPromptTool() {
       />
       <ToolSection>
         {workflowStatus ? (
-          <p className="mb-3 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">
+          <p className="mb-3 rounded-xl border border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] px-3 py-2 text-xs text-[var(--tint-success-text)]">
             {workflowStatus}
           </p>
         ) : null}
@@ -573,7 +573,7 @@ export default function VideoPromptTool() {
               type="file"
               accept="image/*"
               onChange={event => onInitFileChange(event.target.files?.[0] ?? null)}
-              className="block min-w-0 flex-1 text-sm text-[var(--text-muted)] file:mr-4 file:rounded-lg file:border-0 file:bg-[var(--accent)] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white file:transition hover:file:bg-[var(--accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+              className="ui-file-input min-w-0 flex-1"
             />
             <ButtonLink href={galleryPickPath('video')} variant="secondary" size="sm">
               Choose from Gallery
@@ -621,7 +621,7 @@ export default function VideoPromptTool() {
             />
           </div>
           {hasInitImage ? (
-            <p className="type-caption text-emerald-200/80">
+            <p className="type-caption text-[var(--tint-success-text)]">
               I2V init image ready — queue will upload and wire it into the video graph.
             </p>
           ) : null}

@@ -61,10 +61,10 @@ export default function ModelSamplerHints({
   };
 
   return (
-    <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 px-3 py-2.5">
+    <div className="rounded-xl border border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] px-3 py-2.5">
       <div className="space-y-3">
         <div className="min-w-0 space-y-1">
-          <p className="type-caption text-sky-200/85">KSampler preset on queue</p>
+          <p className="type-caption text-[var(--tint-info-text)]">KSampler preset on queue</p>
           <p className="break-words text-xs text-[var(--text-secondary)]">
             {formatModelSamplerHint(model, preset)}
           </p>
@@ -84,22 +84,22 @@ export default function ModelSamplerHints({
       </div>
 
       {onOverridesChange ? (
-        <div className="mt-3 border-t border-sky-500/15 pt-3">
+        <div className="mt-3 border-t border-[var(--tint-info-border)] pt-3">
           <button
             type="button"
-            className="flex w-full items-center justify-between gap-2 rounded-[var(--radius-md)] px-1 py-1 text-left text-xs font-medium text-sky-100/90 transition hover:bg-sky-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.99]"
+            className="flex w-full items-center justify-between gap-2 rounded-[var(--radius-md)] px-1 py-1 text-left text-xs font-medium text-[var(--tint-info-text)] transition hover:bg-[var(--tint-info-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.99]"
             aria-expanded={overridesOpen}
             onClick={() => setOverridesOpen(open => !open)}
           >
             <span>
               KSampler overrides
               {overridesActive ? (
-                <span className="ml-1.5 rounded-full bg-sky-500/20 px-1.5 py-0.5 text-[10px] font-normal text-sky-100/80">
+                <span className="ml-1.5 rounded-full bg-[var(--tint-info-bg)] px-1.5 py-0.5 text-[10px] font-normal text-[var(--tint-info-text)]/80">
                   active
                 </span>
               ) : null}
             </span>
-            <span className="text-sky-200/60" aria-hidden>
+            <span className="text-[var(--tint-info-text)]/60" aria-hidden>
               {overridesOpen ? '−' : '+'}
             </span>
           </button>
@@ -129,7 +129,7 @@ export default function ModelSamplerHints({
                 ))}
               </div>
               {distilledModel ? (
-                <p className="type-caption text-amber-200/75">
+                <p className="type-caption text-[var(--tint-warning-text)]/75">
                   Lightning / Rapid models clamp steps and CFG on queue. Denoise override is honored
                   when set.
                 </p>
@@ -138,7 +138,7 @@ export default function ModelSamplerHints({
                 <button
                   type="button"
                   onClick={resetOverrides}
-                  className="text-xs text-sky-200/80 transition hover:text-sky-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+                  className="text-xs text-[var(--tint-info-text)]/80 transition hover:text-[var(--tint-info-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
                 >
                   Reset overrides
                 </button>
@@ -149,7 +149,9 @@ export default function ModelSamplerHints({
       ) : null}
 
       <p className="mt-2 type-caption text-[var(--text-muted)]">{activeOption.description}</p>
-      {peopleHint ? <p className="mt-1.5 type-caption text-amber-200/80">{peopleHint}</p> : null}
+      {peopleHint ? (
+        <p className="mt-1.5 type-caption text-[var(--tint-warning-text)]">{peopleHint}</p>
+      ) : null}
       {samplingHint ? (
         <p className="mt-1.5 type-caption text-[var(--text-muted)]">{samplingHint}</p>
       ) : null}
@@ -161,16 +163,17 @@ export default function ModelSamplerHints({
         </summary>
         <p className="mt-1.5 type-caption text-[var(--text-muted)]">
           Patches{' '}
-          <code className="rounded bg-[var(--bg-muted)]/80 px-1 text-sky-200/90">{`{{SEED}}`}</code>
+          <code className="rounded bg-[var(--bg-muted)]/80 px-1 text-[var(--tint-info-text)]/90">{`{{SEED}}`}</code>
           ,{' '}
-          <code className="rounded bg-[var(--bg-muted)]/80 px-1 text-sky-200/90">{`{{STEPS}}`}</code>
+          <code className="rounded bg-[var(--bg-muted)]/80 px-1 text-[var(--tint-info-text)]/90">{`{{STEPS}}`}</code>
           ,{' '}
-          <code className="rounded bg-[var(--bg-muted)]/80 px-1 text-sky-200/90">{`{{CFG}}`}</code>,{' '}
-          <code className="rounded bg-[var(--bg-muted)]/80 px-1 text-sky-200/90">{`{{DENOISE}}`}</code>
+          <code className="rounded bg-[var(--bg-muted)]/80 px-1 text-[var(--tint-info-text)]/90">{`{{CFG}}`}</code>
           ,{' '}
-          <code className="rounded bg-[var(--bg-muted)]/80 px-1 text-sky-200/90">{`{{SAMPLER}}`}</code>
+          <code className="rounded bg-[var(--bg-muted)]/80 px-1 text-[var(--tint-info-text)]/90">{`{{DENOISE}}`}</code>
           ,{' '}
-          <code className="rounded bg-[var(--bg-muted)]/80 px-1 text-sky-200/90">{`{{SCHEDULER}}`}</code>
+          <code className="rounded bg-[var(--bg-muted)]/80 px-1 text-[var(--tint-info-text)]/90">{`{{SAMPLER}}`}</code>
+          ,{' '}
+          <code className="rounded bg-[var(--bg-muted)]/80 px-1 text-[var(--tint-info-text)]/90">{`{{SCHEDULER}}`}</code>
           , and Flux shift placeholders — or writes directly into sampler nodes.
           {defaults.fixedSeed == null
             ? ' Seed is randomized per job unless pinned in advanced queue params.'

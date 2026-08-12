@@ -80,7 +80,7 @@ export default function ServerEnvPanel({
                     </p>
                     <p className="type-caption">{field.label}</p>
                     {field.uiOverride ? (
-                      <p className="type-caption text-emerald-300/90">
+                      <p className="type-caption text-[var(--tint-success-text)]">
                         UI override: {field.uiOverride}
                       </p>
                     ) : null}

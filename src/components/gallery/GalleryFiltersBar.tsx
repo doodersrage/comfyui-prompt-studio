@@ -814,8 +814,8 @@ export default function GalleryFiltersBar({
               type="button"
               disabled={backfillLoading}
               onClick={() => void runVisionBackfill()}
-              className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-sky-600/45 bg-sky-900/20 backdrop-blur-xs transition hover:bg-sky-500/30 hover:border-sky-500/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40 disabled:opacity-40 ${
-                backfillLoading ? 'text-slate-400' : 'text-sky-400'
+              className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] backdrop-blur-xs transition hover:bg-[var(--tint-info-bg)] hover:border-[var(--tint-info-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:opacity-40 ${
+                backfillLoading ? 'text-slate-400' : 'text-[var(--tint-info-text)]'
               }`}
             >
               {backfillLoading
@@ -845,7 +845,7 @@ export default function GalleryFiltersBar({
               <button
                 type="button"
                 onClick={onStartSlideshow}
-                className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-amber-600/45 bg-amber-900/15 backdrop-blur-xs transition hover:bg-amber-500/30 hover:border-amber-500/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/30 text-amber-400`}
+                className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] backdrop-blur-xs transition hover:bg-[var(--tint-warning-bg)] hover:border-[var(--tint-warning-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] text-[var(--tint-warning-text)]`}
               >
                 Slideshow
               </button>
@@ -854,7 +854,7 @@ export default function GalleryFiltersBar({
               <button
                 type="button"
                 onClick={onStartFullscreenSlideshow}
-                className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-cyan-600/45 bg-cyan-900/15 backdrop-blur-xs transition hover:bg-cyan-500/30 hover:border-cyan-500/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/30 text-cyan-400`}
+                className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--accent-border)] bg-[var(--accent-muted)] backdrop-blur-xs transition hover:bg-[var(--accent-soft)] hover:border-[var(--accent-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] text-[var(--accent-text)]`}
               >
                 Fullscreen slideshow
               </button>

@@ -171,7 +171,7 @@ export default function MeshPromptTool() {
       <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.mesh} />
       <ToolSection>
         {workflowStatus ? (
-          <p className="mb-3 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">
+          <p className="mb-3 rounded-xl border border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] px-3 py-2 text-xs text-[var(--tint-success-text)]">
             {workflowStatus}
           </p>
         ) : null}

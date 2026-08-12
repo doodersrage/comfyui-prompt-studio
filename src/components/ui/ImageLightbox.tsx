@@ -1302,7 +1302,9 @@ export default function ImageLightbox({
           </div>
         ) : null}
         {copyFlash ? (
-          <p className={`type-caption ${compact ? 'text-emerald-300/90' : 'text-emerald-400/90'}`}>
+          <p
+            className={`type-caption ${compact ? 'text-[var(--tint-success-text)]' : 'text-[var(--tint-success-text)]/90'}`}
+          >
             {copyFlash}
           </p>
         ) : null}
@@ -1333,7 +1335,7 @@ export default function ImageLightbox({
         {histogramLoading ? (
           <p className="type-caption">Sampling…</p>
         ) : histogramError ? (
-          <p className="type-caption text-rose-300/90">{histogramError}</p>
+          <p className="type-caption text-[var(--tint-danger-text)]">{histogramError}</p>
         ) : histogram ? (
           <>
             <p className="type-caption">

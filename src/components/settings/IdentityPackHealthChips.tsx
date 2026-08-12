@@ -14,12 +14,12 @@ type IdentityPackHealthChipsProps = {
 
 function chipTone(status: IdentityPackHealth['status']): string {
   if (status === 'ready') {
-    return 'border-emerald-500/35 bg-emerald-500/10 text-emerald-200';
+    return 'border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] text-[var(--tint-success-text)]';
   }
   if (status === 'detected') {
-    return 'border-amber-500/35 bg-amber-500/10 text-amber-100';
+    return 'border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] text-[var(--tint-warning-text)]';
   }
-  return 'border-rose-500/35 bg-rose-500/10 text-rose-100';
+  return 'border-[var(--tint-danger-border)] bg-[var(--tint-danger-bg)] text-[var(--tint-danger-text)]';
 }
 
 function PackChip({ health }: { health: IdentityPackHealth }) {

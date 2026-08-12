@@ -1128,7 +1128,7 @@ export default function ComfyUiGalleryPanel({
               Refresh jobs
             </button>
             {activeJobs > 0 ? (
-              <span className="self-center rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-100">
+              <span className="self-center rounded-full border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-2.5 py-1 text-[11px] text-[var(--tint-warning-text)]">
                 {activeJobs} active
               </span>
             ) : null}
@@ -1155,7 +1155,7 @@ export default function ComfyUiGalleryPanel({
       )}
 
       {pickFor ? (
-        <div className="sticky top-[calc(var(--header-offset,0px)+0.5rem)] z-20 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--accent-border)] bg-[var(--accent-muted)] px-4 py-3 shadow-[0_12px_40px_-20px_rgba(56,189,248,0.28)] backdrop-blur-md">
+        <div className="ui-gallery-dock sticky top-[calc(var(--header-offset,0px)+0.5rem)] z-20 flex flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div className="min-w-0 space-y-0.5">
             <p className="text-sm font-medium text-[var(--text-primary)]">
               Choosing {galleryPickPurposeLabel(pickFor)}
@@ -1191,14 +1191,14 @@ export default function ComfyUiGalleryPanel({
                   minRating: undefined,
                 }))
               }
-              className="rounded-xl border border-current/30 bg-black/10 px-2.5 py-1 text-[11px] font-medium transition hover:bg-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40 active:scale-[0.98]"
+              className="rounded-xl border border-current/30 bg-black/10 px-2.5 py-1 text-[11px] font-medium transition hover:bg-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
             >
               Show at-risk
             </button>
             <button
               type="button"
               onClick={exportCapKeepers}
-              className="rounded-xl border border-current/30 bg-black/10 px-2.5 py-1 text-[11px] font-medium transition hover:bg-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40 active:scale-[0.98]"
+              className="rounded-xl border border-current/30 bg-black/10 px-2.5 py-1 text-[11px] font-medium transition hover:bg-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
             >
               Export keepers
             </button>

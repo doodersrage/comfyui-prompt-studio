@@ -138,18 +138,18 @@ export default function ReadinessBadge(props: {
           Prompt readiness: {result.score}/100 ({result.grade})
         </p>
         {!queueAllowed ? (
-          <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs text-amber-200">
+          <span className="rounded-full border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-2 py-0.5 text-xs text-[var(--tint-warning-text)]">
             Below queue threshold ({minScore})
           </span>
         ) : (
-          <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-200">
+          <span className="rounded-full border border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] px-2 py-0.5 text-xs text-[var(--tint-success-text)]">
             Ready to queue
           </span>
         )}
       </div>
 
       {!queueAllowed ? (
-        <p className="mt-2 text-xs text-amber-200/90">
+        <p className="mt-2 text-xs text-[var(--tint-warning-text)]">
           {readinessGateMessage(result.score, minScore)}
         </p>
       ) : null}

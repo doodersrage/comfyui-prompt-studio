@@ -210,7 +210,7 @@ export default function GalleryWorkflowModal({ entry, onClose }: GalleryWorkflow
                         <div className="rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/50 px-3 py-2">
                           <dt className="type-caption text-[var(--text-muted)]">maskImageUrl</dt>
                           <dd
-                            className="type-code mt-0.5 truncate text-sm text-amber-100/90"
+                            className="type-code mt-0.5 truncate text-sm text-[var(--tint-warning-text)]"
                             title={entry.maskImageUrl}
                           >
                             {entry.maskImageUrl}
@@ -226,30 +226,27 @@ export default function GalleryWorkflowModal({ entry, onClose }: GalleryWorkflow
                     <h3 className="type-caption font-medium text-[var(--text-muted)]">
                       Node inputs from ComfyUI history
                     </h3>
-                    <div className="max-h-56 overflow-auto rounded-xl border border-[var(--border-subtle)]/80">
-                      <table className="w-full text-left text-xs">
-                        <thead className="sticky top-0 bg-[var(--bg-muted)]/95 text-[var(--text-muted)]">
+                    <div className="ui-table-shell max-h-56 overflow-auto">
+                      <table className="ui-table">
+                        <thead>
                           <tr>
-                            <th className="px-3 py-2 font-medium">Node</th>
-                            <th className="px-3 py-2 font-medium">Type</th>
-                            <th className="px-3 py-2 font-medium">Input</th>
-                            <th className="px-3 py-2 font-medium">Value</th>
+                            <th>Node</th>
+                            <th>Type</th>
+                            <th>Input</th>
+                            <th>Value</th>
                           </tr>
                         </thead>
                         <tbody>
                           {view.history.nodeInputs.map(row => (
                             <tr
                               key={`${row.nodeId}-${row.input}-${String(row.value).slice(0, 24)}`}
-                              className="border-t border-[var(--border-subtle)]/60 text-[var(--text-secondary)]"
                             >
-                              <td className="type-code px-3 py-2 text-[var(--accent-text)]">
-                                {row.nodeId}
+                              <td className="ui-table-accent type-code">{row.nodeId}</td>
+                              <td className="text-[var(--text-muted)]">{row.classType ?? '—'}</td>
+                              <td className="type-code text-[var(--tint-info-text)]">
+                                {row.input}
                               </td>
-                              <td className="px-3 py-2 text-[var(--text-muted)]">
-                                {row.classType ?? '—'}
-                              </td>
-                              <td className="type-code px-3 py-2 text-sky-200">{row.input}</td>
-                              <td className="type-code max-w-[16rem] truncate px-3 py-2 text-[var(--tint-success-text)]">
+                              <td className="type-code max-w-[16rem] truncate text-[var(--tint-success-text)]">
                                 {String(row.value)}
                               </td>
                             </tr>

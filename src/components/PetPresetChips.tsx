@@ -48,7 +48,7 @@ export default function PetPresetChips({
             onClick={() => setCategory(item.value)}
             className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
               activeCategory === item.value
-                ? 'border-rose-500 bg-rose-500/15 text-rose-200'
+                ? 'border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)]'
                 : 'border-[var(--border-default)] text-[var(--text-muted)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]'
             }`}
           >
@@ -67,7 +67,7 @@ export default function PetPresetChips({
               onClick={() => onSelect(preset)}
               className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
                 active
-                  ? 'border-rose-500 bg-rose-500/15 text-rose-200'
+                  ? 'border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)]'
                   : 'border-[var(--border-default)] text-[var(--text-muted)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]'
               }`}
             >

@@ -372,13 +372,13 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="flex h-full flex-col gap-6">
       {impersonating ? (
-        <div className="mx-2 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-3 py-3 text-xs text-amber-100">
+        <div className="ui-alert-warning mx-2">
           Viewing as <span className="font-medium">{user?.username}</span>
           {impersonatorUsername ? ` (admin: ${impersonatorUsername})` : ''}.
           <button
             type="button"
             onClick={() => void endImpersonation()}
-            className="mt-2 block text-amber-200 underline underline-offset-2"
+            className="ui-text-link mt-2 block"
           >
             Exit impersonation
           </button>

@@ -534,7 +534,7 @@ export default function ControlNetTool() {
                 return next;
               })
             }
-            className={`w-full accent-cyan-500 ${accentFocusClass()}`}
+            className={`w-full accent-[var(--accent)] ${accentFocusClass()}`}
           />
         </div>
         <div className="mt-5 space-y-3 rounded-xl border border-[var(--border-subtle)]/80 bg-[color-mix(in_oklab,var(--surface)_86%,transparent)] p-3">
@@ -602,7 +602,7 @@ export default function ControlNetTool() {
             type="file"
             accept="image/*"
             onChange={event => onRefChange(event.target.files?.[0] ?? null)}
-            className="block min-w-0 flex-1 text-sm text-[var(--text-muted)] file:mr-4 file:rounded-lg file:border-0 file:bg-cyan-700 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white"
+            className="ui-file-input min-w-0 flex-1"
           />
           <ButtonLink href={galleryPickPath('controlnet')} variant="secondary" size="sm">
             Choose from Gallery
@@ -649,7 +649,7 @@ export default function ControlNetTool() {
                     type="file"
                     accept="image/*"
                     onChange={event => onExtraRefChange(index, event.target.files?.[0] ?? null)}
-                    className="block w-full text-xs text-[var(--text-muted)] file:mr-2 file:rounded-md file:border-0 file:bg-[var(--bg-muted)] file:px-2 file:py-1.5 file:text-xs file:text-[var(--text-primary)]"
+                    className="ui-file-input w-full text-xs"
                   />
                   {extraRefPreviews[index] ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -695,7 +695,7 @@ export default function ControlNetTool() {
                             return next;
                           })
                         }
-                        className={`w-full accent-cyan-500 ${accentFocusClass()}`}
+                        className={`w-full accent-[var(--accent)] ${accentFocusClass()}`}
                       />
                     </>
                   ) : null}
@@ -755,7 +755,9 @@ export default function ControlNetTool() {
       {output ? (
         <>
           {source === 'vision' ? (
-            <p className="text-xs text-cyan-300/80">Generated from reference image + {mode} mode</p>
+            <p className="text-xs text-[var(--accent-text)]">
+              Generated from reference image + {mode} mode
+            </p>
           ) : null}
           <EnhancedPromptResult
             output={output}

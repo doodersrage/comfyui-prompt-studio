@@ -44,7 +44,9 @@ export default function CompactDraftSavesStatus({ enabled }: { enabled: boolean 
 
   const ready = status.startsWith('WebP save ready');
   return (
-    <p className={`ml-7 mt-1 text-xs ${ready ? 'text-emerald-300/90' : 'text-amber-200/90'}`}>
+    <p
+      className={`ml-7 mt-1 text-xs ${ready ? 'text-[var(--tint-success-text)]' : 'text-[var(--tint-warning-text)]'}`}
+    >
       {status}
     </p>
   );

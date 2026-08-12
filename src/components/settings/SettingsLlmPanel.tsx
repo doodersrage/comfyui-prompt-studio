@@ -107,7 +107,11 @@ export default function SettingsLlmPanel({
           <div>
             <dt className="type-caption text-[var(--text-muted)]">LLM concurrency</dt>
             <dd
-              className={server?.busy ? 'font-medium text-amber-400' : 'text-[var(--text-primary)]'}
+              className={
+                server?.busy
+                  ? 'font-medium text-[var(--tint-warning-text)]'
+                  : 'text-[var(--text-primary)]'
+              }
             >
               {typeof server?.inFlight === 'number'
                 ? `LLM busy: ${server.inFlight}/${server.maxInflight ?? '?'} in flight`

@@ -417,7 +417,7 @@ export default function ImagePromptTool() {
             <input
               type="file"
               accept="image/*"
-              className="mt-1 block w-full text-sm file:mr-4 file:rounded-lg file:border-0 file:bg-[var(--bg-muted)] file:px-3 file:py-1.5 file:text-xs file:text-[var(--text-primary)]"
+              className="ui-file-input mt-1 w-full"
               onChange={event => {
                 const next = event.target.files?.[0];
                 if (next) {

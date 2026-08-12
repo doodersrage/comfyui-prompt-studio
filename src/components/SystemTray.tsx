@@ -465,7 +465,9 @@ export default function SystemTray() {
                     </p>
                   ) : null}
                   {downloadHint ? (
-                    <p className="mt-0.5 truncate type-caption text-sky-300/80">{downloadHint}</p>
+                    <p className="mt-0.5 truncate type-caption text-[var(--tint-info-text)]/80">
+                      {downloadHint}
+                    </p>
                   ) : null}
                 </div>
                 {extraCount > 0 ? (
@@ -554,10 +556,13 @@ export default function SystemTray() {
                     {heldJobs.slice(0, 5).map(job => (
                       <li
                         key={job.id}
-                        className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-100/90"
+                        className="rounded-lg border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-3 py-2 text-xs text-[var(--tint-warning-text)]"
                       >
                         <span className="font-medium">{job.label}</span>
-                        <span className="text-amber-200/70"> · waiting for idle queue</span>
+                        <span className="text-[var(--tint-warning-text)]/70">
+                          {' '}
+                          · waiting for idle queue
+                        </span>
                       </li>
                     ))}
                   </ul>

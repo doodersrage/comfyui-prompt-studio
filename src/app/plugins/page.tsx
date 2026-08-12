@@ -239,7 +239,9 @@ export default function PluginsPage() {
             Load denoise example
           </Button>
         </div>
-        {manifestError ? <p className="type-caption mt-2 text-rose-300">{manifestError}</p> : null}
+        {manifestError ? (
+          <p className="type-caption mt-2 text-[var(--tint-danger-text)]">{manifestError}</p>
+        ) : null}
         {manifestStatus ? (
           <p className="type-caption mt-2 text-[var(--text-secondary)]">{manifestStatus}</p>
         ) : null}
@@ -421,7 +423,9 @@ export default function PluginsPage() {
             />
           </label>
         </div>
-        {hookError ? <p className="type-caption text-rose-300">{hookError}</p> : null}
+        {hookError ? (
+          <p className="type-caption text-[var(--tint-danger-text)]">{hookError}</p>
+        ) : null}
         <Button type="button" variant="primary" size="sm" className="mt-3" onClick={addHook}>
           Add queue hook
         </Button>
@@ -497,7 +501,9 @@ export default function PluginsPage() {
             </SelectInput>
           </label>
         </div>
-        {formError ? <p className="type-caption text-rose-300">{formError}</p> : null}
+        {formError ? (
+          <p className="type-caption text-[var(--tint-danger-text)]">{formError}</p>
+        ) : null}
         <Button type="button" variant="primary" size="sm" className="mt-3" onClick={addFromForm}>
           Add bookmark
         </Button>

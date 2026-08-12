@@ -38,10 +38,10 @@ export default function StorageHealthChip({ className = '' }: { className?: stri
         : `Saved ${formatSavedAt(health.lastSavedAt)}`;
 
   const tone = health.lastError
-    ? 'border-rose-400/30 bg-rose-500/10 text-rose-200'
+    ? 'border-[var(--tint-danger-border)] bg-[var(--tint-danger-bg)] text-[var(--tint-danger-text)]'
     : !health.ready || health.dirtyCount > 0
-      ? 'border-amber-400/25 bg-amber-500/10 text-amber-100'
-      : 'border-emerald-400/25 bg-emerald-500/10 text-emerald-100';
+      ? 'border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] text-[var(--tint-warning-text)]'
+      : 'border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] text-[var(--tint-success-text)]';
 
   const retryFlush = async () => {
     if (retrying) {
@@ -67,16 +67,16 @@ export default function StorageHealthChip({ className = '' }: { className?: stri
     <div className={`inline-flex max-w-full flex-wrap items-center gap-2 ${className}`}>
       <Link
         href={settingsTabHref('data')}
-        className={`inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40 active:scale-[0.99] ${tone}`}
+        className={`inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.99] ${tone}`}
         title="Browser storage health — settings, LoRAs, and history"
       >
         <span
           className={`h-1.5 w-1.5 shrink-0 rounded-full ${
             health.lastError
-              ? 'bg-rose-400'
+              ? 'bg-[var(--tint-danger-text)]'
               : !health.ready || health.dirtyCount > 0
-                ? 'bg-amber-300'
-                : 'bg-emerald-400'
+                ? 'bg-[var(--tint-warning-text)]'
+                : 'bg-[var(--tint-success-text)]'
           }`}
           aria-hidden
         />
@@ -87,7 +87,7 @@ export default function StorageHealthChip({ className = '' }: { className?: stri
           type="button"
           onClick={() => void retryFlush()}
           disabled={retrying}
-          className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-muted)]/50 px-2.5 py-1 text-[11px] text-[var(--text-secondary)] transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40 active:scale-[0.99] disabled:opacity-60"
+          className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-muted)]/50 px-2.5 py-1 text-[11px] text-[var(--text-secondary)] transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.99] disabled:opacity-60"
         >
           {retrying ? 'Retrying…' : 'Retry save'}
         </button>
@@ -95,7 +95,7 @@ export default function StorageHealthChip({ className = '' }: { className?: stri
       {health.lastError ? (
         <Link
           href={settingsTabHref('data')}
-          className="rounded-full border border-rose-400/25 bg-rose-500/10 px-2.5 py-1 text-[11px] text-rose-100 transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40 active:scale-[0.99]"
+          className="rounded-full border border-[var(--tint-danger-border)] bg-[var(--tint-danger-bg)] px-2.5 py-1 text-[11px] text-[var(--tint-danger-text)] transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.99]"
         >
           Export backup
         </Link>

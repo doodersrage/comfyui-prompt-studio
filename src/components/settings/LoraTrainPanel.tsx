@@ -44,13 +44,13 @@ function clampPercent(progress: number): number {
 function statusTone(status: TrainJob['status']): string {
   switch (status) {
     case 'completed':
-      return 'text-emerald-300';
+      return 'text-[var(--tint-success-text)]';
     case 'error':
-      return 'text-rose-300';
+      return 'text-[var(--tint-danger-text)]';
     case 'running':
-      return 'text-sky-300';
+      return 'text-[var(--tint-info-text)]';
     case 'manual':
-      return 'text-amber-200';
+      return 'text-[var(--tint-warning-text)]';
     default:
       return 'text-[var(--text-muted)]';
   }
@@ -491,9 +491,11 @@ export default function LoraTrainPanel({ onStatus }: LoraTrainPanelProps) {
                         {job.outputPath}
                       </p>
                     ) : null}
-                    {job.error ? <p className="type-caption text-rose-300">{job.error}</p> : null}
+                    {job.error ? (
+                      <p className="type-caption text-[var(--tint-danger-text)]">{job.error}</p>
+                    ) : null}
                     {job.loraLibraryId ? (
-                      <p className="type-caption text-emerald-300/90">
+                      <p className="type-caption text-[var(--tint-success-text)]">
                         Library id: {job.loraLibraryId}
                       </p>
                     ) : null}
@@ -512,9 +514,9 @@ export default function LoraTrainPanel({ onStatus }: LoraTrainPanelProps) {
                     ) : null}
                   </div>
                 </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-[var(--bg-muted)]/80">
+                <div className="ui-progress-track">
                   <div
-                    className="h-full rounded-full bg-[var(--accent-muted)] transition-[width] duration-500"
+                    className="ui-progress-fill"
                     style={{ width: `${clampPercent(job.progress)}%` }}
                   />
                 </div>

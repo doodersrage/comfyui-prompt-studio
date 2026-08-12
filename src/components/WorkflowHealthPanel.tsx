@@ -199,8 +199,8 @@ export default function WorkflowHealthPanel({
               key={`${issue.workflowId}-${issue.workflowName}-${issue.message}`}
               className={`rounded-xl border px-3 py-2 text-xs ${
                 issue.severity === 'error'
-                  ? 'border-rose-500/25 bg-rose-500/5 text-rose-200'
-                  : 'border-amber-500/20 bg-amber-500/5 text-amber-100'
+                  ? 'border-[var(--tint-danger-border)] bg-[var(--tint-danger-bg)] text-[var(--tint-danger-text)]'
+                  : 'border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] text-[var(--tint-warning-text)]'
               }`}
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
@@ -240,7 +240,7 @@ export default function WorkflowHealthPanel({
           ))}
         </ul>
       ) : (
-        <p className="text-xs text-emerald-300/90">
+        <p className="text-xs text-[var(--tint-success-text)]">
           Placeholders and loader maps look ready. Run Optimize all after importing new community
           JSON so queue hash-skip stays warm.
         </p>

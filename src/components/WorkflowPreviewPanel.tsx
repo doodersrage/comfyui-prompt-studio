@@ -120,8 +120,8 @@ export default function WorkflowPreviewPanel({
               key={issue.message}
               className={
                 issue.severity === 'error'
-                  ? 'type-caption rounded-[var(--radius-md)] border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-rose-200'
-                  : 'type-caption rounded-[var(--radius-md)] border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-amber-100/90'
+                  ? 'type-caption rounded-[var(--radius-md)] border border-[var(--tint-danger-border)] bg-[var(--tint-danger-bg)] px-3 py-2 text-[var(--tint-danger-text)]'
+                  : 'type-caption rounded-[var(--radius-md)] border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-3 py-2 text-[var(--tint-warning-text)]'
               }
             >
               {issue.message}

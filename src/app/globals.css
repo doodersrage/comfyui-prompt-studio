@@ -2578,3 +2578,89 @@ html[data-theme='light'] .ui-modal-card {
     --header-offset: 0px;
   }
 }
+
+/* ─── Tables ────────────────────────────────────────────────────────────── */
+.ui-table {
+  width: 100%;
+  min-width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.75rem;
+}
+
+.ui-table th {
+  padding: 0.5rem 0.75rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-subtle);
+  background: color-mix(in oklab, var(--bg-muted) 70%, transparent);
+}
+
+.ui-table td {
+  padding: 0.45rem 0.75rem;
+  color: var(--text-secondary);
+  border-bottom: 1px solid color-mix(in oklab, var(--border-subtle) 70%, transparent);
+  vertical-align: top;
+}
+
+.ui-table tbody tr:hover td {
+  background: var(--bg-hover);
+}
+
+.ui-table td[data-tone='accent'],
+.ui-table .ui-table-accent {
+  color: var(--accent-text);
+  font-weight: 500;
+}
+
+.ui-table-shell {
+  overflow-x: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: color-mix(in oklab, var(--bg-base) 55%, transparent);
+}
+
+/* Soft recipe / path callout without glow dialect */
+.ui-recipe-shell {
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-xl);
+  background:
+    linear-gradient(145deg, color-mix(in oklab, var(--accent-muted) 80%, transparent), transparent 55%),
+    color-mix(in oklab, var(--bg-elevated) 88%, transparent);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.03);
+  padding: var(--space-3);
+}
+
+/* ─── Print ─────────────────────────────────────────────────────────────── */
+@media print {
+  .ambient-bg,
+  .ui-overlay,
+  .ui-mobile-dock,
+  .ui-tray-stack,
+  [data-testid='app-nav'],
+  nav,
+  aside,
+  .ui-command-overlay {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+    color: #111 !important;
+  }
+
+  .ui-card,
+  .ui-modal-card,
+  .ui-gallery-dock,
+  .ui-recipe-shell {
+    box-shadow: none !important;
+    border-color: #ddd !important;
+    background: white !important;
+  }
+
+  a {
+    color: #1a4a8a !important;
+    text-decoration: underline;
+  }
+}
+

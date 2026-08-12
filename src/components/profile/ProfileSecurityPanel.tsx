@@ -68,7 +68,7 @@ export default function ProfileSecurityPanel() {
 
   return (
     <div className="space-y-8">
-      {status ? <p className="text-sm text-emerald-400">{status}</p> : null}
+      {status ? <p className="text-sm text-[var(--tint-success-text)]">{status}</p> : null}
 
       <ToolSection title="API keys">
         <p className="mb-3 text-sm text-[var(--text-muted)]">
@@ -100,7 +100,7 @@ export default function ProfileSecurityPanel() {
           </Button>
         </div>
         {createdToken ? (
-          <p className="mt-2 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-100">
+          <p className="mt-2 rounded-xl border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] p-3 text-xs text-[var(--tint-warning-text)]">
             Copy now — shown once: <code>{createdToken}</code>
           </p>
         ) : null}
@@ -115,7 +115,7 @@ export default function ProfileSecurityPanel() {
               </span>
               <button
                 type="button"
-                className="text-xs text-rose-300"
+                className="text-xs text-[var(--tint-danger-text)]"
                 onClick={() =>
                   void fetch('/api/auth/api-keys', {
                     method: 'DELETE',
@@ -147,7 +147,7 @@ export default function ProfileSecurityPanel() {
               {session.id !== currentSessionId ? (
                 <button
                   type="button"
-                  className="mt-1 text-xs text-rose-300"
+                  className="mt-1 text-xs text-[var(--tint-danger-text)]"
                   onClick={() =>
                     void fetch('/api/auth/sessions', {
                       method: 'DELETE',

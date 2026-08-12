@@ -181,7 +181,7 @@ function PresetField({
         className="disabled:cursor-not-allowed disabled:opacity-40"
       />
       {field.key === 'poseTarget' && poseAction && !(settings.poseTarget ?? '').trim() && (
-        <p className="text-xs text-amber-300">
+        <p className="text-xs text-[var(--tint-warning-text)]">
           Object target is required for the action anchor to apply.
         </p>
       )}
@@ -307,7 +307,7 @@ export default function CharacterPresetControls({
           </div>
           <div className="flex shrink-0 items-center gap-2 pt-0.5">
             {activeCount > 0 && (
-              <span className="rounded-full border border-sky-500/40 bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-300">
+              <span className="rounded-full border border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--tint-info-text)]">
                 {activeCount} active
               </span>
             )}
@@ -318,7 +318,7 @@ export default function CharacterPresetControls({
 
       <div className="mt-4 space-y-3">
         {settings.headcount === 'duo' && (
-          <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+          <p className="rounded-lg border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-3 py-2 text-xs text-[var(--tint-warning-text)]">
             Duo mode generates two interacting people. Solo-subject enforcement is disabled for this
             preset.
           </p>

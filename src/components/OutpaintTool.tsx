@@ -307,7 +307,7 @@ export default function OutpaintTool() {
             type="file"
             accept="image/*"
             onChange={event => onFile(event.target.files?.[0] ?? null)}
-            className={`block min-w-0 flex-1 text-sm text-[var(--text-muted)] file:mr-4 file:rounded-lg file:border-0 file:bg-amber-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60 ${accentFocusClass(ACCENT)}`}
+            className={`ui-file-input min-w-0 flex-1 ${accentFocusClass(ACCENT)}`}
           />
           <ButtonLink href={galleryPickPath('outpaint')} variant="secondary" size="sm">
             Choose from Gallery
@@ -321,7 +321,7 @@ export default function OutpaintTool() {
             className="mt-3 max-h-64 rounded-xl border border-[var(--border-subtle)]/80 object-contain shadow-[0_12px_40px_-24px_rgba(0,0,0,0.8)]"
           />
         ) : (
-          <p className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2.5 text-xs text-amber-100/85">
+          <p className="mt-3 rounded-xl border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-3 py-2.5 text-xs text-[var(--tint-warning-text)]">
             Upload a source image, or send one here from the Gallery Outpaint action.
           </p>
         )}

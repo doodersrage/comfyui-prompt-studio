@@ -202,18 +202,13 @@ export default function GalleryComparePanel({
       ) : null}
       {status ? <p className="text-xs text-[var(--accent-text)]/90">{status}</p> : null}
       {differingParams.length > 0 ? (
-        <div
-          data-testid="gallery-compare-param-diff"
-          className="overflow-x-auto rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-base)]/40"
-        >
-          <table className="min-w-full text-left text-[11px]">
+        <div data-testid="gallery-compare-param-diff" className="ui-table-shell">
+          <table className="ui-table text-[11px]">
             <thead>
-              <tr className="border-b border-[var(--border-subtle)] text-[var(--text-muted)]">
-                <th className="px-3 py-2 font-medium">Param</th>
+              <tr>
+                <th>Param</th>
                 {entries.map((entry, index) => (
-                  <th key={entry.id} className="px-3 py-2 font-medium">
-                    #{index + 1}
-                  </th>
+                  <th key={entry.id}>#{index + 1}</th>
                 ))}
               </tr>
             </thead>

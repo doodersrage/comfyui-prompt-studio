@@ -114,7 +114,7 @@ export default function ExperimentDashboardPanel() {
                 : ''}
             </p>
             {winnerEntry ? (
-              <p className="type-caption text-emerald-300/90">
+              <p className="type-caption text-[var(--tint-success-text)]">
                 Winner: seed {winnerEntry.queueParams?.seed ?? '—'}
                 {winnerEntry.reviewRating ? ` · rated ${winnerEntry.reviewRating}/5` : ''}
               </p>
@@ -148,7 +148,7 @@ export default function ExperimentDashboardPanel() {
                 key={entry.id}
                 className={`overflow-hidden rounded-[var(--radius-lg)] border bg-[var(--bg-base)]/50 ${
                   isWinner
-                    ? 'border-emerald-500/50 shadow-[0_0_0_1px_rgba(16,185,129,0.12)]'
+                    ? 'border-[var(--tint-success-border)] shadow-[0_0_0_1px_color-mix(in_oklab,var(--tint-success-border)_50%,transparent)]'
                     : 'border-[var(--border-subtle)]/80'
                 }`}
               >
@@ -334,7 +334,7 @@ export default function ExperimentDashboardPanel() {
         </div>
       )}
 
-      {status ? <p className="mt-4 text-sm text-emerald-400">{status}</p> : null}
+      {status ? <p className="mt-4 text-sm text-[var(--tint-success-text)]">{status}</p> : null}
     </ToolSection>
   );
 }

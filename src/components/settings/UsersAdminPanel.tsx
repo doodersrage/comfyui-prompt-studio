@@ -46,7 +46,7 @@ function FeaturePicker({
           type="button"
           disabled={disabled || allAllowed}
           onClick={() => setBlocked([])}
-          className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-100 transition hover:border-emerald-400/50 hover:bg-emerald-500/15 disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-full border border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] px-3 py-1 text-xs text-[var(--tint-success-text)] transition hover:border-[var(--tint-success-border)] hover:bg-[var(--tint-success-bg)] disabled:cursor-not-allowed disabled:opacity-40"
         >
           Allow all
         </button>
@@ -54,7 +54,7 @@ function FeaturePicker({
           type="button"
           disabled={disabled || allBlocked}
           onClick={() => setBlocked([...ALL_FEATURE_IDS])}
-          className="rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1 text-xs text-rose-100 transition hover:border-rose-400/50 hover:bg-rose-500/15 disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-full border border-[var(--tint-danger-border)] bg-[var(--tint-danger-bg)] px-3 py-1 text-xs text-[var(--tint-danger-text)] transition hover:border-[var(--tint-danger-border)] hover:bg-[var(--tint-danger-bg)] disabled:cursor-not-allowed disabled:opacity-40"
         >
           Block all
         </button>
@@ -461,15 +461,15 @@ export default function UsersAdminPanel() {
             description="User accounts appear here once the auth directory is available. Create a user above or check server auth configuration."
           />
         ) : (
-          <div className="overflow-x-auto rounded-2xl border border-[var(--border-subtle)]/80">
-            <table className="min-w-full text-left text-sm">
-              <thead className="border-b border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/60 text-xs uppercase tracking-wide text-[var(--text-muted)]">
+          <div className="ui-table-shell overflow-x-auto">
+            <table className="ui-table text-sm">
+              <thead>
                 <tr>
-                  <th className="px-3 py-2 font-medium">User</th>
-                  <th className="px-3 py-2 font-medium">Role</th>
-                  <th className="px-3 py-2 font-medium">User quota</th>
-                  <th className="px-3 py-2 font-medium">Group quotas</th>
-                  <th className="px-3 py-2 font-medium">Enabled</th>
+                  <th>User</th>
+                  <th>Role</th>
+                  <th>User quota</th>
+                  <th>Group quotas</th>
+                  <th>Enabled</th>
                 </tr>
               </thead>
               <tbody>
@@ -516,12 +516,12 @@ export default function UsersAdminPanel() {
             description="Users need to sign in and use Studio or Gallery on their device before snapshots appear here."
           />
         ) : (
-          <div className="overflow-x-auto rounded-2xl border border-[var(--border-subtle)]/80">
-            <table className="min-w-full text-left text-sm">
-              <thead className="border-b border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/60 text-xs uppercase tracking-wide text-[var(--text-muted)]">
+          <div className="ui-table-shell overflow-x-auto">
+            <table className="ui-table text-sm">
+              <thead>
                 <tr>
-                  <th className="px-3 py-2 font-medium">User</th>
-                  <th className="px-3 py-2 font-medium">History</th>
+                  <th>User</th>
+                  <th>History</th>
                   <th className="px-3 py-2 font-medium">Gallery</th>
                   <th className="px-3 py-2 font-medium">Rated</th>
                   <th className="px-3 py-2 font-medium">Favorites</th>
@@ -595,7 +595,7 @@ export default function UsersAdminPanel() {
               {selectedUserAnalytics.topPositiveTokens.slice(0, 5).map(token => (
                 <span
                   key={`pos-${token}`}
-                  className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-200"
+                  className="rounded-full border border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] px-2 py-0.5 text-xs text-[var(--tint-success-text)]"
                 >
                   + {token}
                 </span>
@@ -603,7 +603,7 @@ export default function UsersAdminPanel() {
               {selectedUserAnalytics.topNegativeTokens.slice(0, 5).map(token => (
                 <span
                   key={`neg-${token}`}
-                  className="rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-xs text-rose-200"
+                  className="rounded-full border border-[var(--tint-danger-border)] bg-[var(--tint-danger-bg)] px-2 py-0.5 text-xs text-[var(--tint-danger-text)]"
                 >
                   − {token}
                 </span>

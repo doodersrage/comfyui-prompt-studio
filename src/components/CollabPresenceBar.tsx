@@ -167,7 +167,7 @@ export default function CollabPresenceBar({
         others.map(peer => (
           <span
             key={peer.peerId}
-            className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-emerald-100"
+            className="rounded-full border border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] px-2 py-0.5 text-[var(--tint-success-text)]"
           >
             {peer.displayName}
             {peer.tool ? ` · ${peer.tool}` : ''}
@@ -175,7 +175,7 @@ export default function CollabPresenceBar({
         ))
       )}
       {remoteDraft ? (
-        <span className="flex flex-wrap items-center gap-2 text-amber-200">
+        <span className="flex flex-wrap items-center gap-2 text-[var(--tint-warning-text)]">
           Remote draft update
           {onApplyRemoteDraft ? (
             <Button

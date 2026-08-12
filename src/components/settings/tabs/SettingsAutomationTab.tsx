@@ -124,8 +124,8 @@ export default function SettingsAutomationTab({
           <p
             className={`rounded-lg border px-3 py-2 text-xs ${
               embeddingHealth.available
-                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-100'
-                : 'border-amber-500/30 bg-amber-500/10 text-amber-100'
+                ? 'border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] text-[var(--tint-success-text)]'
+                : 'border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] text-[var(--tint-warning-text)]'
             }`}
           >
             <span className="font-medium">Semantic gallery search · </span>
@@ -355,7 +355,7 @@ export default function SettingsAutomationTab({
                   removeAvoidedToken(token);
                   setStatus(`Removed “${token}”.`);
                 }}
-                className="rounded-full border border-[var(--border-default)] px-3 py-1 text-xs text-[var(--text-secondary)] hover:border-rose-500/60 hover:text-[var(--tint-danger-text)]"
+                className="rounded-full border border-[var(--border-default)] px-3 py-1 text-xs text-[var(--text-secondary)] hover:border-[var(--tint-danger-border)]/60 hover:text-[var(--tint-danger-text)]"
                 title="Click to remove"
               >
                 {token} ×
@@ -404,7 +404,7 @@ export default function SettingsAutomationTab({
           {avoidancePreview ? (
             <div className="ui-surface-inset type-caption">
               {avoidancePreview.removedTokens.length > 0 ? (
-                <p className="text-amber-300">
+                <p className="text-[var(--tint-warning-text)]">
                   Matched tokens: {avoidancePreview.removedTokens.join(', ')}
                 </p>
               ) : (
@@ -475,7 +475,7 @@ export default function SettingsAutomationTab({
                 key={entry.id}
                 className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-muted)] p-3 text-xs text-[var(--text-secondary)]"
               >
-                <p className={entry.ok ? 'text-emerald-300' : 'ui-status-danger'}>
+                <p className={entry.ok ? 'text-[var(--tint-success-text)]' : 'ui-status-danger'}>
                   {entry.ok ? 'OK' : 'FAIL'} · {entry.event} ·{' '}
                   {new Date(entry.timestamp).toLocaleString()}
                 </p>

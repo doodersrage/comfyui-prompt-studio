@@ -342,11 +342,11 @@ export default function ComfyWorkflowLibraryPanel({
 
   const createBlank = useCallback(() => {
     const template = `{
-  "6": {
-    "class_type": "CLIPTextEncode",
-    "inputs": {
-      "text": "${placeholderTokens.positive}",
-      "clip": ["4", 0]
+"6": {
+"class_type": "CLIPTextEncode",
+"inputs": {
+"text": "${placeholderTokens.positive}",
+"clip": ["4", 0]
     }
   }
 }`;
@@ -751,7 +751,7 @@ export default function ComfyWorkflowLibraryPanel({
 
       {importError ? (
         <div
-          className="space-y-1 rounded-xl border border-rose-500/20 bg-rose-500/5 px-3 py-2.5"
+          className="space-y-1 rounded-xl border border-[var(--tint-danger-border)] bg-[var(--tint-danger-bg)] px-3 py-2.5"
           role="alert"
         >
           <p className="type-caption ui-status-danger">{importError}</p>
@@ -762,7 +762,9 @@ export default function ComfyWorkflowLibraryPanel({
           ) : null}
         </div>
       ) : null}
-      {importNotice ? <p className="type-caption text-amber-300/90">{importNotice}</p> : null}
+      {importNotice ? (
+        <p className="type-caption text-[var(--tint-warning-text)]">{importNotice}</p>
+      ) : null}
       {optimizePreviewSummary ? (
         <p className="type-caption text-[var(--accent-text)]">{optimizePreviewSummary}</p>
       ) : null}
@@ -995,7 +997,7 @@ export default function ComfyWorkflowLibraryPanel({
                               : ''}
                           </p>
                           {editingGraphInspect.unresolvedTokens.length > 0 ? (
-                            <p className="type-caption text-amber-300/90">
+                            <p className="type-caption text-[var(--tint-warning-text)]">
                               Unresolved tokens:{' '}
                               {editingGraphInspect.unresolvedTokens.slice(0, 12).join(' ')}
                               {editingGraphInspect.unresolvedTokens.length > 12 ? '…' : ''}
@@ -1034,7 +1036,9 @@ export default function ComfyWorkflowLibraryPanel({
                                 : ''}
                             </>
                           ) : (
-                            <span className="text-amber-400/90">{editingValidation.error}</span>
+                            <span className="text-[var(--tint-warning-text)]">
+                              {editingValidation.error}
+                            </span>
                           )}
                         </p>
                       )}

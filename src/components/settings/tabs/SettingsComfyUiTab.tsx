@@ -558,7 +558,7 @@ export default function SettingsComfyUiTab({
               spellCheck={false}
               disabled={!sharedMounted}
               placeholder={`faceDetailer=my-facedetailer-workflow.json`}
-              className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
+              className={`ui-input w-full font-mono text-xs leading-relaxed text-[var(--tint-success-text)] ${accentFocusClass(ACCENT)}`}
             />
             <p className="mt-2 text-xs text-[var(--text-muted)]">
               Pin a FaceDetailer/ReActor graph with{' '}
@@ -580,7 +580,7 @@ export default function SettingsComfyUiTab({
               spellCheck={false}
               disabled={!sharedMounted}
               placeholder={`qwen-image-2512=my-qwen-workflow.json\nflux-2-klein=flux-klein-default.json\nfaceDetailer=my-facedetailer-workflow.json`}
-              className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
+              className={`ui-input w-full font-mono text-xs leading-relaxed text-[var(--tint-success-text)] ${accentFocusClass(ACCENT)}`}
             />
             <p className="text-xs text-[var(--text-muted)]">
               Pin a FaceDetailer/ReActor graph with{' '}
@@ -910,7 +910,7 @@ export default function SettingsComfyUiTab({
               spellCheck={false}
               disabled={!sharedMounted}
               placeholder={`qwen-image-2512=qwen_image_2512_bf16.safetensors\nflux-2-klein-9b=flux-2-klein-9b.safetensors`}
-              className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
+              className={`ui-input w-full font-mono text-xs leading-relaxed text-[var(--tint-success-text)] ${accentFocusClass(ACCENT)}`}
             />
             <div className="mt-2 flex flex-wrap gap-2">
               <button
@@ -925,13 +925,13 @@ export default function SettingsComfyUiTab({
                 type="button"
                 disabled={!sharedMounted}
                 onClick={() => void syncLoaderMapsFromComfyInventory()}
-                className={`rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-200 transition hover:bg-emerald-500/20 ${accentFocusClass(ACCENT)}`}
+                className={`rounded-lg border border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] px-3 py-1.5 text-xs text-[var(--tint-success-text)] transition hover:bg-[var(--tint-success-bg)] ${accentFocusClass(ACCENT)}`}
               >
                 Sync from ComfyUI inventory
               </button>
             </div>
             {loaderMapMergeHint ? (
-              <p className="mt-2 text-xs leading-relaxed text-emerald-300/90">
+              <p className="mt-2 text-xs leading-relaxed text-[var(--tint-success-text)]">
                 {loaderMapMergeHint}
               </p>
             ) : (
@@ -960,7 +960,7 @@ export default function SettingsComfyUiTab({
               spellCheck={false}
               disabled={!sharedMounted}
               placeholder={`flux-2-klein-9b=flux2-vae.safetensors\ndefault=flux2-vae.safetensors`}
-              className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
+              className={`ui-input w-full font-mono text-xs leading-relaxed text-[var(--tint-success-text)] ${accentFocusClass(ACCENT)}`}
             />
             <p className="mb-2 mt-4 text-sm text-[var(--text-secondary)]">
               SDXL refiner map — checkpoint for the hi-res refiner pass on{' '}
@@ -982,7 +982,7 @@ export default function SettingsComfyUiTab({
               spellCheck={false}
               disabled={!sharedMounted}
               placeholder={`sdxl=sd_xl_refiner_1.0.safetensors\ndefault=sd_xl_refiner_1.0.safetensors`}
-              className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
+              className={`ui-input w-full font-mono text-xs leading-relaxed text-[var(--tint-success-text)] ${accentFocusClass(ACCENT)}`}
             />
             <p className="mb-2 mt-4 text-sm text-[var(--text-secondary)]">
               Upscale model map — optional. Leave empty to use Lanczos upscale on Final/Max. Set{' '}
@@ -1005,7 +1005,7 @@ export default function SettingsComfyUiTab({
               spellCheck={false}
               disabled={!sharedMounted}
               placeholder={`# Final/Max neural upscale (must exist in models/upscale_models/)\ndefault=4x-UltraSharp.pth\nqwen-image-2512=4x_NMKD-Siax_200k.pth\nflux-dev=4x-UltraSharp.pth`}
-              className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
+              className={`ui-input w-full font-mono text-xs leading-relaxed text-[var(--tint-success-text)] ${accentFocusClass(ACCENT)}`}
             />
             <p className="mb-2 mt-4 text-sm text-[var(--text-secondary)]">
               ControlNet model map — optional. Patches{' '}
@@ -1025,7 +1025,7 @@ export default function SettingsComfyUiTab({
               spellCheck={false}
               disabled={!sharedMounted}
               placeholder={`# optional — file in ComfyUI models/controlnet/\ndefault=control_v11p_sd15_openpose.pth`}
-              className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
+              className={`ui-input w-full font-mono text-xs leading-relaxed text-[var(--tint-success-text)] ${accentFocusClass(ACCENT)}`}
             />
             <p className="mb-2 mt-4 text-sm text-[var(--text-secondary)]">
               Model LoRA map — default library entries per model:{' '}
@@ -1048,7 +1048,7 @@ export default function SettingsComfyUiTab({
               spellCheck={false}
               disabled={!sharedMounted}
               placeholder={`# library ids from Settings → LoRA library\nwan-video=skin,motion\nflux-dev=`}
-              className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
+              className={`ui-input w-full font-mono text-xs leading-relaxed text-[var(--tint-success-text)] ${accentFocusClass(ACCENT)}`}
             />
             <label className="mb-3 mt-3 flex cursor-pointer items-start gap-3">
               <input
@@ -1451,7 +1451,7 @@ export default function SettingsComfyUiTab({
                       <button
                         type="button"
                         onClick={() => removeCustomToken(index)}
-                        className="rounded-lg border border-[var(--border-default)] px-3 py-2 text-xs text-[var(--text-secondary)] hover:border-rose-500 hover:text-rose-200"
+                        className="rounded-lg border border-[var(--border-default)] px-3 py-2 text-xs text-[var(--text-secondary)] hover:border-[var(--tint-danger-border)] hover:text-[var(--tint-danger-text)]"
                       >
                         Remove
                       </button>
@@ -1503,7 +1503,7 @@ export default function SettingsComfyUiTab({
                 rows={12}
                 spellCheck={false}
                 placeholder={`Paste exported ComfyUI API JSON here.\nUse ${settings.positiveToken ?? '{{POSITIVE}}'} and ${settings.negativeToken ?? '{{NEGATIVE}}'} anywhere prompts should be injected.`}
-                className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
+                className={`ui-input w-full font-mono text-xs leading-relaxed text-[var(--tint-success-text)] ${accentFocusClass(ACCENT)}`}
               />
               {sharedSettings.inferenceEngine === 'diffusers' ? (
                 <DiffusersWorkflowSupportHint
@@ -1526,15 +1526,17 @@ export default function SettingsComfyUiTab({
                         : ''}
                     </>
                   ) : (
-                    <span className="text-amber-400/90">{workflowValidation.error}</span>
+                    <span className="text-[var(--tint-warning-text)]">
+                      {workflowValidation.error}
+                    </span>
                   )}
                 </p>
               )}
             </div>
 
-            <div className="space-y-3 rounded-xl border border-cyan-900/30 bg-[var(--bg-muted)] p-4">
+            <div className="ui-recipe-shell space-y-3">
               <div className="space-y-1">
-                <h3 className="text-xs font-medium uppercase tracking-wide text-cyan-300/90">
+                <h3 className="text-xs font-medium uppercase tracking-wide text-[var(--accent-text)]">
                   Workflow dry-run preview
                 </h3>
                 <p className="text-xs text-[var(--text-muted)]">
@@ -1552,7 +1554,7 @@ export default function SettingsComfyUiTab({
                 type="button"
                 disabled={previewLoading || !previewPrompt.trim()}
                 onClick={() => void handlePreviewWorkflow()}
-                className="rounded-lg border border-cyan-700/60 px-4 py-2 text-sm text-cyan-200 hover:border-cyan-500 disabled:opacity-50"
+                className="rounded-lg border border-[var(--accent-border)] px-4 py-2 text-sm text-[var(--accent-text)] hover:border-[var(--accent)] disabled:opacity-50"
               >
                 {previewLoading ? 'Previewing…' : 'Preview injection'}
               </button>

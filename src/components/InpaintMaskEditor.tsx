@@ -303,10 +303,10 @@ export default function InpaintMaskEditor({
             </Button>
           </div>
 
-          <div className="overflow-hidden rounded-xl border border-amber-500/20 bg-[var(--bg-base)]/80">
+          <div className="overflow-hidden rounded-xl border border-[var(--tint-warning-border)] bg-[var(--bg-base)]/80">
             <canvas
               ref={displayCanvasRef}
-              className="block h-auto max-h-80 w-full touch-none cursor-crosshair focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50"
+              className="block h-auto max-h-80 w-full touch-none cursor-crosshair focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
               style={{ width: '100%', height: 'auto', maxHeight: '20rem' }}
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
@@ -338,12 +338,12 @@ export default function InpaintMaskEditor({
       )}
 
       {hasMask ? (
-        <p className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-100/90">
+        <p className="rounded-xl border border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] px-3 py-2 text-xs text-[var(--tint-success-text)]">
           Mask ready — white regions will be sent as{' '}
-          <code className="text-emerald-200/90">{`{{MASK_IMAGE}}`}</code> on queue.
+          <code className="text-[var(--tint-success-text)]">{`{{MASK_IMAGE}}`}</code> on queue.
         </p>
       ) : (
-        <p className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2.5 text-xs text-amber-100/85">
+        <p className="rounded-xl border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-3 py-2.5 text-xs text-[var(--tint-warning-text)]">
           Draw or upload a mask before Send to ComfyUI.
         </p>
       )}

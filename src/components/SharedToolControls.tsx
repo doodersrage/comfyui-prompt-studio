@@ -1180,12 +1180,14 @@ export default function SharedToolControls({
           <DiffusersQueueHint workflowJson={selectedWorkflowJson} />
         ) : null}
         {toolId === 'generate' && /qwen-image-edit-2511-lightning/i.test(shared.model) ? (
-          <div className="space-y-2 rounded-xl border border-amber-500/25 bg-amber-500/5 px-3 py-2.5">
-            <p className="text-xs leading-relaxed text-amber-100/85">
+          <div className="space-y-2 rounded-xl border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-3 py-2.5">
+            <p className="text-xs leading-relaxed text-[var(--tint-warning-text)]">
               Edit-2511 Lightning on Generate runs as T2I (reference images disconnected). For clean
               scene generation prefer{' '}
-              <span className="font-medium text-amber-50">Qwen-Image-2512 Lightning</span>; keep
-              Edit Lightning for Refine / img2img.
+              <span className="font-medium text-[var(--tint-warning-text)]">
+                Qwen-Image-2512 Lightning
+              </span>
+              ; keep Edit Lightning for Refine / img2img.
             </p>
             <Button
               type="button"
@@ -1199,12 +1201,13 @@ export default function SharedToolControls({
           </div>
         ) : null}
         {toolId === 'generate' && isBooguEditModel(shared.model) ? (
-          <div className="space-y-2 rounded-xl border border-amber-500/25 bg-amber-500/5 px-3 py-2.5">
-            <p className="text-xs leading-relaxed text-amber-100/85">
+          <div className="space-y-2 rounded-xl border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-3 py-2.5">
+            <p className="text-xs leading-relaxed text-[var(--tint-warning-text)]">
               Boogu Edit is instruction TI2I only — upload a reference on{' '}
-              <span className="font-medium text-amber-50">Refine</span>,{' '}
-              <span className="font-medium text-amber-50">Compose</span>, or{' '}
-              <span className="font-medium text-amber-50">Image → Prompt</span> instead of Generate.
+              <span className="font-medium text-[var(--tint-warning-text)]">Refine</span>,{' '}
+              <span className="font-medium text-[var(--tint-warning-text)]">Compose</span>, or{' '}
+              <span className="font-medium text-[var(--tint-warning-text)]">Image → Prompt</span>{' '}
+              instead of Generate.
             </p>
           </div>
         ) : null}

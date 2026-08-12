@@ -23,10 +23,10 @@ export default function FaceDetailerHealthChip({ refreshKey = 0 }: FaceDetailerH
 
   const tone =
     health.status === 'ready'
-      ? 'border-emerald-500/35 bg-emerald-500/10 text-emerald-200'
+      ? 'border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] text-[var(--tint-success-text)]'
       : health.status === 'detected'
-        ? 'border-amber-500/35 bg-amber-500/10 text-amber-100'
-        : 'border-rose-500/35 bg-rose-500/10 text-rose-100';
+        ? 'border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] text-[var(--tint-warning-text)]'
+        : 'border-[var(--tint-danger-border)] bg-[var(--tint-danger-bg)] text-[var(--tint-danger-text)]';
 
   return (
     <div className="mt-3 space-y-1">

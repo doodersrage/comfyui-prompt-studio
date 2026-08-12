@@ -42,7 +42,7 @@ function FailureSparkline({ series }: { series: number[] }) {
       width={width}
       height={height}
       viewBox={`0 0 ${width} ${height}`}
-      className="mt-1 overflow-visible text-rose-300/90"
+      className="mt-1 overflow-visible text-[var(--tint-danger-text)]"
       role="img"
       aria-label="Queue failures over the last seven days"
     >
@@ -290,7 +290,9 @@ export default function SettingsDataTab({
           log/settings, projects, and scheduled batch (v3). Prefer Settings export above when you
           only need prefs.
         </p>
-        {backupReminder ? <p className="mb-3 text-sm text-amber-300/90">{backupReminder}</p> : null}
+        {backupReminder ? (
+          <p className="mb-3 text-sm text-[var(--tint-warning-text)]">{backupReminder}</p>
+        ) : null}
         <div className="flex flex-wrap gap-2 text-sm">
           <button
             type="button"
@@ -333,7 +335,7 @@ export default function SettingsDataTab({
                 setStatus('Local data cleared. Reload the page.');
               }
             }}
-            className="rounded-lg border border-rose-800/60 px-4 py-2 text-rose-200 transition hover:border-rose-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+            className="rounded-lg border border-[var(--tint-danger-border)] px-4 py-2 text-[var(--tint-danger-text)] transition hover:border-[var(--tint-danger-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
           >
             Reset local data
           </button>

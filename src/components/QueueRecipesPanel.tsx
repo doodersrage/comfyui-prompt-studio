@@ -139,11 +139,11 @@ export default function QueueRecipesPanel({
   }
 
   return (
-    <div className="space-y-3 rounded-xl border border-cyan-500/20 bg-cyan-500/[0.04] px-3 py-2.5 shadow-[0_0_28px_-18px_rgba(34,211,238,0.45)]">
+    <div className="ui-recipe-shell space-y-3">
       <div className="min-w-0 space-y-1">
-        <p className="type-caption text-cyan-200/80">Size &amp; quality path</p>
+        <p className="type-caption text-[var(--accent-text)]">Size &amp; quality path</p>
         <p
-          className="break-words font-mono text-[11px] leading-relaxed text-cyan-50/90"
+          className="break-words font-mono text-[11px] leading-relaxed text-[var(--accent-text)]/90"
           title={explain}
         >
           {explain}
@@ -152,7 +152,7 @@ export default function QueueRecipesPanel({
 
       {recipes.length > 0 ? (
         <div className="space-y-1.5">
-          <p className="type-caption text-cyan-200/70">Quality recipes</p>
+          <p className="type-caption text-[var(--accent-text)]">Quality recipes</p>
           <div className="flex flex-wrap gap-1.5">
             {recipes.map(recipe => (
               <ChipButton
@@ -171,7 +171,7 @@ export default function QueueRecipesPanel({
 
       <div className="space-y-1.5">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="type-caption text-cyan-200/70">Session snapshots</p>
+          <p className="type-caption text-[var(--accent-text)]">Session snapshots</p>
           <Button
             type="button"
             variant="secondary"
@@ -208,7 +208,7 @@ export default function QueueRecipesPanel({
                 </Button>
                 <button
                   type="button"
-                  className="shrink-0 rounded-md px-1.5 py-1 text-[10px] text-[var(--text-muted)] transition hover:bg-[var(--bg-muted)]/80 hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40"
+                  className="shrink-0 rounded-md px-1.5 py-1 text-[10px] text-[var(--text-muted)] transition hover:bg-[var(--bg-muted)]/80 hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
                   onClick={() => handleDeleteSession(recipe.id)}
                   aria-label={`Delete ${recipe.label}`}
                 >
@@ -221,7 +221,7 @@ export default function QueueRecipesPanel({
       </div>
 
       {status ? (
-        <p className="text-[11px] text-cyan-100/75" role="status">
+        <p className="text-[11px] text-[var(--accent-text)]" role="status">
           {status}
         </p>
       ) : null}

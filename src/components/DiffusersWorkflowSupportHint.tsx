@@ -50,9 +50,9 @@ export default function DiffusersWorkflowSupportHint({
 
   const tone =
     displayHint.mode === 'native'
-      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-100'
+      ? 'border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] text-[var(--tint-success-text)]'
       : displayHint.mode === 'fallback'
-        ? 'border-amber-500/30 bg-amber-500/10 text-amber-100'
+        ? 'border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] text-[var(--tint-warning-text)]'
         : 'border-[var(--border-subtle)] bg-[var(--bg-muted)]/40 text-[var(--text-secondary)]';
 
   return (
