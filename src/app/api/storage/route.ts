@@ -36,6 +36,36 @@ function isUserNamespace(namespace: StorageNamespace): namespace is UserStorageN
   return USER_STORAGE_NAMESPACES.includes(namespace as UserStorageNamespace);
 }
 
+function writeScopedStorage(namespace: StorageNamespace, data: unknown, userId: string | null) {
+  if (isUserNamespace(namespace)) {
+    if (isAuthEnabled()) {
+      if (!userId) {
+        throw Object.assign(new Error('Sign in required for user storage sync.'), { status: 401 });
+      }
+      writeUserServerStorage(userId, namespace, data);
+      return true;
+    }
+    // Auth off — persist globally so PROMPT_DATA_DIR still backs full sync.
+    writeServerStorage(namespace, data);
+    return false;
+  }
+  writeServerStorage(namespace, data);
+  return false;
+}
+
+function readScopedStorage(namespace: StorageNamespace, userId: string | null): unknown {
+  if (isUserNamespace(namespace)) {
+    if (isAuthEnabled()) {
+      if (!userId) {
+        throw Object.assign(new Error('Sign in required for user storage sync.'), { status: 401 });
+      }
+      return readUserServerStorage(userId, namespace);
+    }
+    return readServerStorage(namespace);
+  }
+  return readServerStorage(namespace);
+}
+
 export async function GET() {
   if (!isServerStorageEnabled()) {
     return apiJson({
@@ -67,20 +97,20 @@ export async function POST(request: Request) {
     }
 
     const userId = resolveStorageUser(request);
-    if (isUserNamespace(body.namespace)) {
-      if (!userId) {
+    try {
+      const userScoped = writeScopedStorage(body.namespace, body.data, userId);
+      return apiJson({
+        ok: true,
+        namespace: body.namespace,
+        userScoped,
+      });
+    } catch (error) {
+      const status = (error as { status?: number })?.status;
+      if (status === 401) {
         return apiError('Sign in required for user storage sync.', 401);
       }
-      writeUserServerStorage(userId, body.namespace, body.data);
-    } else {
-      writeServerStorage(body.namespace, body.data);
+      throw error;
     }
-
-    return apiJson({
-      ok: true,
-      namespace: body.namespace,
-      userScoped: isUserNamespace(body.namespace),
-    });
   } catch (error) {
     return apiError(error instanceof Error ? error.message : 'Storage write failed.', 500);
   }
@@ -99,20 +129,23 @@ export async function PUT(request: Request) {
 
   const userId = resolveStorageUser(request);
   let data: unknown = null;
+  let userScoped = false;
 
-  if (isUserNamespace(namespace)) {
-    if (!userId) {
+  try {
+    userScoped = isUserNamespace(namespace) && isAuthEnabled();
+    data = readScopedStorage(namespace, userId);
+  } catch (error) {
+    const status = (error as { status?: number })?.status;
+    if (status === 401) {
       return apiError('Sign in required for user storage sync.', 401);
     }
-    data = readUserServerStorage(userId, namespace);
-  } else {
-    data = readServerStorage(namespace);
+    throw error;
   }
 
   if (data == null) {
     return apiError('Namespace not found.', 404);
   }
-  return apiJson({ namespace, data, userScoped: isUserNamespace(namespace) });
+  return apiJson({ namespace, data, userScoped });
 }
 
 export async function DELETE() {

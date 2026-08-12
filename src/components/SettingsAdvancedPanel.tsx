@@ -44,6 +44,7 @@ export default function SettingsAdvancedPanel() {
     'prompt-history',
     'comfy-gallery',
     'gallery-deleted-ids',
+    'studio-extras',
   ];
 
   const [llmUsage, setLlmUsage] = useState<{
@@ -118,10 +119,12 @@ export default function SettingsAdvancedPanel() {
     tasks.push(syncNamespaceToServer('comfy-gallery', gallery));
     const { loadGalleryDeletedIds } = await import('@/lib/gallery-deleted-ids');
     tasks.push(syncNamespaceToServer('gallery-deleted-ids', loadGalleryDeletedIds()));
+    const { collectStudioExtras } = await import('@/lib/studio-extras');
+    tasks.push(syncNamespaceToServer('studio-extras', collectStudioExtras()));
     const results = await Promise.all(tasks);
     setStatus(
       results.every(Boolean)
-        ? 'Synced local settings, history, and gallery to server storage.'
+        ? 'Synced local settings, history, gallery, and studio extras to server storage.'
         : 'Some namespaces failed to sync.'
     );
   }
@@ -188,12 +191,17 @@ export default function SettingsAdvancedPanel() {
     const deletedPayload = await pullNamespaceFromServer<string[] | { ids?: string[] }>(
       'gallery-deleted-ids'
     );
+    const extras =
+      await pullNamespaceFromServer<import('@/lib/studio-extras').StudioExtrasPayload>(
+        'studio-extras'
+      );
     const {
       filterOutDeletedGalleryEntries,
       loadGalleryDeletedIds,
       mergeGalleryDeletedIds,
       saveGalleryDeletedIds,
     } = await import('@/lib/gallery-deleted-ids');
+    const { applyStudioExtras } = await import('@/lib/studio-extras');
     const serverDeleted = Array.isArray(deletedPayload)
       ? deletedPayload
       : Array.isArray(deletedPayload?.ids)
@@ -211,8 +219,11 @@ export default function SettingsAdvancedPanel() {
     if (gallery) {
       await saveComfyGalleryAsync(filterOutDeletedGalleryEntries(gallery));
     }
+    if (extras) {
+      applyStudioExtras(extras);
+    }
     setStatus(
-      settings || history || gallery
+      settings || history || gallery || extras
         ? 'Restored server storage into the app database. Reload the page.'
         : 'No server namespaces found to restore.'
     );

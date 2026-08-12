@@ -1544,6 +1544,9 @@ export function saveSettingsCache(cache: SettingsCache, options?: SaveSettingsOp
     void import('./tab-sync').then(({ broadcastTabSync }) =>
       broadcastTabSync({ type: 'settings-updated' })
     );
+    void import('./auto-storage-sync').then(({ scheduleAutoPushStorage }) =>
+      scheduleAutoPushStorage()
+    );
   });
   if (shouldNotify) {
     notifySettingsCacheUpdated();

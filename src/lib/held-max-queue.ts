@@ -69,6 +69,11 @@ export function listHeldMaxJobs(): HeldMaxJob[] {
   return readJobs();
 }
 
+/** Replace the held-max queue (used by studio-extras sync). */
+export function replaceHeldMaxJobs(jobs: HeldMaxJob[]): void {
+  writeJobs(Array.isArray(jobs) ? jobs : []);
+}
+
 export function holdMaxGalleryEnhance(input: {
   entry: Pick<ComfyGalleryEntry, 'id' | 'model' | 'tool'>;
   kind: 'upscale' | 'moire' | 'refine';

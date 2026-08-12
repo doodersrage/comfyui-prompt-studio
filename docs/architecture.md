@@ -23,18 +23,24 @@ IndexedDB via Dexie — database `comfy-prompt-studio-v1` (`src/lib/app-db.ts`):
 - `galleryEntries` — Comfy jobs and outputs
 - `kv` — settings, prompt history, workflow library, plugins, projects, etc.
 
-Access: `src/lib/browser-storage.ts`, `src/lib/gallery-db-store.ts`, init `src/lib/app-db-init.ts`. Legacy `localStorage` keys migrate into Dexie on first hydrate. Theme/density stay in `localStorage` for the FOUC script in the root layout.
+Access: `src/lib/browser-storage.ts`, `src/lib/gallery-db-store.ts`, init `src/lib/app-db-init.ts`. Legacy `localStorage` keys migrate into Dexie on first hydrate. Theme/density stay mirrored in `localStorage` for the FOUC script and are also included in `studio-extras` sync.
+
+Durable browser writes listed in `src/lib/durable-sync-keys.ts` schedule a debounced server push.
 
 ### Server (optional)
 
 When `PROMPT_DATA_DIR` is set (`src/lib/server-storage.ts`):
 
 - `{PROMPT_DATA_DIR}/{namespace}.json` — namespaces in `src/lib/storage-namespaces.ts`
-- Per-user: `{PROMPT_DATA_DIR}/users/{userId}/…` (`src/lib/user-server-storage.ts`)
+- Per-user (auth on): `{PROMPT_DATA_DIR}/users/{userId}/…` (`src/lib/user-server-storage.ts`)
 - Auth: `{PROMPT_AUTH_DIR|PROMPT_DATA_DIR}/auth/users.json`, `groups.json` (`src/lib/auth/store.ts`)
 - Analytics snapshots: `auth/analytics-snapshots.json` (client push via `/api/auth/analytics`)
 
-Sync helpers: `src/lib/storage-sync.ts`, `src/lib/auto-storage-sync.ts`, APIs under `src/app/api/storage/**`.
+**Auto-synced namespaces** (`SYNC_STORAGE_NAMESPACES`): `settings-cache`, `prompt-history`, `comfy-gallery`, `gallery-deleted-ids`, `studio-extras`.
+
+`studio-extras` covers workflows, ComfyUI settings, recipes, projects, webhooks, avoided tokens, templates, campaigns, appearance prefs, onboarding, workspace mode, held-max jobs, notifications, and other durable browser state. Legacy namespaces (`scheduled-batch`, `webhook-settings`, `avoided-tokens`, `prompt-projects`) are folded into `studio-extras` on pull.
+
+Sync helpers: `src/lib/storage-sync.ts`, `src/lib/auto-storage-sync.ts`, `src/lib/studio-extras.ts`, APIs under `src/app/api/storage/**`.
 
 There is no SQLite — server state is JSON files.
 

@@ -38,6 +38,13 @@ export function loadToolContextMemory(): ToolContextMemoryMap {
   return next;
 }
 
+export function saveToolContextMemory(map: ToolContextMemoryMap): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  writeBrowserValue(KEY, map);
+}
+
 export function loadToolContext(toolKey: string): ToolContextMemoryEntry | undefined {
   return loadToolContextMemory()[toolKey.trim()];
 }

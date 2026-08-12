@@ -1,4 +1,5 @@
 import type { StorageNamespace } from './storage-namespaces';
+import { SYNC_STORAGE_NAMESPACES } from './storage-namespaces';
 import { pullNamespaceFromServer, syncNamespaceToServer } from './storage-sync';
 import { initAppDb } from './app-db-init';
 import { loadSettingsCache, saveSettingsCache, type SettingsCache } from './settings-cache';
@@ -14,6 +15,13 @@ import {
   mergeGalleryDeletedIds,
   saveGalleryDeletedIds,
 } from './gallery-deleted-ids';
+import {
+  applyStudioExtras,
+  collectStudioExtras,
+  foldLegacyNamespacesIntoExtras,
+  mergeStudioExtras,
+  type StudioExtrasPayload,
+} from './studio-extras';
 import {
   buildLoaderMapDiffSamples,
   detectLoaderMapDivergence,
@@ -33,12 +41,7 @@ export type AutoSyncResult = {
   pulledIntoEmpty?: boolean;
 };
 
-const SYNC_NAMESPACES: StorageNamespace[] = [
-  'settings-cache',
-  'prompt-history',
-  'comfy-gallery',
-  'gallery-deleted-ids',
-];
+const SYNC_NAMESPACES: StorageNamespace[] = [...SYNC_STORAGE_NAMESPACES];
 
 function namespaceMeta(data: unknown): { updatedAt?: number; count?: number } {
   if (!data) {
@@ -62,19 +65,44 @@ function namespaceMeta(data: unknown): { updatedAt?: number; count?: number } {
   return { updatedAt: record.updatedAt, count: 1 };
 }
 
+async function loadStudioExtrasFromServer(): Promise<StudioExtrasPayload | null> {
+  const serverExtras = await pullNamespaceFromServer<StudioExtrasPayload>('studio-extras');
+  const [scheduledBatch, webhookSettings, avoidedTokens, promptProjects] = await Promise.all([
+    pullNamespaceFromServer<import('./scheduled-batch').ScheduledBatchConfig>('scheduled-batch'),
+    pullNamespaceFromServer<import('./webhook-settings').WebhookSettings>('webhook-settings'),
+    pullNamespaceFromServer<string[]>('avoided-tokens'),
+    pullNamespaceFromServer<unknown>('prompt-projects'),
+  ]);
+  const hasLegacy = Boolean(
+    scheduledBatch || webhookSettings || avoidedTokens?.length || promptProjects
+  );
+  if (!serverExtras && !hasLegacy) {
+    return null;
+  }
+  return foldLegacyNamespacesIntoExtras(serverExtras ?? collectStudioExtras(), {
+    scheduledBatch,
+    webhookSettings,
+    avoidedTokens,
+    promptProjects,
+  });
+}
+
 export async function probeStorageConflicts(): Promise<StorageNamespaceConflict[]> {
   await initAppDb();
   const localSettings = loadSettingsCache();
   const localHistory = loadPromptHistoryStore();
   const localGallery = loadComfyGallery();
   const localDeleted = loadGalleryDeletedIds();
+  const localExtras = collectStudioExtras();
 
-  const [serverSettings, serverHistory, serverGallery, serverDeletedPayload] = await Promise.all([
-    pullNamespaceFromServer<SettingsCache>('settings-cache'),
-    pullNamespaceFromServer<PromptHistoryEntry[]>('prompt-history'),
-    pullNamespaceFromServer<ComfyGalleryEntry[]>('comfy-gallery'),
-    pullNamespaceFromServer<string[] | { ids?: string[] }>('gallery-deleted-ids'),
-  ]);
+  const [serverSettings, serverHistory, serverGallery, serverDeletedPayload, serverExtras] =
+    await Promise.all([
+      pullNamespaceFromServer<SettingsCache>('settings-cache'),
+      pullNamespaceFromServer<PromptHistoryEntry[]>('prompt-history'),
+      pullNamespaceFromServer<ComfyGalleryEntry[]>('comfy-gallery'),
+      pullNamespaceFromServer<string[] | { ids?: string[] }>('gallery-deleted-ids'),
+      loadStudioExtrasFromServer(),
+    ]);
   const serverDeletedIds = Array.isArray(serverDeletedPayload)
     ? serverDeletedPayload
     : Array.isArray(serverDeletedPayload?.ids)
@@ -100,6 +128,11 @@ export async function probeStorageConflicts(): Promise<StorageNamespaceConflict[
       namespace: 'gallery-deleted-ids',
       local: { count: localDeleted.length, updatedAt: Date.now() },
       server: { count: serverDeletedIds.length },
+    },
+    {
+      namespace: 'studio-extras',
+      local: namespaceMeta(localExtras),
+      server: namespaceMeta(serverExtras),
     },
   ];
 
@@ -170,6 +203,30 @@ export async function applyStorageMerge(
       continue;
     }
 
+    if (namespace === 'studio-extras') {
+      const server = await loadStudioExtrasFromServer();
+      const local = collectStudioExtras();
+      if (choice === 'server' && server) {
+        applyStudioExtras(server);
+        synced.push(namespace);
+        continue;
+      }
+      if (choice === 'local') {
+        await syncNamespaceToServer(namespace, local);
+        synced.push(namespace);
+        continue;
+      }
+      if (server) {
+        const merged = mergeStudioExtras(local, server);
+        applyStudioExtras(merged);
+        await syncNamespaceToServer(namespace, collectStudioExtras());
+      } else {
+        await syncNamespaceToServer(namespace, local);
+      }
+      synced.push(namespace);
+      continue;
+    }
+
     const server =
       namespace === 'settings-cache'
         ? await pullNamespaceFromServer<SettingsCache>(namespace)
@@ -205,13 +262,11 @@ export async function applyStorageMerge(
 
     if (choice === 'merge' && local && server) {
       if (namespace === 'settings-cache') {
-        // loadSettingsCache() already rehydrates tools/plugins/maps sidecars into memory.
         const merged = mergeSettingsCache(local as SettingsCache, server as SettingsCache);
         const localShared = (local as SettingsCache).shared;
         if (localShared?.useSystemWorkflows === true) {
           merged.shared = { ...merged.shared, useSystemWorkflows: true };
         }
-        // Prefer local LoRA session stacks when present (critical sidecar).
         if (
           localShared?.sessionActiveLoraIdsByModel &&
           Object.keys(localShared.sessionActiveLoraIdsByModel).length > 0
@@ -268,7 +323,6 @@ export async function autoPullStorageIfEmpty(): Promise<AutoSyncResult> {
   if (history.length === 0 && gallery.length === 0) {
     const synced: StorageNamespace[] = [];
     const localSettings = loadSettingsCache();
-    // Pull tombstones first so a full server gallery does not resurrect deletes.
     const serverDeleted = await pullNamespaceFromServer<string[] | { ids?: string[] }>(
       'gallery-deleted-ids'
     );
@@ -282,7 +336,11 @@ export async function autoPullStorageIfEmpty(): Promise<AutoSyncResult> {
       synced.push('gallery-deleted-ids');
     }
     for (const namespace of SYNC_NAMESPACES) {
-      if (namespace === 'gallery-deleted-ids' || namespace === 'settings-cache') {
+      if (
+        namespace === 'gallery-deleted-ids' ||
+        namespace === 'settings-cache' ||
+        namespace === 'studio-extras'
+      ) {
         continue;
       }
       const server = await pullNamespaceFromServer<unknown>(namespace);
@@ -296,8 +354,14 @@ export async function autoPullStorageIfEmpty(): Promise<AutoSyncResult> {
       }
       synced.push(namespace);
     }
-    // Push local browser settings to server — never replace local toggles/LoRAs/maps
-    // just because history/gallery are empty (common for generate-only users).
+    const serverExtras = await loadStudioExtrasFromServer();
+    if (serverExtras) {
+      applyStudioExtras(serverExtras);
+      synced.push('studio-extras');
+    } else {
+      await syncNamespaceToServer('studio-extras', collectStudioExtras());
+      synced.push('studio-extras');
+    }
     await syncNamespaceToServer('settings-cache', localSettings);
     synced.push('settings-cache');
     return { synced, conflicts: [], skipped: false, pulledIntoEmpty: synced.length > 0 };
@@ -305,14 +369,14 @@ export async function autoPullStorageIfEmpty(): Promise<AutoSyncResult> {
 
   const conflicts = await probeStorageConflicts();
   if (conflicts.length === 0) {
-    return { synced: [], conflicts: [], skipped: true };
+    // Still push extras/settings so durable prefs stay backed up even without conflicts.
+    await autoPushStorageDebounced();
+    return { synced: [...SYNC_NAMESPACES], conflicts: [], skipped: false };
   }
 
   const choices: Partial<Record<StorageNamespace, MergeChoice>> = {};
   for (const conflict of conflicts) {
-    if (conflict.namespace === 'settings-cache') {
-      // Browser settings (toggles, LoRAs, maps) always win on silent startup sync.
-      // Server snapshots are a backup — pulling them overwrote useSystemWorkflows on refresh.
+    if (conflict.namespace === 'settings-cache' || conflict.namespace === 'studio-extras') {
       choices[conflict.namespace as StorageNamespace] = 'local';
     } else {
       choices[conflict.namespace as StorageNamespace] = suggestMergeChoice(conflict);
@@ -321,7 +385,6 @@ export async function autoPullStorageIfEmpty(): Promise<AutoSyncResult> {
   const result = await applyStorageMerge(choices);
   return {
     synced: result.synced,
-    // Resolved automatically — do not surface the modal.
     conflicts: [],
     skipped: false,
     pulledIntoEmpty: false,
@@ -340,9 +403,9 @@ export async function autoPushStorageDebounced(): Promise<void> {
   await syncNamespaceToServer('prompt-history', loadPromptHistoryStore());
   const gallery = loadComfyGallery();
   const deletedIds = loadGalleryDeletedIds();
-  // Always push gallery (including []) so deletes clear the server source of truth.
   await syncNamespaceToServer('comfy-gallery', gallery);
   await syncNamespaceToServer('gallery-deleted-ids', deletedIds);
+  await syncNamespaceToServer('studio-extras', collectStudioExtras());
 }
 
 let pushTimer: ReturnType<typeof setTimeout> | null = null;

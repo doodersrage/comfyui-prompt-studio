@@ -1,16 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { isServerStorageEnabled } from './server-storage';
+import { SYNC_STORAGE_NAMESPACES, type StorageNamespace } from './storage-namespaces';
 
-export type UserStorageNamespace =
-  'settings-cache' | 'prompt-history' | 'comfy-gallery' | 'gallery-deleted-ids';
+/** Per-user durable namespaces (when auth is enabled). */
+export type UserStorageNamespace = (typeof SYNC_STORAGE_NAMESPACES)[number];
 
-export const USER_STORAGE_NAMESPACES: UserStorageNamespace[] = [
-  'settings-cache',
-  'prompt-history',
-  'comfy-gallery',
-  'gallery-deleted-ids',
-];
+export const USER_STORAGE_NAMESPACES: UserStorageNamespace[] = [...SYNC_STORAGE_NAMESPACES];
 
 function dataDir(): string {
   const dir = process.env.PROMPT_DATA_DIR?.trim();
@@ -80,4 +76,10 @@ export function writeUserExportSnapshot(
   const filePath = path.join(dir, filename);
   fs.writeFileSync(filePath, JSON.stringify(payload, null, 2), 'utf8');
   return filename;
+}
+
+export function isUserStorageNamespace(
+  namespace: StorageNamespace
+): namespace is UserStorageNamespace {
+  return (USER_STORAGE_NAMESPACES as StorageNamespace[]).includes(namespace);
 }

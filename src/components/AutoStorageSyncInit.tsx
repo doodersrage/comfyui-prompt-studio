@@ -46,7 +46,11 @@ export default function AutoStorageSyncInit() {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (!auth || auth.loading || !auth.user || process.env.NEXT_PUBLIC_PLAYWRIGHT === '1') {
+    if (!auth || auth.loading || process.env.NEXT_PUBLIC_PLAYWRIGHT === '1') {
+      return;
+    }
+    // Auth enabled requires a signed-in user; auth-off still syncs to PROMPT_DATA_DIR.
+    if (auth.authEnabled && !auth.user) {
       return;
     }
 
@@ -67,9 +71,9 @@ export default function AutoStorageSyncInit() {
         }
       });
     });
-    // Intentionally key off user id so object identity churn does not re-trigger sync.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- user?.id is the stable identity
-  }, [auth?.loading, auth?.user?.id]);
+    // Intentionally key off user id / auth flags so object identity churn does not re-trigger sync.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable identity fields only
+  }, [auth?.loading, auth?.authEnabled, auth?.user?.id]);
 
   if (!auth) return null; // Hydration / HMR boundary
 

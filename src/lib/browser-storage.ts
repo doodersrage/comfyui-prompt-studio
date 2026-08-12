@@ -1,6 +1,7 @@
 import { appDb } from './app-db';
 import { COMFYUI_GALLERY_KEY } from './comfyui-gallery-storage-meta';
 import { mergeSessionLoraIdsByModel } from './model-lora-map';
+import { DURABLE_BROWSER_SYNC_KEYS } from './durable-sync-keys';
 
 const cache = new Map<string, unknown>();
 const dirtyKeys = new Set<string>();
@@ -11,6 +12,8 @@ let flushListenersAttached = false;
 let lastSavedAt: number | null = null;
 let lastError: string | null = null;
 const PERSIST_DEBOUNCE_MS = 350;
+/** Nested apply from server pull — avoid scheduling a push storm. */
+let suppressDurableSyncPush = 0;
 
 export const BROWSER_STORAGE_HEALTH_EVENT = 'browser-storage-health';
 
@@ -107,7 +110,7 @@ function readSystemWorkflowsSidecarFlag(value: unknown): boolean | null {
 const SESSION_LORA_PREFS_STORAGE_KEY = 'comfy-session-lora-prefs-v1';
 
 type SessionLoraPrefsSidecar = {
-  sessionActiveLoraIdsByModel?: Record<string, string[]>;
+  sessionActiveLoraIdsByModel?: Partial<Record<string, string[]>>;
   sessionLoraStrengthOverridesByModel?: Record<string, unknown>;
 };
 
@@ -302,6 +305,24 @@ export function readBrowserString(key: string): string | null {
   return String(value);
 }
 
+export function withSuppressedDurableSyncPush<T>(fn: () => T): T {
+  suppressDurableSyncPush += 1;
+  try {
+    return fn();
+  } finally {
+    suppressDurableSyncPush -= 1;
+  }
+}
+
+function scheduleDurableServerPush(key: string): void {
+  if (suppressDurableSyncPush > 0 || !DURABLE_BROWSER_SYNC_KEYS.has(key)) {
+    return;
+  }
+  void import('./auto-storage-sync').then(({ scheduleAutoPushStorage }) =>
+    scheduleAutoPushStorage()
+  );
+}
+
 export function writeBrowserValue(key: string, value: unknown): void {
   if (typeof window === 'undefined') {
     return;
@@ -311,6 +332,7 @@ export function writeBrowserValue(key: string, value: unknown): void {
   dirtyKeys.add(key);
   mirrorToLocalStorageIfAllowed(key);
   schedulePersistDirtyKeys();
+  scheduleDurableServerPush(key);
 }
 
 export function writeBrowserString(key: string, value: string): void {
@@ -328,6 +350,7 @@ export function removeBrowserKey(key: string): void {
     removeLegacyLocalStorageValue(key);
   }
   schedulePersistDirtyKeys();
+  scheduleDurableServerPush(key);
 }
 
 function schedulePersistDirtyKeys(): void {
