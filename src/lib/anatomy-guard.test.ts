@@ -53,29 +53,50 @@ describe("anatomy guard", () => {
     assert.equal(result.negative, undefined);
   });
 
-  it("adds hand-readability guidance for klein distilled in strict mode, not standing poses", () => {
+  it("appends limb-count cue for klein distilled on full-figure prompts", () => {
+    const result = applyAnatomyGuardForModel({
+      positive: "A woman standing in sunlight.",
+      model: "flux-2-klein-9b-distilled",
+      mode: "standard",
+    });
+    assert.match(result.positive, /no extra legs, arms or hands/i);
+    assert.match(result.positive, /no less than two legs, arms, and hands per person/i);
+    assert.ok(result.positive.endsWith("per person."));
+    // One compact cue — not a stacked avoid/pose essay.
+    assert.equal((result.positive.match(/no extra legs, arms or hands/gi) ?? []).length, 1);
+    assert.doesNotMatch(result.positive, /Avoid missing limbs|complete unbroken figure|Keep one coherent full silhouette/i);
+  });
+
+  it("uses a portrait cue instead of full-figure limb language for klein distilled", () => {
+    const result = applyAnatomyGuardForModel({
+      positive: "Portrait of a woman in soft window light.",
+      model: "flux-2-klein-9b-distilled",
+      mode: "standard",
+    });
+    assert.match(result.positive, /natural face and neck/i);
+    assert.doesNotMatch(result.positive, /no less than two legs/i);
+  });
+
+  it("adds hand wording for klein distilled in strict mode without standing poses", () => {
     const result = applyAnatomyGuardForModel({
       positive: "A woman standing in sunlight.",
       model: "flux-2-klein-9b-distilled",
       mode: "strict",
     });
-    assert.match(result.positive, /exactly five separate fingers|five separate fingers with clear knuckles/i);
-    assert.match(result.positive, /when hands appear in frame|separated and readable/i);
+    assert.match(result.positive, /five separate fingers/i);
     assert.doesNotMatch(result.positive, /simple standing pose|prefer simple standing/i);
-    assert.match(result.positive, /extra or fused fingers|webbed or melted hands|extra limbs/i);
   });
 
-  it("front-loads strict hand cues for klein distilled when people are likely", () => {
+  it("appends the limb-count cue for klein distilled when people are likely", () => {
     const result = applyAnatomyGuardForModel({
       positive:
         "Street fighter Chun-Li in a blue dress costume, dynamic fighting stance, neon alley.",
       model: "flux-2-klein-9b-distilled",
       mode: "strict",
     });
-    const firstSentenceEnd = result.positive.indexOf(".") + 1;
-    const lead = result.positive.slice(0, firstSentenceEnd + 80);
-    assert.match(lead, /five separate fingers/i);
-    assert.ok(result.positive.indexOf("five separate fingers") < result.positive.length / 2);
+    assert.match(result.positive, /no extra legs, arms or hands/i);
+    assert.match(result.positive, /five separate fingers/i);
+    assert.ok(/five separate fingers\.?$/i.test(result.positive.trim()));
   });
 
   it("strict klein distilled differs from standard on hand-heavy prompts", () => {
@@ -91,8 +112,8 @@ describe("anatomy guard", () => {
       mode: "strict",
     });
     assert.notEqual(strict.positive, standard.positive);
-    assert.match(strict.positive, /exactly five separate fingers/i);
-    assert.doesNotMatch(standard.positive, /exactly five separate fingers/i);
+    assert.match(strict.positive, /five separate fingers/i);
+    assert.doesNotMatch(standard.positive, /five separate fingers/i);
   });
 
   it("does not force standing pose language on standard klein distilled", () => {
@@ -101,19 +122,18 @@ describe("anatomy guard", () => {
       model: "flux-2-klein-9b-distilled",
       mode: "standard",
     });
-    assert.match(result.positive, /five fingers|anatomically correct hands|natural limb count/i);
+    assert.match(result.positive, /no less than two legs, arms, and hands per person/i);
     assert.doesNotMatch(result.positive, /standing|walking poses/i);
     assert.match(result.positive, /reclining/i);
   });
 
-  it("hardens klein distilled even when weak accurate-anatomy language is present", () => {
+  it("still injects the compact cue when weak accurate-anatomy language is present", () => {
     const result = applyAnatomyGuardForModel({
-      positive: "Portrait with accurate anatomy and soft light.",
+      positive: "A woman with accurate anatomy standing in soft light.",
       model: "flux-2-klein-9b-distilled",
       mode: "standard",
     });
-    assert.match(result.positive, /five fingers|anatomically correct hands/i);
-    assert.match(result.positive, /extra or fused fingers|extra limbs/i);
+    assert.match(result.positive, /no extra legs, arms or hands/i);
   });
 
   it("adds hand guidance for klein base flux models in strict mode", () => {

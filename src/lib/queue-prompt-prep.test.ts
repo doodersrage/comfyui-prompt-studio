@@ -120,9 +120,16 @@ describe("queue-prompt-prep Rapid AIO / Lightning", () => {
       realismMode: "realistic",
       anatomyMode: "strict",
     });
-    assert.match(result.positive ?? "", /five distinct fingers|anatomically correct hands/i);
-    assert.match(result.positive ?? "", /extra or fused fingers|extra limbs/i);
-    assert.match(result.positive ?? "", /keep fingers distinct and unobscured|do not invent extra limbs/i);
+    assert.match(result.positive ?? "", /no extra legs, arms or hands/i);
+    assert.match(result.positive ?? "", /no less than two legs, arms, and hands per person/i);
+    assert.match(result.positive ?? "", /five separate fingers/i);
+    // Anatomy cue should appear before optional realism padding.
+    const anatomyAt = (result.positive ?? "").search(/no extra legs, arms or hands/i);
+    const realismAt = (result.positive ?? "").search(/photorealistic|natural lighting/i);
+    assert.ok(anatomyAt >= 0);
+    if (realismAt >= 0) {
+      assert.ok(anatomyAt < realismAt);
+    }
   });
 
   it("prioritizes anatomy/hand cues for UltraReal before realism budget", () => {

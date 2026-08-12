@@ -6,6 +6,7 @@ import {
 } from "./lora-stack";
 import {
   formatModelLoraMap,
+  mergeSessionLoraIdsByModel,
   parseModelLoraMap,
   resolveEffectiveSessionLoraIds,
   resolveLoraIdsForModelSelection,
@@ -14,6 +15,20 @@ import {
 } from "./model-lora-map";
 
 describe("model lora map", () => {
+  it("merges session LoRA picks with overlay winning, including shorter stacks", () => {
+    assert.deepEqual(
+      mergeSessionLoraIdsByModel(
+        { "flux-dev": ["a", "b", "c"], "wan-video": ["motion"] },
+        { "flux-dev": ["a", "b"] },
+      ),
+      { "flux-dev": ["a", "b"], "wan-video": ["motion"] },
+    );
+    assert.deepEqual(
+      mergeSessionLoraIdsByModel({ "flux-dev": ["a", "b"] }, { "flux-dev": [] }),
+      { "flux-dev": [] },
+    );
+  });
+
   it("parses and formats modelId=id1,id2 lines including empty values", () => {
     const map = parseModelLoraMap(
       "# comment\nwan-video=skin,motion\nflux-dev=\nqwen-image-2512:detail",

@@ -1,5 +1,6 @@
 import { appDb } from './app-db';
 import { COMFYUI_GALLERY_KEY } from './comfyui-gallery-storage-meta';
+import { mergeSessionLoraIdsByModel } from './model-lora-map';
 
 const cache = new Map<string, unknown>();
 const dirtyKeys = new Set<string>();
@@ -126,19 +127,11 @@ function mergeSessionLoraPrefsSidecar(
   if (!a && !b) {
     return null;
   }
-  const byModel: Record<string, string[]> = {};
-  for (const source of [a?.sessionActiveLoraIdsByModel, b?.sessionActiveLoraIdsByModel]) {
-    if (!source) {
-      continue;
-    }
-    for (const [model, ids] of Object.entries(source)) {
-      if (!Array.isArray(ids)) {
-        continue;
-      }
-      const prev = byModel[model] ?? [];
-      byModel[model] = prev.length >= ids.length ? prev : ids;
-    }
-  }
+  // Incoming wins per model (including shorter / empty stacks) so unchecks stick.
+  const byModel = mergeSessionLoraIdsByModel(
+    a?.sessionActiveLoraIdsByModel,
+    b?.sessionActiveLoraIdsByModel
+  );
   const strength = {
     ...(a?.sessionLoraStrengthOverridesByModel ?? {}),
     ...(b?.sessionLoraStrengthOverridesByModel ?? {}),

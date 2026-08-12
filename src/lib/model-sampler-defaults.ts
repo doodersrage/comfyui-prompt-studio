@@ -656,7 +656,7 @@ export function formatKleinSamplerPeopleHint(
     if (tier === 'base') {
       return 'Base is fastest but can distort people, hands, and complex poses. Use Optimized for figures; keep poses simple — Distilled still invents limbs often. Switch to Klein Base or UltraReal for hard anatomy.';
     }
-    return 'Distilled stays CFG-1 / 4-step — prefer simple single-subject poses. Persistent mutants → Klein 9B Base or UltraReal.';
+    return 'Distilled stays CFG-1 / 4-step — prefer simple single-subject poses; Anatomy Guard Strict helps but cannot fix every mutant. Persistent extra limbs → Klein 9B Base or UltraReal.';
   }
 
   if (isKleinBaseModel(model)) {

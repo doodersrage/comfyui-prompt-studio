@@ -126,6 +126,35 @@ describe('settings persistence sidecars', () => {
     });
   });
 
+  it('keeps a shorter session LoRA stack after uncheck + reload', async () => {
+    await withMockLocalStorage(async () => {
+      resetBrowserStorageCache();
+      await saveSessionLoraSelectionNow({
+        ...loadSettingsCache().shared,
+        sessionActiveLoraIdsByModel: {
+          'flux-2-klein-9b': ['klein-snofs', 'klein-realistic-detail', 'klein-ultra-real-v4'],
+        },
+      });
+      await saveSessionLoraSelectionNow({
+        ...loadSettingsCache().shared,
+        sessionActiveLoraIdsByModel: {
+          'flux-2-klein-9b': ['klein-realistic-detail', 'klein-ultra-real-v4'],
+        },
+      });
+
+      resetBrowserStorageCache();
+      const reloaded = loadSettingsCache().shared;
+      assert.deepEqual(reloaded.sessionActiveLoraIdsByModel?.['flux-2-klein-9b'], [
+        'klein-realistic-detail',
+        'klein-ultra-real-v4',
+      ]);
+      assert.equal(
+        window.localStorage.getItem(SESSION_LORA_PREFS_KEY)?.includes('klein-snofs'),
+        false
+      );
+    });
+  });
+
   it('persists session LoRAs via sidecar', async () => {
     await withMockLocalStorage(async () => {
       resetBrowserStorageCache();

@@ -48,32 +48,21 @@ const FLUX_ANATOMY_AVOID: Record<Exclude<AnatomyGuardMode, 'off'>, string> = {
     'Avoid extra limbs, missing limbs, deformed anatomy, extra or fused fingers, duplicate hands, mutations, and broken proportions.',
 };
 
-/** Compact CFG-1 pack — Klein Distilled invents limbs/fingers often; keep cues short and concrete. */
-const KLEIN_DISTILLED_ANATOMY_POSITIVE: Record<Exclude<AnatomyGuardMode, 'off'>, string> = {
-  standard:
-    'natural limb count, five fingers per hand, clear wrists, anatomically correct hands, coherent single body',
-  strict:
-    'exactly five separate fingers on each visible hand with visible knuckles and a natural thumb, clear wrists and elbows, anatomically correct hands, natural limb count, coherent single body, no overlapping or fused digits',
-};
-
-const KLEIN_DISTILLED_STRICT_HAND_FRONLOAD =
-  'Each visible hand shows exactly five separate fingers with clear knuckles and a natural thumb—no extra, missing, or fused digits.';
-
-const KLEIN_DISTILLED_ANATOMY_AVOID: Record<Exclude<AnatomyGuardMode, 'off'>, string> = {
-  standard:
-    'Avoid extra limbs, missing limbs, extra or fused fingers, duplicate hands, and mutated anatomy.',
-  strict:
-    'Avoid extra limbs, missing limbs, extra or fused fingers, webbed or melted hands, duplicate hands, mutated anatomy, and body horror.',
-};
-
 /**
- * Hand-readability only — never prescribe a body pose (standing/walking used to
- * steamroll seated/reclining prompts on distilled Flux).
+ * Compact CFG-1 pack — Klein Distilled invents OR omits limbs.
+ * Appended (not early-injected): this limb-count wording is what reliably steers 4-step.
  */
-const KLEIN_DISTILLED_POSE_EXTRA: Record<Exclude<AnatomyGuardMode, 'off'>, string> = {
-  standard: '',
+const KLEIN_DISTILLED_FIGURE_CUE: Record<Exclude<AnatomyGuardMode, 'off'>, string> = {
+  standard: 'No extra legs, arms or hands. No less than two legs, arms, and hands per person.',
   strict:
-    'When hands appear in frame, keep every finger separated and readable with visible knuckles; do not hide hands in fists, sleeves, or motion blur; do not invent extra limbs to support contact.',
+    'No extra legs, arms or hands. No less than two legs, arms, and hands per person. Each visible hand shows five separate fingers.',
+};
+
+/** Portrait / headshot — don't force full-body limbs into a face crop. */
+const KLEIN_DISTILLED_PORTRAIT_CUE: Record<Exclude<AnatomyGuardMode, 'off'>, string> = {
+  standard: 'Natural face and neck; each visible hand shows five fingers—no extra digits.',
+  strict:
+    'Natural face and neck; each visible hand shows five separate fingers with clear knuckles—no extra or fused digits.',
 };
 
 function isKleinDistilledModel(model: ComfyImageModel | string): boolean {
@@ -127,23 +116,49 @@ function ultraRealHasStrongHandAnatomy(prompt: string): boolean {
   return /\b(five distinct fingers|anatomically correct hands with five)\b/i.test(prompt);
 }
 
-function kleinDistilledHasStrongAnatomy(prompt: string): boolean {
+function kleinDistilledHasCompactCue(prompt: string): boolean {
   return (
-    /\b(five separate fingers|five distinct fingers|exactly five fingers|anatomically correct hands with five)\b/i.test(
-      prompt
-    ) && /\bavoid (?:extra limbs|extra or fused fingers|webbed or melted hands)\b/i.test(prompt)
+    /\bno extra legs, arms or hands\b/i.test(prompt) ||
+    /\bno less than two legs, arms, and hands\b/i.test(prompt) ||
+    // Legacy cue from earlier Distilled packs — treat as already steered.
+    /\bsingle subject with one head, two arms, and two legs\b/i.test(prompt)
   );
 }
 
-function kleinDistilledHasStrictHandFrontload(prompt: string): boolean {
-  return /\b(exactly five separate fingers|five separate fingers with clear knuckles)\b/i.test(
+function appendCue(prompt: string, cue: string): string {
+  const trimmed = prompt.trim();
+  if (!trimmed || !cue.trim()) {
+    return trimmed;
+  }
+  const separator = /[.!?]$/.test(trimmed) ? ' ' : '. ';
+  return `${trimmed}${separator}${cue.trim()}`;
+}
+
+function kleinDistilledHasPortraitCue(prompt: string): boolean {
+  return (
+    /\bnatural face and neck\b/i.test(prompt) && /\bfive (?:separate )?fingers\b/i.test(prompt)
+  );
+}
+
+/** Likely people/hands — decide whether the compact figure cue is worth injecting. */
+function promptLikelyShowsHands(prompt: string): boolean {
+  return /\b(hand|hands|finger|fingers|fist|grip|grasp|holding|waving|punch|kick|fighter|fighting|chun.?li|figure|person|woman|man|girl|boy|character|portrait|full.?body|cowboy.?shot|action pose|martial|boxer|dancer|model)\b/i.test(
     prompt
   );
 }
 
-/** Likely full figure or hand visibility — strict mode front-loads hand cues for Klein Distilled. */
-function promptLikelyShowsHands(prompt: string): boolean {
-  return /\b(hand|hands|finger|fingers|fist|grip|grasp|holding|waving|punch|kick|fighter|fighting|chun.?li|figure|person|woman|man|girl|boy|character|portrait|full.?body|cowboy.?shot|action pose|martial|boxer|dancer|model)\b/i.test(
+function promptIsHeadOrPortraitCrop(prompt: string): boolean {
+  return /\b(portrait|headshot|head.?and.?shoulders|bust shot|face only|close-?up (?:of )?(?:her |his |their )?(?:face|head)|face close-?up)\b/i.test(
+    prompt
+  );
+}
+
+/** Full- or half-body people shots where Distilled most often invents or drops a limb. */
+function promptLikelyShowsFullFigure(prompt: string): boolean {
+  if (promptIsHeadOrPortraitCrop(prompt)) {
+    return false;
+  }
+  return /\b(full.?body|cowboy.?shot|standing|walking|running|sitting|seated|kneeling|reclining|lying|action pose|fighter|fighting|martial|boxer|dancer|yoga|pose|figure|person|woman|man|girl|boy|character|athlete|model|outfit|dress|suit)\b/i.test(
     prompt
   );
 }
@@ -158,12 +173,6 @@ function prependCueAfterFirstSentence(prompt: string, cue: string): string {
     return `${sentenceBreak[1]} ${cue.trim()} ${trimmed.slice(sentenceBreak[0].length)}`;
   }
   return `${cue.trim()} ${trimmed}`;
-}
-
-function kleinDistilledHasPoseGuidance(prompt: string): boolean {
-  return /\b(when hands appear in frame|prefer simple standing|prefer a single subject in a simple standing)\b/i.test(
-    prompt
-  );
 }
 
 /** Prompt already names a body pose — do not append stance-steering that fights it. */
@@ -265,72 +274,42 @@ function applyKleinDistilledAnatomyGuard(input: {
   maxPositiveAppendChars?: number;
 }): { positive: string; negative?: string } {
   let positive = input.positive.trim();
+  if (!positive) {
+    return { positive, negative: undefined };
+  }
+
   const maxAppend = input.maxPositiveAppendChars;
-  let remaining = typeof maxAppend === 'number' ? Math.max(0, maxAppend) : undefined;
-  const hadStrongAnatomy = kleinDistilledHasStrongAnatomy(positive);
-
-  // Strict: front-load hand language early — appended CFG-1 suffixes are weak on 4-step Klein.
-  if (
-    input.mode === 'strict' &&
-    promptLikelyShowsHands(positive) &&
-    !kleinDistilledHasStrictHandFrontload(positive)
-  ) {
-    positive = prependCueAfterFirstSentence(positive, KLEIN_DISTILLED_STRICT_HAND_FRONLOAD);
+  if (typeof maxAppend === 'number' && maxAppend < 40) {
+    return { positive, negative: undefined };
   }
 
-  // Distilled often already says "accurate anatomy" yet still grows extra fingers —
-  // require stronger hand/limb language before skipping.
-  if (!hadStrongAnatomy) {
-    if (typeof remaining !== 'number' || remaining >= 48) {
-      let suffix = KLEIN_DISTILLED_ANATOMY_POSITIVE[input.mode];
-      if (typeof remaining === 'number') {
-        suffix = clipSuffixToBudget(suffix, remaining);
+  const portraitCrop = promptIsHeadOrPortraitCrop(positive);
+  const fullFigure = !portraitCrop && promptLikelyShowsFullFigure(positive);
+
+  // CFG-1 / 4-step: one compact cue. Portraits stay early (face crop); full figures
+  // append the limb-count pack — that placement is what steers Distilled best.
+  if (portraitCrop) {
+    if (!kleinDistilledHasPortraitCue(positive)) {
+      let cue = KLEIN_DISTILLED_PORTRAIT_CUE[input.mode];
+      if (typeof maxAppend === 'number') {
+        cue = clipSuffixToBudget(cue, maxAppend);
       }
-      if (suffix) {
-        const separator = /[.!?]$/.test(positive) ? ' ' : '. ';
-        const before = positive.length;
-        positive = `${positive}${separator}${suffix}`;
-        if (typeof remaining === 'number') {
-          remaining = Math.max(0, remaining - (positive.length - before));
-        }
+      if (cue) {
+        positive = prependCueAfterFirstSentence(positive, cue);
       }
     }
+    return { positive, negative: undefined };
   }
 
-  // Hand-readability only (strict) — never force standing/walking over the prompt's pose.
-  const poseExtra = KLEIN_DISTILLED_POSE_EXTRA[input.mode];
-  if (
-    poseExtra &&
-    !promptHasExplicitPose(positive) &&
-    !kleinDistilledHasPoseGuidance(positive) &&
-    (typeof remaining !== 'number' || remaining >= 48)
-  ) {
-    let pose = poseExtra;
-    if (typeof remaining === 'number') {
-      pose = clipSuffixToBudget(pose, remaining);
-    }
-    if (pose) {
-      const separator = /[.!?]$/.test(positive) ? ' ' : '. ';
-      const before = positive.length;
-      positive = `${positive}${separator}${pose}`;
-      if (typeof remaining === 'number') {
-        remaining = Math.max(0, remaining - (positive.length - before));
+  if (fullFigure || promptLikelyShowsHands(positive)) {
+    if (!kleinDistilledHasCompactCue(positive)) {
+      let cue = KLEIN_DISTILLED_FIGURE_CUE[input.mode];
+      if (typeof maxAppend === 'number') {
+        cue = clipSuffixToBudget(cue, maxAppend);
       }
-    }
-  }
-
-  if (
-    !hadStrongAnatomy &&
-    !/\bavoid (?:extra limbs|extra or fused fingers)\b/i.test(positive) &&
-    (typeof remaining !== 'number' || remaining >= 48)
-  ) {
-    let avoid = KLEIN_DISTILLED_ANATOMY_AVOID[input.mode];
-    if (typeof remaining === 'number') {
-      avoid = clipSuffixToBudget(avoid, remaining);
-    }
-    if (avoid) {
-      const separator = /[.!?]$/.test(positive) ? ' ' : '. ';
-      positive = `${positive}${separator}${avoid}`;
+      if (cue) {
+        positive = appendCue(positive, cue);
+      }
     }
   }
 
@@ -507,9 +486,9 @@ export function formatAnatomyGuardHint(
   const base = `${option.label} — ${option.description}`;
   if (model && isKleinDistilledModel(model)) {
     if (mode === 'strict') {
-      return `${base} Klein Distilled Strict front-loads hand cues when people are likely; 4-step CFG-1 may still fail on complex hands — Klein 9B Base or Gallery → Anatomy repair for fixes.`;
+      return `${base} Klein Distilled Strict appends a limb-count cue (no extra / at least two legs, arms, and hands; five fingers). 4-step CFG-1 still fails on complex poses — use Klein 9B Base or Gallery → Anatomy repair.`;
     }
-    return `${base} Klein Distilled has limited hand fidelity at 4 steps — use Strict for stronger cues, or Klein 9B Base for full-body people.`;
+    return `${base} Klein Distilled appends: no extra legs/arms/hands, and no less than two of each per person. Keep poses simple; Strict adds hand wording; Klein 9B Base for hard full-body people.`;
   }
   return base;
 }

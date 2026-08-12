@@ -125,7 +125,11 @@ export function hasSessionLoraIdsForModel(
 }
 
 /** Write or clear a per-model session LoRA pick. */
-/** When sidecar / IDB disagree, keep the per-model list with more picks. */
+/**
+ * Overlay wins per model (including empty stacks). Models only in `base` are kept.
+ * Preferring the longer list used to "heal" sync gaps, but it also resurrected
+ * LoRAs the user had unchecked in Compose after job/refresh.
+ */
 export function mergeSessionLoraIdsByModel(
   base: SessionActiveLoraIdsByModel | undefined,
   overlay: SessionActiveLoraIdsByModel | undefined
@@ -138,8 +142,7 @@ export function mergeSessionLoraIdsByModel(
     if (!Array.isArray(ids)) {
       continue;
     }
-    const existing = result[model] ?? [];
-    result[model] = existing.length >= ids.length ? existing : ids;
+    result[model] = ids;
   }
   return result;
 }
