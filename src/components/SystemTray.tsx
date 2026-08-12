@@ -24,6 +24,7 @@ import {
 import { COMFY_ASSET_JOBS_UPDATED_EVENT } from '@/lib/comfy-asset-events';
 import { settingsComfyUiSectionHref } from '@/lib/settings-comfyui-nav';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
+import UiIcon from '@/components/ui/UiIcon';
 
 type TrayNoticeTone = AppToast['tone'];
 
@@ -54,10 +55,7 @@ function TrayNotice({
   onDismiss: () => void;
 }) {
   return (
-    <div
-      role="status"
-      className={`pointer-events-auto rounded-[var(--radius-lg)] border px-3 py-2.5 shadow-[var(--shadow-surface)] backdrop-blur-md ${NOTICE_TONE_CLASS[tone]}`}
-    >
+    <div role="status" className={`pointer-events-auto ui-tray-notice ${NOTICE_TONE_CLASS[tone]}`}>
       <div className="flex items-start gap-3">
         <p className="type-caption min-w-0 flex-1 leading-relaxed">{text}</p>
         <div className="flex shrink-0 items-center gap-2">
@@ -137,17 +135,14 @@ function TrayProgressBar({
   return (
     <div className={compact ? 'space-y-1' : 'space-y-1.5'}>
       <div
-        className={`overflow-hidden rounded-full bg-[var(--bg-muted)]/80 ${compact ? 'h-1' : 'h-1.5'}`}
+        className={`ui-progress-track ${compact ? '!h-1' : ''}`}
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={percent}
         aria-label={label ?? `Progress ${percent}%`}
       >
-        <div
-          className="h-full rounded-full bg-gradient-to-r from-sky-500/85 to-violet-400/90 transition-[width] duration-300 ease-out"
-          style={{ width: `${percent}%` }}
-        />
+        <div className="ui-progress-fill" style={{ width: `${percent}%` }} />
       </div>
       {label && !compact ? (
         <p className="type-caption text-[var(--text-tertiary)]">{label}</p>
@@ -244,8 +239,10 @@ function GalleryTrayRow({ entry }: { entry: ComfyGalleryEntry }) {
           className="h-11 w-11 shrink-0 rounded-lg border border-[var(--border-default)]/60 object-cover"
         />
       ) : (
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-violet-500/20 bg-violet-500/10 text-violet-300">
-          <span className="text-xs font-semibold">{entry.status === 'running' ? '▶' : '◷'}</span>
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)]">
+          <span className="inline-flex text-[var(--accent-text)]">
+            <UiIcon name={entry.status === 'running' ? 'play' : 'pending'} size={14} />
+          </span>
         </div>
       )}
       <div className="min-w-0 flex-1 space-y-1.5">
@@ -404,7 +401,7 @@ export default function SystemTray() {
   return (
     <div
       ref={rootRef}
-      className="pointer-events-none fixed bottom-[max(5.5rem,calc(env(safe-area-inset-bottom)+4.5rem))] right-4 z-[90] flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-2 md:bottom-4"
+      className="pointer-events-none fixed bottom-[max(5.5rem,calc(env(safe-area-inset-bottom)+4.5rem))] right-4 z-[90] flex w-[min(24rem,calc(100vw-2rem))] flex-col ui-tray-stack md:bottom-4"
       data-testid="system-tray"
       aria-live="polite"
     >
@@ -431,7 +428,7 @@ export default function SystemTray() {
 
       {showActivityCard ? (
         <div
-          className={`pointer-events-auto overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-elevated)]/95 shadow-[0_20px_50px_-24px_rgba(0,0,0,0.65),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl transition-[box-shadow,transform] duration-200 ${
+          className={`pointer-events-auto ui-tray-card overflow-hidden transition-[box-shadow] duration-200 ${
             expanded ? 'ring-1 ring-[var(--accent-ring)]' : ''
           }`}
         >
@@ -443,15 +440,15 @@ export default function SystemTray() {
             onClick={() => setExpanded(value => !value)}
             className="flex w-full items-start gap-3 px-3.5 py-3 text-left transition hover:bg-[var(--bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent-ring)] active:scale-[0.995]"
           >
-            <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-violet-500/25 bg-gradient-to-br from-violet-500/15 to-sky-500/10 text-violet-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+            <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--accent-border)] bg-gradient-to-br from-[var(--accent-muted)] to-[var(--tint-info-bg)] text-[var(--accent-text)] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
               {primary.kind === 'asset' ? (
-                <span className="text-[11px] font-semibold">↓</span>
+                <UiIcon name="download" size={14} />
               ) : primary.kind === 'held' ? (
-                <span className="text-[11px] font-semibold">⏸</span>
+                <UiIcon name="pause" size={14} />
               ) : (
                 <span className="relative flex h-2.5 w-2.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-violet-400/50" />
-                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-violet-400" />
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--accent)]/50" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[var(--accent)]" />
                 </span>
               )}
             </div>
@@ -472,7 +469,7 @@ export default function SystemTray() {
                   ) : null}
                 </div>
                 {extraCount > 0 ? (
-                  <span className="shrink-0 rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[10px] font-medium tabular-nums text-violet-200">
+                  <span className="shrink-0 rounded-full border border-[var(--accent-border)] bg-[var(--accent-muted)] px-2 py-0.5 text-[10px] font-medium tabular-nums text-[var(--accent-text)]">
                     +{extraCount}
                   </span>
                 ) : null}

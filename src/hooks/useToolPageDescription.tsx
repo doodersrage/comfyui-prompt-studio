@@ -61,7 +61,7 @@ export function useSettingsPageDescriptionRich(slimSettings: boolean): ReactNode
   return (
     <>
       Organized by area — use the tabs below. Browser overrides apply per session; server defaults
-      come from <code className="text-violet-300">.env.local</code> (see Overview).
+      come from <code className="ui-inline-code">.env.local</code> (see Overview).
     </>
   );
 }

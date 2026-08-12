@@ -74,11 +74,11 @@ export default function GalleryFailedRecoveryBanner({
   return (
     <div
       data-testid="gallery-failed-recovery"
-      className="space-y-3 rounded-[var(--radius-xl)] border border-rose-500/25 bg-gradient-to-br from-rose-500/12 via-[var(--bg-elevated)]/70 to-transparent px-4 py-3 shadow-[inset_0_1px_0_rgb(255_255_255_/0.03)]"
+      className="space-y-3 rounded-[var(--radius-xl)] border border-[var(--tint-danger-border)] bg-[var(--tint-danger-bg)] px-4 py-3 shadow-[inset_0_1px_0_rgb(255_255_255_/0.03)]"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 space-y-0.5">
-          <p className="text-sm font-medium text-rose-100">
+          <p className="text-sm font-medium text-[var(--tint-danger-text)]">
             {failedEntries.length > 0
               ? `${failedEntries.length} failed job${failedEntries.length === 1 ? '' : 's'}`
               : 'Last failed queue ready'}
@@ -89,7 +89,7 @@ export default function GalleryFailedRecoveryBanner({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-1.5 type-caption text-rose-100/80">
+          <label className="flex items-center gap-1.5 type-caption text-[var(--tint-danger-text)] opacity-80">
             Mode
             <select
               value={retryMode}
@@ -143,13 +143,15 @@ export default function GalleryFailedRecoveryBanner({
           {clusters.slice(0, 6).map(cluster => (
             <div
               key={cluster.key}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-rose-500/15 bg-[var(--bg-base)]/35 px-3 py-2"
+              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--tint-danger-border)] bg-[var(--bg-base)]/35 px-3 py-2"
             >
               <p
-                className="min-w-0 flex-1 truncate text-[11px] text-rose-50/90"
+                className="min-w-0 flex-1 truncate text-[11px] text-[var(--tint-danger-text)]"
                 title={cluster.label}
               >
-                <span className="mr-2 font-medium text-rose-100">{cluster.entries.length}×</span>
+                <span className="mr-2 font-medium text-[var(--tint-danger-text)]">
+                  {cluster.entries.length}×
+                </span>
                 {cluster.label.length > 120 ? `${cluster.label.slice(0, 120)}…` : cluster.label}
               </p>
               <Button

@@ -76,7 +76,7 @@ export default function ServerEnvPanel({
                 >
                   <div className="min-w-0 space-y-1">
                     <p className="type-heading">
-                      <code className="text-violet-300">{field.key}</code>
+                      <code className="text-[var(--accent-text)]">{field.key}</code>
                     </p>
                     <p className="type-caption">{field.label}</p>
                     {field.uiOverride ? (
@@ -101,9 +101,10 @@ export default function ServerEnvPanel({
       </div>
 
       <p className="type-caption">
-        Create <code className="text-violet-300">.env.local</code> at the project root. Set{' '}
-        <code className="text-violet-300">PROMPT_API_TOKEN</code> to protect API routes for scripts
-        and ComfyUI nodes. Secrets are never shown here — only whether they are configured.
+        Create <code className="text-[var(--accent-text)]">.env.local</code> at the project root.
+        Set <code className="text-[var(--accent-text)]">PROMPT_API_TOKEN</code> to protect API
+        routes for scripts and ComfyUI nodes. Secrets are never shown here — only whether they are
+        configured.
       </p>
     </ToolSection>
   );

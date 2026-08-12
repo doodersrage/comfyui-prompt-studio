@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { isTransientProgressStatus } from '@/lib/status-progress';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
+import UiIcon from '@/components/ui/UiIcon';
 
 export type StatusToastNote = {
   id: string;
@@ -80,11 +81,10 @@ export default function StatusToastStrip({
     <div
       role="status"
       aria-live={quiet ? 'polite' : 'assertive'}
-      className={`rounded-[var(--radius-lg)] border ${
-        quiet
-          ? 'border-[var(--border-subtle)] bg-[var(--bg-elevated)]/70 px-3 py-2 text-[var(--text-muted)] shadow-none'
-          : `px-3 py-2.5 shadow-[var(--shadow-surface)] ${TONE_CLASS[latest.tone ?? 'neutral']}`
-      } ${className}`.trim()}
+      data-quiet={quiet ? 'true' : 'false'}
+      className={`ui-toast ${
+        quiet ? '' : TONE_CLASS[latest.tone ?? 'neutral']
+      } ui-tray-notice ${className}`.trim()}
     >
       <div className="flex items-start gap-3">
         <p className="type-caption min-w-0 flex-1 leading-relaxed">{latest.text}</p>
@@ -101,10 +101,10 @@ export default function StatusToastStrip({
           <button
             type="button"
             aria-label="Dismiss status"
-            className="type-caption text-[var(--text-muted)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+            className="inline-flex items-center justify-center rounded-md p-0.5 text-[var(--text-muted)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
             onClick={() => setDismissedKey(fingerprint)}
           >
-            ✕
+            <UiIcon name="close" size={12} />
           </button>
         </div>
       </div>

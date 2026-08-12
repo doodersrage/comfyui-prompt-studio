@@ -31,18 +31,18 @@ export default function GalleryLineageBlock({
     <div
       className={
         layout === 'list'
-          ? 'space-y-3 rounded-2xl border border-violet-500/15 bg-violet-500/5 p-3'
-          : 'col-span-full space-y-3 rounded-2xl border border-violet-500/15 bg-violet-500/5 p-3'
+          ? 'space-y-3 rounded-2xl border border-[var(--accent-border)] bg-[var(--accent-muted)] p-3'
+          : 'col-span-full space-y-3 rounded-2xl border border-[var(--accent-border)] bg-[var(--accent-muted)] p-3'
       }
     >
       <div className="flex items-center justify-between gap-2 px-1">
-        <p className="text-[10px] font-medium uppercase tracking-wide text-violet-300/80">
+        <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--accent-text)]">
           Lineage · {group.derivatives.length + 1} outputs
         </p>
         <button
           type="button"
           onClick={onToggle}
-          className="rounded-lg border border-violet-500/25 bg-violet-500/10 px-2 py-0.6 text-[10px] font-medium text-violet-300 backdrop-blur-sm transition hover:border-violet-400/45 hover:bg-violet-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/45 active:scale-[0.98]"
+          className="rounded-lg border border-[var(--accent-border)] bg-[var(--accent-muted)] px-2 py-0.6 text-[10px] font-medium text-[var(--accent-text)] backdrop-blur-sm transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
         >
           {collapsed ? 'Expand' : 'Collapse'}
         </button>
@@ -55,7 +55,7 @@ export default function GalleryLineageBlock({
                 key={derivative.id}
                 className={
                   layout === 'list'
-                    ? `ml-3 border-l border-violet-500/20 pl-3${index === 0 ? '' : ' opacity-65 transition group-hover/card:opacity-100'}`
+                    ? `ml-3 border-l border-[var(--accent-border)] pl-3${index === 0 ? '' : ' opacity-65 transition group-hover/card:opacity-100'}`
                     : undefined
                 }
               >

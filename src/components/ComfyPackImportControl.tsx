@@ -120,7 +120,7 @@ export default function ComfyPackImportControl({
       {status ? (
         <p className="type-caption text-[var(--tint-success-text,var(--accent-text))]">{status}</p>
       ) : null}
-      {error ? <p className="type-caption whitespace-pre-wrap text-rose-300/90">{error}</p> : null}
+      {error ? <p className="type-caption whitespace-pre-wrap ui-status-danger">{error}</p> : null}
     </div>
   );
 }

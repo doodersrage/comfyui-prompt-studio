@@ -414,19 +414,15 @@ export default function ComfyModelAssetsPanel({
       <p className="type-caption text-[var(--text-muted)]">
         Curated same-machine installs for supported workflows — checkpoints, UNETs, VAEs, text
         encoders / CLIP, LoRAs, upscalers, and ControlNets — into{' '}
-        <code className="rounded bg-[var(--bg-muted)] px-1 text-violet-300">
-          COMFYUI_ROOT/models/…
-        </code>
-        . Downloads run one at a time, resume from{' '}
-        <code className="rounded bg-[var(--bg-muted)] px-1 text-violet-300">.partial</code> after
-        cancel or stall, and show up in the system tray. Only allowlisted Hugging Face URLs run;
-        gated or third-party rows stay manual. Optional{' '}
-        <code className="rounded bg-[var(--bg-muted)] px-1 text-violet-300">HF_TOKEN</code> helps
-        with gated repos / 403s.
+        <code className="ui-inline-code">COMFYUI_ROOT/models/…</code>. Downloads run one at a time,
+        resume from <code className="ui-inline-code">.partial</code> after cancel or stall, and show
+        up in the system tray. Only allowlisted Hugging Face URLs run; gated or third-party rows
+        stay manual. Optional <code className="ui-inline-code">HF_TOKEN</code> helps with gated
+        repos / 403s.
       </p>
 
       {queueJobs.length > 0 ? (
-        <section className="space-y-2 rounded-[var(--radius-xl)] border border-sky-500/20 bg-gradient-to-br from-sky-500/10 via-[var(--bg-elevated)]/80 to-transparent px-3.5 py-3 shadow-[inset_0_1px_0_rgb(255_255_255_/0.04)]">
+        <section className="ui-panel-accent space-y-2 px-3.5 py-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <p className="text-xs font-medium uppercase tracking-[0.08em] text-sky-200/90">
@@ -464,9 +460,9 @@ export default function ComfyModelAssetsPanel({
                       {job.error ? ` · ${job.error}` : ''}
                     </p>
                     {active && job.bytesTotal && job.bytesTotal > 0 ? (
-                      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[var(--bg-muted)]">
+                      <div className="ui-progress-track mt-1.5">
                         <div
-                          className="h-full rounded-full bg-gradient-to-r from-sky-500/80 to-emerald-400/70 transition-[width] duration-300"
+                          className="ui-progress-fill"
                           style={{ width: `${Math.min(100, Math.round(job.progress * 100))}%` }}
                         />
                       </div>
@@ -579,7 +575,7 @@ export default function ComfyModelAssetsPanel({
         )}
       </p>
 
-      {error ? <p className="type-caption text-rose-300/90">{error}</p> : null}
+      {error ? <p className="type-caption ui-status-danger">{error}</p> : null}
 
       {loading && rows.length === 0 ? (
         <p className="type-caption text-[var(--text-muted)]">Loading assets…</p>
@@ -640,7 +636,7 @@ export default function ComfyModelAssetsPanel({
                             </p>
                           ) : null}
                           {job?.status === 'error' || job?.status === 'cancelled' ? (
-                            <p className="type-caption text-rose-300/90">
+                            <p className="type-caption ui-status-danger">
                               {job.error ?? (job.status === 'cancelled' ? 'Cancelled.' : null)}
                             </p>
                           ) : null}

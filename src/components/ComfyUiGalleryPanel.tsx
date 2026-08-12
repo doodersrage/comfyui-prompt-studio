@@ -1140,7 +1140,7 @@ export default function ComfyUiGalleryPanel({
                     clearAll();
                   }
                 }}
-                className="ui-btn-ghost ui-btn-sm text-xs text-[var(--text-muted)] hover:text-rose-300"
+                className="ui-btn-ghost ui-btn-sm text-xs text-[var(--text-muted)] hover:text-[var(--tint-danger-text)]"
               >
                 Clear all
               </button>
@@ -1155,12 +1155,12 @@ export default function ComfyUiGalleryPanel({
       )}
 
       {pickFor ? (
-        <div className="sticky top-[calc(var(--header-offset,0px)+0.5rem)] z-20 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-violet-400/30 bg-violet-500/10 px-4 py-3 shadow-[0_12px_40px_-20px_rgba(109,40,217,0.55)] backdrop-blur-md">
+        <div className="sticky top-[calc(var(--header-offset,0px)+0.5rem)] z-20 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--accent-border)] bg-[var(--accent-muted)] px-4 py-3 shadow-[0_12px_40px_-20px_rgba(56,189,248,0.28)] backdrop-blur-md">
           <div className="min-w-0 space-y-0.5">
-            <p className="text-sm font-medium text-violet-50">
+            <p className="text-sm font-medium text-[var(--text-primary)]">
               Choosing {galleryPickPurposeLabel(pickFor)}
             </p>
-            <p className="type-caption text-violet-100/70">
+            <p className="type-caption text-[var(--text-secondary)]">
               Click a completed still image to send it back. Video clips are skipped.
             </p>
           </div>
@@ -1175,8 +1175,8 @@ export default function ComfyUiGalleryPanel({
           data-testid="gallery-cap-warning"
           className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border px-3 py-2 text-xs ${
             galleryCapWarning.level === 'urgent'
-              ? 'border-rose-500/30 bg-rose-500/10 text-rose-100'
-              : 'border-amber-500/30 bg-amber-500/10 text-amber-100'
+              ? 'border-[var(--tint-danger-border)] bg-[var(--tint-danger-bg)] text-[var(--tint-danger-text)]'
+              : 'border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] text-[var(--tint-warning-text)]'
           }`}
         >
           <p className="min-w-0 flex-1">{galleryCapWarning.message}</p>
@@ -1323,9 +1323,9 @@ export default function ComfyUiGalleryPanel({
         />
       ) : null}
 
-      {downloadError && <p className="text-xs text-rose-300">{downloadError}</p>}
+      {downloadError && <p className="text-xs ui-status-danger">{downloadError}</p>}
       {filter.derivativeOfEntryId || filter.focusEntryId || filter.derivedKind ? (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-violet-500/20 bg-violet-500/5 px-3 py-2 text-xs text-violet-200/90">
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--accent-border)] bg-[var(--accent-muted)] px-3 py-2 text-xs text-[var(--accent-text)]">
           <span>
             {filter.focusEntryId
               ? 'Lineage filter: showing source entry'
@@ -1343,7 +1343,7 @@ export default function ComfyUiGalleryPanel({
                 derivedKind: undefined,
               }))
             }
-            className="rounded-lg border border-violet-500/30 px-2 py-0.5 text-[11px] transition hover:border-violet-400/50 hover:text-violet-100"
+            className="rounded-lg border border-[var(--accent-border)] px-2 py-0.5 text-[11px] transition hover:border-[var(--accent-border)] hover:text-[var(--accent-text)]"
           >
             Clear lineage filter
           </button>
@@ -1372,7 +1372,7 @@ export default function ComfyUiGalleryPanel({
               }
               className={`rounded-full border px-2.5 py-0.5 text-[11px] transition ${
                 filter.derivedKind === kind
-                  ? 'border-violet-400/50 bg-violet-500/15 text-violet-100'
+                  ? 'border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)]'
                   : 'border-[var(--border-subtle)] bg-[var(--bg-base)]/40 text-[var(--text-muted)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]'
               }`}
             >

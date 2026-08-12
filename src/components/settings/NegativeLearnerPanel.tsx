@@ -94,7 +94,7 @@ export default function NegativeLearnerPanel() {
               <button
                 type="button"
                 onClick={() => appendToNegativeProfile(item.token)}
-                className="rounded-full border border-violet-500/30 bg-violet-500/10 px-2.5 py-0.5 text-xs text-violet-100 transition hover:border-violet-400/50"
+                className="rounded-full border border-[var(--accent-border)] bg-[var(--accent-muted)] px-2.5 py-0.5 text-xs text-[var(--accent-text)] transition hover:border-[var(--accent-border)]"
               >
                 To negative
               </button>

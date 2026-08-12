@@ -1,7 +1,19 @@
+import BrandMark from '@/components/BrandMark';
+
+/** Route-level loading — matches design tokens (not a generic blue spinner). */
 export default function Loading() {
   return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+    <div
+      className="ui-view-state min-h-[70vh]"
+      role="status"
+      aria-live="polite"
+      aria-label="Loading Prompt Studio"
+    >
+      <div className="ui-loader-mark">
+        <BrandMark size={40} />
+        <span className="ui-loader-ring" aria-hidden />
+      </div>
+      <p className="type-caption">Loading workspace…</p>
     </div>
   );
 }

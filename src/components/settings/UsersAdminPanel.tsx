@@ -73,7 +73,7 @@ function FeaturePicker({
                 disabled
                   ? 'cursor-not-allowed border-[var(--border-subtle)]/50 bg-[var(--bg-base)]/20 opacity-60'
                   : allowed
-                    ? 'border-violet-500/25 bg-violet-500/5 text-[var(--text-primary)]'
+                    ? 'border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--text-primary)]'
                     : 'border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/40 text-[var(--text-muted)]'
               }`}
             >
@@ -82,7 +82,7 @@ function FeaturePicker({
                 checked={allowed}
                 disabled={disabled}
                 onChange={() => toggleAllowed(feature.id)}
-                className="mt-0.5 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
+                className="mt-0.5 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-[var(--accent)]"
               />
               <span>
                 <span className="block font-medium text-[var(--text-primary)]">
@@ -357,7 +357,7 @@ export default function UsersAdminPanel() {
   return (
     <div className="space-y-8">
       {status ? (
-        <p className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-3 py-2 text-sm text-violet-100">
+        <p className="rounded-xl border border-[var(--accent-border)] bg-[var(--accent-muted)] px-3 py-2 text-sm text-[var(--accent-text)]">
           {status}
         </p>
       ) : null}
@@ -374,7 +374,7 @@ export default function UsersAdminPanel() {
               onClick={() => setSelectedGroupId(group.id)}
               className={`rounded-full border px-3 py-1 text-xs transition ${
                 selectedGroupId === group.id
-                  ? 'border-violet-500/50 bg-violet-500/15 text-violet-100'
+                  ? 'border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)]'
                   : 'border-[var(--border-default)] text-[var(--text-muted)] hover:border-[var(--border-default)]'
               }`}
             >
@@ -533,7 +533,7 @@ export default function UsersAdminPanel() {
                   <tr
                     key={snapshot.userId}
                     className={`border-b border-[var(--border-subtle)]/50 transition hover:bg-[var(--bg-muted)]/40 ${
-                      selectedUserId === snapshot.userId ? 'bg-violet-500/5' : ''
+                      selectedUserId === snapshot.userId ? 'bg-[var(--accent-muted)]' : ''
                     }`}
                   >
                     <td className="px-3 py-2 text-[var(--text-primary)]">{snapshot.username}</td>
@@ -560,8 +560,10 @@ export default function UsersAdminPanel() {
         )}
 
         {selectedUserAnalytics ? (
-          <div className="mt-4 rounded-2xl border border-violet-500/20 bg-violet-500/5 p-4 text-sm text-[var(--text-secondary)]">
-            <p className="font-medium text-violet-100">{selectedUserAnalytics.username}</p>
+          <div className="mt-4 rounded-2xl border border-[var(--accent-border)] bg-[var(--accent-muted)] p-4 text-sm text-[var(--text-secondary)]">
+            <p className="font-medium text-[var(--accent-text)]">
+              {selectedUserAnalytics.username}
+            </p>
             <p className="mt-1 text-xs text-[var(--text-muted)]">
               Synced {formatCapturedAt(selectedUserAnalytics.capturedAt)}
             </p>
@@ -582,7 +584,7 @@ export default function UsersAdminPanel() {
                       <div
                         key={point.capturedAt}
                         title={`${point.historyTotal} history · ${new Date(point.capturedAt).toLocaleDateString()}`}
-                        className="flex-1 rounded-t bg-violet-500/40"
+                        className="flex-1 rounded-t bg-[var(--accent)]/40"
                         style={{ height: `${height}%` }}
                       />
                     );
@@ -660,7 +662,7 @@ export default function UsersAdminPanel() {
               </div>
               <button
                 type="button"
-                className="text-xs text-rose-300"
+                className="text-xs ui-status-danger"
                 onClick={() => {
                   void fetch(`/api/shared-presets?id=${encodeURIComponent(preset.id)}`, {
                     method: 'DELETE',
@@ -711,7 +713,7 @@ export default function UsersAdminPanel() {
                 }
                 className={`rounded-full border px-3 py-1 text-xs transition ${
                   active
-                    ? 'border-violet-500/40 bg-violet-500/15 text-violet-100'
+                    ? 'border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)]'
                     : 'border-[var(--border-default)]/80 text-[var(--text-muted)] hover:border-[var(--border-default)]'
                 }`}
               >
@@ -760,7 +762,7 @@ export default function UsersAdminPanel() {
               </div>
               <button
                 type="button"
-                className="text-xs text-rose-300"
+                className="text-xs ui-status-danger"
                 onClick={() => {
                   void fetch('/api/shared-projects', {
                     method: 'DELETE',
@@ -814,7 +816,7 @@ export default function UsersAdminPanel() {
               onClick={() => setSelectedUserId(user.id)}
               className={`rounded-full border px-3 py-1 text-xs transition ${
                 selectedUserId === user.id
-                  ? 'border-violet-500/50 bg-violet-500/15 text-violet-100'
+                  ? 'border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)]'
                   : 'border-[var(--border-default)] text-[var(--text-muted)] hover:border-[var(--border-default)]'
               }`}
             >
@@ -872,7 +874,7 @@ export default function UsersAdminPanel() {
                   onChange={event =>
                     setUserForm(prev => ({ ...prev, emailNotifyBatch: event.target.checked }))
                   }
-                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
+                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-[var(--accent)]"
                 />
                 Email on batch completion
               </label>
@@ -883,7 +885,7 @@ export default function UsersAdminPanel() {
                   onChange={event =>
                     setUserForm(prev => ({ ...prev, emailNotifySecurity: event.target.checked }))
                   }
-                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
+                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-[var(--accent)]"
                 />
                 Email on password change
               </label>
@@ -911,7 +913,7 @@ export default function UsersAdminPanel() {
                   onChange={event =>
                     setUserForm(prev => ({ ...prev, enabled: event.target.checked }))
                   }
-                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
+                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-[var(--accent)]"
                 />
                 Account enabled
               </label>
@@ -933,7 +935,7 @@ export default function UsersAdminPanel() {
                   onChange={event =>
                     setUserForm(prev => ({ ...prev, exportEnabled: event.target.checked }))
                   }
-                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
+                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-[var(--accent)]"
                 />
                 Nightly server export
               </label>
@@ -961,7 +963,7 @@ export default function UsersAdminPanel() {
                                 : [...prev.groupIds, group.id],
                             }))
                           }
-                          className="h-3.5 w-3.5 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
+                          className="h-3.5 w-3.5 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-[var(--accent)]"
                         />
                         {group.name}
                       </label>
@@ -972,7 +974,7 @@ export default function UsersAdminPanel() {
             ) : null}
 
             {userForm.role === 'admin' ? (
-              <p className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-3 py-2 text-sm text-violet-100">
+              <p className="rounded-xl border border-[var(--accent-border)] bg-[var(--accent-muted)] px-3 py-2 text-sm text-[var(--accent-text)]">
                 Admin accounts always have access to every section. Feature blocks apply only to
                 regular users.
               </p>

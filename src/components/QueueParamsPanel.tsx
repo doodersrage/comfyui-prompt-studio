@@ -51,7 +51,7 @@ export default function QueueParamsPanel({ compact = false }: QueueParamsPanelPr
             type="checkbox"
             checked={settings.enabled === true}
             onChange={event => update({ enabled: event.target.checked })}
-            className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
+            className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-[var(--accent)]"
           />
           Override defaults
         </label>

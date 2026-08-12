@@ -2,6 +2,7 @@ import 'server-only';
 
 import { findUserById } from '@/lib/auth/store';
 import type { AuthUser } from '@/lib/auth/types';
+import { brandedEmailHtml, emailParagraphs } from './brand';
 import { getEmailConfig } from './config';
 import { sendEmail } from './mailer';
 
@@ -47,20 +48,28 @@ export async function notifyPasswordChanged(input: {
       ? `An administrator${input.adminUsername ? ` (${input.adminUsername})` : ''} reset your password.`
       : 'Your password was changed from your profile.';
 
+  const textLines = [
+    `Hello ${input.username},`,
+    '',
+    actorLine,
+    '',
+    `Time: ${when}`,
+    '',
+    'If you did not make this change, contact your administrator immediately.',
+    '',
+    appOrigin(),
+  ];
+
   await sendEmail({
     to,
     subject: 'Prompt Studio — password updated',
-    text: [
-      `Hello ${input.username},`,
-      '',
-      actorLine,
-      '',
-      `Time: ${when}`,
-      '',
-      'If you did not make this change, contact your administrator immediately.',
-      '',
-      appOrigin(),
-    ].join('\n'),
+    text: textLines.join('\n'),
+    html: brandedEmailHtml({
+      title: 'Password updated',
+      preheader: 'Your Prompt Studio password was changed.',
+      footerUrl: appOrigin(),
+      bodyHtml: emailParagraphs(textLines),
+    }),
   });
 }
 
@@ -124,5 +133,11 @@ export async function notifyBatchCompleted(input: {
     to,
     subject: `Prompt Studio — ${label} complete`,
     text: lines.join('\n'),
+    html: brandedEmailHtml({
+      title: `${label} complete`,
+      preheader: `${input.promptCount} prompts finished in Prompt Studio.`,
+      footerUrl: `${appOrigin()}/studio`,
+      bodyHtml: emailParagraphs(lines),
+    }),
   });
 }

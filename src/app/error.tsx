@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect } from 'react';
-import PageCanvas from '@/components/ui/PageCanvas';
-import { EmptyState } from '@/components/ui/ViewState';
+import SystemPageShell from '@/components/ui/SystemPageShell';
+import { Button } from '@/components/ui/Button';
 
 export default function GlobalError({
   error,
@@ -16,19 +16,18 @@ export default function GlobalError({
   }, [error]);
 
   return (
-    <PageCanvas accent="neutral">
-      <div className="mx-auto flex min-h-[50vh] max-w-2xl items-center justify-center px-6 py-16">
-        <EmptyState
-          icon="alert"
-          title="Something went wrong"
-          description={
-            error.digest
-              ? `An unexpected error occurred (ref ${error.digest}). Try again, or reload the page.`
-              : 'An unexpected error occurred. Try again, or reload the page.'
-          }
-          action={{ label: 'Try again', onClick: () => reset() }}
-        />
-      </div>
-    </PageCanvas>
+    <SystemPageShell
+      overline="Error"
+      title="Something went wrong"
+      description={
+        error.digest
+          ? `An unexpected error occurred (ref ${error.digest}). Try again, or reload the page.`
+          : 'An unexpected error occurred. Try again, or reload the page.'
+      }
+    >
+      <Button variant="secondary" onClick={() => reset()}>
+        Try again
+      </Button>
+    </SystemPageShell>
   );
 }

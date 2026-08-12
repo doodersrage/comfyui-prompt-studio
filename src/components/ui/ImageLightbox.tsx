@@ -1103,7 +1103,7 @@ export default function ImageLightbox({
                 max={95}
                 value={baPosition}
                 onChange={event => setBaPosition(Number(event.target.value))}
-                className="w-full accent-violet-300"
+                className="w-full accent-[var(--accent)]"
                 aria-label="Before after wipe position"
                 onPointerDown={stopStagePointer}
               />
@@ -1197,11 +1197,8 @@ export default function ImageLightbox({
 
     return (
       <div
-        className={`max-h-[40vh] space-y-2 overflow-y-auto rounded-xl border p-3 shadow-[0_12px_40px_rgb(0_0_0/0.35)] backdrop-blur-md ${
-          compact
-            ? 'border-white/15 bg-black/55 text-white'
-            : 'border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/90 text-[var(--text-secondary)]'
-        }`}
+        className="ui-lightbox-panel max-h-[40vh] space-y-2 overflow-y-auto p-3"
+        data-immersive={compact ? 'true' : undefined}
       >
         {chips.length > 0 ? (
           <div className="flex flex-wrap gap-1.5">
@@ -1296,7 +1293,7 @@ export default function ImageLightbox({
               }}
               rows={3}
               placeholder="Quick note for this output…"
-              className={`w-full resize-y rounded-lg border px-2.5 py-2 text-[12px] leading-relaxed outline-none transition focus-visible:ring-2 focus-visible:ring-violet-400/50 ${
+              className={`w-full resize-y rounded-lg border px-2.5 py-2 text-[12px] leading-relaxed outline-none transition focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] ${
                 compact
                   ? 'border-white/15 bg-black/40 text-white placeholder:text-white/35'
                   : 'border-[var(--border-subtle)] bg-[var(--bg-subtle)] text-[var(--text-secondary)] placeholder:text-[var(--text-muted)]'
@@ -1320,11 +1317,8 @@ export default function ImageLightbox({
     const channelClass = (color: string) => (compact ? `${color}/80` : color);
     return (
       <div
-        className={`space-y-2 rounded-xl border p-3 shadow-[0_12px_32px_rgb(0_0_0/0.3)] backdrop-blur-md ${
-          compact
-            ? 'border-white/15 bg-black/55 text-white'
-            : 'border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/90 text-[var(--text-secondary)]'
-        }`}
+        className="ui-lightbox-panel space-y-2 p-3"
+        data-immersive={compact ? 'true' : undefined}
       >
         <div className="flex items-center justify-between gap-2">
           <p className="type-overline">Color peek</p>
@@ -1402,11 +1396,8 @@ export default function ImageLightbox({
     ] as const;
     return (
       <div
-        className={`absolute inset-x-4 top-16 z-[40] mx-auto max-w-md rounded-2xl border p-4 shadow-[0_20px_60px_rgb(0_0_0/0.45)] backdrop-blur-xl sm:inset-x-auto ${
-          compact
-            ? 'border-white/20 bg-black/75 text-white'
-            : 'border-[var(--border-subtle)] bg-[var(--bg-base)]/95 text-[var(--text-secondary)]'
-        }`}
+        className="ui-lightbox-panel absolute inset-x-4 top-16 z-[40] mx-auto max-w-md p-4 sm:inset-x-auto"
+        data-immersive={compact ? 'true' : undefined}
         role="dialog"
         aria-label="Lightbox shortcuts"
       >
@@ -1478,13 +1469,13 @@ export default function ImageLightbox({
                 data-testid={`lightbox-rate-${rating}`}
                 aria-label={`${rating}★`}
                 title={`Rate ${rating}`}
-                className={`rounded-md px-1.5 py-0.5 text-[11px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 active:scale-[0.97] ${
+                className={`rounded-md px-1.5 py-0.5 text-[11px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.97] ${
                   compact
                     ? slideChrome.rating === rating
-                      ? 'bg-violet-500/40 text-white ring-white/40'
+                      ? 'bg-[var(--accent-muted)] text-white ring-white/40'
                       : 'bg-white/10 text-white/75 hover:bg-white/20'
                     : slideChrome.rating === rating
-                      ? 'bg-violet-500/25 text-violet-100 ring-violet-400/40'
+                      ? 'bg-[var(--accent-muted)] text-[var(--accent-text)] ring-[var(--accent-ring)]'
                       : 'bg-[var(--bg-muted)] text-[var(--text-muted)] hover:bg-[var(--bg-hover)]'
                 }`}
               >
@@ -1759,11 +1750,8 @@ export default function ImageLightbox({
             })}
             {moreOpen ? (
               <div
-                className={`absolute bottom-full left-0 z-40 mb-1.5 min-w-[11rem] rounded-xl border p-1.5 shadow-[0_16px_40px_rgb(0_0_0/0.4)] backdrop-blur-md ${
-                  compact
-                    ? 'border-white/20 bg-black/80'
-                    : 'border-[var(--border-subtle)] bg-[var(--bg-base)]/95'
-                }`}
+                className="ui-lightbox-panel absolute bottom-full left-0 z-40 mb-1.5 min-w-[11rem] p-1.5"
+                data-immersive={compact ? 'true' : undefined}
               >
                 {[
                   slideChrome.showOutpaint !== false && slideChrome.onOutpaint
@@ -1787,7 +1775,7 @@ export default function ImageLightbox({
                     <button
                       key={item!.label}
                       type="button"
-                      className={`block w-full rounded-lg px-2.5 py-1.5 text-left text-[12px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 ${
+                      className={`block w-full rounded-lg px-2.5 py-1.5 text-left text-[12px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] ${
                         compact
                           ? 'text-white/85 hover:bg-white/10'
                           : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
@@ -1822,11 +1810,8 @@ export default function ImageLightbox({
     }
     return (
       <div
-        className={`flex items-center gap-2 rounded-full px-3 py-1 text-[11px] backdrop-blur-md ${
-          compact
-            ? 'bg-black/55 text-white/85'
-            : 'border border-[var(--border-subtle)] bg-[var(--bg-base)]/80 text-[var(--text-secondary)]'
-        }`}
+        className="ui-lightbox-pill flex items-center gap-2"
+        data-immersive={compact ? 'true' : undefined}
       >
         <span
           className={`h-2 w-2 rounded-full ${
@@ -1853,11 +1838,8 @@ export default function ImageLightbox({
     }
     return (
       <div
-        className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border px-3 py-2 text-[12px] shadow-[0_12px_32px_rgb(0_0_0/0.28)] backdrop-blur-md ${
-          compact
-            ? 'border-white/20 bg-black/60 text-white/85'
-            : 'border-[var(--border-subtle)] bg-[var(--bg-base)]/90 text-[var(--text-secondary)]'
-        }`}
+        className="ui-lightbox-panel flex flex-wrap items-center justify-between gap-3 px-3 py-2 text-[12px]"
+        data-immersive={compact ? 'true' : undefined}
       >
         <p>
           Tip: press <span className="font-medium">?</span> for lightbox shortcuts (zoom, rate,
@@ -1920,9 +1902,9 @@ export default function ImageLightbox({
                   }
                   goToIndex(thumbIndex, true);
                 }}
-                className={`relative h-12 w-12 shrink-0 overflow-hidden rounded-md border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 ${
+                className={`relative h-12 w-12 shrink-0 overflow-hidden rounded-md border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] ${
                   active
-                    ? 'border-violet-400/70 ring-1 ring-violet-400/40'
+                    ? 'border-[var(--accent-border)] ring-1 ring-[var(--accent-ring)]'
                     : paired
                       ? 'border-amber-300/80 ring-1 ring-amber-300/50'
                       : compact

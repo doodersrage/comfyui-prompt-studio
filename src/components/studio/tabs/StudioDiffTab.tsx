@@ -39,6 +39,7 @@ export default function StudioDiffTab({
     <ToolSection title="Prompt diff">
       {entries.length === 0 ? (
         <EmptyState
+          branded
           icon="diff"
           title="Save prompts before diffing"
           description="Diff compares two history entries word-by-word. Generate prompts elsewhere, save them to history, then pick left and right entries here."

@@ -109,7 +109,7 @@ export default function HomeDashboard() {
 
       {showContinue ? (
         <ToolSection title="Pick up where you left off">
-          <div className="flex flex-col gap-4 rounded-[var(--radius-xl)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/60 p-4 shadow-[var(--shadow-surface)] sm:flex-row sm:items-center sm:justify-between">
+          <div className="ui-continue-card flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0 space-y-1">
               {draft ? (
                 <>

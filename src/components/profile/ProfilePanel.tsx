@@ -132,7 +132,7 @@ export default function ProfilePanel() {
   return (
     <div className="space-y-8">
       {status ? (
-        <p className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-3 py-2 text-sm text-violet-100">
+        <p className="rounded-xl border border-[var(--accent-border)] bg-[var(--accent-muted)] px-3 py-2 text-sm text-[var(--accent-text)]">
           {status}
         </p>
       ) : null}
@@ -188,7 +188,7 @@ export default function ProfilePanel() {
               type="checkbox"
               checked={emailNotifyBatch}
               onChange={event => setEmailNotifyBatch(event.target.checked)}
-              className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
+              className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-[var(--accent)]"
             />
             Batch & campaign completion
           </label>
@@ -197,7 +197,7 @@ export default function ProfilePanel() {
               type="checkbox"
               checked={emailNotifySecurity}
               onChange={event => setEmailNotifySecurity(event.target.checked)}
-              className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
+              className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-[var(--accent)]"
             />
             Password & security updates
           </label>
@@ -249,7 +249,7 @@ export default function ProfilePanel() {
             type="checkbox"
             checked={campaign.enabled}
             onChange={event => setCampaign(prev => ({ ...prev, enabled: event.target.checked }))}
-            className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
+            className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-[var(--accent)]"
           />
           Enable scheduled campaign
         </label>
@@ -303,7 +303,7 @@ export default function ProfilePanel() {
               onChange={event =>
                 setCampaign(prev => ({ ...prev, autoQueueComfyUi: event.target.checked }))
               }
-              className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
+              className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-[var(--accent)]"
             />
             Auto-queue to ComfyUI
           </label>
@@ -329,7 +329,7 @@ export default function ProfilePanel() {
                 setCampaign(prev => ({ ...prev, bestOfNVision: event.target.checked }))
               }
               disabled={!campaign.bestOfN || campaign.bestOfN < 2 || !campaign.autoQueueComfyUi}
-              className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500 disabled:opacity-50"
+              className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-[var(--accent)] disabled:opacity-50"
             />
             Vision-rank queued outputs
           </label>
@@ -342,7 +342,7 @@ export default function ProfilePanel() {
             type="checkbox"
             checked={exportEnabled}
             onChange={event => setExportEnabled(event.target.checked)}
-            className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
+            className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-[var(--accent)]"
           />
           Include my synced history/gallery in nightly server exports
         </label>
@@ -367,7 +367,7 @@ export default function ProfilePanel() {
                     void navigator.clipboard.writeText(preset.hints);
                     setStatus(`Copied hints for “${preset.label}”.`);
                   }}
-                  className="mt-2 text-xs text-violet-300 hover:text-violet-200"
+                  className="mt-2 text-xs text-[var(--accent-text)] hover:text-[var(--accent-text)]"
                 >
                   Copy hints
                 </button>

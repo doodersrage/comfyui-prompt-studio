@@ -1137,8 +1137,8 @@ export default function SharedToolControls({
   );
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-4">
+    <div className="ui-sidebar-dense ui-field-stack space-y-5">
+      <div className="space-y-3">
         <FieldLabel
           hint={
             shared.inferenceEngine === 'diffusers'

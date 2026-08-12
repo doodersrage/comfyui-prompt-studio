@@ -67,7 +67,7 @@ function StrengthSlider({
         step={0.05}
         value={value}
         onChange={event => onChange(Number(event.target.value))}
-        className="h-7 w-full cursor-pointer accent-violet-500"
+        className="h-7 w-full cursor-pointer accent-[var(--accent)]"
       />
     </label>
   );
@@ -160,7 +160,7 @@ export default function LoraStackSessionPicker({
         No LoRAs in your library yet. Add them under{' '}
         <a
           href="/settings?tab=comfyui&section=lora-library"
-          className="text-violet-300 underline-offset-2 transition hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-400"
+          className="ui-text-link focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
         >
           Settings → LoRA library
         </a>
@@ -195,7 +195,11 @@ export default function LoraStackSessionPicker({
             <li
               key={entry.id}
               className={
-                checked ? 'bg-violet-500/[0.04]' : isTuning ? 'bg-[var(--bg-muted)]/30' : undefined
+                checked
+                  ? 'bg-[var(--accent-muted)]'
+                  : isTuning
+                    ? 'bg-[var(--bg-muted)]/30'
+                    : undefined
               }
             >
               <div className="flex items-center gap-2.5 px-3 py-2.5">
@@ -213,7 +217,7 @@ export default function LoraStackSessionPicker({
                   }}
                   className={
                     checkboxClassName ??
-                    'h-4 w-4 shrink-0 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500'
+                    'h-4 w-4 shrink-0 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-[var(--accent)]'
                   }
                 />
                 <button
@@ -223,7 +227,7 @@ export default function LoraStackSessionPicker({
                     setTuningEntryId(current => (current === entry.id ? null : entry.id));
                     setStrengthEditMode('session');
                   }}
-                  className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-md px-1 py-0.5 text-left transition hover:bg-[var(--bg-muted)]/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500"
+                  className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-md px-1 py-0.5 text-left transition hover:bg-[var(--bg-muted)]/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
                 >
                   <span className="truncate text-sm text-[var(--text-primary)]">
                     {entry.label || entry.id}
@@ -232,7 +236,7 @@ export default function LoraStackSessionPicker({
                     <span className="shrink-0 font-mono text-[10px] tabular-nums text-[var(--text-muted)]">
                       {strengths.strengthModel.toFixed(2)}/{strengths.strengthClip.toFixed(2)}
                       {strengths.hasSessionOverride ? (
-                        <span className="ml-1 rounded bg-violet-500/15 px-1 text-violet-200/90">
+                        <span className="ml-1 rounded bg-[var(--accent-muted)] px-1 text-[var(--accent-text)]">
                           run
                         </span>
                       ) : null}
@@ -246,7 +250,7 @@ export default function LoraStackSessionPicker({
       </ul>
 
       {tuningEntry ? (
-        <div className="space-y-3 rounded-xl border border-violet-500/20 bg-violet-500/[0.04] px-3 py-3">
+        <div className="ui-panel-accent space-y-3 px-3 py-3">
           <div className="min-w-0 space-y-0.5">
             <p className="truncate text-sm font-medium text-[var(--text-primary)]">
               {tuningEntry.label || tuningEntry.id}

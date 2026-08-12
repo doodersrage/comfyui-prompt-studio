@@ -390,10 +390,16 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           onClick={onNavigate}
           className="ui-nav-brand inline-flex items-center gap-2.5 rounded-[var(--radius-md)] px-1 py-1 transition hover:bg-[var(--bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.99]"
         >
-          <BrandMark size={32} withWordmark wordmarkClassName="type-title tracking-tight" />
+          <BrandMark
+            size={32}
+            withWordmark
+            wordmarkClassName="type-brand type-title tracking-tight"
+          />
         </Link>
-        <p className="type-caption mt-1 px-3">
-          for ComfyUI <span className="text-[var(--text-muted)]">· ⌘K</span>
+        <p className="type-caption mt-1.5 px-3 text-[var(--text-tertiary)]">
+          Studio for ComfyUI
+          <span className="mx-1.5 text-[var(--border-strong)]">·</span>
+          <kbd className="ui-kbd">⌘K</kbd>
         </p>
       </div>
 
@@ -510,7 +516,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         ) : null}
         <div
           key="auth-profile"
-          className="rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-3"
+          className="rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[color-mix(in_oklab,var(--bg-elevated)_88%,transparent)] px-3 py-3 shadow-[inset_0_1px_0_rgb(255_255_255/0.03)]"
         >
           <p
             className={
@@ -598,7 +604,11 @@ export default function AppNav() {
           href="/"
           className="inline-flex items-center gap-2 rounded-[var(--radius-md)] py-0.5 transition hover:bg-[var(--bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.99]"
         >
-          <BrandMark size={28} withWordmark wordmarkClassName="type-heading tracking-tight" />
+          <BrandMark
+            size={28}
+            withWordmark
+            wordmarkClassName="type-brand type-heading tracking-tight"
+          />
         </Link>
         <button
           type="button"

@@ -332,7 +332,7 @@ export default function InpaintMaskEditor({
             type="file"
             accept="image/*"
             onChange={event => onUploadChange(event.target.files?.[0] ?? null)}
-            className="block w-full text-sm text-[var(--text-muted)] file:mr-4 file:rounded-lg file:border-0 file:bg-fuchsia-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-fuchsia-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-400/60"
+            className="ui-file-input block w-full"
           />
         </div>
       )}

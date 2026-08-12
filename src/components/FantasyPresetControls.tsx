@@ -135,7 +135,7 @@ export default function FantasyPresetControls({
         <p className="type-heading">Fantasy presets (optional)</p>
         <div className="flex items-center gap-2 text-xs">
           {selectionCount > 0 ? (
-            <span className="text-violet-300">{selectionCount} active</span>
+            <span className="text-[var(--accent-text)]">{selectionCount} active</span>
           ) : (
             <span className="text-[var(--text-muted)]">Optional refinements</span>
           )}

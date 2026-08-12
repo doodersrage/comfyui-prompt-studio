@@ -28,7 +28,7 @@ function TimelineNode({
         onClick={() => onSelect?.(node.entry.id)}
         className={`block w-full rounded-lg border px-3 py-2 text-left text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.99] ${
           active
-            ? 'border-violet-500/40 bg-violet-500/10 text-violet-100'
+            ? 'border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)]'
             : 'border-[var(--border-subtle)]/80 text-[var(--text-muted)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]'
         }`}
         style={{ marginLeft: depth * 12 }}

@@ -1,6 +1,7 @@
 import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
 import { readSessionFromRequest } from '@/lib/auth/session';
 import { findUserById, isAuthEnabled } from '@/lib/auth/store';
+import { brandedEmailHtml, emailParagraphs } from '@/lib/email/brand';
 import { sendEmail, isEmailConfigured } from '@/lib/email/mailer';
 import { getEmailConfig } from '@/lib/email/config';
 
@@ -34,20 +35,27 @@ export async function POST(request: Request) {
   }
 
   const completed = body.completed ?? 1;
+  const origin = process.env.PROMPT_API_URL?.trim() || 'http://127.0.0.1:47832';
+  const textLines = [
+    `Hello ${user.username},`,
+    '',
+    `${completed} gallery job(s) finished.`,
+    body.lastPrompt ? `Latest: ${body.lastPrompt}` : '',
+    body.lastStatus ? `Status: ${body.lastStatus}` : '',
+    '',
+    `Open gallery: ${origin}/gallery`,
+  ].filter(Boolean);
+
   await sendEmail({
     to,
     subject: `Prompt Studio — ${completed} ComfyUI job(s) finished`,
-    text: [
-      `Hello ${user.username},`,
-      '',
-      `${completed} gallery job(s) finished.`,
-      body.lastPrompt ? `Latest: ${body.lastPrompt}` : '',
-      body.lastStatus ? `Status: ${body.lastStatus}` : '',
-      '',
-      `Open gallery: ${process.env.PROMPT_API_URL?.trim() || 'http://127.0.0.1:47832'}/gallery`,
-    ]
-      .filter(Boolean)
-      .join('\n'),
+    text: textLines.join('\n'),
+    html: brandedEmailHtml({
+      title: 'Jobs finished',
+      preheader: `${completed} ComfyUI job(s) finished in Prompt Studio.`,
+      footerUrl: `${origin}/gallery`,
+      bodyHtml: emailParagraphs(textLines),
+    }),
   });
 
   return apiJson({ ok: true });

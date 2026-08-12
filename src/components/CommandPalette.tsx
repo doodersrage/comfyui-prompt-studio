@@ -26,6 +26,9 @@ import type { GlobalSearchResult } from '@/lib/global-search';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import { NSFW_GENERATOR_NAV_LINK } from '@/lib/nsfw-generator-nav';
 import { useNsfwGeneratorEnabled } from '@/hooks/useNsfwGeneratorEnabled';
+import BrandBars from '@/components/BrandBars';
+import BrandMark from '@/components/BrandMark';
+import BrandStudioIllustration from '@/components/BrandStudioIllustration';
 import KeyboardShortcutsHelp from '@/components/KeyboardShortcutsHelp';
 import { markOnboardingDiscoverPalette } from '@/lib/onboarding-hooks';
 
@@ -448,8 +451,26 @@ export default function CommandPalette() {
 
   return (
     <>
-      <div className="fixed inset-0 z-[100] flex items-start justify-center bg-[rgb(0_0_0_/0.55)] px-4 pt-[12vh] backdrop-blur-sm">
-        <div className="w-full max-w-xl overflow-hidden rounded-[var(--radius-xl)] border border-[var(--border-default)] bg-[var(--bg-muted)] shadow-[var(--shadow-card)]">
+      <div className="ui-command-overlay fixed inset-0 z-[100] flex items-start justify-center px-4 pt-[max(4.5rem,10vh)] sm:pt-[12vh]">
+        <div
+          className="ui-command-panel relative z-10 w-full max-w-xl overflow-hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Command palette"
+        >
+          <div className="flex items-center gap-3 border-b border-[var(--border-subtle)] px-4 py-3">
+            <BrandMark size={28} />
+            <div className="min-w-0 flex-1">
+              <p className="type-brand type-heading tracking-tight text-[var(--text-primary)]">
+                Prompt Studio
+              </p>
+              <p className="ui-meta flex items-center gap-1.5">
+                <BrandBars />
+                Jump anywhere
+              </p>
+            </div>
+            <kbd className="ui-kbd shrink-0">esc</kbd>
+          </div>
           <input
             autoFocus
             value={query}
@@ -482,7 +503,10 @@ export default function CommandPalette() {
           />
           <ul ref={listRef} className="ui-scroll-region max-h-[50vh] overflow-y-auto py-2">
             {filtered.length === 0 ? (
-              <li className="px-4 py-3 text-sm text-[var(--text-muted)]">No matches.</li>
+              <li className="px-4 py-6 text-center">
+                <BrandStudioIllustration size={72} className="mx-auto mb-3 opacity-80" />
+                <p className="text-sm text-[var(--text-muted)]">No matches.</p>
+              </li>
             ) : (
               filtered.map((item, index) => {
                 const favorited = item.href ? isNavFavorite(item.href, favorites) : false;
@@ -490,9 +514,8 @@ export default function CommandPalette() {
                   <li key={item.id}>
                     <div
                       data-command-index={index}
-                      className={`flex w-full items-center gap-1 px-2 ${
-                        index === activeIndex ? 'bg-[var(--accent-muted)]' : ''
-                      }`}
+                      data-active={index === activeIndex ? 'true' : 'false'}
+                      className="ui-command-item flex w-full items-center gap-1 px-2"
                     >
                       <button
                         type="button"
@@ -501,7 +524,7 @@ export default function CommandPalette() {
                         onClick={() => runItem(item)}
                       >
                         <span className="min-w-0">
-                          <span className="block truncate">
+                          <span className="ui-command-item-label block truncate font-medium">
                             {favorited ? '★ ' : ''}
                             {item.label}
                           </span>
@@ -535,12 +558,11 @@ export default function CommandPalette() {
               })
             )}
           </ul>
-          <div className="border-t border-[var(--border-subtle)] px-4 py-2 text-xs text-[var(--text-muted)]">
-            Tip: <kbd className="rounded border border-[var(--border-default)] px-1">⌘/Ctrl+K</kbd>{' '}
-            · arrows + Enter · star to pin ·{' '}
+          <div className="border-t border-[var(--border-subtle)] px-4 py-2.5 text-xs text-[var(--text-muted)]">
+            Tip: <kbd className="ui-kbd">⌘/Ctrl+K</kbd> · arrows + Enter · star to pin ·{' '}
             <button
               type="button"
-              className="text-[var(--accent-text)] transition hover:text-[var(--text-primary)]"
+              className="ui-text-link"
               onClick={() => {
                 setOpen(false);
                 setShortcutsOpen(true);
@@ -551,11 +573,7 @@ export default function CommandPalette() {
             {navReady ? (
               <>
                 .{' '}
-                <Link
-                  href="/settings"
-                  className="text-[var(--accent-text)] transition hover:text-[var(--text-primary)]"
-                  onClick={() => setOpen(false)}
-                >
+                <Link href="/settings" className="ui-text-link" onClick={() => setOpen(false)}>
                   Settings
                 </Link>
               </>
@@ -565,7 +583,7 @@ export default function CommandPalette() {
         <button
           type="button"
           aria-label="Close command palette"
-          className="absolute inset-0 -z-10"
+          className="absolute inset-0 z-0"
           onClick={() => setOpen(false)}
         />
       </div>

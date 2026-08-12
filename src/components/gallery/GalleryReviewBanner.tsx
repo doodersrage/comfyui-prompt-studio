@@ -10,16 +10,14 @@ export default function GalleryReviewBanner({ filter }: GalleryReviewBannerProps
   return (
     <div
       data-testid="gallery-review-banner"
-      className="sticky top-[calc(var(--header-offset,0px)+0.5rem)] z-20 rounded-2xl border border-violet-400/25 bg-violet-500/10 px-4 py-3 shadow-[0_12px_40px_-24px_rgba(109,40,217,0.45)] backdrop-blur-md"
+      className="ui-gallery-dock sticky top-[calc(var(--header-offset,0px)+0.5rem)] z-20 px-4 py-3"
       role="status"
     >
-      <p className="text-sm font-medium text-violet-50">Review mode</p>
-      <p className="mt-1 text-[11px] leading-relaxed text-violet-100/75">
-        Click a card to focus it, then rate with{' '}
-        <kbd className="rounded bg-violet-950/60 px-1">1–5</kbd>, favorite with{' '}
-        <kbd className="rounded bg-violet-950/60 px-1">F</kbd>, navigate with{' '}
-        <kbd className="rounded bg-violet-950/60 px-1">N</kbd> /{' '}
-        <kbd className="rounded bg-violet-950/60 px-1">P</kbd>
+      <p className="text-sm font-medium text-[var(--text-primary)]">Review mode</p>
+      <p className="mt-1 text-[11px] leading-relaxed text-[var(--accent-text)]">
+        Click a card to focus it, then rate with <kbd className="ui-kbd">1–5</kbd>, favorite with{' '}
+        <kbd className="ui-kbd">F</kbd>, navigate with <kbd className="ui-kbd">N</kbd> /{' '}
+        <kbd className="ui-kbd">P</kbd>
         {filter.reviewAutoAdvance ? ' · auto-advance enabled' : ''}
         {filter.unreviewedOnly ? ' · showing unreviewed only' : ''}
       </p>

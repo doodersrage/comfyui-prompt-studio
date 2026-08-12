@@ -1,19 +1,17 @@
 import Link from 'next/link';
-import PageCanvas from '@/components/ui/PageCanvas';
+import SystemPageShell from '@/components/ui/SystemPageShell';
 
 export default function ForbiddenPage() {
   return (
-    <PageCanvas accent="rose">
-      <div className="mx-auto max-w-lg space-y-4 px-4 py-20 text-center">
-        <h1 className="type-title text-[var(--text-primary)]">Access blocked</h1>
-        <p className="text-sm text-[var(--text-muted)]">
-          Your account or group does not have permission for this tool. Contact an admin to adjust
-          blocked features in Settings → Users.
-        </p>
-        <Link href="/" className="inline-flex text-sm text-violet-300 hover:text-violet-200">
-          Back to home
-        </Link>
-      </div>
-    </PageCanvas>
+    <SystemPageShell
+      accent="rose"
+      overline="Forbidden"
+      title="Access blocked"
+      description="Your account or group does not have permission for this tool. Contact an admin to adjust blocked features in Settings → Users."
+    >
+      <Link href="/" className="ui-btn-secondary">
+        Back to home
+      </Link>
+    </SystemPageShell>
   );
 }

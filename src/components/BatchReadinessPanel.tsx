@@ -13,12 +13,12 @@ import { ChipButton } from '@/components/ui/Field';
 
 function gradeClass(grade: BatchReadinessRow['grade']): string {
   if (grade === 'A' || grade === 'B') {
-    return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-100';
+    return 'border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] text-[var(--tint-success-text)]';
   }
   if (grade === 'C') {
-    return 'border-amber-500/30 bg-amber-500/10 text-amber-100';
+    return 'border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] text-[var(--tint-warning-text)]';
   }
-  return 'border-rose-500/30 bg-rose-500/10 text-rose-100';
+  return 'border-[var(--tint-danger-border)] bg-[var(--tint-danger-bg)] text-[var(--tint-danger-text)]';
 }
 
 export default function BatchReadinessPanel(props: {
@@ -50,10 +50,10 @@ export default function BatchReadinessPanel(props: {
   const avg = scored.reduce((sum, row) => sum + row.score, 0) / Math.max(1, scored.length);
 
   return (
-    <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3">
+    <div className="ui-panel-accent px-4 py-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="type-caption text-violet-200/90">Batch readiness</p>
+          <p className="type-caption text-[var(--accent-text)]">Batch readiness</p>
           <p className="text-xs text-[var(--text-muted)]">
             Avg {Math.round(avg)}/100 · {blocked} below {minScore}
           </p>

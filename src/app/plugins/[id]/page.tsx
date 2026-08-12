@@ -211,7 +211,7 @@ export default function PluginDetailPage({ params }: PluginDetailPageProps) {
         description={`${plugin.label} · v${plugin.version}`}
       >
         <p className="type-caption mb-3 text-[var(--text-secondary)]">
-          Active iframe origin: <code className="text-violet-300">{iframeOrigin}</code>
+          Active iframe origin: <code className="ui-inline-code">{iframeOrigin}</code>
           {' · '}
           <Link
             href="/plugins"

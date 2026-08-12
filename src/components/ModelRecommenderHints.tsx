@@ -79,8 +79,8 @@ export default function ModelRecommenderHints({
   }
 
   return (
-    <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-3 py-2">
-      <p className="type-caption text-violet-200/80">Suggested models</p>
+    <div className="rounded-xl border border-[var(--accent-border)] bg-[var(--accent-muted)] px-3 py-2">
+      <p className="type-caption text-[var(--accent-text)]/80">Suggested models</p>
       <ul className="mt-2 space-y-1.5">
         {suggestions.map(item => {
           const def = getComfyModelDefinition(item.model as ComfyImageModel);
@@ -91,7 +91,7 @@ export default function ModelRecommenderHints({
                 type="button"
                 disabled={active}
                 onClick={() => onApplyModel(item.model as ComfyImageModel)}
-                className="rounded-full border border-violet-500/30 bg-[var(--bg-base)]/40 px-2.5 py-0.5 text-violet-100 transition hover:border-violet-400/50 disabled:cursor-default disabled:opacity-60"
+                className="rounded-full border border-[var(--accent-border)] bg-[var(--bg-base)]/40 px-2.5 py-0.5 text-[var(--accent-text)] transition hover:border-[var(--accent-border)] disabled:cursor-default disabled:opacity-60"
               >
                 {def.label}
                 {active ? ' · current' : ''}

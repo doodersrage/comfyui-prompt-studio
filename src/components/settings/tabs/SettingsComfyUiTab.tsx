@@ -422,9 +422,9 @@ export default function SettingsComfyUiTab({
                 <span
                   className={`text-xs ${
                     systemWorkflowsSaveHint.startsWith('Could not')
-                      ? 'text-rose-400'
+                      ? 'ui-status-danger'
                       : systemWorkflowsSaveHint.startsWith('Saved')
-                        ? 'text-emerald-400'
+                        ? 'ui-status-success'
                         : 'text-[var(--text-muted)]'
                   }`}
                   role="status"
@@ -475,18 +475,12 @@ export default function SettingsComfyUiTab({
             Explicit model→workflow map entries still win at queue time. When a model has no map
             entry, matching pack graphs in your library are preferred automatically, otherwise a
             built-in scaffold is used. Expand below to edit the map or pin{' '}
-            <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-              faceDetailer=
-            </code>{' '}
-            for Gallery → Face detail.
+            <code className="ui-inline-code">faceDetailer=</code> for Gallery → Face detail.
           </p>
         ) : (
           <p className="mb-3 text-sm text-[var(--text-secondary)]">
-            One mapping per line:{' '}
-            <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-              modelId=workflowFileId
-            </code>
-            . When you change the target model in a generator, the mapped workflow file is selected
+            One mapping per line: <code className="ui-inline-code">modelId=workflowFileId</code>.
+            When you change the target model in a generator, the mapped workflow file is selected
             automatically.
           </p>
         )}
@@ -568,10 +562,7 @@ export default function SettingsComfyUiTab({
             />
             <p className="mt-2 text-xs text-[var(--text-muted)]">
               Pin a FaceDetailer/ReActor graph with{' '}
-              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-                faceDetailer=&lt;workflowId&gt;
-              </code>
-              .
+              <code className="ui-inline-code">faceDetailer=&lt;workflowId&gt;</code>.
             </p>
           </CollapsibleSection>
         ) : (
@@ -593,10 +584,8 @@ export default function SettingsComfyUiTab({
             />
             <p className="text-xs text-[var(--text-muted)]">
               Pin a FaceDetailer/ReActor graph with{' '}
-              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-                faceDetailer=&lt;workflowId&gt;
-              </code>{' '}
-              (required for Gallery → Face detail).
+              <code className="ui-inline-code">faceDetailer=&lt;workflowId&gt;</code> (required for
+              Gallery → Face detail).
             </p>
             <button
               type="button"
@@ -614,7 +603,7 @@ export default function SettingsComfyUiTab({
                   `Applied ${countMappedModels(merged)} model→workflow mappings from workflow filenames.`
                 );
               }}
-              className="mt-3 rounded-lg border border-[var(--border-default)] px-4 py-2 text-sm text-[var(--text-primary)] transition hover:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40 active:scale-[0.99]"
+              className="mt-3 rounded-lg border border-[var(--border-default)] px-4 py-2 text-sm text-[var(--text-primary)] transition hover:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.99]"
             >
               Apply smart defaults by category
             </button>
@@ -638,11 +627,8 @@ export default function SettingsComfyUiTab({
             title="Workflow patching & checkpoints"
           >
             <p className="text-sm text-[var(--text-secondary)]">
-              Direct patching updates{' '}
-              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-                EmptyLatentImage
-              </code>{' '}
-              and loader nodes at queue time even when placeholders are missing. Disable to compare
+              Direct patching updates <code className="ui-inline-code">EmptyLatentImage</code> and
+              loader nodes at queue time even when placeholders are missing. Disable to compare
               against raw workflow JSON.
             </p>
             <label className="mb-3 flex cursor-pointer items-start gap-3">
@@ -765,10 +751,8 @@ export default function SettingsComfyUiTab({
                 </span>
                 <span className="block text-xs text-[var(--text-muted)]">
                   For FLUX and SD3-family workflows, inserts{' '}
-                  <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-                    ModelSamplingFlux
-                  </code>{' '}
-                  or shift patch nodes when a loader connects directly to KSampler. On{' '}
+                  <code className="ui-inline-code">ModelSamplingFlux</code> or shift patch nodes
+                  when a loader connects directly to KSampler. On{' '}
                   <strong className="font-medium text-[var(--text-secondary)]">Final/Max</strong>,
                   SDXL may get a latent refiner pass and Flux a soft latent detail pass (vanilla
                   Qwen skips that — anatomy guard); outputs then get neural or Lanczos upscale
@@ -910,10 +894,8 @@ export default function SettingsComfyUiTab({
             </div>
             <p className="mb-2 text-sm text-[var(--text-secondary)]">
               Checkpoint map — one line per model:{' '}
-              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-                modelId=filename.safetensors
-              </code>
-              . Used for both CheckpointLoader and UNETLoader when a workflow has those nodes.
+              <code className="ui-inline-code">modelId=filename.safetensors</code>. Used for both
+              CheckpointLoader and UNETLoader when a workflow has those nodes.
             </p>
             <textarea
               value={modelCheckpointMapText}
@@ -935,7 +917,7 @@ export default function SettingsComfyUiTab({
                 type="button"
                 disabled={!sharedMounted}
                 onClick={applySuggestedLoaderMaps}
-                className={`rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-1.5 text-xs text-violet-200 transition hover:bg-violet-500/20 ${accentFocusClass(ACCENT)}`}
+                className={`ui-chip px-3 py-1.5 text-xs ${accentFocusClass(ACCENT)}`}
               >
                 Merge suggested loader maps
               </button>
@@ -959,25 +941,11 @@ export default function SettingsComfyUiTab({
               </p>
             )}
             <p className="mb-2 mt-4 text-sm text-[var(--text-secondary)]">
-              VAE map — override{' '}
-              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-                {'{{VAE}}'}
-              </code>{' '}
-              /{' '}
-              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-                VAELoader
-              </code>{' '}
-              filenames per model.{' '}
-              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-                ae.safetensors
-              </code>{' '}
-              is UltraReal Fine-Tune v4 only — do not set it as{' '}
-              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">default</code>{' '}
-              or on Qwen. FLUX Klein workflows need{' '}
-              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-                flux2-vae.safetensors
-              </code>
-              .
+              VAE map — override <code className="ui-inline-code">{'{{VAE}}'}</code> /{' '}
+              <code className="ui-inline-code">VAELoader</code> filenames per model.{' '}
+              <code className="ui-inline-code">ae.safetensors</code> is UltraReal Fine-Tune v4 only
+              — do not set it as <code className="ui-inline-code">default</code> or on Qwen. FLUX
+              Klein workflows need <code className="ui-inline-code">flux2-vae.safetensors</code>.
             </p>
             <textarea
               value={modelVaeMapText}
@@ -997,11 +965,8 @@ export default function SettingsComfyUiTab({
             <p className="mb-2 mt-4 text-sm text-[var(--text-secondary)]">
               SDXL refiner map — checkpoint for the hi-res refiner pass on{' '}
               <strong className="font-medium text-[var(--text-secondary)]">Final/Max</strong> SDXL
-              queues (
-              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-                sd_xl_refiner_1.0.safetensors
-              </code>{' '}
-              by default). Inserts latent upscale + refiner KSampler before VAEDecode on single-pass
+              queues (<code className="ui-inline-code">sd_xl_refiner_1.0.safetensors</code> by
+              default). Inserts latent upscale + refiner KSampler before VAEDecode on single-pass
               base workflows.
             </p>
             <textarea
@@ -1021,22 +986,11 @@ export default function SettingsComfyUiTab({
             />
             <p className="mb-2 mt-4 text-sm text-[var(--text-secondary)]">
               Upscale model map — optional. Leave empty to use Lanczos upscale on Final/Max. Set{' '}
-              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-                default=your-model.pth
-              </code>{' '}
-              only when the file exists in ComfyUI{' '}
-              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-                models/upscale_models/
-              </code>
-              . Patches{' '}
-              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-                UpscaleModel
-              </code>{' '}
-              nodes and replaces{' '}
-              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-                {'{{UPSCALE_MODEL}}'}
-              </code>{' '}
-              placeholders at queue time.
+              <code className="ui-inline-code">default=your-model.pth</code> only when the file
+              exists in ComfyUI <code className="ui-inline-code">models/upscale_models/</code>.
+              Patches <code className="ui-inline-code">UpscaleModel</code> nodes and replaces{' '}
+              <code className="ui-inline-code">{'{{UPSCALE_MODEL}}'}</code> placeholders at queue
+              time.
             </p>
             <textarea
               value={modelUpscaleMapText}
@@ -1055,14 +1009,8 @@ export default function SettingsComfyUiTab({
             />
             <p className="mb-2 mt-4 text-sm text-[var(--text-secondary)]">
               ControlNet model map — optional. Patches{' '}
-              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-                ControlNetLoader
-              </code>{' '}
-              nodes and replaces{' '}
-              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-                {'{{CONTROLNET_MODEL}}'}
-              </code>{' '}
-              at queue time.
+              <code className="ui-inline-code">ControlNetLoader</code> nodes and replaces{' '}
+              <code className="ui-inline-code">{'{{CONTROLNET_MODEL}}'}</code> at queue time.
             </p>
             <textarea
               value={modelControlNetMapText}
@@ -1081,15 +1029,11 @@ export default function SettingsComfyUiTab({
             />
             <p className="mb-2 mt-4 text-sm text-[var(--text-secondary)]">
               Model LoRA map — default library entries per model:{' '}
-              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-                modelId=loraId1,loraId2
-              </code>
-              . Values are{' '}
+              <code className="ui-inline-code">modelId=loraId1,loraId2</code>. Values are{' '}
               <strong className="font-medium text-[var(--text-secondary)]">library ids</strong> from
               the LoRA library panel (not filenames). Empty value (
-              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">modelId=</code>
-              ) means no LoRAs for that model. Applied when the session picker is still following
-              defaults.
+              <code className="ui-inline-code">modelId=</code>) means no LoRAs for that model.
+              Applied when the session picker is still following defaults.
             </p>
             <textarea
               value={modelLoraMapText}
@@ -1158,10 +1102,8 @@ export default function SettingsComfyUiTab({
               </span>
               <span className="block text-xs text-[var(--text-muted)]">
                 Gallery → Face detail strength for{' '}
-                <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-                  {'{{FACE_DETAIL_DENOISE}}'}
-                </code>{' '}
-                (0.05–1). Requires a pinned FaceDetailer/ReActor workflow.
+                <code className="ui-inline-code">{'{{FACE_DETAIL_DENOISE}}'}</code> (0.05–1).
+                Requires a pinned FaceDetailer/ReActor workflow.
               </span>
               <input
                 type="number"
@@ -1186,18 +1128,11 @@ export default function SettingsComfyUiTab({
             <p className="text-sm text-[var(--text-secondary)]">
               Session-wide identity/style reference (not Image → Prompt&apos;s text multi-ref). At
               queue time, with a reference image set, the app updates existing{' '}
-              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-                {DEFAULT_IPADAPTER_IMAGE_TOKEN}
-              </code>
+              <code className="ui-inline-code">{DEFAULT_IPADAPTER_IMAGE_TOKEN}</code>
               {' / '}
-              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-                {DEFAULT_IPADAPTER_STRENGTH_TOKEN}
-              </code>
+              <code className="ui-inline-code">{DEFAULT_IPADAPTER_STRENGTH_TOKEN}</code>
               {' / '}
-              <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-                {DEFAULT_IPADAPTER_MODEL_TOKEN}
-              </code>{' '}
-              tokens{' '}
+              <code className="ui-inline-code">{DEFAULT_IPADAPTER_MODEL_TOKEN}</code> tokens{' '}
               <strong className="font-medium text-[var(--text-secondary)]">or auto-inserts</strong>{' '}
               a minimal LoadImage → IPAdapterModelLoader → IPAdapterAdvanced chain when none exist.
               Requires ComfyUI-IPAdapter-Plus-class nodes installed. Extra reference filenames stack
@@ -1296,7 +1231,7 @@ export default function SettingsComfyUiTab({
                   updateSharedSettings({ ipAdapterStrength: Number(event.target.value) })
                 }
                 disabled={!sharedMounted}
-                className={`w-full accent-violet-500 ${accentFocusClass(ACCENT)}`}
+                className={`w-full accent-[var(--accent)] ${accentFocusClass(ACCENT)}`}
               />
             </label>
 
@@ -1364,10 +1299,9 @@ export default function SettingsComfyUiTab({
 
       <ToolSection id="settings-comfyui-connection" title="ComfyUI connection & injection">
         <p className="text-sm text-[var(--text-secondary)]">
-          Override the server&apos;s{' '}
-          <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">COMFYUI_*</code>{' '}
-          env vars for this browser: API URL, placeholder tokens, queue params, and an optional
-          fallback workflow when no library file is selected.
+          Override the server&apos;s <code className="ui-inline-code">COMFYUI_*</code> env vars for
+          this browser: API URL, placeholder tokens, queue params, and an optional fallback workflow
+          when no library file is selected.
         </p>
 
         <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
@@ -1375,7 +1309,7 @@ export default function SettingsComfyUiTab({
             type="checkbox"
             checked={settings.useServerDefaults}
             onChange={event => updateSettings({ useServerDefaults: event.target.checked })}
-            className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
+            className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-[var(--accent)]"
           />
           Use server defaults (ignore local ComfyUI overrides)
         </label>
@@ -1457,10 +1391,7 @@ export default function SettingsComfyUiTab({
             <p className="text-xs text-[var(--text-muted)]">
               Use tokens in workflow JSON:{' '}
               {WORKFLOW_PARAM_TOKEN_HELP.map(token => (
-                <code
-                  key={token}
-                  className="mr-1 rounded bg-[var(--bg-elevated)] px-1 text-violet-300"
-                >
+                <code key={token} className="mr-1 ui-inline-code">
                   {token}
                 </code>
               ))}
@@ -1479,7 +1410,7 @@ export default function SettingsComfyUiTab({
                 <button
                   type="button"
                   onClick={addCustomToken}
-                  className="text-xs text-violet-300 hover:text-violet-200"
+                  className="type-caption ui-text-link"
                 >
                   Add token
                 </button>
@@ -1487,18 +1418,12 @@ export default function SettingsComfyUiTab({
               {(settings.customTokens ?? []).length === 0 ? (
                 <p className="text-xs text-[var(--text-muted)]">
                   Optional placeholders like{' '}
-                  <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-                    {'{{CHECKPOINT}}'}
-                  </code>{' '}
-                  or{' '}
-                  <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-                    {'{{LORA}}'}
-                  </code>
-                  . LoRA files live in the{' '}
+                  <code className="ui-inline-code">{'{{CHECKPOINT}}'}</code> or{' '}
+                  <code className="ui-inline-code">{'{{LORA}}'}</code>. LoRA files live in the{' '}
                   <button
                     type="button"
                     onClick={() => handleComfyUiSectionJump('lora-library')}
-                    className="text-violet-300 underline-offset-2 hover:underline"
+                    className="ui-text-link"
                   >
                     LoRA library
                   </button>{' '}
@@ -1548,7 +1473,7 @@ export default function SettingsComfyUiTab({
                 <label htmlFor="workflow-json" className="text-xs text-[var(--text-secondary)]">
                   Fallback workflow JSON (optional)
                 </label>
-                <label className="cursor-pointer text-xs text-violet-300 hover:text-violet-200">
+                <label className="cursor-pointer type-caption ui-text-link">
                   Import into editor
                   <input
                     type="file"
@@ -1707,7 +1632,7 @@ export default function SettingsComfyUiTab({
                   onChange={event =>
                     updateSettings({ autoRequeueFinalOnHighRating: event.target.checked })
                   }
-                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
+                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-[var(--accent)]"
                 />
                 Auto improve 4–5★ → Final (upscale / moiré / Lightning re-seed)
               </label>
@@ -1718,7 +1643,7 @@ export default function SettingsComfyUiTab({
                   onChange={event =>
                     updateSettings({ autoRequeueMaxOnFiveStar: event.target.checked })
                   }
-                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
+                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-[var(--accent)]"
                 />
                 Auto improve 5★ → Max
               </label>
@@ -1729,7 +1654,7 @@ export default function SettingsComfyUiTab({
                   onChange={event =>
                     updateSettings({ autoImg2imgRefineOnFiveStar: event.target.checked })
                   }
-                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
+                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-[var(--accent)]"
                 />
                 After 5★ upscale, also queue low-denoise refine (experimental)
               </label>
@@ -1740,7 +1665,7 @@ export default function SettingsComfyUiTab({
                   onChange={event =>
                     updateSettings({ autoRefineOnLowRating: event.target.checked })
                   }
-                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
+                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-[var(--accent)]"
                 />
                 Auto-open Refine when rated 1–2★
               </label>
@@ -1759,7 +1684,7 @@ export default function SettingsComfyUiTab({
                   onChange={event =>
                     updateSettings({ autoSaveHistoryOnQueue: event.target.checked })
                   }
-                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
+                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-[var(--accent)]"
                 />
                 Auto-save to history when queueing from result panels (skips if already saved)
               </label>
@@ -1774,7 +1699,7 @@ export default function SettingsComfyUiTab({
                     })
                   }
                   disabled={!sharedMounted}
-                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
+                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-[var(--accent)]"
                 />
                 Named prompt versions (vN labels + lineage on history saves)
               </label>
@@ -1786,7 +1711,7 @@ export default function SettingsComfyUiTab({
                   onChange={event =>
                     updateSettings({ autoMutateOnHighRating: event.target.checked })
                   }
-                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
+                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-[var(--accent)]"
                 />
                 Auto-queue mutations when a gallery output is rated 4–5★ (fallback when Final/Max
                 improve is off or fails)
@@ -1799,7 +1724,7 @@ export default function SettingsComfyUiTab({
                   onChange={event =>
                     updateSettings({ autoSeedExperimentOnHighRating: event.target.checked })
                   }
-                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
+                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-[var(--accent)]"
                 />
                 Auto-queue seed experiments when a gallery output is rated 4–5★
               </label>
@@ -1811,7 +1736,7 @@ export default function SettingsComfyUiTab({
                   onChange={event =>
                     updateSettings({ autoSeedExperimentOnFavorite: event.target.checked })
                   }
-                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
+                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-[var(--accent)]"
                 />
                 Auto-queue seed experiments when an output is favorited
               </label>
@@ -1821,7 +1746,7 @@ export default function SettingsComfyUiTab({
                   type="checkbox"
                   checked={settings.autoNegativeOnQueue !== false}
                   onChange={event => updateSettings({ autoNegativeOnQueue: event.target.checked })}
-                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
+                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-[var(--accent)]"
                 />
                 Auto-generate negative prompt when queueing SD-family models
               </label>
@@ -1831,7 +1756,7 @@ export default function SettingsComfyUiTab({
                   type="checkbox"
                   checked={settings.useWebSocketProgress !== false}
                   onChange={event => updateSettings({ useWebSocketProgress: event.target.checked })}
-                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
+                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-[var(--accent)]"
                 />
                 Use ComfyUI WebSocket for faster job progress updates
               </label>
@@ -1863,7 +1788,7 @@ export default function SettingsComfyUiTab({
                       negativeProfiles: DEFAULT_NEGATIVE_PROFILES,
                     })
                   }
-                  className="text-xs text-violet-300 hover:text-violet-200"
+                  className="type-caption ui-text-link"
                 >
                   Reset profiles to defaults
                 </button>
@@ -1875,7 +1800,7 @@ export default function SettingsComfyUiTab({
                   checked={settings.notifyOnComplete ?? false}
                   disabled={notificationPermission === 'unsupported'}
                   onChange={event => updateSettings({ notifyOnComplete: event.target.checked })}
-                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
+                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-[var(--accent)]"
                 />
                 Notify when ComfyUI jobs complete
                 {notificationPermission !== 'granted' &&
@@ -1883,7 +1808,7 @@ export default function SettingsComfyUiTab({
                     <button
                       type="button"
                       onClick={() => void handleEnableNotifications()}
-                      className="text-xs text-violet-300 hover:text-violet-200"
+                      className="type-caption ui-text-link"
                     >
                       Enable permission
                     </button>
@@ -1900,7 +1825,7 @@ export default function SettingsComfyUiTab({
                   type="checkbox"
                   checked={settings.autoVisionTags !== false}
                   onChange={event => updateSettings({ autoVisionTags: event.target.checked })}
-                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
+                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-[var(--accent)]"
                 />
                 Auto-tag completed gallery images with vision LLM tags (also on LLM tab)
               </label>
@@ -1934,15 +1859,11 @@ export default function SettingsComfyUiTab({
 
         <p className="text-xs text-[var(--text-muted)]">
           Export a workflow from ComfyUI (Save API format), put{' '}
-          <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-            {settings.positiveToken ?? '{{POSITIVE}}'}
-          </code>{' '}
-          (and optionally{' '}
-          <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
-            {settings.negativeToken ?? '{{NEGATIVE}}'}
-          </code>
-          ) in any string field where prompts should land—CLIP text inputs, custom node fields,
-          filenames, etc.
+          <code className="ui-inline-code">{settings.positiveToken ?? '{{POSITIVE}}'}</code> (and
+          optionally{' '}
+          <code className="ui-inline-code">{settings.negativeToken ?? '{{NEGATIVE}}'}</code>) in any
+          string field where prompts should land—CLIP text inputs, custom node fields, filenames,
+          etc.
         </p>
       </ToolSection>
 

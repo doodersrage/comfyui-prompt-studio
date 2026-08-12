@@ -1,5 +1,6 @@
 import type { ComfyGalleryEntry } from './comfyui-gallery';
 import { galleryEntryViewUrls } from './comfyui-gallery';
+import { brandedHtmlDocument, brandedHtmlSection, escapeBrandedHtml } from './branded-html-shell';
 import { downloadTextFile } from './history-export-formats';
 
 export type CompareExportEntry = {
@@ -41,42 +42,27 @@ export function exportCompareJson(entries: ComfyGalleryEntry[]): string {
 export function exportCompareHtml(entries: ComfyGalleryEntry[]): string {
   const cards = buildCompareExport(entries)
     .map(entry => {
-      const model = escapeHtml(entry.model ?? 'unknown');
-      const seed = escapeHtml(entry.seed ?? '?');
+      const model = escapeBrandedHtml(entry.model ?? 'unknown');
+      const seed = escapeBrandedHtml(entry.seed ?? '?');
       const rating =
         typeof entry.rating === 'number' && Number.isFinite(entry.rating)
-          ? ` · ${escapeHtml(String(entry.rating))}★`
+          ? ` · ${escapeBrandedHtml(String(entry.rating))}★`
           : '';
       const imageUrl = safeImageUrlAttr(entry.imageUrl);
-      return `
-<section style="margin-bottom:24px;padding:16px;border:1px solid #333;border-radius:12px;">
+      return brandedHtmlSection(`
   <h2 style="margin:0 0 8px;font-size:16px;">${model} · seed ${seed}${rating}</h2>
-  ${imageUrl ? `<img src="${imageUrl}" alt="" style="max-width:100%;border-radius:8px;margin-bottom:12px;" />` : ''}
-  <pre style="white-space:pre-wrap;font-size:13px;line-height:1.5;">${escapeHtml(entry.prompt)}</pre>
-</section>`;
+  ${imageUrl ? `<img src="${imageUrl}" alt="" style="max-width:100%;border-radius:8px;margin-bottom:12px;border:1px solid rgba(255,255,255,0.06);" />` : ''}
+  <pre style="white-space:pre-wrap;font-size:13px;line-height:1.5;color:#9eb6e0;font-family:ui-monospace,monospace;">${escapeBrandedHtml(entry.prompt)}</pre>
+`);
     })
     .join('\n');
 
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <title>Gallery compare export</title>
-</head>
-<body style="font-family:system-ui,sans-serif;background:#0a0a0a;color:#e4e4e7;padding:24px;max-width:960px;margin:0 auto;">
-  <h1>Gallery A/B compare (${entries.length})</h1>
-  <p style="color:#71717a;">Exported ${escapeHtml(new Date().toLocaleString())}</p>
-  ${cards}
-</body>
-</html>`;
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+  return brandedHtmlDocument({
+    title: `Compare (${entries.length})`,
+    subtitle: 'Gallery A/B compare',
+    metaLine: `Exported ${new Date().toLocaleString()}`,
+    bodyHtml: cards,
+  });
 }
 
 function safeImageUrlAttr(value: string | undefined): string | undefined {
@@ -88,7 +74,7 @@ function safeImageUrlAttr(value: string | undefined): string | undefined {
     if (url.protocol !== 'http:' && url.protocol !== 'https:') {
       return undefined;
     }
-    return escapeHtml(value);
+    return escapeBrandedHtml(value);
   } catch {
     return undefined;
   }

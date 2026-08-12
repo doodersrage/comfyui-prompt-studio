@@ -61,7 +61,7 @@ export default function QwenEditBuilderPanel({ model, onApply }: QwenEditBuilder
       ) : null}
       <button
         type="button"
-        className="rounded-lg border border-violet-700/50 bg-violet-950/40 px-3 py-1.5 text-xs text-violet-100 hover:bg-violet-900/40"
+        className="ui-chip px-3 py-1.5 text-xs"
         onClick={() => onApply(preview)}
         disabled={!preview.trim()}
       >

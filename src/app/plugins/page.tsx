@@ -206,7 +206,7 @@ export default function PluginsPage() {
       <ToolSection title="Installed plugins">
         <p className="type-caption">
           Import a JSON manifest to register nav entries, queue hooks, and optional iframe tools.
-          See <code className="text-violet-300">examples/queue-rewrite-plugin.json</code>.
+          See <code className="ui-inline-code">examples/queue-rewrite-plugin.json</code>.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <input
@@ -303,11 +303,11 @@ export default function PluginsPage() {
         <p className="type-caption">
           Default-deny for remote posts: same-origin iframe tools always work; remote iframes must
           match their URL origin or an entry below. Add{' '}
-          <code className="text-violet-300">https://host</code> origins (one per line). Unresolvable
+          <code className="ui-inline-code">https://host</code> origins (one per line). Unresolvable
           / wildcard targets never accept messages unless listed here.
         </p>
         <p className="type-caption mt-2 text-[var(--text-secondary)]">
-          This page origin: <code className="text-violet-300">{pageOrigin}</code>
+          This page origin: <code className="ui-inline-code">{pageOrigin}</code>
         </p>
         <MonoTextArea
           className="mt-3 min-h-28"
@@ -341,15 +341,15 @@ export default function PluginsPage() {
       <ToolSection title="Queue preflight hooks">
         <p className="type-caption">
           Enabled hooks receive a POST with{' '}
-          <code className="text-violet-300">
+          <code className="ui-inline-code">
             {'{ event, prompt, negativePrompt?, model?, tool?, denoise?, cfg? }'}
           </code>
-          . Respond with JSON to rewrite <code className="text-violet-300">prompt</code> /{' '}
-          <code className="text-violet-300">negativePrompt</code> /{' '}
-          <code className="text-violet-300">denoise</code> /{' '}
-          <code className="text-violet-300">cfg</code>, or set{' '}
-          <code className="text-violet-300">blocked: true</code> with a{' '}
-          <code className="text-violet-300">reason</code> to stop the queue.
+          . Respond with JSON to rewrite <code className="ui-inline-code">prompt</code> /{' '}
+          <code className="ui-inline-code">negativePrompt</code> /{' '}
+          <code className="ui-inline-code">denoise</code> /{' '}
+          <code className="ui-inline-code">cfg</code>, or set{' '}
+          <code className="ui-inline-code">blocked: true</code> with a{' '}
+          <code className="ui-inline-code">reason</code> to stop the queue.
         </p>
         {hooks.length === 0 ? (
           <p className="type-caption text-[var(--text-muted)]">No hooks configured yet.</p>
@@ -507,7 +507,7 @@ export default function PluginsPage() {
         <p className="type-caption">
           Advanced: edit the full custom bookmark array. Each item needs id, label, description,
           href, and category. See{' '}
-          <code className="text-violet-300">examples/custom-plugin.example.json</code>.
+          <code className="ui-inline-code">examples/custom-plugin.example.json</code>.
         </p>
         <Button
           variant="secondary"

@@ -78,9 +78,9 @@ function ActionMenu(props: { label: string; children: ReactNode; disabled?: bool
       : props.label === 'Queue'
         ? 'border-slate-600/35 bg-slate-900/15 text-slate-400 hover:border-slate-500/50'
         : props.label === 'Send'
-          ? 'border-emerald-600/35 bg-emerald-900/15 text-emerald-400 hover:border-emerald-500/50'
+          ? 'border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] text-[var(--tint-success-text)] hover:brightness-110'
           : props.label === 'Organize'
-            ? 'border-violet-600/35 bg-violet-800/15 text-violet-400 hover:border-violet-500/50'
+            ? 'border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)] hover:brightness-110'
             : 'border-[var(--border-default)]/40 bg-[var(--bg-muted)]/20 text-[var(--text-muted)] hover:border-[var(--border-default)]/60';
 
   if (props.disabled) {
@@ -101,7 +101,7 @@ function ActionMenu(props: { label: string; children: ReactNode; disabled?: bool
         type="button"
         aria-expanded={open}
         aria-haspopup="menu"
-        className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/70 backdrop-blur-xs transition ${menuTone} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30 active:scale-[0.97]`}
+        className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/70 backdrop-blur-xs transition ${menuTone} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.97]`}
         onClick={() => setOpen(value => !value)}
       >
         {props.label}
@@ -117,7 +117,7 @@ function MenuItem(props: { label: string; onClick: () => void; disabled?: boolea
       type="button"
       disabled={props.disabled}
       onClick={props.onClick}
-      className={`ui-menu-item rounded-xl border-[var(--border-subtle)]/60 bg-[var(--bg-base)]/70 text-[11px] backdrop-blur-xs transition hover:border-violet-600/60 hover:bg-violet-500/12 hover:text-violet-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30 active:scale-[0.97]`}
+      className={`ui-menu-item rounded-xl border-[var(--border-subtle)]/60 bg-[var(--bg-base)]/70 text-[11px] backdrop-blur-xs transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-muted)] hover:text-[var(--accent-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.97]`}
     >
       {props.label}
     </button>
@@ -175,20 +175,20 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
 
   const selectionClassName =
     props.selectedCount <= 3
-      ? 'border-violet-500/45 bg-violet-500/20 text-violet-300 rounded-xl backdrop-blur-xs px-2.5 py-1 text-xs font-medium'
+      ? 'border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)] rounded-xl backdrop-blur-xs px-2.5 py-1 text-xs font-medium'
       : props.selectedCount <= 10
-        ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-200 rounded-xl backdrop-blur-xs px-2.5 py-1 text-xs font-medium'
+        ? 'border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] text-[var(--tint-success-text)] rounded-xl backdrop-blur-xs px-2.5 py-1 text-xs font-medium'
         : 'border-[var(--border-default)]/70 bg-[var(--bg-base)]/80 text-[var(--text-muted)] tabular-nums rounded-lg backdrop-blur-xs px-2.5 py-1 text-xs font-medium';
 
   return (
-    <div className="sticky top-[calc(var(--header-offset,0px)+0.5rem)] z-20 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--bg-elevated)] p-3 shadow-[var(--shadow-surface)] backdrop-blur-md">
+    <div className="ui-gallery-dock sticky top-[calc(var(--header-offset,0px)+0.5rem)] z-20 p-3">
       <div className="flex flex-wrap items-center gap-2">
         <div className="mr-1 flex items-center gap-2 border-r border-[var(--border-subtle)] pr-3">
           <span className={selectionClassName}>{props.selectedCount} selected</span>
           <button
             type="button"
             onClick={props.onClearSelection}
-            className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60 backdrop-blur-xs transition hover:bg-violet-500/25 hover:border-violet-500/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30 text-violet-400`}
+            className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60 backdrop-blur-xs transition hover:bg-[var(--accent-muted)] hover:border-[var(--accent-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] text-[var(--accent-text)]`}
           >
             Clear
           </button>
@@ -196,7 +196,7 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
 
         <button
           type="button"
-          className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-emerald-600/45 bg-emerald-900/15 backdrop-blur-xs transition hover:bg-emerald-500/30 hover:border-emerald-500/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/30 text-emerald-400 disabled:!hidden`}
+          className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] backdrop-blur-xs transition hover:bg-[var(--tint-success-bg)] hover:border-[var(--tint-success-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tint-success-border)] text-[var(--tint-success-text)] disabled:!hidden`}
           disabled={!compareReady}
           onClick={props.onCompare}
         >
@@ -344,7 +344,7 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
 
         <button
           type="button"
-          className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-rose-600/55 bg-rose-900/20 backdrop-blur-xs transition hover:bg-rose-500/40 hover:border-rose-500/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/30 text-rose-400`}
+          className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--tint-danger-border)] bg-[var(--tint-danger-bg)] backdrop-blur-xs transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tint-danger-border)] text-[var(--tint-danger-text)]`}
           onClick={props.onDelete}
         >
           Remove selected

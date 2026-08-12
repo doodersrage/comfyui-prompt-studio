@@ -28,11 +28,11 @@ export default function ComfyUiSettingsJumpNav({
   );
 
   return (
-    <div className="ui-surface-inset space-y-3">
+    <div className="ui-jump-nav space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="type-overline text-[var(--text-muted)]">Jump to</p>
-          <p className="type-caption mt-1 text-[var(--text-muted)]">
+          <p className="ui-meta mt-1">
             {essentialsOnly
               ? 'Essentials only — connection, workflows, downloads, and queue basics.'
               : 'Search or jump within the ComfyUI settings tab.'}

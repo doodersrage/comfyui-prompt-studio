@@ -19,7 +19,7 @@ export function FieldLabel({
   hint?: ReactNode;
 }) {
   return (
-    <div className="space-y-1.5">
+    <div className="ui-field-row">
       <label htmlFor={htmlFor} className="type-heading">
         {children}
       </label>

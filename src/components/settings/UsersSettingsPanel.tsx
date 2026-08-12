@@ -50,7 +50,7 @@ PROMPT_DATA_DIR=/path/to/persist/auth-and-analytics`}
         </p>
         <p className="mt-2 text-sm text-[var(--text-muted)]">
           After restart, sign in at{' '}
-          <Link href="/login" className="text-violet-300 hover:text-violet-200">
+          <Link href="/login" className="text-[var(--accent-text)] hover:text-[var(--accent-text)]">
             /login
           </Link>{' '}
           with the admin credentials above, then return here.

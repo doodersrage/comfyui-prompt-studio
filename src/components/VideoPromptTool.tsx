@@ -573,7 +573,7 @@ export default function VideoPromptTool() {
               type="file"
               accept="image/*"
               onChange={event => onInitFileChange(event.target.files?.[0] ?? null)}
-              className="block min-w-0 flex-1 text-sm text-[var(--text-muted)] file:mr-4 file:rounded-lg file:border-0 file:bg-violet-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white file:transition hover:file:bg-violet-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400"
+              className="block min-w-0 flex-1 text-sm text-[var(--text-muted)] file:mr-4 file:rounded-lg file:border-0 file:bg-[var(--accent)] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white file:transition hover:file:bg-[var(--accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
             />
             <ButtonLink href={galleryPickPath('video')} variant="secondary" size="sm">
               Choose from Gallery
@@ -681,7 +681,7 @@ export default function VideoPromptTool() {
         >
           Build video prompt
         </PrimaryButton>
-        {error ? <p className="mt-2 text-sm text-rose-300">{error}</p> : null}
+        {error ? <p className="mt-2 text-sm ui-status-danger">{error}</p> : null}
       </ToolSection>
 
       {output ? (

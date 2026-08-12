@@ -192,6 +192,7 @@ export default function StudioAnalyticsTab({
         ) : null}
         {ratingTokenStats.length === 0 ? (
           <EmptyState
+            branded
             icon="diff"
             title="Not enough rated gallery entries"
             description="Complete ComfyUI jobs, rate them in Gallery review mode, then return here."
@@ -213,7 +214,7 @@ export default function StudioAnalyticsTab({
                         addAvoidedToken(stat.token);
                         onBackupStatusChange(`Added “${stat.token}” to avoided tokens.`);
                       }}
-                      className="type-caption text-rose-300 hover:text-rose-200"
+                      className="type-caption ui-status-danger hover:brightness-110"
                     >
                       Add to avoided
                     </button>
@@ -232,7 +233,7 @@ export default function StudioAnalyticsTab({
                         onUserSceneStartersChange(loadUserSceneStarterPresets());
                         onBackupStatusChange(`Saved scene starter preset for “${stat.token}”.`);
                       }}
-                      className="type-caption text-emerald-300 hover:text-emerald-200"
+                      className="type-caption ui-text-link"
                     >
                       Save as scene preset
                     </button>
@@ -274,7 +275,7 @@ export default function StudioAnalyticsTab({
                   {group.derivatives.slice(0, 4).map(derivative => (
                     <span
                       key={derivative.id}
-                      className="rounded-full border border-violet-500/20 bg-violet-500/5 px-2 py-0.5 text-[10px] text-violet-200/90"
+                      className="rounded-full border border-[var(--accent-border)] bg-[var(--accent-muted)] px-2 py-0.5 text-[10px] text-[var(--accent-text)]"
                     >
                       {derivative.derivedKind ?? 'derived'}
                       {derivative.reviewRating ? ` · ${derivative.reviewRating}★` : ''}

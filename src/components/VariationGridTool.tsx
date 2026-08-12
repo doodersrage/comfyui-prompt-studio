@@ -1146,7 +1146,7 @@ export default function VariationGridTool() {
         />
         <BatchQueueProgress progress={rollProgress} />
         <BatchQueueProgress progress={queueProgress} />
-        {comfyStatus && <p className="text-sm text-violet-300/90">{comfyStatus}</p>}
+        {comfyStatus && <p className="text-sm text-[var(--accent-text)]/90">{comfyStatus}</p>}
         <FieldError>{error}</FieldError>
       </ToolPrimarySection>
 
@@ -1188,7 +1188,7 @@ export default function VariationGridTool() {
                       : ''}
                   </p>
                   {entry.error ? (
-                    <p className="mt-2 text-sm text-rose-300">{entry.error}</p>
+                    <p className="mt-2 text-sm ui-status-danger">{entry.error}</p>
                   ) : (
                     <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
                       {entry.prompt}
@@ -1214,7 +1214,7 @@ export default function VariationGridTool() {
                       : ''}
                   </p>
                   {entry.error ? (
-                    <p className="mt-2 text-sm text-rose-300">{entry.error}</p>
+                    <p className="mt-2 text-sm ui-status-danger">{entry.error}</p>
                   ) : (
                     <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
                       {entry.prompt}

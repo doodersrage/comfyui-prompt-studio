@@ -264,11 +264,17 @@ export function HistoryHintSeedPanel({
           {hintSource === 'history' && candidateCount === 0 && emptyGuidance ? (
             <p className="type-caption">
               {emptyGuidance.message}{' '}
-              <Link href={emptyGuidance.href} className="text-violet-300 hover:text-violet-200">
+              <Link
+                href={emptyGuidance.href}
+                className="text-[var(--accent-text)] hover:text-[var(--accent-text)]"
+              >
                 {emptyGuidance.linkLabel}
               </Link>
               {' · '}
-              <Link href="/studio" className="text-violet-300 hover:text-violet-200">
+              <Link
+                href="/studio"
+                className="text-[var(--accent-text)] hover:text-[var(--accent-text)]"
+              >
                 Open Studio history
               </Link>
             </p>

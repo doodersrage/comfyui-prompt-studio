@@ -181,7 +181,7 @@ function HistoryCard({
 
   return (
     <ToolContentPanel
-      className={`ui-block-group min-w-0 ${highlighted ? 'ring-2 ring-violet-500/40' : ''} ${
+      className={`ui-block-group min-w-0 ${highlighted ? 'ring-2 ring-[var(--accent-ring)]' : ''} ${
         compact ? '!gap-2' : ''
       }`}
     >
@@ -764,7 +764,7 @@ export default function StudioHistoryTab({
                   aria-pressed={density === value}
                   className={`rounded-full px-2.5 py-1 text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] ${
                     density === value
-                      ? 'bg-[color-mix(in_oklab,var(--accent)_72%,#1a1028)] text-white'
+                      ? 'bg-[var(--accent)] text-white'
                       : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
                   }`}
                   onClick={() => {
@@ -1076,7 +1076,7 @@ export default function StudioHistoryTab({
                   <button
                     type="button"
                     aria-label={`Delete saved filter ${view.name}`}
-                    className="rounded px-1 text-xs text-[var(--text-muted)] hover:text-rose-300"
+                    className="rounded px-1 text-xs text-[var(--text-muted)] hover:text-[var(--tint-danger-text)]"
                     onClick={() => {
                       deleteHistorySavedView(view.id);
                       setSavedViews(loadHistorySavedViews());
@@ -1166,6 +1166,7 @@ export default function StudioHistoryTab({
 
       {entries.length === 0 ? (
         <EmptyState
+          branded
           icon="inbox"
           title="No saved prompts yet"
           description="Generate a scene in Character or another tool, then use Save to history on the result panel. Your prompts will appear here for re-queue, export, and diff."

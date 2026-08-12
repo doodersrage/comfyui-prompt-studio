@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { memo } from 'react';
+import BrandBars from '@/components/BrandBars';
 import { TOOL_SIDEBAR_DESCRIPTION, TOOL_SIDEBAR_TITLE } from '@/lib/tool-page-chrome';
 import { ROUTE_TINT_CLASSES, type ToolAccent } from '@/lib/tool-theme';
 
@@ -29,6 +30,7 @@ export const ToolBadge = memo(function ToolBadge({
     <div
       className={`type-overline inline-flex max-w-full items-center gap-2 rounded-[var(--radius-full)] border px-3 py-1 ${theme.badge}`}
     >
+      <BrandBars />
       {children}
     </div>
   );
@@ -44,20 +46,17 @@ export const ToolPageHeader = memo(function ToolPageHeader({
   description?: ReactNode;
 }) {
   return (
-    <header className="space-y-3">
-      {badge}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
+    <header className="ui-tool-header">
+      {badge ? <div className="ui-tool-header-badge">{badge}</div> : null}
+      <div className="ui-tool-header-row">
         <h1 className="type-display min-w-0">{title}</h1>
         {description ? (
           typeof description === 'string' ? (
-            <p
-              className="type-caption max-w-xl shrink-0 text-[var(--text-secondary)] sm:max-w-sm sm:text-right"
-              title={description}
-            >
+            <p className="ui-tool-header-desc" title={description}>
               <span className="line-clamp-2">{description}</span>
             </p>
           ) : (
-            <div className="type-caption max-w-xl shrink-0 text-[var(--text-secondary)] sm:max-w-sm sm:text-right">
+            <div className="ui-tool-header-desc">
               <div className="line-clamp-2">{description}</div>
             </div>
           )
@@ -134,7 +133,7 @@ export const ToolSection = memo(function ToolSection({
       className={`${id ? 'scroll-mt-28 ' : ''}${sectionSurfaceClasses[variant]} ${padded ? 'p-[var(--card-padding)] sm:p-[var(--card-padding-lg)]' : ''} ${className}`.trim()}
     >
       {title ? (
-        <div className="mb-6 space-y-2">
+        <div className="ui-section-heading">
           <h2 className={variant === 'primary' ? 'type-title' : 'type-heading'}>{title}</h2>
           {description ? <p className="type-caption">{description}</p> : null}
         </div>
@@ -258,7 +257,7 @@ export const ToolPageShell = memo(function ToolPageShell({
 }) {
   return (
     <div
-      className={`mx-auto flex w-full flex-col gap-[var(--section-gap)] px-[var(--page-gutter)] py-10 pb-28 sm:py-12 md:pb-12 lg:py-14 ${widthClasses[width]} ${className}`.trim()}
+      className={`page-enter mx-auto flex w-full flex-col gap-[var(--section-gap)] px-[var(--page-gutter)] py-10 pb-28 sm:py-12 md:pb-12 lg:py-14 ${widthClasses[width]} ${className}`.trim()}
     >
       {children}
     </div>
@@ -307,7 +306,7 @@ export const ToolLayout = memo(function ToolLayout({
               description={sidebarTitle === false ? undefined : sidebarDescription}
               className="sidebar-scroll xl:max-h-[calc(100vh-7rem)] xl:overflow-y-auto"
             >
-              {sidebar}
+              <div className="ui-sidebar-dense">{sidebar}</div>
             </ToolSection>
           </aside>
         ) : null}

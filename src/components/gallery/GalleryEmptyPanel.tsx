@@ -1,5 +1,7 @@
 'use client';
 
+import BrandBars from '@/components/BrandBars';
+import BrandStudioIllustration from '@/components/BrandStudioIllustration';
 import { ButtonLink } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/ViewState';
 import { resolveGenerateEmptyCta } from '@/lib/empty-cta';
@@ -27,15 +29,22 @@ export default function GalleryEmptyPanel({ filtered, onClearFilters }: GalleryE
   const generateCta = resolveGenerateEmptyCta();
 
   return (
-    <div className="space-y-4">
+    <div className="ui-brand-empty relative space-y-4 overflow-hidden">
+      <div className="ui-brand-watermark" aria-hidden>
+        <BrandStudioIllustration size={200} />
+      </div>
       <EmptyState
+        branded
         icon="inbox"
         title="No gallery outputs yet"
         description="Queue prompts from any tool with Send to ComfyUI, or import sidecars and ComfyUI history below."
         action={generateCta}
       />
-      <div className="rounded-2xl border border-violet-500/15 bg-violet-500/5 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-        <p className="text-sm font-medium text-[var(--text-primary)]">Getting started</p>
+      <div className="ui-panel-accent relative px-4 py-4">
+        <p className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)]">
+          <BrandBars size="md" />
+          Getting started
+        </p>
         <ul className="mt-2 space-y-1.5 text-[12px] leading-relaxed text-[var(--text-muted)]">
           <li>
             Open <strong className="font-medium text-[var(--text-secondary)]">Generate</strong>,
@@ -44,8 +53,8 @@ export default function GalleryEmptyPanel({ filtered, onClearFilters }: GalleryE
           </li>
           <li>
             Use <strong className="font-medium text-[var(--text-secondary)]">Review mode</strong> to
-            rate outputs with keyboard <kbd className="rounded bg-[var(--bg-muted)] px-1">1–5</kbd>{' '}
-            and build avoided-token feedback.
+            rate outputs with keyboard <kbd className="ui-kbd">1–5</kbd> and build avoided-token
+            feedback.
           </li>
           <li>
             Select <strong className="font-medium text-[var(--text-secondary)]">2–4 cards</strong>{' '}

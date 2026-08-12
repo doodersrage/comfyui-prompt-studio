@@ -408,7 +408,7 @@ export default function NsfwGeneratorTool() {
           step={5}
           value={toolSettings.wildness ?? 60}
           onChange={event => updateToolSettings({ wildness: Number(event.target.value) })}
-          className={`h-8 w-full cursor-pointer accent-fuchsia-500 ${accentFocusClass(ACCENT)}`}
+          className={`h-8 w-full cursor-pointer accent-[var(--accent)] ${accentFocusClass(ACCENT)}`}
         />
       </label>
 

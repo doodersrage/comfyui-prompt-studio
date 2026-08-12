@@ -754,15 +754,17 @@ export default function ComfyWorkflowLibraryPanel({
           className="space-y-1 rounded-xl border border-rose-500/20 bg-rose-500/5 px-3 py-2.5"
           role="alert"
         >
-          <p className="type-caption text-rose-300">{importError}</p>
+          <p className="type-caption ui-status-danger">{importError}</p>
           {importErrorDetail ? (
-            <p className="type-caption whitespace-pre-wrap text-rose-200/75">{importErrorDetail}</p>
+            <p className="type-caption whitespace-pre-wrap ui-status-danger opacity-80">
+              {importErrorDetail}
+            </p>
           ) : null}
         </div>
       ) : null}
       {importNotice ? <p className="type-caption text-amber-300/90">{importNotice}</p> : null}
       {optimizePreviewSummary ? (
-        <p className="type-caption text-violet-200/90">{optimizePreviewSummary}</p>
+        <p className="type-caption text-[var(--accent-text)]">{optimizePreviewSummary}</p>
       ) : null}
 
       {serverFiles.length > 0 && (
@@ -800,7 +802,7 @@ export default function ComfyWorkflowLibraryPanel({
         <p className="type-overline">Imported workflow files ({files.length})</p>
         {files.length === 0 ? (
           <EmptyState
-            compact
+            branded
             icon="catalog"
             title="No workflow files yet"
             description="Export workflows from ComfyUI (Save → API format) and import them here to bind tokens and queue from Studio tools."
@@ -827,7 +829,7 @@ export default function ComfyWorkflowLibraryPanel({
                       <p className="type-heading">
                         {displayName}
                         {active && (
-                          <span className="ml-2 rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] uppercase tracking-wide text-violet-200">
+                          <span className="ml-2 rounded-full bg-[var(--accent-muted)] px-2 py-0.5 text-[10px] uppercase tracking-wide text-[var(--accent-text)]">
                             Active
                           </span>
                         )}
@@ -843,7 +845,7 @@ export default function ComfyWorkflowLibraryPanel({
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         {inferredModels.length > 0 ? (
                           <>
-                            <p className="type-caption text-violet-300/80">
+                            <p className="type-caption text-[var(--accent-text)] opacity-80">
                               Suggested: {inferredModels.join(', ')}
                             </p>
                             <Button
@@ -943,7 +945,7 @@ export default function ComfyWorkflowLibraryPanel({
                             <label key={field.token} className="block space-y-1.5">
                               <span className="type-caption">
                                 {field.label}{' '}
-                                <code className="text-[10px] text-violet-300/90">
+                                <code className="text-[10px] text-[var(--accent-text)]">
                                   {field.token}
                                 </code>
                               </span>
@@ -975,12 +977,12 @@ export default function ComfyWorkflowLibraryPanel({
                           }}
                           rows={14}
                           spellCheck={false}
-                          className="text-emerald-200"
+                          className="text-[var(--tint-success-text)]"
                         />
                       </label>
                       {editingGraphInspect?.ok ? (
                         <div className="ui-surface-inset space-y-2">
-                          <p className="type-caption text-violet-200">
+                          <p className="type-caption text-[var(--accent-text)]">
                             Graph inspector · {editingGraphInspect.nodeCount} nodes
                           </p>
                           <p className="type-caption text-[var(--text-muted)]">
@@ -1005,7 +1007,7 @@ export default function ComfyWorkflowLibraryPanel({
                           )}
                         </div>
                       ) : null}
-                      {editError && <p className="text-xs text-rose-300">{editError}</p>}
+                      {editError && <p className="text-xs ui-status-danger">{editError}</p>}
                       {editingValidation && (
                         <p className="text-xs text-[var(--text-muted)]">
                           {editingValidation.ok ? (
@@ -1039,7 +1041,9 @@ export default function ComfyWorkflowLibraryPanel({
                       {editingNodeMappings.length > 0 ? (
                         <div className="ui-surface-inset">
                           <div className="flex flex-wrap items-center justify-between gap-2">
-                            <p className="type-caption text-violet-200">Suggested node bindings</p>
+                            <p className="type-caption text-[var(--accent-text)]">
+                              Suggested node bindings
+                            </p>
                             <Button
                               type="button"
                               variant="ghost"
@@ -1139,15 +1143,9 @@ export default function ComfyWorkflowLibraryPanel({
       </div>
 
       <p className="text-xs text-[var(--text-muted)]">
-        Server env: set{' '}
-        <code className="rounded bg-[var(--bg-muted)] px-1 text-violet-300">
-          COMFYUI_WORKFLOW_DIR
-        </code>{' '}
-        or{' '}
-        <code className="rounded bg-[var(--bg-muted)] px-1 text-violet-300">
-          COMFYUI_WORKFLOW_PATHS
-        </code>{' '}
-        to expose additional JSON files from disk.
+        Server env: set <code className="ui-inline-code">COMFYUI_WORKFLOW_DIR</code> or{' '}
+        <code className="ui-inline-code">COMFYUI_WORKFLOW_PATHS</code> to expose additional JSON
+        files from disk.
       </p>
 
       <div className="ui-surface-inset space-y-3">

@@ -43,9 +43,9 @@ function PresetChip({
       <button
         type="button"
         onClick={onSelect}
-        className={`max-w-full truncate rounded-lg border px-3 py-1.5 text-xs font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-fuchsia-500 ${
+        className={`max-w-full truncate rounded-lg border px-3 py-1.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] ${
           active
-            ? 'border-fuchsia-500/60 bg-fuchsia-500/15 text-fuchsia-100'
+            ? 'border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)]'
             : 'border-[var(--border-default)] text-[var(--text-muted)] hover:border-[var(--border-default)] hover:bg-[var(--bg-muted)]/40 hover:text-[var(--text-primary)]'
         }`}
         title={preset.hints}
@@ -61,9 +61,9 @@ function PresetChip({
             event.stopPropagation();
             onToggleFavorite();
           }}
-          className={`absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full border text-[10px] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-fuchsia-500 ${
+          className={`absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full border text-[10px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] ${
             favorite
-              ? 'border-amber-400/70 bg-amber-500/20 text-amber-100'
+              ? 'border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] text-[var(--tint-warning-text)]'
               : 'border-[var(--border-subtle)] bg-[var(--bg-muted)] text-[var(--text-muted)] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
           }`}
         >
@@ -78,7 +78,7 @@ function PresetChip({
             event.stopPropagation();
             onDeleteUserPreset();
           }}
-          className="absolute -right-1 -bottom-1 flex h-5 w-5 items-center justify-center rounded-full border border-rose-400/40 bg-rose-500/10 text-[10px] text-rose-200 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-fuchsia-500"
+          className="absolute -right-1 -bottom-1 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--tint-danger-border)] bg-[var(--tint-danger-bg)] text-[10px] text-[var(--tint-danger-text)] opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
         >
           ×
         </button>
@@ -232,9 +232,9 @@ export default function NsfwGeneratorPresetChips({
             key={item.value}
             type="button"
             onClick={() => onCategoryChange?.(item.value)}
-            className={`rounded-full border px-3 py-1 text-xs font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-fuchsia-500 ${
+            className={`rounded-full border px-3 py-1 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] ${
               category === item.value
-                ? 'border-fuchsia-500/60 bg-fuchsia-500/15 text-fuchsia-100'
+                ? 'border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)]'
                 : 'border-[var(--border-default)] text-[var(--text-muted)] hover:border-[var(--border-default)] hover:bg-[var(--bg-muted)]/40 hover:text-[var(--text-primary)]'
             }`}
           >

@@ -4,6 +4,7 @@ import {
   createPasswordResetToken,
   resolveUserForPasswordReset,
 } from '@/lib/auth/password-reset-store';
+import { brandedEmailHtml, emailParagraphs } from '@/lib/email/brand';
 import { sendEmail, isEmailConfigured } from '@/lib/email/mailer';
 
 export const runtime = 'nodejs';
@@ -35,17 +36,25 @@ export async function POST(request: Request) {
   const origin = process.env.PROMPT_API_URL?.trim() || 'http://127.0.0.1:47832';
   const resetUrl = `${origin}/login?reset=${encodeURIComponent(token)}`;
 
+  const textLines = [
+    `Hello ${user.username},`,
+    '',
+    'Use this link to reset your password (valid for 1 hour):',
+    resetUrl,
+    '',
+    'If you did not request this, ignore this email.',
+  ];
+
   await sendEmail({
     to: user.email,
     subject: 'Prompt Studio — password reset',
-    text: [
-      `Hello ${user.username},`,
-      '',
-      'Use this link to reset your password (valid for 1 hour):',
-      resetUrl,
-      '',
-      'If you did not request this, ignore this email.',
-    ].join('\n'),
+    text: textLines.join('\n'),
+    html: brandedEmailHtml({
+      title: 'Password reset',
+      preheader: 'Reset your Prompt Studio password.',
+      footerUrl: origin,
+      bodyHtml: emailParagraphs(textLines),
+    }),
   });
 
   return apiJson({

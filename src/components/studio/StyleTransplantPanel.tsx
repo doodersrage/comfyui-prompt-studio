@@ -61,19 +61,19 @@ export default function StyleTransplantPanel() {
           <div className="flex flex-wrap gap-2 pt-1">
             <Link
               href={`/?hints=${encodeURIComponent(result)}&hintSource=manual`}
-              className="rounded-lg border border-[var(--border-default)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:border-[var(--border-default)] hover:bg-[var(--bg-muted)]/40 hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500"
+              className="ui-chip px-3 py-1.5 text-xs"
             >
               Use in Generate
             </Link>
             <Link
               href={`/plugins/nsfw-generator?hints=${encodeURIComponent(result)}&hintSource=manual`}
-              className="rounded-lg border border-[var(--border-default)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:border-fuchsia-500/40 hover:bg-fuchsia-500/10 hover:text-fuchsia-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-fuchsia-500"
+              className="ui-chip px-3 py-1.5 text-xs"
             >
               Use in Adult generator
             </Link>
             <Link
               href={`/character?hints=${encodeURIComponent(result)}&hintSource=manual&mode=solo`}
-              className="rounded-lg border border-[var(--border-default)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:border-[var(--border-default)] hover:bg-[var(--bg-muted)]/40 hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500"
+              className="ui-chip px-3 py-1.5 text-xs"
             >
               Use in Character
             </Link>

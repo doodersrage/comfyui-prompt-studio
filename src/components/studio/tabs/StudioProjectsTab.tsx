@@ -68,8 +68,8 @@ export default function StudioProjectsTab({
         history.
       </p>
       {sharedProjects.length > 0 ? (
-        <div className="mb-4 space-y-2 rounded-2xl border border-violet-500/20 bg-violet-500/5 p-4">
-          <p className="type-caption text-violet-200/80">Shared team projects</p>
+        <div className="mb-4 space-y-2 ui-panel-accent p-4">
+          <p className="type-caption text-[var(--accent-text)]">Shared team projects</p>
           <ul className="space-y-2">
             {sharedProjects.map(project => (
               <li

@@ -538,7 +538,9 @@ export default function TopicTool() {
 
         <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
           <span>Fewer topics</span>
-          <span className="font-medium text-violet-300">{toolSettings.count ?? 10} topics</span>
+          <span className="font-medium text-[var(--accent-text)]">
+            {toolSettings.count ?? 10} topics
+          </span>
           <span>More</span>
         </div>
         <input
@@ -556,7 +558,7 @@ export default function TopicTool() {
         <FieldLabel>Topic variety</FieldLabel>
         <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
           <span>Focused</span>
-          <span className="font-medium text-violet-300">
+          <span className="font-medium text-[var(--accent-text)]">
             {topicVarietyLabel(toolSettings.variety ?? 50)} ({toolSettings.variety ?? 50})
           </span>
           <span>Exploratory</span>
@@ -751,7 +753,9 @@ export default function TopicTool() {
                     {lintLoading ? 'Linting batch…' : 'Queue batch to ComfyUI'}
                   </Button>
                   {comfyBatchStatus ? (
-                    <p className="w-full text-xs text-violet-300/90">{comfyBatchStatus}</p>
+                    <p className="w-full text-xs text-[var(--accent-text)]/90">
+                      {comfyBatchStatus}
+                    </p>
                   ) : null}
                 </div>
               </div>

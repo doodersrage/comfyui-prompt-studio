@@ -1,20 +1,23 @@
 {
-  "name": "ComfyUI Prompt Studio",
-  "short_name": "PromptStudio",
+  "name": "Prompt Studio",
+  "short_name": "Prompt Studio",
+  "description": "Prompt, queue, and gallery studio for ComfyUI — image, video, audio, and 3D workflows.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#000000",
+  "background_color": "#0b0f14",
+  "theme_color": "#0c0c10",
   "icons": [
     {
-      "src": "/icons/icon-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png"
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
     },
     {
-      "src": "/icons/icon-512x512.png",
+      "src": "/icon.svg",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/svg+xml",
+      "purpose": "maskable"
     }
   ]
 }

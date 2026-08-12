@@ -185,7 +185,7 @@ export default function WorkflowHealthPanel({
           <button
             type="button"
             onClick={applyLoaderMapRepairSuggestions}
-            className="rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-1.5 text-xs text-violet-200 transition hover:border-violet-400/50 hover:bg-violet-500/15"
+            className="rounded-lg border border-[var(--accent-border)] bg-[var(--accent-muted)] px-3 py-1.5 text-xs text-[var(--accent-text)] transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-muted)]"
           >
             Apply {loaderMapRepairs.length} suggested loader map repair
             {loaderMapRepairs.length === 1 ? '' : 's'}
@@ -228,7 +228,7 @@ export default function WorkflowHealthPanel({
                           dispatchWorkflowHealthSelect(issue.workflowId, 'optimize-workflow');
                           onStatus?.(`Optimizing “${issue.workflowName}”…`);
                         }}
-                        className="rounded-lg border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-200 transition hover:border-violet-400/50 hover:bg-violet-500/15"
+                        className="rounded-lg border border-[var(--accent-border)] bg-[var(--accent-muted)] px-2 py-0.5 text-[10px] text-[var(--accent-text)] transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-muted)]"
                       >
                         Optimize
                       </button>

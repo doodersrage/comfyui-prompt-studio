@@ -38,17 +38,14 @@ function ProgressBar({ percent, label }: { percent: number; label?: string | nul
   return (
     <div className="space-y-1.5 pt-1">
       <div
-        className="h-1.5 overflow-hidden rounded-full bg-[var(--bg-muted)]/80"
+        className="ui-progress-track"
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={percent}
         aria-label={label ?? `Generation progress ${percent}%`}
       >
-        <div
-          className="h-full rounded-full bg-gradient-to-r from-sky-500/80 to-violet-400/90 transition-[width] duration-300 ease-out"
-          style={{ width: `${percent}%` }}
-        />
+        <div className="ui-progress-fill" style={{ width: `${percent}%` }} />
       </div>
       {label ? <p className="type-caption text-[var(--text-tertiary)]">{label}</p> : null}
     </div>
@@ -226,7 +223,7 @@ export function ComfyUiGalleryJobPlaceholder({
       {processing && !previewUrl ? <span className="ui-spinner ui-spinner-lg" aria-hidden /> : null}
 
       <div className="relative z-10 w-full max-w-[14rem] space-y-2 rounded-xl bg-[var(--bg-base)]/55 px-3 py-2 backdrop-blur-sm">
-        <p className="text-xs font-medium uppercase tracking-wide text-violet-200">
+        <p className="type-overline text-[var(--accent-text)]">
           {previewUrl ? 'Latent · ' : ''}
           {entry.status === 'running'
             ? 'Rendering'
@@ -246,16 +243,13 @@ export function ComfyUiGalleryJobPlaceholder({
         {percent != null ? (
           <div className="space-y-1.5">
             <div
-              className="h-1.5 overflow-hidden rounded-full bg-[var(--bg-muted)]/90"
+              className="ui-progress-track"
               role="progressbar"
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={percent}
             >
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-sky-500/80 to-violet-400/90 transition-[width] duration-300 ease-out"
-                style={{ width: `${percent}%` }}
-              />
+              <div className="ui-progress-fill" style={{ width: `${percent}%` }} />
             </div>
             {progressLabel ? (
               <p className="text-[11px] text-[var(--text-muted)]">

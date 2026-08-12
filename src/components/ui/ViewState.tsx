@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import BrandMark from '@/components/BrandMark';
 import { Button, PrimaryButton, Skeleton } from '@/components/ui/Button';
 
 export type ViewStateIconName =
@@ -107,6 +108,7 @@ export function EmptyState({
   description,
   action,
   compact = false,
+  branded = false,
   className = '',
 }: {
   icon?: ViewStateIconName;
@@ -114,6 +116,8 @@ export function EmptyState({
   description: ReactNode;
   action?: ViewStateAction;
   compact?: boolean;
+  /** Quiet BrandMark above the icon well for product-owned empties. */
+  branded?: boolean;
   className?: string;
 }) {
   return (
@@ -121,11 +125,16 @@ export function EmptyState({
       className={`ui-view-state ${compact ? 'ui-view-state-compact' : ''} ${className}`.trim()}
       role="status"
     >
+      {branded ? (
+        <div className="ui-view-state-brand">
+          <BrandMark size={compact ? 28 : 36} />
+        </div>
+      ) : null}
       <div className="ui-view-state-icon">
         <ViewStateIconGlyph name={icon} />
       </div>
       <div className="max-w-md space-y-2">
-        <h3 className="type-title">{title}</h3>
+        <h3 className={`${compact ? 'type-heading' : 'type-title'}`}>{title}</h3>
         <p className="type-body">{description}</p>
       </div>
       {action ? <ViewStateActionButton action={action} /> : null}
@@ -155,7 +164,7 @@ export function ErrorState({
         <ViewStateIconGlyph name="alert" />
       </div>
       <div className="max-w-md space-y-2">
-        <h3 className="type-title">{title}</h3>
+        <h3 className={`${compact ? 'type-heading' : 'type-title'}`}>{title}</h3>
         <p className="type-body">{description}</p>
       </div>
       {action ? (

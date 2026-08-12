@@ -751,10 +751,7 @@ export default function SettingsTool() {
     >
       <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.settings} />
       {guidedFixHint ? (
-        <div
-          role="status"
-          className="mb-4 rounded-[var(--radius-lg)] border border-[var(--accent)]/35 bg-[color-mix(in_oklab,var(--accent)_12%,var(--surface))] px-4 py-3 text-sm text-[var(--text-primary)] shadow-[var(--shadow-soft)]"
-        >
+        <div role="status" className="ui-setup-banner mb-4 text-sm text-[var(--text-primary)]">
           {guidedFixHint}
         </div>
       ) : null}

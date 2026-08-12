@@ -1,5 +1,6 @@
 import { getComfyModelDefinition } from './comfy-models';
 import type { ModelPortfolioItem } from './model-portfolio';
+import { brandedHtmlDocument, brandedHtmlSection, escapeBrandedHtml } from './branded-html-shell';
 import { downloadTextFile } from './history-export-formats';
 
 export function buildPortfolioDiffMarkdown(items: ModelPortfolioItem[], draft: string): string {
@@ -30,12 +31,20 @@ export function buildPortfolioDiffHtml(items: ModelPortfolioItem[], draft: strin
     .map(item => {
       const model = getComfyModelDefinition(item.model);
       const body = item.error
-        ? `<p style="color:#f87171">${escapeHtml(item.error)}</p>`
-        : `<pre>${escapeHtml(item.prompt)}</pre>`;
-      return `<section><h2>${escapeHtml(model.label)}</h2><p><code>${escapeHtml(item.model)}</code> · ${escapeHtml(model.profile)}</p><p>${escapeHtml(model.description)}</p>${body}</section>`;
+        ? `<p style="color:#fda4af;font-family:system-ui,sans-serif;">${escapeBrandedHtml(item.error)}</p>`
+        : `<pre style="white-space:pre-wrap;font-size:13px;line-height:1.5;font-family:ui-monospace,monospace;">${escapeBrandedHtml(item.prompt)}</pre>`;
+      return brandedHtmlSection(
+        `<h2 style="margin:0 0 8px;font-size:16px;">${escapeBrandedHtml(model.label)}</h2><p style="font-family:system-ui,sans-serif;color:#a1a4ad;"><code style="color:#9eb6e0;">${escapeBrandedHtml(item.model)}</code> · ${escapeBrandedHtml(model.profile)}</p><p style="font-family:system-ui,sans-serif;color:#71717a;">${escapeBrandedHtml(model.description)}</p>${body}`
+      );
     })
     .join('');
-  return `<!doctype html><html><head><meta charset="utf-8"><title>Portfolio diff</title></head><body><h1>Cross-model prompt diff</h1><p>${escapeHtml(draft.trim())}</p>${sections}</body></html>`;
+
+  return brandedHtmlDocument({
+    title: 'Cross-model prompt diff',
+    subtitle: 'Portfolio compare export',
+    metaLine: draft.trim() ? `Draft: ${draft.trim()}` : undefined,
+    bodyHtml: sections,
+  });
 }
 
 export function downloadPortfolioDiffReport(
@@ -48,12 +57,4 @@ export function downloadPortfolioDiffReport(
     return;
   }
   downloadTextFile(buildPortfolioDiffMarkdown(items, draft), 'portfolio-diff.md', 'text/markdown');
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }

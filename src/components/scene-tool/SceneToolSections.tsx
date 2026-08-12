@@ -93,7 +93,7 @@ export function VariationSliderField({
           step={5}
           value={value}
           onChange={event => onChange(Number(event.target.value))}
-          className={`h-8 w-full min-w-0 cursor-pointer accent-violet-500 ${accentRingClassName}`.trim()}
+          className={`h-8 w-full min-w-0 cursor-pointer accent-[var(--accent)] ${accentRingClassName}`.trim()}
         />
         <span className="type-caption text-right font-medium text-[var(--text-primary)]">
           {valueLabel}

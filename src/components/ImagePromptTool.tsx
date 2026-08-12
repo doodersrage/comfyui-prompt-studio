@@ -405,7 +405,7 @@ export default function ImagePromptTool() {
             type="file"
             accept="image/*"
             onChange={e => onFileChange(e.target.files?.[0] ?? null)}
-            className="block min-w-0 flex-1 text-sm text-[var(--text-muted)] file:mr-4 file:rounded-lg file:border-0 file:bg-fuchsia-600 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white"
+            className="ui-file-input block min-w-0 flex-1"
           />
           <ButtonLink href={galleryPickPath('imagePrompt')} variant="secondary" size="sm">
             Choose from Gallery
@@ -472,7 +472,7 @@ export default function ImagePromptTool() {
                       )
                     }
                     aria-label={`Strength for ${entry.role}`}
-                    className="h-8 w-full min-w-0 cursor-pointer accent-fuchsia-500"
+                    className="h-8 w-full min-w-0 cursor-pointer accent-[var(--accent)]"
                   />
                   <span className="text-right text-xs tabular-nums text-[var(--text-secondary)]">
                     {Math.round(entry.strength * 100)}%
@@ -512,7 +512,7 @@ export default function ImagePromptTool() {
         </div>
         <p className="type-caption">{selectedPreset.summary}</p>
         {selectedPreset.suggestedDetail && selectedPreset.suggestedDetail !== shared.detail ? (
-          <p className="type-caption text-fuchsia-300/90">
+          <p className="type-caption text-[var(--accent-text)]">
             Works best with{' '}
             <strong className="font-medium capitalize">{selectedPreset.suggestedDetail}</strong>{' '}
             detail in the sidebar.
@@ -679,19 +679,20 @@ export default function ImagePromptTool() {
           <span className="type-caption text-[var(--text-muted)]">Use as hints</span>
           <Link
             href={`/?hints=${encodeURIComponent(output.slice(0, 500))}&hintSource=manual`}
-            className="rounded-xl border border-violet-500/35 bg-violet-500/10 px-2.5 py-1 text-[11px] font-medium text-violet-200 transition hover:border-violet-400/55 hover:bg-violet-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40 active:scale-[0.98]"
+            className="ui-chip px-2.5 py-1 text-[11px]"
+            data-active="true"
           >
             Scene / Generate
           </Link>
           <Link
             href={`/character?hints=${encodeURIComponent(output.slice(0, 500))}&hintSource=manual&mode=solo`}
-            className="rounded-xl border border-sky-500/35 bg-sky-500/10 px-2.5 py-1 text-[11px] font-medium text-sky-200 transition hover:border-sky-400/55 hover:bg-sky-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40 active:scale-[0.98]"
+            className="ui-chip px-2.5 py-1 text-[11px] border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] text-[var(--tint-info-text)]"
           >
             Character
           </Link>
           <Link
             href={`/character?mode=duo&hints=${encodeURIComponent(output.slice(0, 500))}&hintSource=manual`}
-            className="rounded-xl border border-emerald-500/35 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-200 transition hover:border-emerald-400/55 hover:bg-emerald-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/40 active:scale-[0.98]"
+            className="ui-chip px-2.5 py-1 text-[11px] border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] text-[var(--tint-success-text)]"
           >
             Duo
           </Link>

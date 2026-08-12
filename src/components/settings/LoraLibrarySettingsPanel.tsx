@@ -159,7 +159,7 @@ export default function LoraLibrarySettingsPanel({
             type="button"
             onClick={() => void refreshInventory()}
             disabled={inventoryLoading}
-            className="text-xs text-violet-300 transition hover:text-violet-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500 disabled:opacity-50"
+            className="type-caption ui-text-link focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:opacity-50"
           >
             {inventoryLoading ? 'Refreshing…' : 'Refresh inventory'}
           </button>
@@ -170,7 +170,7 @@ export default function LoraLibrarySettingsPanel({
           placeholder="Filter LoRA filenames…"
           className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-base)] px-3 py-2 text-sm text-[var(--text-primary)]"
         />
-        {inventoryError ? <p className="text-xs text-rose-300">{inventoryError}</p> : null}
+        {inventoryError ? <p className="text-xs ui-status-danger">{inventoryError}</p> : null}
         {inventoryLoading && inventoryLoras.length === 0 ? (
           <p className="text-xs text-[var(--text-muted)]">Loading LoRA inventory…</p>
         ) : availableToAdd.length === 0 ? (
@@ -194,7 +194,7 @@ export default function LoraLibrarySettingsPanel({
                 <button
                   type="button"
                   onClick={() => addFromInventory(filename)}
-                  className="shrink-0 rounded-lg border border-[var(--border-default)] px-2 py-1 text-xs text-[var(--text-secondary)] transition hover:border-violet-500 hover:text-violet-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500"
+                  className="shrink-0 rounded-lg border border-[var(--border-default)] px-2 py-1 text-xs text-[var(--text-secondary)] transition hover:border-[var(--accent-border)] hover:text-[var(--accent-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
                 >
                   Add
                 </button>
@@ -210,14 +210,16 @@ export default function LoraLibrarySettingsPanel({
           <button
             type="button"
             onClick={addBlank}
-            className="text-xs text-violet-300 transition hover:text-violet-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500"
+            className="type-caption ui-text-link focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
           >
             Add blank
           </button>
         </div>
         <p className="text-xs text-[var(--text-muted)]">
           For Qwen Lightning, set ID to{' '}
-          <code className="rounded bg-[var(--bg-muted)] px-1 text-violet-300">LIGHTNING</code>{' '}
+          <code className="rounded bg-[var(--bg-muted)] px-1 text-[var(--accent-text)]">
+            LIGHTNING
+          </code>{' '}
           (suggested automatically for Lightning filenames).
         </p>
         {entries.length > 0 ? (
@@ -262,7 +264,7 @@ export default function LoraLibrarySettingsPanel({
                           type="checkbox"
                           checked={enabled}
                           onChange={event => updateEntry(index, { enabled: event.target.checked })}
-                          className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
+                          className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-[var(--accent)]"
                         />
                         Enabled
                       </label>
@@ -273,7 +275,7 @@ export default function LoraLibrarySettingsPanel({
                         onClick={() => moveEntry(index, -1)}
                         disabled={index === 0}
                         aria-label="Move LoRA up"
-                        className="rounded-lg border border-[var(--border-default)] px-2 py-1 text-xs text-[var(--text-muted)] transition hover:border-violet-500 hover:text-violet-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-[var(--border-default)] disabled:hover:text-[var(--text-muted)]"
+                        className="rounded-lg border border-[var(--border-default)] px-2 py-1 text-xs text-[var(--text-muted)] transition hover:border-[var(--accent-border)] hover:text-[var(--accent-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-[var(--border-default)] disabled:hover:text-[var(--text-muted)]"
                       >
                         ↑
                       </button>
@@ -282,7 +284,7 @@ export default function LoraLibrarySettingsPanel({
                         onClick={() => moveEntry(index, 1)}
                         disabled={index === entries.length - 1}
                         aria-label="Move LoRA down"
-                        className="rounded-lg border border-[var(--border-default)] px-2 py-1 text-xs text-[var(--text-muted)] transition hover:border-violet-500 hover:text-violet-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-[var(--border-default)] disabled:hover:text-[var(--text-muted)]"
+                        className="rounded-lg border border-[var(--border-default)] px-2 py-1 text-xs text-[var(--text-muted)] transition hover:border-[var(--accent-border)] hover:text-[var(--accent-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-[var(--border-default)] disabled:hover:text-[var(--text-muted)]"
                       >
                         ↓
                       </button>
@@ -342,7 +344,7 @@ export default function LoraLibrarySettingsPanel({
                             strengthModel: Number(event.target.value),
                           })
                         }
-                        className="h-8 w-full cursor-pointer accent-violet-500"
+                        className="h-8 w-full cursor-pointer accent-[var(--accent)]"
                       />
                     </label>
                     <label className="space-y-1 text-xs text-[var(--text-muted)]">
@@ -363,18 +365,18 @@ export default function LoraLibrarySettingsPanel({
                             strengthClip: Number(event.target.value),
                           })
                         }
-                        className="h-8 w-full cursor-pointer accent-violet-500"
+                        className="h-8 w-full cursor-pointer accent-[var(--accent)]"
                       />
                     </label>
                   </div>
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <code className="text-xs text-violet-300">
+                    <code className="text-xs text-[var(--accent-text)]">
                       {entry.id.trim() ? `{{LORA_${entry.id.trim()}}}` : '{{LORA_<id>}}'}
                     </code>
                     <button
                       type="button"
                       onClick={() => removeEntry(index)}
-                      className="rounded-lg border border-[var(--border-default)] px-3 py-1.5 text-xs text-[var(--text-muted)] transition hover:border-rose-500 hover:text-rose-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-rose-500"
+                      className="rounded-lg border border-[var(--border-default)] px-3 py-1.5 text-xs text-[var(--text-muted)] transition hover:border-[var(--tint-danger-border)] hover:text-[var(--tint-danger-text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--tint-danger-text)]"
                     >
                       Remove
                     </button>

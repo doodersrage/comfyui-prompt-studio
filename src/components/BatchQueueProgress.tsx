@@ -47,13 +47,13 @@ export default function BatchQueueProgress({
               : 'Processing…';
 
   return (
-    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)]/50 px-4 py-3">
+    <div className="ui-panel-accent px-4 py-3">
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
         <p className="font-medium text-[var(--text-primary)]">{phaseLabel}</p>
         <span className="text-xs text-[var(--text-muted)]">{pct}%</span>
       </div>
       <div
-        className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--bg-muted)]"
+        className="ui-progress-track mt-2"
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={100}
@@ -61,12 +61,12 @@ export default function BatchQueueProgress({
         aria-label={phaseLabel}
       >
         <div
-          className={`h-full transition-all duration-300 ${
+          className={`ui-progress-fill ${
             progress.phase === 'error'
-              ? 'bg-rose-500/80'
+              ? '!bg-[var(--tint-danger-text)]'
               : inFlightGenerating
-                ? 'bg-violet-500/80 motion-safe:animate-pulse'
-                : 'bg-violet-500/80'
+                ? 'motion-safe:animate-pulse'
+                : ''
           }`}
           style={{ width: `${pct}%` }}
         />
@@ -75,7 +75,7 @@ export default function BatchQueueProgress({
         <p className="mt-2 text-xs text-[var(--text-muted)]">{progress.message}</p>
       ) : null}
       {progress.failures && progress.failures.length > 0 ? (
-        <ul className="mt-2 space-y-1 text-xs text-rose-200/90">
+        <ul className="mt-2 space-y-1 text-xs ui-status-danger">
           {progress.failures.slice(0, 6).map(failure => (
             <li key={`${failure.label}-${failure.message}`}>
               {failure.label}: {failure.message}

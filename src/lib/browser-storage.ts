@@ -41,6 +41,7 @@ const SYNC_LOCALSTORAGE_KEYS = new Set([
   'comfy-app-theme-v1',
   'comfy-ambient-intensity-v1',
   'comfy-ui-density-v1',
+  'comfy-calm-ui-v1',
 ]);
 
 /**

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { AmbientIntensity } from '@/lib/ambient-settings';
 import { loadAmbientIntensity, saveAmbientIntensity } from '@/lib/ambient-settings';
+import { applyCalmUi, loadCalmUi, saveCalmUi } from '@/lib/calm-settings';
 import type { UiDensity } from '@/lib/density-settings';
 import { loadUiDensity, saveUiDensity } from '@/lib/density-settings';
 import { loadToastPreferenceEnabled, rememberToastPreference } from '@/lib/app-toast';
@@ -17,6 +18,7 @@ import WorkspaceModeControl from '@/components/WorkspaceModeControl';
 export default function ProfileAppearancePanel() {
   const [ambient, setAmbient] = useState<AmbientIntensity>('subtle');
   const [density, setDensity] = useState<UiDensity>('comfortable');
+  const [calm, setCalm] = useState(false);
   const [toastsEnabled, setToastsEnabled] = useState(true);
   const [resetNote, setResetNote] = useState<string | null>(null);
 
@@ -24,6 +26,7 @@ export default function ProfileAppearancePanel() {
     scheduleAfterCommit(() => {
       setAmbient(loadAmbientIntensity());
       setDensity(loadUiDensity());
+      setCalm(loadCalmUi());
       setToastsEnabled(loadToastPreferenceEnabled());
     });
   }, []);
@@ -37,7 +40,7 @@ export default function ProfileAppearancePanel() {
       </div>
 
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
-        <label className="space-y-2 text-sm">
+        <label className="ui-field-row text-sm">
           <span className="type-caption text-[var(--text-muted)]">Ambient background</span>
           <select
             value={ambient}
@@ -54,7 +57,7 @@ export default function ProfileAppearancePanel() {
             <option value="vivid">Vivid</option>
           </select>
         </label>
-        <label className="space-y-2 text-sm">
+        <label className="ui-field-row text-sm">
           <span className="type-caption text-[var(--text-muted)]">Density</span>
           <select
             value={density}
@@ -65,16 +68,48 @@ export default function ProfileAppearancePanel() {
             }}
             className="ui-input w-full"
           >
-            <option value="comfortable">Comfortable</option>
-            <option value="compact">Compact</option>
+            <option value="comfortable">Comfortable — roomy type & padding</option>
+            <option value="compact">Compact — denser tools & gallery</option>
           </select>
         </label>
       </div>
+      <p className="ui-meta mt-2">
+        Comfortable enlarges display titles and card padding. Compact tightens gutters, inputs, and
+        section gaps across the app.
+      </p>
 
       <label className="mt-5 flex items-start gap-3 rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-4 text-sm">
         <input
           type="checkbox"
-          className="mt-1"
+          className="ui-checkbox mt-1"
+          checked={calm}
+          onChange={event => {
+            const next = event.target.checked;
+            setCalm(next);
+            saveCalmUi(next);
+            applyCalmUi();
+            if (toastsEnabled) {
+              pushAppToast({
+                text: next ? 'Calm UI on — quieter motion' : 'Calm UI off',
+                tone: 'info',
+                ttlMs: 2200,
+              });
+            }
+          }}
+        />
+        <span>
+          <span className="block font-medium text-[var(--text-primary)]">Calm UI</span>
+          <span className="type-caption text-[var(--text-muted)]">
+            Softens ambient drift, disables floaty hovers, and skips enter animations. Pairs well
+            with reduced motion.
+          </span>
+        </span>
+      </label>
+
+      <label className="mt-5 flex items-start gap-3 rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-4 text-sm">
+        <input
+          type="checkbox"
+          className="ui-checkbox mt-1"
           checked={toastsEnabled}
           onChange={event => {
             const next = event.target.checked;
@@ -101,8 +136,8 @@ export default function ProfileAppearancePanel() {
         <p className="type-caption text-[var(--text-muted)]">
           Clears pinned tools, recent destinations, expanded nav groups, remembered collapsibles,
           per-tool model/workflow memory, last draft, and last tool route. Density returns to
-          Comfortable. Workspace returns to Simple. Theme, ambient, and toast preference stay
-          unchanged.
+          Comfortable. Workspace returns to Simple. Theme, ambient, Calm UI, and toast preference
+          stay unchanged.
         </p>
         <Button
           variant="secondary"

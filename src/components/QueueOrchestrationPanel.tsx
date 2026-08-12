@@ -248,7 +248,7 @@ export default function QueueOrchestrationPanel(props: { compact?: boolean }) {
                   .join(' · ') || health.url
               : (health?.error ?? 'Unreachable')
           }
-          valueClassName={health?.ok === false ? 'text-rose-300' : ''}
+          valueClassName={health?.ok === false ? 'ui-status-danger' : ''}
         />
         <StatCard
           label="Local tracked"
@@ -331,7 +331,7 @@ export default function QueueOrchestrationPanel(props: { compact?: boolean }) {
         </ButtonLink>
       </ToolActionRow>
 
-      {status ? <p className="mt-3 text-xs text-emerald-400">{status}</p> : null}
+      {status ? <p className="mt-3 text-xs ui-status-success">{status}</p> : null}
     </section>
   );
 }

@@ -124,10 +124,10 @@ export default function SettingsPromptQualityPanel({
           onModeChange={mode => updateSharedSettings({ anatomyGuardMode: mode })}
           model={sharedSettings.model}
         />
-        <label className="flex items-start gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)]/40 px-3 py-2.5 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--bg-muted)]/50 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-violet-500/40">
+        <label className="flex items-start gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)]/40 px-3 py-2.5 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--bg-muted)]/50 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[var(--accent-ring)]">
           <input
             type="checkbox"
-            className="mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
+            className="mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-[var(--accent)]"
             checked={sharedSettings.kleinEnhancerEnabled !== false}
             disabled={!sharedMounted}
             onChange={event => updateSharedSettings({ kleinEnhancerEnabled: event.target.checked })}
@@ -140,7 +140,7 @@ export default function SettingsPromptQualityPanel({
               Wire{' '}
               <a
                 href="https://github.com/capitan01R/ComfyUI-Flux2Klein-Enhancer"
-                className="text-violet-300 transition hover:text-violet-200"
+                className="ui-text-link"
                 target="_blank"
                 rel="noreferrer"
               >
@@ -158,7 +158,7 @@ export default function SettingsPromptQualityPanel({
             <label className="flex items-start gap-2 text-sm text-[var(--text-secondary)]">
               <input
                 type="checkbox"
-                className="mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
+                className="mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-[var(--accent)]"
                 checked={sharedSettings.kleinEnhancerTextEnabled !== false}
                 disabled={!sharedMounted}
                 onChange={event =>
@@ -175,7 +175,7 @@ export default function SettingsPromptQualityPanel({
             <label className="flex items-start gap-2 text-sm text-[var(--text-secondary)]">
               <input
                 type="checkbox"
-                className="mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
+                className="mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-[var(--accent)]"
                 checked={sharedSettings.kleinEnhancerColorAnchorEnabled !== false}
                 disabled={!sharedMounted}
                 onChange={event =>
@@ -207,7 +207,7 @@ export default function SettingsPromptQualityPanel({
                           kleinEnhancerColorAnchorStrength: Number(event.target.value),
                         })
                       }
-                      className="w-full accent-violet-500"
+                      className="w-full accent-[var(--accent)]"
                     />
                   </label>
                 ) : null}

@@ -187,7 +187,7 @@ export default function GalleryStatsBar({
 
       {nearCapacity ? (
         <div
-          className={`rounded-xl border-rose-600/55 bg-rose-900/20 backdrop-blur-xs px-3.5 py-2 type-caption text-[var(--tint-warning-text)] transition hover:border-rose-500/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/30`}
+          className={`rounded-xl border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] backdrop-blur-xs px-3.5 py-2 type-caption text-[var(--tint-warning-text)] transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tint-danger-border)]`}
         >
           <p className="text-left">
             Gallery stores up to {GALLERY_ENTRY_LIMIT} entries in IndexedDB — oldest outputs drop

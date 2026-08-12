@@ -42,7 +42,7 @@ function ParamGrid({
   return (
     <div className="space-y-2">
       <h3
-        className={`type-caption font-medium rounded-xl border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60 backdrop-blur-xs text-violet-400 px-3 py-1.5 tracking-wider`}
+        className={`type-caption font-medium rounded-xl border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60 backdrop-blur-xs text-[var(--accent-text)] px-3 py-1.5 tracking-wider`}
       >
         {label}
       </h3>
@@ -52,9 +52,9 @@ function ParamGrid({
             key={row.key}
             className="rounded-xl border-[var(--border-subtle)]/60 bg-[var(--bg-base)]/70 px-3 py-2 backdrop-blur-xs"
           >
-            <dt className="type-caption text-violet-400">{row.key}</dt>
+            <dt className="type-caption text-[var(--accent-text)]">{row.key}</dt>
             <dd
-              className="type-code mt-0.5 truncate text-sm text-emerald-100/90"
+              className="type-code mt-0.5 truncate text-sm text-[var(--tint-success-text)]"
               title={formatWorkflowParamValue(row.value)}
             >
               {formatWorkflowParamValue(row.value)}
@@ -138,7 +138,7 @@ export default function GalleryWorkflowModal({ entry, onClose }: GalleryWorkflow
             <button
               type="button"
               onClick={onClose}
-              className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60 backdrop-blur-xs transition hover:bg-violet-500/25 hover:border-violet-500/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30 text-violet-400`}
+              className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60 backdrop-blur-xs transition hover:bg-[var(--accent-muted)] hover:border-[var(--accent-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] text-[var(--accent-text)]`}
             >
               Close
             </button>
@@ -156,9 +156,9 @@ export default function GalleryWorkflowModal({ entry, onClose }: GalleryWorkflow
             ) : (
               <>
                 {qualityProfile ? (
-                  <div className="rounded-xl border border-violet-500/20 bg-violet-950/20 px-4 py-3">
+                  <div className="rounded-xl border border-[var(--accent-border)] bg-[var(--accent-muted)] px-4 py-3">
                     <p className="type-caption text-[var(--text-muted)]">Queue quality profile</p>
-                    <p className="mt-1 text-sm text-violet-100">
+                    <p className="mt-1 text-sm text-[var(--accent-text)]">
                       {formatQueueQualityProfileLabel(qualityProfile)}
                     </p>
                     {qualityHint ? (
@@ -199,7 +199,7 @@ export default function GalleryWorkflowModal({ entry, onClose }: GalleryWorkflow
                         <div className="rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/50 px-3 py-2">
                           <dt className="type-caption text-[var(--text-muted)]">sourceImageUrl</dt>
                           <dd
-                            className="type-code mt-0.5 truncate text-sm text-emerald-100/90"
+                            className="type-code mt-0.5 truncate text-sm text-[var(--tint-success-text)]"
                             title={entry.sourceImageUrl}
                           >
                             {entry.sourceImageUrl}
@@ -242,12 +242,14 @@ export default function GalleryWorkflowModal({ entry, onClose }: GalleryWorkflow
                               key={`${row.nodeId}-${row.input}-${String(row.value).slice(0, 24)}`}
                               className="border-t border-[var(--border-subtle)]/60 text-[var(--text-secondary)]"
                             >
-                              <td className="type-code px-3 py-2 text-violet-200">{row.nodeId}</td>
+                              <td className="type-code px-3 py-2 text-[var(--accent-text)]">
+                                {row.nodeId}
+                              </td>
                               <td className="px-3 py-2 text-[var(--text-muted)]">
                                 {row.classType ?? '—'}
                               </td>
                               <td className="type-code px-3 py-2 text-sky-200">{row.input}</td>
-                              <td className="type-code max-w-[16rem] truncate px-3 py-2 text-emerald-100">
+                              <td className="type-code max-w-[16rem] truncate px-3 py-2 text-[var(--tint-success-text)]">
                                 {String(row.value)}
                               </td>
                             </tr>
@@ -271,7 +273,7 @@ export default function GalleryWorkflowModal({ entry, onClose }: GalleryWorkflow
                             .writeText(view.history?.workflowJson ?? '')
                             .catch(() => undefined);
                         }}
-                        className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-emerald-600/45 bg-emerald-900/15 backdrop-blur-xs transition hover:bg-emerald-500/30 hover:border-emerald-500/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/30 text-emerald-400`}
+                        className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] backdrop-blur-xs transition hover:bg-[var(--tint-success-bg)] hover:border-[var(--tint-success-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tint-success-border)] text-[var(--tint-success-text)]`}
                       >
                         Copy JSON
                       </button>

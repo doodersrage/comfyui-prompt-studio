@@ -222,7 +222,7 @@ export default function QueueTool() {
     >
       <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.queue} />
       {queueHealth?.ok ? (
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="ui-queue-strip">
           <p className="text-sm text-[var(--text-muted)]">
             ComfyUI queue: {queueHealth.queueRunning ?? 0} running · {queueHealth.queuePending ?? 0}{' '}
             pending
@@ -250,6 +250,7 @@ export default function QueueTool() {
           entries.length === 0 ? (
             <EmptyState
               compact
+              branded
               icon="inbox"
               title="Queue is empty"
               description="Send a prompt to ComfyUI from Generate. If nothing queues, use Settings → Heal & ready (system workflows + Comfy connection)."
@@ -330,7 +331,7 @@ export default function QueueTool() {
                   >
                     <div className="ui-list-primary min-w-0 space-y-1">
                       <p className="truncate text-sm text-[var(--text-primary)]">{entry.prompt}</p>
-                      <p className="type-caption text-rose-300/80">
+                      <p className="type-caption ui-status-danger">
                         {entry.statusMessage ?? entry.status} · {entry.model}
                       </p>
                     </div>
@@ -372,7 +373,7 @@ export default function QueueTool() {
                   <li key={entry.id} className="ui-list-row items-start">
                     <div className="ui-list-primary min-w-0 space-y-1">
                       <p className="truncate text-sm text-[var(--text-primary)]">{entry.prompt}</p>
-                      <p className="type-caption text-rose-300/80">
+                      <p className="type-caption ui-status-danger">
                         {entry.statusMessage ?? entry.status} · {entry.model}
                       </p>
                     </div>
@@ -478,7 +479,7 @@ export default function QueueTool() {
         </ToolSection>
       )}
 
-      {status ? <p className="text-sm text-emerald-400">{status}</p> : null}
+      {status ? <p className="text-sm ui-status-success">{status}</p> : null}
     </ToolLayout>
   );
 }

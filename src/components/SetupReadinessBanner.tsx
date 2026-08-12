@@ -127,7 +127,7 @@ export default function SetupReadinessBanner({
   }
 
   return (
-    <div className="mb-4 rounded-[var(--radius-xl)] border border-[var(--accent-border)] bg-[var(--accent-muted)] p-4 shadow-[var(--shadow-surface)]">
+    <div className="ui-setup-banner mb-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <p className="text-sm font-medium text-[var(--accent-text)]">

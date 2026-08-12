@@ -131,7 +131,7 @@ function IterationTreeNodeCard({
       <ToolContentPanel className="ui-block-group">
         <p className="type-caption text-[var(--text-muted)]">
           {formatPromptVersionLabel(node.entry.promptVersion) ? (
-            <span className="mr-1.5 inline-flex items-center rounded-md border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-medium text-sky-200">
+            <span className="mr-1.5 inline-flex items-center rounded-md border border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--tint-info-text)]">
               {formatPromptVersionLabel(node.entry.promptVersion)}
             </span>
           ) : null}
@@ -141,16 +141,16 @@ function IterationTreeNodeCard({
           {node.entry.prompt}
         </pre>
         <div className="flex flex-wrap gap-2">
-          <a href={regenerateUrl} className="type-caption text-sky-300 hover:text-sky-200">
+          <a href={regenerateUrl} className="type-caption ui-text-link">
             Regenerate
           </a>
-          <a href={useAsHintsUrl} className="type-caption text-sky-300 hover:text-sky-200">
+          <a href={useAsHintsUrl} className="type-caption ui-text-link">
             Use as hints
           </a>
           <button
             type="button"
             onClick={() => startRefineFromHistoryEntry(node.entry)}
-            className="type-caption text-violet-300 hover:text-violet-200"
+            className="type-caption ui-text-link"
           >
             Edit & refine prompt
           </button>
@@ -166,7 +166,7 @@ function IterationTreeNodeCard({
                 }
               );
             }}
-            className="type-caption text-emerald-300 transition hover:text-emerald-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/40"
+            className="type-caption ui-text-link focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
           >
             Restore as current
           </button>
@@ -175,22 +175,18 @@ function IterationTreeNodeCard({
               <button
                 type="button"
                 onClick={() => queueUpscale('final')}
-                className="type-caption text-emerald-300 hover:text-emerald-200"
+                className="type-caption ui-text-link"
               >
                 Upscale (Final)
               </button>
               <button
                 type="button"
                 onClick={() => queueUpscale('max')}
-                className="type-caption text-emerald-300 hover:text-emerald-200"
+                className="type-caption ui-text-link"
               >
                 Upscale (Max)
               </button>
-              <button
-                type="button"
-                onClick={queueRefine}
-                className="type-caption text-violet-300 hover:text-violet-200"
-              >
+              <button type="button" onClick={queueRefine} className="type-caption ui-text-link">
                 Refine (low denoise)
               </button>
             </>
@@ -225,7 +221,7 @@ function IterationTreeNodeCard({
                 );
               });
             }}
-            className="type-caption text-emerald-300 hover:text-emerald-200"
+            className="type-caption ui-text-link"
           >
             New variation (new seed)
           </button>
@@ -334,9 +330,9 @@ export default function StudioIterationTab({
                     key={`${segment.type}-${index}`}
                     className={
                       segment.type === 'add'
-                        ? 'text-emerald-300'
+                        ? 'ui-status-success'
                         : segment.type === 'remove'
-                          ? 'text-rose-300 line-through'
+                          ? 'ui-status-danger line-through'
                           : 'text-[var(--text-secondary)]'
                     }
                   >
@@ -362,6 +358,7 @@ export default function StudioIterationTab({
       </div>
       {iterationForest.length === 0 ? (
         <EmptyState
+          branded
           icon="diff"
           title="No iteration branches yet"
           description="Save refined prompts to history with lineage to see parent/child trees here."

@@ -2,7 +2,6 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import BrandMark from '@/components/BrandMark';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/Field';
 import { useAuth } from '@/hooks/useAuth';
@@ -162,23 +161,14 @@ export default function LoginForm() {
         ? 'Enter your username or email. If SMTP is configured, a reset link is sent when a match exists.'
         : mode === 'reset'
           ? 'Choose a new password for your account.'
-          : 'Use your Prompt Studio account. Default admin is created on first enable.';
+          : 'Use your Prompt Studio account to continue.';
 
   return (
-    <form
-      onSubmit={onSubmit}
-      className="mx-auto w-full max-w-md space-y-5 rounded-3xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/70 p-8 shadow-[0_24px_80px_-40px_rgba(56,189,248,0.28)] backdrop-blur-md"
-    >
-      <div className="space-y-3">
-        <BrandMark
-          size={40}
-          withWordmark
-          wordmarkClassName="type-title tracking-tight text-[var(--text-primary)]"
-        />
-        <div className="space-y-1">
-          <h1 className="type-heading text-[var(--text-primary)]">{title}</h1>
-          <p className="text-sm text-[var(--text-muted)]">{description}</p>
-        </div>
+    <form onSubmit={onSubmit} className="ui-auth-card space-y-5">
+      <div className="space-y-1.5">
+        <p className="type-overline">Account</p>
+        <h1 className="type-title text-[var(--text-primary)]">{title}</h1>
+        <p className="type-caption text-[var(--text-secondary)]">{description}</p>
       </div>
 
       {mode === 'sign-in' ? (
@@ -210,7 +200,7 @@ export default function LoginForm() {
               setInfo(null);
               setForgotIdentifier(username);
             }}
-            className="text-xs text-violet-300 transition hover:text-violet-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40"
+            className="ui-text-link text-xs"
           >
             Forgot password?
           </button>
@@ -263,19 +253,10 @@ export default function LoginForm() {
         </>
       ) : null}
 
-      {error ? (
-        <p className="rounded-xl border border-rose-500/20 bg-rose-500/5 px-3 py-2 text-sm text-rose-100">
-          {error}
-        </p>
-      ) : null}
+      {error ? <p className="ui-alert-danger text-sm">{error}</p> : null}
+      {info ? <p className="ui-alert-success text-sm">{info}</p> : null}
 
-      {info ? (
-        <p className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-sm text-emerald-100">
-          {info}
-        </p>
-      ) : null}
-
-      <Button type="submit" disabled={loading} className="w-full">
+      <Button type="submit" disabled={loading} className="w-full" variant="primary">
         {loading
           ? 'Working…'
           : mode === 'totp'
@@ -295,7 +276,7 @@ export default function LoginForm() {
             setError(null);
             setInfo(null);
           }}
-          className="w-full text-center text-xs text-[var(--text-muted)] underline underline-offset-2 transition hover:text-[var(--text-secondary)]"
+          className="ui-text-link w-full text-center text-xs"
         >
           Back to sign in
         </button>

@@ -158,7 +158,7 @@ export default function StudioPortfolioTab({
             <ToolContentPanel key={item.model} className="ui-block-group">
               <p className="type-caption text-[var(--text-muted)]">{item.model}</p>
               {item.error ? (
-                <p className="text-sm text-rose-300">{item.error}</p>
+                <p className="text-sm ui-status-danger">{item.error}</p>
               ) : (
                 <pre className="type-code max-h-40 overflow-auto whitespace-pre-wrap text-[var(--text-secondary)]">
                   {item.prompt}

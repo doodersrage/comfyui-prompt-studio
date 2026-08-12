@@ -405,7 +405,7 @@ export default function RefineTool() {
             type="file"
             accept="image/*"
             onChange={event => onFileChange(event.target.files?.[0] ?? null)}
-            className="block min-w-0 flex-1 text-sm text-[var(--text-muted)] file:mr-4 file:rounded-lg file:border-0 file:bg-fuchsia-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-fuchsia-500"
+            className="ui-file-input block min-w-0 flex-1"
           />
           <ButtonLink href={galleryPickPath('refine')} variant="secondary" size="sm">
             Choose from Gallery

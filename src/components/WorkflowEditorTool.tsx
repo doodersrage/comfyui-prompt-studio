@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ReactFlow,
   Background,
@@ -17,6 +17,12 @@ import {
   type Connection,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import {
+  APP_THEME_CHANGED_EVENT,
+  loadAppTheme,
+  resolveAppTheme,
+  type ResolvedAppTheme,
+} from '@/lib/theme-store';
 import { Button, PrimaryButton } from '@/components/ui/Button';
 import { FieldLabel, TextArea, TextInput } from '@/components/ui/Field';
 import { ToolBadge, ToolLayout, ToolSection } from '@/components/ui/ToolPageShell';
@@ -52,10 +58,10 @@ function ComfyNodeCard({ data, selected }: NodeProps) {
   return (
     <div
       className={`min-w-[200px] max-w-[260px] rounded-xl border bg-[var(--bg-base)]/90 px-3 py-2 shadow-lg backdrop-blur ${
-        selected ? 'border-violet-400/60' : 'border-[var(--border-default)]/80'
+        selected ? 'border-[var(--accent-border)]' : 'border-[var(--border-default)]/80'
       }`}
     >
-      <Handle type="target" position={Position.Left} className="!bg-violet-400" />
+      <Handle type="target" position={Position.Left} className="!bg-[var(--accent)]" />
       <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
         {nodeData.classType}
       </p>
@@ -67,7 +73,7 @@ function ComfyNodeCard({ data, selected }: NodeProps) {
           </li>
         ))}
       </ul>
-      <Handle type="source" position={Position.Right} className="!bg-emerald-400" />
+      <Handle type="source" position={Position.Right} className="!bg-[var(--tint-success-text)]" />
     </div>
   );
 }
@@ -100,6 +106,14 @@ export default function WorkflowEditorTool() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+  const [flowTheme, setFlowTheme] = useState<ResolvedAppTheme>('dark');
+
+  useEffect(() => {
+    const sync = () => setFlowTheme(resolveAppTheme(loadAppTheme()));
+    sync();
+    window.addEventListener(APP_THEME_CHANGED_EVENT, sync);
+    return () => window.removeEventListener(APP_THEME_CHANGED_EVENT, sync);
+  }, []);
 
   const loadWorkflowObject = useCallback(
     (workflow: Record<string, unknown>, label: string) => {
@@ -387,7 +401,7 @@ export default function WorkflowEditorTool() {
       </ToolSection>
 
       <ToolSection title="Graph">
-        <div className="h-[480px] overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)]">
+        <div className="ui-workflow-canvas h-[480px]">
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -397,11 +411,20 @@ export default function WorkflowEditorTool() {
             nodeTypes={nodeTypes}
             onNodeClick={(_, node) => setSelectedNodeId(node.id)}
             fitView
-            colorMode="dark"
+            colorMode={flowTheme}
           >
-            <Background gap={18} color="#27272a" />
-            <Controls />
-            <MiniMap pannable zoomable />
+            <Background
+              gap={18}
+              color={flowTheme === 'light' ? 'rgb(15 23 42 / 0.12)' : 'rgb(255 255 255 / 0.08)'}
+            />
+            <Controls className="!overflow-hidden !rounded-xl !border ![border-color:var(--border-subtle)] ![background:var(--bg-elevated)]" />
+            <MiniMap
+              pannable
+              zoomable
+              className="!overflow-hidden !rounded-xl !border ![border-color:var(--border-subtle)]"
+              maskColor={flowTheme === 'light' ? 'rgb(243 244 248 / 0.7)' : 'rgb(12 12 16 / 0.7)'}
+              nodeColor={() => 'var(--accent)'}
+            />
           </ReactFlow>
         </div>
       </ToolSection>

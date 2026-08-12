@@ -138,10 +138,10 @@ export default function QueueQualityProfileHints({
   }
 
   return (
-    <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-3 py-2.5">
+    <div className="ui-panel-accent px-3 py-2.5">
       <div className="space-y-3">
         <div className="min-w-0 space-y-1">
-          <p className="type-caption text-violet-200/85">Queue quality profile</p>
+          <p className="type-caption text-[var(--accent-text)]">Queue quality profile</p>
           <p className="break-words text-xs text-[var(--text-secondary)]">
             {effectiveGlobal ??
               'Uses sidebar KSampler preset and resolution settings when queueing.'}
@@ -149,7 +149,7 @@ export default function QueueQualityProfileHints({
         </div>
 
         <div className="space-y-1.5">
-          <p className="type-caption text-violet-200/70">Session mode</p>
+          <p className="type-caption text-[var(--text-tertiary)]">Session mode</p>
           <div className="grid min-w-0 grid-cols-2 gap-1.5">
             <ChipButton
               active={sessionMode === 'iterate' || profile === 'draft'}
@@ -188,12 +188,12 @@ export default function QueueQualityProfileHints({
 
         {pipelinePreview.length > 0 || heldCount > 0 ? (
           <div className="space-y-1.5">
-            <p className="type-caption text-violet-200/70">Pipeline preview</p>
+            <p className="type-caption text-[var(--text-tertiary)]">Pipeline preview</p>
             <div className="flex flex-wrap gap-1.5">
               {pipelinePreview.map(note => (
                 <span
                   key={note}
-                  className="rounded-md border border-violet-400/20 bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-100/90"
+                  className="rounded-md border border-[var(--accent-border)] bg-[var(--accent-muted)] px-2 py-0.5 text-[11px] text-[var(--accent-text)]"
                 >
                   {note}
                 </span>
@@ -201,7 +201,7 @@ export default function QueueQualityProfileHints({
               {heldCount > 0 ? (
                 <a
                   href="/queue"
-                  className="rounded-md border border-amber-400/30 bg-amber-500/10 px-2 py-0.5 text-[11px] text-amber-100/90 transition hover:border-amber-300/50 hover:bg-amber-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40"
+                  className="rounded-md border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-2 py-0.5 text-[11px] text-[var(--tint-warning-text)] transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
                 >
                   {heldCount} Max held
                 </a>
@@ -233,8 +233,8 @@ export default function QueueQualityProfileHints({
       </div>
 
       {toolId && onToolProfileChange ? (
-        <div className="mt-3 space-y-2 border-t border-violet-500/10 pt-3">
-          <p className="type-caption text-violet-200/75">
+        <div className="mt-3 space-y-2 border-t border-[var(--accent-border)] pt-3">
+          <p className="type-caption text-[var(--accent-text)]">
             {toolQueueQualityLabel(toolId)} override
           </p>
           <div className="grid min-w-0 grid-cols-2 gap-1.5">

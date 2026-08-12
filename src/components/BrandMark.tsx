@@ -25,7 +25,9 @@ export default function BrandMark({
         decoding="async"
       />
       {withWordmark ? (
-        <span className={wordmarkClassName ?? 'type-title tracking-tight'}>Prompt Studio</span>
+        <span className={wordmarkClassName ?? 'type-brand type-title tracking-tight'}>
+          Prompt Studio
+        </span>
       ) : (
         <span className="sr-only">Prompt Studio</span>
       )}

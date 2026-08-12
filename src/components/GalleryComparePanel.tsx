@@ -185,7 +185,7 @@ export default function GalleryComparePanel({
         </div>
       ) : null}
       {tournament && pairs[pairIndex] ? (
-        <p className="text-xs text-violet-200">
+        <p className="text-xs text-[var(--accent-text)]">
           Match {pairIndex + 1}/{pairs.length} — pick the better output
         </p>
       ) : null}
@@ -200,7 +200,7 @@ export default function GalleryComparePanel({
             ))}
         </ul>
       ) : null}
-      {status ? <p className="text-xs text-violet-300/90">{status}</p> : null}
+      {status ? <p className="text-xs text-[var(--accent-text)]/90">{status}</p> : null}
       {differingParams.length > 0 ? (
         <div
           data-testid="gallery-compare-param-diff"
@@ -289,7 +289,10 @@ export default function GalleryComparePanel({
                 {entry.queueParams?.steps != null ? ` · ${entry.queueParams.steps} steps` : ''}
                 {entry.reviewRating ? ` · ${entry.reviewRating}★` : ''}
               </p>
-              <pre className="max-h-24 overflow-auto whitespace-pre-wrap text-xs text-[var(--text-secondary)]">
+              <pre
+                className="ui-code-block max-h-24 overflow-auto p-2 text-[11px]"
+                data-tone="muted"
+              >
                 {entry.prompt}
               </pre>
               <div className="flex flex-wrap gap-1">
@@ -322,7 +325,7 @@ export default function GalleryComparePanel({
                     onClick={() => onRate?.(entry.id, rating as ComfyGalleryEntry['reviewRating'])}
                     className={`rounded px-1.5 py-0.5 text-[10px] ${
                       entry.reviewRating === rating
-                        ? 'bg-violet-700 text-white'
+                        ? 'bg-[var(--accent)] text-white'
                         : 'bg-[var(--bg-muted)] text-[var(--text-muted)] hover:bg-[var(--bg-muted)]'
                     }`}
                   >
@@ -333,7 +336,7 @@ export default function GalleryComparePanel({
                   <button
                     type="button"
                     onClick={() => onFavorite(entry.id)}
-                    className="rounded bg-[var(--bg-muted)] px-1.5 py-0.5 text-[10px] text-[var(--text-secondary)] hover:bg-[var(--bg-muted)]"
+                    className="ui-chip !min-h-0 px-1.5 py-0.5 text-[10px] text-[var(--text-secondary)]"
                   >
                     {entry.favorite ? '★ Fav' : '☆ Fav'}
                   </button>
@@ -342,7 +345,7 @@ export default function GalleryComparePanel({
                   <button
                     type="button"
                     onClick={() => onMutate(entry)}
-                    className="rounded bg-[var(--bg-muted)] px-1.5 py-0.5 text-[10px] text-emerald-300 hover:bg-[var(--bg-muted)]"
+                    className="ui-chip !min-h-0 px-1.5 py-0.5 text-[10px] text-[var(--tint-success-text)]"
                   >
                     Mutate
                   </button>
@@ -351,7 +354,7 @@ export default function GalleryComparePanel({
                   <button
                     type="button"
                     onClick={() => onImprove(entry)}
-                    className="rounded bg-[var(--bg-muted)] px-1.5 py-0.5 text-[10px] text-sky-300 hover:bg-[var(--bg-muted)]"
+                    className="ui-chip !min-h-0 px-1.5 py-0.5 text-[10px] text-[var(--tint-info-text)]"
                   >
                     Improve
                   </button>
@@ -362,7 +365,7 @@ export default function GalleryComparePanel({
                       <button
                         type="button"
                         onClick={() => onMoireClean(entry, 'final')}
-                        className="rounded bg-[var(--bg-muted)] px-1.5 py-0.5 text-[10px] text-emerald-300 hover:bg-[var(--bg-muted)]"
+                        className="ui-chip !min-h-0 px-1.5 py-0.5 text-[10px] text-[var(--tint-success-text)]"
                       >
                         Moiré Final
                       </button>
@@ -371,7 +374,7 @@ export default function GalleryComparePanel({
                       <button
                         type="button"
                         onClick={() => onMoireClean(entry, 'max')}
-                        className="rounded bg-[var(--bg-muted)] px-1.5 py-0.5 text-[10px] text-emerald-300 hover:bg-[var(--bg-muted)]"
+                        className="ui-chip !min-h-0 px-1.5 py-0.5 text-[10px] text-[var(--tint-success-text)]"
                       >
                         Moiré Max
                       </button>
@@ -384,7 +387,7 @@ export default function GalleryComparePanel({
                       <button
                         type="button"
                         onClick={() => onUpscale(entry, 'final')}
-                        className="rounded bg-[var(--bg-muted)] px-1.5 py-0.5 text-[10px] text-emerald-300 hover:bg-[var(--bg-muted)]"
+                        className="ui-chip !min-h-0 px-1.5 py-0.5 text-[10px] text-[var(--tint-success-text)]"
                       >
                         Upscale Final
                       </button>
@@ -393,7 +396,7 @@ export default function GalleryComparePanel({
                       <button
                         type="button"
                         onClick={() => onUpscale(entry, 'max')}
-                        className="rounded bg-[var(--bg-muted)] px-1.5 py-0.5 text-[10px] text-emerald-300 hover:bg-[var(--bg-muted)]"
+                        className="ui-chip !min-h-0 px-1.5 py-0.5 text-[10px] text-[var(--tint-success-text)]"
                       >
                         Upscale Max
                       </button>
@@ -404,7 +407,7 @@ export default function GalleryComparePanel({
                   <button
                     type="button"
                     onClick={() => onSoftSecondPass(entry)}
-                    className="rounded bg-[var(--bg-muted)] px-1.5 py-0.5 text-[10px] text-sky-200 hover:bg-[var(--bg-muted)]"
+                    className="ui-chip !min-h-0 px-1.5 py-0.5 text-[10px] text-[var(--tint-info-text)]"
                   >
                     Soft pass
                   </button>
@@ -413,7 +416,7 @@ export default function GalleryComparePanel({
                   <button
                     type="button"
                     onClick={() => onRefine(entry)}
-                    className="rounded bg-[var(--bg-muted)] px-1.5 py-0.5 text-[10px] text-amber-200 hover:bg-[var(--bg-muted)]"
+                    className="ui-chip !min-h-0 px-1.5 py-0.5 text-[10px] text-[var(--tint-warning-text)]"
                   >
                     Refine
                   </button>

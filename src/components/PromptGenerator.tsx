@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { applySceneStarterWorkflowHints } from '@/lib/scene-starter-workflow-hints';
 import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
+import BrandBars from '@/components/BrandBars';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import { VariationSliderField } from '@/components/scene-tool/SceneToolSections';
 import SceneSetupSection from '@/components/scene-tool/SceneSetupSection';
@@ -556,6 +557,16 @@ export default function PromptGenerator() {
       }
     >
       <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.generate} />
+      {!output.trim() ? (
+        <p className="ui-brand-tagline type-caption flex flex-wrap items-center gap-2 text-[var(--text-tertiary)]">
+          <BrandBars />
+          <span>
+            Prompt Studio
+            <span className="mx-1.5 text-[var(--border-strong)]">·</span>
+            scene → queue → gallery
+          </span>
+        </p>
+      ) : null}
       <CollabPresenceBar
         tool="generate"
         draft={input}
@@ -834,25 +845,27 @@ export default function PromptGenerator() {
 
         <FieldDivider />
 
-        <PrimaryButton
-          accentClassName={accentButtonClass(ACCENT)}
-          type="button"
-          data-action="primary-generate"
-          onClick={() => void generate()}
-          disabled={submitDisabled}
-          loading={loading}
-          loadingLabel={
-            hintSource === 'random' ? 'Generating random scene' : 'Generating scene prompt'
-          }
-          title={submitDisabledReason ?? undefined}
-          aria-disabled={submitDisabled}
-        >
-          {hintSource === 'random' ? 'Generate random scene' : 'Generate scene prompt'}
-        </PrimaryButton>
+        <div className="ui-cta-block">
+          <PrimaryButton
+            accentClassName={accentButtonClass(ACCENT)}
+            type="button"
+            data-action="primary-generate"
+            onClick={() => void generate()}
+            disabled={submitDisabled}
+            loading={loading}
+            loadingLabel={
+              hintSource === 'random' ? 'Generating random scene' : 'Generating scene prompt'
+            }
+            title={submitDisabledReason ?? undefined}
+            aria-disabled={submitDisabled}
+          >
+            {hintSource === 'random' ? 'Generate random scene' : 'Generate scene prompt'}
+          </PrimaryButton>
 
-        {submitDisabledReason && !loading && <FieldError>{submitDisabledReason}</FieldError>}
+          {submitDisabledReason && !loading && <FieldError>{submitDisabledReason}</FieldError>}
 
-        {error && <FieldError>{error}</FieldError>}
+          {error && <FieldError>{error}</FieldError>}
+        </div>
       </SceneSetupSection>
 
       {output && (hintSource === 'random' || mode === 'positive') && (
@@ -955,7 +968,7 @@ export default function PromptGenerator() {
       {output && hintSource !== 'random' && mode === 'positive' && (
         <p className="-mt-4 text-xs text-[var(--text-muted)]">
           Paste into{' '}
-          <code className="rounded bg-[var(--bg-muted)] px-1 text-violet-300">
+          <code className="rounded bg-[var(--bg-muted)] px-1 text-[var(--accent-text)]">
             {resultMeta?.comfyNode ?? selectedModel.comfyNode}
           </code>
           . Press Ctrl+Enter to regenerate.

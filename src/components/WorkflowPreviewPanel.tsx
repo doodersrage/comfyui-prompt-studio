@@ -105,7 +105,7 @@ export default function WorkflowPreviewPanel({
           {preview.queueOptimizeChanges.map(message => (
             <li
               key={message}
-              className="type-caption rounded-[var(--radius-md)] border border-violet-500/20 bg-violet-500/10 px-3 py-2 text-violet-100/90"
+              className="type-caption rounded-[var(--radius-md)] border border-[var(--accent-border)] bg-[var(--accent-muted)] px-3 py-2 text-[var(--accent-text)]"
             >
               {message}
             </li>

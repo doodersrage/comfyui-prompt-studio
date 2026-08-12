@@ -50,11 +50,7 @@ export default function SettingsSubNav({
                     type="button"
                     onClick={() => onTabChange(tab.id)}
                     aria-current={isActive ? 'page' : undefined}
-                    className={`w-full rounded-[var(--radius-md)] border px-3 py-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] ${
-                      isActive
-                        ? 'border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)]'
-                        : 'border-transparent text-[var(--text-secondary)] hover:border-[var(--border-subtle)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'
-                    }`}
+                    className={`ui-settings-tab ${isActive ? 'is-active' : ''}`.trim()}
                   >
                     <span className="type-heading block">{tab.label}</span>
                     <span className="type-caption mt-0.5 block text-[var(--text-muted)]">

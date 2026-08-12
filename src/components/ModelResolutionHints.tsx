@@ -64,11 +64,11 @@ export default function ModelResolutionHints({
     RESOLUTION_SIZE_TIER_OPTIONS[1];
 
   return (
-    <div className="min-w-0 overflow-hidden rounded-xl border border-violet-500/20 bg-violet-500/5 px-3 py-2.5">
+    <div className="min-w-0 overflow-hidden rounded-xl border border-[var(--accent-border)] bg-[var(--accent-muted)] px-3 py-2.5">
       <div className="space-y-3">
         <div className="min-w-0 space-y-2">
           <div className="min-w-0 space-y-1">
-            <p className="type-caption text-violet-200/85">Resolution preset on queue</p>
+            <p className="type-caption text-[var(--accent-text)]/85">Resolution preset on queue</p>
             <p className="break-words text-xs text-[var(--text-secondary)]">
               {formatModelResolutionHint(model, effectiveOrientation, effectiveSizeTier)}
             </p>
@@ -121,9 +121,9 @@ export default function ModelResolutionHints({
       </div>
       <p className="mt-2 type-caption break-words text-[var(--text-muted)]">
         Applied to{' '}
-        <code className="rounded bg-[var(--bg-muted)]/80 px-1 text-violet-200/90">{`{{WIDTH}}`}</code>{' '}
+        <code className="rounded bg-[var(--bg-muted)]/80 px-1 text-[var(--accent-text)]">{`{{WIDTH}}`}</code>{' '}
         and{' '}
-        <code className="rounded bg-[var(--bg-muted)]/80 px-1 text-violet-200/90">{`{{HEIGHT}}`}</code>{' '}
+        <code className="rounded bg-[var(--bg-muted)]/80 px-1 text-[var(--accent-text)]">{`{{HEIGHT}}`}</code>{' '}
         workflow placeholders unless advanced queue params override them.
       </p>
     </div>

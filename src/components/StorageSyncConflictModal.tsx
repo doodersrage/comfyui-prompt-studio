@@ -4,6 +4,8 @@ import { useMemo, useState } from 'react';
 import type { StorageNamespaceConflict, MergeChoice } from '@/lib/storage-merge';
 import type { StorageNamespace } from '@/lib/storage-namespaces';
 import { previewMergeChoices } from '@/lib/storage-merge-preview';
+import BrandBars from '@/components/BrandBars';
+import BrandMark from '@/components/BrandMark';
 import { Button } from '@/components/ui/Button';
 
 type Props = {
@@ -25,11 +27,22 @@ export default function StorageSyncConflictModal({
   const dryRun = useMemo(() => previewMergeChoices(conflicts, choices), [choices, conflicts]);
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
-      <div className="w-full max-w-lg space-y-4 rounded-2xl border border-[var(--border-default)]/80 bg-[var(--bg-base)]/95 p-6 shadow-2xl">
+    <div className="ui-overlay fixed inset-0 z-[120] flex items-center justify-center p-4">
+      <div className="page-enter ui-modal-card w-full max-w-lg space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <BrandMark
+            size={32}
+            withWordmark
+            wordmarkClassName="type-brand type-heading tracking-tight"
+          />
+          <p className="ui-meta flex items-center gap-1.5">
+            <BrandBars />
+            Sync
+          </p>
+        </div>
         <div>
-          <h2 className="type-heading text-[var(--text-primary)]">Storage sync conflict</h2>
-          <p className="mt-1 text-sm text-[var(--text-muted)]">
+          <h2 className="type-display text-[1.35rem]">Storage sync conflict</h2>
+          <p className="mt-1 type-body">
             Browser and server data differ. Choose how to merge each namespace. Preview below is a
             dry-run from counts (no write yet).
           </p>
@@ -46,7 +59,7 @@ export default function StorageSyncConflictModal({
                 {conflict.detail ? ` · ${conflict.detail}` : ''}
               </p>
               {conflict.mapDiffKeys?.length ? (
-                <div className="mt-1 space-y-1.5 text-xs text-amber-200/90">
+                <div className="ui-alert-warning mt-2 space-y-1.5 text-xs">
                   <p>
                     Diverging maps: {conflict.mapDiffKeys.join(', ')}. Choose{' '}
                     <span className="font-medium">Keep local</span> /{' '}
@@ -55,10 +68,10 @@ export default function StorageSyncConflictModal({
                     overlap).
                   </p>
                   {conflict.mapDiffSamples?.length ? (
-                    <ul className="space-y-1 rounded-lg border border-amber-500/20 bg-amber-500/5 p-2 font-mono text-[10px] text-amber-100/90">
+                    <ul className="ui-code-block space-y-1 p-2 text-[10px]" data-tone="muted">
                       {conflict.mapDiffSamples.map(sample => (
                         <li key={`${sample.mapKey}:${sample.entryKey}`}>
-                          <span className="text-amber-200/70">{sample.mapKey}</span>.
+                          <span className="text-[var(--text-muted)]">{sample.mapKey}</span>.
                           {sample.entryKey}
                           <br />
                           local: {sample.localValue}
@@ -81,11 +94,10 @@ export default function StorageSyncConflictModal({
                         [conflict.namespace as StorageNamespace]: choice,
                       }))
                     }
-                    className={`rounded-full px-3 py-1 text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] ${
-                      choices[conflict.namespace as StorageNamespace] === choice
-                        ? 'bg-[color-mix(in_oklab,var(--accent)_78%,#1a1028)] text-white'
-                        : 'border border-[var(--border-default)] text-[var(--text-muted)] hover:border-[var(--accent)]/40'
-                    }`}
+                    className="ui-chip"
+                    data-active={
+                      choices[conflict.namespace as StorageNamespace] === choice ? 'true' : 'false'
+                    }
                   >
                     {choice === 'local'
                       ? 'Keep local'

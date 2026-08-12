@@ -33,7 +33,7 @@ export default function FantasyPresetChips({
             onClick={() => onCategoryChange?.(item.value)}
             className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
               category === item.value
-                ? 'border-violet-500 bg-violet-500/15 text-violet-200'
+                ? 'border-[var(--accent)] bg-[var(--accent-muted)] text-[var(--accent-text)]'
                 : 'border-[var(--border-default)] text-[var(--text-muted)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]'
             }`}
           >
@@ -52,7 +52,7 @@ export default function FantasyPresetChips({
               onClick={() => onSelect(preset)}
               className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
                 active
-                  ? 'border-violet-500 bg-violet-500/15 text-violet-200'
+                  ? 'border-[var(--accent)] bg-[var(--accent-muted)] text-[var(--accent-text)]'
                   : 'border-[var(--border-default)] text-[var(--text-muted)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]'
               }`}
             >

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import BrandBars from '@/components/BrandBars';
 import {
   loadNotifications,
   markAllNotificationsRead,
@@ -35,22 +36,28 @@ export default function NotificationBell() {
       <button
         type="button"
         onClick={() => setOpen(value => !value)}
-        className="relative rounded-full border border-[var(--border-default)]/80 bg-[var(--bg-base)]/50 px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:border-violet-500/30 hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40 active:scale-[0.98]"
+        className="relative rounded-full border border-[var(--border-default)]/80 bg-[var(--bg-base)]/50 px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:border-[var(--accent-border)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
       >
         Alerts
         {unread > 0 ? (
-          <span className="ml-1.5 inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-violet-600 px-1 text-[10px] text-white">
+          <span className="ml-1.5 inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-[var(--accent)] px-1 text-[10px] text-white">
             {unread}
           </span>
         ) : null}
       </button>
       {open ? (
-        <div className="absolute bottom-full right-0 z-50 mb-2 w-72 overflow-hidden rounded-2xl border border-[var(--border-default)]/80 bg-[var(--bg-base)]/95 shadow-2xl backdrop-blur-md">
-          <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-3 py-2">
-            <p className="text-xs font-medium text-[var(--text-primary)]">Notifications</p>
+        <div className="ui-tray-card absolute bottom-full right-0 z-50 mb-2 w-72 overflow-hidden">
+          <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-3 py-2.5">
+            <div>
+              <p className="text-xs font-medium text-[var(--text-primary)]">Notifications</p>
+              <p className="ui-meta mt-0.5 flex items-center gap-1.5">
+                <BrandBars />
+                Activity
+              </p>
+            </div>
             <button
               type="button"
-              className="rounded-md px-1.5 py-0.5 text-[10px] text-violet-300 transition hover:bg-violet-500/10 hover:text-violet-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40 active:scale-[0.98]"
+              className="rounded-md px-1.5 py-0.5 text-[10px] text-[var(--accent-text)] transition hover:bg-[var(--accent-muted)] hover:text-[var(--accent-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
               onClick={() => {
                 markAllNotificationsRead();
                 refresh();
@@ -61,7 +68,7 @@ export default function NotificationBell() {
           </div>
           <ul className="ui-scroll-region max-h-64 overflow-y-auto">
             {items.length === 0 ? (
-              <li className="px-4 py-5 text-center">
+              <li className="px-4 py-6 text-center">
                 <p className="text-xs font-medium text-[var(--text-primary)]">
                   No notifications yet
                 </p>
@@ -83,7 +90,7 @@ export default function NotificationBell() {
                         setOpen(false);
                         refresh();
                       }}
-                      className={`block px-3 py-2 text-xs transition hover:bg-[var(--bg-muted)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-400/35 active:bg-[var(--bg-muted)]/80 ${item.read ? 'text-[var(--text-muted)]' : 'text-[var(--text-primary)]'}`}
+                      className={`block px-3 py-2 text-xs transition hover:bg-[var(--bg-muted)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent-ring)] active:bg-[var(--bg-muted)]/80 ${item.read ? 'text-[var(--text-muted)]' : 'text-[var(--text-primary)]'}`}
                     >
                       <p className="font-medium">{item.title}</p>
                       {item.body ? (

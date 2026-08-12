@@ -131,7 +131,7 @@ export default function StudioCompareTab({
         Visual compare (ComfyUI)
       </Button>
       {visualCompareStatus ? (
-        <p className="text-xs text-violet-300/90">{visualCompareStatus}</p>
+        <p className="text-xs text-[var(--accent-text)]">{visualCompareStatus}</p>
       ) : null}
 
       {compareError && (
@@ -157,6 +157,7 @@ export default function StudioCompareTab({
         </div>
       ) : (
         <EmptyState
+          branded
           icon="compare"
           title="Run a side-by-side comparison"
           description="Enter shared hints above, choose Model B, then compare how each architecture writes the same duo scene."

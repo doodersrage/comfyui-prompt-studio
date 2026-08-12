@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Button, PrimaryButton } from '@/components/ui/Button';
+import BrandBars from '@/components/BrandBars';
+import BrandMark from '@/components/BrandMark';
 import { runHealAndReady } from '@/lib/first-run-setup';
 import { COMFY_QUEUE_INTENT_EVENT, hasComfyQueueIntent } from '@/lib/comfy-setup-intent';
 import { loadSettingsCache, SETTINGS_CACHE_UPDATED_EVENT } from '@/lib/settings-cache';
@@ -166,27 +168,35 @@ export default function FirstQueueSetupModal() {
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-end justify-center bg-[rgb(6_10_16/0.55)] p-4 backdrop-blur-sm sm:items-center"
+      className="ui-overlay fixed inset-0 z-[80] flex items-end justify-center p-4 sm:items-center"
       role="dialog"
       aria-modal="true"
       aria-labelledby="first-queue-setup-title"
     >
-      <div className="w-full max-w-lg rounded-[var(--radius-xl)] border border-[var(--border-subtle)] bg-[color-mix(in_oklab,var(--surface)_94%,transparent)] p-5 shadow-[var(--shadow-overlay,0_24px_80px_rgb(0_0_0/0.45))]">
+      <div className="page-enter ui-modal-card w-full max-w-lg">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <BrandMark
+            size={32}
+            withWordmark
+            wordmarkClassName="type-brand type-heading tracking-tight"
+          />
+          <p className="ui-meta flex items-center gap-1.5">
+            <BrandBars />
+            Setup
+          </p>
+        </div>
         <div className="space-y-1">
-          <p
-            id="first-queue-setup-title"
-            className="text-lg font-medium text-[var(--text-primary)]"
-          >
+          <p id="first-queue-setup-title" className="type-display text-[1.5rem] sm:text-[1.65rem]">
             Finish setup before your first queue
           </p>
-          <p className="text-sm text-[var(--text-secondary)]">
+          <p className="type-body">
             Three quick checks so Generate can use system workflows and your ComfyUI inventory.
           </p>
         </div>
 
         <ol className="mt-5 space-y-3 text-sm">
           <li className="flex gap-3">
-            <span className={steps.storageReady ? 'text-emerald-400' : 'text-amber-300'}>
+            <span className={steps.storageReady ? 'ui-status-success' : 'ui-status-warning'}>
               {steps.storageReady ? '●' : '○'}
             </span>
             <span>
@@ -200,10 +210,10 @@ export default function FirstQueueSetupModal() {
             <span
               className={
                 steps.comfyOk === true
-                  ? 'text-emerald-400'
+                  ? 'ui-status-success'
                   : steps.comfyOk === false
-                    ? 'text-rose-400'
-                    : 'text-amber-300'
+                    ? 'ui-status-danger'
+                    : 'ui-status-warning'
               }
             >
               {steps.comfyOk === true ? '●' : '○'}
@@ -229,7 +239,7 @@ export default function FirstQueueSetupModal() {
             </span>
           </li>
           <li className="flex gap-3">
-            <span className={steps.systemWorkflows ? 'text-emerald-400' : 'text-amber-300'}>
+            <span className={steps.systemWorkflows ? 'ui-status-success' : 'ui-status-warning'}>
               {steps.systemWorkflows ? '●' : '○'}
             </span>
             <span>

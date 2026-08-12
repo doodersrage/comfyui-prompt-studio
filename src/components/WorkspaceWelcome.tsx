@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import BrandMark from '@/components/BrandMark';
+import BrandStudioIllustration from '@/components/BrandStudioIllustration';
 import {
   WORKSPACE_MODE_OPTIONS,
   hasChosenWorkspaceMode,
@@ -16,6 +18,12 @@ import { useAuth } from '@/hooks/useAuth';
 
 type WelcomePhase = 'workspace' | 'setup' | 'ready';
 
+const PHASE_STEP: Record<WelcomePhase, number> = {
+  workspace: 1,
+  setup: 2,
+  ready: 3,
+};
+
 /** One-time welcome: workspace density → Heal & ready → Open Generate. */
 export default function WorkspaceWelcome() {
   const auth = useAuth();
@@ -25,11 +33,9 @@ export default function WorkspaceWelcome() {
   const [generateCta, setGenerateCta] = useState({ label: 'Open Dashboard', href: '/dashboard' });
 
   useEffect(() => {
-    // Playwright e2e: never block the UI with the first-run modal (matches AutoStorageSyncInit).
     if (process.env.NEXT_PUBLIC_PLAYWRIGHT === '1') {
       return;
     }
-    // Signed-out users should sign in first — workspace onboarding is per-account chrome.
     if (auth?.authEnabled && !auth.user) {
       return;
     }
@@ -69,18 +75,43 @@ export default function WorkspaceWelcome() {
     }
   }
 
+  const step = PHASE_STEP[phase];
+
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-end justify-center bg-[color-mix(in_oklab,var(--bg-base)_55%,transparent)] p-4 backdrop-blur-sm sm:items-center"
+      className="ui-overlay fixed inset-0 z-[60] flex items-end justify-center p-4 sm:items-center"
       role="dialog"
       aria-modal="true"
       aria-labelledby="workspace-welcome-title"
     >
-      <div className="w-full max-w-lg rounded-[var(--radius-xl)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-6 shadow-[0_24px_80px_-40px_color-mix(in_oklab,var(--bg-base)_70%,transparent)]">
+      <div className="page-enter ui-welcome-card w-full max-w-lg">
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <BrandMark
+            size={36}
+            withWordmark
+            wordmarkClassName="type-brand type-heading tracking-tight"
+          />
+          <div className="ui-stepper" aria-label={`Step ${step} of 3`}>
+            {[1, 2, 3].map(n => (
+              <span
+                key={n}
+                className="ui-stepper-dot"
+                data-active={n === step ? 'true' : 'false'}
+              />
+            ))}
+          </div>
+        </div>
+
         {phase === 'workspace' ? (
           <>
+            <div className="mb-4 flex justify-center">
+              <BrandStudioIllustration size={112} className="opacity-90" />
+            </div>
             <p className="type-overline text-[var(--text-muted)]">Welcome</p>
-            <h2 id="workspace-welcome-title" className="type-title mt-2 text-[var(--text-primary)]">
+            <h2
+              id="workspace-welcome-title"
+              className="type-display mt-2 text-[1.5rem] text-[var(--text-primary)]"
+            >
               How do you want to work?
             </h2>
             <p className="type-body mt-2 text-[var(--text-secondary)]">
@@ -93,7 +124,7 @@ export default function WorkspaceWelcome() {
                   key={option.id}
                   type="button"
                   onClick={() => choose(option.id)}
-                  className="rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-muted)] px-4 py-3 text-left transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.99]"
+                  className="ui-choice-card"
                 >
                   <span className="block text-sm font-medium text-[var(--text-primary)]">
                     {option.label}
@@ -114,8 +145,11 @@ export default function WorkspaceWelcome() {
 
         {phase === 'setup' ? (
           <>
-            <p className="type-overline text-[var(--text-muted)]">Step 2 of 3</p>
-            <h2 id="workspace-welcome-title" className="type-title mt-2 text-[var(--text-primary)]">
+            <p className="type-overline text-[var(--text-muted)]">Connect</p>
+            <h2
+              id="workspace-welcome-title"
+              className="type-display mt-2 text-[1.5rem] text-[var(--text-primary)]"
+            >
               Connect & ready
             </h2>
             <p className="type-body mt-2 text-[var(--text-secondary)]">
@@ -134,6 +168,7 @@ export default function WorkspaceWelcome() {
               <Button
                 type="button"
                 size="sm"
+                variant="primary"
                 loading={busy}
                 loadingLabel="Healing…"
                 onClick={() => void heal()}
@@ -147,7 +182,10 @@ export default function WorkspaceWelcome() {
         {phase === 'ready' ? (
           <>
             <p className="type-overline text-[var(--text-muted)]">Ready</p>
-            <h2 id="workspace-welcome-title" className="type-title mt-2 text-[var(--text-primary)]">
+            <h2
+              id="workspace-welcome-title"
+              className="type-display mt-2 text-[1.5rem] text-[var(--text-primary)]"
+            >
               You&apos;re set
             </h2>
             <p className="type-body mt-2 text-[var(--text-secondary)]">

@@ -235,7 +235,7 @@ export default function SceneStarterPresetChips({
             key={item.value}
             type="button"
             onClick={() => setCategory(item.value)}
-            className={`rounded-full border px-3 py-1 text-xs font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400/60 ${
+            className={`rounded-full border px-3 py-1 text-xs font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-ring)] ${
               activeCategory === item.value
                 ? activeChipClass
                 : 'border-[var(--border-default)] text-[var(--text-muted)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]'
@@ -252,7 +252,7 @@ export default function SceneStarterPresetChips({
             key={option.value}
             type="button"
             onClick={() => patchFilter({ framing: option.value })}
-            className={`rounded-full border px-3 py-1 text-xs font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400/60 ${
+            className={`rounded-full border px-3 py-1 text-xs font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-ring)] ${
               activeFilter.framing === option.value
                 ? activeChipClass
                 : 'border-[var(--border-default)] text-[var(--text-muted)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]'
@@ -269,7 +269,7 @@ export default function SceneStarterPresetChips({
             key={tag.id}
             type="button"
             onClick={() => toggleTag(tag.id)}
-            className={`rounded-full border px-3 py-1 text-xs font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400/60 ${
+            className={`rounded-full border px-3 py-1 text-xs font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-ring)] ${
               activeFilter.tags.includes(tag.id)
                 ? activeChipClass
                 : 'border-[var(--border-default)] text-[var(--text-muted)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]'
@@ -330,7 +330,7 @@ export default function SceneStarterPresetChips({
                     .filter(Boolean)
                     .join('\n')}
                   onClick={() => onSelect(preset)}
-                  className={`rounded-lg border px-3 py-1.5 text-left text-xs font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400/60 ${
+                  className={`rounded-lg border px-3 py-1.5 text-left text-xs font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-ring)] ${
                     active
                       ? activeChipClass
                       : 'border-[var(--border-default)] text-[var(--text-muted)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]'
@@ -361,7 +361,10 @@ export default function SceneStarterPresetChips({
 
       <p className="type-caption">
         Manage saved presets in{' '}
-        <Link href="/studio?tab=presets" className="text-violet-300 hover:text-violet-200">
+        <Link
+          href="/studio?tab=presets"
+          className="text-[var(--accent-text)] hover:text-[var(--accent-text)]"
+        >
           Studio → Presets
         </Link>
         .

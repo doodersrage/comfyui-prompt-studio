@@ -23,7 +23,7 @@ export default function MobileStickyQueueBar({
 }: MobileStickyQueueBarProps) {
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 md:hidden">
-      <div className="pointer-events-auto border-t border-[var(--border-subtle)] bg-[color-mix(in_oklab,var(--bg-elevated)_92%,transparent)] px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-16px_48px_-24px_color-mix(in_oklab,var(--bg-base)_80%,transparent)] backdrop-blur-md">
+      <div className="pointer-events-auto ui-mobile-dock px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
         {children}
         <div className="flex items-center gap-3">
           <button

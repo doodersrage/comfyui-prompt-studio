@@ -355,7 +355,7 @@ export default function SettingsAutomationTab({
                   removeAvoidedToken(token);
                   setStatus(`Removed “${token}”.`);
                 }}
-                className="rounded-full border border-[var(--border-default)] px-3 py-1 text-xs text-[var(--text-secondary)] hover:border-rose-500/60 hover:text-rose-200"
+                className="rounded-full border border-[var(--border-default)] px-3 py-1 text-xs text-[var(--text-secondary)] hover:border-rose-500/60 hover:text-[var(--tint-danger-text)]"
                 title="Click to remove"
               >
                 {token} ×
@@ -475,7 +475,7 @@ export default function SettingsAutomationTab({
                 key={entry.id}
                 className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-muted)] p-3 text-xs text-[var(--text-secondary)]"
               >
-                <p className={entry.ok ? 'text-emerald-300' : 'text-rose-300'}>
+                <p className={entry.ok ? 'text-emerald-300' : 'ui-status-danger'}>
                   {entry.ok ? 'OK' : 'FAIL'} · {entry.event} ·{' '}
                   {new Date(entry.timestamp).toLocaleString()}
                 </p>
@@ -501,7 +501,7 @@ export default function SettingsAutomationTab({
                       setStatus(ok ? 'Webhook retry succeeded.' : 'Webhook retry failed.')
                     );
                   }}
-                  className="mt-2 text-violet-300 hover:text-violet-200"
+                  className="mt-2 text-[var(--accent-text)] hover:text-[var(--accent-text)]"
                 >
                   Retry
                 </button>

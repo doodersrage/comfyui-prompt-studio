@@ -1,6 +1,7 @@
 import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
 import { readSessionFromRequest } from '@/lib/auth/session';
 import { findUserById, isAuthEnabled } from '@/lib/auth/store';
+import { brandedEmailHtml, emailParagraphs } from '@/lib/email/brand';
 import { sendEmail, isEmailConfigured } from '@/lib/email/mailer';
 
 export const runtime = 'nodejs';
@@ -25,16 +26,25 @@ export async function POST(request: Request) {
     return apiError('Add an email on Profile or pass { to } in the request body.', 400);
   }
 
+  const origin = process.env.PROMPT_API_URL?.trim() || 'http://127.0.0.1:47832';
+  const textLines = [
+    `Hello ${user.username},`,
+    '',
+    'This is a test message from your Prompt Studio server.',
+    '',
+    `Sent: ${new Date().toLocaleString()}`,
+  ];
+
   const result = await sendEmail({
     to,
     subject: 'Prompt Studio — test email',
-    text: [
-      `Hello ${user.username},`,
-      '',
-      'This is a test message from your Prompt Studio server.',
-      '',
-      `Sent: ${new Date().toLocaleString()}`,
-    ].join('\n'),
+    text: textLines.join('\n'),
+    html: brandedEmailHtml({
+      title: 'Test email',
+      preheader: 'Prompt Studio mail is configured correctly.',
+      footerUrl: origin,
+      bodyHtml: emailParagraphs(textLines),
+    }),
   });
 
   if (!result.ok) {

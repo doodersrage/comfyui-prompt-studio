@@ -80,9 +80,9 @@ function FilterChip(props: {
       data-active={isActive ? 'true' : 'false'}
       className={`${
         isActive
-          ? 'border-violet-500/45 bg-violet-500/15 text-violet-300 hover:bg-violet-500/25 hover:border-violet-400/60'
+          ? 'border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)] hover:brightness-110'
           : 'border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/80 text-[var(--text-muted)] hover:border-[var(--border-default)] hover:text-[var(--text-secondary)]'
-      } rounded-xl px-2.5 py-1 text-[11px] font-medium backdrop-blur-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40 active:scale-[0.98]`}
+      } rounded-xl px-2.5 py-1 text-[11px] font-medium backdrop-blur-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]`}
     >
       {props.label}
     </button>
@@ -490,7 +490,7 @@ export default function GalleryFiltersBar({
                 type="button"
                 onClick={() => applySavedView(view)}
                 data-testid={`gallery-saved-view-${view.id}`}
-                className="ui-chip rounded-xl border border-violet-500/45 bg-violet-900/20 text-violet-300 backdrop-blur-xs transition hover:border-violet-400/70 hover:bg-violet-500/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30 active:scale-[0.98]"
+                className="ui-chip rounded-xl border border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)] backdrop-blur-xs transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
               >
                 {view.name}
               </button>
@@ -501,7 +501,7 @@ export default function GalleryFiltersBar({
                     deleteGallerySavedView(view.id);
                     setSavedViews(loadGallerySavedViews());
                   }}
-                  className="rounded-xl px-1 text-xs text-[var(--text-muted)] transition hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30"
+                  className="rounded-xl px-1 text-xs text-[var(--text-muted)] transition hover:text-[var(--tint-danger-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
                   aria-label={`Delete saved view ${view.name}`}
                 >
                   ×
@@ -521,7 +521,7 @@ export default function GalleryFiltersBar({
               <button
                 type="button"
                 onClick={saveCurrentView}
-                className="ui-btn-ghost ui-btn-sm rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60 text-xs text-violet-300 backdrop-blur-xs transition hover:border-violet-500/65 hover:bg-violet-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30 active:scale-[0.98]"
+                className="ui-btn-ghost ui-btn-sm rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60 text-xs text-[var(--accent-text)] backdrop-blur-xs transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
               >
                 Save view
               </button>
@@ -533,7 +533,7 @@ export default function GalleryFiltersBar({
       {activeChips.length > 0 ? (
         <div
           data-testid="gallery-active-filters"
-          className="sticky top-[calc(var(--header-offset,0px)+0.5rem)] z-10 flex flex-wrap items-center gap-2 rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-elevated)]/90 px-3 py-2 shadow-[var(--shadow-soft)] backdrop-blur-md"
+          className="ui-gallery-dock sticky top-[calc(var(--header-offset,0px)+0.5rem)] z-10 flex flex-wrap items-center gap-2 px-3 py-2"
         >
           <span className="type-caption text-[var(--text-muted)]">Active</span>
           {activeChips.map(chip => (
@@ -541,10 +541,10 @@ export default function GalleryFiltersBar({
               key={chip.key}
               type="button"
               onClick={chip.clear}
-              className="inline-flex items-center gap-1 rounded-xl border border-violet-500/35 bg-violet-500/12 px-2.5 py-1 text-[11px] font-medium text-violet-200 transition hover:border-violet-400/55 hover:bg-violet-500/22 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40 active:scale-[0.98]"
+              className="inline-flex items-center gap-1 rounded-xl border border-[var(--accent-border)] bg-[var(--accent-muted)] px-2.5 py-1 text-[11px] font-medium text-[var(--accent-text)] transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
             >
               {chip.label}
-              <span aria-hidden className="text-violet-300/80">
+              <span aria-hidden className="text-[var(--accent-text)]">
                 ×
               </span>
             </button>
@@ -574,7 +574,7 @@ export default function GalleryFiltersBar({
               setProjectFilterId('');
               setSort('queued-desc');
             }}
-            className="ui-btn-ghost ui-btn-sm rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60 text-xs transition hover:border-violet-600/55 hover:bg-violet-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30 active:scale-[0.98]"
+            className="ui-btn-ghost ui-btn-sm rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60 text-xs transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
           >
             Clear all
           </button>
@@ -862,7 +862,7 @@ export default function GalleryFiltersBar({
             {activeToggleCount > 0 ? (
               <button
                 type="button"
-                className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60 backdrop-blur-xs transition hover:bg-violet-500/20 hover:border-violet-600/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30`}
+                className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60 backdrop-blur-xs transition hover:bg-[var(--accent-muted)] hover:border-[var(--accent-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]`}
                 onClick={() =>
                   setFilter({
                     ...filter,
