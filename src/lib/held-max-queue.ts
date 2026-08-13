@@ -4,6 +4,7 @@ import type { ComfyGalleryEntry } from './comfyui-gallery';
 import type { ComfyUiRuntimeConfig, WorkflowParamValues } from './comfyui-config';
 import type { QueueQualityProfile } from './queue-quality-profile';
 import { normalizeQueueQualityProfile } from './queue-quality-profile';
+import { readBrowserValue, writeBrowserValue } from './browser-storage';
 
 const STORAGE_KEY = 'prompt-studio.held-max-jobs.v1';
 
@@ -45,23 +46,15 @@ function readJobs(): HeldMaxJob[] {
   if (typeof window === 'undefined') {
     return [];
   }
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return [];
-    }
-    const parsed = JSON.parse(raw) as HeldMaxJob[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+  const parsed = readBrowserValue<HeldMaxJob[]>(STORAGE_KEY);
+  return Array.isArray(parsed) ? parsed : [];
 }
 
 function writeJobs(jobs: HeldMaxJob[]): void {
   if (typeof window === 'undefined') {
     return;
   }
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(jobs.slice(0, 40)));
+  writeBrowserValue(STORAGE_KEY, jobs.slice(0, 40));
   emitHeldMaxUpdated();
 }
 

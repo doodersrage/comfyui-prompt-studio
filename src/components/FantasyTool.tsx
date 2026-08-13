@@ -3,8 +3,6 @@
 import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
-import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import FantasyPresetChips from '@/components/FantasyPresetChips';
 import FantasyPresetControls from '@/components/FantasyPresetControls';
 import SharedToolControls from '@/components/SharedToolControls';
@@ -15,13 +13,10 @@ import { useRecentLocations } from '@/hooks/useRecentLocations';
 import { useRecentClothing } from '@/hooks/useRecentClothing';
 import { useLocationBlocklist } from '@/hooks/useLocationBlocklist';
 import { fetchClothingLabels, getCachedClothingLabel } from '@/lib/clothing-catalog-client';
-import { readRawPrompt } from '@/lib/raw-prompt';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import { presetOptionsFromFantasyCache, resolveFantasyFocus } from '@/lib/fantasy-options';
 import { getComfyModelDefinition } from '@/lib/comfy-models/client';
-import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
-import { continueEditResultProps } from '@/lib/continue-edit-result-props';
-import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-target';
+import { getReformatTargetModel } from '@/lib/reformat-target';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
 import { applyHintSourceFromSearchParams } from '@/lib/tool-url-params';
 import { avoidedTokensRequestBody } from '@/lib/avoided-tokens';
@@ -39,6 +34,7 @@ import {
   VariationSliderField,
 } from '@/components/scene-tool/SceneToolSections';
 import SceneSetupSection from '@/components/scene-tool/SceneSetupSection';
+import ScenePromptResultPanel from '@/components/scene-tool/ScenePromptResultPanel';
 import {
   HistoryHintSeedPanel,
   resolveSceneHintsForGeneration,
@@ -427,70 +423,23 @@ export default function FantasyTool() {
         />
       </SceneSetupSection>
 
-      <EnhancedPromptResult
+      <ScenePromptResultPanel
         output={output}
         onOutputChange={setOutput}
-        rawPrompt={readRawPrompt(result?.metadata)}
-        provider={result?.provider ?? null}
-        comfyNode={result?.comfyNode}
-        limits={result?.limits}
-        readinessModel={shared.model}
-        readinessDetail={shared.detail}
+        result={result}
         copied={copied}
         onCopy={() => void copyOutput()}
-        diagnostics={actions.diagnostics ?? result?.diagnostics ?? null}
-        onSaveHistory={() =>
-          actions.saveHistory({
-            prompt: output,
-            hints: toolSettings.hints,
-            metadata: result?.metadata,
-          })
-        }
-        onSendComfyUi={() => void actions.sendComfyUi(output)}
-        onEditPrompt={() =>
-          actions.editPromptOutput(output, actions.comfyUiPreviewUrl, undefined, toolSettings.hints)
-        }
-        {...promptResultPreviewProps(actions, output)}
-        {...continueEditResultProps(actions, output)}
-        onFixPrompt={() => void actions.fixPrompt(output, setOutput, toolSettings.hints)}
-        onCopyPair={() => void actions.copyPromptPair(output)}
-        onCompact={() => void actions.compactPrompt(output, setOutput)}
-        onReformat={() => void actions.reformatForModel(output, setOutput)}
-        reformatTargetLabel={getReformatTargetLabel(shared.model)}
-        onRunPipeline={() =>
-          void actions.runExportPipeline(output, setOutput, {
-            maxChars: result?.limits?.maxChars,
-            queueComfyUi: true,
-          })
-        }
-        onExportSidecar={() =>
-          void actions.exportSidecar(output, {
-            comfyNode: result?.comfyNode ?? selectedModel.comfyNode,
-            variationSeed: variationSeed ?? shared.lockedVariationSeed,
-            metadata: result?.metadata,
-          })
-        }
+        actions={actions}
+        shared={shared}
+        selectedComfyNode={selectedModel.comfyNode}
+        hints={toolSettings.hints}
+        queueLabel="Queue fantasy"
+        variationSeed={variationSeed}
         onLockSeed={() => {
           if (variationSeed) {
             updateShared({ lockedVariationSeed: variationSeed });
           }
         }}
-        fixStatus={actions.fixStatus}
-        compactStatus={actions.compactStatus}
-        reformatStatus={actions.reformatStatus}
-        pipelineStatus={actions.pipelineStatus}
-        comfyUiStatus={actions.comfyUiStatus}
-        comfyUiJob={actions.comfyUiJob}
-        comfyUiPreviewUrl={actions.comfyUiPreviewUrl}
-        historySaved={actions.historySaved}
-        pairCopied={actions.pairCopied}
-      />
-      <MobileStickyQueueBar
-        disabled={!output.trim()}
-        label="Queue fantasy"
-        status={actions.comfyUiStatus}
-        primaryGenerate
-        onQueue={() => void actions.sendComfyUi(output)}
       />
     </ToolLayout>
   );

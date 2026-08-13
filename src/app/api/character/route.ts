@@ -14,8 +14,7 @@ import {
   normalizeCharacterPresetOptions,
   type CharacterPresetOptions,
 } from '@/lib/character-options';
-import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
-import { NextResponse } from 'next/server';
+import { apiError, apiJson, apiMethodNotAllowed, apiOptions } from '@/lib/api/response';
 
 export const runtime = 'nodejs';
 
@@ -93,12 +92,5 @@ export async function POST(request: Request) {
 }
 
 export function OPTIONS() {
-  return new NextResponse(null, {
-    status: 204,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    },
-  });
+  return apiOptions();
 }

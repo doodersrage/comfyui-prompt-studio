@@ -20,8 +20,12 @@ import {
   startVideoFromGalleryEntry,
 } from '@/lib/improve-output';
 import { comfyUiJobProgressPercent, comfyUiJobStatusLabel } from '@/lib/comfyui-job-status';
-import { ButtonLink } from '@/components/ui/Button';
 import { useComfyUiGallery } from '@/hooks/useComfyUiGallery';
+import {
+  GalleryCapWarningBanner,
+  GalleryPanelHeader,
+  GalleryPickDock,
+} from '@/components/gallery/GalleryPanelChrome';
 import GalleryVisionReviewButton from '@/components/gallery/GalleryVisionReviewButton';
 import GalleryCardItem from '@/components/gallery/GalleryCardItem';
 import GalleryDisplayGrid from '@/components/gallery/GalleryDisplayGrid';
@@ -94,12 +98,7 @@ import {
   type GallerySlideshowTransition,
 } from '@/lib/comfyui-gallery';
 import { prefetchGalleryImageUrl } from '@/lib/gallery-image-prefetch';
-import {
-  galleryHandoffHomePath,
-  galleryPickActionLabel,
-  galleryPickPurposeLabel,
-  parseGalleryPickTarget,
-} from '@/lib/gallery-handoff';
+import { galleryPickActionLabel, parseGalleryPickTarget } from '@/lib/gallery-handoff';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import LoraDatasetExportDialog from '@/components/LoraDatasetExportDialog';
 
@@ -1109,101 +1108,34 @@ export default function ComfyUiGalleryPanel({
             : undefined
         }
       />
-      {showHeader && (
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h2 className="type-heading text-[var(--text-primary)]">Gallery</h2>
-            <p className="mt-1 text-sm text-[var(--text-muted)]">
-              {leanGallery
-                ? 'Browse ComfyUI outputs and rate results.'
-                : 'Browse ComfyUI outputs, rate results, compare variants, and queue follow-up experiments.'}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => void refreshPending()}
-              className="ui-btn-ghost ui-btn-sm text-xs"
-            >
-              Refresh jobs
-            </button>
-            {activeJobs > 0 ? (
-              <span className="self-center rounded-full border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-2.5 py-1 text-[11px] text-[var(--tint-warning-text)]">
-                {activeJobs} active
-              </span>
-            ) : null}
-            {entries.length > 0 && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (window.confirm('Clear all gallery entries?')) {
-                    clearAll();
-                  }
-                }}
-                className="ui-btn-ghost ui-btn-sm text-xs text-[var(--text-muted)] hover:text-[var(--tint-danger-text)]"
-              >
-                Clear all
-              </button>
-            )}
-            {!compact && limit && entries.length > limit && (
-              <ButtonLink href="/gallery" size="sm">
-                View all
-              </ButtonLink>
-            )}
-          </div>
-        </div>
-      )}
-
-      {pickFor ? (
-        <div className="ui-gallery-dock sticky top-[calc(var(--header-offset,0px)+0.5rem)] z-20 flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <div className="min-w-0 space-y-0.5">
-            <p className="text-sm font-medium text-[var(--text-primary)]">
-              Choosing {galleryPickPurposeLabel(pickFor)}
-            </p>
-            <p className="type-caption text-[var(--text-secondary)]">
-              Click a completed still image to send it back. Video clips are skipped.
-            </p>
-          </div>
-          <ButtonLink href={galleryHandoffHomePath(pickFor)} variant="ghost" size="sm">
-            Cancel
-          </ButtonLink>
-        </div>
+      {showHeader ? (
+        <GalleryPanelHeader
+          leanGallery={leanGallery}
+          activeJobs={activeJobs}
+          entriesLength={entries.length}
+          compact={compact}
+          limit={limit}
+          onRefreshPending={() => void refreshPending()}
+          onClearAll={clearAll}
+        />
       ) : null}
 
+      {pickFor ? <GalleryPickDock pickFor={pickFor} /> : null}
+
       {galleryCapWarning.message ? (
-        <div
-          data-testid="gallery-cap-warning"
-          className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border px-3 py-2 text-xs ${
-            galleryCapWarning.level === 'urgent'
-              ? 'border-[var(--tint-danger-border)] bg-[var(--tint-danger-bg)] text-[var(--tint-danger-text)]'
-              : 'border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] text-[var(--tint-warning-text)]'
-          }`}
-        >
-          <p className="min-w-0 flex-1">{galleryCapWarning.message}</p>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() =>
-                setFilter(previous => ({
-                  ...previous,
-                  atRiskOnly: true,
-                  favoritesOnly: undefined,
-                  minRating: undefined,
-                }))
-              }
-              className="rounded-xl border border-current/30 bg-black/10 px-2.5 py-1 text-[11px] font-medium transition hover:bg-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
-            >
-              Show at-risk
-            </button>
-            <button
-              type="button"
-              onClick={exportCapKeepers}
-              className="rounded-xl border border-current/30 bg-black/10 px-2.5 py-1 text-[11px] font-medium transition hover:bg-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
-            >
-              Export keepers
-            </button>
-          </div>
-        </div>
+        <GalleryCapWarningBanner
+          level={galleryCapWarning.level}
+          message={galleryCapWarning.message}
+          onShowAtRisk={() =>
+            setFilter(previous => ({
+              ...previous,
+              atRiskOnly: true,
+              favoritesOnly: undefined,
+              minRating: undefined,
+            }))
+          }
+          onExportKeepers={exportCapKeepers}
+        />
       ) : null}
 
       {showFilters && entries.length > 0 ? (

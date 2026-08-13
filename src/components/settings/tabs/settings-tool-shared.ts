@@ -1,6 +1,38 @@
 import type { ServerEnvSummary } from '@/lib/server-env-summary';
+import type { ComfyUiSettingsSectionId } from '@/lib/settings-comfyui-nav';
 
 export const SETTINGS_TOOL_ACCENT = 'neutral' as const;
+
+export const COMFYUI_SECTION_ELEMENT_IDS: Record<ComfyUiSettingsSectionId, string> = {
+  presets: 'settings-comfyui-presets',
+  'workflow-map': 'settings-comfyui-workflow-map',
+  'model-assets': 'settings-comfyui-model-assets',
+  'workflow-patching': 'settings-comfyui-workflow-patching',
+  'lora-library': 'settings-comfyui-lora-library',
+  'lora-train': 'settings-comfyui-lora-train',
+  'workflow-library': 'settings-comfyui-workflow-library',
+  'inference-engine': 'settings-comfyui-inference-engine',
+  connection: 'settings-comfyui-connection',
+  'auto-improve': 'settings-comfyui-auto-improve',
+  'queue-params': 'settings-comfyui-queue-params',
+  'prompt-quality': 'settings-comfyui-prompt-quality',
+  'vram-guard': 'settings-comfyui-vram-guard',
+  'hold-max': 'settings-comfyui-hold-max',
+  'sampler-memory': 'settings-comfyui-sampler-memory',
+};
+
+export const PLAYBOOK_SECTION_CHECKLISTS: Partial<Record<ComfyUiSettingsSectionId, string>> = {
+  'workflow-map':
+    'Checklist: install the missing custom node pack in ComfyUI → refresh object_info → remap the model workflow.',
+  'model-assets':
+    'Checklist: confirm checkpoint/VAE/upscale filenames match ComfyUI input folders → save loader maps.',
+  'lora-library':
+    'Checklist: enable the LoRA in the session stack → verify filename on disk → re-queue.',
+  connection: 'Checklist: verify ComfyUI URL/port → allow CORS if remote → retry health probe.',
+  'inference-engine':
+    'Checklist: confirm Diffusers host is running → or switch engine back to ComfyUI.',
+  'vram-guard': 'Checklist: lower queue quality / enable OOM downgrade → free VRAM → re-queue.',
+};
 
 export function serverEnvFieldValue(
   serverEnv: ServerEnvSummary | undefined,

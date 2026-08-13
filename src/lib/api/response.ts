@@ -32,6 +32,20 @@ export function apiMethodNotAllowed(allowed: string[], path: string) {
   });
 }
 
+export function apiOptions(
+  methods = 'POST, OPTIONS',
+  allowHeaders = 'Content-Type, Authorization'
+) {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': methods,
+      'Access-Control-Allow-Headers': allowHeaders,
+    },
+  });
+}
+
 export function requestBaseUrl(request: Request): string {
   const url = new URL(request.url);
   return url.origin;

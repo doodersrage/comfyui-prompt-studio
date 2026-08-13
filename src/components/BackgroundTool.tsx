@@ -2,21 +2,17 @@
 
 import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
 
-import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
-import { continueEditResultProps } from '@/lib/continue-edit-result-props';
-import { readRawPrompt } from '@/lib/raw-prompt';
 import { useCallback, useEffect, useState } from 'react';
 import BackgroundPresetControls from '@/components/BackgroundPresetControls';
 import { SceneGenerateFooter, SceneQuickTags } from '@/components/scene-tool/SceneToolSections';
 import SceneSetupSection from '@/components/scene-tool/SceneSetupSection';
+import ScenePromptResultPanel from '@/components/scene-tool/ScenePromptResultPanel';
 import {
   HistoryHintSeedPanel,
   resolveBackgroundTagsForGeneration,
 } from '@/components/scene-tool/HistoryHintSeedPanel';
 import { normalizeHistorySeedScope, normalizeSceneHintSource } from '@/lib/scene-hint-source';
 import { countHistorySeedCandidates, splitBackgroundHintSeed } from '@/lib/history-hint-seed';
-import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
-import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import SharedToolControls from '@/components/SharedToolControls';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { useGalleryHandoff } from '@/hooks/useGalleryHandoff';
@@ -28,7 +24,7 @@ import { useLocationBlocklist } from '@/hooks/useLocationBlocklist';
 import { presetOptionsFromBackgroundCache } from '@/lib/background-options';
 import { readSceneLocationFromMetadata } from '@/lib/recent-locations';
 import { getComfyModelDefinition } from '@/lib/comfy-models/client';
-import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-target';
+import { getReformatTargetModel } from '@/lib/reformat-target';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
 import {
   applyBackgroundHintsFromSearchParams,
@@ -304,61 +300,20 @@ export default function BackgroundTool() {
         />
       </SceneSetupSection>
 
-      <EnhancedPromptResult
+      <ScenePromptResultPanel
         output={output}
         onOutputChange={setOutput}
-        rawPrompt={readRawPrompt(result?.metadata)}
-        provider={result?.provider ?? null}
-        comfyNode={result?.comfyNode}
-        limits={result?.limits}
-        readinessModel={shared.model}
-        readinessDetail={shared.detail}
+        result={result}
         copied={copied}
         onCopy={() => void copyOutput()}
-        diagnostics={actions.diagnostics ?? result?.diagnostics ?? null}
-        onSaveHistory={() =>
-          actions.saveHistory({
-            prompt: output,
-            hints: [toolSettings.settingType, toolSettings.mood].filter(Boolean).join(', '),
-            metadata: result?.metadata,
-          })
-        }
-        onSendComfyUi={() => void actions.sendComfyUi(output)}
-        {...promptResultPreviewProps(actions, output)}
-        {...continueEditResultProps(actions, output)}
-        onFixPrompt={() => void actions.fixPrompt(output, setOutput)}
-        onCopyPair={() => void actions.copyPromptPair(output)}
-        onCompact={() => void actions.compactPrompt(output, setOutput)}
-        onReformat={() => void actions.reformatForModel(output, setOutput)}
-        reformatTargetLabel={getReformatTargetLabel(shared.model)}
-        onRunPipeline={() =>
-          void actions.runExportPipeline(output, setOutput, {
-            maxChars: result?.limits?.maxChars,
-            queueComfyUi: true,
-          })
-        }
-        onExportSidecar={() =>
-          void actions.exportSidecar(output, {
-            comfyNode: result?.comfyNode ?? selectedModel.comfyNode,
-            metadata: result?.metadata,
-          })
-        }
-        fixStatus={actions.fixStatus}
-        compactStatus={actions.compactStatus}
-        reformatStatus={actions.reformatStatus}
-        pipelineStatus={actions.pipelineStatus}
-        comfyUiStatus={actions.comfyUiStatus}
-        comfyUiJob={actions.comfyUiJob}
-        comfyUiPreviewUrl={actions.comfyUiPreviewUrl}
-        historySaved={actions.historySaved}
-        pairCopied={actions.pairCopied}
-      />
-      <MobileStickyQueueBar
-        disabled={!output.trim()}
-        label="Queue background"
-        status={actions.comfyUiStatus}
-        primaryGenerate
-        onQueue={() => void actions.sendComfyUi(output)}
+        actions={actions}
+        shared={shared}
+        selectedComfyNode={selectedModel.comfyNode}
+        hints={[toolSettings.settingType, toolSettings.mood].filter(Boolean).join(', ')}
+        passHintsToFix={false}
+        queueLabel="Queue background"
+        includeEditPrompt={false}
+        includeVariationSeed={false}
       />
     </ToolLayout>
   );

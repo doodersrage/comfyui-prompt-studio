@@ -207,17 +207,6 @@ type SessionLoraPrefs = {
   sessionLoraStrengthOverridesByModel?: Record<string, SessionLoraStrengthOverrides>;
 };
 
-function writeSessionLoraPrefsSidecarSync(prefs: SessionLoraPrefs): void {
-  if (typeof window === 'undefined') {
-    return;
-  }
-  try {
-    window.localStorage.setItem(SESSION_LORA_PREFS_KEY, JSON.stringify(prefs));
-  } catch {
-    // ignore quota / private mode
-  }
-}
-
 function buildSessionLoraPrefsSidecar(
   shared: SharedToolSettings,
   existing?: SessionLoraPrefs | null
@@ -259,7 +248,6 @@ function persistCriticalSharedPrefs(shared: SharedToolSettings): void {
   if (!nextPrefs) {
     return;
   }
-  writeSessionLoraPrefsSidecarSync(nextPrefs);
   writeBrowserValue(SESSION_LORA_PREFS_KEY, nextPrefs);
 }
 

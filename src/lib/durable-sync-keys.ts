@@ -63,6 +63,7 @@ export const DURABLE_BROWSER_SYNC_KEYS = new Set([
   'comfy-notification-center-v1',
   'comfy-local-observability-v1',
   'studio-backup-last-export-v1',
+  'prompt-studio.held-max-jobs.v1',
   'comfy-app-theme-v1',
   'comfy-ambient-intensity-v1',
   'comfy-ui-density-v1',
