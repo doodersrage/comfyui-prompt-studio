@@ -1,6 +1,6 @@
 # Configuration & deployment
 
-Environment variables, security, production checklist, and Docker.
+Environment variables, security, production checklist, and Docker. For Heal & ready, second GPU, backup restore, and invite email, start with the [operator guide](operator.md).
 
 ## Security notes
 
@@ -10,9 +10,10 @@ When exposing beyond localhost:
 
 1. Set `PROMPT_AUTH_ENABLED=true` (or create users under `PROMPT_DATA_DIR/auth/`) and sign in — default admin username/password come from `PROMPT_ADMIN_USERNAME` / `PROMPT_ADMIN_PASSWORD` (defaults: `admin` / `admin`; change immediately).
 2. Set `PROMPT_API_TOKEN` — cross-origin and non-browser clients must send `Authorization: Bearer <token>` (same-origin UI still works). ComfyUI nodes read the same token from `PROMPT_API_TOKEN`. Service tokens bypass user login but should be kept secret.
-3. Set `COMFYUI_ALLOW_CLIENT_URL=false` so callers cannot override the ComfyUI base URL (SSRF).
+3. Set `COMFYUI_ALLOW_CLIENT_URL=false` so callers cannot override the ComfyUI base URL (SSRF). Prefer `COMFYUI_ALLOWED_HOSTS` for a hostname allowlist.
 4. Prefer binding to loopback (`127.0.0.1`) — `docker-compose.yml` already does this.
 5. Webhook dispatch blocks private/metadata URLs unless `WEBHOOK_ALLOW_PRIVATE=true`.
+6. Set `PROMPT_API_URL` to the public origin so invite and reset emails are not `http://127.0.0.1:47832`.
 
 ## Production checklist
 
@@ -22,9 +23,12 @@ Before exposing Prompt Studio beyond a trusted LAN:
 - [ ] Set `PROMPT_SESSION_SECRET` (long random string; do not reuse API tokens)
 - [ ] Enable `PROMPT_AUTH_ENABLED=true` and create non-admin users with blocked features as needed
 - [ ] Set `PROMPT_API_TOKEN` for CLI/ComfyUI nodes; issue per-user `pt_…` keys from Profile when sharing access
-- [ ] Configure SMTP for password reset and batch/campaign email (`SMTP_*` in `.env.local`)
+- [ ] Configure SMTP (`PROMPT_SMTP_*` + `PROMPT_EMAIL_FROM`, or Settings → Users → SMTP) and send a test
+- [ ] Set `PROMPT_API_URL` to the public origin used in invite / password-reset emails
 - [ ] Set `COMFYUI_ALLOW_CLIENT_URL=false` and pin `COMFYUI_API_URL` or `COMFYUI_POOL`
-- [ ] Back up `PROMPT_DATA_DIR` (auth, analytics, storage sync) on a schedule
+- [ ] If using `COMFYUI_ALLOWED_HOSTS`, include every pool hostname (Settings cluster copies a snippet)
+- [ ] Back up `PROMPT_DATA_DIR` (auth, analytics, storage sync, `email-config.json`) on a schedule
+- [ ] Export a studio backup JSON after the first real session (Settings → Overview)
 - [ ] Run `npm run lint`, `npm test`, and `npm run test:e2e` before deploy (CI runs these on push)
 - [ ] For Playwright with auth enabled locally, credentials load from `.env.local` (`PROMPT_ADMIN_*`) or set `PROMPT_E2E_USERNAME` / `PROMPT_E2E_PASSWORD`
 
@@ -66,12 +70,16 @@ The generator calls any **OpenAI-compatible** chat completions API. Configure vi
 | `LLM_ENABLED`                          | `true`                          | Set `false` for template-only mode                                                                                                                                                     |
 | `ALLOW_TEMPLATE_FALLBACK`              | `true`                          | Fall back if LLM is unreachable                                                                                                                                                        |
 | `PROMPT_API_TOKEN`                     | _(empty)_                       | Optional API bearer token for non-browser clients                                                                                                                                      |
+| `LLM_VISION_MODEL`                     | _(empty)_                       | Vision-capable model for Image → Prompt, Refine critique, gallery tags. Falls back to `LLM_MODEL` (text-only will fail vision tools)                                                   |
+| `LLM_EMBED_MODEL`                      | _(empty)_                       | Optional embedding model for semantic search (`OLLAMA_EMBED_MODEL` also accepted). Settings → LLM can override per session                                                             |
+| `PROMPT_ENGINE`                        | `comfyui`                       | `comfyui` (default) or `diffusers`                                                                                                                                                     |
+| `PROMPT_API_URL`                       | `http://127.0.0.1:47832`        | Public origin for invite/reset links, email footers, and the server scheduled-batch runner                                                                                             |
 | `PROMPT_AUTH_ENABLED`                  | `false`                         | Enable login and feature access control                                                                                                                                                |
 | `PROMPT_ADMIN_USERNAME`                | `admin`                         | Default admin username (seeded on first enable)                                                                                                                                        |
 | `PROMPT_ADMIN_PASSWORD`                | `admin`                         | Default admin password (change in production)                                                                                                                                          |
 | `PROMPT_SESSION_SECRET`                | _(falls back to API token)_     | HMAC secret for session cookies                                                                                                                                                        |
 | `PROMPT_AUTH_DIR`                      | _(uses `PROMPT_DATA_DIR/auth`)_ | Directory for `users.json`, `groups.json`, and `analytics-snapshots.json`                                                                                                              |
-| `PROMPT_DATA_DIR`                      | _(empty)_                       | Server file storage root for `/api/storage`, auth data, and collab room persistence (`collab-rooms.json`)                                                                              |
+| `PROMPT_DATA_DIR`                      | _(empty)_                       | Server file storage root for `/api/storage`, auth data, collab rooms, SMTP overlay (`email-config.json`), and queue-export overlay                                                     |
 | `COLLAB_REDIS_URL`                     | _(empty)_                       | Optional Redis URL for multi-node collab SSE (requires `ioredis`; falls back to file/memory when unset)                                                                                |
 | `SERVER_USER_MAINTENANCE`              | `false`                         | Enable `/api/maintenance/run` for per-user scheduled campaigns and export snapshots                                                                                                    |
 | `SERVER_USER_MAINTENANCE_INTERVAL_MIN` | `15`                            | When `SERVER_USER_MAINTENANCE=true`, run maintenance on this interval (minutes)                                                                                                        |
@@ -81,7 +89,9 @@ The generator calls any **OpenAI-compatible** chat completions API. Configure vi
 | `COMFYUI_ROOT`                         | _(empty)_                       | Absolute path to the ComfyUI install (same machine). Enables **Settings → ComfyUI → Model assets** curated weight downloads into `models/checkpoints`, `diffusion_models`, `vae`, etc. |
 | `HF_TOKEN`                             | _(empty)_                       | Optional Hugging Face token for curated downloads (also accepts `HUGGING_FACE_HUB_TOKEN`)                                                                                              |
 | `COMFYUI_ALLOW_CLIENT_URL`             | `true`                          | Allow clients to override ComfyUI URL                                                                                                                                                  |
-| `COMFYUI_ALLOWED_HOSTS`                | _(empty)_                       | Optional comma-separated ComfyUI host allowlist                                                                                                                                        |
+| `COMFYUI_ALLOWED_HOSTS`                | _(empty)_                       | Optional comma-separated ComfyUI host allowlist. Empty = any host (still blocks metadata). Settings extras cannot change this                                                          |
+| `COMFYUI_POOL`                         | _(empty)_                       | Comma-separated ComfyUI URLs merged with Settings extras at queue time. Copy a snippet from Settings → ComfyUI cluster after Test                                                      |
+| `COMFYUI_QUEUE_EXPORT_DIR`             | _(empty)_                       | Write JSON sidecars after successful queue. Settings → Automation can overlay a directory when this env is unset                                                                       |
 | `WEBHOOK_ALLOW_PRIVATE`                | `false`                         | Allow webhook POSTs to private/LAN URLs                                                                                                                                                |
 | `PROMPT_EMAIL_ENABLED`                 | auto                            | Set `true` to force email on when SMTP is configured                                                                                                                                   |
 | `PROMPT_SMTP_HOST`                     | _(empty)_                       | SMTP server hostname                                                                                                                                                                   |
@@ -93,10 +103,19 @@ The generator calls any **OpenAI-compatible** chat completions API. Configure vi
 | `PROMPT_ADMIN_EMAIL`                   | _(empty)_                       | Fallback recipient for server batches when users have no email                                                                                                                         |
 | `PROMPT_EMAIL_NOTIFY_BATCH`            | `true`                          | Send email when scheduled batches/campaigns finish                                                                                                                                     |
 | `PROMPT_EMAIL_NOTIFY_PASSWORD`         | `true`                          | Send email when a password is changed                                                                                                                                                  |
+| `SERVER_SCHEDULED_BATCH`               | `false`                         | Headless scheduled batch (needs `PROMPT_DATA_DIR`). Browser scheduled batch on Automation is separate                                                                                  |
+| `SERVER_SCHEDULED_BATCH_INTERVAL_MIN`  | `60`                            | Minutes between headless batch runs                                                                                                                                                    |
+| `SERVER_SCHEDULED_BATCH_TARGET`        | `random-scene`                  | `random-scene` or `topics`                                                                                                                                                             |
+| `SERVER_SCHEDULED_BATCH_COUNT`         | `3`                             | Prompts per headless run                                                                                                                                                               |
+| `SERVER_SCHEDULED_BATCH_QUEUE`         | `false`                         | Queue headless results to ComfyUI                                                                                                                                                      |
 
-**Password reset:** With auth and SMTP enabled, `POST /api/email/forgot-password` sends a link to `/login?reset=…`. Users complete reset via `POST /api/auth/reset-password`.
+**Settings overlays:** SMTP (`GET`/`POST /api/settings/email`) and queue-export dir (`/api/settings/queue-export`) persist under `PROMPT_DATA_DIR` when set. Without it, SMTP is kept in memory until restart. Env values remain the fallback. Passwords are never returned to the browser.
+
+**Invite and password reset:** With auth and SMTP enabled, admins send `POST /api/auth/invite` from Settings → Users. Users request `POST /api/email/forgot-password` and complete `POST /api/auth/reset-password`. Links are `{PROMPT_API_URL}/login?reset=…` and expire in **1 hour**. Tokens live in `PROMPT_DATA_DIR/auth/password-reset-tokens.json`.
 
 **Queue interrupt:** `POST /api/comfyui/interrupt` forwards an interrupt to ComfyUI (also available on the Queue page).
+
+**Second GPU probe:** `POST /api/comfyui/probe` with `{ "url": "http://…" }`. Fetches the host only after allowlist checks. An allowlist miss returns HTTP 400 with `code: "allowlist"` and does not contact the host.
 
 **Webhooks → email:** Outbound webhooks fire on job completion/error. When signed in with batch email notifications enabled, the gallery client also batches completion emails via `POST /api/email/jobs-completed` (debounced ~8s). Server scheduled batches use `POST /api/email/batch-completed`.
 

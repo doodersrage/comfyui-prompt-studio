@@ -16,6 +16,7 @@ Until step 1 is done, the Docs workflow only verifies that `mkdocs build` succee
 | Doc | Contents |
 | --- | --- |
 | [Main README](../README.md) | What it is, quick start, tools table, supported models |
+| [Operator guide](operator.md) | Heal & ready, second GPU, new-machine backup, invite + SMTP |
 | [Configuration & deployment](configuration.md) | `.env.local`, LLM, auth, security, production checklist, Docker |
 | [ComfyUI custom nodes](../comfyui/comfyui_image_prompt_tools/README.md) | Install `PromptTools*` nodes into ComfyUI |
 
@@ -27,7 +28,7 @@ Until step 1 is done, the Docs workflow only verifies that `mkdocs build` succee
 | [Workflow takeover](workflow-takeover.md) | Placeholders, quality profiles, queue-time patching |
 | [Prompt limits](prompt-limits.md) | Character limits by model × detail level |
 | [Prompt examples](prompt-examples.md) | Sample outputs for SDXL, Qwen Edit, FLUX, SD1.5 |
-| [HTTP API](http-api.md) | REST endpoints, curl examples, error shape |
+| [HTTP API](http-api.md) | REST endpoints, curl examples, health/probe/invite, error shape |
 | [Data catalogs](data-catalogs.md) | Location & clothing library generator scripts |
 
 ### Features by area
@@ -42,6 +43,7 @@ Quick jumps inside [features.md](features.md):
 - [Workflows & library](features.md#workflows)
 - [Settings, storage & backup](features.md#settings-storage)
 - [Auth, admin & API](features.md#auth-api)
+- [Operator guide](operator.md) — second GPU, backup v5, SMTP invite
 - [Automation & integrations](features.md#automation)
 - [UI & UX](features.md#ui-ux)
 

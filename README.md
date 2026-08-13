@@ -20,6 +20,8 @@ Open [http://localhost:47832](http://localhost:47832).
 2. Use **Heal & ready** on first launch (Settings → Overview).
 3. Generate a prompt on **Generate**, then **Send to ComfyUI**.
 
+**Day-2 ops** (second GPU, move to a new machine, invite users): [Operator guide](docs/operator.md).
+
 See [Configuration & deployment](docs/configuration.md) for auth, production checklist, Docker, and the full env var table.
 
 ## Workspace modes
@@ -91,7 +93,7 @@ Audio and 3D use **Audio** (`/audio`) and **3D Mesh** (`/mesh`). **WAN / Hunyuan
 | **Studio**          | `/studio`          | History, iteration tree, projects, compare, portfolio, campaign, analytics, catalog, templates                                                                                |
 | **Lint**            | `/lint`            | Paste prompts for diagnostics, fix, compact, reformat                                                                                                                         |
 | **Refine**          | `/refine`          | Refine an existing prompt with image + intent hints                                                                                                                           |
-| **Settings**        | `/settings`        | Sub-nav (Overview, LLM, ComfyUI, Automation, Data), health checks, `.env.local` catalog, webhooks, backup                                                                     |
+| **Settings**        | `/settings`        | Overview (heal, backup), LLM, ComfyUI cluster, Automation, Data, Users (SMTP + invite)                                                                                       |
 | **Gallery**         | `/gallery`         | Stats dashboard, grid/dense/list layouts, review focus, compare modal, semantic search                                                                                        |
 | **Variations**      | `/variations`      | Roll N prompt variations and batch-queue to ComfyUI                                                                                                                           |
 | **ControlNet**      | `/controlnet`      | Structure prompts (text or image-assisted)                                                                                                                                    |
@@ -99,14 +101,15 @@ Audio and 3D use **Audio** (`/audio`) and **3D Mesh** (`/mesh`). **WAN / Hunyuan
 
 Legacy URLs `/duo` and `/random-scene` redirect to Character and Generate.
 
-**Feature depth:** [docs/features.md](docs/features.md) (gallery, Studio, queue profiles, auth, webhooks, and more).
+**Feature depth:** [docs/features.md](docs/features.md). **Ops:** [docs/operator.md](docs/operator.md).
 
 ## ComfyUI integration
 
 - **Workflow takeover** at queue time — [docs/workflow-takeover.md](docs/workflow-takeover.md)
 - **Custom nodes** — [comfyui/comfyui_image_prompt_tools/README.md](comfyui/comfyui_image_prompt_tools/README.md)
-- **HTTP API** — [docs/http-api.md](docs/http-api.md) (live catalog: `GET /api`)
+- **HTTP API** — [docs/http-api.md](docs/http-api.md) (live catalog: `GET /api`; health, probe, invite, SMTP)
 - **Architecture** — [docs/architecture.md](docs/architecture.md)
+- **Operator guide** — [docs/operator.md](docs/operator.md)
 - **Optional Diffusers engine** — [services/diffusers-engine/README.md](services/diffusers-engine/README.md)
 
 ## CLI & data scripts

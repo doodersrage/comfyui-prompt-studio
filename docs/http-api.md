@@ -68,3 +68,51 @@ Response:
 ```
 
 Model IDs match the registry in `src/lib/comfy-models/registry.ts`.
+
+## Health, cluster, and operator
+
+Same-origin browser UI does not need `PROMPT_API_TOKEN`. Cross-origin scripts should send `Authorization: Bearer <token>` when that env is set. Admin routes require an admin session cookie when auth is on.
+
+```bash
+# LLM + ComfyUI + pool + storage + SMTP configured?
+curl -sS http://localhost:47832/api/health | jq '.llm.ok, .comfyui.ok, .email, .storage, .auth'
+
+# Probe a ComfyUI URL (fetches only if the host is allowlisted)
+curl -sS -X POST http://localhost:47832/api/comfyui/probe \
+  -H "Content-Type: application/json" \
+  -d '{"url":"http://127.0.0.1:8189"}'
+```
+
+Allowlist miss: HTTP 400 `{ "error": "Host … is not on COMFYUI_ALLOWED_HOSTS…", "code": "allowlist", "hostname": "…" }` — no outbound fetch.
+
+| Endpoint | Method | Purpose |
+| --- | --- | --- |
+| `/api/health` | GET | LLM, ComfyUI, pool, storage, email, auth, `serverEnv` catalog |
+| `/api/comfyui/probe` | POST | `{ url }` — health-check one pool member |
+| `/api/comfyui/interrupt` | POST | Forward interrupt to ComfyUI |
+| `/api/settings/email` | GET, POST | SMTP overlay (admin; never returns password) |
+| `/api/settings/queue-export` | GET, POST | Queue sidecar directory overlay (admin) |
+| `/api/email/test` | POST | Send a test message (`{ to }` optional; required if auth is off) |
+| `/api/email/forgot-password` | POST | `{ username }` or `{ email }` — always generic success |
+| `/api/auth/invite` | POST | Admin: create/re-send invite email |
+| `/api/auth/reset-password` | POST | `{ token, password }` |
+| `/api/storage` | GET, PUT | Namespaced server sync (`PROMPT_DATA_DIR`) |
+| `/api/storage/restore` | GET | Read-only pull of one namespace |
+| `/api/storage/export` | POST | Encrypted server export snapshot |
+
+Operator walkthrough: [operator.md](operator.md). Env names: [configuration.md](configuration.md).
+
+## Auth
+
+```bash
+# Session
+curl -sS http://localhost:47832/api/auth/session
+
+# Invite (admin cookie)
+curl -sS -X POST http://localhost:47832/api/auth/invite \
+  -H "Content-Type: application/json" \
+  -d '{"username":"alex","email":"alex@example.com","role":"user"}'
+```
+
+When `PROMPT_AUTH_ENABLED=true`, most UI routes redirect to `/login`. API feature IDs are listed in `src/lib/auth/features.ts`.
+

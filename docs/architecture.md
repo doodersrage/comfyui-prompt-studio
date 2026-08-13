@@ -33,8 +33,12 @@ When `PROMPT_DATA_DIR` is set (`src/lib/server-storage.ts`):
 
 - `{PROMPT_DATA_DIR}/{namespace}.json` — namespaces in `src/lib/storage-namespaces.ts`
 - Per-user (auth on): `{PROMPT_DATA_DIR}/users/{userId}/…` (`src/lib/user-server-storage.ts`)
-- Auth: `{PROMPT_AUTH_DIR|PROMPT_DATA_DIR}/auth/users.json`, `groups.json` (`src/lib/auth/store.ts`)
+- Auth: `{PROMPT_AUTH_DIR|PROMPT_DATA_DIR}/auth/users.json`, `groups.json`, `password-reset-tokens.json` (`src/lib/auth/store.ts`, `src/lib/auth/password-reset-store.ts`)
 - Analytics snapshots: `auth/analytics-snapshots.json` (client push via `/api/auth/analytics`)
+- SMTP overlay: `email-config.json` (`src/lib/email/store.ts`) — env is the fallback; in-memory overlay if `PROMPT_DATA_DIR` is unset
+- Queue-export overlay: `queue-export.json` (`src/lib/queue-export-store.ts`)
+
+**Studio backup** (`src/lib/studio-backup.ts`) is a versioned JSON download (v5) of history, settings, gallery, and `collectStudioExtras()` (gallery ELO and other Dexie KV). It is not a dump of `PROMPT_DATA_DIR`.
 
 **Auto-synced namespaces** (`SYNC_STORAGE_NAMESPACES`): `settings-cache`, `prompt-history`, `comfy-gallery`, `gallery-deleted-ids`, `studio-extras`.
 
@@ -69,7 +73,9 @@ flowchart LR
 | Gallery + progress                       | `src/lib/comfyui-gallery-client.ts`, `src/lib/comfyui-websocket.ts`       |
 | Engine seam (queue / progress)           | `src/lib/engine` → `getEngineAdapter()`                                   |
 
-Related routes: `src/app/api/comfyui/{status,history,view,upload,interrupt,live,…}/` and `src/app/api/diffusers/{,status,view,upload}/`.
+Related routes: `src/app/api/comfyui/{status,history,view,upload,interrupt,live,probe,…}/` and `src/app/api/diffusers/{,status,view,upload}/`.
+
+Pool members: `parseComfyUiPool()` merges `COMFYUI_POOL` with Settings `comfyPoolUrls` after `normalizeComfyPoolUrlList` (allowlist fail-closed per URL). Probe (`POST /api/comfyui/probe`) does not fetch hosts missing from `COMFYUI_ALLOWED_HOSTS`.
 
 ## Engine adapter
 
@@ -115,6 +121,8 @@ Gate path: `src/proxy.ts` → `authorizeAppRequest` (`src/lib/auth/access.ts`). 
 
 Session cookie `prompt-studio-session`; also Bearer / `x-prompt-api-token` / per-user API keys.
 
+Invites: `POST /api/auth/invite` (admin) creates or re-sends a user and emails a 1-hour reset token via `src/lib/email/notifications.ts`. Mailer: `src/lib/email/mailer.ts` (transporter rebuilt when SMTP overlay changes).
+
 ## Plugins
 
 Installable manifests live in the client settings cache (Dexie), not on the server filesystem (`src/lib/plugin-manifest.ts`).
@@ -153,10 +161,11 @@ See `.env.example` for the full list. Groups that matter for architecture:
 | Category    | Examples                                                                             |
 | ----------- | ------------------------------------------------------------------------------------ |
 | LLM         | `LLM_ENABLED`, `LLM_API_BASE_URL`, `LLM_MODEL`, `LLM_VISION_MODEL`                   |
-| ComfyUI     | `COMFYUI_API_URL`, `COMFYUI_POOL`, `COMFYUI_ALLOW_CLIENT_URL`, `COMFYUI_ROOT`        |
-| Auth        | `PROMPT_AUTH_ENABLED`, `PROMPT_ADMIN_*`, `PROMPT_SESSION_SECRET`, `PROMPT_API_TOKEN` |
-| Persistence | `PROMPT_DATA_DIR`, `PROMPT_AUTH_DIR`                                                 |
-| Ops         | `API_RATE_LIMIT_*`, scheduled batch / maintenance flags                              |
+| ComfyUI     | `COMFYUI_API_URL`, `COMFYUI_POOL`, `COMFYUI_ALLOW_CLIENT_URL`, `COMFYUI_ALLOWED_HOSTS`, `COMFYUI_ROOT` |
+| Auth        | `PROMPT_AUTH_ENABLED`, `PROMPT_ADMIN_*`, `PROMPT_SESSION_SECRET`, `PROMPT_API_TOKEN`, `PROMPT_API_URL` |
+| Persistence | `PROMPT_DATA_DIR`, `PROMPT_AUTH_DIR`                                                                  |
+| Email       | `PROMPT_SMTP_*`, `PROMPT_EMAIL_FROM` (overlay: `email-config.json`)                                    |
+| Ops         | `API_RATE_LIMIT_*`, scheduled batch / maintenance flags                                               |
 
 ## Where to look next
 
@@ -165,6 +174,8 @@ See `.env.example` for the full list. Groups that matter for architecture:
 | Why did queue change my graph?              | `comfyui-config.ts`, `workflow-queue-optimizer.ts`, Settings → workflow takeover |
 | Where did this setting go?                  | Dexie `kv` via `browser-storage.ts` / `settings-cache`                           |
 | Why is a nav item missing?                  | `auth/features.ts` + user/group `blockedFeatures`                                |
+| Why did invite/reset mail use the wrong URL? | `PROMPT_API_URL` — default is `http://127.0.0.1:47832`                          |
+| Why did probe fail with allowlist?          | `url-safety.ts` / `COMFYUI_ALLOWED_HOSTS`; copy snippet from cluster panel       |
 | Why did a plugin alter queue?               | `plugin-queue-hooks.ts` + installed manifests                                    |
 | Refine / vision blew up?                    | `vision-image-prepare.ts`, `llm-client.ts`, `/api/refine`                        |
 | Where does queue / progress hit the engine? | `src/lib/engine` (`getEngineAdapter`) — ComfyUI or Diffusers                     |

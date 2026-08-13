@@ -167,8 +167,9 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 - **VRAM-aware Max → Final** — when free VRAM is under ~6 GB, Max queues downgrade to Final
 - **Hold Max until idle** — optional park for Max jobs until ComfyUI is empty; flush from Orchestration
 - **Sampler memory** — 4–5★ gallery ratings remember per-model CFG/steps/sampler/scheduler
-- **Multi-ComfyUI pool** — `COMFYUI_POOL` env for round-robin routing; Settings → Overview load-balances across pool hosts by queue depth (skips busy servers, rotates to the least-loaded)
-- **Queue artifacts** — optional `COMFYUI_QUEUE_EXPORT_DIR` writes JSON sidecars after queue
+- **Multi-ComfyUI pool** — `COMFYUI_POOL` plus Settings extras; load-balance skips busy hosts; OOM / dead-host retry fails over; optional sticky preferred host for gallery stills
+- **Second-GPU snippet** — after Test (or allowlist miss), copy `COMFYUI_POOL` / `COMFYUI_ALLOWED_HOSTS` into `.env.local`; probe never fetches an unallowlisted host
+- **Queue artifacts** — optional `COMFYUI_QUEUE_EXPORT_DIR` or Settings overlay writes JSON sidecars after queue
 - **ComfyUI job status node** — `PromptToolsJobStatus` polls `/api/comfyui/status`
 - **ComfyUI Topics Batch node** — `PromptToolsTopicsBatch` calls `/api/topics/batch`
 - **ComfyUI avoided tokens** — optional `avoided_tokens` input on generator nodes passes motif avoidance to the API
@@ -196,11 +197,13 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 
 - **App database (Dexie)** — settings, history, presets, workflows, webhooks, and gallery in IndexedDB (`comfy-prompt-studio-v1`); legacy `localStorage` migrates on first load
 - **Settings cache** — target model, detail level, and per-tool options persist across reloads and pages
-- **Settings hub** — `/settings` for service health checks and local data backup/reset
+- **Settings hub** — `/settings` tabs: Overview (Heal & ready, health, backup), LLM, ComfyUI (cluster + assets), Automation, Data, Users (SMTP + invite)
 - **Settings env panel** — copy `.env` snippet and re-run LLM/ComfyUI health tests from Overview
-- **Backup v2** — export/import includes ComfyUI settings, gallery entries, and imported workflow JSON files
-- **Studio backup v3** — export/import avoided tokens, webhook log/settings, projects, scheduled batch
-- **Full user backup** — Profile downloads/restores complete local studio backup JSON
+- **Heal & ready** — one-click first install: system workflows, loader maps, inventory adapt, health refresh
+- **Studio backup v5** — export/import history, settings, gallery, workflows, projects, recipes, **and extras** (gallery ELO, views, appearance, shortcuts). v1–v4 still import
+- **Overview one-click backup** — Export / Import on Settings → Overview for a new browser or machine
+- **Full user backup** — Profile downloads/restores the same studio backup JSON
+- **Backup reminder** — Overview/Data warn when no recent export
 - **Prompt sidecar** — download JSON sidecar (prompt, model, diagnostics, seed) from result panels or Studio history
 - **Sidecar import** — load sidecar JSON on Gallery, Lint, and Variations to restore prompts or re-queue
 - **Server storage sync** — optional `PROMPT_DATA_DIR` file-backed namespaces via `/api/storage`; per-user paths when logged in
@@ -215,6 +218,9 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 ## Auth, admin & API {#auth-api}
 
 - **User accounts & feature ACL** — optional login, groups, blocked features, **viewer** role, per-user ComfyUI URL override, API quotas (Settings → Users)
+- **Invite by email** — admin creates a user (or re-sends) via SMTP; 1-hour `/login?reset=` link. Password optional on invite
+- **SMTP overlay** — Settings → Users persists host/port/from under `PROMPT_DATA_DIR`; **Send test** uses the overlay immediately
+- **Password reset** — `/login` forgot-password + `POST /api/auth/reset-password`; same mailer as invites
 - **Profile** — password change, export toggle, scheduled campaign settings, 2FA, sessions, email, appearance
 - **Admin tools** — audit log, user impersonation, shared read-only preset library, analytics trends over time
 - **Per-user API keys** — `pt_…` tokens for CLI/inbound hooks with user quotas
@@ -246,7 +252,7 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 - **Server scheduled batch** — `SERVER_SCHEDULED_BATCH=true` or manual `POST /api/scheduled-batch/run`
 - **Best-of-N campaigns** — scheduled profile or Automation tab runs optionally over-generate (2–4×) and LLM-rank prompts by text quality before queue; with **Vision-rank** enabled, queues all variants then vision-scores outputs and culls losers from the gallery; Profile server campaigns and headless server batch support the same path; `/api/best-of-n/rank-images` ranks generated images with `LLM_VISION_MODEL`
 - **Prompt recipes API** — `/api/recipes/run` executes lint/fix/compact/queue chains server-side; result panels call it from Recipes & shootout shortcuts
-- **Email notifications** — SMTP alerts for batch/campaign completion and password changes (Profile → Email)
+- **Email notifications** — SMTP alerts for invites, password reset, batch/campaign completion, and password changes (Settings → Users → SMTP; Profile → Email)
 - **Docker Compose** — `docker compose up` for app + Ollama (+ optional ComfyUI profile)
 - **GitHub Actions CI** — runs unit tests, build, and Playwright smoke on push/PR
 
@@ -257,5 +263,6 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 - **Command palette** — `Ctrl+K` / `⌘K` quick navigation across tools
 - **Keyboard shortcuts** — Ctrl+Enter generate, Ctrl+Shift+C copy pair, Ctrl+Shift+G queue ComfyUI; `/` focuses scene preset search
 - **Keyboard shortcut editor** — customize bindings on Profile
-- **Light theme** — Profile → Appearance switches dark/light tokens
+- **Light theme** — Profile → Appearance switches Auto / Light / Dark
 - **Ambient background** — subtle animated orbs; intensity toggle on Profile → Appearance
+- **UI density & calm mode** — compact spacing and reduced motion on Profile → Appearance
