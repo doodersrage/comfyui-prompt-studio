@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { mergeHistoryImportItems } from "./comfyui-gallery-client";
+import { dedupeHistoryImportItems, mergeHistoryImportItems } from "./comfyui-gallery-client";
 import type { ComfyHistoryImportItem } from "./comfyui-status";
 import type { ComfyGalleryEntry } from "./comfyui-gallery";
 
@@ -54,5 +54,31 @@ describe("mergeHistoryImportItems", () => {
     const imported = result.entries.find((entry) => entry.promptId === "abc-2");
     assert.equal(imported?.workflowJson, '{"1":{"class_type":"KSampler"}}');
     assert.equal(imported?.hasStoredWorkflow, true);
+  });
+
+  it("dedupes the same prompt id across pool hosts", () => {
+    const items = dedupeHistoryImportItems([
+      {
+        promptId: "abc-1",
+        prompt: "first",
+        comfyUrl: "http://127.0.0.1:8188",
+        images: [{ filename: "a.png", type: "output", subfolder: "" }],
+      },
+      {
+        promptId: "abc-1",
+        prompt: "first again",
+        comfyUrl: "http://127.0.0.1:8189",
+        images: [{ filename: "a.png", type: "output", subfolder: "" }],
+      },
+      {
+        promptId: "abc-2",
+        prompt: "second",
+        comfyUrl: "http://127.0.0.1:8189",
+        images: [{ filename: "b.png", type: "output", subfolder: "" }],
+      },
+    ]);
+    assert.equal(items.length, 2);
+    assert.equal(items[0]?.comfyUrl, "http://127.0.0.1:8188");
+    assert.equal(items[1]?.promptId, "abc-2");
   });
 });

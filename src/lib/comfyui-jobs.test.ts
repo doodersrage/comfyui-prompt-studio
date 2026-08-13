@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
   interpretComfyJobDetail,
   mapComfyJobStatusString,
+  mergeHostJobLists,
   parseComfyJobList,
 } from './comfyui-jobs';
 
@@ -56,5 +57,34 @@ describe('interpretComfyJobDetail', () => {
 
   it('returns null when status is missing', () => {
     assert.equal(interpretComfyJobDetail('p1', 'http://127.0.0.1:8188', { id: 'p1' }), null);
+  });
+});
+
+describe('mergeHostJobLists', () => {
+  it('stamps comfyUrl and drops duplicate prompt ids', () => {
+    const merged = mergeHostJobLists([
+      {
+        url: 'http://127.0.0.1:8188/',
+        jobs: [
+          { id: 'a', status: 'running' },
+          { id: 'b', status: 'pending' },
+        ],
+      },
+      {
+        url: 'http://127.0.0.1:8189',
+        jobs: [
+          { id: 'a', status: 'pending' },
+          { id: 'c', status: 'running' },
+        ],
+      },
+    ]);
+    assert.deepEqual(
+      merged.map(job => ({ id: job.id, comfyUrl: job.comfyUrl })),
+      [
+        { id: 'a', comfyUrl: 'http://127.0.0.1:8188' },
+        { id: 'b', comfyUrl: 'http://127.0.0.1:8188' },
+        { id: 'c', comfyUrl: 'http://127.0.0.1:8189' },
+      ]
+    );
   });
 });

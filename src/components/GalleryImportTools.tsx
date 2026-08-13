@@ -57,7 +57,9 @@ export default function GalleryImportTools() {
             void importCompletedHostJobs(40, stickyUrl)
               .then(result => {
                 setImportStatus(
-                  `Imported ${result.imported}, upgraded ${result.upgraded}, skipped ${result.skipped} completed host jobs.`
+                  `Imported ${result.imported}, upgraded ${result.upgraded}, skipped ${result.skipped} completed host jobs${
+                    result.hosts > 1 ? ` across ${result.hosts} hosts` : ''
+                  }.`
                 );
               })
               .catch(error => {

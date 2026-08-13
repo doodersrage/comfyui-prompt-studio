@@ -376,12 +376,40 @@ export async function claimOrphanComfyJobs(
   };
 }
 
+export function dedupeHistoryImportItems(
+  items: ComfyHistoryImportItem[]
+): ComfyHistoryImportItem[] {
+  const seen = new Set<string>();
+  const unique: ComfyHistoryImportItem[] = [];
+  for (const item of items) {
+    const id = item.promptId.trim();
+    if (!id || seen.has(id)) {
+      continue;
+    }
+    seen.add(id);
+    unique.push(item);
+  }
+  return unique;
+}
+
 export async function importCompletedHostJobs(
   limit = 40,
   comfyUrl?: string
-): Promise<{ imported: number; upgraded: number; skipped: number }> {
-  const payload = await fetchComfyHistoryImports(limit, comfyUrl);
-  return importComfyGalleryFromHistory(payload.items ?? []);
+): Promise<{ imported: number; upgraded: number; skipped: number; hosts: number }> {
+  const { listHealComfyUrls } = await import('./comfyui-manager-install-client');
+  const urls = await listHealComfyUrls(comfyUrl);
+  const items: ComfyHistoryImportItem[] = [];
+  const targets = urls.length > 0 ? urls : [comfyUrl?.trim() || ''];
+  for (const url of targets) {
+    try {
+      const payload = await fetchComfyHistoryImports(limit, url || undefined);
+      items.push(...(payload.items ?? []));
+    } catch {
+      // Skip a dead pool member; others can still import.
+    }
+  }
+  const result = importComfyGalleryFromHistory(dedupeHistoryImportItems(items).slice(0, 80));
+  return { ...result, hosts: urls.length || (comfyUrl?.trim() ? 1 : 0) };
 }
 
 export async function fetchComfyHistoryImports(limit = 40, comfyUrl?: string) {

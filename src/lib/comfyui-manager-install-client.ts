@@ -60,27 +60,35 @@ export async function requestComfyManagerInstall(input: {
         missingManager: data?.missingManager,
         message: data?.missingManager
           ? `Missing nodes: ${nodeTypes.join(', ')}. Install ComfyUI-Manager to auto-install packs.`
-          : data?.error || `Could not install missing nodes: ${nodeTypes.join(', ')}.`,
+          : /security_level/i.test(data?.error ?? '')
+            ? `${data?.error} ComfyUI-Manager security_level may be blocking installs.`
+            : data?.error || `Could not install missing nodes: ${nodeTypes.join(', ')}.`,
       };
     }
 
     let restartRequested = false;
+    let hostReady = true;
     if (input.restart !== false && data?.restartNeeded && installed.length > 0) {
       const { restartComfyUi } = await import('./comfyui-queue-control');
       const restart = await restartComfyUi(input.comfyUrl);
       restartRequested = restart.ok;
       if (restart.ok) {
-        await new Promise(resolve => setTimeout(resolve, 4000));
-        await fetchComfyObjectInfoCached({
-          comfyUrl: input.comfyUrl,
-          forceRefresh: true,
-        });
+        const { waitForComfyUiHostAfterRestart } = await import('./comfyui-host-ready');
+        const ready = await waitForComfyUiHostAfterRestart(input.comfyUrl);
+        hostReady = ready.ok;
       }
     }
 
+    const securityHint = /security_level/i.test(data?.error ?? '')
+      ? ' ComfyUI-Manager security_level may be blocking installs.'
+      : '';
     const parts = [
       installed.length > 0 ? `Installed ${installed.join(', ')}.` : '',
-      restartRequested ? 'ComfyUI restart requested.' : '',
+      restartRequested
+        ? hostReady
+          ? 'ComfyUI is back after restart.'
+          : 'ComfyUI restart requested; host did not answer in time.'
+        : '',
       unresolved.length > 0 ? `Still missing: ${unresolved.join(', ')}.` : '',
     ].filter(Boolean);
     return {
@@ -88,7 +96,7 @@ export async function requestComfyManagerInstall(input: {
       installed,
       unresolved,
       restartRequested,
-      message: parts.join(' '),
+      message: `${parts.join(' ')}${securityHint}`.trim(),
     };
   } catch (error) {
     return {
@@ -165,26 +173,22 @@ export async function tryInstallMissingNodesFromIssues(input: {
   });
 }
 
-export async function listHealComfyUrls(primary?: string): Promise<string[]> {
+export async function listHealComfyUrls(
+  primary?: string,
+  knownPoolUrls?: string[]
+): Promise<string[]> {
+  const { collectComfyPoolUrls } = await import('./comfyui-host-ready');
   const { loadComfyUiSettings } = await import('./comfyui-settings');
   const { loadSettingsCache } = await import('./settings-cache');
-  const { fetchComfyUiPoolUrlsForRetry } = await import('./oom-retry');
   const settings = loadComfyUiSettings();
   const extras = loadSettingsCache().shared.comfyPoolUrls ?? [];
-  const fromHealth = await fetchComfyUiPoolUrlsForRetry();
-  const seen = new Set<string>();
-  const urls: string[] = [];
-  for (const raw of [primary, settings.apiUrl, ...extras, ...fromHealth]) {
-    const normalized = raw?.trim().replace(/\/+$/, '');
-    if (!normalized) {
-      continue;
-    }
-    const key = normalized.toLowerCase();
-    if (seen.has(key)) {
-      continue;
-    }
-    seen.add(key);
-    urls.push(normalized);
-  }
-  return urls;
+  const fromHealth = knownPoolUrls
+    ? knownPoolUrls
+    : await (await import('./oom-retry')).fetchComfyUiPoolUrlsForRetry();
+  return collectComfyPoolUrls({
+    primary,
+    settingsUrl: settings.apiUrl,
+    extras,
+    healthUrls: fromHealth,
+  });
 }

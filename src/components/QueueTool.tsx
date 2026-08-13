@@ -24,7 +24,8 @@ import {
   restartComfyUi,
 } from '@/lib/comfyui-queue-control';
 import { claimOrphanComfyJob, claimOrphanComfyJobs } from '@/lib/comfyui-gallery-client';
-import type { ComfyJobListItem } from '@/lib/comfyui-jobs';
+import { mergeHostJobLists, type ComfyJobListItem, type HostOrphanJob } from '@/lib/comfyui-jobs';
+import { listHealComfyUrls } from '@/lib/comfyui-manager-install-client';
 import FailedJobFixButtons from '@/components/FailedJobFixButtons';
 import { cancelComfyGalleryJob } from '@/lib/comfyui-queue-cancel';
 import {
@@ -119,7 +120,7 @@ export default function QueueTool() {
   const [entries, setEntries] = useState<ComfyGalleryEntry[]>([]);
   const [queueHealth, setQueueHealth] = useState<ComfyQueueHealth | null>(null);
   const [status, setStatus] = useState<string | null>(null);
-  const [hostJobs, setHostJobs] = useState<ComfyJobListItem[]>([]);
+  const [hostJobs, setHostJobs] = useState<HostOrphanJob[]>([]);
 
   const refreshEntries = useCallback(() => {
     setEntries(loadComfyGallery());
@@ -138,17 +139,23 @@ export default function QueueTool() {
       setQueueHealth(null);
     }
     try {
-      const params = new URLSearchParams({ status: 'pending,in_progress', limit: '40' });
-      if (healthUrl) {
-        params.set('comfyUrl', healthUrl);
-      }
-      const response = await fetch(`/api/comfyui/jobs?${params.toString()}`);
-      if (!response.ok) {
-        setHostJobs([]);
-        return;
-      }
-      const data = (await response.json()) as { jobs?: ComfyJobListItem[] };
-      setHostJobs(Array.isArray(data.jobs) ? data.jobs : []);
+      const urls = await listHealComfyUrls(healthUrl);
+      const targets = urls.length > 0 ? urls : healthUrl ? [healthUrl] : [''];
+      const batches = await Promise.all(
+        targets.map(async url => {
+          const params = new URLSearchParams({ status: 'pending,in_progress', limit: '40' });
+          if (url) {
+            params.set('comfyUrl', url);
+          }
+          const response = await fetch(`/api/comfyui/jobs?${params.toString()}`);
+          if (!response.ok) {
+            return { url, jobs: [] as ComfyJobListItem[] };
+          }
+          const payload = (await response.json()) as { jobs?: ComfyJobListItem[] };
+          return { url, jobs: Array.isArray(payload.jobs) ? payload.jobs : [] };
+        })
+      );
+      setHostJobs(mergeHostJobLists(batches));
     } catch {
       setHostJobs([]);
     }
@@ -185,6 +192,10 @@ export default function QueueTool() {
   const orphanHostJobs = useMemo(
     () => hostJobs.filter(job => !galleryPromptIds.has(job.id)),
     [galleryPromptIds, hostJobs]
+  );
+  const orphanHostCount = useMemo(
+    () => new Set(orphanHostJobs.map(job => job.comfyUrl).filter(Boolean)).size,
+    [orphanHostJobs]
   );
 
   async function interruptComfyQueue() {
@@ -230,11 +241,11 @@ export default function QueueTool() {
     void refreshHealth();
   }
 
-  async function cancelHostJob(job: ComfyJobListItem) {
+  async function cancelHostJob(job: HostOrphanJob) {
     setStatus(`Cancelling ${job.id}…`);
     const result = await cancelComfyUiJob({
       promptId: job.id,
-      comfyUrl: queueHealth?.url,
+      comfyUrl: job.comfyUrl || queueHealth?.url,
       deleteHistory: true,
     });
     setStatus(result.ok ? 'Job cancelled.' : (result.error ?? 'Cancel failed.'));
@@ -242,12 +253,12 @@ export default function QueueTool() {
     void refreshHealth();
   }
 
-  async function claimHostJob(job: ComfyJobListItem) {
+  async function claimHostJob(job: HostOrphanJob) {
     setStatus(`Importing ${job.id}…`);
     const result = await claimOrphanComfyJob({
       promptId: job.id,
       status: job.status,
-      comfyUrl: queueHealth?.url,
+      comfyUrl: job.comfyUrl || queueHealth?.url,
     });
     setStatus(result.message);
     refreshEntries();
@@ -263,7 +274,7 @@ export default function QueueTool() {
       orphanHostJobs.map(job => ({
         promptId: job.id,
         status: job.status,
-        comfyUrl: queueHealth?.url,
+        comfyUrl: job.comfyUrl || queueHealth?.url,
       }))
     );
     setStatus(result.message);
@@ -397,8 +408,8 @@ export default function QueueTool() {
         <ToolSection title={`On ComfyUI (${orphanHostJobs.length})`}>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs text-[var(--text-muted)]">
-              Running or queued on the host, but not in this gallery. Import to track outputs here,
-              or cancel one without interrupting the rest of the queue.
+              Running or queued on the ComfyUI pool, but not in this gallery. Import to track
+              outputs here, or cancel one without interrupting the rest of the queue.
             </p>
             {orphanHostJobs.length > 1 ? (
               <Button size="sm" variant="secondary" onClick={() => void claimAllHostJobs()}>
@@ -417,6 +428,7 @@ export default function QueueTool() {
                   <p className="type-caption">
                     {job.status}
                     {job.statusMessage ? ` · ${job.statusMessage}` : ''}
+                    {orphanHostCount > 1 && job.comfyUrl ? ` · ${job.comfyUrl}` : ''}
                   </p>
                 </div>
                 <div className="flex shrink-0 flex-wrap items-center gap-2 self-start">

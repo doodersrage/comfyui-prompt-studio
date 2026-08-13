@@ -7,7 +7,29 @@ export type ComfyJobListItem = {
   statusMessage?: string;
   createTime?: number;
   outputsCount?: number;
+  comfyUrl?: string;
 };
+
+export type HostOrphanJob = ComfyJobListItem & { comfyUrl?: string };
+
+/** Deduplicate in-flight host jobs across a Comfy pool, stamping each row with its URL. */
+export function mergeHostJobLists(
+  batches: Array<{ url: string; jobs: ComfyJobListItem[] }>
+): HostOrphanJob[] {
+  const seen = new Set<string>();
+  const merged: HostOrphanJob[] = [];
+  for (const batch of batches) {
+    const url = batch.url.trim().replace(/\/+$/, '');
+    for (const job of batch.jobs) {
+      if (!job.id || seen.has(job.id)) {
+        continue;
+      }
+      seen.add(job.id);
+      merged.push(url ? { ...job, comfyUrl: url } : { ...job });
+    }
+  }
+  return merged;
+}
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
