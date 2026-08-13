@@ -3,8 +3,6 @@
 import Link from 'next/link';
 import ComfyUiGalleryPanel from '@/components/ComfyUiGalleryPanel';
 import SettingsBundlePanel from '@/components/settings/SettingsBundlePanel';
-import { STUDIO_BACKUP_LAST_EXPORT_KEY } from '@/lib/studio-backup-meta';
-import { writeBrowserString } from '@/lib/browser-storage';
 import { clearAllLocalPromptData, LOCAL_DATA_KEYS } from '@/lib/local-data-reset';
 import { DEFAULT_COMFYUI_SETTINGS, resetComfyUiSettings } from '@/lib/comfyui-settings';
 import type { SharedToolSettings } from '@/lib/settings-cache';
@@ -62,9 +60,9 @@ export type SettingsDataTabProps = {
   sharedSettings: SharedToolSettings;
   updateSharedSettings: (patch: Partial<SharedToolSettings>) => void;
   backupReminder: string | null;
-  setBackupReminder: (value: string | null) => void;
   reloadBrowserSettingsState: () => void;
   handleImport: (file: File) => void | Promise<void>;
+  handleExportBackup: () => void;
   updateSettings: (patch: Partial<ComfyUiSettings>) => void;
   setStatus: (status: string | null) => void;
 };
@@ -80,9 +78,9 @@ export default function SettingsDataTab({
   sharedSettings,
   updateSharedSettings,
   backupReminder,
-  setBackupReminder,
   reloadBrowserSettingsState,
   handleImport,
+  handleExportBackup,
   updateSettings,
   setStatus,
 }: SettingsDataTabProps) {
@@ -285,10 +283,9 @@ export default function SettingsDataTab({
 
       <ToolSection title="Local data">
         <p className="text-sm text-[var(--text-secondary)]">
-          Full studio backup includes history, settings, scene presets, user templates, location
-          blocklist, ComfyUI settings, gallery entries, workflow JSON (v2), avoided tokens, webhook
-          log/settings, projects, and scheduled batch (v3). Prefer Settings export above when you
-          only need prefs.
+          Full studio backup includes history, settings, gallery, workflows, extras (gallery ELO,
+          recipes, views), and ComfyUI prefs. On a new machine: Import backup, then reload. Prefer
+          Settings export above when you only need prefs.
         </p>
         {backupReminder ? (
           <p className="mb-3 text-sm text-[var(--tint-warning-text)]">{backupReminder}</p>
@@ -296,14 +293,7 @@ export default function SettingsDataTab({
         <div className="flex flex-wrap gap-2 text-sm">
           <button
             type="button"
-            onClick={() => {
-              void import('@/lib/studio-backup').then(({ downloadStudioBackup }) => {
-                downloadStudioBackup();
-                writeBrowserString(STUDIO_BACKUP_LAST_EXPORT_KEY, String(Date.now()));
-                setBackupReminder(null);
-                setStatus('Studio backup downloaded.');
-              });
-            }}
+            onClick={handleExportBackup}
             className="rounded-lg border border-[var(--border-default)] px-4 py-2 text-[var(--text-primary)] transition hover:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
           >
             Export backup

@@ -14,6 +14,7 @@ export default function SmtpSettingsPanel({ isAdmin }: { isAdmin: boolean }) {
   const [pass, setPass] = useState('');
   const [from, setFrom] = useState('');
   const [enabled, setEnabled] = useState(false);
+  const [testTo, setTestTo] = useState('');
   const [status, setStatus] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -45,7 +46,7 @@ export default function SmtpSettingsPanel({ isAdmin }: { isAdmin: boolean }) {
   return (
     <ToolSection
       title="SMTP"
-      description="Operator mail for password resets and batch alerts. Env values are the fallback; this overlay persists under PROMPT_DATA_DIR."
+      description="Operator mail for invites, password resets, and batch alerts. Env values are the fallback; this overlay persists under PROMPT_DATA_DIR. Save, then Send test before inviting users."
     >
       <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
         <input
@@ -99,6 +100,16 @@ export default function SmtpSettingsPanel({ isAdmin }: { isAdmin: boolean }) {
             onChange={event => setFrom(event.target.value)}
             className="ui-input w-full text-sm"
             placeholder="Prompt Studio <noreply@localhost>"
+          />
+        </label>
+        <label className="space-y-1 text-xs text-[var(--text-muted)] sm:col-span-2">
+          Test recipient (optional)
+          <input
+            type="email"
+            value={testTo}
+            onChange={event => setTestTo(event.target.value)}
+            className="ui-input w-full text-sm"
+            placeholder="Defaults to your profile email; required if auth is off"
           />
         </label>
       </div>
@@ -164,13 +175,17 @@ export default function SmtpSettingsPanel({ isAdmin }: { isAdmin: boolean }) {
             void fetch('/api/email/test', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: '{}',
+              body: JSON.stringify(testTo.trim() ? { to: testTo.trim() } : {}),
             })
               .then(async response => {
-                const data = (await response.json()) as { error?: string; ok?: boolean };
+                const data = (await response.json()) as {
+                  error?: string;
+                  ok?: boolean;
+                  to?: string;
+                };
                 setStatus(
                   response.ok
-                    ? 'Test email sent to your profile address.'
+                    ? `Test email sent${data.to ? ` to ${data.to}` : '.'}`
                     : (data.error ?? 'Test failed.')
                 );
               })

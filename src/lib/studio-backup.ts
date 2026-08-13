@@ -63,6 +63,11 @@ import {
   type NsfwPresetPrefs,
   type UserNsfwGeneratorPreset,
 } from '@/lib/user-nsfw-generator-presets';
+import {
+  applyStudioExtras,
+  collectStudioExtras,
+  type StudioExtrasPayload,
+} from '@/lib/studio-extras';
 
 export type StudioBackupV1 = {
   version: 1;
@@ -99,11 +104,25 @@ export type StudioBackupV4 = Omit<StudioBackupV3, 'version'> & {
   nsfwPresetPrefs?: NsfwPresetPrefs;
 };
 
-export type StudioBackup = StudioBackupV1 | StudioBackupV2 | StudioBackupV3 | StudioBackupV4;
+export type StudioBackupV5 = Omit<StudioBackupV4, 'version'> & {
+  version: 5;
+  extras?: StudioExtrasPayload;
+};
 
-export function exportStudioBackup(): StudioBackupV4 {
+export type StudioBackup =
+  StudioBackupV1 | StudioBackupV2 | StudioBackupV3 | StudioBackupV4 | StudioBackupV5;
+
+export const STUDIO_BACKUP_VERSIONS = [1, 2, 3, 4, 5] as const;
+
+export function isSupportedStudioBackupVersion(
+  version: unknown
+): version is (typeof STUDIO_BACKUP_VERSIONS)[number] {
+  return version === 1 || version === 2 || version === 3 || version === 4 || version === 5;
+}
+
+export function exportStudioBackup(): StudioBackupV5 {
   return {
-    version: 4,
+    version: 5,
     exportedAt: new Date().toISOString(),
     history: loadHistoryFromStorage(),
     locationBlocklist: loadLocationBlocklist(),
@@ -123,77 +142,80 @@ export function exportStudioBackup(): StudioBackupV4 {
     sessionRecipes: loadSessionRecipes(),
     userNsfwGeneratorPresets: loadUserNsfwGeneratorPresets(),
     nsfwPresetPrefs: loadNsfwPresetPrefs(),
+    extras: collectStudioExtras(),
   };
 }
 
 export function importStudioBackup(backup: StudioBackup): void {
-  if (
-    backup.version !== 1 &&
-    backup.version !== 2 &&
-    backup.version !== 3 &&
-    backup.version !== 4
-  ) {
+  if (!isSupportedStudioBackupVersion(backup.version)) {
     throw new Error('Unsupported backup version.');
   }
 
-  savePromptHistoryStore(backup.history.slice(0, PROMPT_HISTORY_LIMIT));
-  saveLocationBlocklist(backup.locationBlocklist);
-  saveSettingsCache(backup.settings);
-  if (backup.scenePresets) {
-    saveScenePresets(backup.scenePresets);
+  const version = backup.version;
+  const payload = backup as StudioBackupV5;
+
+  savePromptHistoryStore(payload.history.slice(0, PROMPT_HISTORY_LIMIT));
+  saveLocationBlocklist(payload.locationBlocklist);
+  saveSettingsCache(payload.settings);
+  if (payload.scenePresets) {
+    saveScenePresets(payload.scenePresets);
   }
-  if (backup.userTemplates) {
-    saveUserTemplates(backup.userTemplates);
+  if (payload.userTemplates) {
+    saveUserTemplates(payload.userTemplates);
   }
 
-  if (backup.version === 2 || backup.version === 3) {
-    if (backup.comfyUiSettings) {
-      saveComfyUiSettings(backup.comfyUiSettings);
+  if (version >= 2) {
+    if (payload.comfyUiSettings) {
+      saveComfyUiSettings(payload.comfyUiSettings);
     }
-    if (backup.comfyGallery) {
-      saveComfyGallery(backup.comfyGallery);
+    if (payload.comfyGallery) {
+      saveComfyGallery(payload.comfyGallery);
     }
-    if (backup.comfyWorkflowPresets) {
-      saveComfyWorkflowPresets(backup.comfyWorkflowPresets);
+    if (payload.comfyWorkflowPresets) {
+      saveComfyWorkflowPresets(payload.comfyWorkflowPresets);
     }
-    if (backup.comfyWorkflowFiles) {
-      saveComfyWorkflowFiles(backup.comfyWorkflowFiles);
+    if (payload.comfyWorkflowFiles) {
+      saveComfyWorkflowFiles(payload.comfyWorkflowFiles);
     }
   }
 
-  if (backup.version === 3 || backup.version === 4) {
-    if (backup.avoidedTokens) {
-      saveAvoidedTokens(backup.avoidedTokens);
+  if (version >= 3) {
+    if (payload.avoidedTokens) {
+      saveAvoidedTokens(payload.avoidedTokens);
     }
-    if (backup.webhookLog) {
-      writeBrowserValue(WEBHOOK_LOG_KEY, backup.webhookLog);
+    if (payload.webhookLog) {
+      writeBrowserValue(WEBHOOK_LOG_KEY, payload.webhookLog);
     }
-    if (backup.promptProjects) {
-      savePromptProjects(backup.promptProjects);
+    if (payload.promptProjects) {
+      savePromptProjects(payload.promptProjects);
     }
-    if (backup.activeProjectId) {
-      setActiveProjectId(backup.activeProjectId);
+    if (payload.activeProjectId) {
+      setActiveProjectId(payload.activeProjectId);
     } else {
       setActiveProjectId(undefined);
     }
-    if (backup.scheduledBatch) {
-      saveScheduledBatchConfig(backup.scheduledBatch);
+    if (payload.scheduledBatch) {
+      saveScheduledBatchConfig(payload.scheduledBatch);
     }
-    if (backup.webhookSettings) {
-      saveWebhookSettings(backup.webhookSettings);
+    if (payload.webhookSettings) {
+      saveWebhookSettings(payload.webhookSettings);
     }
   }
 
-  if (backup.version === 4) {
-    if (backup.sessionRecipes) {
-      saveSessionRecipes(backup.sessionRecipes);
+  if (version >= 4) {
+    if (payload.sessionRecipes) {
+      saveSessionRecipes(payload.sessionRecipes);
     }
-    if (backup.userNsfwGeneratorPresets) {
-      saveUserNsfwGeneratorPresets(backup.userNsfwGeneratorPresets);
+    if (payload.userNsfwGeneratorPresets) {
+      saveUserNsfwGeneratorPresets(payload.userNsfwGeneratorPresets);
     }
-    if (backup.nsfwPresetPrefs) {
-      saveNsfwPresetPrefs(backup.nsfwPresetPrefs);
+    if (payload.nsfwPresetPrefs) {
+      saveNsfwPresetPrefs(payload.nsfwPresetPrefs);
     }
+  }
+
+  if (version >= 5 && payload.extras) {
+    applyStudioExtras(payload.extras);
   }
 }
 
@@ -220,10 +242,7 @@ export function parseStudioBackupFile(raw: string): StudioBackup {
   const parsed = JSON.parse(raw) as StudioBackup;
   if (
     !parsed ||
-    (parsed.version !== 1 &&
-      parsed.version !== 2 &&
-      parsed.version !== 3 &&
-      parsed.version !== 4) ||
+    !isSupportedStudioBackupVersion(parsed.version) ||
     !Array.isArray(parsed.history)
   ) {
     throw new Error('Invalid studio backup file.');

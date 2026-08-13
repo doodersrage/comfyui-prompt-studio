@@ -3,7 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { STUDIO_BACKUP_LAST_EXPORT_KEY } from '@/lib/studio-backup-meta';
-import { readBrowserString, whenBrowserStorageReady } from '@/lib/browser-storage';
+import {
+  readBrowserString,
+  whenBrowserStorageReady,
+  writeBrowserString,
+} from '@/lib/browser-storage';
 import { useComfyUiSettings } from '@/hooks/useComfyUiSettings';
 import { validateWorkflowJson, type CustomWorkflowToken } from '@/lib/comfyui-config';
 import {
@@ -594,6 +598,15 @@ export default function SettingsTool() {
     }
   }, []);
 
+  const handleExportBackup = useCallback(() => {
+    void import('@/lib/studio-backup').then(({ downloadStudioBackup }) => {
+      downloadStudioBackup();
+      writeBrowserString(STUDIO_BACKUP_LAST_EXPORT_KEY, String(Date.now()));
+      setBackupReminder(null);
+      setStatus('Studio backup downloaded.');
+    });
+  }, []);
+
   const handleSaveComfySettings = useCallback(() => {
     if (!settings.useServerDefaults && settings.workflowJson?.trim()) {
       const validation = validateWorkflowJson(
@@ -773,6 +786,8 @@ export default function SettingsTool() {
                 window.setTimeout(() => scrollToComfyUiSection(section), 80);
               }}
               onShowAllSettings={() => setShowAllSettings(true)}
+              handleImport={handleImport}
+              handleExportBackup={handleExportBackup}
             />
           )}
 
@@ -890,9 +905,9 @@ export default function SettingsTool() {
               sharedSettings={sharedSettings}
               updateSharedSettings={updateSharedSettings}
               backupReminder={backupReminder}
-              setBackupReminder={setBackupReminder}
               reloadBrowserSettingsState={reloadBrowserSettingsState}
               handleImport={handleImport}
+              handleExportBackup={handleExportBackup}
               updateSettings={updateSettings}
               setStatus={setStatus}
             />

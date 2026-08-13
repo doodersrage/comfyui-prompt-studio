@@ -7,28 +7,34 @@ import { sendEmail, isEmailConfigured } from '@/lib/email/mailer';
 export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
-  if (!isAuthEnabled()) {
-    return apiError('Authentication is disabled.', 400);
-  }
   if (!isEmailConfigured()) {
     return apiError('Email is not configured on the server.', 503);
   }
 
+  const body = (await request.json().catch(() => ({}))) as { to?: string };
   const session = readSessionFromRequest(request);
   const user = session ? findUserById(session.userId) : null;
-  if (!user?.enabled) {
-    return apiError('Sign in required.', 401);
+
+  if (isAuthEnabled()) {
+    if (!user?.enabled) {
+      return apiError('Sign in required.', 401);
+    }
   }
 
-  const body = (await request.json().catch(() => ({}))) as { to?: string };
-  const to = body.to?.trim() || user.email?.trim();
+  const to = body.to?.trim() || user?.email?.trim();
   if (!to) {
-    return apiError('Add an email on Profile or pass { to } in the request body.', 400);
+    return apiError(
+      isAuthEnabled()
+        ? 'Add an email on Profile or pass { to } in the request body.'
+        : 'Enter a test recipient. Authentication is off, so a To address is required.',
+      400
+    );
   }
 
   const origin = process.env.PROMPT_API_URL?.trim() || 'http://127.0.0.1:47832';
+  const greeting = user?.username ?? 'there';
   const textLines = [
-    `Hello ${user.username},`,
+    `Hello ${greeting},`,
     '',
     'This is a test message from your Prompt Studio server.',
     '',

@@ -23,6 +23,8 @@ export type SettingsOverviewTabProps = {
   slimSettings?: boolean;
   onOpenComfyUiSection?: (section: ComfyUiSettingsSectionId) => void;
   onShowAllSettings?: () => void;
+  handleImport: (file: File) => void | Promise<void>;
+  handleExportBackup: () => void;
 };
 
 const ESSENTIAL_TASKS: Array<{
@@ -69,6 +71,8 @@ export default function SettingsOverviewTab({
   slimSettings = false,
   onOpenComfyUiSection,
   onShowAllSettings,
+  handleImport,
+  handleExportBackup,
 }: SettingsOverviewTabProps) {
   return (
     <>
@@ -154,6 +158,40 @@ export default function SettingsOverviewTab({
               ))}
             </ul>
           ) : null}
+        </div>
+
+        <div className="mt-4 rounded-[var(--radius-xl)] border border-[var(--border-subtle)] bg-[color-mix(in_oklab,var(--surface)_88%,transparent)] p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0 space-y-1">
+              <p className="text-sm font-medium text-[var(--text-primary)]">
+                Move to a new machine
+              </p>
+              <p className="type-caption text-[var(--text-secondary)]">
+                Export history, settings, gallery, and extras (including gallery ELO). Import the
+                JSON on the other browser, then reload.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="secondary" onClick={handleExportBackup}>
+                Export backup
+              </Button>
+              <label className="ui-btn ui-btn-ghost ui-btn-sm cursor-pointer">
+                Import backup
+                <input
+                  type="file"
+                  accept="application/json,.json"
+                  className="sr-only"
+                  onChange={event => {
+                    const file = event.target.files?.[0];
+                    if (file) {
+                      void handleImport(file);
+                    }
+                    event.target.value = '';
+                  }}
+                />
+              </label>
+            </div>
+          </div>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

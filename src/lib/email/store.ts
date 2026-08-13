@@ -13,27 +13,28 @@ function emailConfigPath(): string | null {
   return path.join(path.resolve(dir), 'email-config.json');
 }
 
-export function readStoredEmailConfig(): StoredEmailConfig | null {
-  const filePath = emailConfigPath();
-  if (!filePath) {
-    return null;
-  }
-  try {
-    return JSON.parse(fs.readFileSync(filePath, 'utf8')) as StoredEmailConfig;
-  } catch {
-    return null;
-  }
+let memoryOverlay: StoredEmailConfig | null = null;
+
+export function clearEmailConfigMemory(): void {
+  memoryOverlay = null;
 }
 
-export function writeStoredEmailConfig(input: StoredEmailConfig): {
-  persisted: boolean;
-  config: StoredEmailConfig;
-} {
+export function readStoredEmailConfig(): StoredEmailConfig | null {
   const filePath = emailConfigPath();
-  if (!filePath) {
-    return { persisted: false, config: input };
+  if (filePath) {
+    try {
+      return JSON.parse(fs.readFileSync(filePath, 'utf8')) as StoredEmailConfig;
+    } catch {
+      // Fall through to the in-memory overlay used when PROMPT_DATA_DIR is unset.
+    }
   }
-  const current = readStoredEmailConfig() ?? {};
+  return memoryOverlay;
+}
+
+function mergeStoredEmailConfig(
+  current: StoredEmailConfig,
+  input: StoredEmailConfig
+): StoredEmailConfig {
   const next: StoredEmailConfig = {
     ...current,
     ...input,
@@ -45,8 +46,22 @@ export function writeStoredEmailConfig(input: StoredEmailConfig): {
   if (input.smtp && input.smtp.pass === '') {
     next.smtp = { ...next.smtp, pass: current.smtp?.pass };
   }
+  return next;
+}
+
+export function writeStoredEmailConfig(input: StoredEmailConfig): {
+  persisted: boolean;
+  config: StoredEmailConfig;
+} {
+  const next = mergeStoredEmailConfig(readStoredEmailConfig() ?? {}, input);
+  const filePath = emailConfigPath();
+  if (!filePath) {
+    memoryOverlay = next;
+    return { persisted: false, config: next };
+  }
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, `${JSON.stringify(next, null, 2)}\n`, 'utf8');
+  memoryOverlay = null;
   return { persisted: true, config: next };
 }
 

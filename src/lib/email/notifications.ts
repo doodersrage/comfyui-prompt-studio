@@ -21,6 +21,38 @@ function appOrigin(): string {
   return process.env.PROMPT_API_URL?.trim() || 'http://127.0.0.1:47832';
 }
 
+export async function notifyUserInvite(input: {
+  to: string;
+  username: string;
+  resetUrl: string;
+  adminUsername: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const textLines = [
+    `Hello ${input.username},`,
+    '',
+    `${input.adminUsername} invited you to Prompt Studio.`,
+    '',
+    'Set your password with this link (valid for 1 hour):',
+    input.resetUrl,
+    '',
+    'If you were not expecting this, ignore the email.',
+    '',
+    appOrigin(),
+  ];
+
+  return sendEmail({
+    to: input.to,
+    subject: 'Prompt Studio — you are invited',
+    text: textLines.join('\n'),
+    html: brandedEmailHtml({
+      title: 'You are invited',
+      preheader: 'Set your Prompt Studio password to get started.',
+      footerUrl: appOrigin(),
+      bodyHtml: emailParagraphs(textLines),
+    }),
+  });
+}
+
 export async function notifyPasswordChanged(input: {
   userId: string;
   username: string;

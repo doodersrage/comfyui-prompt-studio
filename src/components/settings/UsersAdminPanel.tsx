@@ -274,6 +274,36 @@ export default function UsersAdminPanel() {
     });
   }, [selectedGroup]);
 
+  async function inviteUser() {
+    setStatus(null);
+    const response = await fetch('/api/auth/invite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: selectedUser?.id,
+        username: userForm.username,
+        role: userForm.role,
+        groupIds: userForm.groupIds,
+        blockedFeatures: userForm.blockedFeatures,
+        enabled: userForm.enabled,
+        quotaMaxPerMinute: userForm.quotaMaxPerMinute
+          ? Number(userForm.quotaMaxPerMinute)
+          : undefined,
+        exportEnabled: userForm.exportEnabled,
+        email: userForm.email,
+        emailNotifyBatch: userForm.emailNotifyBatch,
+        emailNotifySecurity: userForm.emailNotifySecurity,
+      }),
+    });
+    const data = (await response.json()) as { error?: string; message?: string };
+    if (!response.ok) {
+      setStatus(data.error ?? 'Failed to send invite.');
+      return;
+    }
+    setStatus(data.message ?? 'Invite sent.');
+    await refresh();
+  }
+
   async function saveUser() {
     setStatus(null);
     const response = await fetch('/api/auth/users', {
@@ -848,7 +878,10 @@ export default function UsersAdminPanel() {
               </label>
               <label className="space-y-2 text-sm">
                 <span className="type-caption text-[var(--text-muted)]">
-                  Password {selectedUser ? '(leave blank to keep current)' : ''}
+                  Password{' '}
+                  {selectedUser
+                    ? '(leave blank to keep current)'
+                    : '(required to save, or use Invite by email)'}
                 </span>
                 <TextInput
                   type="password"
@@ -864,7 +897,7 @@ export default function UsersAdminPanel() {
                   type="email"
                   value={userForm.email}
                   onChange={event => setUserForm(prev => ({ ...prev, email: event.target.value }))}
-                  placeholder="Optional notification address"
+                  placeholder="Required for invite / reset email"
                 />
               </label>
               <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
@@ -995,6 +1028,14 @@ export default function UsersAdminPanel() {
             <div className="flex flex-wrap gap-2">
               <Button type="button" onClick={() => void saveUser()}>
                 Save user
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={!userForm.email.trim() && !selectedUser?.email}
+                onClick={() => void inviteUser()}
+              >
+                {selectedUser ? 'Send invite / reset email' : 'Invite by email'}
               </Button>
               {selectedUser && selectedUser.role !== 'admin' ? (
                 <>

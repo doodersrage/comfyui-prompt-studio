@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { getEmailConfig } from "./config";
-import { overlayEmailConfig } from "./store";
+import { clearEmailConfigMemory, overlayEmailConfig, writeStoredEmailConfig } from "./store";
 import type { EmailConfig } from "./types";
 
 const envBase = (): EmailConfig => ({
@@ -54,5 +54,34 @@ describe("email stored overlay", () => {
     assert.equal(overlaid.smtp.port, 465);
     assert.equal(overlaid.smtp.secure, true);
     assert.equal(overlaid.smtp.user, "mailer");
+  });
+
+  it("keeps an in-memory overlay when PROMPT_DATA_DIR is unset", () => {
+    const previousDir = process.env.PROMPT_DATA_DIR;
+    const previousHost = process.env.PROMPT_SMTP_HOST;
+    const previousFrom = process.env.PROMPT_EMAIL_FROM;
+    delete process.env.PROMPT_DATA_DIR;
+    delete process.env.PROMPT_SMTP_HOST;
+    delete process.env.PROMPT_EMAIL_FROM;
+    clearEmailConfigMemory();
+    try {
+      writeStoredEmailConfig({
+        enabled: true,
+        from: "Studio <memory@example.com>",
+        smtp: { host: "smtp.memory.test", port: 587, secure: false },
+      });
+      const config = getEmailConfig();
+      assert.equal(config.enabled, true);
+      assert.equal(config.smtp.host, "smtp.memory.test");
+      assert.equal(config.from, "Studio <memory@example.com>");
+    } finally {
+      clearEmailConfigMemory();
+      if (previousDir) process.env.PROMPT_DATA_DIR = previousDir;
+      else delete process.env.PROMPT_DATA_DIR;
+      if (previousHost) process.env.PROMPT_SMTP_HOST = previousHost;
+      else delete process.env.PROMPT_SMTP_HOST;
+      if (previousFrom) process.env.PROMPT_EMAIL_FROM = previousFrom;
+      else delete process.env.PROMPT_EMAIL_FROM;
+    }
   });
 });

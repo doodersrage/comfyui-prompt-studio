@@ -11,22 +11,41 @@ export type SendEmailInput = {
 };
 
 let transporter: nodemailer.Transporter | null = null;
+let transporterSignature = '';
 
-function getTransporter(): nodemailer.Transporter {
-  if (transporter) {
-    return transporter;
-  }
-
+function smtpSignature(): string {
   const config = getEmailConfig();
-  transporter = nodemailer.createTransport({
+  return JSON.stringify({
     host: config.smtp.host,
     port: config.smtp.port,
     secure: config.smtp.secure,
-    auth:
-      config.smtp.user && config.smtp.pass
-        ? { user: config.smtp.user, pass: config.smtp.pass }
-        : undefined,
+    user: config.smtp.user ?? '',
+    pass: config.smtp.pass ?? '',
+    from: config.from,
+    enabled: config.enabled,
   });
+}
+
+export function invalidateEmailTransporter(): void {
+  transporter = null;
+  transporterSignature = '';
+}
+
+function getTransporter(): nodemailer.Transporter {
+  const config = getEmailConfig();
+  const signature = smtpSignature();
+  if (!transporter || transporterSignature !== signature) {
+    transporter = nodemailer.createTransport({
+      host: config.smtp.host,
+      port: config.smtp.port,
+      secure: config.smtp.secure,
+      auth:
+        config.smtp.user && config.smtp.pass
+          ? { user: config.smtp.user, pass: config.smtp.pass }
+          : undefined,
+    });
+    transporterSignature = signature;
+  }
   return transporter;
 }
 

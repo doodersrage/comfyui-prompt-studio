@@ -247,6 +247,7 @@ export function upsertUser(input: {
   email?: string;
   emailNotifyBatch?: boolean;
   emailNotifySecurity?: boolean;
+  inviteWithoutPassword?: boolean;
 }): AuthUserPublic {
   const { users } = ensureAuthStore();
   const now = Date.now();
@@ -296,7 +297,7 @@ export function upsertUser(input: {
   if (existingIndex >= 0) {
     users.users[existingIndex] = next;
   } else {
-    if (!input.password?.trim()) {
+    if (!input.password?.trim() && !input.inviteWithoutPassword) {
       throw new Error('Password is required for new users.');
     }
     users.users.unshift(next);

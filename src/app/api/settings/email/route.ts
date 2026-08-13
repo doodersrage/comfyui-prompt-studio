@@ -2,6 +2,7 @@ import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
 import { readSessionFromRequest } from '@/lib/auth/session';
 import { findUserById, isAuthEnabled } from '@/lib/auth/store';
 import { getEmailConfig } from '@/lib/email/config';
+import { invalidateEmailTransporter } from '@/lib/email/mailer';
 import {
   readStoredEmailConfig,
   toPublicEmailConfig,
@@ -39,6 +40,7 @@ export async function POST(request: Request) {
   }
   const body = (await request.json().catch(() => ({}))) as StoredEmailConfig;
   const result = writeStoredEmailConfig(body);
+  invalidateEmailTransporter();
   return apiJson({
     ...toPublicEmailConfig(getEmailConfig(), result.persisted),
     persisted: result.persisted,
