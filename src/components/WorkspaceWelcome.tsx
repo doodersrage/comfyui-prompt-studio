@@ -65,7 +65,9 @@ export default function WorkspaceWelcome() {
     setBusy(true);
     setSetupMessage(null);
     try {
-      const result = await runHealAndReady();
+      const result = await runHealAndReady({
+        onProgress: progress => setSetupMessage(progress.message),
+      });
       setSetupMessage(result.message);
       finishWelcome();
     } catch (err) {

@@ -11,11 +11,13 @@ import type { ComfyUiSettingsSectionId } from '@/lib/settings-comfyui-nav';
 import { settingsComfyUiSectionHref } from '@/lib/settings-comfyui-nav';
 import { settingsTabHref } from '@/lib/settings-nav';
 import type { HealthResponse } from '@/components/settings/tabs/settings-tool-shared';
+import { formatPoolQueueStrip, summarizePoolQueueDepth } from '@/lib/comfyui-host-ready';
 
 export type SettingsOverviewTabProps = {
   health: HealthResponse | null;
   loading: boolean;
   healBusy: boolean;
+  healProgress?: string | null;
   handleHealAndReady: () => void | Promise<void>;
   refreshHealth: () => void | Promise<void>;
   sharedSettings: SharedToolSettings;
@@ -65,6 +67,7 @@ export default function SettingsOverviewTab({
   health,
   loading,
   healBusy,
+  healProgress,
   handleHealAndReady,
   refreshHealth,
   sharedSettings,
@@ -84,7 +87,8 @@ export default function SettingsOverviewTab({
               <p className="text-sm font-medium text-[var(--accent-text)]">Heal & ready</p>
               <p className="type-caption text-[var(--text-secondary)]">
                 One click for new installs: enable system workflows, merge suggested loader maps,
-                adapt from ComfyUI inventory when reachable, and refresh health.
+                adapt from ComfyUI inventory, install missing Manager packs on each pool host, wait
+                for restart, and refresh health.
               </p>
             </div>
             <Button
@@ -96,6 +100,9 @@ export default function SettingsOverviewTab({
               Heal & ready
             </Button>
           </div>
+          {healBusy && healProgress ? (
+            <p className="mt-2 type-caption text-[var(--accent-text)]">{healProgress}</p>
+          ) : null}
           {health ? (
             <ul className="mt-3 grid gap-1.5 sm:grid-cols-2">
               {(
@@ -115,7 +122,10 @@ export default function SettingsOverviewTab({
                         {
                           ok: health.comfyuiPool.endpoints.some(endpoint => endpoint.ok),
                           label: 'Cluster',
-                          detail: `${health.comfyuiPool.endpoints.filter(endpoint => endpoint.ok).length}/${health.comfyuiPool.endpoints.length} hosts up`,
+                          detail: (() => {
+                            const pool = summarizePoolQueueDepth(health.comfyuiPool.endpoints);
+                            return `${health.comfyuiPool.endpoints.filter(endpoint => endpoint.ok).length}/${health.comfyuiPool.endpoints.length} hosts up · ${pool.totalRunning} running · ${pool.totalPending} pending`;
+                          })(),
                         },
                       ]
                     : []),
@@ -312,9 +322,11 @@ export default function SettingsOverviewTab({
                 health.comfyui.url,
                 health.comfyui.version ? `ComfyUI ${health.comfyui.version}` : null,
                 health.comfyui.deviceName,
-                health.comfyui.queuePending != null
-                  ? `queue ${health.comfyui.queueRunning ?? 0} running · ${health.comfyui.queuePending} pending`
-                  : null,
+                health.comfyuiPool?.enabled && health.comfyuiPool.endpoints.length > 0
+                  ? formatPoolQueueStrip(summarizePoolQueueDepth(health.comfyuiPool.endpoints))
+                  : health.comfyui.queuePending != null
+                    ? `queue ${health.comfyui.queueRunning ?? 0} running · ${health.comfyui.queuePending} pending`
+                    : null,
                 health.comfyui.vram?.total
                   ? `VRAM ${Math.round((health.comfyui.vram.free ?? 0) / 1e9)} / ${Math.round(health.comfyui.vram.total / 1e9)} GB free`
                   : null,

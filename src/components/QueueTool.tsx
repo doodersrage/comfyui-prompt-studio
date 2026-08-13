@@ -26,6 +26,7 @@ import {
 import { claimOrphanComfyJob, claimOrphanComfyJobs } from '@/lib/comfyui-gallery-client';
 import { mergeHostJobLists, type ComfyJobListItem, type HostOrphanJob } from '@/lib/comfyui-jobs';
 import { listHealComfyUrls } from '@/lib/comfyui-manager-install-client';
+import { formatPoolQueueStrip, summarizePoolQueueDepth } from '@/lib/comfyui-host-ready';
 import FailedJobFixButtons from '@/components/FailedJobFixButtons';
 import { cancelComfyGalleryJob } from '@/lib/comfyui-queue-cancel';
 import {
@@ -45,6 +46,13 @@ type ComfyQueueHealth = {
   queuePending?: number;
   ok?: boolean;
   url?: string;
+};
+
+type PoolHealthEndpoint = {
+  url?: string;
+  ok?: boolean;
+  queueRunning?: number;
+  queuePending?: number;
 };
 
 function QueueActiveJobRow({
@@ -119,6 +127,7 @@ export default function QueueTool() {
   const description = useHubPageDescription('queue');
   const [entries, setEntries] = useState<ComfyGalleryEntry[]>([]);
   const [queueHealth, setQueueHealth] = useState<ComfyQueueHealth | null>(null);
+  const [poolEndpoints, setPoolEndpoints] = useState<PoolHealthEndpoint[]>([]);
   const [status, setStatus] = useState<string | null>(null);
   const [hostJobs, setHostJobs] = useState<HostOrphanJob[]>([]);
 
@@ -132,11 +141,18 @@ export default function QueueTool() {
       const response = await fetch('/api/health');
       const data = (await response.json()) as {
         comfyui?: ComfyQueueHealth;
+        comfyuiPool?: { enabled?: boolean; endpoints?: PoolHealthEndpoint[] };
       };
       setQueueHealth(data.comfyui ?? null);
+      setPoolEndpoints(
+        data.comfyuiPool?.enabled && Array.isArray(data.comfyuiPool.endpoints)
+          ? data.comfyuiPool.endpoints
+          : []
+      );
       healthUrl = data.comfyui?.url?.trim() || undefined;
     } catch {
       setQueueHealth(null);
+      setPoolEndpoints([]);
     }
     try {
       const urls = await listHealComfyUrls(healthUrl);
@@ -312,6 +328,16 @@ export default function QueueTool() {
   }
 
   const generateCta = resolveGenerateEmptyCta();
+  const poolQueue = useMemo(
+    () =>
+      summarizePoolQueueDepth(poolEndpoints, {
+        url: queueHealth?.url,
+        ok: queueHealth?.ok,
+        queueRunning: queueHealth?.queueRunning,
+        queuePending: queueHealth?.queuePending,
+      }),
+    [poolEndpoints, queueHealth]
+  );
 
   return (
     <ToolLayout
@@ -321,13 +347,10 @@ export default function QueueTool() {
       description={description}
     >
       <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.queue} />
-      {queueHealth?.ok ? (
+      {queueHealth?.ok || poolQueue.anyOk ? (
         <div className="ui-queue-strip">
-          <p className="text-sm text-[var(--text-muted)]">
-            ComfyUI queue: {queueHealth.queueRunning ?? 0} running · {queueHealth.queuePending ?? 0}{' '}
-            pending
-          </p>
-          {(queueHealth.queueRunning ?? 0) + (queueHealth.queuePending ?? 0) > 0 ? (
+          <p className="text-sm text-[var(--text-muted)]">{formatPoolQueueStrip(poolQueue)}</p>
+          {poolQueue.totalRunning + poolQueue.totalPending > 0 ? (
             <Button size="sm" variant="secondary" onClick={() => void interruptComfyQueue()}>
               Interrupt queue
             </Button>

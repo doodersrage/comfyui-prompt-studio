@@ -144,6 +144,7 @@ export default function SettingsTool() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [healBusy, setHealBusy] = useState(false);
+  const [healProgress, setHealProgress] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [workflowHealthRefresh, setWorkflowHealthRefresh] = useState(0);
   const [workflowError, setWorkflowError] = useState<string | null>(null);
@@ -552,12 +553,17 @@ export default function SettingsTool() {
 
   const handleHealAndReady = useCallback(async () => {
     setHealBusy(true);
+    setHealProgress('Starting Heal & ready…');
     try {
       const result = await runHealAndReady({
         comfyUrl:
           !settings.useServerDefaults && settings.apiUrl?.trim()
             ? settings.apiUrl.trim()
             : undefined,
+        onProgress: progress => {
+          setHealProgress(progress.message);
+          setStatus(progress.message);
+        },
       });
       const adapted = loadSettingsCache().shared;
       updateSharedSettings({
@@ -582,6 +588,7 @@ export default function SettingsTool() {
       setStatus(err instanceof Error ? err.message : 'Heal & ready failed.');
     } finally {
       setHealBusy(false);
+      setHealProgress(null);
     }
   }, [refreshHealth, settings.apiUrl, settings.useServerDefaults, updateSharedSettings]);
 
@@ -781,6 +788,7 @@ export default function SettingsTool() {
               health={health}
               loading={loading}
               healBusy={healBusy}
+              healProgress={healProgress}
               handleHealAndReady={handleHealAndReady}
               refreshHealth={refreshHealth}
               sharedSettings={sharedSettings}

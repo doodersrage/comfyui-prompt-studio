@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { collectComfyPoolUrls, waitForComfyUiHostReady } from './comfyui-host-ready';
+import {
+  collectComfyPoolUrls,
+  formatPoolQueueStrip,
+  summarizePoolQueueDepth,
+  waitForComfyUiHostReady,
+} from './comfyui-host-ready';
 
 describe('waitForComfyUiHostReady', () => {
   it('returns ok on the first successful probe', async () => {
@@ -62,6 +67,28 @@ describe('waitForComfyUiHostReady', () => {
     });
     assert.equal(result.ok, true);
     assert.equal(result.attempts, 2);
+  });
+});
+
+describe('summarizePoolQueueDepth', () => {
+  it('sums running/pending across pool hosts', () => {
+    const summary = summarizePoolQueueDepth([
+      { url: 'http://127.0.0.1:8188', ok: true, queueRunning: 1, queuePending: 2 },
+      { url: 'http://127.0.0.1:8189/', ok: true, queueRunning: 0, queuePending: 1 },
+    ]);
+    assert.equal(summary.totalRunning, 1);
+    assert.equal(summary.totalPending, 3);
+    assert.match(formatPoolQueueStrip(summary), /Pool 1 running · 3 pending/);
+    assert.match(formatPoolQueueStrip(summary), /127\.0\.0\.1:8188 1\/2/);
+  });
+
+  it('falls back to a single host when the pool is empty', () => {
+    const summary = summarizePoolQueueDepth(
+      [],
+      { url: 'http://127.0.0.1:8188', ok: true, queueRunning: 2, queuePending: 0 }
+    );
+    assert.equal(summary.hosts.length, 1);
+    assert.equal(formatPoolQueueStrip(summary), 'ComfyUI queue: 2 running · 0 pending');
   });
 });
 

@@ -165,7 +165,9 @@ export default function SetupReadinessBanner({
               loadingLabel="Enabling…"
               onClick={() => {
                 setBusy(true);
-                void enableSystemWorkflowsAndHeal().then(result => {
+                void enableSystemWorkflowsAndHeal({
+                  onProgress: progress => setMessage(progress.message),
+                }).then(result => {
                   setBusy(false);
                   setMessage(result.message);
                   refreshSystemWorkflows(result.comfyOk ? true : undefined);

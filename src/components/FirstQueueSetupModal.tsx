@@ -264,7 +264,9 @@ export default function FirstQueueSetupModal() {
             loadingLabel="Enabling…"
             onClick={() => {
               setBusy(true);
-              void runHealAndReady().then(result => {
+              void runHealAndReady({
+                onProgress: progress => setMessage(progress.message),
+              }).then(result => {
                 setBusy(false);
                 setMessage(result.message);
                 setSteps(previous => ({

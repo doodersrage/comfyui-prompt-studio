@@ -22,6 +22,14 @@ import {
   markOnboardingSystemWorkflowsEnabled,
 } from './onboarding-hooks';
 
+export type HealProgress = {
+  phase: 'health' | 'maps' | 'host' | 'done';
+  message: string;
+  host?: string;
+  hostIndex?: number;
+  hostCount?: number;
+};
+
 export type FirstRunSetupResult = {
   ok: boolean;
   message: string;
@@ -38,6 +46,7 @@ export type FirstRunSetupResult = {
 /** Turn on system workflows and adapt maps (suggested + live inventory when available). */
 export async function enableSystemWorkflowsAndHeal(options?: {
   comfyUrl?: string;
+  onProgress?: (progress: HealProgress) => void;
 }): Promise<FirstRunSetupResult> {
   await whenBrowserStorageReady();
   const cache = loadSettingsCache();
@@ -77,6 +86,10 @@ export async function enableSystemWorkflowsAndHeal(options?: {
   });
   markOnboardingSystemWorkflowsEnabled();
   await flushBrowserStorageNow();
+  options?.onProgress?.({
+    phase: 'maps',
+    message: 'System workflows on. Adapting loader maps…',
+  });
 
   const settings = loadComfyUiSettings();
   const comfyUrl = options?.comfyUrl?.trim() || settings.apiUrl?.trim() || undefined;
@@ -115,7 +128,7 @@ export async function enableSystemWorkflowsAndHeal(options?: {
         });
         await flushBrowserStorageNow();
       }
-      const nodeHeal = await healMissingNodesOnPool(comfyUrl);
+      const nodeHeal = await healMissingNodesOnPool(comfyUrl, options?.onProgress);
       return {
         ok: true,
         comfyOk: true,
@@ -137,7 +150,7 @@ export async function enableSystemWorkflowsAndHeal(options?: {
     // fall through
   }
 
-  const nodeHeal = await healMissingNodesOnPool(comfyUrl);
+  const nodeHeal = await healMissingNodesOnPool(comfyUrl, options?.onProgress);
   if (nodeHeal.hostsHealed > 0 || nodeHeal.installed.length > 0) {
     return {
       ok: true,
@@ -170,9 +183,11 @@ export async function enableSystemWorkflowsAndHeal(options?: {
 /** Refresh health + enable/heal in one shot for Settings Overview / welcome. */
 export async function runHealAndReady(options?: {
   comfyUrl?: string;
+  onProgress?: (progress: HealProgress) => void;
 }): Promise<FirstRunSetupResult> {
   let llmOk = false;
   let comfyOk = false;
+  options?.onProgress?.({ phase: 'health', message: 'Checking LLM and ComfyUI health…' });
   try {
     const params = new URLSearchParams();
     if (options?.comfyUrl?.trim()) {
@@ -227,7 +242,10 @@ export function readAdaptedLoaderMapTexts(): {
   };
 }
 
-async function healMissingNodesOnPool(primaryUrl?: string): Promise<{
+async function healMissingNodesOnPool(
+  primaryUrl?: string,
+  onProgress?: (progress: HealProgress) => void
+): Promise<{
   message: string;
   installed: string[];
   unresolved: string[];
@@ -243,7 +261,17 @@ async function healMissingNodesOnPool(primaryUrl?: string): Promise<{
   const hostNotes: string[] = [];
   let hostsHealed = 0;
 
-  for (const url of urls) {
+  for (const [index, url] of urls.entries()) {
+    onProgress?.({
+      phase: 'host',
+      host: url,
+      hostIndex: index + 1,
+      hostCount: urls.length,
+      message:
+        urls.length > 1
+          ? `Checking ${url} (${index + 1}/${urls.length}) for missing custom nodes…`
+          : `Checking ${url} for missing custom nodes…`,
+    });
     const result = await installMissingWorkflowNodePacks(url);
     hostsHealed += 1;
     for (const name of result.installed) {
@@ -258,7 +286,15 @@ async function healMissingNodesOnPool(primaryUrl?: string): Promise<{
     }
     restartRequested = restartRequested || result.restartRequested;
     if (result.message) {
-      hostNotes.push(urls.length > 1 ? `${url}: ${result.message}` : result.message);
+      const note = urls.length > 1 ? `${url}: ${result.message}` : result.message;
+      hostNotes.push(note);
+      onProgress?.({
+        phase: 'host',
+        host: url,
+        hostIndex: index + 1,
+        hostCount: urls.length,
+        message: note,
+      });
     }
   }
 

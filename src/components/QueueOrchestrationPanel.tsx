@@ -25,6 +25,7 @@ import {
   requeueUpscaleFromGalleryEntry,
 } from '@/lib/comfyui-requeue';
 import { loadSettingsCache, saveSharedSettings } from '@/lib/settings-cache';
+import { formatPoolQueueStrip, summarizePoolQueueDepth } from '@/lib/comfyui-host-ready';
 
 type ComfyHealth = {
   ok: boolean;
@@ -35,8 +36,16 @@ type ComfyHealth = {
   error?: string;
 };
 
+type PoolHealthEndpoint = {
+  url?: string;
+  ok?: boolean;
+  queueRunning?: number;
+  queuePending?: number;
+};
+
 export default function QueueOrchestrationPanel(props: { compact?: boolean }) {
   const [health, setHealth] = useState<ComfyHealth | null>(null);
+  const [poolEndpoints, setPoolEndpoints] = useState<PoolHealthEndpoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [galleryRevision, setGalleryRevision] = useState(0);
@@ -51,10 +60,19 @@ export default function QueueOrchestrationPanel(props: { compact?: boolean }) {
     setLoading(true);
     try {
       const response = await fetch('/api/health');
-      const data = (await response.json()) as { comfyui?: ComfyHealth };
+      const data = (await response.json()) as {
+        comfyui?: ComfyHealth;
+        comfyuiPool?: { enabled?: boolean; endpoints?: PoolHealthEndpoint[] };
+      };
       setHealth(data.comfyui ?? null);
+      setPoolEndpoints(
+        data.comfyuiPool?.enabled && Array.isArray(data.comfyuiPool.endpoints)
+          ? data.comfyuiPool.endpoints
+          : []
+      );
     } catch {
       setHealth(null);
+      setPoolEndpoints([]);
     } finally {
       setLoading(false);
     }
@@ -216,6 +234,16 @@ export default function QueueOrchestrationPanel(props: { compact?: boolean }) {
     health?.vram?.total != null
       ? `${Math.round((health.vram.free ?? 0) / 1e9)} / ${Math.round(health.vram.total / 1e9)} GB free`
       : null;
+  const poolQueue = useMemo(
+    () =>
+      summarizePoolQueueDepth(poolEndpoints, {
+        url: health?.url,
+        ok: health?.ok,
+        queueRunning: health?.queueRunning,
+        queuePending: health?.queuePending,
+      }),
+    [poolEndpoints, health]
+  );
 
   return (
     <section className={`ui-meta-panel ${props.compact ? 'p-4' : ''}`}>
@@ -236,19 +264,14 @@ export default function QueueOrchestrationPanel(props: { compact?: boolean }) {
       >
         <StatCard
           label="ComfyUI server"
-          value={health?.ok ? 'Online' : 'Offline'}
+          value={health?.ok || poolQueue.anyOk ? 'Online' : 'Offline'}
           detail={
-            health?.ok
-              ? [
-                  health.queueRunning != null ? `${health.queueRunning} running` : null,
-                  health.queuePending != null ? `${health.queuePending} pending` : null,
-                  vramLabel,
-                ]
-                  .filter(Boolean)
-                  .join(' · ') || health.url
+            health?.ok || poolQueue.anyOk
+              ? [formatPoolQueueStrip(poolQueue), vramLabel].filter(Boolean).join(' · ') ||
+                health?.url
               : (health?.error ?? 'Unreachable')
           }
-          valueClassName={health?.ok === false ? 'ui-status-danger' : ''}
+          valueClassName={health?.ok === false && !poolQueue.anyOk ? 'ui-status-danger' : ''}
         />
         <StatCard
           label="Local tracked"

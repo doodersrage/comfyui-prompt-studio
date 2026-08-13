@@ -9,6 +9,7 @@ import {
 import { comfyUiJobProgressPercent } from '@/lib/comfyui-job-status';
 import { HELD_MAX_UPDATED_EVENT, listHeldMaxJobs, type HeldMaxJob } from '@/lib/held-max-queue';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
+import { summarizePoolQueueDepth } from '@/lib/comfyui-host-ready';
 import { COMFY_ASSET_JOBS_UPDATED_EVENT } from '@/lib/comfy-asset-events';
 import {
   getSystemTrayMessages,
@@ -138,16 +139,29 @@ export function useSystemTrayState(options?: { pollAssets?: boolean }): SystemTr
       }
       const data = (await response.json()) as {
         comfyui?: { queuePending?: number; queueRunning?: number; ok?: boolean };
+        comfyuiPool?: {
+          enabled?: boolean;
+          endpoints?: Array<{
+            url?: string;
+            ok?: boolean;
+            queuePending?: number;
+            queueRunning?: number;
+          }>;
+        };
       };
       const comfy = data.comfyui;
       if (!comfy) {
         setQueueHealth(null);
         return;
       }
+      const pool =
+        data.comfyuiPool?.enabled && data.comfyuiPool.endpoints?.length
+          ? summarizePoolQueueDepth(data.comfyuiPool.endpoints)
+          : null;
       setQueueHealth({
-        queuePending: comfy.queuePending ?? 0,
-        queueRunning: comfy.queueRunning ?? 0,
-        ok: comfy.ok ?? false,
+        queuePending: pool?.totalPending ?? comfy.queuePending ?? 0,
+        queueRunning: pool?.totalRunning ?? comfy.queueRunning ?? 0,
+        ok: pool ? pool.anyOk : (comfy.ok ?? false),
       });
     } catch {
       setQueueHealth(null);

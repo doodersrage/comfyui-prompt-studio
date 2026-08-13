@@ -1,3 +1,64 @@
+export type PoolQueueEndpoint = {
+  url?: string;
+  ok?: boolean;
+  queueRunning?: number;
+  queuePending?: number;
+};
+
+export type PoolQueueSummary = {
+  totalRunning: number;
+  totalPending: number;
+  anyOk: boolean;
+  hosts: Array<{ url: string; ok: boolean; running: number; pending: number }>;
+};
+
+export function shortComfyHostLabel(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return parsed.port && parsed.port !== '80' && parsed.port !== '443'
+      ? `${parsed.hostname}:${parsed.port}`
+      : parsed.hostname;
+  } catch {
+    return url.replace(/^https?:\/\//i, '').replace(/\/+$/, '') || url;
+  }
+}
+
+export function summarizePoolQueueDepth(
+  endpoints: PoolQueueEndpoint[],
+  fallback?: PoolQueueEndpoint
+): PoolQueueSummary {
+  const rows = endpoints.filter(endpoint => endpoint.url?.trim()).length
+    ? endpoints
+    : fallback?.url?.trim()
+      ? [fallback]
+      : [];
+  const hosts = rows
+    .map(endpoint => ({
+      url: endpoint.url?.trim().replace(/\/+$/, '') ?? '',
+      ok: endpoint.ok !== false,
+      running: endpoint.queueRunning ?? 0,
+      pending: endpoint.queuePending ?? 0,
+    }))
+    .filter(host => host.url);
+  return {
+    totalRunning: hosts.reduce((sum, host) => sum + host.running, 0),
+    totalPending: hosts.reduce((sum, host) => sum + host.pending, 0),
+    anyOk: hosts.some(host => host.ok),
+    hosts,
+  };
+}
+
+export function formatPoolQueueStrip(summary: PoolQueueSummary): string {
+  if (summary.hosts.length <= 1) {
+    return `ComfyUI queue: ${summary.totalRunning} running · ${summary.totalPending} pending`;
+  }
+  const parts = summary.hosts.map(host => {
+    const mark = host.ok ? '' : ' down';
+    return `${shortComfyHostLabel(host.url)} ${host.running}/${host.pending}${mark}`;
+  });
+  return `Pool ${summary.totalRunning} running · ${summary.totalPending} pending · ${parts.join(' · ')}`;
+}
+
 export function collectComfyPoolUrls(input: {
   primary?: string;
   settingsUrl?: string;

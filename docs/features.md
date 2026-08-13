@@ -165,7 +165,7 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 - **Queue param overrides** — optional seed/width/height/cfg/steps overrides in Settings and result panels
 - **Queue orchestration panel** — home/gallery view of ComfyUI server queue, VRAM, and local tracked jobs
 - **Central job queue** — `/queue` page for pending ComfyUI jobs
-- **Queue upgrades** — `/queue` shows ComfyUI queue stats, failed jobs, and bulk retry
+- **Queue upgrades** — `/queue` shows ComfyUI queue stats (pool totals + per-host depth), failed jobs, and bulk retry
 - **Orphan host jobs** — Queue lists in-flight Comfy jobs from every pool host that are not in this gallery; Import or Import all to track them
 - **VRAM-aware Max → Final** — when free VRAM is under ~6 GB, Max queues downgrade to Final
 - **Hold Max until idle** — optional park for Max jobs until ComfyUI is empty; flush from Orchestration
