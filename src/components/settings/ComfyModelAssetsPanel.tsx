@@ -8,6 +8,7 @@ import { loadSettingsCache } from '@/lib/settings-cache';
 import { fetchComfyObjectInfoCached } from '@/lib/comfyui-object-info-cache';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import { COMFY_ASSET_JOBS_UPDATED_EVENT } from '@/lib/comfy-asset-events';
+import { celebrateSystemTray } from '@/lib/system-tray-celebrate';
 import {
   COMFY_ASSET_KIND_LABELS,
   COMFY_ASSET_KIND_ORDER,
@@ -207,6 +208,7 @@ export default function ComfyModelAssetsPanel({
           if (nextJobs.some(job => job.status === 'complete')) {
             void fetchComfyObjectInfoCached({ forceRefresh: true }).catch(() => null);
             onInstalledRef.current?.();
+            celebrateSystemTray('download');
           }
         }
       } catch {
@@ -258,6 +260,7 @@ export default function ComfyModelAssetsPanel({
           await load(true);
           void fetchComfyObjectInfoCached({ forceRefresh: true }).catch(() => null);
           onInstalled?.();
+          celebrateSystemTray('download');
         }
         window.dispatchEvent(new CustomEvent(COMFY_ASSET_JOBS_UPDATED_EVENT));
         return data.job;

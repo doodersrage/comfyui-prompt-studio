@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
+import SystemTrayCelebrateOverlay from '@/components/SystemTrayCelebrateOverlay';
 
 const CommandPalette = dynamic(() => import('@/components/CommandPalette'), {
   ssr: false,
@@ -90,6 +91,7 @@ export default function DeferredShellClient() {
   return (
     <>
       {batchEnabled || shellReady ? <ScheduledBatchRunner /> : null}
+      <SystemTrayCelebrateOverlay />
       {toastReady || shellReady ? <SystemTray /> : null}
       {shellReady ? (
         <>

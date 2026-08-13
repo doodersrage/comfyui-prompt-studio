@@ -34,6 +34,7 @@ import {
   pruneStaleGalleryWorkflowJson,
 } from './gallery-workflow-hygiene';
 import { loadSettingsCache } from './settings-cache';
+import { celebrateSystemTray } from './system-tray-celebrate';
 
 export type { ComfyGalleryEntry } from './comfyui-gallery-entry';
 export type { ComfyGalleryJobStatus } from './comfyui-gallery-types';
@@ -633,6 +634,7 @@ export function updateComfyGalleryEntryById(
           kind: 'job',
         })
       );
+      celebrateSystemTray('job');
     }
   }
   saveComfyGallery(next);
@@ -692,8 +694,10 @@ export function updateComfyGalleryByPromptId(
     >
   >
 ): ComfyGalleryEntry | null {
+  const entries = loadComfyGallery();
+  const prior = entries.find(entry => entry.promptId === promptId);
   let updated: ComfyGalleryEntry | null = null;
-  const next = loadComfyGallery().map(entry => {
+  const next = entries.map(entry => {
     if (entry.promptId !== promptId) {
       return entry;
     }
@@ -703,6 +707,10 @@ export function updateComfyGalleryByPromptId(
 
   if (!updated) {
     return null;
+  }
+
+  if (patch.status === 'completed' && prior && prior.status !== 'completed') {
+    celebrateSystemTray('job');
   }
 
   saveComfyGallery(next, {
