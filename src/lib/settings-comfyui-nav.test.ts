@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   COMFYUI_ESSENTIAL_SECTION_IDS,
+  comfyUiSectionRequiresFullSettings,
   comfyUiSectionsForEssentials,
   filterComfyUiSettingsSections,
   normalizeComfyUiSettingsSection,
@@ -59,6 +60,13 @@ describe("settings-comfyui-nav", () => {
     assert.ok(poolHits.some((section) => section.id === "connection"));
     const exportHits = filterComfyUiSettingsSections("sidecar");
     assert.ok(exportHits.some((section) => section.id === "connection"));
+  });
+
+  it("marks advanced ComfyUI deep links as requiring full settings", () => {
+    assert.equal(comfyUiSectionRequiresFullSettings("workflow-patching"), true);
+    assert.equal(comfyUiSectionRequiresFullSettings("workflow-library"), true);
+    assert.equal(comfyUiSectionRequiresFullSettings("connection"), false);
+    assert.equal(comfyUiSectionRequiresFullSettings(null), false);
   });
 
   it("limits jump-nav sections in essentials mode", () => {

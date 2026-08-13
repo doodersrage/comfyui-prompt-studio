@@ -157,6 +157,13 @@ export function isEssentialComfyUiSection(id: ComfyUiSettingsSectionId): boolean
   return ESSENTIAL_SECTION_ID_SET.has(id);
 }
 
+/** Deep links to advanced ComfyUI sections must leave essentials-only view. */
+export function comfyUiSectionRequiresFullSettings(
+  section: ComfyUiSettingsSectionId | null | undefined
+): boolean {
+  return Boolean(section && !isEssentialComfyUiSection(section));
+}
+
 export function comfyUiSectionsForEssentials(essentialsOnly: boolean): ComfyUiSettingsSection[] {
   if (!essentialsOnly) {
     return COMFYUI_SETTINGS_SECTIONS;

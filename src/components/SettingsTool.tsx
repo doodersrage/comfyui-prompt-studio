@@ -78,6 +78,7 @@ import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
 import { useSettingsPageDescriptionRich } from '@/hooks/useToolPageDescription';
 import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
 import {
+  comfyUiSectionRequiresFullSettings,
   normalizeComfyUiSettingsSection,
   settingsComfyUiSectionHref,
   type ComfyUiSettingsSectionId,
@@ -234,11 +235,14 @@ export default function SettingsTool() {
       const section = normalizeComfyUiSettingsSection(params.get('section'));
       setTab(nextTab);
       setComfyUiSection(section);
-      if (workspaceMode === 'simple' && !isSimpleSettingsTab(nextTab)) {
+      if (
+        (workspaceMode === 'simple' && !isSimpleSettingsTab(nextTab)) ||
+        comfyUiSectionRequiresFullSettings(section)
+      ) {
         setShowAllSettings(true);
       }
       if (nextTab === 'comfyui' && section) {
-        window.setTimeout(() => scrollToComfyUiSection(section), 120);
+        window.setTimeout(() => scrollToComfyUiSection(section), 250);
       }
       if (nextTab === 'data' && params.get('section') === 'reliability') {
         window.setTimeout(() => {
@@ -280,6 +284,9 @@ export default function SettingsTool() {
 
   const handleComfyUiSectionJump = useCallback(
     (section: ComfyUiSettingsSectionId) => {
+      if (comfyUiSectionRequiresFullSettings(section)) {
+        setShowAllSettings(true);
+      }
       setComfyUiSection(section);
       if (typeof window !== 'undefined') {
         window.history.replaceState(null, '', settingsComfyUiSectionHref(section));
@@ -781,9 +788,12 @@ export default function SettingsTool() {
               setStatus={setStatus}
               slimSettings={slimSettings}
               onOpenComfyUiSection={section => {
+                if (comfyUiSectionRequiresFullSettings(section)) {
+                  setShowAllSettings(true);
+                }
                 setTab('comfyui');
                 setComfyUiSection(section);
-                window.setTimeout(() => scrollToComfyUiSection(section), 80);
+                window.setTimeout(() => scrollToComfyUiSection(section), 250);
               }}
               onShowAllSettings={() => setShowAllSettings(true)}
               handleImport={handleImport}

@@ -967,6 +967,13 @@ export default function ImageLightbox({
       // ignore
     }
 
+    const clickedImage = event.target instanceof HTMLElement && event.target.tagName === 'IMG';
+    const mediaKind = state?.mediaKinds?.[index] ?? 'image';
+    if (!drag.moved && clickedImage && mediaKind !== 'video') {
+      toggleZoom();
+      return;
+    }
+
     if (drag.mode === 'swipe' && zoom <= 1 && Math.abs(dx) > 56 && Math.abs(dx) > Math.abs(dy)) {
       if (dx < 0 && (canGoNext || slideshow?.playing)) {
         const nextIndex = index < images.length - 1 ? index + 1 : slideshow?.playing ? 0 : index;
@@ -1156,14 +1163,6 @@ export default function ImageLightbox({
                 : isCurrent
                   ? { cursor: 'zoom-in' }
                   : undefined
-            }
-            onDoubleClick={
-              isCurrent
-                ? event => {
-                    event.preventDefault();
-                    toggleZoom();
-                  }
-                : undefined
             }
           />
         )}
@@ -1382,7 +1381,7 @@ export default function ImageLightbox({
     }
     const rows = [
       ['← / → · wheel', 'Previous / next'],
-      ['Z · double-click · pinch', 'Zoom (Esc resets)'],
+      ['Click · Z · pinch', 'Zoom (Esc or click again resets)'],
       ['1–5', 'Rate'],
       ['B · Shift+F', 'Favorite'],
       ['M', 'Details / metadata'],

@@ -1,6 +1,13 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { ensureAuthenticated } from './helpers/auth';
 import { gotoStable } from './helpers/navigation';
+
+async function expectCollabPresenceBar(page: Page): Promise<void> {
+  await expect(page.getByRole('combobox', { name: 'Collab room' })).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(page.getByText('Live', { exact: true })).toBeVisible();
+}
 
 test.describe('Shared-project collab', () => {
   test.beforeEach(async ({ page }) => {
@@ -9,17 +16,17 @@ test.describe('Shared-project collab', () => {
 
   test('collab presence bar renders on Generate', async ({ page }) => {
     await gotoStable(page, '/');
-    await expect(page.getByText(/Live ·/)).toBeVisible();
+    await expectCollabPresenceBar(page);
   });
 
   test('collab presence bar renders on Compose', async ({ page }) => {
     await gotoStable(page, '/compose');
-    await expect(page.getByText(/Live ·/)).toBeVisible();
+    await expectCollabPresenceBar(page);
   });
 
   test('collab apply draft control appears when remote draft is signaled', async ({ page }) => {
     await gotoStable(page, '/');
-    await expect(page.getByText(/Live ·/)).toBeVisible();
+    await expectCollabPresenceBar(page);
     await page.evaluate(() => {
       const channel = new BroadcastChannel('cps-collab-default');
       channel.postMessage({
