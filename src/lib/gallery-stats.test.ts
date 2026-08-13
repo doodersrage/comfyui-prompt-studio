@@ -31,7 +31,9 @@ describe("computeGalleryStats", () => {
     assert.equal(stats.error, 1);
     assert.equal(stats.favorites, 1);
     assert.equal(stats.unreviewed, 1);
+    assert.equal(stats.untagged, 2);
     assert.equal(stats.avgRating, 5);
+    assert.equal(stats.successRate, 66.7);
   });
 });
 

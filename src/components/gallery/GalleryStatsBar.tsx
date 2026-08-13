@@ -170,6 +170,39 @@ export default function GalleryStatsBar({
           emphasis="muted"
           active={!!stats.avgRating}
         />
+        <StatChip
+          label="Untagged"
+          value={stats.untagged}
+          active={Boolean(filter.needsVisionReview)}
+          testId="gallery-stats-untagged"
+          onClick={() =>
+            onQuickFilter({
+              needsVisionReview: filter.needsVisionReview ? undefined : true,
+            })
+          }
+        />
+        {stats.successRate != null ? (
+          <StatChip label="Success" value={`${stats.successRate}%`} emphasis="muted" />
+        ) : null}
+        {stats.medianRenderMs != null ? (
+          <StatChip
+            label="Median"
+            value={`${Math.round(stats.medianRenderMs / 100) / 10}s`}
+            emphasis="muted"
+          />
+        ) : null}
+        {stats.topModel ? (
+          <StatChip
+            label="Top model"
+            value={stats.topModel.completed}
+            active={filter.model === stats.topModel.id}
+            onClick={() =>
+              onQuickFilter({
+                model: filter.model === stats.topModel?.id ? undefined : stats.topModel?.id,
+              })
+            }
+          />
+        ) : null}
         {stats.error > 0 ? (
           <StatChip
             label="Failed"
@@ -184,6 +217,16 @@ export default function GalleryStatsBar({
           />
         ) : null}
       </div>
+
+      {stats.topError || stats.ratingHistogram[5] + stats.ratingHistogram[4] > 0 ? (
+        <p className="type-caption text-[var(--text-muted)]">
+          Ratings{' '}
+          {([5, 4, 3, 2, 1] as const)
+            .map(star => `${star}★ ${stats.ratingHistogram[star]}`)
+            .join(' · ')}
+          {stats.topError ? ` · Top error: ${stats.topError.slice(0, 80)}` : ''}
+        </p>
+      ) : null}
 
       {nearCapacity ? (
         <div

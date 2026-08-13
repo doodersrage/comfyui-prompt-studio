@@ -10,8 +10,27 @@ function entryTimestamp(entry: GalleryCapEntry): number {
   return entry.completedAt ?? entry.queuedAt ?? 0;
 }
 
-function isGalleryCapKeeper(entry: GalleryCapEntry): boolean {
+export function isGalleryCapKeeper(entry: GalleryCapEntry): boolean {
   return Boolean(entry.favorite) || (entry.reviewRating ?? 0) >= GALLERY_CAP_KEEPER_MIN_RATING;
+}
+
+/** Entries that would be dropped if the local cap were applied now (or next trim). */
+export function previewGalleryCapEviction<T extends GalleryCapEntry>(
+  entries: T[],
+  max: number
+): T[] {
+  if (max <= 0) {
+    return [];
+  }
+  if (entries.length > max) {
+    return capGalleryEntriesForLocalStorage(entries, max).evicted;
+  }
+  const headroom = Math.max(8, Math.ceil(max * 0.05));
+  const projectedMax = Math.max(1, max - headroom);
+  if (entries.length <= projectedMax) {
+    return [];
+  }
+  return capGalleryEntriesForLocalStorage(entries, projectedMax).evicted;
 }
 
 export type GalleryCapResult<T extends GalleryCapEntry> = {

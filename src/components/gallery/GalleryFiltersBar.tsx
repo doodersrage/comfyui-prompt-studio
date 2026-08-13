@@ -29,6 +29,7 @@ const GALLERY_SORT_OPTIONS: { value: ComfyGallerySort; label: string }[] = [
   { value: 'tool-asc', label: 'Tool A–Z' },
   { value: 'favorites-first', label: 'Favorites' },
   { value: 'rating-desc', label: 'Highest rated' },
+  { value: 'eviction-risk-desc', label: 'Eviction risk' },
 ];
 
 type GalleryFiltersBarProps = {
@@ -36,6 +37,7 @@ type GalleryFiltersBarProps = {
   setFilter: React.Dispatch<React.SetStateAction<ComfyGalleryFilter>>;
   tools: string[];
   models: string[];
+  userTags?: string[];
   projects: PromptProject[];
   projectFilterId: string;
   setProjectFilterId: (value: string) => void;
@@ -94,6 +96,7 @@ export default function GalleryFiltersBar({
   setFilter,
   tools,
   models,
+  userTags = [],
   projects,
   projectFilterId,
   setProjectFilterId,
@@ -134,6 +137,10 @@ export default function GalleryFiltersBar({
     filter.reviewAutoAdvance,
     filter.visionTagsOnly,
     filter.atRiskOnly,
+    filter.duplicatesOnly,
+    filter.needsVisionReview,
+    filter.userTag,
+    filter.similarToEntryId,
     filter.model,
     filter.minRating,
     filter.tool,
@@ -188,6 +195,46 @@ export default function GalleryFiltersBar({
         key: 'atRisk',
         label: 'At risk',
         clear: () => setFilter(previous => ({ ...previous, atRiskOnly: undefined })),
+      });
+    }
+    if (filter.duplicatesOnly) {
+      chips.push({
+        key: 'duplicates',
+        label: 'Duplicates',
+        clear: () => setFilter(previous => ({ ...previous, duplicatesOnly: undefined })),
+      });
+    }
+    if (filter.needsVisionReview) {
+      chips.push({
+        key: 'visionInbox',
+        label: 'Vision inbox',
+        clear: () => setFilter(previous => ({ ...previous, needsVisionReview: undefined })),
+      });
+    }
+    if (filter.userTag) {
+      chips.push({
+        key: 'userTag',
+        label: `#${filter.userTag}`,
+        clear: () => setFilter(previous => ({ ...previous, userTag: undefined })),
+      });
+    }
+    if (filter.similarToEntryId) {
+      chips.push({
+        key: 'similar',
+        label: filter.similarMode === 'visual' ? 'Looks like this' : 'Similar',
+        clear: () =>
+          setFilter(previous => ({
+            ...previous,
+            similarToEntryId: undefined,
+            similarMode: undefined,
+          })),
+      });
+    }
+    if (filter.derivedKind) {
+      chips.push({
+        key: 'derivedKind',
+        label: `Derived: ${filter.derivedKind}`,
+        clear: () => setFilter(previous => ({ ...previous, derivedKind: undefined })),
       });
     }
     if (filter.reviewMode) {
@@ -382,6 +429,7 @@ export default function GalleryFiltersBar({
                       'completed-desc',
                       'favorites-first',
                       'rating-desc',
+                      'eviction-risk-desc',
                     ].includes(option.value)
                   )
                 : GALLERY_SORT_OPTIONS
@@ -716,6 +764,30 @@ export default function GalleryFiltersBar({
               </label>
             ) : null}
 
+            {userTags.length > 0 ? (
+              <label className="space-y-1.5">
+                <span className="type-caption text-[var(--text-muted)]">Tag</span>
+                <select
+                  value={filter.userTag ?? ''}
+                  onChange={event =>
+                    setFilter({
+                      ...filter,
+                      userTag: event.target.value || undefined,
+                    })
+                  }
+                  data-testid="gallery-filter-user-tag"
+                  className="ui-input block w-full px-3 py-(--input-padding-y) type-body"
+                >
+                  <option value="">All tags</option>
+                  {userTags.map(tag => (
+                    <option key={tag} value={tag}>
+                      #{tag}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+
             <label className="space-y-1.5">
               <span className="type-caption text-[var(--text-muted)]">Project</span>
               <select
@@ -808,6 +880,38 @@ export default function GalleryFiltersBar({
               label="Vision tags"
               onClick={() =>
                 setFilter({ ...filter, visionTagsOnly: filter.visionTagsOnly ? undefined : true })
+              }
+            />
+            <FilterChip
+              active={Boolean(filter.duplicatesOnly)}
+              label="Duplicates"
+              testId="gallery-filter-duplicates"
+              onClick={() =>
+                setFilter({
+                  ...filter,
+                  duplicatesOnly: filter.duplicatesOnly ? undefined : true,
+                })
+              }
+            />
+            <FilterChip
+              active={Boolean(filter.needsVisionReview)}
+              label="Vision inbox"
+              testId="gallery-filter-vision-inbox"
+              onClick={() =>
+                setFilter({
+                  ...filter,
+                  needsVisionReview: filter.needsVisionReview ? undefined : true,
+                })
+              }
+            />
+            <FilterChip
+              active={Boolean(filter.atRiskOnly)}
+              label="At risk"
+              onClick={() =>
+                setFilter({
+                  ...filter,
+                  atRiskOnly: filter.atRiskOnly ? undefined : true,
+                })
               }
             />
             <button

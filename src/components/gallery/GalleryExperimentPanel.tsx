@@ -28,8 +28,10 @@ export type GalleryExperimentPanelProps = {
   onExportCompareJson: () => void;
   onExportCompareHtml: () => void;
   onFindSimilar: () => void;
+  onFindVisualSimilar?: () => void;
   onClearSimilar: () => void;
   canClearSimilar: boolean;
+  onApplyUserTag?: (tag: string) => void;
   onSeedExperiment: () => void;
   onParamExperiment: () => void;
   onParamGrid: () => void;

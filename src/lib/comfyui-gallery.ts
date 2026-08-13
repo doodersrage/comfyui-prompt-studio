@@ -11,7 +11,8 @@ import {
 } from './comfyui-outputs';
 import { buildEngineViewPath } from './engine/view-paths';
 import { filterBySemanticQuery } from './semantic-search';
-import { orderGalleryBySimilarity } from './gallery-similarity';
+import { orderGalleryBySimilarity, orderGalleryByVisualSimilarity } from './gallery-similarity';
+import { clusterGalleryDuplicates, duplicateEntryIds } from './gallery-duplicate-clusters';
 import type { ComfyGalleryEntry } from './comfyui-gallery-entry';
 import type { ComfyGalleryJobStatus } from './comfyui-gallery-types';
 import {
@@ -57,6 +58,8 @@ export type ComfyGalleryFilter = {
   query?: string;
   semanticSearch?: boolean;
   similarToEntryId?: string;
+  /** Rank similar by vision tags / aspect / aesthetic instead of prompt text. */
+  similarMode?: 'prompt' | 'visual';
   /** Show only outputs derived from this gallery entry. */
   derivativeOfEntryId?: string;
   /** Show only this gallery entry (lineage jump). */
@@ -73,10 +76,22 @@ export type ComfyGalleryFilter = {
   visionTagsOnly?: boolean;
   /** Cap hygiene: show unrated non-favorites most at risk of eviction. */
   atRiskOnly?: boolean;
+  /** Prompt-duplicate clusters (seed sweeps with near-identical prompts). */
+  duplicatesOnly?: boolean;
+  /** Completed stills with images but no vision tags. */
+  needsVisionReview?: boolean;
+  /** Exact user tag match. */
+  userTag?: string;
 };
 
 export type ComfyGallerySort =
-  'queued-desc' | 'queued-asc' | 'completed-desc' | 'tool-asc' | 'favorites-first' | 'rating-desc';
+  | 'queued-desc'
+  | 'queued-asc'
+  | 'completed-desc'
+  | 'tool-asc'
+  | 'favorites-first'
+  | 'rating-desc'
+  | 'eviction-risk-desc';
 
 export const GALLERY_PAGE_SIZE_OPTIONS = [12, 24, 48] as const;
 export const GALLERY_PAGE_SIZE_ALL = 'all' as const;
@@ -97,6 +112,7 @@ export function galleryEntryRenderKey(entry: ComfyGalleryEntry): string {
     entry.statusMessage ?? '',
     entry.promptId ?? '',
     entry.visionTags?.join(',') ?? '',
+    entry.userTags?.join(',') ?? '',
     entry.projectId ?? '',
   ];
 
@@ -335,6 +351,7 @@ export function filterComfyGalleryEntries(
         entry.promptId,
         entry.statusMessage,
         entry.visionTags?.join(' '),
+        entry.userTags?.join(' '),
       ]
         .filter(Boolean)
         .join(' ') // keep original case — we'll lowercase only when needed
@@ -390,6 +407,23 @@ export function filterComfyGalleryEntries(
       idx += 1;
       continue;
     }
+    if (filter.needsVisionReview) {
+      if (
+        entry.status !== 'completed' ||
+        entry.images.length === 0 ||
+        (entry.visionTags?.length ?? 0) > 0
+      ) {
+        idx += 1;
+        continue;
+      }
+    }
+    if (filter.userTag?.trim()) {
+      const needle = filter.userTag.trim().toLowerCase();
+      if (!(entry.userTags ?? []).some(tag => tag.trim().toLowerCase() === needle)) {
+        idx += 1;
+        continue;
+      }
+    }
     if (filter.focusEntryId?.trim() && entry.id !== filter.focusEntryId.trim()) {
       idx += 1;
       continue;
@@ -416,6 +450,11 @@ export function filterComfyGalleryEntries(
     idx += 1;
   }
 
+  if (filter.duplicatesOnly) {
+    const ids = duplicateEntryIds(clusterGalleryDuplicates(filtered));
+    filtered = filtered.filter(entry => ids.has(entry.id));
+  }
+
   if (query && filter.semanticSearch) {
     // Pre-compute corpus strings to avoid repeated join/filter allocations during ranking.
     const corpora = new Map(filtered.map(entry => [entry.id, galleryEntryCorpus(entry)]));
@@ -425,7 +464,10 @@ export function filterComfyGalleryEntries(
   if (filter.similarToEntryId) {
     const reference = entries.find(entry => entry.id === filter.similarToEntryId);
     if (reference) {
-      filtered = orderGalleryBySimilarity(filtered, reference);
+      filtered =
+        filter.similarMode === 'visual'
+          ? orderGalleryByVisualSimilarity(filtered, reference)
+          : orderGalleryBySimilarity(filtered, reference);
     }
   }
 
@@ -480,6 +522,17 @@ export function sortGalleryEntries(
       return sorted.sort(
         (a, b) => (b.reviewRating ?? 0) - (a.reviewRating ?? 0) || b.queuedAt - a.queuedAt
       );
+    case 'eviction-risk-desc': {
+      const keeperScore = (entry: ComfyGalleryEntry) =>
+        Number(Boolean(entry.favorite)) * 10 + (entry.reviewRating ?? 0);
+      return sorted.sort((a, b) => {
+        const risk = keeperScore(a) - keeperScore(b);
+        if (risk !== 0) {
+          return risk;
+        }
+        return (a.completedAt ?? a.queuedAt) - (b.completedAt ?? b.queuedAt);
+      });
+    }
     case 'queued-desc':
     default:
       return sorted.sort((a, b) => b.queuedAt - a.queuedAt);
@@ -507,6 +560,7 @@ export function loadGalleryViewPreferences(): ComfyGalleryViewPreferences {
       'tool-asc',
       'favorites-first',
       'rating-desc',
+      'eviction-risk-desc',
     ];
     const sort = sortValues.includes(parsed.sort as ComfyGallerySort)
       ? (parsed.sort as ComfyGallerySort)
@@ -540,6 +594,19 @@ export function uniqueGalleryModels(entries: ComfyGalleryEntry[]): string[] {
   return [...new Set(entries.map(entry => entry.model).filter(Boolean) as string[])].sort();
 }
 
+export function uniqueGalleryUserTags(entries: ComfyGalleryEntry[]): string[] {
+  const tags = new Set<string>();
+  for (const entry of entries) {
+    for (const tag of entry.userTags ?? []) {
+      const trimmed = tag.trim();
+      if (trimmed) {
+        tags.add(trimmed);
+      }
+    }
+  }
+  return [...tags].sort((a, b) => a.localeCompare(b));
+}
+
 export function addComfyGalleryEntry(
   input: Omit<ComfyGalleryEntry, 'id' | 'queuedAt' | 'images' | 'status'> & {
     status?: ComfyGalleryJobStatus;
@@ -571,7 +638,9 @@ function applyGalleryEntryPatch<T extends Partial<ComfyGalleryEntry>>(
     patch.negativePrompt !== undefined ||
     patch.statusMessage !== undefined ||
     patch.promptId !== undefined ||
-    patch.reviewNote !== undefined
+    patch.reviewNote !== undefined ||
+    patch.visionTags !== undefined ||
+    patch.userTags !== undefined
   ) {
     delete updated._corpus;
     updated._corpus = galleryEntryCorpus(updated);
@@ -603,6 +672,7 @@ export function updateComfyGalleryEntryById(
       | 'reviewNote'
       | 'projectId'
       | 'visionTags'
+      | 'userTags'
       | 'aestheticScore'
       | 'aestheticScoreMethod'
       | 'workflowJson'
@@ -804,6 +874,43 @@ export function setComfyGalleryReviewRatings(
           }
         : entry
     )
+  );
+}
+
+export function setComfyGalleryUserTags(
+  ids: string[],
+  tags: string[],
+  mode: 'add' | 'replace' | 'remove' = 'add'
+): void {
+  if (ids.length === 0) {
+    return;
+  }
+  const cleaned = [...new Set(tags.map(tag => tag.trim()).filter(Boolean))];
+  const idSet = new Set(ids);
+  saveComfyGallery(
+    loadComfyGallery().map(entry => {
+      if (!idSet.has(entry.id)) {
+        return entry;
+      }
+      if (mode === 'replace') {
+        return { ...entry, userTags: cleaned.length ? cleaned : undefined };
+      }
+      const current = entry.userTags ?? [];
+      if (mode === 'remove') {
+        const drop = new Set(cleaned.map(tag => tag.toLowerCase()));
+        const next = current.filter(tag => !drop.has(tag.toLowerCase()));
+        return { ...entry, userTags: next.length ? next : undefined };
+      }
+      const seen = new Set(current.map(tag => tag.toLowerCase()));
+      const next = [...current];
+      for (const tag of cleaned) {
+        if (!seen.has(tag.toLowerCase())) {
+          seen.add(tag.toLowerCase());
+          next.push(tag);
+        }
+      }
+      return { ...entry, userTags: next };
+    })
   );
 }
 

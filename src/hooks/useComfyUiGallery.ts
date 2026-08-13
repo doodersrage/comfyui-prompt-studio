@@ -16,17 +16,20 @@ import {
   setComfyGalleryFavorites,
   setComfyGalleryProjectIds,
   setComfyGalleryReviewRatings,
+  setComfyGalleryUserTags,
   setGalleryReviewRating,
   toggleComfyGalleryFavorite,
   type ComfyGalleryEntry,
   type ComfyGalleryFilter,
   uniqueGalleryModels,
   uniqueGalleryTools,
+  uniqueGalleryUserTags,
 } from '@/lib/comfyui-gallery';
 import { primeGalleryCacheSync } from '@/lib/gallery-db-store';
 import { pullAndMergeGalleryFromServer } from '@/lib/gallery-server-sync';
 import { scheduleComfyGalleryPoll } from '@/lib/comfyui-gallery-poller';
 import { fetchEmbeddingRankIds, galleryEntryCorpus, sortByRankIds } from '@/lib/embedding-rank';
+import { galleryVisualCorpus } from '@/lib/gallery-similarity';
 
 /** Guards the opportunistic server-gallery merge to run once per page session. */
 let serverGalleryMergeAttempted = false;
@@ -149,6 +152,9 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
     filter.focusEntryId,
     filter.derivativeOfEntryId,
     filter.derivedKind,
+    filter.duplicatesOnly,
+    filter.needsVisionReview,
+    filter.userTag,
   ]);
 
   useEffect(() => {
@@ -171,16 +177,20 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
     }
 
     const candidates = entries.filter(entry => entry.id !== referenceId);
+    const visual = filter.similarMode === 'visual';
     scheduleAfterCommit(() => {
       setSimilarSearchLoading(true);
     });
     void fetchEmbeddingRankIds(
-      reference.prompt,
-      candidates.map(entry => ({ id: entry.id, text: galleryEntryCorpus(entry) }))
+      visual ? galleryVisualCorpus(reference) : reference.prompt,
+      candidates.map(entry => ({
+        id: entry.id,
+        text: visual ? galleryVisualCorpus(entry) : galleryEntryCorpus(entry),
+      }))
     )
       .then(setSimilarRankIds)
       .finally(() => setSimilarSearchLoading(false));
-  }, [entries, filter.similarToEntryId]);
+  }, [entries, filter.similarToEntryId, filter.similarMode]);
 
   const filteredEntries = useMemo(() => {
     const query = filter.query?.trim();
@@ -227,6 +237,7 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
 
   const tools = useMemo(() => uniqueGalleryTools(entries), [entries]);
   const models = useMemo(() => uniqueGalleryModels(entries), [entries]);
+  const userTags = useMemo(() => uniqueGalleryUserTags(entries), [entries]);
 
   const removeEntry = useCallback(
     (id: string) => {
@@ -263,6 +274,14 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
   const setReviewRatings = useCallback(
     (ids: string[], rating: ComfyGalleryEntry['reviewRating']) => {
       setComfyGalleryReviewRatings(ids, rating);
+      refresh();
+    },
+    [refresh]
+  );
+
+  const setUserTags = useCallback(
+    (ids: string[], tags: string[], mode: 'add' | 'replace' | 'remove' = 'add') => {
+      setComfyGalleryUserTags(ids, tags, mode);
       refresh();
     },
     [refresh]
@@ -309,12 +328,14 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
     setFilter,
     tools,
     models,
+    userTags,
     refresh,
     removeEntry,
     removeEntries,
     toggleFavorite,
     setFavorites,
     setReviewRatings,
+    setUserTags,
     setProjectIds,
     clearAll,
     refreshPending,

@@ -90,11 +90,13 @@ export function GalleryCapWarningBanner({
   message,
   onShowAtRisk,
   onExportKeepers,
+  onOpenCleanup,
 }: {
   level: GalleryCapWarningLevel;
   message: string;
   onShowAtRisk: () => void;
   onExportKeepers: () => void;
+  onOpenCleanup?: () => void;
 }) {
   return (
     <div
@@ -121,6 +123,15 @@ export function GalleryCapWarningBanner({
         >
           Export keepers
         </button>
+        {onOpenCleanup ? (
+          <button
+            type="button"
+            onClick={onOpenCleanup}
+            className="rounded-xl border border-current/30 bg-black/10 px-2.5 py-1 text-[11px] font-medium transition hover:bg-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
+          >
+            Cleanup
+          </button>
+        ) : null}
       </div>
     </div>
   );

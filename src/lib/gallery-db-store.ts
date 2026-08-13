@@ -46,6 +46,7 @@ function galleryEntryFingerprint(entry: ComfyGalleryEntry): string {
     entry.progressMax ?? '',
     entry.progressNode ?? '',
     entry.visionTags?.join(',') ?? '',
+    entry.userTags?.join(',') ?? '',
     entry.projectId ?? '',
     entry.promptId ?? '',
     entry.prompt.length,

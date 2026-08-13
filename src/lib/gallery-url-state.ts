@@ -13,6 +13,7 @@ const SORT_VALUES: ComfyGallerySort[] = [
   'tool-asc',
   'favorites-first',
   'rating-desc',
+  'eviction-risk-desc',
 ];
 
 function isSort(value: string | null): value is ComfyGallerySort {
@@ -87,6 +88,42 @@ export function parseGalleryUrlState(params: URLSearchParams): GalleryUrlState {
   const project = params.get('project');
   const projectFilterId = project === null ? undefined : project;
 
+  if (params.get('semantic') === '1') {
+    filter.semanticSearch = true;
+  }
+  const similar = params.get('similar')?.trim();
+  if (similar) {
+    filter.similarToEntryId = similar;
+  }
+  if (params.get('similarMode') === 'visual') {
+    filter.similarMode = 'visual';
+  }
+  if (params.get('visionTags') === '1') {
+    filter.visionTagsOnly = true;
+  }
+  if (params.get('duplicates') === '1') {
+    filter.duplicatesOnly = true;
+  }
+  if (params.get('visionInbox') === '1') {
+    filter.needsVisionReview = true;
+  }
+  const userTag = params.get('userTag')?.trim();
+  if (userTag) {
+    filter.userTag = userTag;
+  }
+  const derivedKind = params.get('derivedKind')?.trim();
+  if (
+    derivedKind === 'upscale' ||
+    derivedKind === 'refine' ||
+    derivedKind === 'soft-pass' ||
+    derivedKind === 'variation' ||
+    derivedKind === 'moire-clean' ||
+    derivedKind === 'face-detail' ||
+    derivedKind === 'controlnet'
+  ) {
+    filter.derivedKind = derivedKind;
+  }
+
   return { filter, sort, projectFilterId };
 }
 
@@ -123,6 +160,14 @@ export function applyGalleryUrlState(
     'media',
     filter.mediaKind && filter.mediaKind !== 'all' ? filter.mediaKind : undefined
   );
+  setOrDelete('semantic', filter.semanticSearch ? '1' : undefined);
+  setOrDelete('similar', filter.similarToEntryId?.trim() || undefined);
+  setOrDelete('similarMode', filter.similarMode === 'visual' ? 'visual' : undefined);
+  setOrDelete('visionTags', filter.visionTagsOnly ? '1' : undefined);
+  setOrDelete('duplicates', filter.duplicatesOnly ? '1' : undefined);
+  setOrDelete('visionInbox', filter.needsVisionReview ? '1' : undefined);
+  setOrDelete('userTag', filter.userTag?.trim() || undefined);
+  setOrDelete('derivedKind', filter.derivedKind || undefined);
   setOrDelete('sort', sort !== 'queued-desc' ? sort : undefined);
   setOrDelete('project', projectFilterId.trim() || undefined);
 }

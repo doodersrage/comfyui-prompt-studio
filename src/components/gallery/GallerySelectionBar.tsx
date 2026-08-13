@@ -34,8 +34,10 @@ type GallerySelectionBarProps = {
   onExportCompareJson: () => void;
   onExportCompareHtml: () => void;
   onFindSimilar: () => void;
+  onFindVisualSimilar?: () => void;
   onClearSimilar: () => void;
   canClearSimilar: boolean;
+  onApplyUserTag?: (tag: string) => void;
   onSeedExperiment: () => void;
   onParamExperiment: () => void;
   onParamGrid: () => void;
@@ -316,7 +318,10 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
             <MenuItem label="Open in Variations" onClick={props.onVariations} />
             <MenuItem label="Open in Topics" onClick={props.onTopics} />
             <MenuItem label="Find similar" onClick={props.onFindSimilar} />
-            {props.similarSearchActive ? (
+            {props.onFindVisualSimilar ? (
+              <MenuItem label="Looks like this" onClick={props.onFindVisualSimilar} />
+            ) : null}
+            {props.canClearSimilar ? (
               <MenuItem label="Clear similar filter" onClick={props.onClearSimilar} />
             ) : null}
           </ActionMenu>
@@ -333,6 +338,17 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
           ))}
           <MenuItem label="Favorite" onClick={() => props.onFavorite(true)} />
           <MenuItem label="Unfavorite" onClick={() => props.onFavorite(false)} />
+          {props.onApplyUserTag ? (
+            <MenuItem
+              label="Add tag…"
+              onClick={() => {
+                const tag = window.prompt('Tag to apply to selected stills');
+                if (tag?.trim()) {
+                  props.onApplyUserTag?.(tag.trim());
+                }
+              }}
+            />
+          ) : null}
           {[5, 4, 3, 2, 1].map(rating => (
             <MenuItem
               key={rating}

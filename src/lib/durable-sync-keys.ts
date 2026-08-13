@@ -45,6 +45,7 @@ export const DURABLE_BROWSER_SYNC_KEYS = new Set([
   'comfy-queue-params-v1',
   'comfyui-workflow-preset-packs-v1',
   'comfy-experiment-winners-v1',
+  'comfy-gallery-elo-v1',
   'comfy-catalog-rating-bias-v1',
   'comfy-negative-suggestions-v1',
   'tool-plugin-registry-v1',

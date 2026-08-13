@@ -56,6 +56,8 @@ export type ComfyGalleryEntry = {
   status: ComfyGalleryJobStatus;
   /** Optional vision-derived tags for search/filter. */
   visionTags?: string[];
+  /** User-applied labels (distinct from LLM visionTags). */
+  userTags?: string[];
   /** Cached aesthetic score (0–100) from heuristic or vision. */
   aestheticScore?: number;
   /** How aestheticScore was produced. */

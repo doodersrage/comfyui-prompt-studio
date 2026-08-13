@@ -37,7 +37,7 @@ import {
 import type { ModelPortfolioItem } from '@/lib/model-portfolio';
 import type { RatedTokenStat } from '@/lib/rating-token-analytics';
 import type { UserHistoryAnalytics } from '@/lib/user-analytics';
-import type { GalleryStats } from '@/lib/gallery-stats';
+import { EMPTY_GALLERY_STATS, type GalleryStats } from '@/lib/gallery-stats';
 import { USER_SCOPE_CHANGED_EVENT } from '@/lib/user-scope';
 import { loadComfyGallery, COMFYUI_GALLERY_UPDATED_EVENT } from '@/lib/comfyui-gallery';
 import { buildGalleryLineageGroups } from '@/lib/gallery-lineage-groups';
@@ -204,16 +204,7 @@ export default function StudioTool() {
     byTool: [],
     avgRating: null,
   });
-  const [galleryAnalytics, setGalleryAnalytics] = useState<GalleryStats>({
-    total: 0,
-    completed: 0,
-    pending: 0,
-    running: 0,
-    error: 0,
-    favorites: 0,
-    unreviewed: 0,
-    avgRating: null,
-  });
+  const [galleryAnalytics, setGalleryAnalytics] = useState<GalleryStats>(EMPTY_GALLERY_STATS);
   const [iterationEntries, setIterationEntries] = useState<PromptHistoryEntry[]>([]);
   const [iterationDiff, setIterationDiff] = useState<BranchDiffResult | null>(null);
 
@@ -233,16 +224,7 @@ export default function StudioTool() {
     if (tab !== 'analytics') {
       scheduleAfterCommit(() => {
         setRatingTokenStats([]);
-        setGalleryAnalytics({
-          total: 0,
-          completed: 0,
-          pending: 0,
-          running: 0,
-          error: 0,
-          favorites: 0,
-          unreviewed: 0,
-          avgRating: null,
-        });
+        setGalleryAnalytics(EMPTY_GALLERY_STATS);
       });
       return;
     }

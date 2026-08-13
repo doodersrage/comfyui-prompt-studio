@@ -94,6 +94,7 @@ type GalleryCardProps = {
   onReviewRating?: (rating: ComfyGalleryEntry['reviewRating']) => void;
   reviewMutationHints?: string[];
   onVisionTagClick?: (tag: string) => void;
+  onUserTagClick?: (tag: string) => void;
   onViewWorkflow?: () => void;
   onRestoreExactGraph?: () => void;
   /** When set, clicking a pickable card returns the image to the calling tool. */
@@ -169,6 +170,7 @@ export default function GalleryCard({
   onReviewRating,
   reviewMutationHints,
   onVisionTagClick,
+  onUserTagClick,
   onViewWorkflow,
   onRestoreExactGraph,
   pickMode = false,
@@ -802,6 +804,20 @@ export default function GalleryCard({
                   className="rounded-full border border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] px-2 py-0.5 text-[10px] text-[var(--tint-info-text)] transition hover:border-[var(--tint-info-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
                 >
                   {tag}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          {entry.userTags && entry.userTags.length > 0 ? (
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {entry.userTags.slice(0, 8).map(tag => (
+                <button
+                  key={`user-${tag}`}
+                  type="button"
+                  onClick={() => onUserTagClick?.(tag)}
+                  className="rounded-full border border-[var(--accent-border)] bg-[var(--accent-muted)] px-2 py-0.5 text-[10px] text-[var(--accent-text)] transition hover:border-[var(--accent-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+                >
+                  #{tag}
                 </button>
               ))}
             </div>

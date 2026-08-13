@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ComfyGalleryEntry } from '@/lib/comfyui-gallery';
 import { galleryEntryThumbUrls } from '@/lib/comfyui-gallery';
 import { Button } from '@/components/ui/Button';
@@ -10,6 +10,9 @@ import {
   updateEloRatings,
   type EloEntry,
 } from '@/lib/gallery-elo';
+import { galleryEloWinnerId, loadGalleryElo, saveGalleryElo } from '@/lib/gallery-elo-store';
+import { experimentGroupIdForPrompt } from '@/lib/experiment-groups';
+import { markExperimentWinner } from '@/lib/experiment-winners';
 import {
   canUpscaleGalleryEntry,
   galleryEntryAlreadyEnrichedForUpscale,
@@ -104,6 +107,32 @@ export default function GalleryComparePanel({
 
   const paramDiff = useMemo(() => buildGalleryParamDiff(entries), [entries]);
   const differingParams = useMemo(() => paramDiff.filter(row => row.differs), [paramDiff]);
+  const eloGroupId = useMemo(
+    () =>
+      experimentGroupIdForPrompt(entries[0]?.prompt ?? '') ??
+      `compare-${entries
+        .map(entry => entry.id)
+        .join('-')
+        .slice(0, 24)}`,
+    [entries]
+  );
+
+  useEffect(() => {
+    if (!tournament || elo.length === 0 || pairIndex < pairs.length) {
+      return;
+    }
+    const winnerId = galleryEloWinnerId(elo);
+    if (!winnerId) {
+      return;
+    }
+    saveGalleryElo({
+      groupId: eloGroupId,
+      entries: elo,
+      winnerId,
+      updatedAt: Date.now(),
+    });
+    markExperimentWinner(eloGroupId, winnerId);
+  }, [tournament, elo, pairIndex, pairs.length, eloGroupId]);
 
   if (entries.length === 0) {
     return null;
@@ -111,12 +140,22 @@ export default function GalleryComparePanel({
 
   function startTournament() {
     setTournament(true);
-    setElo(
-      initEloEntries(
-        entries.map(entry => entry.id),
-        Object.fromEntries(entries.map(entry => [entry.id, entry.model ?? entry.id.slice(0, 8)]))
-      )
+    const stored = loadGalleryElo(eloGroupId);
+    const labels = Object.fromEntries(
+      entries.map(entry => [entry.id, entry.model ?? entry.id.slice(0, 8)])
     );
+    const initial = initEloEntries(
+      entries.map(entry => entry.id),
+      labels
+    );
+    const merged =
+      stored?.entries?.length && stored.entries.every(item => labels[item.id] !== undefined)
+        ? initial.map(entry => {
+            const prior = stored.entries.find(item => item.id === entry.id);
+            return prior ? { ...entry, rating: prior.rating, matches: prior.matches } : entry;
+          })
+        : initial;
+    setElo(merged);
     setPairIndex(0);
   }
 

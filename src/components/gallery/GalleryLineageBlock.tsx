@@ -3,6 +3,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 import type { GalleryLineageGroup } from '@/lib/gallery-lineage-groups';
 import type { ComfyGalleryEntry, GalleryLayoutMode } from '@/lib/comfyui-gallery';
+import { buildGalleryLineageTimeline } from '@/lib/gallery-lineage-timeline';
 
 type GalleryLineageBlockProps = {
   group: GalleryLineageGroup;
@@ -27,6 +28,8 @@ export default function GalleryLineageBlock({
     layout !== 'list' && columns
       ? { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }
       : undefined;
+  const timeline = collapsed ? [] : buildGalleryLineageTimeline(group.root, group.derivatives);
+
   return (
     <div
       className={
@@ -47,6 +50,21 @@ export default function GalleryLineageBlock({
           {collapsed ? 'Expand' : 'Collapse'}
         </button>
       </div>
+      {timeline.length > 0 ? (
+        <ol
+          data-testid="gallery-lineage-timeline"
+          className="space-y-1 px-1 text-[10px] text-[var(--text-secondary)]"
+        >
+          {timeline.map(step => (
+            <li key={step.entry.id} className="truncate">
+              {step.entry.derivedKind ?? 'derivative'}
+              {step.diffs.length > 0
+                ? ` · ${step.diffs.map(diff => `${diff.label} ${diff.values[1] ?? ''}`).join(' · ')}`
+                : ' · same params'}
+            </li>
+          ))}
+        </ol>
+      ) : null}
       <div className={layout === 'list' ? 'space-y-3' : gridClassName} style={gridStyle}>
         {renderCard(group.root)}
         {!collapsed

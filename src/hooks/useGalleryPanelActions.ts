@@ -69,6 +69,7 @@ const EMPTY_GALLERY_CARD_ACTIONS: GalleryCardActions = {
   reviewRating: () => undefined,
   downloadError: () => undefined,
   visionTagClick: () => undefined,
+  userTagClick: () => undefined,
   viewWorkflow: () => undefined,
   restoreExactGraph: () => undefined,
   pick: () => undefined,
@@ -112,6 +113,7 @@ export type UseGalleryPanelActionsInput = {
   removeEntries: (ids: string[]) => void;
   setFavorites: (ids: string[], favorite: boolean) => void;
   setReviewRatings: (ids: string[], rating: ComfyGalleryEntry['reviewRating']) => void;
+  setUserTags?: (ids: string[], tags: string[], mode?: 'add' | 'replace' | 'remove') => void;
   paramAxis: ParamExperimentAxis;
   filter: ComfyGalleryFilter;
   setLoraExportScope: (scope: 'favorites' | 'selected') => void;
@@ -139,6 +141,7 @@ export function useGalleryPanelActions({
   removeEntries,
   setFavorites,
   setReviewRatings,
+  setUserTags,
   paramAxis,
   filter,
   setLoraExportScope,
@@ -465,7 +468,13 @@ export function useGalleryPanelActions({
       },
       downloadError: setDownloadError,
       visionTagClick: (tag: string) => {
-        setFilter(previous => ({ ...previous, query: tag }));
+        setFilter(previous => ({ ...previous, query: tag, userTag: undefined }));
+      },
+      userTagClick: (tag: string) => {
+        setFilter(previous => ({
+          ...previous,
+          userTag: previous.userTag === tag ? undefined : tag,
+        }));
       },
       viewWorkflow: (id: string) => {
         const entry = entriesRef.current.find(item => item.id === id);
@@ -598,12 +607,36 @@ export function useGalleryPanelActions({
         setFilter(previous => ({
           ...previous,
           similarToEntryId: entry.id,
+          similarMode: 'prompt',
           query: undefined,
         }));
         setRequeueStatus(`Finding outputs similar to ${entry.model ?? 'selection'}…`);
       },
-      onClearSimilar: () => setFilter(previous => ({ ...previous, similarToEntryId: undefined })),
+      onFindVisualSimilar: () => {
+        const entry = selectedEntries[0];
+        if (!entry) return;
+        setFilter(previous => ({
+          ...previous,
+          similarToEntryId: entry.id,
+          similarMode: 'visual',
+          query: undefined,
+        }));
+        setRequeueStatus(`Finding stills that look like ${entry.model ?? 'selection'}…`);
+      },
+      onClearSimilar: () =>
+        setFilter(previous => ({
+          ...previous,
+          similarToEntryId: undefined,
+          similarMode: undefined,
+        })),
       canClearSimilar: Boolean(filter.similarToEntryId),
+      onApplyUserTag: (tag: string) => {
+        if (!setUserTags || selectedIds.length === 0) {
+          return;
+        }
+        setUserTags(selectedIds, [tag], 'add');
+        setRequeueStatus(`Tagged ${selectedIds.length} with #${tag}`);
+      },
       onSeedExperiment: () => {
         const entry = selectedEntries[0];
         if (!entry) return;
@@ -882,6 +915,7 @@ export function useGalleryPanelActions({
       selectedIds,
       setFavorites,
       setReviewRatings,
+      setUserTags,
       setFilter,
       setLoraExportOpen,
       setLoraExportScope,

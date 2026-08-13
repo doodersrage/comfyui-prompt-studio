@@ -38,8 +38,15 @@ import GalleryStatsBar from '@/components/gallery/GalleryStatsBar';
 import GalleryReviewTouchBar from '@/components/gallery/GalleryReviewTouchBar';
 import GalleryPanelSkeleton from '@/components/gallery/GalleryPanelSkeleton';
 import GalleryPaginator from '@/components/gallery/GalleryPaginator';
+import GalleryDuplicateClustersPanel from '@/components/gallery/GalleryDuplicateClustersPanel';
+import GalleryVisionInbox from '@/components/gallery/GalleryVisionInbox';
+import GalleryCapCleanupWizard from '@/components/gallery/GalleryCapCleanupWizard';
 import StatusToastStrip from '@/components/ui/StatusToastStrip';
-import { assessGalleryCapWarning, GALLERY_CAP_KEEPER_MIN_RATING } from '@/lib/gallery-cap';
+import {
+  assessGalleryCapWarning,
+  GALLERY_CAP_KEEPER_MIN_RATING,
+  previewGalleryCapEviction,
+} from '@/lib/gallery-cap';
 import { galleryDerivedKindChipLabel, galleryDerivedKindLabel } from '@/lib/gallery-derived-kind';
 import { MAX_GALLERY_ENTRIES } from '@/lib/comfyui-gallery-storage-meta';
 import { applyGalleryUrlState, parseGalleryUrlState } from '@/lib/gallery-url-state';
@@ -63,6 +70,8 @@ import {
   galleryLineageGroupingEnabled,
 } from '@/lib/gallery-lineage-groups';
 import { groupGalleryExperiments } from '@/lib/experiment-groups';
+import { groupGalleryQueueRuns } from '@/lib/gallery-queue-runs';
+import { clusterGalleryDuplicates, duplicateDropIds } from '@/lib/gallery-duplicate-clusters';
 import {
   EXPERIMENT_WINNERS_UPDATED_EVENT,
   clearExperimentWinner,
@@ -77,6 +86,7 @@ import {
   galleryEntryMediaKinds,
   galleryEntryPrimaryMediaKind,
   galleryEntryPrimaryThumbUrl,
+  galleryEntryPrimaryViewUrl,
   galleryEntryStripThumbUrls,
   galleryEntryViewUrls,
   GALLERY_PAGE_SIZE_ALL,
@@ -134,11 +144,13 @@ export default function ComfyUiGalleryPanel({
     setFilter,
     tools,
     models,
+    userTags,
     removeEntry,
     removeEntries,
     toggleFavorite,
     setFavorites,
     setReviewRatings,
+    setUserTags,
     setProjectIds,
     clearAll,
     refreshPending,
@@ -160,6 +172,7 @@ export default function ComfyUiGalleryPanel({
       ...previous,
       semanticSearch: undefined,
       similarToEntryId: undefined,
+      similarMode: undefined,
       visionTagsOnly: undefined,
     }));
   }, [leanGallery, setFilter]);
@@ -187,6 +200,9 @@ export default function ComfyUiGalleryPanel({
   const [layout, setLayout] = useState<GalleryLayoutMode>('grid');
   const [viewPrefsLoaded, setViewPrefsLoaded] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
+  const [capWizardOpen, setCapWizardOpen] = useState(false);
+  const [visionInboxOpen, setVisionInboxOpen] = useState(false);
+  const [visionInboxSkipIds, setVisionInboxSkipIds] = useState<Set<string>>(() => new Set());
   const [loraExportOpen, setLoraExportOpen] = useState(false);
   const [loraExportScope, setLoraExportScope] = useState<'favorites' | 'selected'>('favorites');
   const [workflowEntry, setWorkflowEntry] = useState<ComfyGalleryEntry | null>(null);
@@ -373,7 +389,22 @@ export default function ComfyUiGalleryPanel({
     () => (lineageGrouping ? buildGalleryLineageGroups(visibleEntries) : null),
     [lineageGrouping, visibleEntries]
   );
-  const experimentGroups = useMemo(() => groupGalleryExperiments(visibleEntries), [visibleEntries]);
+  const experimentGroups = useMemo(() => {
+    const experiments = groupGalleryExperiments(visibleEntries);
+    const claimed = new Set(experiments.flatMap(group => group.entries.map(entry => entry.id)));
+    const runs = groupGalleryQueueRuns(visibleEntries).filter(
+      group => !group.entries.some(entry => claimed.has(entry.id))
+    );
+    return [...experiments, ...runs];
+  }, [visibleEntries]);
+  const duplicateClusters = useMemo(
+    () => (showFilters && filter.duplicatesOnly ? clusterGalleryDuplicates(entries) : []),
+    [entries, filter.duplicatesOnly, showFilters]
+  );
+  const capEvictionPreview = useMemo(
+    () => (capWizardOpen ? previewGalleryCapEviction(entries, MAX_GALLERY_ENTRIES) : []),
+    [capWizardOpen, entries]
+  );
   const galleryCardGridClass =
     layout === 'dense' || density === 'compact'
       ? 'grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7'
@@ -999,6 +1030,7 @@ export default function ComfyUiGalleryPanel({
     removeEntries,
     setFavorites,
     setReviewRatings,
+    setUserTags,
     paramAxis,
     filter,
     setLoraExportScope,
@@ -1135,6 +1167,112 @@ export default function ComfyUiGalleryPanel({
             }))
           }
           onExportKeepers={exportCapKeepers}
+          onOpenCleanup={() => setCapWizardOpen(true)}
+        />
+      ) : null}
+
+      {showFilters && capWizardOpen && capEvictionPreview.length > 0 ? (
+        <GalleryCapCleanupWizard
+          evicted={capEvictionPreview}
+          max={MAX_GALLERY_ENTRIES}
+          total={entries.length}
+          onShowAtRisk={() => {
+            setFilter(previous => ({
+              ...previous,
+              atRiskOnly: true,
+              favoritesOnly: undefined,
+              minRating: undefined,
+            }));
+            setCapWizardOpen(false);
+          }}
+          onExportKeepers={exportCapKeepers}
+          onDeleteEvicted={() => {
+            if (
+              window.confirm(
+                `Delete ${capEvictionPreview.length} at-risk gallery entries? Keepers stay.`
+              )
+            ) {
+              removeEntries(capEvictionPreview.map(entry => entry.id));
+              setCapWizardOpen(false);
+            }
+          }}
+          onFavoriteEvicted={() => {
+            setFavorites(
+              capEvictionPreview.map(entry => entry.id),
+              true
+            );
+            setCapWizardOpen(false);
+          }}
+          onClose={() => setCapWizardOpen(false)}
+        />
+      ) : null}
+
+      {showFilters && filter.duplicatesOnly && duplicateClusters.length > 0 ? (
+        <GalleryDuplicateClustersPanel
+          clusters={duplicateClusters}
+          entriesById={new Map(entries.map(entry => [entry.id, entry]))}
+          onShowCluster={ids => {
+            setSelectedIds(ids);
+            setFilter(previous => ({ ...previous, duplicatesOnly: true }));
+          }}
+          onKeepHighest={cluster => {
+            if (cluster.dropIds.length === 0) {
+              return;
+            }
+            if (window.confirm(`Delete ${cluster.dropIds.length} duplicate stills?`)) {
+              removeEntries(cluster.dropIds);
+            }
+          }}
+          onKeepAllHighest={() => {
+            const dropIds = duplicateDropIds(duplicateClusters);
+            if (dropIds.length === 0) {
+              return;
+            }
+            if (
+              window.confirm(
+                `Delete ${dropIds.length} duplicate stills, keeping the highest-rated in each cluster?`
+              )
+            ) {
+              removeEntries(dropIds);
+            }
+          }}
+          onCompare={ids => {
+            setSelectedIds(ids);
+            setCompareOpen(true);
+          }}
+        />
+      ) : null}
+
+      {showFilters && (filter.needsVisionReview || visionInboxOpen) ? (
+        <GalleryVisionInbox
+          queue={entries.filter(
+            entry =>
+              entry.status === 'completed' &&
+              entry.images.length > 0 &&
+              !(entry.visionTags?.length ?? 0) &&
+              !visionInboxSkipIds.has(entry.id)
+          )}
+          previewUrl={galleryEntryPrimaryViewUrl}
+          onApplyRating={(entryId, rating) => {
+            setReviewRating(entryId, rating);
+            setVisionInboxSkipIds(previous => new Set(previous).add(entryId));
+          }}
+          onSkip={() => {
+            const next = entries.find(
+              entry =>
+                entry.status === 'completed' &&
+                entry.images.length > 0 &&
+                !(entry.visionTags?.length ?? 0) &&
+                !visionInboxSkipIds.has(entry.id)
+            );
+            if (next) {
+              setVisionInboxSkipIds(previous => new Set(previous).add(next.id));
+            }
+          }}
+          onClose={() => {
+            setVisionInboxOpen(false);
+            setFilter(previous => ({ ...previous, needsVisionReview: undefined }));
+          }}
         />
       ) : null}
 
@@ -1159,6 +1297,7 @@ export default function ComfyUiGalleryPanel({
           setFilter={setFilter}
           tools={tools}
           models={models}
+          userTags={userTags}
           projects={projects}
           projectFilterId={projectFilterId}
           setProjectFilterId={setProjectFilterId}

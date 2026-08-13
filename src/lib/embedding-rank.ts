@@ -44,6 +44,8 @@ export function galleryEntryCorpus(entry: {
   model?: string;
   promptId?: string;
   statusMessage?: string;
+  visionTags?: string[];
+  userTags?: string[];
 }): string {
   // Return pre-computed corpus when already seeded (hydration path).
   const cached = '_corpus' in entry ? (entry as { _corpus?: string })._corpus : undefined;
@@ -56,6 +58,8 @@ export function galleryEntryCorpus(entry: {
     entry.model,
     entry.promptId,
     entry.statusMessage,
+    entry.visionTags?.join(' '),
+    entry.userTags?.join(' '),
   ]
     .filter(Boolean)
     .join('\n');

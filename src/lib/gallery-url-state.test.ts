@@ -29,6 +29,34 @@ describe('gallery-url-state', () => {
     assert.equal(parsed.projectFilterId, 'proj-1');
   });
 
+  it('round-trips similar, duplicates, vision inbox, and user tag params', () => {
+    const params = new URLSearchParams();
+    applyGalleryUrlState(params, {
+      filter: {
+        semanticSearch: true,
+        similarToEntryId: 'entry-9',
+        similarMode: 'visual',
+        duplicatesOnly: true,
+        needsVisionReview: true,
+        userTag: 'keeper',
+        derivedKind: 'upscale',
+        visionTagsOnly: true,
+      },
+      sort: 'eviction-risk-desc',
+      projectFilterId: '',
+    });
+    const parsed = parseGalleryUrlState(params);
+    assert.equal(parsed.filter.semanticSearch, true);
+    assert.equal(parsed.filter.similarToEntryId, 'entry-9');
+    assert.equal(parsed.filter.similarMode, 'visual');
+    assert.equal(parsed.filter.duplicatesOnly, true);
+    assert.equal(parsed.filter.needsVisionReview, true);
+    assert.equal(parsed.filter.userTag, 'keeper');
+    assert.equal(parsed.filter.derivedKind, 'upscale');
+    assert.equal(parsed.filter.visionTagsOnly, true);
+    assert.equal(parsed.sort, 'eviction-risk-desc');
+  });
+
   it('preserves unrelated params when applying state', () => {
     const params = new URLSearchParams('lightbox=abc&pickFor=compose');
     applyGalleryUrlState(params, {
