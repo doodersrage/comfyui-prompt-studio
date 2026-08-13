@@ -798,6 +798,51 @@ describe("workflow-graph-enrich", () => {
     );
   });
 
+  it("inserts blur-only decode polish for Qwen 2512 Lightning Final (no upscale)", () => {
+    const workflow = {
+      "7": {
+        class_type: "VAEDecode",
+        inputs: { samples: ["6", 0], vae: ["2", 0] },
+      },
+      "8": {
+        class_type: "SaveImage",
+        inputs: { images: ["7", 0], filename_prefix: "PromptStudio" },
+      },
+    };
+
+    const result = enrichWorkflowGraph({
+      workflow,
+      tokens: TOKENS,
+      model: "qwen-image-2512-lightning-8",
+      qualityProfile: "final",
+      enrichSampling: false,
+    });
+
+    assert.equal(
+      Object.values(result.workflow).some(
+        (node) => (node as { class_type?: string }).class_type === "ImageScaleBy",
+      ),
+      false,
+    );
+    assert.equal(
+      Object.values(result.workflow).some(
+        (node) => (node as { class_type?: string }).class_type === "ImageUpscaleWithModel",
+      ),
+      false,
+    );
+    const saveNode = result.workflow["8"] as { inputs: { images: [string, number] } };
+    const polish = result.workflow[saveNode.inputs.images[0]] as {
+      class_type: string;
+      inputs: Record<string, unknown>;
+      _meta?: { title?: string };
+    };
+    assert.equal(polish.class_type, "ImageBlur");
+    assert.equal(polish.inputs.sigma, 0.5);
+    assert.match(polish._meta?.title ?? "", /Lightning decode polish/);
+    assert.ok(result.changes.some((change) => /soft blur/i.test(change.message)));
+    assert.ok(result.changes.some((change) => /Skipped Final\/Max upscale for Qwen 2512/i.test(change.message)));
+  });
+
   it("inserts soft ImageBlur moiré polish for Rapid AIO on Final (no resample)", () => {
     const workflow = {
       "7": {

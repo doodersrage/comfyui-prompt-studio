@@ -9,6 +9,9 @@ import {
   profileUsesSharpenAfterNeuralUpscale,
   profileUsesUpscaleEnrich,
   profileUsesRapidAioMoirePolish,
+  profileUsesLightningDecodePolish,
+  lightningDecodePolishBlurRadius,
+  lightningDecodePolishBlurSigma,
   profileSkipsOutputUpscaleForModel,
   neuralUpscaleTileSizeForProfile,
   sdxlRefinerDenoiseForProfile,
@@ -77,6 +80,8 @@ const UPSCALE_NODE_TYPES = new Set([
   IMAGE_SCALE_BY_NODE_TYPE,
   'UpscaleModel',
   'ImageUpscaleWithModel',
+  'UltimateSDUpscale',
+  'ImageScaleToTotalPixels',
   'Upscale',
 ]);
 
@@ -186,7 +191,11 @@ function shouldSkipUpscaleEnrich(
       return true;
     }
     // Community neural upscalers have no scale_by — still skip stacking another pass.
-    if (classType === 'ImageUpscaleWithModel' || classType === 'UpscaleModel') {
+    if (
+      classType === 'ImageUpscaleWithModel' ||
+      classType === 'UpscaleModel' ||
+      classType === 'UltimateSDUpscale'
+    ) {
       return true;
     }
     const scaleBy = Number(node.inputs?.scale_by);
@@ -989,6 +998,16 @@ function enrichUpscaleNodes(input: {
         },
       ];
     }
+    if (/qwen-image-2512-lightning/i.test(String(input.model ?? ''))) {
+      return [
+        {
+          kind: 'audit',
+          severity: 'info',
+          message:
+            'Skipped Final/Max upscale for Qwen 2512 Lightning (Lanczos/UltraSharp hardens CFG-1 decode) — soft blur polish runs instead.',
+        },
+      ];
+    }
     return [];
   }
 
@@ -1182,6 +1201,64 @@ function enrichRapidAioMoirePolish(input: {
 }
 
 /**
+ * Qwen 2512 Lightning: soft ImageBlur after VAEDecode. No resample and no
+ * Lanczos — those are what make wet streets and skin look metallic.
+ */
+function enrichLightningDecodePolish(input: {
+  workflow: Record<string, WorkflowNode>;
+  qualityProfile?: QueueQualityProfile;
+  model?: string;
+}): WorkflowQueueOptimizeChange[] {
+  if (!profileUsesLightningDecodePolish(input.qualityProfile, { model: input.model })) {
+    return [];
+  }
+
+  const changes: WorkflowQueueOptimizeChange[] = [];
+  const blurRadius = lightningDecodePolishBlurRadius(input.qualityProfile);
+  const blurSigma = lightningDecodePolishBlurSigma(input.qualityProfile);
+
+  for (const [saveId, saveNode] of Object.entries(input.workflow)) {
+    if (!isWorkflowSaveImageNode(saveNode) || !saveNode.inputs) {
+      continue;
+    }
+    const imageLink = getLinkedNodeId(saveNode.inputs.images);
+    if (!imageLink) {
+      continue;
+    }
+    const upstream = input.workflow[imageLink];
+    const upstreamTitle = upstream?._meta?.title ?? '';
+    if (
+      upstream?.class_type === 'ImageBlur' &&
+      (upstreamTitle.includes('Lightning decode') ||
+        upstreamTitle.includes('2512 Lightning') ||
+        upstreamTitle.toLowerCase().includes('decode polish'))
+    ) {
+      continue;
+    }
+
+    const blurNodeId = nextWorkflowNodeId(input.workflow);
+    input.workflow[blurNodeId] = {
+      class_type: 'ImageBlur',
+      inputs: {
+        image: [imageLink, 0],
+        blur_radius: blurRadius,
+        sigma: blurSigma,
+      },
+      _meta: { title: 'Prompt Studio — Lightning decode polish' },
+    };
+    saveNode.inputs.images = [blurNodeId, 0];
+
+    changes.push({
+      kind: 'binding',
+      severity: 'info',
+      message: `Inserted Lightning decode polish (soft blur σ${blurSigma}, no upscale) before SaveImage node ${saveId}.`,
+    });
+  }
+
+  return changes;
+}
+
+/**
  * Final/Max video scaffold polish — Raise SaveAnimatedWEBP quality (Draft keeps
  * scaffold defaults). Does not touch temporal sampling; VRAM-safe.
  */
@@ -1299,6 +1376,14 @@ export function enrichWorkflowGraph(input: {
 
   changes.push(
     ...enrichRapidAioMoirePolish({
+      workflow,
+      qualityProfile: input.qualityProfile,
+      model: input.model,
+    })
+  );
+
+  changes.push(
+    ...enrichLightningDecodePolish({
       workflow,
       qualityProfile: input.qualityProfile,
       model: input.model,

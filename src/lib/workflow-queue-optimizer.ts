@@ -27,7 +27,6 @@ import {
 import {
   isDistilledFewStepImageModel,
   normalizeQueueQualityProfile,
-  profileSkipsOutputUpscaleForModel,
   profileUsesUpscaleEnrich,
   resolveEffectiveSamplerPreset,
   type QueueQualityProfile,
@@ -436,30 +435,23 @@ export function optimizeWorkflowForQueue(input: {
   }
 
   // Lightning: keep the imported graph intact (no auto-bind / sampling / refiner).
-  // Sampler CFG/steps are forced at inject time. Final/Max may add a soft Lanczos
-  // ImageScaleBy after VAEDecode (no ImageSharpen) — lightning prep preserves those markers.
-  // Still apply profile-aware save format (Draft WebP / keeper PNG) — save-node only.
+  // Sampler CFG/steps are forced at inject time. Prep strips community/leftover
+  // UltraSharp + Lanczos. 2512 Final/Max get a blur-only decode polish.
   if (isQwenLightningModel(input.model)) {
-    const wantsLightningLanczos =
-      enabled &&
-      enrichGraph &&
-      profileUsesUpscaleEnrich(input.qualityProfile) &&
-      !profileSkipsOutputUpscaleForModel(input.qualityProfile, {
-        model: input.model,
-        hasInputImage: input.hasInputImage,
-      });
+    const wantsLightningGraphEnrich =
+      enabled && enrichGraph && profileUsesUpscaleEnrich(input.qualityProfile);
 
-    let skipLightningLanczos = false;
-    if (wantsLightningLanczos && input.skipIfUnchanged && input.contentHash) {
+    let skipLightningGraphEnrich = false;
+    if (wantsLightningGraphEnrich && input.skipIfUnchanged && input.contentHash) {
       if (
         workflowHashMatches(workflow, input.contentHash) &&
         workflowHasPromptStudioQueueEnrich(workflow)
       ) {
-        skipLightningLanczos = true;
+        skipLightningGraphEnrich = true;
       }
     }
 
-    if (wantsLightningLanczos && !skipLightningLanczos) {
+    if (wantsLightningGraphEnrich && !skipLightningGraphEnrich) {
       const enriched = enrichWorkflowGraph({
         workflow,
         tokens: input.tokens,
@@ -473,12 +465,12 @@ export function optimizeWorkflowForQueue(input: {
       });
       workflow = enriched.workflow;
       changes.push(...enriched.changes);
-    } else if (skipLightningLanczos) {
+    } else if (skipLightningGraphEnrich) {
       changes.push({
         kind: 'audit',
         severity: 'info',
         message:
-          'Skipped Lightning Lanczos re-enrich — workflow hash unchanged and Prompt Studio upscale markers present.',
+          'Skipped Lightning output re-enrich — workflow hash unchanged and Prompt Studio polish markers present.',
       });
     }
 
@@ -503,8 +495,8 @@ export function optimizeWorkflowForQueue(input: {
     changes.push({
       kind: 'audit',
       severity: 'info',
-      message: wantsLightningLanczos
-        ? 'Lightning queue: skipped auto-bind — native Comfy graph; Final/Max Lanczos after decode when needed.'
+      message: wantsLightningGraphEnrich
+        ? 'Lightning queue: skipped auto-bind — native Comfy graph; 2512 uses blur polish instead of upscale.'
         : 'Lightning queue: skipped auto-bind/enrich — using workflow as exported from ComfyUI.',
     });
     return {

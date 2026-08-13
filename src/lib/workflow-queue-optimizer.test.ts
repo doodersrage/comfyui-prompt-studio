@@ -146,8 +146,12 @@ describe("workflow-queue-optimizer", () => {
 
     assert.doesNotMatch(result.workflowJson, /Prompt Studio — output upscale/);
     assert.doesNotMatch(result.workflowJson, /Prompt Studio — Lightning upscale polish/);
+    assert.match(result.workflowJson, /Prompt Studio — Lightning decode polish/);
     assert.match(result.workflowJson, /LoraLoaderModelOnly|LoraLoader/);
     assert.match(result.workflowJson, /ModelSamplingAuraFlow/);
+    assert.ok(
+      result.changes.some((change) => /soft blur/i.test(change.message)),
+    );
   });
 
   it("full early-exits when hash, model, and profile match for Lightning Final", () => {

@@ -182,6 +182,11 @@ export function formatQueueQualityProfileHint(
           ? ' · moiré polish (blur + mild resample) · no output upscale'
           : ' · moiré polish (soft blur) · no output upscale'
         : '';
+  } else if (/qwen-image-2512-lightning/i.test(model)) {
+    upscaleNote =
+      profile === 'final' || profile === 'max'
+        ? ' · native decode · soft blur polish · no upscale · CFG-1 short negatives'
+        : ' · native decode · CFG-1 short negatives';
   } else if (/qwen-image-edit-2511-lightning/i.test(model)) {
     upscaleNote =
       profile === 'final' || profile === 'max'
@@ -341,6 +346,13 @@ export function formatQueuePipelineStatusNotes(input: {
     } else {
       notes.push('moiré polish off (use Final/Max)');
     }
+  } else if (/qwen-image-2512-lightning/i.test(model)) {
+    notes.push('Lightning CFG-1 · short negatives');
+    if (profile === 'final' || profile === 'max') {
+      notes.push('native decode · soft blur (no upscale)');
+    } else if (profile === 'draft') {
+      notes.push('Draft · native decode');
+    }
   } else if (/qwen-image-edit-2511-lightning/i.test(model)) {
     notes.push('Lightning CFG-1 · short negatives');
     if (profile === 'final' || profile === 'max') {
@@ -490,7 +502,7 @@ export function profileSkipsOutputUpscaleForModel(
   if (/qwen-image-edit-2511-lightning/i.test(model) && options?.hasInputImage !== true) {
     return true;
   }
-  // Qwen 2512 Lightning T2I: post-decode Lanczos causes grid/moiré on 4–8 step outputs.
+  // Qwen 2512 Lightning T2I: post-decode Lanczos/UltraSharp hardens wet streets and skin.
   if (/qwen-image-2512-lightning/i.test(model) && options?.hasInputImage !== true) {
     return true;
   }
@@ -886,4 +898,28 @@ export function rapidAioMoireRestoreScale(profile: QueueQualityProfile | undefin
 /** Soft edge recovery after Max resample — lighter than generic Max sharpen. */
 export function rapidAioMoireRestoreSharpenAlpha(profile: QueueQualityProfile | undefined): number {
   return profileUsesRapidAioMoireResample(profile) ? 0.04 : 0;
+}
+
+/**
+ * Qwen 2512 Lightning: Final/Max get a soft ImageBlur after decode instead of any
+ * upscale. 4–8 step CFG-1 already rings; Lanczos/UltraSharp makes pavement sparkle.
+ */
+export function profileUsesLightningDecodePolish(
+  profile: QueueQualityProfile | undefined,
+  options?: { model?: string }
+): boolean {
+  const model = options?.model?.trim() ?? '';
+  if (!/qwen-image-2512-lightning/i.test(model)) {
+    return false;
+  }
+  return profileUsesUpscaleEnrich(profile);
+}
+
+export function lightningDecodePolishBlurRadius(profile: QueueQualityProfile | undefined): number {
+  void profile;
+  return 1;
+}
+
+export function lightningDecodePolishBlurSigma(profile: QueueQualityProfile | undefined): number {
+  return normalizeQueueQualityProfile(profile) === 'max' ? 0.6 : 0.5;
 }

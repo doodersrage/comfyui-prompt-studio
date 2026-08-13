@@ -74,12 +74,12 @@ describe("workflow-lightning-queue", () => {
     assert.deepEqual(result.strippedNodeIds.sort(), ["11", "12"]);
   });
 
-  it("keeps Prompt Studio quality-profile upscale nodes for lightning", () => {
-    const workflow = {
+  it("strips leftover Prompt Studio Lanczos and community UltimateSD upscale", () => {
+    const leftover = {
       "9": { class_type: "VAEDecode", inputs: { samples: ["8", 0], vae: ["3", 0] } },
       "11": {
         class_type: "ImageScaleBy",
-        inputs: { image: ["9", 0], scale_by: 1.25, upscale_method: "area" },
+        inputs: { image: ["9", 0], scale_by: 1.25, upscale_method: "lanczos" },
         _meta: { title: "Prompt Studio — output upscale" },
       },
       "10": {
@@ -88,16 +88,36 @@ describe("workflow-lightning-queue", () => {
       },
     };
 
-    const result = stripLightningOutputPostProcess(
-      workflow,
+    const leftoverResult = stripLightningOutputPostProcess(
+      leftover,
       "qwen-image-2512-lightning-8",
     );
-
     assert.deepEqual(
-      (result.workflow["10"] as { inputs: { images: unknown } }).inputs.images,
-      ["11", 0],
+      (leftoverResult.workflow["10"] as { inputs: { images: unknown } }).inputs.images,
+      ["9", 0],
     );
-    assert.deepEqual(result.strippedNodeIds, []);
+    assert.deepEqual(leftoverResult.strippedNodeIds, ["11"]);
+
+    const community = {
+      "9": { class_type: "VAEDecode", inputs: { samples: ["8", 0], vae: ["3", 0] } },
+      "11": {
+        class_type: "UltimateSDUpscale",
+        inputs: { image: ["9", 0], upscale_model: ["12", 0] },
+      },
+      "10": {
+        class_type: "SaveImage",
+        inputs: { images: ["11", 0], filename_prefix: "ComfyUI" },
+      },
+    };
+    const communityResult = stripLightningOutputPostProcess(
+      community,
+      "qwen-image-2512-lightning-8",
+    );
+    assert.deepEqual(
+      (communityResult.workflow["10"] as { inputs: { images: unknown } }).inputs.images,
+      ["9", 0],
+    );
+    assert.deepEqual(communityResult.strippedNodeIds, ["11"]);
   });
 
   it("inserts Lightning LoRA + AuraFlow when the graph is missing them", () => {

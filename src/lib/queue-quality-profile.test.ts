@@ -193,6 +193,7 @@ describe("queue-quality-profile", () => {
       profileUsesUpscaleEnrich,
       profileUsesNeuralUpscaleEnrich,
       profileSkipsOutputUpscaleForModel,
+      profileUsesLightningDecodePolish,
       upscaleScaleForProfile,
       upscaleMethodForProfile,
     } = await import("./queue-quality-profile");
@@ -222,6 +223,14 @@ describe("queue-quality-profile", () => {
     );
     assert.equal(
       profileUsesNeuralUpscaleEnrich("max", { model: "qwen-image-2512-lightning-8" }),
+      false,
+    );
+    assert.equal(
+      profileUsesLightningDecodePolish("final", { model: "qwen-image-2512-lightning-8" }),
+      true,
+    );
+    assert.equal(
+      profileUsesLightningDecodePolish("draft", { model: "qwen-image-2512-lightning-8" }),
       false,
     );
     assert.equal(
@@ -302,6 +311,11 @@ describe("queue-quality-profile", () => {
     });
     assert.match(String(maxHint), /chroma guard|Lanczos/i);
     assert.doesNotMatch(String(maxHint), /UpscaleModel/);
+    const lightningHint = formatQueueQualityProfileHint("final", "base", "medium", {
+      model: "qwen-image-2512-lightning-8",
+    });
+    assert.match(String(lightningHint), /soft blur polish|no upscale/i);
+    assert.doesNotMatch(String(lightningHint), /Lanczos polish/i);
     const { neuralTargetScaleAfterUpscale, parseNeuralUpscaleFactor } =
       await import("./queue-quality-profile");
     assert.equal(neuralTargetScaleAfterUpscale("final"), 0.3125);

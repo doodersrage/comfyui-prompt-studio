@@ -43,11 +43,53 @@ const VAE_DECODE_TYPES = new Set(['VAEDecode']);
 const OUTPUT_POST_PROCESS_TYPES = new Set([
   'ImageScaleBy',
   'ImageScale',
+  'ImageScaleToTotalPixels',
+  'ImageResize',
+  'ImageResize+',
   'ImageSharpen',
+  'ImageBlur',
   'ImageUpscaleWithModel',
+  'UltimateSDUpscale',
   'LatentUpscale',
   'LatentUpscaleBy',
 ]);
+
+const OUTPUT_POST_PROCESS_IMAGE_KEYS = [
+  'image',
+  'images',
+  'pixels',
+  'src_image',
+  'input_image',
+  'source',
+] as const;
+
+function isOutputPostProcessClass(classType: string | undefined): boolean {
+  const type = classType?.trim() ?? '';
+  if (!type) {
+    return false;
+  }
+  if (OUTPUT_POST_PROCESS_TYPES.has(type)) {
+    return true;
+  }
+  const lower = type.toLowerCase();
+  if (/vae|latent|loader|encode|decode|save|preview|ksampler/i.test(lower)) {
+    return false;
+  }
+  return /upscale|sharpen|resize|scale.?by|scale.?to/i.test(lower);
+}
+
+function getImageChainLink(inputs?: Record<string, unknown>): string | null {
+  if (!inputs) {
+    return null;
+  }
+  for (const key of OUTPUT_POST_PROCESS_IMAGE_KEYS) {
+    const link = getLinkedNodeId(inputs[key]);
+    if (link) {
+      return link;
+    }
+  }
+  return null;
+}
 
 const QWEN_EDIT_ENCODE_TYPES = new Set([
   'TextEncodeQwenImageEdit',
@@ -796,7 +838,11 @@ export function bypassMismatchedSaveImageScaleToLatent(
   return { workflow: next, bypassedNodeIds };
 }
 
-/** Strip imported upscale/sharpen after decode. Keep Prompt Studio Final/Max quality enrich. */
+/**
+ * Strip post-decode upscale/sharpen (community UltraSharp, UltimateSD, leftover
+ * Prompt Studio Lanczos). 2512 Lightning CFG-1 already looks hard; enlarging it
+ * makes wet streets and skin crunch. Optimizer may re-insert a blur-only polish.
+ */
 export function stripLightningOutputPostProcess(
   workflow: Record<string, unknown>,
   model?: string
@@ -831,15 +877,11 @@ export function stripLightningOutputPostProcess(
         node.inputs.images = [link, 0];
         break;
       }
-      if (!OUTPUT_POST_PROCESS_TYPES.has(upstream.class_type ?? '')) {
-        break;
-      }
-      // Preserve queue quality-profile upscale inserted by Prompt Studio.
-      if (isPromptStudioOutputUpscaleNode(upstream)) {
+      if (!isOutputPostProcessClass(upstream.class_type)) {
         break;
       }
       strippedNodeIds.add(link);
-      link = getLinkedNodeId(upstream.inputs?.image);
+      link = getImageChainLink(upstream.inputs);
     }
   }
 

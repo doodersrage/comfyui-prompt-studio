@@ -272,12 +272,17 @@ export default function QueueQualityProfileHints({
             short anti-moiré cues; Final uses soft blur only, Max adds a mild bicubic resample.
             Output upscale is skipped (it re-amplifies screen-door).
           </>
+        ) : /qwen-image-2512-lightning/i.test(shared.model) ? (
+          <>
+            Qwen 2512 Lightning: CFG-1 short negatives. Draft/Final/Max all skip output upscale
+            (Lanczos and UltraSharp make wet streets and skin look hard). Final/Max add a soft blur
+            after decode instead. Gallery Upscale/Refine are disabled — re-queue with a new seed.
+          </>
         ) : /lightning-(4|8)\b/i.test(shared.model) ? (
           <>
             Lightning: CFG-1 short negatives. Sidebar ARs stick to 1:1 / 3:4 / 4:3 (extreme
-            9:16/16:9 softens). Final/Max add Lanczos on native 2512 Lightning — Draft stays native.
-            Edit Lightning T2I skips Lanczos. Gallery Upscale/Refine are disabled — re-queue with a
-            new seed instead.
+            9:16/16:9 softens). Edit Lightning T2I skips Lanczos; Compose I2I keeps a light pass.
+            Gallery Upscale/Refine are disabled — re-queue with a new seed instead.
           </>
         ) : /^qwen-image-2512$/i.test(shared.model) ? (
           <>
