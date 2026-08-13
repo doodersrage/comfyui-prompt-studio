@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { extractComfyExecutionErrorMessage } from "./comfyui-status";
+import { extractComfyExecutionErrorMessage, buildComfyHistoryDeletePayload } from "./comfyui-status";
 
 describe("comfyui status execution errors", () => {
   it("extracts exception_message from execution_error history payload", () => {
@@ -26,5 +26,18 @@ describe("comfyui status execution errors", () => {
 
     assert.match(message ?? "", /KSamplerAdvanced #81:/);
     assert.match(message ?? "", /normalized_shape=\[3584\]/);
+  });
+});
+
+describe("buildComfyHistoryDeletePayload", () => {
+  it("trims, drops empties, and de-duplicates prompt ids", () => {
+    assert.deepEqual(
+      buildComfyHistoryDeletePayload([" abc ", "", "abc", "def"]),
+      { delete: ["abc", "def"] },
+    );
+  });
+
+  it("returns an empty delete list when nothing is usable", () => {
+    assert.deepEqual(buildComfyHistoryDeletePayload(["  ", ""]), { delete: [] });
   });
 });

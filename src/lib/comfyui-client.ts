@@ -49,6 +49,8 @@ export type ComfyQueueRequest = {
    * so latent preview frames are associated with this session.
    */
   clientId?: string;
+  /** Jump ahead of pending jobs (ComfyUI `front: true`). Interactive singles only. */
+  front?: boolean;
 };
 
 export type ComfyQueueResult = {
@@ -68,6 +70,37 @@ export type ComfyQueueResult = {
 
 /** Max prompts accepted by /api/comfyui in one request. */
 export const COMFYUI_MAX_BATCH_PROMPTS = 12;
+
+export type ComfyPromptPostBody = {
+  prompt: Record<string, unknown>;
+  client_id: string;
+  extra_data: {
+    preview_method: 'auto';
+    extra_pnginfo: {
+      workflow: Record<string, unknown>;
+    };
+  };
+  front?: boolean;
+};
+
+/** Body for ComfyUI `POST /prompt`, including PNG replay metadata. */
+export function buildComfyPromptPostBody(input: {
+  prompt: Record<string, unknown>;
+  clientId: string;
+  front?: boolean;
+}): ComfyPromptPostBody {
+  return {
+    prompt: input.prompt,
+    client_id: input.clientId,
+    extra_data: {
+      preview_method: 'auto',
+      extra_pnginfo: {
+        workflow: input.prompt,
+      },
+    },
+    ...(input.front ? { front: true } : {}),
+  };
+}
 
 function envComfyUiBaseUrl(): string {
   return (
@@ -565,13 +598,13 @@ export async function queuePromptToComfyUi(
       fetch(`${apiUrl}/prompt`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: resolvedPromptBody.prompt,
-          client_id: clientId,
-          extra_data: {
-            preview_method: 'auto',
-          },
-        }),
+        body: JSON.stringify(
+          buildComfyPromptPostBody({
+            prompt: resolvedPromptBody.prompt as Record<string, unknown>,
+            clientId,
+            front: request.front === true,
+          })
+        ),
       });
 
     let workflowResponse: Response;

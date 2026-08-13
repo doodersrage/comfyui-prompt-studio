@@ -13,7 +13,11 @@ export type ComfyUploadedImage = {
   height?: number;
 };
 
-async function uploadJson(file: File, comfyUrl: string | undefined): Promise<ComfyUploadedImage> {
+async function uploadJson(
+  file: File,
+  comfyUrl: string | undefined,
+  extra?: { kind?: 'image' | 'mask'; originalRef?: ComfyUploadedImage }
+): Promise<ComfyUploadedImage> {
   const image = await fileToDataUrl(file);
   // ~10MB proxy/Next truncation — refuse before a cryptic JSON parse error.
   if (image.length > 9_000_000) {
@@ -30,6 +34,16 @@ async function uploadJson(file: File, comfyUrl: string | undefined): Promise<Com
       mimeType: file.type || 'image/png',
       filename: file.name || 'prompt-studio-upload.png',
       ...(comfyUrl ? { comfyUrl } : {}),
+      ...(extra?.kind ? { kind: extra.kind } : {}),
+      ...(extra?.originalRef?.name
+        ? {
+            originalRef: {
+              filename: extra.originalRef.name,
+              type: extra.originalRef.type,
+              subfolder: extra.originalRef.subfolder,
+            },
+          }
+        : {}),
     }),
   });
 
@@ -47,12 +61,26 @@ async function uploadJson(file: File, comfyUrl: string | undefined): Promise<Com
 
 async function uploadMultipart(
   file: File,
-  comfyUrl: string | undefined
+  comfyUrl: string | undefined,
+  extra?: { kind?: 'image' | 'mask'; originalRef?: ComfyUploadedImage }
 ): Promise<ComfyUploadedImage> {
   const formData = new FormData();
   formData.append('image', file, file.name);
   if (comfyUrl) {
     formData.append('comfyUrl', comfyUrl);
+  }
+  if (extra?.kind) {
+    formData.append('kind', extra.kind);
+  }
+  if (extra?.originalRef?.name) {
+    formData.append(
+      'originalRef',
+      JSON.stringify({
+        filename: extra.originalRef.name,
+        type: extra.originalRef.type,
+        subfolder: extra.originalRef.subfolder,
+      })
+    );
   }
 
   const response = await fetch('/api/comfyui/upload', {
@@ -76,16 +104,25 @@ export async function uploadComfyInputImage(input: {
   file: File;
   model?: ComfyImageModel | string;
   comfyUrl?: string;
+  kind?: 'image' | 'mask';
+  originalRef?: ComfyUploadedImage;
 }): Promise<ComfyUploadedImage> {
   const runtime = input.model ? resolveRuntimeForModel(input.model as ComfyImageModel) : undefined;
   const comfyUrl = input.comfyUrl?.trim() || runtime?.apiUrl?.trim() || undefined;
+  const extra = {
+    kind: input.kind,
+    originalRef: input.originalRef,
+  };
 
-  // Compress first so neither FormData nor JSON hits the ~10MB truncation wall.
-  const prepared = await compressImageForEngineUpload(input.file, {
-    maxEdge: 2048,
-    maxBytes: 7_000_000,
-    quality: 0.92,
-  });
+  // Masks stay lossless so inpaint edges remain sharp. Compress figures only.
+  const prepared =
+    input.kind === 'mask'
+      ? input.file
+      : await compressImageForEngineUpload(input.file, {
+          maxEdge: 2048,
+          maxBytes: 7_000_000,
+          quality: 0.92,
+        });
 
   let width: number | undefined;
   let height: number | undefined;
@@ -101,7 +138,7 @@ export async function uploadComfyInputImage(input: {
   }
 
   try {
-    const uploaded = await uploadMultipart(prepared, comfyUrl);
+    const uploaded = await uploadMultipart(prepared, comfyUrl, extra);
     return { ...uploaded, width, height };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -109,7 +146,7 @@ export async function uploadComfyInputImage(input: {
     if (!/FormData|parse body|multipart/i.test(message)) {
       throw error;
     }
-    const uploaded = await uploadJson(prepared, comfyUrl);
+    const uploaded = await uploadJson(prepared, comfyUrl, extra);
     return { ...uploaded, width, height };
   }
 }

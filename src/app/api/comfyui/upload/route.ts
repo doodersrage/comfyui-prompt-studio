@@ -20,7 +20,7 @@ export async function POST(request: Request) {
 
     let comfyUrl: string;
     try {
-      comfyUrl = getComfyUiBaseUrl(runtime);
+      comfyUrl = getComfyUiBaseUrl(runtime).replace(/\/+$/, '');
     } catch (error) {
       return apiError(error instanceof Error ? error.message : 'Invalid ComfyUI URL.', 400);
     }
@@ -29,7 +29,20 @@ export async function POST(request: Request) {
     uploadForm.append('image', image, image.name);
     uploadForm.append('overwrite', 'true');
 
-    const response = await fetch(`${comfyUrl}/upload/image`, {
+    const isMask = incoming.kind === 'mask' && incoming.originalRef?.filename;
+    if (isMask && incoming.originalRef) {
+      uploadForm.append(
+        'original_ref',
+        JSON.stringify({
+          filename: incoming.originalRef.filename,
+          type: incoming.originalRef.type?.trim() || 'input',
+          subfolder: incoming.originalRef.subfolder?.trim() || '',
+        })
+      );
+    }
+
+    const uploadPath = isMask ? '/upload/mask' : '/upload/image';
+    const response = await fetch(`${comfyUrl}${uploadPath}`, {
       method: 'POST',
       body: uploadForm,
       signal: AbortSignal.timeout(60000),

@@ -1,6 +1,11 @@
-import { listComfyUiHistoryImports } from '@/lib/comfyui-status';
+import { apiError, apiJson } from '@/lib/api/response';
+import { getComfyUiBaseUrl } from '@/lib/comfyui-client';
 import { stripEmptyComfyUiRuntime } from '@/lib/comfyui-config';
-import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
+import {
+  buildComfyHistoryDeletePayload,
+  deleteComfyUiHistoryItems,
+  listComfyUiHistoryImports,
+} from '@/lib/comfyui-status';
 import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
@@ -25,8 +30,36 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST() {
-  return apiMethodNotAllowed(['GET'], '/api/comfyui/history');
+export async function POST(request: Request) {
+  let body: { comfyUrl?: string; promptIds?: string[]; delete?: string[] } = {};
+  try {
+    body = (await request.json()) as typeof body;
+  } catch {
+    body = {};
+  }
+
+  const promptIds = [
+    ...(Array.isArray(body.promptIds) ? body.promptIds : []),
+    ...(Array.isArray(body.delete) ? body.delete : []),
+  ];
+  const payload = buildComfyHistoryDeletePayload(promptIds);
+  if (payload.delete.length === 0) {
+    return apiError('promptIds are required.', 400);
+  }
+
+  const runtime = stripEmptyComfyUiRuntime({ apiUrl: body.comfyUrl });
+  let baseUrl: string;
+  try {
+    baseUrl = getComfyUiBaseUrl(runtime);
+  } catch (error) {
+    return apiError(error instanceof Error ? error.message : 'Invalid ComfyUI URL.', 400);
+  }
+
+  const ok = await deleteComfyUiHistoryItems(baseUrl, payload.delete);
+  if (!ok) {
+    return apiError('ComfyUI history delete failed.', 502);
+  }
+  return apiJson({ ok: true, deleted: payload.delete.length });
 }
 
 export function OPTIONS() {
@@ -34,7 +67,7 @@ export function OPTIONS() {
     status: 204,
     headers: {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     },
   });

@@ -1,9 +1,17 @@
 import { splitImageDataUrl } from '@/lib/vision-image-prepare';
 
+export type ComfyUploadOriginalRef = {
+  filename: string;
+  type?: string;
+  subfolder?: string;
+};
+
 export type ParsedEngineUpload = {
   file: File;
   comfyUrl?: string;
   engineUrl?: string;
+  kind?: 'image' | 'mask';
+  originalRef?: ComfyUploadOriginalRef;
 };
 
 const MAX_JSON_IMAGE_CHARS = 35_000_000;
@@ -43,6 +51,35 @@ function fileFromDataUrl(image: string, mimeTypeHint?: string, filenameHint?: st
   return new File([new Uint8Array(bytes)], filename, { type: mimeType });
 }
 
+function parseOriginalRef(raw: unknown): ComfyUploadOriginalRef | undefined {
+  if (typeof raw === 'string' && raw.trim()) {
+    try {
+      return parseOriginalRef(JSON.parse(raw) as unknown);
+    } catch {
+      return undefined;
+    }
+  }
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return undefined;
+  }
+  const filename =
+    typeof (raw as { filename?: unknown }).filename === 'string'
+      ? (raw as { filename: string }).filename.trim()
+      : '';
+  if (!filename) {
+    return undefined;
+  }
+  const type =
+    typeof (raw as { type?: unknown }).type === 'string'
+      ? (raw as { type: string }).type.trim()
+      : undefined;
+  const subfolder =
+    typeof (raw as { subfolder?: unknown }).subfolder === 'string'
+      ? (raw as { subfolder: string }).subfolder.trim()
+      : undefined;
+  return { filename, ...(type ? { type } : {}), ...(subfolder ? { subfolder } : {}) };
+}
+
 async function parseMultipartUpload(request: Request): Promise<ParsedEngineUpload> {
   let formData: FormData;
   try {
@@ -70,8 +107,10 @@ async function parseMultipartUpload(request: Request): Promise<ParsedEngineUploa
 
   const comfyUrl = formData.get('comfyUrl')?.toString().trim() || undefined;
   const engineUrl = formData.get('engineUrl')?.toString().trim() || comfyUrl || undefined;
+  const kind = formData.get('kind')?.toString().trim() === 'mask' ? 'mask' : undefined;
+  const originalRef = parseOriginalRef(formData.get('originalRef')?.toString());
 
-  return { file: image, comfyUrl, engineUrl };
+  return { file: image, comfyUrl, engineUrl, kind, originalRef };
 }
 
 async function parseJsonUpload(request: Request): Promise<ParsedEngineUpload> {
@@ -81,6 +120,8 @@ async function parseJsonUpload(request: Request): Promise<ParsedEngineUpload> {
     filename?: string;
     comfyUrl?: string;
     engineUrl?: string;
+    kind?: string;
+    originalRef?: unknown;
   };
 
   if (!body.image?.trim()) {
@@ -93,7 +134,9 @@ async function parseJsonUpload(request: Request): Promise<ParsedEngineUpload> {
   const file = fileFromDataUrl(body.image, body.mimeType, body.filename);
   const comfyUrl = body.comfyUrl?.trim() || undefined;
   const engineUrl = body.engineUrl?.trim() || comfyUrl || undefined;
-  return { file, comfyUrl, engineUrl };
+  const kind = body.kind?.trim() === 'mask' ? 'mask' : undefined;
+  const originalRef = parseOriginalRef(body.originalRef);
+  return { file, comfyUrl, engineUrl, kind, originalRef };
 }
 
 /**

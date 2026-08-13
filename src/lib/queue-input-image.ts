@@ -8,12 +8,20 @@ export type ResolveQueueInputImageOptions = {
   filename?: string;
   imageUrl?: string;
   model?: ComfyImageModel | string;
+  kind?: 'image' | 'mask';
+  originalRef?: {
+    name: string;
+    subfolder?: string;
+    type?: string;
+  };
 };
 
 export type ResolvedQueueInputImage = {
   filename: string;
   width?: number;
   height?: number;
+  subfolder?: string;
+  type?: string;
 };
 
 export async function resolveQueueInputImageFilename(
@@ -31,11 +39,15 @@ export async function resolveQueueInputImage(
     const uploaded = await uploadComfyInputImage({
       file: options.file,
       model: options.model,
+      kind: options.kind,
+      originalRef: options.originalRef,
     });
     return {
       filename: uploaded.name,
       width: uploaded.width,
       height: uploaded.height,
+      subfolder: uploaded.subfolder,
+      type: uploaded.type,
     };
   }
 
@@ -47,11 +59,18 @@ export async function resolveQueueInputImage(
     const blob = await response.blob();
     const filename = options.filename?.trim() || `prompt-studio-${Date.now()}.png`;
     const file = new File([blob], filename, { type: blob.type || 'image/png' });
-    const uploaded = await uploadComfyInputImage({ file, model: options.model });
+    const uploaded = await uploadComfyInputImage({
+      file,
+      model: options.model,
+      kind: options.kind,
+      originalRef: options.originalRef,
+    });
     return {
       filename: uploaded.name,
       width: uploaded.width,
       height: uploaded.height,
+      subfolder: uploaded.subfolder,
+      type: uploaded.type,
     };
   }
 

@@ -598,6 +598,10 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
 
         let inputImageFilename = options?.inputImageFilename?.trim();
         let uploadedFigureSize: { width: number; height: number } | undefined;
+        let sourceImageRef: { name: string; subfolder?: string; type?: string } | undefined =
+          inputImageFilename
+            ? { name: inputImageFilename, type: 'input', subfolder: '' }
+            : undefined;
         const uploadedFilenames: string[] = [
           ...(options?.inputImageFilenames ?? []).map(name => name?.trim() ?? ''),
         ];
@@ -625,6 +629,13 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             model: queueModel,
           });
           inputImageFilename = uploaded?.filename;
+          if (uploaded?.filename) {
+            sourceImageRef = {
+              name: uploaded.filename,
+              subfolder: uploaded.subfolder,
+              type: uploaded.type ?? 'input',
+            };
+          }
           if (uploaded?.width && uploaded?.height && uploaded.width > 0 && uploaded.height > 0) {
             uploadedFigureSize = {
               width: uploaded.width,
@@ -693,6 +704,8 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             filename: options.maskImageFilename,
             imageUrl: options.maskImageUrl,
             model: queueModel,
+            kind: 'mask',
+            originalRef: sourceImageRef,
           });
         }
 
@@ -900,6 +913,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           negativePrompt,
           model: queueModel,
           params: queueParams,
+          front: true,
           ...(engineAdapter.id === 'diffusers'
             ? {
                 engineUrl: engineSettings.diffusersApiUrl,

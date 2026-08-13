@@ -815,13 +815,42 @@ export function setGalleryReviewNote(id: string, reviewNote?: string): void {
   updateComfyGalleryEntryById(id, { reviewNote: trimmed });
 }
 
+function pruneComfyHistoryForEntries(entries: ComfyGalleryEntry[]): void {
+  const byHost = new Map<string, string[]>();
+  for (const entry of entries) {
+    const promptId = entry.promptId?.trim();
+    if (!promptId) {
+      continue;
+    }
+    const host = entry.comfyUrl?.trim() || '';
+    const list = byHost.get(host) ?? [];
+    list.push(promptId);
+    byHost.set(host, list);
+  }
+  if (byHost.size === 0) {
+    return;
+  }
+  void import('./comfyui-queue-control').then(({ deleteComfyHistoryPrompts }) => {
+    for (const [comfyUrl, promptIds] of byHost) {
+      void deleteComfyHistoryPrompts({
+        promptIds,
+        ...(comfyUrl ? { comfyUrl } : {}),
+      });
+    }
+  });
+}
+
 export function removeComfyGalleryEntry(id: string): void {
+  const existing = loadComfyGallery().find(entry => entry.id === id);
   const deletedIds = rememberGalleryDeletedIds([id]);
   const next = loadComfyGallery().filter(entry => entry.id !== id);
   saveComfyGallery(next, { syncRemote: false });
   void import('./gallery-server-sync').then(({ pushGalleryDeletionsToServer }) =>
     pushGalleryDeletionsToServer(next, deletedIds)
   );
+  if (existing) {
+    pruneComfyHistoryForEntries([existing]);
+  }
 }
 
 export function removeComfyGalleryEntries(ids: string[]): void {
@@ -829,12 +858,14 @@ export function removeComfyGalleryEntries(ids: string[]): void {
     return;
   }
   const idSet = new Set(ids);
+  const removed = loadComfyGallery().filter(entry => idSet.has(entry.id));
   const deletedIds = rememberGalleryDeletedIds(ids);
   const next = loadComfyGallery().filter(entry => !idSet.has(entry.id));
   saveComfyGallery(next, { syncRemote: false });
   void import('./gallery-server-sync').then(({ pushGalleryDeletionsToServer }) =>
     pushGalleryDeletionsToServer(next, deletedIds)
   );
+  pruneComfyHistoryForEntries(removed);
 }
 
 export function setComfyGalleryProjectIds(ids: string[], projectId: string | undefined): void {

@@ -95,6 +95,9 @@ export type HealthResponse = {
     queuePending?: number;
     queueRunning?: number;
     vram?: { free?: number; total?: number };
+    ram?: { free?: number; total?: number };
+    version?: string;
+    deviceName?: string;
   };
   diffusers?: {
     ok: boolean;
@@ -139,6 +142,9 @@ export type HealthResponse = {
       queuePending?: number;
       queueRunning?: number;
       vram?: { free?: number; total?: number };
+      ram?: { free?: number; total?: number };
+      version?: string;
+      deviceName?: string;
     }>;
   };
   collab?: {

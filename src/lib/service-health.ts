@@ -1,6 +1,7 @@
 import { getComfyUiBaseUrl } from './comfyui-client';
 import type { ComfyUiRuntimeConfig } from './comfyui-config';
 import { parseComfyUiPool, setComfyUiPoolStatsCache } from './comfyui-pool';
+import { parseComfyUiSystemStats } from './comfyui-system-stats';
 import { getDiffusersBaseUrl } from './diffusers-client';
 import {
   getLlmConfig,
@@ -29,6 +30,9 @@ export type ComfyUiHealth = {
   queuePending?: number;
   queueRunning?: number;
   vram?: { free?: number; total?: number };
+  ram?: { free?: number; total?: number };
+  version?: string;
+  deviceName?: string;
 };
 
 export type ComfyUiPoolEndpointHealth = ComfyUiHealth & {
@@ -61,12 +65,6 @@ type ComfyQueuePayload = {
   queue_running?: unknown[];
 };
 
-type ComfySystemStats = {
-  system?: {
-    vram?: { free?: number; total?: number };
-  };
-};
-
 export async function getExpandedComfyUiHealth(
   runtime?: ComfyUiRuntimeConfig
 ): Promise<ComfyUiHealth> {
@@ -77,29 +75,23 @@ export async function getExpandedComfyUiHealth(
 
   let queuePending: number | undefined;
   let queueRunning: number | undefined;
-  let vram: ComfyUiHealth['vram'];
 
   try {
-    const [queueResponse, statsResponse] = await Promise.all([
-      fetch(`${base.url}/queue`, { signal: AbortSignal.timeout(5000), redirect: 'manual' }),
-      fetch(`${base.url}/system_stats`, { signal: AbortSignal.timeout(5000), redirect: 'manual' }),
-    ]);
+    const queueResponse = await fetch(`${base.url}/queue`, {
+      signal: AbortSignal.timeout(5000),
+      redirect: 'manual',
+    });
 
     if (queueResponse.ok) {
       const queue = (await queueResponse.json()) as ComfyQueuePayload;
       queuePending = queue.queue_pending?.length ?? 0;
       queueRunning = queue.queue_running?.length ?? 0;
     }
-
-    if (statsResponse.ok) {
-      const stats = (await statsResponse.json()) as ComfySystemStats;
-      vram = stats.system?.vram;
-    }
   } catch {
     // keep base health only
   }
 
-  return { ...base, queuePending, queueRunning, vram };
+  return { ...base, queuePending, queueRunning };
 }
 
 export async function checkLlmHealth(): Promise<LlmHealth> {
@@ -190,7 +182,15 @@ export async function checkComfyUiHealth(runtime?: ComfyUiRuntimeConfig): Promis
       return { ok: false, url, error: `HTTP ${response.status}` };
     }
 
-    return { ok: true, url };
+    const stats = parseComfyUiSystemStats(await response.json().catch(() => null));
+    return {
+      ok: true,
+      url,
+      ...(stats.vram ? { vram: stats.vram } : {}),
+      ...(stats.ram ? { ram: stats.ram } : {}),
+      ...(stats.version ? { version: stats.version } : {}),
+      ...(stats.deviceName ? { deviceName: stats.deviceName } : {}),
+    };
   } catch (error) {
     return {
       ok: false,

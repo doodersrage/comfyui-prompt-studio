@@ -133,7 +133,7 @@ export async function getComfyUiPromptStatus(
       return applyQueueContext(status, queue);
     }
 
-    const allResponse = await fetch(`${comfyUrl}/history`, {
+    const allResponse = await fetch(`${comfyUrl}/history?max_items=80`, {
       signal: AbortSignal.timeout(8000),
     });
 
@@ -336,14 +336,43 @@ function extractCheckpointHintFromWorkflow(workflow: Record<string, unknown>): s
   return undefined;
 }
 
+export function buildComfyHistoryDeletePayload(promptIds: string[]): { delete: string[] } {
+  return {
+    delete: [...new Set(promptIds.map(id => id.trim()).filter(Boolean))],
+  };
+}
+
+export async function deleteComfyUiHistoryItems(
+  comfyUrl: string,
+  promptIds: string[]
+): Promise<boolean> {
+  const payload = buildComfyHistoryDeletePayload(promptIds);
+  if (payload.delete.length === 0) {
+    return true;
+  }
+
+  try {
+    const response = await fetch(`${comfyUrl.replace(/\/+$/, '')}/history`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(8000),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function listComfyUiHistoryImports(
   runtime?: ComfyUiRuntimeConfig,
   limit = 40
 ): Promise<ComfyHistoryImportItem[]> {
   const comfyUrl = getComfyUiBaseUrl(runtime);
+  const maxItems = Math.min(80, Math.max(1, limit));
 
   try {
-    const response = await fetch(`${comfyUrl}/history`, {
+    const response = await fetch(`${comfyUrl}/history?max_items=${maxItems}`, {
       signal: AbortSignal.timeout(12000),
     });
 

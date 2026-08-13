@@ -2,11 +2,7 @@
 
 import { updateComfyGalleryEntryById, type ComfyGalleryEntry } from './comfyui-gallery';
 import { cancelComfyGalleryPoll } from './comfyui-gallery-poller';
-import {
-  deleteComfyQueuePrompt,
-  interruptComfyUiQueue,
-  type ComfyQueueActionResult,
-} from './comfyui-queue-control';
+import { cancelComfyUiJob, type ComfyQueueActionResult } from './comfyui-queue-control';
 
 export type CancelComfyGalleryJobInput = Pick<
   ComfyGalleryEntry,
@@ -14,9 +10,9 @@ export type CancelComfyGalleryJobInput = Pick<
 >;
 
 /**
- * Cancels a pending or running gallery job: interrupts ComfyUI first when the
- * job is the one currently executing, deletes it from the queue, stops any
- * in-flight local poller, and marks the gallery entry as cancelled.
+ * Cancels a pending or running gallery job: targeted interrupt + queue delete,
+ * prune Comfy history so import cannot resurrect it, stop the local poller,
+ * and mark the gallery entry cancelled.
  */
 export async function cancelComfyGalleryJob(
   entry: CancelComfyGalleryJobInput
@@ -26,14 +22,10 @@ export async function cancelComfyGalleryJob(
     return { ok: false, error: 'Missing prompt id.' };
   }
 
-  if (entry.status === 'running') {
-    // Best-effort — still attempt the queue delete below even if this fails.
-    await interruptComfyUiQueue(entry.comfyUrl);
-  }
-
-  const deleted = await deleteComfyQueuePrompt({
+  const cancelled = await cancelComfyUiJob({
     promptId,
     comfyUrl: entry.comfyUrl,
+    deleteHistory: true,
   });
 
   cancelComfyGalleryPoll(promptId);
@@ -48,5 +40,5 @@ export async function cancelComfyGalleryJob(
     completedAt: Date.now(),
   });
 
-  return deleted;
+  return cancelled;
 }

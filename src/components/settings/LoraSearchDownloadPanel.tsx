@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { COMFY_ASSET_JOBS_UPDATED_EVENT } from '@/lib/comfy-asset-events';
 import { civitaiBaseModelForStudioModel, type CivitaiLoraSearchHit } from '@/lib/civitai-lora';
 import { restartComfyUi } from '@/lib/comfyui-queue-control';
-import { fetchComfyObjectInfoModelsCached } from '@/lib/comfyui-object-info-cache';
+import { fetchComfyLoraInventory } from '@/lib/comfyui-object-info-cache';
 import { loadSettingsCache } from '@/lib/settings-cache';
 import { celebrateSystemTray } from '@/lib/system-tray-celebrate';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
@@ -222,7 +222,7 @@ export default function LoraSearchDownloadPanel({
         for (const job of finished) {
           completedIdsRef.current.add(job.id);
           celebrateSystemTray('download');
-          await fetchComfyObjectInfoModelsCached({
+          await fetchComfyLoraInventory({
             comfyUrl: comfyUrlRef.current?.trim() || undefined,
             forceRefresh: true,
           }).catch(() => null);

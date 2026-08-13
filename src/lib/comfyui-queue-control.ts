@@ -72,9 +72,43 @@ export function deleteComfyQueuePrompt(input: {
   });
 }
 
-/** Sends ComfyUI's `/interrupt`, optionally scoped to a specific pooled host. */
-export function interruptComfyUiQueue(comfyUrl?: string): Promise<ComfyQueueActionResult> {
-  return postComfyQueueAction('/api/comfyui/interrupt', comfyUrl ? { comfyUrl } : {});
+/** Sends ComfyUI's `/interrupt`, optionally scoped to a host and prompt. */
+export function interruptComfyUiQueue(
+  comfyUrl?: string,
+  promptId?: string
+): Promise<ComfyQueueActionResult> {
+  const body: Record<string, unknown> = {};
+  if (comfyUrl?.trim()) {
+    body.comfyUrl = comfyUrl.trim();
+  }
+  if (promptId?.trim()) {
+    body.promptId = promptId.trim();
+  }
+  return postComfyQueueAction('/api/comfyui/interrupt', body);
+}
+
+/** Cancels one job via interrupt + queue delete + history prune. */
+export function cancelComfyUiJob(input: {
+  promptId: string;
+  comfyUrl?: string;
+  deleteHistory?: boolean;
+}): Promise<ComfyQueueActionResult> {
+  return postComfyQueueAction('/api/comfyui/cancel', {
+    promptId: input.promptId,
+    comfyUrl: input.comfyUrl,
+    deleteHistory: input.deleteHistory,
+  });
+}
+
+/** Best-effort prune of ComfyUI `/history` entries after gallery delete. */
+export function deleteComfyHistoryPrompts(input: {
+  promptIds: string[];
+  comfyUrl?: string;
+}): Promise<ComfyQueueActionResult> {
+  return postComfyQueueAction('/api/comfyui/history', {
+    promptIds: input.promptIds,
+    comfyUrl: input.comfyUrl,
+  });
 }
 
 /**

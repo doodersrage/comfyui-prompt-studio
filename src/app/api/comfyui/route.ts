@@ -34,6 +34,8 @@ type ComfyUiRequestBody = {
   paramsPerPrompt?: WorkflowParamValues[];
   /** Browser WebSocket client id for live latent previews. */
   clientId?: string;
+  /** Jump ahead of pending jobs (interactive singles). Ignored for batches. */
+  front?: boolean;
   comfy?: ComfyUiRuntimeConfig;
   /** Diffusers-first: classify + /v1/workflow, then optional Comfy fallback. */
   preferDiffusers?: boolean;
@@ -83,6 +85,7 @@ export async function POST(request: Request) {
           model: runtime?.queueTargetModel ?? body.model,
           params: resolvedQueue.params,
           clientId: body.clientId?.trim() || undefined,
+          front: body.front === true,
         },
         runtime,
         {

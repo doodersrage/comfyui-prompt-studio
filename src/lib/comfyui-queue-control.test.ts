@@ -5,6 +5,8 @@ import {
   deleteComfyQueuePrompt,
   freeComfyUiMemory,
   interruptComfyUiQueue,
+  cancelComfyUiJob,
+  deleteComfyHistoryPrompts,
   restartComfyUi,
 } from "./comfyui-queue-control";
 
@@ -139,6 +141,65 @@ describe("interruptComfyUiQueue", () => {
 
     assert.deepEqual(JSON.parse(String(calls[0]!.init?.body)), {
       comfyUrl: "http://10.0.0.5:8188",
+    });
+  });
+
+  it("includes promptId when interrupting a specific job", async () => {
+    const calls = stubFetch(() => ({ ok: true, body: { ok: true } }));
+
+    await interruptComfyUiQueue("http://10.0.0.5:8188", "prompt-1");
+
+    assert.deepEqual(JSON.parse(String(calls[0]!.init?.body)), {
+      comfyUrl: "http://10.0.0.5:8188",
+      promptId: "prompt-1",
+    });
+  });
+});
+
+describe("cancelComfyUiJob", () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it("posts promptId and history prune to the cancel route", async () => {
+    const calls = stubFetch(() => ({ ok: true, body: { ok: true } }));
+
+    await cancelComfyUiJob({
+      promptId: "abc-123",
+      comfyUrl: "http://127.0.0.1:8188",
+      deleteHistory: true,
+    });
+
+    assert.equal(calls[0]!.url, "/api/comfyui/cancel");
+    assert.deepEqual(JSON.parse(String(calls[0]!.init?.body)), {
+      promptId: "abc-123",
+      comfyUrl: "http://127.0.0.1:8188",
+      deleteHistory: true,
+    });
+  });
+});
+
+describe("deleteComfyHistoryPrompts", () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it("posts prompt ids to the history route", async () => {
+    const calls = stubFetch(() => ({ ok: true, body: { ok: true } }));
+
+    await deleteComfyHistoryPrompts({
+      promptIds: ["a", "b"],
+      comfyUrl: "http://127.0.0.1:8188",
+    });
+
+    assert.equal(calls[0]!.url, "/api/comfyui/history");
+    assert.deepEqual(JSON.parse(String(calls[0]!.init?.body)), {
+      promptIds: ["a", "b"],
+      comfyUrl: "http://127.0.0.1:8188",
     });
   });
 });

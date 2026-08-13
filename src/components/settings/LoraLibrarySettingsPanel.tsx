@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EmptyState } from '@/components/ui/ViewState';
-import { fetchComfyObjectInfoModelsCached } from '@/lib/comfyui-object-info-cache';
+import { fetchComfyLoraInventory, fetchLoraTriggerPhrase } from '@/lib/comfyui-object-info-cache';
 import {
   createEmptyLoraLibraryEntry,
   createLoraLibraryEntryFromFilename,
@@ -26,7 +26,11 @@ export default function LoraLibrarySettingsPanel({
   onChange,
   onStatus,
 }: LoraLibrarySettingsPanelProps) {
-  const entries = library ?? [];
+  const entries = useMemo(() => library ?? [], [library]);
+  const entriesRef = useRef(entries);
+  useEffect(() => {
+    entriesRef.current = entries;
+  }, [entries]);
   const [inventoryLoras, setInventoryLoras] = useState<string[]>([]);
   const [inventoryLoading, setInventoryLoading] = useState(false);
   const [inventoryError, setInventoryError] = useState<string | null>(null);
@@ -36,20 +40,19 @@ export default function LoraLibrarySettingsPanel({
     setInventoryLoading(true);
     setInventoryError(null);
     try {
-      const models = await fetchComfyObjectInfoModelsCached({
-        comfyUrl: comfyUrl?.trim() || undefined,
-        forceRefresh: true,
-      });
-      const loras = [...(models?.loras ?? [])]
+      const loras = [
+        ...((await fetchComfyLoraInventory({
+          comfyUrl: comfyUrl?.trim() || undefined,
+          forceRefresh: true,
+        })) ?? []),
+      ]
         .map(name => name.trim())
         .filter(Boolean)
         .sort((a, b) => a.localeCompare(b));
       setInventoryLoras(loras);
-      if (!models) {
-        setInventoryError('Could not load ComfyUI LoRA inventory.');
-      } else if (loras.length === 0) {
+      if (loras.length === 0) {
         setInventoryError(
-          'ComfyUI responded, but no LoRA filenames were listed on LoraLoader / LoraLoaderModelOnly.'
+          'Could not load ComfyUI LoRA inventory. Start ComfyUI or check Settings → ComfyUI URL.'
         );
       }
     } catch {
@@ -110,9 +113,24 @@ export default function LoraLibrarySettingsPanel({
 
   const addFromInventory = useCallback(
     (filename: string) => {
-      onChange([...entries, createLoraLibraryEntryFromFilename(filename, entries)]);
+      const entry = createLoraLibraryEntryFromFilename(filename, entries);
+      const next = [...entries, entry];
+      entriesRef.current = next;
+      onChange(next);
+      void fetchLoraTriggerPhrase(filename, comfyUrl?.trim() || undefined).then(trigger => {
+        if (!trigger) {
+          return;
+        }
+        onChange(
+          entriesRef.current.map(item =>
+            item.tokenValue === filename && !item.triggerPhrase.trim()
+              ? { ...item, triggerPhrase: trigger }
+              : item
+          )
+        );
+      });
     },
-    [entries, onChange]
+    [comfyUrl, entries, onChange]
   );
 
   const removeEntry = useCallback(
@@ -336,6 +354,36 @@ export default function LoraLibrarySettingsPanel({
                       />
                     </label>
                   </div>
+                  <label className="space-y-1 text-xs text-[var(--text-muted)]">
+                    <span className="flex items-center justify-between gap-2">
+                      Trigger phrase
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const filename = entry.tokenValue?.trim();
+                          if (!filename) {
+                            return;
+                          }
+                          void fetchLoraTriggerPhrase(filename, comfyUrl?.trim() || undefined).then(
+                            trigger => {
+                              if (trigger) {
+                                updateEntry(index, { triggerPhrase: trigger });
+                              }
+                            }
+                          );
+                        }}
+                        className="type-caption ui-text-link"
+                      >
+                        From metadata
+                      </button>
+                    </span>
+                    <input
+                      value={entry.triggerPhrase}
+                      onChange={event => updateEntry(index, { triggerPhrase: event.target.value })}
+                      placeholder="activation tags from the safetensors header"
+                      className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-base)] px-3 py-2 text-sm text-[var(--text-primary)]"
+                    />
+                  </label>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <label className="space-y-1 text-xs text-[var(--text-muted)]">
                       <span className="flex items-center justify-between">

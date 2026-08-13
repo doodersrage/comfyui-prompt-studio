@@ -437,6 +437,7 @@ export async function requeueUpscaleFromGalleryEntry(
       model,
       params,
       comfy: runtime,
+      front: true,
     });
 
     if (!queued.ok || !queued.promptId) {
@@ -607,6 +608,7 @@ export async function requeueMoireCleanFromGalleryEntry(
     model,
     params: { inputImageFilename },
     comfy: runtime,
+    front: true,
   });
 
   if (!queued.ok || !queued.promptId) {
@@ -755,6 +757,7 @@ export async function requeueRefineFromGalleryEntry(
     model,
     params,
     comfy: runtime,
+    front: true,
   });
 
   if (!queued.ok || !queued.promptId) {
@@ -912,6 +915,7 @@ export async function requeueFaceDetailFromGalleryEntry(
     model,
     params: faceDetailParams,
     comfy: runtime,
+    front: true,
   });
 
   if (!queued.ok || !queued.promptId) {
@@ -1408,6 +1412,7 @@ export async function requeueComfyJob(input: RequeueComfyJobInput): Promise<Requ
     model,
     ...(params ? { params } : {}),
     ...(comfyPayload ? { comfy: comfyPayload } : {}),
+    front: true,
     // Native Diffusers path (no workflow) applies Comfy-parity Lanczos post.
     qualityProfile: effectiveQualityProfile,
     hasInputImage: Boolean(params.inputImageFilename || input.sourceImageUrl?.trim()),

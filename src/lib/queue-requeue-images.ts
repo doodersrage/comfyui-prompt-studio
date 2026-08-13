@@ -175,6 +175,10 @@ export async function refreshQueueImageParamsForRequeue(input: {
         imageUrl: input.maskImageUrl,
         filename: base.maskImageFilename,
         model,
+        kind: 'mask',
+        originalRef: base.inputImageFilename
+          ? { name: base.inputImageFilename, type: 'input', subfolder: '' }
+          : undefined,
       });
     } catch {
       // Keep stale mask filename.

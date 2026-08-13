@@ -125,6 +125,80 @@ export async function fetchComfyObjectInfoNodeTypesCached(input?: {
   return payload?.nodeTypes ?? null;
 }
 
+export function patchCachedComfyLoraList(loras: string[], comfyUrl?: string): void {
+  const resolved = resolveCacheUrl(comfyUrl);
+  if (!memoryCache) {
+    return;
+  }
+  if (resolved && memoryCache.comfyUrl !== resolved && memoryCache.comfyUrl !== 'default') {
+    return;
+  }
+  memoryCache = {
+    ...memoryCache,
+    fetchedAt: Date.now(),
+    models: {
+      ...memoryCache.models,
+      loras: [...new Set(loras.map(name => name.trim()).filter(Boolean))],
+    },
+  };
+}
+
+export async function fetchComfyLoraInventory(input?: {
+  comfyUrl?: string;
+  forceRefresh?: boolean;
+}): Promise<string[] | null> {
+  const comfyUrl = input?.comfyUrl?.trim() || resolveComfyUiRuntime()?.apiUrl?.trim() || '';
+  const params = new URLSearchParams({ folder: 'loras' });
+  if (comfyUrl) {
+    params.set('comfyUrl', comfyUrl);
+  }
+  try {
+    const response = await fetch(`/api/comfyui/models?${params.toString()}`);
+    if (response.ok) {
+      const data = (await response.json()) as { files?: string[] };
+      const files = Array.isArray(data.files)
+        ? data.files.map(name => name.trim()).filter(Boolean)
+        : [];
+      if (files.length > 0) {
+        patchCachedComfyLoraList(files, comfyUrl);
+        return files;
+      }
+    }
+  } catch {
+    // fall through to object_info
+  }
+
+  const models = await fetchComfyObjectInfoModelsCached({
+    comfyUrl: comfyUrl || undefined,
+    forceRefresh: input?.forceRefresh,
+  });
+  return models?.loras ?? null;
+}
+
+export async function fetchLoraTriggerPhrase(filename: string, comfyUrl?: string): Promise<string> {
+  const trimmed = filename.trim();
+  if (!trimmed) {
+    return '';
+  }
+  const params = new URLSearchParams({
+    folder: 'loras',
+    filename: trimmed,
+  });
+  if (comfyUrl?.trim()) {
+    params.set('comfyUrl', comfyUrl.trim());
+  }
+  try {
+    const response = await fetch(`/api/comfyui/view-metadata?${params.toString()}`);
+    if (!response.ok) {
+      return '';
+    }
+    const data = (await response.json()) as { triggerPhrase?: string };
+    return typeof data.triggerPhrase === 'string' ? data.triggerPhrase.trim() : '';
+  } catch {
+    return '';
+  }
+}
+
 export function clearComfyObjectInfoCache(): void {
   memoryCache = null;
 }

@@ -5,7 +5,7 @@ import { stripEmptyComfyUiRuntime } from '@/lib/comfyui-config';
 export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
-  let body: { comfyUrl?: string } = {};
+  let body: { comfyUrl?: string; promptId?: string } = {};
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -20,9 +20,18 @@ export async function POST(request: Request) {
     return apiError(error instanceof Error ? error.message : 'Invalid ComfyUI URL.', 400);
   }
 
+  const promptId = body.promptId?.trim();
+  const interruptUrl = `${baseUrl.replace(/\/+$/, '')}/interrupt`;
+
   try {
-    const response = await fetch(`${baseUrl.replace(/\/+$/, '')}/interrupt`, {
+    const response = await fetch(interruptUrl, {
       method: 'POST',
+      ...(promptId
+        ? {
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt_id: promptId }),
+          }
+        : {}),
     });
     if (!response.ok) {
       return apiError(`ComfyUI interrupt failed: HTTP ${response.status}`, 502);

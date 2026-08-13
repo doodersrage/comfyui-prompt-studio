@@ -41,4 +41,26 @@ describe("parseEngineUploadRequest", () => {
     assert.equal(parsed.file.name, "slot.png");
     assert.equal(parsed.engineUrl, "http://127.0.0.1:8090");
   });
+
+  it("parses mask kind and original_ref from JSON", async () => {
+    const png1x1 =
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+    const request = new Request("http://localhost/api/comfyui/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        image: `data:image/png;base64,${png1x1}`,
+        filename: "mask.png",
+        kind: "mask",
+        originalRef: { filename: "figure.png", type: "input", subfolder: "" },
+      }),
+    });
+
+    const parsed = await parseEngineUploadRequest(request);
+    assert.equal(parsed.kind, "mask");
+    assert.deepEqual(parsed.originalRef, {
+      filename: "figure.png",
+      type: "input",
+    });
+  });
 });

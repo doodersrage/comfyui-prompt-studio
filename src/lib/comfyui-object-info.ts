@@ -1,5 +1,6 @@
 import { getComfyUiBaseUrl } from './comfyui-client';
 import type { ComfyUiRuntimeConfig } from './comfyui-config';
+import { fetchComfyModelFilenames } from './comfyui-models';
 import { discoverWebpSaveAdapters, type WebpSaveAdapter } from './workflow-save-format';
 
 export type ComfyUiModelLists = {
@@ -214,6 +215,7 @@ export async function fetchComfyObjectInfoPayload(
   }
 
   let response: Response;
+  const liveLorasPromise = fetchComfyModelFilenames('loras', runtime);
   try {
     response = await fetch(`${baseUrl}/object_info`, {
       cache: 'no-store',
@@ -227,8 +229,13 @@ export async function fetchComfyObjectInfoPayload(
     throw comfyObjectInfoFetchError(baseUrl, `HTTP ${response.status}`);
   }
   const objectInfo = (await response.json()) as Record<string, unknown>;
+  const models = parseComfyObjectInfoModelLists(objectInfo);
+  const liveLoras = await liveLorasPromise;
+  if (liveLoras && liveLoras.length > 0) {
+    models.loras = [...new Set([...models.loras, ...liveLoras])];
+  }
   const payload: ComfyObjectInfoPayload = {
-    models: parseComfyObjectInfoModelLists(objectInfo),
+    models,
     nodeTypes: new Set(Object.keys(objectInfo)),
     supportsNeuralUpscaleTileSize: nodeDefinesInput(
       objectInfo,

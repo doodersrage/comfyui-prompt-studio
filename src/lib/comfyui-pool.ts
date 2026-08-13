@@ -1,3 +1,4 @@
+import { parseComfyUiSystemStats } from './comfyui-system-stats';
 import { normalizeSafeHttpUrl, getComfyUiAllowedHosts } from './url-safety';
 
 let poolIndex = 0;
@@ -179,10 +180,8 @@ async function fetchComfyUiPoolEndpointStat(url: string): Promise<ComfyUiPoolEnd
     }
 
     if (statsResponse.ok) {
-      const stats = (await statsResponse.json()) as {
-        system?: { vram?: { free?: number; total?: number } };
-      };
-      vram = stats.system?.vram;
+      const stats = parseComfyUiSystemStats(await statsResponse.json().catch(() => null));
+      vram = stats.vram;
     } else {
       ok = false;
     }

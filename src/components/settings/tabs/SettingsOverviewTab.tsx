@@ -309,11 +309,16 @@ export default function SettingsOverviewTab({
               ok={health.comfyui.ok}
               detail={[
                 health.comfyui.url,
+                health.comfyui.version ? `ComfyUI ${health.comfyui.version}` : null,
+                health.comfyui.deviceName,
                 health.comfyui.queuePending != null
                   ? `queue ${health.comfyui.queueRunning ?? 0} running · ${health.comfyui.queuePending} pending`
                   : null,
                 health.comfyui.vram?.total
                   ? `VRAM ${Math.round((health.comfyui.vram.free ?? 0) / 1e9)} / ${Math.round(health.comfyui.vram.total / 1e9)} GB free`
+                  : null,
+                health.comfyui.ram?.total
+                  ? `RAM ${Math.round((health.comfyui.ram.free ?? 0) / 1e9)} / ${Math.round(health.comfyui.ram.total / 1e9)} GB free`
                   : null,
                 health.comfyui.error,
               ]
@@ -374,6 +379,8 @@ export default function SettingsOverviewTab({
                   ok={endpoint.ok}
                   detail={[
                     endpoint.url,
+                    endpoint.version ? `ComfyUI ${endpoint.version}` : null,
+                    endpoint.deviceName,
                     endpoint.queuePending != null
                       ? `${endpoint.queueRunning ?? 0} running · ${endpoint.queuePending} pending`
                       : null,
