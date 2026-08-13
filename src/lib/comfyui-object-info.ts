@@ -1,6 +1,7 @@
 import { getComfyUiBaseUrl } from './comfyui-client';
 import type { ComfyUiRuntimeConfig } from './comfyui-config';
 import { fetchComfyModelFilenames } from './comfyui-models';
+import { readStringNameList } from './comfyui-features';
 import { discoverWebpSaveAdapters, type WebpSaveAdapter } from './workflow-save-format';
 
 export type ComfyUiModelLists = {
@@ -15,6 +16,8 @@ export type ComfyUiModelLists = {
   controlNets: string[];
   /** CLIPVisionLoader clip_name inventory (IP-Adapter packs). Optional for older caches. */
   clipVisions?: string[];
+  /** Textual-inversion embedding stems from `GET /embeddings`. */
+  embeddings?: string[];
 };
 
 function readStringList(value: unknown): string[] {
@@ -124,6 +127,7 @@ export function parseComfyObjectInfoModelLists(
     ],
     controlNets: readNodeInputOptions(objectInfo, 'ControlNetLoader', 'control_net_name'),
     clipVisions: readNodeInputOptions(objectInfo, 'CLIPVisionLoader', 'clip_name'),
+    embeddings: [],
   };
 }
 
@@ -195,6 +199,7 @@ function cloneObjectInfoPayload(payload: ComfyObjectInfoPayload): ComfyObjectInf
       loras: [...payload.models.loras],
       controlNets: [...payload.models.controlNets],
       clipVisions: [...(payload.models.clipVisions ?? [])],
+      embeddings: [...(payload.models.embeddings ?? [])],
     },
     nodeTypes: new Set(payload.nodeTypes),
     supportsNeuralUpscaleTileSize: payload.supportsNeuralUpscaleTileSize,
@@ -216,6 +221,13 @@ export async function fetchComfyObjectInfoPayload(
 
   let response: Response;
   const liveLorasPromise = fetchComfyModelFilenames('loras', runtime);
+  const embeddingsPromise = fetch(`${baseUrl}/embeddings`, {
+    cache: 'no-store',
+    signal: AbortSignal.timeout(OBJECT_INFO_FETCH_TIMEOUT_MS),
+    redirect: 'manual',
+  })
+    .then(async res => (res.ok ? readStringNameList(await res.json()) : []))
+    .catch(() => [] as string[]);
   try {
     response = await fetch(`${baseUrl}/object_info`, {
       cache: 'no-store',
@@ -233,6 +245,10 @@ export async function fetchComfyObjectInfoPayload(
   const liveLoras = await liveLorasPromise;
   if (liveLoras && liveLoras.length > 0) {
     models.loras = [...new Set([...models.loras, ...liveLoras])];
+  }
+  const embeddings = await embeddingsPromise;
+  if (embeddings.length > 0) {
+    models.embeddings = embeddings;
   }
   const payload: ComfyObjectInfoPayload = {
     models,

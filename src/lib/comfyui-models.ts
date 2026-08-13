@@ -1,5 +1,10 @@
 import { getComfyUiBaseUrl } from './comfyui-client';
 import type { ComfyUiRuntimeConfig } from './comfyui-config';
+import {
+  parseComfyExperimentModelFiles,
+  type ComfyExperimentModelFile,
+} from './comfyui-experiment-models';
+import { readStringNameList } from './comfyui-features';
 
 export const COMFY_MODEL_FOLDERS = [
   'loras',
@@ -24,23 +29,44 @@ export function isComfyModelFolder(value: string): value is ComfyModelFolder {
   return FOLDER_SET.has(value);
 }
 
-function readFilenameList(value: unknown): string[] {
-  if (!Array.isArray(value)) {
-    return [];
+export async function fetchComfyModelFolders(
+  runtime?: ComfyUiRuntimeConfig
+): Promise<string[] | null> {
+  const baseUrl = getComfyUiBaseUrl(runtime).replace(/\/+$/, '');
+  try {
+    const response = await fetch(`${baseUrl}/models`, {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(8000),
+      redirect: 'manual',
+    });
+    if (!response.ok) {
+      return null;
+    }
+    return readStringNameList(await response.json()).filter(
+      folder => folder !== 'configs' && folder !== 'custom_nodes'
+    );
+  } catch {
+    return null;
   }
-  return [
-    ...new Set(
-      value
-        .filter((item): item is string => typeof item === 'string')
-        .map(item => item.trim())
-        .filter(Boolean)
-    ),
-  ];
+}
+
+export async function isAllowedComfyModelFolder(
+  folder: string,
+  runtime?: ComfyUiRuntimeConfig
+): Promise<boolean> {
+  if (isComfyModelFolder(folder)) {
+    return true;
+  }
+  if (folder.includes('..') || folder.includes('/') || folder.includes('\\')) {
+    return false;
+  }
+  const live = await fetchComfyModelFolders(runtime);
+  return Boolean(live?.includes(folder));
 }
 
 /** Live folder listing from ComfyUI `GET /models/{folder}` (cheaper than object_info). */
 export async function fetchComfyModelFilenames(
-  folder: ComfyModelFolder,
+  folder: string,
   runtime?: ComfyUiRuntimeConfig
 ): Promise<string[] | null> {
   const baseUrl = getComfyUiBaseUrl(runtime).replace(/\/+$/, '');
@@ -53,7 +79,28 @@ export async function fetchComfyModelFilenames(
     if (!response.ok) {
       return null;
     }
-    return readFilenameList(await response.json());
+    return readStringNameList(await response.json());
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchComfyExperimentModelFiles(
+  folder: string,
+  runtime?: ComfyUiRuntimeConfig
+): Promise<ComfyExperimentModelFile[] | null> {
+  const baseUrl = getComfyUiBaseUrl(runtime).replace(/\/+$/, '');
+  try {
+    const response = await fetch(`${baseUrl}/experiment/models/${encodeURIComponent(folder)}`, {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(8000),
+      redirect: 'manual',
+    });
+    if (!response.ok) {
+      return null;
+    }
+    const files = parseComfyExperimentModelFiles(await response.json());
+    return files.length > 0 ? files : null;
   } catch {
     return null;
   }

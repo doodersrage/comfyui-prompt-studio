@@ -2,7 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EmptyState } from '@/components/ui/ViewState';
-import { fetchComfyLoraInventory, fetchLoraTriggerPhrase } from '@/lib/comfyui-object-info-cache';
+import {
+  comfyLoraPreviewSrc,
+  fetchComfyLoraInventoryFiles,
+  fetchLoraTriggerPhrase,
+  type ComfyLoraInventoryFile,
+} from '@/lib/comfyui-object-info-cache';
 import {
   createEmptyLoraLibraryEntry,
   createLoraLibraryEntryFromFilename,
@@ -31,7 +36,7 @@ export default function LoraLibrarySettingsPanel({
   useEffect(() => {
     entriesRef.current = entries;
   }, [entries]);
-  const [inventoryLoras, setInventoryLoras] = useState<string[]>([]);
+  const [inventoryLoras, setInventoryLoras] = useState<ComfyLoraInventoryFile[]>([]);
   const [inventoryLoading, setInventoryLoading] = useState(false);
   const [inventoryError, setInventoryError] = useState<string | null>(null);
   const [inventoryFilter, setInventoryFilter] = useState('');
@@ -41,14 +46,17 @@ export default function LoraLibrarySettingsPanel({
     setInventoryError(null);
     try {
       const loras = [
-        ...((await fetchComfyLoraInventory({
+        ...((await fetchComfyLoraInventoryFiles({
           comfyUrl: comfyUrl?.trim() || undefined,
           forceRefresh: true,
         })) ?? []),
       ]
-        .map(name => name.trim())
-        .filter(Boolean)
-        .sort((a, b) => a.localeCompare(b));
+        .map(file => ({
+          name: file.name.trim(),
+          pathIndex: file.pathIndex,
+        }))
+        .filter(file => file.name)
+        .sort((a, b) => a.name.localeCompare(b.name));
       setInventoryLoras(loras);
       if (loras.length === 0) {
         setInventoryError(
@@ -80,16 +88,18 @@ export default function LoraLibrarySettingsPanel({
     return set;
   }, [entries]);
 
+  const inventoryNames = useMemo(() => inventoryLoras.map(file => file.name), [inventoryLoras]);
+
   const availableToAdd = useMemo(() => {
     const filter = inventoryFilter.trim().toLowerCase();
-    return inventoryLoras.filter(name => {
-      if (libraryFilenames.has(name.toLowerCase())) {
+    return inventoryLoras.filter(file => {
+      if (libraryFilenames.has(file.name.toLowerCase())) {
         return false;
       }
       if (!filter) {
         return true;
       }
-      return name.toLowerCase().includes(filter);
+      return file.name.toLowerCase().includes(filter);
     });
   }, [inventoryFilter, inventoryLoras, libraryFilenames]);
 
@@ -212,17 +222,30 @@ export default function LoraLibrarySettingsPanel({
           </p>
         ) : (
           <ul className="ui-scroll-region sidebar-scroll max-h-56 space-y-1 overflow-y-auto">
-            {availableToAdd.map(filename => (
+            {availableToAdd.map(file => (
               <li
-                key={filename}
+                key={file.name}
                 className="flex flex-wrap items-center justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-[var(--bg-muted)]/80"
               >
-                <code className="min-w-0 flex-1 truncate text-xs text-[var(--text-secondary)]">
-                  {filename}
-                </code>
+                <span className="flex min-w-0 flex-1 items-center gap-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- ComfyUI preview is a remote binary */}
+                  <img
+                    src={comfyLoraPreviewSrc(file.name, file.pathIndex, comfyUrl)}
+                    alt=""
+                    width={32}
+                    height={32}
+                    className="h-8 w-8 shrink-0 rounded object-cover"
+                    onError={event => {
+                      event.currentTarget.style.display = 'none';
+                    }}
+                  />
+                  <code className="min-w-0 flex-1 truncate text-xs text-[var(--text-secondary)]">
+                    {file.name}
+                  </code>
+                </span>
                 <button
                   type="button"
-                  onClick={() => addFromInventory(filename)}
+                  onClick={() => addFromInventory(file.name)}
                   className="shrink-0 rounded-lg border border-[var(--border-default)] px-2 py-1 text-xs text-[var(--text-secondary)] transition hover:border-[var(--accent-border)] hover:text-[var(--accent-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
                 >
                   Add
@@ -273,12 +296,13 @@ export default function LoraLibrarySettingsPanel({
               const strengthClip = entry.strengthClip ?? 1;
               const tokenOptions = (() => {
                 const current = entry.tokenValue?.trim() ?? '';
-                const set = new Set(inventoryLoras);
+                const set = new Set(inventoryNames);
                 if (current && !set.has(current)) {
-                  return [current, ...inventoryLoras];
+                  return [current, ...inventoryNames];
                 }
-                return inventoryLoras;
+                return inventoryNames;
               })();
+              const selectedFile = inventoryLoras.find(file => file.name === entry.tokenValue);
               return (
                 <li
                   key={`${entry.id}-${index}`}
@@ -321,18 +345,37 @@ export default function LoraLibrarySettingsPanel({
                   </div>
                   <label className="space-y-1 text-xs text-[var(--text-muted)]">
                     LoRA file
-                    <select
-                      value={entry.tokenValue}
-                      onChange={event => updateEntry(index, { tokenValue: event.target.value })}
-                      className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-base)] px-3 py-2 font-mono text-sm text-[var(--text-primary)]"
-                    >
-                      <option value="">Select a LoRA…</option>
-                      {tokenOptions.map(name => (
-                        <option key={name} value={name}>
-                          {name}
-                        </option>
-                      ))}
-                    </select>
+                    <span className="flex items-center gap-2">
+                      {selectedFile ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={comfyLoraPreviewSrc(
+                            selectedFile.name,
+                            selectedFile.pathIndex,
+                            comfyUrl
+                          )}
+                          alt=""
+                          width={32}
+                          height={32}
+                          className="h-8 w-8 shrink-0 rounded object-cover"
+                          onError={event => {
+                            event.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      ) : null}
+                      <select
+                        value={entry.tokenValue}
+                        onChange={event => updateEntry(index, { tokenValue: event.target.value })}
+                        className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-base)] px-3 py-2 font-mono text-sm text-[var(--text-primary)]"
+                      >
+                        <option value="">Select a LoRA…</option>
+                        {tokenOptions.map(name => (
+                          <option key={name} value={name}>
+                            {name}
+                          </option>
+                        ))}
+                      </select>
+                    </span>
                   </label>
                   <div className="grid gap-2 sm:grid-cols-2">
                     <label className="space-y-1 text-xs text-[var(--text-muted)]">

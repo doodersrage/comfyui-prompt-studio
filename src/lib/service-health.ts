@@ -2,6 +2,11 @@ import { getComfyUiBaseUrl } from './comfyui-client';
 import type { ComfyUiRuntimeConfig } from './comfyui-config';
 import { parseComfyUiPool, setComfyUiPoolStatsCache } from './comfyui-pool';
 import { parseComfyUiSystemStats } from './comfyui-system-stats';
+import {
+  countComfyExtensionPacks,
+  parseComfyUiFeatures,
+  readStringNameList,
+} from './comfyui-features';
 import { getDiffusersBaseUrl } from './diffusers-client';
 import {
   getLlmConfig,
@@ -33,6 +38,10 @@ export type ComfyUiHealth = {
   ram?: { free?: number; total?: number };
   version?: string;
   deviceName?: string;
+  features?: string[];
+  previewMetadata?: boolean;
+  extensionPacks?: number;
+  embeddingCount?: number;
 };
 
 export type ComfyUiPoolEndpointHealth = ComfyUiHealth & {
@@ -75,23 +84,52 @@ export async function getExpandedComfyUiHealth(
 
   let queuePending: number | undefined;
   let queueRunning: number | undefined;
+  let features: string[] | undefined;
+  let previewMetadata: boolean | undefined;
+  let extensionPacks: number | undefined;
+  let embeddingCount: number | undefined;
 
   try {
-    const queueResponse = await fetch(`${base.url}/queue`, {
-      signal: AbortSignal.timeout(5000),
-      redirect: 'manual',
-    });
+    const [queueResponse, featuresResponse, extensionsResponse, embeddingsResponse] =
+      await Promise.all([
+        fetch(`${base.url}/queue`, { signal: AbortSignal.timeout(5000), redirect: 'manual' }),
+        fetch(`${base.url}/features`, { signal: AbortSignal.timeout(4000), redirect: 'manual' }),
+        fetch(`${base.url}/extensions`, { signal: AbortSignal.timeout(4000), redirect: 'manual' }),
+        fetch(`${base.url}/embeddings`, { signal: AbortSignal.timeout(4000), redirect: 'manual' }),
+      ]);
 
     if (queueResponse.ok) {
       const queue = (await queueResponse.json()) as ComfyQueuePayload;
       queuePending = queue.queue_pending?.length ?? 0;
       queueRunning = queue.queue_running?.length ?? 0;
     }
+
+    if (featuresResponse.ok) {
+      const parsed = parseComfyUiFeatures(await featuresResponse.json().catch(() => null));
+      features = parsed.labels;
+      previewMetadata = parsed.previewMetadata;
+    }
+
+    if (extensionsResponse.ok) {
+      extensionPacks = countComfyExtensionPacks(await extensionsResponse.json().catch(() => null));
+    }
+
+    if (embeddingsResponse.ok) {
+      embeddingCount = readStringNameList(await embeddingsResponse.json().catch(() => null)).length;
+    }
   } catch {
     // keep base health only
   }
 
-  return { ...base, queuePending, queueRunning };
+  return {
+    ...base,
+    queuePending,
+    queueRunning,
+    ...(features && features.length > 0 ? { features } : {}),
+    ...(previewMetadata ? { previewMetadata } : {}),
+    ...(extensionPacks != null ? { extensionPacks } : {}),
+    ...(embeddingCount != null ? { embeddingCount } : {}),
+  };
 }
 
 export async function checkLlmHealth(): Promise<LlmHealth> {

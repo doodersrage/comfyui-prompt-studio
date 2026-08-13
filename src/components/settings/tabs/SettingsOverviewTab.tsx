@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import ServerEnvPanel from '@/components/settings/ServerEnvPanel';
 import StorageHealthChip from '@/components/StorageHealthChip';
@@ -320,6 +321,13 @@ export default function SettingsOverviewTab({
                 health.comfyui.ram?.total
                   ? `RAM ${Math.round((health.comfyui.ram.free ?? 0) / 1e9)} / ${Math.round(health.comfyui.ram.total / 1e9)} GB free`
                   : null,
+                health.comfyui.extensionPacks
+                  ? `${health.comfyui.extensionPacks} custom node pack${health.comfyui.extensionPacks === 1 ? '' : 's'}`
+                  : null,
+                health.comfyui.embeddingCount
+                  ? `${health.comfyui.embeddingCount} embedding${health.comfyui.embeddingCount === 1 ? '' : 's'}`
+                  : null,
+                health.comfyui.features?.length ? health.comfyui.features.join(', ') : null,
                 health.comfyui.error,
               ]
                 .filter(Boolean)
@@ -418,25 +426,28 @@ export default function SettingsOverviewTab({
         ) : null}
 
         {!slimSettings && health && (
-          <ul className="mt-3 space-y-1 text-xs text-[var(--text-muted)]">
-            <li>Vision model: {health.config.visionModel}</li>
-            <li>
-              Template fallback: {health.config.allowTemplateFallback ? 'allowed' : 'disabled'}
-            </li>
-            {health.workflow && (
+          <>
+            <ul className="mt-3 space-y-1 text-xs text-[var(--text-muted)]">
+              <li>Vision model: {health.config.visionModel}</li>
               <li>
-                Active workflow: {health.workflow.workflowSource}
-                {health.workflow.hasWorkflow
-                  ? ` · ${health.workflow.placeholders.positive}× ${health.workflow.placeholderTokens.positive}${
-                      health.workflow.placeholders.negative > 0
-                        ? ` · ${health.workflow.placeholders.negative}× ${health.workflow.placeholderTokens.negative}`
-                        : ''
-                    }`
-                  : ' · minimal fallback workflow'}
-                {health.workflow.legacyNodeFallback ? ' · env node-ID fallback available' : ''}
+                Template fallback: {health.config.allowTemplateFallback ? 'allowed' : 'disabled'}
               </li>
-            )}
-          </ul>
+              {health.workflow && (
+                <li>
+                  Active workflow: {health.workflow.workflowSource}
+                  {health.workflow.hasWorkflow
+                    ? ` · ${health.workflow.placeholders.positive}× ${health.workflow.placeholderTokens.positive}${
+                        health.workflow.placeholders.negative > 0
+                          ? ` · ${health.workflow.placeholders.negative}× ${health.workflow.placeholderTokens.negative}`
+                          : ''
+                      }`
+                    : ' · minimal fallback workflow'}
+                  {health.workflow.legacyNodeFallback ? ' · env node-ID fallback available' : ''}
+                </li>
+              )}
+            </ul>
+            <ComfyLogsSnippet comfyUrl={health.comfyui.url} />
+          </>
         )}
       </ToolSection>
 
@@ -467,5 +478,64 @@ export default function SettingsOverviewTab({
         )
       ) : null}
     </>
+  );
+}
+
+function ComfyLogsSnippet({ comfyUrl }: { comfyUrl?: string }) {
+  const [lines, setLines] = useState<string[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function loadLogs() {
+    setLoading(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams({ limit: '30' });
+      if (comfyUrl?.trim()) {
+        params.set('comfyUrl', comfyUrl.trim());
+      }
+      const response = await fetch(`/api/comfyui/logs?${params.toString()}`);
+      const data = (await response.json()) as {
+        lines?: string[];
+        error?: string;
+        unsupported?: boolean;
+      };
+      if (!response.ok) {
+        setError(data.error ?? 'Could not load ComfyUI logs.');
+        setLines([]);
+        return;
+      }
+      if (data.unsupported) {
+        setError('This ComfyUI build does not expose /internal/logs.');
+        setLines([]);
+        return;
+      }
+      setLines(data.lines ?? []);
+    } catch {
+      setError('Could not load ComfyUI logs.');
+      setLines([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="mt-4 space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-[var(--text-muted)]">ComfyUI logs</p>
+        <Button size="sm" variant="secondary" loading={loading} onClick={() => void loadLogs()}>
+          {lines ? 'Refresh logs' : 'Load logs'}
+        </Button>
+      </div>
+      {error ? <p className="text-xs ui-status-danger">{error}</p> : null}
+      {lines && lines.length === 0 && !error ? (
+        <p className="text-xs text-[var(--text-muted)]">No recent log lines.</p>
+      ) : null}
+      {lines && lines.length > 0 ? (
+        <pre className="ui-scroll-region max-h-48 overflow-auto rounded-lg border border-[var(--border-default)] bg-[var(--bg-base)] p-3 text-[11px] leading-5 text-[var(--text-secondary)]">
+          {lines.join('\n')}
+        </pre>
+      ) : null}
+    </div>
   );
 }

@@ -18,10 +18,12 @@ import { resolveRequeueImageUrlsFromEntry } from '@/lib/queue-requeue-images';
 import { markOnboardingFirstQueue } from '@/lib/onboarding-hooks';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import {
+  cancelComfyUiJob,
   freeComfyUiMemory,
   interruptComfyUiQueue,
   restartComfyUi,
 } from '@/lib/comfyui-queue-control';
+import type { ComfyJobListItem } from '@/lib/comfyui-jobs';
 import { cancelComfyGalleryJob } from '@/lib/comfyui-queue-cancel';
 import {
   COMFY_LIVE_PREVIEW_UPDATED_EVENT,
@@ -115,20 +117,38 @@ export default function QueueTool() {
   const [entries, setEntries] = useState<ComfyGalleryEntry[]>([]);
   const [queueHealth, setQueueHealth] = useState<ComfyQueueHealth | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [hostJobs, setHostJobs] = useState<ComfyJobListItem[]>([]);
 
   const refreshEntries = useCallback(() => {
     setEntries(loadComfyGallery());
   }, []);
 
   const refreshHealth = useCallback(async () => {
+    let healthUrl: string | undefined;
     try {
       const response = await fetch('/api/health');
       const data = (await response.json()) as {
         comfyui?: ComfyQueueHealth;
       };
       setQueueHealth(data.comfyui ?? null);
+      healthUrl = data.comfyui?.url?.trim() || undefined;
     } catch {
       setQueueHealth(null);
+    }
+    try {
+      const params = new URLSearchParams({ status: 'pending,in_progress', limit: '40' });
+      if (healthUrl) {
+        params.set('comfyUrl', healthUrl);
+      }
+      const response = await fetch(`/api/comfyui/jobs?${params.toString()}`);
+      if (!response.ok) {
+        setHostJobs([]);
+        return;
+      }
+      const data = (await response.json()) as { jobs?: ComfyJobListItem[] };
+      setHostJobs(Array.isArray(data.jobs) ? data.jobs : []);
+    } catch {
+      setHostJobs([]);
     }
   }, []);
 
@@ -155,6 +175,14 @@ export default function QueueTool() {
   const recent = useMemo(
     () => entries.filter(entry => entry.status === 'completed').slice(0, 20),
     [entries]
+  );
+  const galleryPromptIds = useMemo(
+    () => new Set(entries.map(entry => entry.promptId).filter(Boolean)),
+    [entries]
+  );
+  const orphanHostJobs = useMemo(
+    () => hostJobs.filter(job => !galleryPromptIds.has(job.id)),
+    [galleryPromptIds, hostJobs]
   );
 
   async function interruptComfyQueue() {
@@ -197,6 +225,19 @@ export default function QueueTool() {
     const result = await cancelComfyGalleryJob(entry);
     setStatus(result.ok ? 'Job cancelled.' : (result.error ?? 'Cancel failed.'));
     refreshEntries();
+    void refreshHealth();
+  }
+
+  async function cancelHostJob(job: ComfyJobListItem) {
+    setStatus(`Cancelling ${job.id}…`);
+    const result = await cancelComfyUiJob({
+      promptId: job.id,
+      comfyUrl: queueHealth?.url,
+      deleteHistory: true,
+    });
+    setStatus(result.ok ? 'Job cancelled.' : (result.error ?? 'Cancel failed.'));
+    refreshEntries();
+    void refreshHealth();
   }
 
   async function retryFailed() {
@@ -267,7 +308,11 @@ export default function QueueTool() {
 
       <ToolSection title={`Active (${pending.length})`}>
         {pending.length === 0 ? (
-          entries.length === 0 ? (
+          orphanHostJobs.length > 0 ? (
+            <p className="text-xs text-[var(--text-muted)]">
+              No gallery jobs are active. Host jobs that are not in this gallery are listed below.
+            </p>
+          ) : entries.length === 0 ? (
             <EmptyState
               compact
               branded
@@ -316,6 +361,39 @@ export default function QueueTool() {
           </ul>
         )}
       </ToolSection>
+
+      {orphanHostJobs.length > 0 ? (
+        <ToolSection title={`On ComfyUI (${orphanHostJobs.length})`}>
+          <p className="mb-3 text-xs text-[var(--text-muted)]">
+            Running or queued on the host, but not in this gallery. Cancel one without interrupting
+            the rest of the queue.
+          </p>
+          <ul className="ui-list">
+            {orphanHostJobs.map(job => (
+              <li
+                key={job.id}
+                className="ui-list-row flex-col items-stretch gap-2 sm:flex-row sm:items-start"
+              >
+                <div className="ui-list-primary min-w-0 space-y-1">
+                  <p className="truncate font-mono text-sm text-[var(--text-primary)]">{job.id}</p>
+                  <p className="type-caption">
+                    {job.status}
+                    {job.statusMessage ? ` · ${job.statusMessage}` : ''}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="danger"
+                  className="shrink-0 self-start"
+                  onClick={() => void cancelHostJob(job)}
+                >
+                  Cancel
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </ToolSection>
+      ) : null}
 
       {isSimple ? (
         <CollapsibleSection

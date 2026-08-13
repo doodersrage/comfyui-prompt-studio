@@ -147,6 +147,19 @@ export async function fetchComfyLoraInventory(input?: {
   comfyUrl?: string;
   forceRefresh?: boolean;
 }): Promise<string[] | null> {
+  const files = await fetchComfyLoraInventoryFiles(input);
+  return files ? files.map(file => file.name) : null;
+}
+
+export type ComfyLoraInventoryFile = {
+  name: string;
+  pathIndex: number;
+};
+
+export async function fetchComfyLoraInventoryFiles(input?: {
+  comfyUrl?: string;
+  forceRefresh?: boolean;
+}): Promise<ComfyLoraInventoryFile[] | null> {
   const comfyUrl = input?.comfyUrl?.trim() || resolveComfyUiRuntime()?.apiUrl?.trim() || '';
   const params = new URLSearchParams({ folder: 'loras' });
   if (comfyUrl) {
@@ -155,12 +168,27 @@ export async function fetchComfyLoraInventory(input?: {
   try {
     const response = await fetch(`/api/comfyui/models?${params.toString()}`);
     if (response.ok) {
-      const data = (await response.json()) as { files?: string[] };
-      const files = Array.isArray(data.files)
-        ? data.files.map(name => name.trim()).filter(Boolean)
+      const data = (await response.json()) as {
+        files?: string[];
+        models?: Array<{ name?: string; pathIndex?: number }>;
+      };
+      const fromModels = Array.isArray(data.models)
+        ? data.models
+            .map(file => ({
+              name: file.name?.trim() ?? '',
+              pathIndex: typeof file.pathIndex === 'number' ? file.pathIndex : 0,
+            }))
+            .filter(file => file.name)
         : [];
+      const fromFiles = Array.isArray(data.files)
+        ? data.files.map(name => ({ name: name.trim(), pathIndex: 0 })).filter(file => file.name)
+        : [];
+      const files = fromModels.length > 0 ? fromModels : fromFiles;
       if (files.length > 0) {
-        patchCachedComfyLoraList(files, comfyUrl);
+        patchCachedComfyLoraList(
+          files.map(file => file.name),
+          comfyUrl
+        );
         return files;
       }
     }
@@ -172,7 +200,20 @@ export async function fetchComfyLoraInventory(input?: {
     comfyUrl: comfyUrl || undefined,
     forceRefresh: input?.forceRefresh,
   });
-  return models?.loras ?? null;
+  const loras = models?.loras ?? null;
+  return loras ? loras.map(name => ({ name, pathIndex: 0 })) : null;
+}
+
+export function comfyLoraPreviewSrc(filename: string, pathIndex = 0, comfyUrl?: string): string {
+  const params = new URLSearchParams({
+    folder: 'loras',
+    filename,
+    pathIndex: String(pathIndex),
+  });
+  if (comfyUrl?.trim()) {
+    params.set('comfyUrl', comfyUrl.trim());
+  }
+  return `/api/comfyui/model-preview?${params.toString()}`;
 }
 
 export async function fetchLoraTriggerPhrase(filename: string, comfyUrl?: string): Promise<string> {

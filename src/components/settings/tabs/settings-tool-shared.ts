@@ -98,6 +98,10 @@ export type HealthResponse = {
     ram?: { free?: number; total?: number };
     version?: string;
     deviceName?: string;
+    features?: string[];
+    previewMetadata?: boolean;
+    extensionPacks?: number;
+    embeddingCount?: number;
   };
   diffusers?: {
     ok: boolean;
@@ -145,6 +149,10 @@ export type HealthResponse = {
       ram?: { free?: number; total?: number };
       version?: string;
       deviceName?: string;
+      features?: string[];
+      previewMetadata?: boolean;
+      extensionPacks?: number;
+      embeddingCount?: number;
     }>;
   };
   collab?: {

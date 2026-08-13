@@ -4,6 +4,7 @@ import { detectWorkflowPlaceholders } from './comfyui-config';
 import { extractImagesFromOutputs, type ComfyOutputImage } from './comfyui-outputs';
 import { extractParamsFromWorkflow } from './workflow-param-extract';
 import { extractComfyExecutionTiming } from './comfyui-render-duration';
+import { interpretComfyJobDetail } from './comfyui-jobs';
 
 export type ComfyPromptStatus = {
   promptId: string;
@@ -119,6 +120,28 @@ export async function getComfyUiPromptStatus(
   runtime?: ComfyUiRuntimeConfig
 ): Promise<ComfyPromptStatus> {
   const comfyUrl = getComfyUiBaseUrl(runtime);
+
+  try {
+    const jobResponse = await fetch(`${comfyUrl}/api/jobs/${encodeURIComponent(promptId)}`, {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (jobResponse.ok) {
+      const mapped = interpretComfyJobDetail(
+        promptId,
+        comfyUrl,
+        await jobResponse.json().catch(() => null)
+      );
+      if (mapped) {
+        if (mapped.status === 'pending' || mapped.status === 'running') {
+          const queue = await resolveQueueContext(promptId, comfyUrl);
+          return applyQueueContext(mapped, queue);
+        }
+        return mapped;
+      }
+    }
+  } catch {
+    // Older ComfyUI has no jobs API — fall through to history.
+  }
 
   try {
     const response = await fetch(`${comfyUrl}/history/${promptId}`, {
