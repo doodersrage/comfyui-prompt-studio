@@ -5,6 +5,7 @@ import {
   writeServerStorage,
   type StorageNamespace,
 } from '@/lib/server-storage';
+import { isStorageNamespace } from '@/lib/storage-namespaces';
 import {
   readUserServerStorage,
   writeUserServerStorage,
@@ -92,7 +93,7 @@ export async function POST(request: Request) {
       namespace?: StorageNamespace;
       data?: unknown;
     };
-    if (!body.namespace || body.data === undefined) {
+    if (!isStorageNamespace(body.namespace) || body.data === undefined) {
       return apiError('namespace and data are required.', 400);
     }
 
@@ -122,8 +123,8 @@ export async function PUT(request: Request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const namespace = searchParams.get('namespace') as StorageNamespace | null;
-  if (!namespace) {
+  const namespace = searchParams.get('namespace');
+  if (!isStorageNamespace(namespace)) {
     return apiError('namespace query parameter is required.', 400);
   }
 
@@ -142,9 +143,7 @@ export async function PUT(request: Request) {
     throw error;
   }
 
-  if (data == null) {
-    return apiError('Namespace not found.', 404);
-  }
+  // Empty namespaces are a normal first-run / post-migration state — not 404.
   return apiJson({ namespace, data, userScoped });
 }
 

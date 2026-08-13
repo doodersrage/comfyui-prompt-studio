@@ -170,6 +170,40 @@ describe("klein enhancer workflow patch", () => {
     assert.equal(color?.inputs?.ramp_curve, FEW_STEP_KLEIN_COLOR_ANCHOR_RAMP);
   });
 
+  it("keeps center-crop ImageScale on Distilled Compose after enhancer rewire", () => {
+    const scaffold = buildWorkflowScaffoldForModel("flux-2-klein-9b-distilled");
+    const wired = ensureKleinReferenceLatentWiringInWorkflow(
+      JSON.parse(scaffold.json) as Record<string, unknown>,
+      {
+        model: "flux-2-klein-9b-distilled",
+        inputImageFilename: "portrait-682x1024.png",
+        width: 896,
+        height: 1152,
+      },
+    );
+    const result = ensureKleinEnhancerPackWiringInWorkflow(wired.workflow, {
+      model: "flux-2-klein-9b-distilled",
+      inputImageFilename: "portrait-682x1024.png",
+      availableNodeTypes: COMPOSE_ENHANCER_NODES,
+      identityLockEnabled: false,
+      steps: 4,
+    });
+    const nodes = result.workflow as Record<
+      string,
+      { class_type?: string; inputs?: Record<string, unknown> }
+    >;
+    const multi = Object.values(nodes).find(node => node.class_type === KLEIN_MULTI_REF_NODE);
+    const latent1 = multi?.inputs?.latent_1 as [string, number];
+    const encode = nodes[String(latent1[0])];
+    assert.equal(encode?.class_type, "VAEEncode");
+    const pixels = encode?.inputs?.pixels as [string, number];
+    const scale = nodes[String(pixels[0])];
+    assert.equal(scale?.class_type, "ImageScale");
+    assert.equal(scale?.inputs?.crop, "center");
+    assert.equal(scale?.inputs?.width, 896);
+    assert.equal(scale?.inputs?.height, 1152);
+  });
+
   it("wires Text Enhancer on plain Klein T2I", () => {
     const scaffold = buildWorkflowScaffoldForModel("flux-2-klein-9b");
     const result = ensureKleinEnhancerPackWiringInWorkflow(

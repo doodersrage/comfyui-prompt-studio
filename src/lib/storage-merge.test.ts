@@ -94,3 +94,14 @@ describe("suggestMergeChoice", () => {
     );
   });
 });
+
+describe("isStorageNamespace", () => {
+  it("accepts live and legacy namespace ids", async () => {
+    const { isStorageNamespace } = await import("./storage-namespaces");
+    assert.equal(isStorageNamespace("studio-extras"), true);
+    assert.equal(isStorageNamespace("webhook-settings"), true);
+    assert.equal(isStorageNamespace("avoided-tokens"), true);
+    assert.equal(isStorageNamespace("prompt-projects"), true);
+    assert.equal(isStorageNamespace("not-a-namespace"), false);
+  });
+});

@@ -29,3 +29,7 @@ export const STORAGE_NAMESPACES: StorageNamespace[] = [
   'avoided-tokens',
   'prompt-projects',
 ];
+
+export function isStorageNamespace(value: unknown): value is StorageNamespace {
+  return typeof value === 'string' && STORAGE_NAMESPACES.includes(value as StorageNamespace);
+}

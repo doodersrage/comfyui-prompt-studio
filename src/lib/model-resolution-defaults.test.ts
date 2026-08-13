@@ -281,6 +281,51 @@ describe("model resolution defaults", () => {
     );
   });
 
+  it("snaps Klein Distilled Compose figures to native portrait instead of raw pixels", () => {
+    // 682×1024 selfie vs default square chip — Distilled at 688×1024 recomposes
+    // people into the canvas. Native 896×1152 + center-crop fills the frame.
+    assert.deepEqual(
+      resolveComposeOutputLatentSize(
+        682,
+        1024,
+        "flux-2-klein-9b-distilled",
+        "square",
+        "medium",
+      ),
+      { width: 896, height: 1152 },
+    );
+    assert.deepEqual(
+      resolveComposeOutputLatentSize(
+        682,
+        1024,
+        "flux-2-klein-4b-distilled",
+        "square",
+        "medium",
+      ),
+      { width: 896, height: 1152 },
+    );
+  });
+
+  it("keeps Klein Base Compose on a 16-multiple of the figure", () => {
+    assert.deepEqual(
+      resolveComposeOutputLatentSize(682, 1024, "flux-2-klein-9b", "square", "medium"),
+      { width: 688, height: 1024 },
+    );
+  });
+
+  it("rewrites leftover Klein Distilled selfie pixels onto the native ladder", () => {
+    assert.deepEqual(
+      ensureLightningNativeResolutionParams(
+        { width: 688, height: 1024 },
+        "flux-2-klein-9b-distilled",
+        "square",
+        "medium",
+        { preserveInputAspect: true },
+      ),
+      { width: 896, height: 1152 },
+    );
+  });
+
   it("rewrites extreme 928×1664 lightning portrait queues to ~3:4", () => {
     assert.deepEqual(
       ensureLightningNativeResolutionParams(
@@ -332,6 +377,19 @@ describe("model resolution defaults", () => {
     assert.equal(params.width, 832);
     assert.equal(params.height, 1216);
     assert.equal(params.steps, 30);
+  });
+
+  it("queues Klein Distilled Compose/Refine at native portrait for 2:3 figures", () => {
+    for (const tool of ["compose", "refine"] as const) {
+      const params = resolveQueueParams({
+        model: "flux-2-klein-9b-distilled",
+        tool,
+        inputImageFilename: "fig.png",
+        figurePixelSize: { width: 682, height: 1024 },
+      });
+      assert.equal(params.width, 896, tool);
+      assert.equal(params.height, 1152, tool);
+    }
   });
 
   it("forces Rapid AIO T2I to medium square when size tier is max", () => {

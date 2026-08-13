@@ -268,6 +268,66 @@ describe("workflow direct patch", () => {
     assert.equal(result.patched.emptySd3Latent, 1);
   });
 
+  it("center-crops Klein Distilled Compose refs to native EmptyFlux2Latent size", () => {
+    const scaffold = buildWorkflowScaffoldForModel("flux-2-klein-9b-distilled", undefined, {
+      tool: "compose",
+    });
+    const result = patchWorkflowDirectParams(
+      JSON.parse(scaffold.json) as Record<string, unknown>,
+      {
+        model: "flux-2-klein-9b-distilled",
+        params: {
+          width: 896,
+          height: 1152,
+          inputImageFilename: "portrait-682x1024.png",
+        },
+      },
+    );
+    assert.ok((result.patched.referenceLatentWired ?? 0) >= 1);
+    const nodes = result.workflow as Record<
+      string,
+      { class_type?: string; inputs?: Record<string, unknown> }
+    >;
+    const sampler = Object.values(nodes).find(node => node.class_type === "KSampler");
+    const latentRef = sampler?.inputs?.latent_image as [string, number];
+    const latent = nodes[latentRef[0]!];
+    assert.equal(latent?.class_type, "EmptyFlux2LatentImage");
+    assert.equal(latent?.inputs?.width, 896);
+    assert.equal(latent?.inputs?.height, 1152);
+
+    const positiveRef = sampler?.inputs?.positive as [string, number];
+    let cursor = positiveRef?.[0];
+    const visited = new Set<string>();
+    let encodeId: string | undefined;
+    while (cursor && !visited.has(cursor)) {
+      visited.add(cursor);
+      const node = nodes[cursor];
+      if (node?.class_type === "VAEEncode") {
+        encodeId = cursor;
+        break;
+      }
+      if (node?.class_type === "FluxGuidance") {
+        const source = node.inputs?.conditioning;
+        cursor = Array.isArray(source) ? String(source[0]) : "";
+        continue;
+      }
+      const latentLink = node?.inputs?.latent ?? node?.inputs?.latent_1;
+      if (Array.isArray(latentLink) && typeof latentLink[0] === "string") {
+        cursor = String(latentLink[0]);
+        continue;
+      }
+      break;
+    }
+    assert.ok(encodeId, "expected a VAEEncode on the reference chain");
+    const encode = nodes[encodeId!];
+    const pixels = encode?.inputs?.pixels as [string, number];
+    const scale = nodes[String(pixels[0])];
+    assert.equal(scale?.class_type, "ImageScale");
+    assert.equal(scale?.inputs?.width, 896);
+    assert.equal(scale?.inputs?.height, 1152);
+    assert.equal(scale?.inputs?.crop, "center");
+  });
+
   it("patches checkpoint and unet loader placeholders without clobbering concrete filenames", () => {
     const workflow = {
       "1": {

@@ -67,6 +67,11 @@ function namespaceMeta(data: unknown): { updatedAt?: number; count?: number } {
 
 async function loadStudioExtrasFromServer(): Promise<StudioExtrasPayload | null> {
   const serverExtras = await pullNamespaceFromServer<StudioExtrasPayload>('studio-extras');
+  if (serverExtras) {
+    // studio-extras is the live snapshot — skip deprecated namespace probes
+    // (webhook-settings / avoided-tokens / prompt-projects / scheduled-batch).
+    return serverExtras;
+  }
   const [scheduledBatch, webhookSettings, avoidedTokens, promptProjects] = await Promise.all([
     pullNamespaceFromServer<import('./scheduled-batch').ScheduledBatchConfig>('scheduled-batch'),
     pullNamespaceFromServer<import('./webhook-settings').WebhookSettings>('webhook-settings'),
@@ -76,10 +81,10 @@ async function loadStudioExtrasFromServer(): Promise<StudioExtrasPayload | null>
   const hasLegacy = Boolean(
     scheduledBatch || webhookSettings || avoidedTokens?.length || promptProjects
   );
-  if (!serverExtras && !hasLegacy) {
+  if (!hasLegacy) {
     return null;
   }
-  return foldLegacyNamespacesIntoExtras(serverExtras ?? collectStudioExtras(), {
+  return foldLegacyNamespacesIntoExtras(collectStudioExtras(), {
     scheduledBatch,
     webhookSettings,
     avoidedTokens,

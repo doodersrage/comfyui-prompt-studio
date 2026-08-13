@@ -797,10 +797,19 @@ export function qwenLightningMediumSizeLadder(): Array<{ width: number; height: 
 }
 
 /**
- * Map an uploaded figure to the nearest Lightning-safe EmptyLatent size.
- * Raw upload pixels (often ≤2048 edge) melt CFG-1 Lightning into mosaic/noise and
- * slow sampling — keep aspect via the closest native preset instead.
+ * CFG-1 Compose/Refine (Lightning + Klein Distilled): snap figure pixels to the
+ * model's native preset ladder instead of a 16-multiple of the upload. Raw
+ * selfie sizes (682×1024) make Distilled recompose people into the canvas;
+ * native 896×1152 + center-crop fills the frame.
  */
+function isKleinDistilledComposeModel(model: string): boolean {
+  return model === 'flux-2-klein-4b-distilled' || model === 'flux-2-klein-9b-distilled';
+}
+
+function usesCfg1NativeComposeLadder(model: string): boolean {
+  return isQwenLightningModel(model) || isKleinDistilledComposeModel(model);
+}
+
 /** Compose / Refine / inpaint tools that should match EmptyLatent to figure pixels. */
 export function toolUsesComposeFigureLatent(tool?: string): boolean {
   return tool === 'compose' || tool === 'refine' || tool === 'inpaint' || tool === 'outpaint';
@@ -883,13 +892,13 @@ export function resolveComposeOutputLatentSize(
     return { width: selected.width, height: selected.height };
   }
 
-  if (isQwenLightningModel(model)) {
+  if (usesCfg1NativeComposeLadder(model)) {
     return lightningSafeComposeLatentSizeForTier(figureWidth, figureHeight, model, tier);
   }
   return snapLatentSize(figureWidth, figureHeight);
 }
 
-/** Map probed figure pixels to queue EmptyLatent W×H (Lightning ladder or 16-multiple snap). */
+/** Map probed figure pixels to queue EmptyLatent W×H (native CFG-1 ladder or 16-multiple snap). */
 export function resolveComposeFigureLatentSize(
   figureWidth: number,
   figureHeight: number,
@@ -927,6 +936,39 @@ export function lightningSafeComposeLatentSize(
   return { width: best.width, height: best.height };
 }
 
+/**
+ * Klein Distilled Compose/Refine: rewrite leftover selfie pixels (688×1024) onto
+ * the native Klein ladder. Do not use the Qwen Lightning ladder — those sizes
+ * are 1328²-class and fight EmptyFlux2Latent + ReferenceLatent.
+ */
+function ensureKleinDistilledNativeResolutionParams(
+  params: WorkflowParamValues,
+  model: string,
+  orientation: ResolutionOrientation,
+  tier: ResolutionSizeTier,
+  options?: { preserveInputAspect?: boolean }
+): WorkflowParamValues {
+  const native = getModelResolutionPreset(model, orientation, tier);
+  const width = Number(params.width);
+  const height = Number(params.height);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return { ...params, width: native.width, height: native.height };
+  }
+
+  if (options?.preserveInputAspect) {
+    const safe = lightningSafeComposeLatentSizeForTier(width, height, model, tier);
+    if (width === safe.width && height === safe.height) {
+      return params;
+    }
+    return { ...params, width: safe.width, height: safe.height };
+  }
+
+  if (width === native.width && height === native.height) {
+    return params;
+  }
+  return { ...params, width: native.width, height: native.height };
+}
+
 /** Bump undersized / extreme-AR Lightning queues to a stable native preset. */
 export function ensureLightningNativeResolutionParams(
   params: WorkflowParamValues,
@@ -942,6 +984,9 @@ export function ensureLightningNativeResolutionParams(
     preserveInputAspect?: boolean;
   }
 ): WorkflowParamValues {
+  if (isKleinDistilledComposeModel(model)) {
+    return ensureKleinDistilledNativeResolutionParams(params, model, orientation, tier, options);
+  }
   if (!isQwenLightningModel(model)) {
     return params;
   }
