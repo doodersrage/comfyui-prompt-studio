@@ -65,7 +65,6 @@ export default function SettingsOverviewTab({
   handleHealAndReady,
   refreshHealth,
   sharedSettings,
-  updateSharedSettings,
   setStatus,
   slimSettings = false,
   onOpenComfyUiSection,
@@ -92,6 +91,69 @@ export default function SettingsOverviewTab({
               Heal & ready
             </Button>
           </div>
+          {health ? (
+            <ul className="mt-3 grid gap-1.5 sm:grid-cols-2">
+              {(
+                [
+                  {
+                    ok: health.llm.ok,
+                    label: 'LLM',
+                    detail: health.llm.enabled ? (health.llm.model ?? 'connected') : 'disabled',
+                  },
+                  {
+                    ok: health.comfyui.ok,
+                    label: 'ComfyUI',
+                    detail: health.comfyui.error ?? health.comfyui.url,
+                  },
+                  ...(health.comfyuiPool?.enabled
+                    ? [
+                        {
+                          ok: health.comfyuiPool.endpoints.some(endpoint => endpoint.ok),
+                          label: 'Cluster',
+                          detail: `${health.comfyuiPool.endpoints.filter(endpoint => endpoint.ok).length}/${health.comfyuiPool.endpoints.length} hosts up`,
+                        },
+                      ]
+                    : []),
+                  {
+                    ok: Boolean(health.config.visionModel?.trim()),
+                    label: 'Vision model',
+                    detail: health.config.visionModel?.trim() || 'unset — vision tools will fail',
+                  },
+                  {
+                    ok: Boolean(health.storage?.enabled),
+                    label: 'PROMPT_DATA_DIR',
+                    detail: health.storage?.enabled ? 'server sync on' : 'browser-only',
+                  },
+                  {
+                    ok: Boolean(health.auth?.enabled),
+                    label: 'Auth',
+                    detail: health.auth?.enabled ? 'accounts on' : 'off',
+                  },
+                  {
+                    ok: Boolean(health.email?.configured),
+                    label: 'SMTP',
+                    detail: health.email?.configured ? 'mail configured' : 'not configured',
+                  },
+                ] as Array<{ ok: boolean; label: string; detail: string }>
+              ).map(item => (
+                <li
+                  key={item.label}
+                  className="flex items-start gap-2 text-xs text-[var(--text-secondary)]"
+                >
+                  <span
+                    className="ui-health-dot mt-0.5"
+                    data-status={item.ok ? 'ok' : 'error'}
+                    aria-hidden
+                  />
+                  <span>
+                    <span className="font-medium text-[var(--text-primary)]">{item.label}</span>
+                    {' · '}
+                    {item.detail}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -287,90 +349,16 @@ export default function SettingsOverviewTab({
                 />
               ))}
             </div>
-            <div className="space-y-1.5">
-              <label
-                htmlFor="preferred-comfy-host"
-                className="text-xs text-[var(--text-secondary)]"
+            <p className="text-xs text-[var(--text-muted)]">
+              Add, test, and prefer hosts in{' '}
+              <Link
+                href={settingsComfyUiSectionHref('connection')}
+                className="text-[var(--accent-text)]"
               >
-                Preferred pool host
-              </label>
-              <select
-                id="preferred-comfy-host"
-                value={sharedSettings.preferredComfyHost ?? ''}
-                onChange={event =>
-                  updateSharedSettings({
-                    preferredComfyHost: event.target.value.trim() || undefined,
-                  })
-                }
-                className="w-full rounded-xl border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2.5 text-sm text-[var(--text-primary)] shadow-inner shadow-[var(--shadow-surface)] transition hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:border-[var(--border-strong)]"
-              >
-                <option value="">Auto (VRAM / round-robin)</option>
-                {health.comfyuiPool.endpoints.map(endpoint => (
-                  <option key={endpoint.url} value={endpoint.url}>
-                    {endpoint.ok ? '●' : '○'} Pool #{endpoint.index + 1} — {endpoint.url}
-                    {endpoint.ok ? '' : ' (unhealthy)'}
-                  </option>
-                ))}
-              </select>
-              <p className="text-[11px] leading-relaxed text-[var(--text-muted)]">
-                When the preferred host is in the pool and healthy, queues use it first. Unhealthy
-                or busy preferred hosts fall back to the least-loaded pool server.
-              </p>
-            </div>
-            <label className="flex cursor-pointer items-start gap-3">
-              <input
-                type="checkbox"
-                checked={sharedSettings.comfyPoolLoadBalance !== false}
-                onChange={event =>
-                  updateSharedSettings({
-                    comfyPoolLoadBalance: event.target.checked,
-                  })
-                }
-                className="mt-0.5 rounded border-[var(--border-default)] bg-[var(--bg-muted)] text-[var(--text-primary)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
-              />
-              <span className="space-y-0.5">
-                <span className="block text-sm text-[var(--text-primary)]">
-                  Load-balance across pool
-                </span>
-                <span className="block text-xs text-[var(--text-muted)]">
-                  Before each queue, refresh pool queue depth and skip hosts that exceed the busy
-                  threshold. Rotates to the next least-loaded server automatically.
-                </span>
-              </span>
-            </label>
-            {sharedSettings.comfyPoolLoadBalance !== false ? (
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="comfy-pool-busy-threshold"
-                  className="text-xs text-[var(--text-secondary)]"
-                >
-                  Busy threshold (pending + running jobs)
-                </label>
-                <input
-                  id="comfy-pool-busy-threshold"
-                  type="number"
-                  min={0}
-                  max={64}
-                  step={1}
-                  value={sharedSettings.comfyPoolBusyThreshold ?? 4}
-                  onChange={event => {
-                    const parsed = Number(event.target.value);
-                    updateSharedSettings({
-                      comfyPoolBusyThreshold:
-                        Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined,
-                    });
-                  }}
-                  className="w-full max-w-[8rem] rounded-xl border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2.5 text-sm text-[var(--text-primary)] shadow-inner shadow-[var(--shadow-surface)] transition hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:border-[var(--border-strong)]"
-                />
-                <p className="text-[11px] leading-relaxed text-[var(--text-muted)]">
-                  Hosts at or above this queue depth are skipped. Override server default with{' '}
-                  <code className="rounded bg-[var(--bg-elevated)] px-1">
-                    COMFYUI_POOL_BUSY_THRESHOLD
-                  </code>
-                  .
-                </p>
-              </div>
-            ) : null}
+                ComfyUI → Connection
+              </Link>
+              . Env pool members stay in <code className="ui-inline-code">COMFYUI_POOL</code>.
+            </p>
           </div>
         ) : null}
 

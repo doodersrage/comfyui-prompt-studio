@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  decideDeadHostRetry,
   decideOomRetry,
   downgradeQueueQualityProfile,
+  isDeadHostErrorMessage,
+  isDeadHostHttpStatus,
   isOomOrExecutionErrorMessage,
   pickAlternateComfyUrl,
 } from "./oom-retry";
@@ -35,6 +38,25 @@ describe("isOomOrExecutionErrorMessage", () => {
     assert.equal(isOomOrExecutionErrorMessage(""), false);
     assert.equal(isOomOrExecutionErrorMessage(undefined), false);
     assert.equal(isOomOrExecutionErrorMessage(null), false);
+  });
+});
+
+describe("isDeadHostErrorMessage", () => {
+  it("detects connection refused and timeouts", () => {
+    assert.equal(isDeadHostErrorMessage("Connection refused"), true);
+    assert.equal(isDeadHostErrorMessage("fetch failed: ECONNREFUSED"), true);
+    assert.equal(isDeadHostErrorMessage("connect ETIMEDOUT 10.0.0.5:8188"), true);
+    assert.equal(isDeadHostErrorMessage("Failed to fetch"), true);
+  });
+
+  it("does not treat OOM as a dead host", () => {
+    assert.equal(isDeadHostErrorMessage("CUDA out of memory"), false);
+    assert.equal(isDeadHostErrorMessage("Invalid workflow JSON"), false);
+  });
+
+  it("treats 502/503/504 as dead-host HTTP statuses", () => {
+    assert.equal(isDeadHostHttpStatus(502), true);
+    assert.equal(isDeadHostHttpStatus(400), false);
   });
 });
 
@@ -179,6 +201,40 @@ describe("decideOomRetry", () => {
     const decision = decideOomRetry({
       statusMessage: "CUDA out of memory",
       queueQualityProfile: "draft",
+    });
+    assert.equal(decision.action, "none");
+  });
+});
+
+describe("decideDeadHostRetry", () => {
+  const pool = ["http://10.0.0.5:8188", "http://10.0.0.6:8188"];
+
+  it("switches to an alternate host on connection refused", () => {
+    const decision = decideDeadHostRetry({
+      statusMessage: "connect ECONNREFUSED 10.0.0.5:8188",
+      poolUrls: pool,
+      currentComfyUrl: "http://10.0.0.5:8188",
+    });
+    assert.equal(decision.action, "switch-endpoint");
+    if (decision.action === "switch-endpoint") {
+      assert.equal(decision.nextComfyUrl, "http://10.0.0.6:8188");
+    }
+  });
+
+  it("does not downgrade quality", () => {
+    const decision = decideDeadHostRetry({
+      statusMessage: "Connection refused",
+      poolUrls: pool,
+      currentComfyUrl: "http://10.0.0.5:8188",
+    });
+    assert.equal(decision.action, "switch-endpoint");
+    assert.equal("nextProfile" in decision, false);
+  });
+
+  it("does nothing without a pool alternate", () => {
+    const decision = decideDeadHostRetry({
+      statusMessage: "Connection refused",
+      currentComfyUrl: "http://10.0.0.5:8188",
     });
     assert.equal(decision.action, "none");
   });

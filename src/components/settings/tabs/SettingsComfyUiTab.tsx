@@ -18,6 +18,8 @@ import WorkflowPreviewPanel from '@/components/WorkflowPreviewPanel';
 import DiffusersWorkflowSupportHint from '@/components/DiffusersWorkflowSupportHint';
 import SettingsPromptQualityPanel from '@/components/settings/SettingsPromptQualityPanel';
 import ComfyModelAssetsPanel from '@/components/settings/ComfyModelAssetsPanel';
+import ComfyClusterSettingsPanel from '@/components/settings/ComfyClusterSettingsPanel';
+import QueueExportSettingsPanel from '@/components/settings/QueueExportSettingsPanel';
 import {
   validateWorkflowJson,
   WORKFLOW_PARAM_TOKEN_HELP,
@@ -1330,31 +1332,36 @@ export default function SettingsComfyUiTab({
             />
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1">
-              <label htmlFor="positive-token" className="text-xs text-[var(--text-secondary)]">
-                Positive placeholder token
-              </label>
-              <input
-                id="positive-token"
-                value={settings.positiveToken ?? ''}
-                onChange={event => updateSettings({ positiveToken: event.target.value })}
-                placeholder="{{POSITIVE}}"
-                className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 font-mono text-sm text-[var(--text-primary)]"
-              />
-            </div>
-            <div className="space-y-1">
-              <label htmlFor="negative-token" className="text-xs text-[var(--text-secondary)]">
-                Negative placeholder token (optional)
-              </label>
-              <input
-                id="negative-token"
-                value={settings.negativeToken ?? ''}
-                onChange={event => updateSettings({ negativeToken: event.target.value })}
-                placeholder="{{NEGATIVE}}"
-                className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 font-mono text-sm text-[var(--text-primary)]"
-              />
-            </div>
+          <ComfyClusterSettingsPanel
+            sharedSettings={sharedSettings}
+            sharedMounted={sharedMounted}
+            updateSharedSettings={updateSharedSettings}
+            health={health}
+            onRefreshHealth={refreshHealth}
+          />
+          <div className="space-y-1">
+            <label htmlFor="positive-token" className="text-xs text-[var(--text-secondary)]">
+              Positive placeholder token
+            </label>
+            <input
+              id="positive-token"
+              value={settings.positiveToken ?? ''}
+              onChange={event => updateSettings({ positiveToken: event.target.value })}
+              placeholder="{{POSITIVE}}"
+              className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 font-mono text-sm text-[var(--text-primary)]"
+            />
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="negative-token" className="text-xs text-[var(--text-secondary)]">
+              Negative placeholder token (optional)
+            </label>
+            <input
+              id="negative-token"
+              value={settings.negativeToken ?? ''}
+              onChange={event => updateSettings({ negativeToken: event.target.value })}
+              placeholder="{{NEGATIVE}}"
+              className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 font-mono text-sm text-[var(--text-primary)]"
+            />
           </div>
 
           <div className="space-y-2">
@@ -1566,6 +1573,8 @@ export default function SettingsComfyUiTab({
             </div>
           </CollapsibleSection>
         </div>
+
+        <QueueExportSettingsPanel />
 
         {showAdvanced ? (
           <>

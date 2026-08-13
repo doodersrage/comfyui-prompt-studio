@@ -62,7 +62,7 @@ type GalleryCardProps = {
   onRequeue: (
     newSeed: boolean,
     qualityProfile?: import('@/lib/queue-quality-profile').QueueQualityProfile,
-    options?: { exactGraph?: boolean }
+    options?: { exactGraph?: boolean; stickyHost?: boolean }
   ) => void;
   onCancel: () => void;
   onUpscale: (qualityProfile: 'final' | 'max', options?: { force?: boolean }) => void;
@@ -560,6 +560,20 @@ export default function GalleryCard({
               >
                 Retry
               </button>
+              {entry.comfyUrl?.trim() ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    onRequeue(false, undefined, {
+                      exactGraph: Boolean(entry.hasStoredWorkflow || entry.workflowJson),
+                      stickyHost: true,
+                    })
+                  }
+                  className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-muted)]/80 px-2.5 py-1 text-[11px] text-[var(--text-secondary)] transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
+                >
+                  Retry on {comfyHostLabel ?? 'this host'}
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={() => onRequeue(true)}
@@ -1275,6 +1289,18 @@ export default function GalleryCard({
                       setMenuOpen(false);
                     }}
                   />
+                  {entry.comfyUrl?.trim() ? (
+                    <GalleryMenuButton
+                      label={`Retry on this host (${comfyHostLabel ?? entry.comfyUrl})`}
+                      onClick={() => {
+                        onRequeue(false, undefined, {
+                          exactGraph: Boolean(entry.hasStoredWorkflow || entry.workflowJson),
+                          stickyHost: true,
+                        });
+                        setMenuOpen(false);
+                      }}
+                    />
+                  ) : null}
                   <GalleryMenuButton
                     label="New seed"
                     onClick={() => {

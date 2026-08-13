@@ -29,14 +29,19 @@ export function loadGalleryElo(groupId: string): GalleryEloRecord | null {
   return loadGalleryEloStore()[groupId] ?? null;
 }
 
+export function replaceGalleryEloStore(store: Record<string, GalleryEloRecord>): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  writeBrowserValue(GALLERY_ELO_KEY, store);
+  emitUpdated();
+}
+
 export function saveGalleryElo(record: GalleryEloRecord): void {
   if (typeof window === 'undefined') {
     return;
   }
-  const store = loadGalleryEloStore();
-  store[record.groupId] = record;
-  writeBrowserValue(GALLERY_ELO_KEY, store);
-  emitUpdated();
+  replaceGalleryEloStore({ ...loadGalleryEloStore(), [record.groupId]: record });
 }
 
 export function galleryEloWinnerId(entries: EloEntry[]): string | null {

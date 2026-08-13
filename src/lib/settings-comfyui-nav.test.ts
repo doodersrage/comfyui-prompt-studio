@@ -54,13 +54,11 @@ describe("settings-comfyui-nav", () => {
     );
   });
 
-  it("surfaces inference engine from diffusers keyword", () => {
-    const hits = filterComfyUiSettingsSections("diffusers");
-    assert.ok(hits.some((section) => section.id === "inference-engine"));
-    assert.equal(
-      settingsComfyUiSectionHref("inference-engine"),
-      "/settings?tab=comfyui&section=inference-engine",
-    );
+  it("surfaces Connection from pool/export keywords", () => {
+    const poolHits = filterComfyUiSettingsSections("cluster");
+    assert.ok(poolHits.some((section) => section.id === "connection"));
+    const exportHits = filterComfyUiSettingsSections("sidecar");
+    assert.ok(exportHits.some((section) => section.id === "connection"));
   });
 
   it("limits jump-nav sections in essentials mode", () => {

@@ -11,6 +11,8 @@ type StoredScheduledBatch = {
   lastRunAt?: number;
   /** Server-readable mirror of Studio Automation → Scheduled batch (model/detail/quality/etc). */
   profile?: ScheduledBatchProfile;
+  schedulerEnabled?: boolean;
+  intervalMinutes?: number;
 };
 
 async function loadStored(): Promise<StoredScheduledBatch> {
@@ -48,31 +50,68 @@ export async function saveServerScheduledBatchProfile(
   return { profile: normalized, persisted: true };
 }
 
+export async function saveServerScheduledBatchScheduler(input: {
+  enabled?: boolean;
+  intervalMinutes?: number;
+}): Promise<{ enabled: boolean; intervalMinutes: number; persisted: boolean }> {
+  const { isServerStorageEnabled } = await import('./server-storage');
+  const stored = isServerStorageEnabled() ? await loadStored() : {};
+  const intervalMinutes = Math.max(
+    5,
+    Math.min(24 * 60, Math.round(Number(input.intervalMinutes ?? stored.intervalMinutes) || 60))
+  );
+  const enabled =
+    input.enabled === undefined ? stored.schedulerEnabled === true : input.enabled === true;
+  if (!isServerStorageEnabled()) {
+    return { enabled, intervalMinutes, persisted: false };
+  }
+  await saveStored({
+    ...stored,
+    schedulerEnabled: enabled,
+    intervalMinutes,
+  });
+  return { enabled, intervalMinutes, persisted: true };
+}
+
 /** Profile + last run status for display in Settings, regardless of storage availability. */
 export async function loadServerScheduledBatchStatus(): Promise<{
   profile: ScheduledBatchProfile;
   lastRunAt?: number;
   persisted: boolean;
   enabled: boolean;
+  intervalMinutes: number;
 }> {
   const { isServerStorageEnabled } = await import('./server-storage');
   const stored = await loadStored();
+  const intervalMinutes =
+    stored.intervalMinutes ?? Number(process.env.SERVER_SCHEDULED_BATCH_INTERVAL_MIN ?? '60');
   return {
     profile: mergeScheduledBatchProfile(resolveScheduledBatchProfileFromEnv(), stored.profile),
     lastRunAt: stored.lastRunAt,
     persisted: isServerStorageEnabled(),
-    enabled: process.env.SERVER_SCHEDULED_BATCH === 'true',
+    enabled: isServerScheduledBatchEnabled(stored.schedulerEnabled),
+    intervalMinutes: Number.isFinite(intervalMinutes) ? intervalMinutes : 60,
   };
 }
 
 /** Resolves the effective server scheduler config (enabled/interval from env, rest from the batch profile). */
+export function isServerScheduledBatchEnabled(
+  storedEnabled: boolean | undefined,
+  envFlag: string | undefined = process.env.SERVER_SCHEDULED_BATCH
+): boolean {
+  return storedEnabled === true || envFlag?.trim() === 'true';
+}
+
 export async function resolveServerScheduledBatchConfig(
   profile?: ScheduledBatchProfile
 ): Promise<ScheduledBatchConfig> {
   const resolvedProfile = profile ?? (await loadServerScheduledBatchProfile());
-  const intervalMinutes = Number(process.env.SERVER_SCHEDULED_BATCH_INTERVAL_MIN ?? '60');
+  const stored = await loadStored();
+  const intervalMinutes = Number(
+    stored.intervalMinutes ?? process.env.SERVER_SCHEDULED_BATCH_INTERVAL_MIN ?? '60'
+  );
   return clampScheduledBatchConfig({
-    enabled: process.env.SERVER_SCHEDULED_BATCH === 'true',
+    enabled: isServerScheduledBatchEnabled(stored.schedulerEnabled),
     intervalMinutes,
     target: resolvedProfile.target,
     count: resolvedProfile.count,

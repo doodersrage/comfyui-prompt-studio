@@ -1,11 +1,9 @@
 'use client';
 
-import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
-import { continueEditResultProps } from '@/lib/continue-edit-result-props';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { applySceneStarterWorkflowHints } from '@/lib/scene-starter-workflow-hints';
-import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
+import ScenePromptResultPanel from '@/components/scene-tool/ScenePromptResultPanel';
 import BrandBars from '@/components/BrandBars';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import { VariationSliderField } from '@/components/scene-tool/SceneToolSections';
@@ -30,7 +28,6 @@ import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
 import type { EnrichedToolGenerateResult } from '@/lib/specialized/types';
 import { readVariationSeedFromResult } from '@/lib/variation-seed-metadata';
-import { readRawPrompt } from '@/lib/raw-prompt';
 import { modelUsesTagAssist } from '@/lib/tag-assist';
 import { avoidedTokensRequestBody } from '@/lib/avoided-tokens';
 import { applyRatingDrivenWildness, ratingDrivenWildnessLabel } from '@/lib/rating-driven-random';
@@ -869,18 +866,19 @@ export default function PromptGenerator() {
       </SceneSetupSection>
 
       {output && (hintSource === 'random' || mode === 'positive') && (
-        <EnhancedPromptResult
+        <ScenePromptResultPanel
           compactActions
           output={output}
-          provider={provider}
-          comfyNode={resultMeta?.comfyNode ?? selectedModel.comfyNode}
-          limits={resultMeta?.limits}
-          readinessModel={shared.model}
-          readinessDetail={shared.detail}
+          onOutputChange={setOutput}
+          result={randomResult ?? resultMeta}
           copied={copied}
           onCopy={() => void copyOutput()}
-          onOutputChange={setOutput}
-          rawPrompt={readRawPrompt(randomResult?.metadata ?? resultMeta?.metadata)}
+          actions={actions}
+          shared={shared}
+          selectedComfyNode={resultMeta?.comfyNode ?? selectedModel.comfyNode}
+          queueLabel="Queue generate"
+          includeStickyBar={false}
+          hints={hintSource === 'random' ? genre : input}
           extraMeta={
             hintSource === 'random' && randomSeed
               ? `seed: ${randomSeed}`
@@ -888,64 +886,14 @@ export default function PromptGenerator() {
                 ? `${resultMeta.limits.minChars ? `${resultMeta.limits.minChars}–` : ''}${resultMeta.limits.maxChars} char limit · ${output.length} chars`
                 : undefined
           }
-          diagnostics={actions.diagnostics ?? randomResult?.diagnostics ?? null}
+          variationSeed={variationSeed}
           preDiagnostics={actions.preDiagnostics}
-          onSaveHistory={() =>
-            actions.saveHistory({
-              prompt: output,
-              hints: hintSource === 'random' ? genre : input,
-              metadata: randomResult?.metadata,
-            })
-          }
-          onSendComfyUi={() => void actions.sendComfyUi(output)}
-          onEditPrompt={() =>
-            actions.editPromptOutput(
-              output,
-              actions.comfyUiPreviewUrl,
-              undefined,
-              hintSource === 'random' ? genre : input
-            )
-          }
-          {...promptResultPreviewProps(actions, output)}
-          {...continueEditResultProps(actions, output)}
-          onFixPrompt={() =>
-            void actions.fixPrompt(output, setOutput, hintSource === 'random' ? genre : input)
-          }
-          onCopyPair={() => void actions.copyPromptPair(output)}
-          onCompact={() => void actions.compactPrompt(output, setOutput)}
-          onReformat={() => void actions.reformatForModel(output, setOutput)}
           reformatTargetLabel={getReformatTargetLabel(generateModel)}
-          onRunPipeline={() =>
-            void actions.runExportPipeline(output, setOutput, {
-              maxChars: resultMeta?.limits?.maxChars,
-              queueComfyUi: true,
-            })
-          }
-          onExportSidecar={() =>
-            void actions.exportSidecar(output, {
-              comfyNode: resultMeta?.comfyNode ?? selectedModel.comfyNode,
-              variationSeed: variationSeed ?? shared.lockedVariationSeed,
-              metadata: randomResult?.metadata,
-            })
-          }
           onLockSeed={() => {
             if (variationSeed) {
               updateShared({ lockedVariationSeed: variationSeed });
             }
           }}
-          variationSeed={variationSeed}
-          seedLocked={Boolean(
-            variationSeed && shared.lockedVariationSeed?.trim() === variationSeed.trim()
-          )}
-          fixStatus={actions.fixStatus}
-          compactStatus={actions.compactStatus}
-          reformatStatus={actions.reformatStatus}
-          pipelineStatus={actions.pipelineStatus}
-          comfyUiStatus={actions.comfyUiStatus}
-          comfyUiJob={actions.comfyUiJob}
-          comfyUiPreviewUrl={actions.comfyUiPreviewUrl}
-          historySaved={actions.historySaved}
-          pairCopied={actions.pairCopied}
         />
       )}
 

@@ -9,7 +9,10 @@ function ollamaEmbedBaseUrl(baseUrl: string): string {
   return baseUrl.replace(/\/v1\/?$/, '');
 }
 
-export async function embedText(text: string): Promise<EmbeddingVector | null> {
+export async function embedText(
+  text: string,
+  modelOverride?: string
+): Promise<EmbeddingVector | null> {
   const trimmed = text.trim();
   if (!trimmed) {
     return null;
@@ -22,6 +25,7 @@ export async function embedText(text: string): Promise<EmbeddingVector | null> {
 
   const { baseUrl, apiKey } = getLlmConfig();
   const model =
+    modelOverride?.trim() ||
     process.env.LLM_EMBED_MODEL?.trim() ||
     process.env.OLLAMA_EMBED_MODEL?.trim() ||
     'nomic-embed-text';
@@ -72,14 +76,15 @@ function cosineSimilarity(a: EmbeddingVector, b: EmbeddingVector): number {
 export async function rankByEmbedding<T>(
   items: T[],
   query: string,
-  toCorpus: (item: T) => string
+  toCorpus: (item: T) => string,
+  modelOverride?: string
 ): Promise<Array<{ item: T; score: number; method: 'embedding' | 'token' }>> {
   const trimmed = query.trim();
   if (!trimmed) {
     return items.map(item => ({ item, score: 0, method: 'token' as const }));
   }
 
-  const queryVector = await embedText(trimmed);
+  const queryVector = await embedText(trimmed, modelOverride);
   if (!queryVector) {
     return items
       .map(item => ({
@@ -94,7 +99,7 @@ export async function rankByEmbedding<T>(
   const scored: Array<{ item: T; score: number; method: 'embedding' | 'token' }> = [];
   for (const item of items) {
     const corpus = toCorpus(item);
-    const vector = await embedText(corpus);
+    const vector = await embedText(corpus, modelOverride);
     const score = vector
       ? cosineSimilarity(queryVector, vector)
       : semanticRelevanceScore(trimmed, corpus);

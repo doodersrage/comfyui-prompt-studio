@@ -270,6 +270,8 @@ export type ComfyUiRuntimeConfig = {
   comfyPoolLoadBalance?: boolean;
   /** Queue depth (pending + running) above which a pool host is treated as too busy. */
   comfyPoolBusyThreshold?: number;
+  /** Extra ComfyUI pool members from Settings (merged with COMFYUI_POOL). */
+  comfyPoolUrls?: string[];
 };
 
 export type WorkflowPlaceholderTokens = {
@@ -1815,6 +1817,10 @@ export function stripEmptyComfyUiRuntime(
     runtime.comfyPoolBusyThreshold >= 0
   ) {
     result.comfyPoolBusyThreshold = runtime.comfyPoolBusyThreshold;
+  }
+
+  if (Array.isArray(runtime.comfyPoolUrls) && runtime.comfyPoolUrls.length > 0) {
+    result.comfyPoolUrls = runtime.comfyPoolUrls.map(url => url.trim()).filter(Boolean);
   }
 
   const workflowJson = runtime.workflowJson?.trim();

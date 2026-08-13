@@ -1,6 +1,7 @@
 export async function fetchEmbeddingRankIds(
   query: string,
-  items: Array<{ id: string; text: string }>
+  items: Array<{ id: string; text: string }>,
+  embedModel?: string
 ): Promise<string[] | null> {
   const trimmed = query.trim();
   if (!trimmed || items.length === 0) {
@@ -11,7 +12,7 @@ export async function fetchEmbeddingRankIds(
     const response = await fetch('/api/search/embeddings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: trimmed, items }),
+      body: JSON.stringify({ query: trimmed, items, embedModel }),
     });
     if (!response.ok) {
       return null;

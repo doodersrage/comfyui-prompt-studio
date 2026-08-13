@@ -7,6 +7,7 @@ export type ScheduledBatchServerStatus = {
   lastRunAt?: number;
   persisted: boolean;
   enabled: boolean;
+  intervalMinutes?: number;
 };
 
 export type ScheduledBatchProfilePushResult = {

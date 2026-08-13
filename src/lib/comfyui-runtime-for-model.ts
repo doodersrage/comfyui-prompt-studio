@@ -287,6 +287,9 @@ function sharedQueueFlags(
     ...(preferredComfyHost ? { preferredComfyHost } : {}),
     comfyPoolLoadBalance: shared.comfyPoolLoadBalance !== false,
     ...(comfyPoolBusyThreshold != null ? { comfyPoolBusyThreshold } : {}),
+    ...(Array.isArray(shared.comfyPoolUrls) && shared.comfyPoolUrls.length > 0
+      ? { comfyPoolUrls: shared.comfyPoolUrls }
+      : {}),
     ...overrides,
   };
 }

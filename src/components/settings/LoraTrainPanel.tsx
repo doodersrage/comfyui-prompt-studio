@@ -17,6 +17,7 @@ import {
 } from '@/lib/lora-train-job';
 import { loadSettingsCache, saveSharedSettings } from '@/lib/settings-cache';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
+import { useAuth } from '@/hooks/useAuth';
 
 type LoraTrainPanelProps = {
   onStatus?: (message: string) => void;
@@ -58,6 +59,8 @@ function statusTone(status: TrainJob['status']): string {
 
 export default function LoraTrainPanel({ onStatus }: LoraTrainPanelProps) {
   const formId = useId();
+  const auth = useAuth();
+  const canEditTrainer = !auth?.authEnabled || Boolean(auth?.isAdmin);
   const [prefs, setPrefs] = useState<LoraTrainTrainerPrefs>(() =>
     normalizeLoraTrainTrainerPrefs(loadSettingsCache().shared.loraTrainTrainerPrefs)
   );
@@ -352,6 +355,17 @@ export default function LoraTrainPanel({ onStatus }: LoraTrainPanelProps) {
       </p>
 
       <p className="type-caption text-[var(--text-muted)]">{trainerHint}</p>
+      <p className="type-caption text-[var(--text-muted)]">
+        Env <code className="ui-inline-code">TRAINER_URL</code> /{' '}
+        <code className="ui-inline-code">TRAINER_COMMAND</code> win until the Next.js process
+        restarts. Settings values apply only when those env vars are unset. Studio never spawns a
+        trainer from the browser.
+      </p>
+      {!canEditTrainer ? (
+        <p className="type-caption text-[var(--tint-warning-text)]">
+          Admin sign-in required to edit trainer URL or command.
+        </p>
+      ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block space-y-1.5 sm:col-span-2">
@@ -361,7 +375,7 @@ export default function LoraTrainPanel({ onStatus }: LoraTrainPanelProps) {
             value={prefs.trainerUrl ?? ''}
             onChange={event => persistPrefs({ ...prefs, trainerUrl: event.target.value })}
             placeholder="http://127.0.0.1:7860/train"
-            disabled={envFlags.envUrl}
+            disabled={envFlags.envUrl || !canEditTrainer}
           />
         </label>
         <label className="block space-y-1.5 sm:col-span-2">
@@ -371,7 +385,7 @@ export default function LoraTrainPanel({ onStatus }: LoraTrainPanelProps) {
             value={prefs.trainerCommand ?? ''}
             onChange={event => persistPrefs({ ...prefs, trainerCommand: event.target.value })}
             placeholder="/path/to/train_network.py --config …"
-            disabled={envFlags.envCommand}
+            disabled={envFlags.envCommand || !canEditTrainer}
             className="font-mono text-sm"
           />
         </label>

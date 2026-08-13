@@ -25,7 +25,7 @@ import { buildGalleryImageUrlsFromQueueParams } from './queue-requeue-images';
 import { freeComfyUiMemory } from './comfyui-queue-control';
 import { normalizeQueueQualityProfile } from './queue-quality-profile';
 import { loadSettingsCache } from './settings-cache';
-import { attemptOomAutoRetry } from './oom-retry';
+import { attemptGalleryHostFailover } from './oom-retry';
 import { resolveGalleryRenderDurationMs } from './comfyui-render-duration';
 import { forgetPendingGalleryPoll } from './gallery-pending-polls';
 
@@ -409,7 +409,7 @@ function applyComfyJobStatus(
         completedAt: Date.now(),
       });
       // Best-effort — never blocks the error path or surfaces failures to the user.
-      void attemptOomAutoRetry(entry, tracker.statusMessage, onStatus);
+      void attemptGalleryHostFailover(entry, tracker.statusMessage, onStatus);
     }
     return entry;
   }

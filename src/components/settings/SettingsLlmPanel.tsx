@@ -219,6 +219,26 @@ export default function SettingsLlmPanel({
           />
         </label>
 
+        <label className="block space-y-1.5 text-sm">
+          <span className="type-caption text-[var(--text-muted)]">
+            Session embed model override
+          </span>
+          <input
+            type="text"
+            value={sharedSettings.sessionLlmEmbedModel ?? ''}
+            disabled={!sharedMounted}
+            placeholder={
+              server?.embedModel ? `Server: ${server.embedModel}` : 'e.g. nomic-embed-text'
+            }
+            onChange={event =>
+              updateSharedSettings({
+                sessionLlmEmbedModel: event.target.value.trim() || undefined,
+              })
+            }
+            className={`ui-input w-full font-mono text-sm ${accentFocusClass()}`}
+          />
+        </label>
+
         <div className="space-y-3">
           <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
             <span>LLM temperature</span>

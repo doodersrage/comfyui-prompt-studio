@@ -9,7 +9,7 @@ import { getLlmConfig, isLlmEnabled, allowTemplateFallback } from '@/lib/llm-cli
 import { getComfyUiBaseUrl } from '@/lib/comfyui-client';
 import { getComfyUiWorkflowSummary } from '@/lib/comfyui-status';
 import { summarizeApiUsage } from '@/lib/api-usage-log';
-import { isServerStorageEnabled } from '@/lib/server-storage';
+import { isServerStorageEnabled, readServerStorage } from '@/lib/server-storage';
 import { isEmailConfigured } from '@/lib/email/config';
 import { stripEmptyComfyUiRuntime, type ComfyUiRuntimeConfig } from '@/lib/comfyui-config';
 import { apiJson } from '@/lib/api/response';
@@ -17,6 +17,14 @@ import { getAuthBootstrapInfo } from '@/lib/auth/store';
 import { getServerEnvSummary } from '@/lib/server-env-summary';
 
 export const runtime = 'nodejs';
+
+function loadPersistedComfyPoolUrls(): string[] {
+  if (!isServerStorageEnabled()) {
+    return [];
+  }
+  const cache = readServerStorage<{ shared?: { comfyPoolUrls?: string[] } }>('settings-cache');
+  return Array.isArray(cache?.shared?.comfyPoolUrls) ? cache.shared.comfyPoolUrls : [];
+}
 
 function parseRuntimeFromSearch(searchParams: URLSearchParams): ComfyUiRuntimeConfig | undefined {
   return stripEmptyComfyUiRuntime({
@@ -53,7 +61,7 @@ export async function GET(request: Request) {
         };
       }
     })(),
-    checkComfyUiPoolHealth(),
+    checkComfyUiPoolHealth(loadPersistedComfyPoolUrls()),
     checkDiffusersHealth(diffusersUrlHint),
     checkCollabHealth(),
   ]);

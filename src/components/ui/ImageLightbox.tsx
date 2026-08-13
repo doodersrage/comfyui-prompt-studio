@@ -78,6 +78,7 @@ export type ImageLightboxSlideMeta = {
   prompt?: string;
   negativePrompt?: string;
   derivedKind?: string;
+  host?: string;
 };
 
 export type ImageLightboxJobChrome = {
@@ -99,6 +100,7 @@ export type ImageLightboxSlideChrome = {
   onRequeue?: () => void;
   onRequeueNewSeed?: () => void;
   onRequeueSeedPlusOne?: () => void;
+  onRetryStickyHost?: () => void;
   showImprove?: boolean;
   showCompose?: boolean;
   showInpaint?: boolean;
@@ -1190,6 +1192,7 @@ export default function ImageLightbox({
           meta.steps != null && meta.steps !== '' ? `Steps ${meta.steps}` : null,
           dims ? dims : null,
           meta.derivedKind ? meta.derivedKind : null,
+          meta.host ? `Host ${meta.host}` : null,
           preferFullRes ? 'Viewing full-res' : hasDistinctFullRes ? 'Viewing mid-res' : null,
           fullResLoading ? 'Loading full-res…' : null,
         ].filter(Boolean) as string[])
@@ -1573,6 +1576,15 @@ export default function ImageLightbox({
               label: '↻',
               title: 'Requeue same seed',
               onClick: () => slideChrome.onRequeue?.(),
+            })
+          : null}
+        {slideChrome?.onRetryStickyHost
+          ? renderIconAction(compact, {
+              label: '⌖',
+              title: slideChrome.meta?.host
+                ? `Retry on ${slideChrome.meta.host}`
+                : 'Retry on this host',
+              onClick: () => slideChrome.onRetryStickyHost?.(),
             })
           : null}
         {slideChrome?.showSeedVariation !== false && slideChrome?.onRequeueNewSeed

@@ -88,10 +88,23 @@ export default function SettingsAutomationTab({
   setStatus,
 }: SettingsAutomationTabProps) {
   const [embeddingHealth, setEmbeddingHealth] = useState<EmbeddingSearchHealth | null>(null);
+  const [schedulerDraft, setSchedulerDraft] = useState<{
+    enabled?: boolean;
+    intervalMinutes?: number;
+  }>({});
 
   useEffect(() => {
     void checkEmbeddingSearchHealth().then(setEmbeddingHealth);
   }, []);
+
+  const serverScheduler = serverScheduledBatchStatus
+    ? {
+        ...serverScheduledBatchStatus,
+        enabled: schedulerDraft.enabled ?? serverScheduledBatchStatus.enabled,
+        intervalMinutes:
+          schedulerDraft.intervalMinutes ?? serverScheduledBatchStatus.intervalMinutes,
+      }
+    : null;
 
   const filteredWebhookLog = useMemo(() => {
     if (webhookEventFilter === 'all') {
@@ -520,43 +533,93 @@ export default function SettingsAutomationTab({
           gated by env.
         </p>
         <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-muted)] p-3 text-xs text-[var(--text-secondary)]">
-          <p className="mb-1 font-medium text-[var(--text-secondary)]">
-            Headless server runner (env)
-          </p>
+          <p className="mb-1 font-medium text-[var(--text-secondary)]">Headless server runner</p>
           <p className="mb-2">
-            Requires <code className="text-[var(--text-secondary)]">PROMPT_DATA_DIR</code> for
-            durable profile storage, plus{' '}
-            <code className="text-[var(--text-secondary)]">SERVER_SCHEDULED_BATCH=true</code>. The
-            checkbox below only controls the in-browser runner.
+            Requires <code className="text-[var(--text-secondary)]">PROMPT_DATA_DIR</code> to
+            persist. Env{' '}
+            <code className="text-[var(--text-secondary)]">SERVER_SCHEDULED_BATCH=true</code> still
+            forces it on. The checkbox below is the Settings overlay.
           </p>
-          {serverScheduledBatchStatus ? (
+          {serverScheduler ? (
             <>
+              <label className="mb-2 flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                <input
+                  type="checkbox"
+                  checked={serverScheduler.enabled}
+                  onChange={event => {
+                    const enabled = event.target.checked;
+                    void fetch('/api/scheduled-batch/profile', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        enabled,
+                        intervalMinutes: serverScheduler.intervalMinutes ?? 60,
+                      }),
+                    })
+                      .then(response => response.json())
+                      .then(data => {
+                        setSchedulerDraft({
+                          enabled,
+                          intervalMinutes:
+                            typeof data.intervalMinutes === 'number'
+                              ? data.intervalMinutes
+                              : serverScheduler.intervalMinutes,
+                        });
+                        setStatus(
+                          data.persisted
+                            ? `Server batch ${enabled ? 'enabled' : 'disabled'}.`
+                            : 'Set PROMPT_DATA_DIR to persist server batch.'
+                        );
+                      });
+                  }}
+                  className="h-4 w-4 rounded"
+                />
+                Enable headless server batch
+              </label>
+              <label className="mb-2 block space-y-1">
+                Interval (minutes)
+                <input
+                  type="number"
+                  min={5}
+                  max={1440}
+                  value={serverScheduler.intervalMinutes ?? 60}
+                  onChange={event => {
+                    const intervalMinutes = Number(event.target.value) || 60;
+                    setSchedulerDraft(previous => ({ ...previous, intervalMinutes }));
+                  }}
+                  onBlur={() => {
+                    void fetch('/api/scheduled-batch/profile', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        enabled: serverScheduler.enabled,
+                        intervalMinutes: serverScheduler.intervalMinutes ?? 60,
+                      }),
+                    });
+                  }}
+                  className="ui-input max-w-[8rem] text-sm"
+                />
+              </label>
               <p>
-                {serverScheduledBatchStatus.enabled
-                  ? 'Active — server cron enabled (SERVER_SCHEDULED_BATCH=true).'
-                  : 'Disabled — set SERVER_SCHEDULED_BATCH=true on the server to enable.'}{' '}
-                {serverScheduledBatchStatus.persisted
+                {serverScheduler.enabled ? 'Active.' : 'Disabled.'}{' '}
+                {serverScheduler.persisted
                   ? 'Profile persisted to server storage.'
-                  : 'Profile not persisted (set PROMPT_DATA_DIR to survive restarts).'}
+                  : 'Profile not persisted (set PROMPT_DATA_DIR).'}
               </p>
               <p className="mt-1">
                 Using model{' '}
-                <span className="text-[var(--text-primary)]">
-                  {serverScheduledBatchStatus.profile.model}
-                </span>{' '}
+                <span className="text-[var(--text-primary)]">{serverScheduler.profile.model}</span>{' '}
                 · detail{' '}
-                <span className="text-[var(--text-primary)]">
-                  {serverScheduledBatchStatus.profile.detail}
-                </span>{' '}
+                <span className="text-[var(--text-primary)]">{serverScheduler.profile.detail}</span>{' '}
                 · quality{' '}
                 <span className="text-[var(--text-primary)]">
-                  {serverScheduledBatchStatus.profile.qualityProfile}
+                  {serverScheduler.profile.qualityProfile}
                 </span>
               </p>
               <p className="mt-1">
                 Last run:{' '}
-                {serverScheduledBatchStatus.lastRunAt
-                  ? new Date(serverScheduledBatchStatus.lastRunAt).toLocaleString()
+                {serverScheduler.lastRunAt
+                  ? new Date(serverScheduler.lastRunAt).toLocaleString()
                   : 'never'}
               </p>
             </>

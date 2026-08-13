@@ -5,11 +5,9 @@ import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
 import { useCallback, useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import BackgroundPresetControls from '@/components/BackgroundPresetControls';
-import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
 import RegionalPromptBuilderPanel from '@/components/RegionalPromptBuilderPanel';
-import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
-import { continueEditResultProps } from '@/lib/continue-edit-result-props';
-import { readRawPrompt } from '@/lib/raw-prompt';
+import type { BatchPromptItemActions } from '@/components/EnhancedPromptResult';
+import ScenePromptResultPanel from '@/components/scene-tool/ScenePromptResultPanel';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import { applySceneStarterWorkflowHints } from '@/lib/scene-starter-workflow-hints';
 import { applyHintSourceFromSearchParams } from '@/lib/tool-url-params';
@@ -44,7 +42,7 @@ import {
   regionalPromptCustomTokens,
   type RegionalPromptSegment,
 } from '@/lib/regional-prompt-builder';
-import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-target';
+import { getReformatTargetModel } from '@/lib/reformat-target';
 import { avoidedTokensRequestBody } from '@/lib/avoided-tokens';
 import { sharedLlmRequestBody } from '@/lib/llm-request-options';
 import { presetOptionsFromCache } from '@/lib/character-options-ui';
@@ -858,125 +856,85 @@ export default function CharacterTool() {
         </SceneGenerateFooter>
       </SceneSetupSection>
 
-      <EnhancedPromptResult
+      <ScenePromptResultPanel
         output={output}
         onOutputChange={setOutput}
-        rawPrompt={readRawPrompt(result?.metadata)}
-        provider={result?.provider ?? null}
-        comfyNode={result?.comfyNode}
-        limits={result?.limits}
-        readinessModel={shared.model}
-        readinessDetail={shared.detail}
+        result={result}
         copied={copied}
         onCopy={() => void copyOutput()}
-        diagnostics={actions.diagnostics ?? result?.diagnostics ?? null}
-        preDiagnostics={actions.preDiagnostics}
-        onSaveHistory={() =>
-          actions.saveHistory({
-            prompt: output,
-            hints: toolSettings.hints,
-            metadata: result?.metadata,
-          })
-        }
-        onSendComfyUi={() =>
-          void actions.sendComfyUi(output, inferredSport, undefined, {
-            customTokens: regionalPromptCustomTokens(toolSettings.regionalSegments ?? []),
-          })
-        }
-        onEditPrompt={() =>
-          actions.editPromptOutput(output, actions.comfyUiPreviewUrl, undefined, toolSettings.hints)
-        }
-        {...promptResultPreviewProps(actions, output, inferredSport)}
-        {...continueEditResultProps(actions, output)}
-        onFixPrompt={() => void actions.fixPrompt(output, setOutput, toolSettings.hints)}
-        onCopyPair={() => void actions.copyPromptPair(output, inferredSport)}
-        onCompact={() => void actions.compactPrompt(output, setOutput)}
-        onReformat={() => void actions.reformatForModel(output, setOutput)}
-        reformatTargetLabel={getReformatTargetLabel(shared.model)}
-        onRunPipeline={() =>
-          void actions.runExportPipeline(output, setOutput, {
-            maxChars: result?.limits?.maxChars,
-            queueComfyUi: true,
-          })
-        }
-        onExportSidecar={() =>
-          void actions.exportSidecar(output, {
-            comfyNode: result?.comfyNode ?? selectedModel.comfyNode,
-            variationSeed: variationSeed ?? shared.lockedVariationSeed,
-            metadata: result?.metadata,
-          })
-        }
-        onExportBatch={batchResults.length > 1 ? exportBatch : undefined}
-        onQueueBatchComfyUi={
-          batchResults.length > 1
-            ? () => void actions.sendBatchComfyUi(batchPrompts, inferredSport)
-            : undefined
-        }
-        batchItems={
-          batchResults.length > 1
-            ? batchResults.map(entry => ({
-                prompt: entry.prompt,
-                metadata: entry.metadata,
-              }))
-            : undefined
-        }
-        onBatchPromptChange={
-          batchResults.length > 1
-            ? (index, value) => {
-                setBatchResults(previous =>
-                  previous.map((entry, entryIndex) =>
-                    entryIndex === index ? { ...entry, prompt: value } : entry
-                  )
-                );
-              }
-            : undefined
-        }
-        batchCrossLinks={{
-          hintsForDuo: toolSettings.hints,
-          hintsForCharacter: toolSettings.hints,
-        }}
-        batchPromptActions={{
-          onQueueComfyUi: prompt =>
-            void actions.sendComfyUi(prompt, inferredSport, undefined, {
-              customTokens: regionalPromptCustomTokens(toolSettings.regionalSegments ?? []),
-            }),
-          onSaveHistory: ({ prompt, metadata }) =>
-            actions.saveHistory({
-              prompt,
-              hints: toolSettings.hints,
-              metadata,
-            }),
-          onCopyPair: prompt => void actions.copyPromptPair(prompt, inferredSport),
-          onExportSidecar: (prompt, _index, metadata) =>
-            void actions.exportSidecar(prompt, {
-              comfyNode: result?.comfyNode ?? selectedModel.comfyNode,
-              metadata,
-              variationSeed: readVariationSeedFromMetadata(metadata) ?? shared.lockedVariationSeed,
-            }),
-        }}
-        onLockSeed={() => {
-          if (variationSeed) {
-            updateShared({ lockedVariationSeed: variationSeed });
-          }
-        }}
-        variationSeed={variationSeed}
-        seedLocked={Boolean(
-          variationSeed && shared.lockedVariationSeed?.trim() === variationSeed.trim()
-        )}
-        fixStatus={actions.fixStatus}
-        compactStatus={actions.compactStatus}
-        reformatStatus={actions.reformatStatus}
-        pipelineStatus={actions.pipelineStatus}
-        comfyUiStatus={actions.comfyUiStatus}
-        comfyUiJob={actions.comfyUiJob}
-        comfyUiPreviewUrl={actions.comfyUiPreviewUrl}
-        historySaved={actions.historySaved}
-        pairCopied={actions.pairCopied}
+        actions={actions}
+        shared={shared}
+        selectedComfyNode={result?.comfyNode ?? selectedModel.comfyNode}
+        queueLabel="Queue character"
+        hints={toolSettings.hints}
+        includeStickyBar={false}
         extraMeta={
           sceneMode === 'duo' && toolSettings.sportPresetId
             ? getSportPreset(toolSettings.sportPresetId)?.label
             : undefined
         }
+        preDiagnostics={actions.preDiagnostics}
+        previewSport={inferredSport}
+        variationSeed={variationSeed}
+        onLockSeed={() => {
+          if (variationSeed) {
+            updateShared({ lockedVariationSeed: variationSeed });
+          }
+        }}
+        onSendComfyUi={() =>
+          void actions.sendComfyUi(output, inferredSport, undefined, {
+            customTokens: regionalPromptCustomTokens(toolSettings.regionalSegments ?? []),
+          })
+        }
+        onCopyPair={() => void actions.copyPromptPair(output, inferredSport)}
+        resultExtras={{
+          onExportBatch: batchResults.length > 1 ? exportBatch : undefined,
+          onQueueBatchComfyUi:
+            batchResults.length > 1
+              ? () => void actions.sendBatchComfyUi(batchPrompts, inferredSport)
+              : undefined,
+          batchItems:
+            batchResults.length > 1
+              ? batchResults.map(entry => ({
+                  prompt: entry.prompt,
+                  metadata: entry.metadata,
+                }))
+              : undefined,
+          onBatchPromptChange:
+            batchResults.length > 1
+              ? (index: number, value: string) => {
+                  setBatchResults(previous =>
+                    previous.map((entry, entryIndex) =>
+                      entryIndex === index ? { ...entry, prompt: value } : entry
+                    )
+                  );
+                }
+              : undefined,
+          batchCrossLinks: {
+            hintsForDuo: toolSettings.hints,
+            hintsForCharacter: toolSettings.hints,
+          },
+          batchPromptActions: {
+            onQueueComfyUi: prompt =>
+              void actions.sendComfyUi(prompt, inferredSport, undefined, {
+                customTokens: regionalPromptCustomTokens(toolSettings.regionalSegments ?? []),
+              }),
+            onSaveHistory: ({ prompt, metadata }) =>
+              actions.saveHistory({
+                prompt,
+                hints: toolSettings.hints,
+                metadata,
+              }),
+            onCopyPair: prompt => void actions.copyPromptPair(prompt, inferredSport),
+            onExportSidecar: (prompt, _index, metadata) =>
+              void actions.exportSidecar(prompt, {
+                comfyNode: result?.comfyNode ?? selectedModel.comfyNode,
+                metadata,
+                variationSeed:
+                  readVariationSeedFromMetadata(metadata) ?? shared.lockedVariationSeed,
+              }),
+          } satisfies BatchPromptItemActions,
+        }}
       />
       <MobileStickyQueueBar
         disabled={!output.trim()}

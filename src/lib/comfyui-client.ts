@@ -19,9 +19,12 @@ import {
   ensureComfyUiPoolStatsForQueue,
   getComfyUiPoolStatsCache,
   getDefaultPoolBusyThreshold,
+  markComfyUiPoolEndpointUnhealthy,
+  parseComfyUiPool,
   resolveComfyUiUrlWithPoolDetailed,
   type ComfyUiPoolRoutingMeta,
 } from './comfyui-pool';
+import { isDeadHostErrorMessage, isDeadHostHttpStatus, pickAlternateComfyUrl } from './oom-retry';
 import {
   getComfyUiAllowedHosts,
   isComfyClientUrlAllowed,
@@ -100,6 +103,7 @@ export function getComfyUiBaseUrlWithRouting(
     preferredComfyHost: runtime?.preferredComfyHost,
     loadBalance: runtime?.comfyPoolLoadBalance,
     busyThreshold: runtime?.comfyPoolBusyThreshold ?? getDefaultPoolBusyThreshold(),
+    poolUrls: runtime?.comfyPoolUrls,
   });
 
   return {
@@ -168,6 +172,7 @@ async function resolveComfyUiConfigForQueue(
 ): Promise<ResolvedComfyUiConfig & { poolRouting?: ComfyUiPoolRoutingMeta }> {
   await ensureComfyUiPoolStatsForQueue({
     loadBalance: runtime?.comfyPoolLoadBalance,
+    poolUrls: runtime?.comfyPoolUrls,
   });
   return resolveComfyUiConfig(runtime);
 }
@@ -369,6 +374,24 @@ function buildPreflightFailure(
   };
 }
 
+function resolveDeadHostFailoverUrl(
+  currentUrl: string,
+  runtime: ComfyUiRuntimeConfig | undefined,
+  error: unknown,
+  httpStatus?: number
+): string | undefined {
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  const dead =
+    (typeof httpStatus === 'number' && isDeadHostHttpStatus(httpStatus)) ||
+    isDeadHostErrorMessage(message) ||
+    (typeof httpStatus !== 'number' && isDeadHostErrorMessage(String(error ?? '')));
+  if (!dead) {
+    return undefined;
+  }
+  markComfyUiPoolEndpointUnhealthy(currentUrl);
+  return pickAlternateComfyUrl(parseComfyUiPool(runtime?.comfyPoolUrls), currentUrl);
+}
+
 export async function queuePromptToComfyUi(
   request: ComfyQueueRequest,
   runtime?: ComfyUiRuntimeConfig,
@@ -383,7 +406,8 @@ export async function queuePromptToComfyUi(
   }
 ): Promise<ComfyQueueResult> {
   const config = await resolveComfyUiConfigForQueue(runtime);
-  const poolRouting = config.poolRouting;
+  let poolRouting = config.poolRouting;
+  let routedUrl = config.apiUrl;
   const runPreflight = options?.preflight !== false;
   const preferDiffusers = options?.preferDiffusers === true;
   const allowComfyFallback = options?.allowComfyFallback !== false;
@@ -537,19 +561,45 @@ export async function queuePromptToComfyUi(
       }
     }
 
-    const workflowResponse = await fetch(`${config.apiUrl}/prompt`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        prompt: resolvedPromptBody.prompt,
-        client_id: clientId,
-        // Comfy defaults to --preview-method none; without this override, no
-        // latent preview frames are emitted on the WebSocket during sampling.
-        extra_data: {
-          preview_method: 'auto',
-        },
-      }),
-    });
+    const postPrompt = (apiUrl: string) =>
+      fetch(`${apiUrl}/prompt`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: resolvedPromptBody.prompt,
+          client_id: clientId,
+          extra_data: {
+            preview_method: 'auto',
+          },
+        }),
+      });
+
+    let workflowResponse: Response;
+    try {
+      workflowResponse = await postPrompt(routedUrl);
+    } catch (error) {
+      const alt = resolveDeadHostFailoverUrl(routedUrl, runtime, error);
+      if (!alt) {
+        throw error;
+      }
+      routedUrl = alt;
+      poolRouting = { strategy: 'failover' };
+      workflowResponse = await postPrompt(routedUrl);
+    }
+
+    if (!workflowResponse.ok && isDeadHostHttpStatus(workflowResponse.status)) {
+      const alt = resolveDeadHostFailoverUrl(
+        routedUrl,
+        runtime,
+        workflowResponse.statusText,
+        workflowResponse.status
+      );
+      if (alt) {
+        routedUrl = alt;
+        poolRouting = { strategy: 'failover' };
+        workflowResponse = await postPrompt(routedUrl);
+      }
+    }
 
     if (!workflowResponse.ok) {
       const text = await workflowResponse.text();
@@ -558,11 +608,12 @@ export async function queuePromptToComfyUi(
         error: formatComfyUiQueueValidationError(
           text || `ComfyUI returned ${workflowResponse.status}`
         ),
-        comfyUrl: config.apiUrl,
+        comfyUrl: routedUrl,
         clientId,
         workflowSource: resolvedPromptBody.workflowSource,
         engineId: 'comfyui',
         replacements: resolvedPromptBody.replacements,
+        poolRouting,
       };
     }
 
@@ -572,7 +623,7 @@ export async function queuePromptToComfyUi(
       prompt: request.prompt,
       negativePrompt: request.negativePrompt,
       promptId: data.prompt_id,
-      comfyUrl: config.apiUrl,
+      comfyUrl: routedUrl,
       workflow:
         typeof resolvedPromptBody.prompt === 'object'
           ? (resolvedPromptBody.prompt as Record<string, unknown>)
@@ -582,7 +633,7 @@ export async function queuePromptToComfyUi(
     return {
       ok: true,
       promptId: data.prompt_id,
-      comfyUrl: config.apiUrl,
+      comfyUrl: routedUrl,
       clientId,
       workflowSource: resolvedPromptBody.workflowSource,
       engineId: 'comfyui',
@@ -593,7 +644,7 @@ export async function queuePromptToComfyUi(
     return {
       ok: false,
       error: error instanceof Error ? error.message : 'ComfyUI unreachable',
-      comfyUrl: config.apiUrl,
+      comfyUrl: routedUrl,
       engineId: preferDiffusers ? 'diffusers' : 'comfyui',
     };
   }

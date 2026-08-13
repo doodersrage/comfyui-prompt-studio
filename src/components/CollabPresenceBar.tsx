@@ -1,16 +1,20 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  buildCollabShareUrl,
   collabChannelName,
   createCollabPeerId,
+  normalizeCollabProjectId,
+  readCollabProjectIdFromSearch,
   shouldWarnRemoteDraft,
   type CollabDraftFields,
   type CollabDraftPayload,
   type CollabPresencePeer,
 } from '@/lib/collab-presence';
-import { loadActiveProjectId } from '@/lib/prompt-projects';
+import { loadActiveProjectId, loadPromptProjects, setActiveProjectId } from '@/lib/prompt-projects';
 import { Button } from '@/components/ui/Button';
+import { SelectInput } from '@/components/ui/Field';
 
 type CollabPresenceBarProps = {
   tool?: string;
@@ -33,11 +37,60 @@ export default function CollabPresenceBar({
   const [peerId] = useState(() => createCollabPeerId());
   const [peers, setPeers] = useState<CollabPresencePeer[]>([]);
   const [remoteDraft, setRemoteDraft] = useState<CollabDraftPayload | null>(null);
+  const [shareCopied, setShareCopied] = useState(false);
+  const [projects] = useState(() => (typeof window === 'undefined' ? [] : loadPromptProjects()));
+  const [projectId, setProjectId] = useState(() => {
+    if (typeof window === 'undefined') {
+      return 'default';
+    }
+    return readCollabProjectIdFromSearch(window.location.search, loadActiveProjectId());
+  });
   const localDraftAtRef = useRef<number | undefined>(undefined);
-  const projectId = useMemo(
-    () => (typeof window === 'undefined' ? 'default' : loadActiveProjectId() || 'default'),
-    []
-  );
+
+  const applyProjectId = useCallback((nextId: string) => {
+    const room = normalizeCollabProjectId(nextId);
+    setProjectId(room);
+    setPeers([]);
+    setRemoteDraft(null);
+    setActiveProjectId(room === 'default' ? undefined : room);
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const nextUrl = buildCollabShareUrl(
+      `${window.location.pathname}${window.location.search}`,
+      room,
+      window.location.origin
+    );
+    window.history.replaceState(window.history.state, '', nextUrl);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const fromUrl = new URLSearchParams(window.location.search).get('project')?.trim();
+    if (fromUrl && fromUrl !== loadActiveProjectId()) {
+      setActiveProjectId(fromUrl);
+    }
+  }, []);
+
+  const copyShareLink = useCallback(async () => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const shareUrl = buildCollabShareUrl(
+      `${window.location.pathname}${window.location.search}`,
+      projectId,
+      window.location.origin
+    );
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setShareCopied(true);
+      window.setTimeout(() => setShareCopied(false), 2000);
+    } catch {
+      setShareCopied(false);
+    }
+  }, [projectId]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -156,11 +209,43 @@ export default function CollabPresenceBar({
     return () => window.clearTimeout(handle);
   }, [draft, draftFields, peerId, projectId, tool]);
 
-  const others = peers.filter(peer => peer.peerId !== peerId);
+  const others = peers.filter(peer => peer.peerId !== peerId && peer.projectId === projectId);
+  const roomLabel = useMemo(() => {
+    if (projectId === 'default') {
+      return 'default';
+    }
+    return projects.find(project => project.id === projectId)?.name ?? projectId;
+  }, [projectId, projects]);
 
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/50 px-3 py-2 text-[11px] text-[var(--text-muted)]">
-      <span className="font-medium text-[var(--text-secondary)]">Live · {projectId}</span>
+      <span className="font-medium text-[var(--text-secondary)]">Live</span>
+      <label className="flex items-center gap-1.5">
+        <span className="sr-only">Collab room</span>
+        <SelectInput
+          aria-label="Collab room"
+          className="!min-h-7 !py-0.5 !text-[11px]"
+          value={projectId}
+          onChange={event => applyProjectId(event.target.value)}
+        >
+          <option value="default">Default room</option>
+          {projects.map(project => (
+            <option key={project.id} value={project.id}>
+              {project.name || project.id}
+            </option>
+          ))}
+          {projectId !== 'default' && !projects.some(project => project.id === projectId) ? (
+            <option value={projectId}>{roomLabel}</option>
+          ) : null}
+        </SelectInput>
+      </label>
+      <Button
+        variant="ghost"
+        className="!min-h-7 px-2 text-[10px]"
+        onClick={() => void copyShareLink()}
+      >
+        {shareCopied ? 'Link copied' : 'Copy share link'}
+      </Button>
       {others.length === 0 ? (
         <span>Only you here</span>
       ) : (

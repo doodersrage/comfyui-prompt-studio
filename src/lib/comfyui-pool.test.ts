@@ -4,6 +4,8 @@ import {
   endpointQueueLoad,
   getComfyUiPoolStatsCache,
   isComfyUiEndpointTooBusy,
+  markComfyUiPoolEndpointUnhealthy,
+  parseComfyUiPool,
   pickComfyUiFromPoolVramAware,
   pickHighestScoringComfyUiEndpoint,
   pickLoadBalancedComfyUiEndpoint,
@@ -212,5 +214,52 @@ describe("comfyui pool stats cache", () => {
   it("expires the cache after maxAgeMs", () => {
     setComfyUiPoolStatsCache([{ url: "http://a", ok: true, vram: { free: 1e9 } }]);
     assert.equal(getComfyUiPoolStatsCache(-1), null);
+  });
+
+  it("marks a host unhealthy so later picks skip it", () => {
+    setComfyUiPoolStatsCache([
+      { url: "http://10.0.0.5:8188", ok: true, vram: { free: 8e9 } },
+      { url: "http://10.0.0.6:8188", ok: true, vram: { free: 8e9 } },
+    ]);
+    markComfyUiPoolEndpointUnhealthy("http://10.0.0.5:8188/");
+    const cached = getComfyUiPoolStatsCache();
+    assert.equal(cached?.find((entry) => entry.url.includes("0.5"))?.ok, false);
+    assert.equal(cached?.find((entry) => entry.url.includes("0.6"))?.ok, true);
+  });
+});
+
+describe("parseComfyUiPool extra URL merge", () => {
+  const previousPool = process.env.COMFYUI_POOL;
+  const previousHosts = process.env.COMFYUI_ALLOWED_HOSTS;
+
+  afterEach(() => {
+    if (previousPool === undefined) {
+      delete process.env.COMFYUI_POOL;
+    } else {
+      process.env.COMFYUI_POOL = previousPool;
+    }
+    if (previousHosts === undefined) {
+      delete process.env.COMFYUI_ALLOWED_HOSTS;
+    } else {
+      process.env.COMFYUI_ALLOWED_HOSTS = previousHosts;
+    }
+  });
+
+  it("unique-merges env pool URLs with extra settings URLs", () => {
+    process.env.COMFYUI_POOL = "http://10.0.0.5:8188,http://10.0.0.6:8188";
+    delete process.env.COMFYUI_ALLOWED_HOSTS;
+    const merged = parseComfyUiPool(["http://10.0.0.6:8188/", "http://10.0.0.7:8188"]);
+    assert.deepEqual(merged, [
+      "http://10.0.0.5:8188",
+      "http://10.0.0.6:8188",
+      "http://10.0.0.7:8188",
+    ]);
+  });
+
+  it("skips invalid extra URLs instead of aborting the pool", () => {
+    delete process.env.COMFYUI_POOL;
+    delete process.env.COMFYUI_ALLOWED_HOSTS;
+    const merged = parseComfyUiPool(["not a url", "http://10.0.0.8:8188"]);
+    assert.deepEqual(merged, ["http://10.0.0.8:8188"]);
   });
 });

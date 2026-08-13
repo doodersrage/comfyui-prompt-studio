@@ -20,6 +20,7 @@ import {
   startVideoFromGalleryEntry,
 } from '@/lib/improve-output';
 import { comfyUiJobProgressPercent, comfyUiJobStatusLabel } from '@/lib/comfyui-job-status';
+import { formatComfyHostLabel } from '@/lib/queue-status-notes';
 import { useComfyUiGallery } from '@/hooks/useComfyUiGallery';
 import {
   GalleryCapWarningBanner,
@@ -820,6 +821,19 @@ export default function ComfyUiGalleryPanel({
           })
         );
       },
+      onRetryStickyHost: entry.comfyUrl?.trim()
+        ? () => {
+            setRequeueStatus(`Re-queueing on ${entry.comfyUrl}…`);
+            void import('@/lib/comfyui-requeue').then(({ requeueComfyJobFromEntry }) =>
+              requeueComfyJobFromEntry(entry, {
+                newSeed: false,
+                exactGraph: Boolean(entry.hasStoredWorkflow || entry.workflowJson),
+                comfyUrlOverride: entry.comfyUrl,
+                onStatus: setRequeueStatus,
+              })
+            );
+          }
+        : undefined,
       showSeedVariation: completed,
       onRequeueNewSeed: completed
         ? () => {
@@ -874,6 +888,7 @@ export default function ComfyUiGalleryPanel({
         prompt: entry.prompt,
         negativePrompt: entry.negativePrompt,
         derivedKind: galleryDerivedKindLabel(entry.derivedKind),
+        host: formatComfyHostLabel(entry.comfyUrl) ?? undefined,
       },
       onCopyPrompt: entry.prompt
         ? () => {

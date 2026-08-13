@@ -62,9 +62,7 @@ export async function register() {
     return;
   }
 
-  if (process.env.SERVER_SCHEDULED_BATCH === 'true') {
-    startServerScheduledBatchLoop();
-  }
+  startServerScheduledBatchLoop();
 
   if (process.env.SERVER_USER_MAINTENANCE === 'true') {
     const maintenanceIntervalMin = Number(process.env.SERVER_USER_MAINTENANCE_INTERVAL_MIN ?? '15');

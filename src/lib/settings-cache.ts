@@ -438,6 +438,10 @@ export type SharedToolSettings = {
   sessionLlmModel?: string;
   /** Session override for the vision LLM model (undefined = server LLM_VISION_MODEL default). */
   sessionLlmVisionModel?: string;
+  /** Session override for the embedding model (undefined = server LLM_EMBED_MODEL). */
+  sessionLlmEmbedModel?: string;
+  /** Extra ComfyUI pool URLs merged with COMFYUI_POOL at queue time. */
+  comfyPoolUrls?: string[];
   /** Session LLM enabled override (undefined = server default; false = template-only for this browser). */
   sessionLlmEnabled?: boolean;
   /** Pinned character appearance block injected into Character/Duo generations. */
@@ -1023,6 +1027,7 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
   galleryWorkflowMaxBytes: 8 * 1024 * 1024,
   promptVersioningEnabled: true,
   preferredComfyHost: undefined,
+  comfyPoolUrls: [],
   comfyPoolLoadBalance: true,
   comfyPoolBusyThreshold: 4,
 };
@@ -1376,6 +1381,9 @@ export function loadSettingsCache(): SettingsCache {
     const preferredHost =
       typeof shared.preferredComfyHost === 'string' ? shared.preferredComfyHost.trim() : '';
     shared.preferredComfyHost = preferredHost || undefined;
+    shared.comfyPoolUrls = Array.isArray(shared.comfyPoolUrls)
+      ? shared.comfyPoolUrls.map(url => String(url).trim()).filter(Boolean)
+      : [];
     shared.loraDatasetExportPrefs = normalizeLoraDatasetExportPrefs(shared.loraDatasetExportPrefs);
     shared.loraTrainTrainerPrefs = normalizeLoraTrainTrainerPrefs(shared.loraTrainTrainerPrefs);
     shared.loraTrainJobs = normalizeTrainJobs(shared.loraTrainJobs);

@@ -49,4 +49,15 @@ describe('studio-extras merge', () => {
     assert.equal((folded.webhookSettings as { enabled?: boolean })?.enabled, false);
     assert.equal(folded.promptProjects?.length, 1);
   });
+
+  it('carries gallery ELO through merge when the newer snapshot has it', () => {
+    const older: StudioExtrasPayload = { updatedAt: 1, galleryElo: {} };
+    const newer: StudioExtrasPayload = {
+      updatedAt: 2,
+      galleryElo: {
+        g1: { groupId: 'g1', entries: [], winnerId: 'w1', updatedAt: 2 },
+      },
+    };
+    assert.equal(mergeStudioExtras(older, newer).galleryElo?.g1?.winnerId, 'w1');
+  });
 });

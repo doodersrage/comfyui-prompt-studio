@@ -27,7 +27,14 @@ export type ComfyUiPoolRoutingMeta = {
   preferredHost?: string;
   /** How the routed URL was chosen. */
   strategy?:
-    'preferred' | 'load_balance' | 'vram_aware' | 'round_robin' | 'user' | 'client' | 'env';
+    | 'preferred'
+    | 'load_balance'
+    | 'vram_aware'
+    | 'round_robin'
+    | 'user'
+    | 'client'
+    | 'env'
+    | 'failover';
 };
 
 export function getDefaultPoolBusyThreshold(): number {
@@ -204,8 +211,9 @@ export async function refreshComfyUiPoolStats(pool?: string[]): Promise<ComfyUiP
 export async function ensureComfyUiPoolStatsForQueue(input?: {
   loadBalance?: boolean;
   maxCacheAgeMs?: number;
+  poolUrls?: readonly string[];
 }): Promise<ComfyUiPoolEndpointStat[] | null> {
-  const pool = parseComfyUiPool();
+  const pool = parseComfyUiPool(input?.poolUrls);
   if (pool.length === 0 || input?.loadBalance === false) {
     return getComfyUiPoolStatsCache();
   }
@@ -227,6 +235,28 @@ let poolStatsRefreshInFlight = false;
 /** Remembers the most recent pool health snapshot (e.g. from `checkComfyUiPoolHealth`). */
 export function setComfyUiPoolStatsCache(stats: ComfyUiPoolEndpointStat[]): void {
   poolStatsCache = { at: Date.now(), stats };
+}
+
+/** Mark a pool member unhealthy so the next pick skips it (connection refused / timeout). */
+export function markComfyUiPoolEndpointUnhealthy(url: string): void {
+  const trimmed = url.trim().replace(/\/+$/, '');
+  if (!trimmed) {
+    return;
+  }
+  const current = poolStatsCache?.stats ?? [];
+  const norm = normalizeUrlForCompare(trimmed);
+  let found = false;
+  const next = current.map(stat => {
+    if (normalizeUrlForCompare(stat.url) === norm) {
+      found = true;
+      return { ...stat, ok: false };
+    }
+    return stat;
+  });
+  if (!found) {
+    next.push({ url: trimmed, ok: false });
+  }
+  setComfyUiPoolStatsCache(next);
 }
 
 /** Returns the cached pool stats when still fresh, or null otherwise. */
@@ -266,21 +296,60 @@ function refreshComfyUiPoolStatsInBackground(pool: string[]): void {
     });
 }
 
-export function parseComfyUiPool(): string[] {
+function uniquePoolUrls(urls: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const url of urls) {
+    const key = normalizeUrlForCompare(url);
+    if (!key || seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    out.push(url.replace(/\/+$/, ''));
+  }
+  return out;
+}
+
+/** Validate extra pool members against the host allowlist; skip invalid rows. */
+export function normalizeComfyPoolUrlList(raw: unknown): string[] {
+  const allowedHosts = getComfyUiAllowedHosts();
+  const entries = Array.isArray(raw) ? raw : typeof raw === 'string' ? raw.split(/[\n,]+/) : [];
+  const parsed: string[] = [];
+  for (const entry of entries) {
+    const trimmed = String(entry ?? '').trim();
+    if (!trimmed) {
+      continue;
+    }
+    try {
+      parsed.push(normalizeSafeHttpUrl(trimmed, { allowPrivate: true, allowedHosts }));
+    } catch {
+      // Settings extras fail closed per URL instead of aborting the whole pool.
+    }
+  }
+  return uniquePoolUrls(parsed);
+}
+
+export function parseEnvComfyUiPool(): string[] {
   const raw = process.env.COMFYUI_POOL?.trim();
   if (!raw) {
     return [];
   }
   const allowedHosts = getComfyUiAllowedHosts();
-  return raw
-    .split(',')
-    .map(entry => entry.trim())
-    .filter(Boolean)
-    .map(entry => normalizeSafeHttpUrl(entry, { allowPrivate: true, allowedHosts }));
+  return uniquePoolUrls(
+    raw
+      .split(',')
+      .map(entry => entry.trim())
+      .filter(Boolean)
+      .map(entry => normalizeSafeHttpUrl(entry, { allowPrivate: true, allowedHosts }))
+  );
 }
 
-export function pickComfyUiFromPool(seed?: string): string | null {
-  const pool = parseComfyUiPool();
+export function parseComfyUiPool(extra?: readonly string[]): string[] {
+  return uniquePoolUrls([...parseEnvComfyUiPool(), ...normalizeComfyPoolUrlList(extra)]);
+}
+
+export function pickComfyUiFromPool(seed?: string, poolUrls?: readonly string[]): string | null {
+  const pool = poolUrls ? parseComfyUiPool(poolUrls) : parseComfyUiPool();
   if (pool.length === 0) {
     return null;
   }
@@ -306,8 +375,9 @@ export function pickComfyUiFromPool(seed?: string): string | null {
 export function pickComfyUiFromPoolVramAware(input?: {
   seed?: string;
   stats?: ComfyUiPoolEndpointStat[] | null;
+  poolUrls?: readonly string[];
 }): string | null {
-  const pool = parseComfyUiPool();
+  const pool = parseComfyUiPool(input?.poolUrls);
   if (pool.length === 0) {
     return null;
   }
@@ -324,7 +394,7 @@ export function pickComfyUiFromPoolVramAware(input?: {
     refreshComfyUiPoolStatsInBackground(pool);
   }
 
-  return pickComfyUiFromPool(input?.seed);
+  return pickComfyUiFromPool(input?.seed, pool);
 }
 
 /**
@@ -380,6 +450,7 @@ export function resolveComfyUiUrlWithPoolDetailed(input: {
   preferredComfyHost?: string;
   loadBalance?: boolean;
   busyThreshold?: number;
+  poolUrls?: readonly string[];
 }): { url: string; routing?: ComfyUiPoolRoutingMeta } {
   if (input.userUrl?.trim()) {
     return { url: input.userUrl.trim(), routing: { strategy: 'user' } };
@@ -388,7 +459,7 @@ export function resolveComfyUiUrlWithPoolDetailed(input: {
     return { url: input.clientUrl.trim(), routing: { strategy: 'client' } };
   }
 
-  const pool = parseComfyUiPool();
+  const pool = parseComfyUiPool(input.poolUrls);
   const poolStats = input.poolStats ?? getComfyUiPoolStatsCache();
   const loadBalance = input.loadBalance !== false;
   const busyThreshold = input.busyThreshold ?? getDefaultPoolBusyThreshold();
@@ -412,6 +483,7 @@ export function resolveComfyUiUrlWithPoolDetailed(input: {
 
   const preferred = resolvePreferredComfyUiHost({
     preferredComfyHost: input.preferredComfyHost,
+    poolUrls: pool,
     poolStats,
     loadBalance,
     busyThreshold,
@@ -437,6 +509,7 @@ export function resolveComfyUiUrlWithPoolDetailed(input: {
   const pooled = pickComfyUiFromPoolVramAware({
     seed: input.routingSeed,
     stats: poolStats,
+    poolUrls: pool,
   });
   if (pooled) {
     return {
@@ -449,7 +522,7 @@ export function resolveComfyUiUrlWithPoolDetailed(input: {
     };
   }
 
-  const roundRobin = pickComfyUiFromPool(input.routingSeed);
+  const roundRobin = pickComfyUiFromPool(input.routingSeed, pool);
   if (roundRobin) {
     return {
       url: roundRobin,
@@ -476,6 +549,7 @@ export function resolveComfyUiUrlWithPool(input: {
   /** When true (default), skip busy endpoints and rotate to the next least-loaded host. */
   loadBalance?: boolean;
   busyThreshold?: number;
+  poolUrls?: readonly string[];
 }): string {
   return resolveComfyUiUrlWithPoolDetailed(input).url;
 }

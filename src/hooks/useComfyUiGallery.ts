@@ -30,6 +30,7 @@ import { pullAndMergeGalleryFromServer } from '@/lib/gallery-server-sync';
 import { scheduleComfyGalleryPoll } from '@/lib/comfyui-gallery-poller';
 import { fetchEmbeddingRankIds, galleryEntryCorpus, sortByRankIds } from '@/lib/embedding-rank';
 import { galleryVisualCorpus } from '@/lib/gallery-similarity';
+import { loadSettingsCache } from '@/lib/settings-cache';
 
 /** Guards the opportunistic server-gallery merge to run once per page session. */
 let serverGalleryMergeAttempted = false;
@@ -128,7 +129,8 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
 
     void fetchEmbeddingRankIds(
       query,
-      candidates.map(entry => ({ id: entry.id, text: galleryEntryCorpus(entry) }))
+      candidates.map(entry => ({ id: entry.id, text: galleryEntryCorpus(entry) })),
+      loadSettingsCache().shared.sessionLlmEmbedModel
     )
       .then(ids => {
         setEmbeddingRankIds(ids);
@@ -186,7 +188,8 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
       candidates.map(entry => ({
         id: entry.id,
         text: visual ? galleryVisualCorpus(entry) : galleryEntryCorpus(entry),
-      }))
+      })),
+      loadSettingsCache().shared.sessionLlmEmbedModel
     )
       .then(setSimilarRankIds)
       .finally(() => setSimilarSearchLoading(false));

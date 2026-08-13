@@ -15,6 +15,9 @@ import { normalizeQueueQualityProfile, type QueueQualityProfile } from './queue-
 const OOM_OR_EXECUTION_ERROR_PATTERN =
   /out[\s_-]*of[\s_-]*memory|\boom\b|cuda (error|out of memory)|cuda_error|allocat\w* .*(memory|failed)|insufficient (gpu )?memory|execution_?error|runtimeerror|vram/i;
 
+const DEAD_HOST_ERROR_PATTERN =
+  /econnrefused|econnreset|etimedout|enotfound|ehostunreach|eai_again|socket hang up|network\s*error|failed to fetch|fetch failed|connect(?:ion)? (?:refused|timed? ?out|reset)|host unreachable|unreachable|aborted|timeout/i;
+
 /** Detects OOM / CUDA / out-of-memory / execution_error signatures in a gallery job failure message. */
 export function isOomOrExecutionErrorMessage(message: string | undefined | null): boolean {
   const text = message?.trim();
@@ -22,6 +25,22 @@ export function isOomOrExecutionErrorMessage(message: string | undefined | null)
     return false;
   }
   return OOM_OR_EXECUTION_ERROR_PATTERN.test(text);
+}
+
+/** Connection refused / timeout / DNS — the GPU process is gone, not OOM. */
+export function isDeadHostErrorMessage(message: string | undefined | null): boolean {
+  const text = message?.trim();
+  if (!text) {
+    return false;
+  }
+  if (isOomOrExecutionErrorMessage(text)) {
+    return false;
+  }
+  return DEAD_HOST_ERROR_PATTERN.test(text);
+}
+
+export function isDeadHostHttpStatus(status: number): boolean {
+  return status === 502 || status === 503 || status === 504;
 }
 
 /** Max → Final → Draft on retry; Draft/followSettings have no lower tier to fall back to. */
@@ -148,6 +167,43 @@ export function decideOomRetry(input: DecideOomRetryInput): OomRetryDecision {
   };
 }
 
+export type DeadHostRetryDecision =
+  | { action: 'none'; reason: string }
+  | { action: 'switch-endpoint'; nextComfyUrl: string; reason: string };
+
+export type DecideDeadHostRetryInput = {
+  statusMessage?: string | null;
+  httpStatus?: number;
+  alreadyRetried?: boolean;
+  autoRetryOnOom?: boolean;
+  poolUrls?: string[];
+  currentComfyUrl?: string;
+};
+
+/** Switch pool hosts on connection refused / timeout. Never downgrades quality. */
+export function decideDeadHostRetry(input: DecideDeadHostRetryInput): DeadHostRetryDecision {
+  if (input.autoRetryOnOom === false) {
+    return { action: 'none', reason: 'auto-retry on dead host is disabled' };
+  }
+  if (input.alreadyRetried) {
+    return { action: 'none', reason: 'already auto-retried once' };
+  }
+  const fromMessage = isDeadHostErrorMessage(input.statusMessage);
+  const fromStatus = typeof input.httpStatus === 'number' && isDeadHostHttpStatus(input.httpStatus);
+  if (!fromMessage && !fromStatus) {
+    return { action: 'none', reason: 'not a dead-host failure' };
+  }
+  const altUrl = pickAlternateComfyUrl(input.poolUrls, input.currentComfyUrl);
+  if (!altUrl) {
+    return { action: 'none', reason: 'no alternate pool endpoint' };
+  }
+  return {
+    action: 'switch-endpoint',
+    nextComfyUrl: altUrl,
+    reason: 'host unreachable — retrying on alternate pool endpoint',
+  };
+}
+
 /** Best-effort: fetches known ComfyUI pool endpoint URLs from `/api/health`. Returns `[]` on any failure. */
 export async function fetchComfyUiPoolUrlsForRetry(): Promise<string[]> {
   try {
@@ -249,4 +305,81 @@ export async function attemptOomAutoRetry(
       error: error instanceof Error ? error.message : 'Auto-retry requeue failed.',
     };
   }
+}
+
+export type DeadHostAutoRetryResult = {
+  decision: DeadHostRetryDecision;
+  requeued: boolean;
+  promptId?: string;
+  error?: string;
+};
+
+/** Switch pool hosts when the job host is unreachable. Shares the one-retry flag with OOM. */
+export async function attemptDeadHostAutoRetry(
+  entry: ComfyGalleryEntry,
+  statusMessage: string | undefined,
+  onStatus?: (message: string) => void
+): Promise<DeadHostAutoRetryResult | null> {
+  if (entry.oomRetryAttempted) {
+    return null;
+  }
+  if (!isDeadHostErrorMessage(statusMessage)) {
+    return null;
+  }
+
+  const [{ loadSettingsCache }, { updateComfyGalleryByPromptId }] = await Promise.all([
+    import('./settings-cache'),
+    import('./comfyui-gallery'),
+  ]);
+  const shared = loadSettingsCache().shared;
+  const poolUrls = await fetchComfyUiPoolUrlsForRetry();
+  const decision = decideDeadHostRetry({
+    statusMessage,
+    alreadyRetried: false,
+    autoRetryOnOom: shared.autoRetryOnOom,
+    poolUrls,
+    currentComfyUrl: entry.comfyUrl,
+  });
+
+  if (decision.action === 'none') {
+    return { decision, requeued: false };
+  }
+
+  updateComfyGalleryByPromptId(entry.promptId, { oomRetryAttempted: true });
+  onStatus?.(`Auto-retry: ${decision.reason}…`);
+
+  try {
+    const { markComfyUiPoolEndpointUnhealthy } = await import('./comfyui-pool');
+    if (entry.comfyUrl) {
+      markComfyUiPoolEndpointUnhealthy(entry.comfyUrl);
+    }
+    const { requeueComfyJobFromEntry } = await import('./comfyui-requeue');
+    const result = await requeueComfyJobFromEntry(entry, {
+      comfyUrlOverride: decision.nextComfyUrl,
+      onStatus,
+    });
+    if (!result.ok) {
+      return { decision, requeued: false, error: result.error };
+    }
+    return { decision, requeued: true, promptId: result.promptId };
+  } catch (error) {
+    return {
+      decision,
+      requeued: false,
+      error: error instanceof Error ? error.message : 'Dead-host requeue failed.',
+    };
+  }
+}
+
+/** OOM first (may downgrade), then dead-host switch. At most one auto-retry. */
+export async function attemptGalleryHostFailover(
+  entry: ComfyGalleryEntry,
+  statusMessage: string | undefined,
+  onStatus?: (message: string) => void
+): Promise<OomAutoRetryResult | DeadHostAutoRetryResult | null> {
+  const oom = await attemptOomAutoRetry(entry, statusMessage, onStatus);
+  if (oom?.requeued) {
+    return oom;
+  }
+  return attemptDeadHostAutoRetry(entry, statusMessage, onStatus);
 }

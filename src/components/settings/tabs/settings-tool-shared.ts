@@ -111,6 +111,8 @@ export type HealthResponse = {
     avgDurationMs: number;
   };
   storage?: { enabled: boolean };
+  email?: { configured: boolean };
+  auth?: { enabled: boolean; defaultAdminUsername?: string };
   workflow?: {
     apiUrl: string;
     workflowSource: 'client' | 'env' | 'none';

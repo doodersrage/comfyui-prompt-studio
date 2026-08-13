@@ -44,6 +44,32 @@ export function collabChannelName(projectId: string): string {
   return `${CHANNEL_PREFIX}${projectId.trim() || 'default'}`;
 }
 
+export function normalizeCollabProjectId(projectId: string | null | undefined): string {
+  return projectId?.trim() || 'default';
+}
+
+/** Room id from `?project=` (same param gallery uses for project filter). */
+export function readCollabProjectIdFromSearch(search: string, fallback?: string | null): string {
+  const raw = search.startsWith('?') ? search.slice(1) : search;
+  const fromUrl = new URLSearchParams(raw).get('project')?.trim();
+  return normalizeCollabProjectId(fromUrl || fallback);
+}
+
+export function buildCollabShareUrl(
+  href: string,
+  projectId: string,
+  origin = 'http://localhost'
+): string {
+  const url = new URL(href, origin);
+  const room = normalizeCollabProjectId(projectId);
+  if (room === 'default') {
+    url.searchParams.delete('project');
+  } else {
+    url.searchParams.set('project', room);
+  }
+  return url.toString();
+}
+
 export function createCollabPeerId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
     return crypto.randomUUID();

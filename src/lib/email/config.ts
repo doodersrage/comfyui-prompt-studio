@@ -1,17 +1,7 @@
-export type EmailConfig = {
-  enabled: boolean;
-  from: string;
-  adminEmail?: string;
-  smtp: {
-    host: string;
-    port: number;
-    secure: boolean;
-    user?: string;
-    pass?: string;
-  };
-  notifyBatch: boolean;
-  notifyPassword: boolean;
-};
+import { overlayEmailConfig, readStoredEmailConfig } from './store';
+import type { EmailConfig } from './types';
+
+export type { EmailConfig } from './types';
 
 function flag(value: string | undefined): boolean {
   return value?.trim().toLowerCase() === 'true';
@@ -23,7 +13,7 @@ export function getEmailConfig(): EmailConfig {
     process.env.PROMPT_EMAIL_FROM?.trim() || (host ? 'Prompt Studio <noreply@localhost>' : '');
   const enabled = flag(process.env.PROMPT_EMAIL_ENABLED) || (Boolean(host) && Boolean(from));
 
-  return {
+  const envConfig: EmailConfig = {
     enabled,
     from,
     adminEmail: process.env.PROMPT_ADMIN_EMAIL?.trim() || undefined,
@@ -37,6 +27,7 @@ export function getEmailConfig(): EmailConfig {
     notifyBatch: process.env.PROMPT_EMAIL_NOTIFY_BATCH?.trim() !== 'false',
     notifyPassword: process.env.PROMPT_EMAIL_NOTIFY_PASSWORD?.trim() !== 'false',
   };
+  return overlayEmailConfig(envConfig, readStoredEmailConfig());
 }
 
 export function isEmailConfigured(): boolean {

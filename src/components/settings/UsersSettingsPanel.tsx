@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { ToolSection } from '@/components/ui/ToolPageShell';
 import { ButtonLink } from '@/components/ui/Button';
 import UsersAdminPanel from '@/components/settings/UsersAdminPanel';
+import SmtpSettingsPanel from '@/components/settings/SmtpSettingsPanel';
 
 export default function UsersSettingsPanel() {
   const auth = useAuth();
@@ -29,33 +30,39 @@ export default function UsersSettingsPanel() {
 
   if (!authEnabled) {
     return (
-      <ToolSection title="Enable user accounts">
-        <p className="text-sm text-[var(--text-muted)]">
-          User accounts are off. Add these to{' '}
-          <code className="text-[var(--text-secondary)]">.env.local</code> and restart the dev
-          server to unlock login, per-user history, and this admin panel.
-        </p>
-        <pre className="mt-4 overflow-x-auto rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/60 p-4 text-xs text-[var(--text-secondary)]">
-          {`PROMPT_AUTH_ENABLED=true
+      <>
+        <ToolSection title="Enable user accounts">
+          <p className="text-sm text-[var(--text-muted)]">
+            User accounts are off. Add these to{' '}
+            <code className="text-[var(--text-secondary)]">.env.local</code> and restart the dev
+            server to unlock login, per-user history, and this admin panel.
+          </p>
+          <pre className="mt-4 overflow-x-auto rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/60 p-4 text-xs text-[var(--text-secondary)]">
+            {`PROMPT_AUTH_ENABLED=true
 PROMPT_ADMIN_USERNAME=admin
 PROMPT_ADMIN_PASSWORD="change-me"
 PROMPT_SESSION_SECRET=use-a-long-random-string
 PROMPT_DATA_DIR=/path/to/persist/auth-and-analytics`}
-        </pre>
-        <p className="mt-4 text-sm text-[var(--text-muted)]">
-          Quote passwords that contain <code className="text-[var(--text-muted)]">$</code> or{' '}
-          <code className="text-[var(--text-muted)]">#</code>. After changing admin credentials in{' '}
-          <code className="text-[var(--text-muted)]">.env.local</code>, restart the server — the
-          bootstrap admin account syncs from env on startup.
-        </p>
-        <p className="mt-2 text-sm text-[var(--text-muted)]">
-          After restart, sign in at{' '}
-          <Link href="/login" className="text-[var(--accent-text)] hover:text-[var(--accent-text)]">
-            /login
-          </Link>{' '}
-          with the admin credentials above, then return here.
-        </p>
-      </ToolSection>
+          </pre>
+          <p className="mt-4 text-sm text-[var(--text-muted)]">
+            Quote passwords that contain <code className="text-[var(--text-muted)]">$</code> or{' '}
+            <code className="text-[var(--text-muted)]">#</code>. After changing admin credentials in{' '}
+            <code className="text-[var(--text-muted)]">.env.local</code>, restart the server — the
+            bootstrap admin account syncs from env on startup.
+          </p>
+          <p className="mt-2 text-sm text-[var(--text-muted)]">
+            After restart, sign in at{' '}
+            <Link
+              href="/login"
+              className="text-[var(--accent-text)] hover:text-[var(--accent-text)]"
+            >
+              /login
+            </Link>{' '}
+            with the admin credentials above, then return here.
+          </p>
+        </ToolSection>
+        <SmtpSettingsPanel isAdmin />
+      </>
     );
   }
 
@@ -85,5 +92,10 @@ PROMPT_DATA_DIR=/path/to/persist/auth-and-analytics`}
     );
   }
 
-  return <UsersAdminPanel />;
+  return (
+    <>
+      <SmtpSettingsPanel isAdmin />
+      <UsersAdminPanel />
+    </>
+  );
 }

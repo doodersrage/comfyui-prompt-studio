@@ -74,12 +74,23 @@ export const COMFYUI_SETTINGS_SECTIONS: ComfyUiSettingsSection[] = [
   {
     id: 'lora-train',
     label: 'LoRA train',
-    keywords: ['lora', 'train', 'kohya', 'dataset', 'trigger', 'trainer'],
+    keywords: ['lora', 'train', 'kohya', 'dataset', 'trigger', 'trainer', 'trainer_url'],
   },
   {
     id: 'connection',
     label: 'Connection',
-    keywords: ['url', 'token', 'injection', 'placeholder', 'workflow json'],
+    keywords: [
+      'url',
+      'token',
+      'injection',
+      'placeholder',
+      'workflow json',
+      'pool',
+      'cluster',
+      'gpu',
+      'export',
+      'sidecar',
+    ],
   },
   {
     id: 'auto-improve',

@@ -242,8 +242,10 @@ export async function checkDiffusersHealth(engineUrlHint?: string): Promise<Diff
   }
 }
 
-export async function checkComfyUiPoolHealth(): Promise<ComfyUiPoolHealth> {
-  const pool = parseComfyUiPool();
+export async function checkComfyUiPoolHealth(
+  extraUrls?: readonly string[]
+): Promise<ComfyUiPoolHealth> {
+  const pool = parseComfyUiPool(extraUrls);
   if (pool.length === 0) {
     return { enabled: false, endpoints: [] };
   }

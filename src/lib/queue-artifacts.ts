@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { resolveQueueExportDir } from './queue-export-store';
 
 export type QueueArtifactPayload = {
   prompt: string;
@@ -11,17 +12,20 @@ export type QueueArtifactPayload = {
 };
 
 export function isQueueArtifactExportEnabled(): boolean {
-  return Boolean(process.env.COMFYUI_QUEUE_EXPORT_DIR?.trim());
+  try {
+    return Boolean(resolveQueueExportDir());
+  } catch {
+    return false;
+  }
 }
 
 function exportDir(): string {
-  const dir = process.env.COMFYUI_QUEUE_EXPORT_DIR?.trim();
+  const dir = resolveQueueExportDir();
   if (!dir) {
     throw new Error('COMFYUI_QUEUE_EXPORT_DIR is not configured.');
   }
-  const resolved = path.resolve(dir);
-  fs.mkdirSync(resolved, { recursive: true });
-  return resolved;
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
 }
 
 export function writeQueueArtifact(payload: QueueArtifactPayload): string | null {

@@ -60,6 +60,11 @@ import {
   loadExperimentWinners,
   type ExperimentWinnerRecord,
 } from './experiment-winners';
+import {
+  loadGalleryEloStore,
+  replaceGalleryEloStore,
+  type GalleryEloRecord,
+} from './gallery-elo-store';
 import { CATALOG_RATING_BIAS_KEY } from './catalog-rating-bias';
 import { loadNegativeSuggestions, saveNegativeSuggestions } from './negative-learner';
 import {
@@ -150,6 +155,7 @@ export type StudioExtrasPayload = {
   queueParams?: ReturnType<typeof loadQueueParamsSettings>;
   workflowPresetPacks?: ReturnType<typeof loadWorkflowPresetPacks>;
   experimentWinners?: Record<string, ExperimentWinnerRecord>;
+  galleryElo?: Record<string, GalleryEloRecord>;
   catalogRatingBias?: { token: string; score: number }[];
   negativeLearner?: ReturnType<typeof loadNegativeSuggestions>;
   toolPluginRegistry?: ToolPlugin[];
@@ -208,6 +214,7 @@ export function collectStudioExtras(): StudioExtrasPayload {
     queueParams: loadQueueParamsSettings(),
     workflowPresetPacks: loadWorkflowPresetPacks(),
     experimentWinners: loadExperimentWinners(),
+    galleryElo: loadGalleryEloStore(),
     catalogRatingBias:
       readBrowserValue<{ token: string; score: number }[]>(CATALOG_RATING_BIAS_KEY) ?? [],
     negativeLearner: loadNegativeSuggestions(),
@@ -330,6 +337,9 @@ export function applyStudioExtras(payload: StudioExtrasPayload | null | undefine
     }
     if (payload.experimentWinners) {
       writeBrowserValue(EXPERIMENT_WINNERS_KEY, payload.experimentWinners);
+    }
+    if (payload.galleryElo) {
+      replaceGalleryEloStore(payload.galleryElo);
     }
     if (payload.catalogRatingBias) {
       writeBrowserValue(CATALOG_RATING_BIAS_KEY, payload.catalogRatingBias);
