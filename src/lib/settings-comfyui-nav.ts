@@ -69,7 +69,7 @@ export const COMFYUI_SETTINGS_SECTIONS: ComfyUiSettingsSection[] = [
   {
     id: 'lora-library',
     label: 'LoRA library',
-    keywords: ['lora', 'trigger', 'auto', 'stack', 'lightx2v'],
+    keywords: ['lora', 'trigger', 'auto', 'stack', 'lightx2v', 'civitai', 'search', 'download'],
   },
   {
     id: 'lora-train',
@@ -90,6 +90,9 @@ export const COMFYUI_SETTINGS_SECTIONS: ComfyUiSettingsSection[] = [
       'gpu',
       'export',
       'sidecar',
+      'restart',
+      'reboot',
+      'manager',
     ],
   },
   {

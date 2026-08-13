@@ -5,6 +5,7 @@ import {
   deleteComfyQueuePrompt,
   freeComfyUiMemory,
   interruptComfyUiQueue,
+  restartComfyUi,
 } from "./comfyui-queue-control";
 
 type FetchCall = { url: string; init?: RequestInit };
@@ -175,5 +176,48 @@ describe("freeComfyUiMemory", () => {
 
     assert.equal(result.ok, false);
     assert.equal(result.error, "ComfyUI free failed: HTTP 502");
+  });
+});
+
+describe("restartComfyUi", () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it("omits comfyUrl from the body when not provided", async () => {
+    const calls = stubFetch(() => ({ ok: true, body: { ok: true } }));
+
+    await restartComfyUi();
+
+    assert.equal(calls[0]!.url, "/api/comfyui/restart");
+    assert.deepEqual(JSON.parse(String(calls[0]!.init?.body)), {});
+  });
+
+  it("scopes the restart to a pooled host when comfyUrl is provided", async () => {
+    const calls = stubFetch(() => ({ ok: true, body: { ok: true } }));
+
+    await restartComfyUi("http://10.0.0.5:8188");
+
+    assert.deepEqual(JSON.parse(String(calls[0]!.init?.body)), {
+      comfyUrl: "http://10.0.0.5:8188",
+    });
+  });
+
+  it("surfaces a missing-manager error from the server", async () => {
+    stubFetch(() => ({
+      ok: false,
+      body: {
+        error: "ComfyUI has no restart API on this host. Install ComfyUI-Manager (reboot) or restart the ComfyUI process, then refresh LoRA inventory.",
+        missingManager: true,
+      },
+    }));
+
+    const result = await restartComfyUi();
+
+    assert.equal(result.ok, false);
+    assert.equal(result.missingManager, true);
+    assert.match(result.error ?? "", /ComfyUI-Manager/);
   });
 });

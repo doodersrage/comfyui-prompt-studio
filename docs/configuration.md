@@ -88,6 +88,7 @@ The generator calls any **OpenAI-compatible** chat completions API. Configure vi
 | `COMFYUI_API_URL`                      | `http://127.0.0.1:8188`         | Default ComfyUI base URL                                                                                                                                                               |
 | `COMFYUI_ROOT`                         | _(empty)_                       | Absolute path to the ComfyUI install (same machine). Enables **Settings → ComfyUI → Model assets** curated weight downloads into `models/checkpoints`, `diffusion_models`, `vae`, etc. |
 | `HF_TOKEN`                             | _(empty)_                       | Optional Hugging Face token for curated downloads (also accepts `HUGGING_FACE_HUB_TOKEN`)                                                                                              |
+| `CIVITAI_API_TOKEN`                    | _(empty)_                       | Optional Civitai token for gated LoRA downloads from **Settings → ComfyUI → LoRA library**                                                                                             |
 | `COMFYUI_ALLOW_CLIENT_URL`             | `true`                          | Allow clients to override ComfyUI URL                                                                                                                                                  |
 | `COMFYUI_ALLOWED_HOSTS`                | _(empty)_                       | Optional comma-separated ComfyUI host allowlist. Empty = any host (still blocks metadata). Settings extras cannot change this                                                          |
 | `COMFYUI_POOL`                         | _(empty)_                       | Comma-separated ComfyUI URLs merged with Settings extras at queue time. Copy a snippet from Settings → ComfyUI cluster after Test                                                      |
@@ -114,6 +115,10 @@ The generator calls any **OpenAI-compatible** chat completions API. Configure vi
 **Invite and password reset:** With auth and SMTP enabled, admins send `POST /api/auth/invite` from Settings → Users. Users request `POST /api/email/forgot-password` and complete `POST /api/auth/reset-password`. Links are `{PROMPT_API_URL}/login?reset=…` and expire in **1 hour**. Tokens live in `PROMPT_DATA_DIR/auth/password-reset-tokens.json`.
 
 **Queue interrupt:** `POST /api/comfyui/interrupt` forwards an interrupt to ComfyUI (also available on the Queue page).
+
+**ComfyUI restart:** `POST /api/comfyui/restart` asks ComfyUI-Manager to reboot (`/api/manager/reboot` or `/manager/reboot`). Vanilla ComfyUI has no restart API — without Manager the route returns HTTP 501. Also on Queue and Settings → Connection / LoRA library.
+
+**LoRA search:** `GET /api/comfyui/loras/search?q=…` queries Civitai server-side. `POST /api/comfyui/loras/download` with `{ versionId }` writes into `COMFYUI_ROOT/models/loras`. The browser never supplies download URLs.
 
 **Second GPU probe:** `POST /api/comfyui/probe` with `{ "url": "http://…" }`. Fetches the host only after allowlist checks. An allowlist miss returns HTTP 400 with `code: "allowlist"` and does not contact the host.
 

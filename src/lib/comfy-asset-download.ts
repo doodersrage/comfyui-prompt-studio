@@ -10,6 +10,12 @@ import {
   getComfyUiRoot,
   resolveAssetDestinationPath,
 } from './comfy-asset-paths';
+import type { ComfyAssetKind } from './comfy-asset-kinds';
+import {
+  civitaiLoraDownloadUrl,
+  isCivitaiDownloadUrl,
+  parseCivitaiVersionId,
+} from './civitai-lora';
 
 export type ComfyAssetJobStatus =
   'queued' | 'downloading' | 'verifying' | 'complete' | 'error' | 'cancelled';
@@ -104,15 +110,30 @@ function saveJob(job: ComfyAssetJob): ComfyAssetJob {
 }
 
 function rebuildDownloadParams(job: ComfyAssetJob): DownloadParams | null {
-  const asset = getCatalogAsset(job.assetId);
-  if (!asset?.url || !isAllowlistedAssetUrl(asset.url)) {
-    return null;
-  }
   if (!job.destPath?.trim()) {
     return null;
   }
   const destPath = path.resolve(job.destPath);
   const modelsDir = path.dirname(destPath);
+  const civitaiVersionId = parseCivitaiVersionId(job.assetId);
+  if (civitaiVersionId != null) {
+    const url = civitaiLoraDownloadUrl(civitaiVersionId);
+    if (!isAllowlistedAssetUrl(url)) {
+      return null;
+    }
+    return {
+      url,
+      destPath,
+      partialPath: `${destPath}.partial`,
+      modelsDir,
+      expectedBytes: job.bytesTotal ?? undefined,
+      fetchImpl: fetch,
+    };
+  }
+  const asset = getCatalogAsset(job.assetId);
+  if (!asset?.url || !isAllowlistedAssetUrl(asset.url)) {
+    return null;
+  }
   return {
     url: asset.url,
     destPath,
@@ -172,6 +193,9 @@ async function sha256File(filePath: string): Promise<string> {
 }
 
 function withDownloadQuery(urlString: string): string {
+  if (isCivitaiDownloadUrl(urlString)) {
+    return urlString;
+  }
   try {
     const url = new URL(urlString);
     if (!url.searchParams.has('download')) {
@@ -183,11 +207,18 @@ function withDownloadQuery(urlString: string): string {
   }
 }
 
-function buildDownloadHeaders(): Record<string, string> {
+function buildDownloadHeaders(urlString: string): Record<string, string> {
   const headers: Record<string, string> = {
     Accept: 'application/octet-stream,*/*',
     'User-Agent': 'ComfyPromptStudio/1.0 (+local; curated model install)',
   };
+  if (isCivitaiDownloadUrl(urlString)) {
+    const token = process.env.CIVITAI_API_TOKEN?.trim();
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    return headers;
+  }
   const hfToken = process.env.HF_TOKEN?.trim() || process.env.HUGGING_FACE_HUB_TOKEN?.trim();
   if (hfToken) {
     headers.Authorization = `Bearer ${hfToken}`;
@@ -389,6 +420,120 @@ export function startComfyAssetDownload(options: StartComfyAssetDownloadOptions)
   return job;
 }
 
+export type StartAdhocAssetDownloadOptions = {
+  assetId: string;
+  label: string;
+  filename: string;
+  kind: ComfyAssetKind;
+  url: string;
+  bytes?: number;
+  sha256?: string;
+  fetchImpl?: typeof fetch;
+  root?: string | null;
+  deferStart?: boolean;
+};
+
+/**
+ * Start a server-constructed (allowlisted) download that is not in the curated catalog.
+ * Callers must pass a URL they built — never a client-supplied address.
+ */
+export function startAdhocAssetDownload(options: StartAdhocAssetDownloadOptions): ComfyAssetJob {
+  if (!isAllowlistedAssetUrl(options.url)) {
+    throw new Error('Download URL host is not allowlisted.');
+  }
+
+  const root = options.root !== undefined ? options.root : getComfyUiRoot();
+  if (!root) {
+    throw new Error('COMFYUI_ROOT is not set. Point it at your ComfyUI install directory.');
+  }
+  if (!fs.existsSync(root)) {
+    throw new Error(`COMFYUI_ROOT does not exist: ${root}`);
+  }
+  if (!canWriteComfyModelsRoot(root)) {
+    throw new Error(comfyModelsWriteErrorMessage(root));
+  }
+
+  const { destPath, partialPath, modelsDir } = resolveAssetDestinationPath({
+    root,
+    kind: options.kind,
+    filename: options.filename,
+  });
+
+  if (fs.existsSync(destPath)) {
+    const existing: ComfyAssetJob = {
+      id: crypto.randomUUID(),
+      assetId: options.assetId,
+      label: options.label,
+      filename: options.filename,
+      status: 'complete',
+      progress: 1,
+      bytesReceived: 0,
+      bytesTotal: options.bytes ?? null,
+      destPath,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    return saveJob(existing);
+  }
+
+  for (const existing of getRuntime().jobs.values()) {
+    if (existing.assetId !== options.assetId) {
+      continue;
+    }
+    if (
+      existing.status === 'queued' ||
+      existing.status === 'downloading' ||
+      existing.status === 'verifying'
+    ) {
+      return existing;
+    }
+    if (existing.status === 'error' || existing.status === 'cancelled') {
+      const restarted = retryComfyAssetDownload(existing.id, {
+        deferStart: options.deferStart,
+        fetchImpl: options.fetchImpl,
+      });
+      if (restarted) {
+        return restarted;
+      }
+    }
+  }
+
+  const job: ComfyAssetJob = {
+    id: crypto.randomUUID(),
+    assetId: options.assetId,
+    label: options.label,
+    filename: options.filename,
+    status: 'queued',
+    progress: 0,
+    bytesReceived: 0,
+    bytesTotal: options.bytes ?? null,
+    attempt: 0,
+    runAttempt: 1,
+    destPath,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  saveJob(job);
+
+  const params: DownloadParams = {
+    url: options.url,
+    destPath,
+    partialPath,
+    modelsDir,
+    expectedSha256: options.sha256,
+    expectedBytes: options.bytes,
+    fetchImpl: options.fetchImpl ?? fetch,
+  };
+
+  if (!options.deferStart) {
+    scheduleComfyAssetDownloadJob(job.id, params);
+  } else {
+    getRuntime().pendingDownloadParams.set(job.id, params);
+  }
+
+  return job;
+}
+
 /** Cancel a queued/active download. Keeps `.partial` for a later resume. */
 export function cancelComfyAssetDownload(jobId: string): ComfyAssetJob | undefined {
   const runtime = getRuntime();
@@ -544,7 +689,7 @@ async function fetchWithRetries(input: {
     const overallTimer = setTimeout(() => connectController.abort(), TOTAL_TIMEOUT_MS);
 
     try {
-      const headers = buildDownloadHeaders();
+      const headers = buildDownloadHeaders(input.url);
       if (input.rangeStart && input.rangeStart > 0) {
         headers.Range = `bytes=${input.rangeStart}-`;
       }
@@ -603,7 +748,7 @@ async function fetchWithRetries(input: {
         error instanceof Error
           ? aborted
             ? new Error(
-                `Connection stalled or timed out talking to Hugging Face (attempt ${attempt}/${MAX_ATTEMPTS}).`
+                `Connection stalled or timed out talking to the download host (attempt ${attempt}/${MAX_ATTEMPTS}).`
               )
             : error
           : new Error('Download failed.');
@@ -682,6 +827,15 @@ async function runDownload(input: {
 
     if (!response.body) {
       throw new Error('Download response had no body.');
+    }
+
+    const contentType = response.headers.get('content-type') ?? '';
+    if (/text\/html/i.test(contentType)) {
+      throw new Error(
+        isCivitaiDownloadUrl(input.url)
+          ? 'Civitai returned a web page instead of a file. Set CIVITAI_API_TOKEN for gated models, or try another version.'
+          : 'Download returned HTML instead of a weight file (login wall or bad URL).'
+      );
     }
 
     // Server ignored Range — restart from byte 0.

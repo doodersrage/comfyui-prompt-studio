@@ -70,6 +70,7 @@ import {
 import { EmptyState } from '@/components/ui/ViewState';
 import { FieldError, FieldLabel, TextArea } from '@/components/ui/Field';
 import { Button, PrimaryButton } from '@/components/ui/Button';
+import { restartComfyUi } from '@/lib/comfyui-queue-control';
 
 const ComfyWorkflowLibraryPanel = dynamic(() => import('@/components/ComfyWorkflowLibraryPanel'), {
   ssr: false,
@@ -1286,6 +1287,7 @@ export default function SettingsComfyUiTab({
               library={settings.loraLibrary}
               comfyUrl={settings.apiUrl}
               onChange={loraLibrary => updateSettings({ loraLibrary })}
+              onStatus={setStatus}
             />
           </ToolSection>
 
@@ -1858,6 +1860,23 @@ export default function SettingsComfyUiTab({
             className="rounded-lg border border-[var(--border-default)] px-4 py-2 text-[var(--text-primary)] hover:border-[var(--border-strong)]"
           >
             Test connection
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              void (async () => {
+                setStatus('Sending ComfyUI restart…');
+                const result = await restartComfyUi(settings.apiUrl?.trim() || undefined);
+                if (!result.ok) {
+                  setStatus(result.error ?? 'ComfyUI restart failed.');
+                  return;
+                }
+                setStatus('ComfyUI restart requested. Wait a few seconds, then Test connection.');
+              })();
+            }}
+            className="rounded-lg border border-[var(--border-default)] px-4 py-2 text-[var(--text-primary)] hover:border-[var(--border-strong)]"
+          >
+            Restart ComfyUI
           </button>
           <button
             type="button"

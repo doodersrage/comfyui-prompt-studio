@@ -36,6 +36,9 @@ export function isAllowlistedAssetUrl(urlString: string): boolean {
       return false;
     }
     const host = url.hostname.toLowerCase();
+    if (host === 'civitai.com' || host.endsWith('.civitai.com')) {
+      return /^\/api\/download\/models\/\d+\/?$/.test(url.pathname);
+    }
     if (
       COMFY_ASSET_DOWNLOAD_HOSTS.some(allowed => host === allowed || host.endsWith(`.${allowed}`))
     ) {

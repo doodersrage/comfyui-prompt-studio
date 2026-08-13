@@ -26,6 +26,7 @@ export function buildComfyQueueDeletePayload(
 export type ComfyQueueActionResult = {
   ok: boolean;
   error?: string;
+  missingManager?: boolean;
 };
 
 async function postComfyQueueAction(
@@ -38,9 +39,16 @@ async function postComfyQueueAction(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    const data = (await response.json().catch(() => ({}))) as { error?: string };
+    const data = (await response.json().catch(() => ({}))) as {
+      error?: string;
+      missingManager?: boolean;
+    };
     if (!response.ok) {
-      return { ok: false, error: data.error ?? `Request failed: HTTP ${response.status}` };
+      return {
+        ok: false,
+        error: data.error ?? `Request failed: HTTP ${response.status}`,
+        missingManager: data.missingManager,
+      };
     }
     return { ok: true };
   } catch (error) {
@@ -75,4 +83,11 @@ export function interruptComfyUiQueue(comfyUrl?: string): Promise<ComfyQueueActi
  */
 export function freeComfyUiMemory(comfyUrl?: string): Promise<ComfyQueueActionResult> {
   return postComfyQueueAction('/api/comfyui/free', comfyUrl ? { comfyUrl } : {});
+}
+
+/**
+ * Asks ComfyUI-Manager to reboot. Vanilla ComfyUI has no restart API.
+ */
+export function restartComfyUi(comfyUrl?: string): Promise<ComfyQueueActionResult> {
+  return postComfyQueueAction('/api/comfyui/restart', comfyUrl ? { comfyUrl } : {});
 }

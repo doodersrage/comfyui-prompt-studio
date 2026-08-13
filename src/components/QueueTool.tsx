@@ -17,7 +17,11 @@ import { requeueComfyJobFromEntry, requeueComfyJobs } from '@/lib/comfyui-requeu
 import { resolveRequeueImageUrlsFromEntry } from '@/lib/queue-requeue-images';
 import { markOnboardingFirstQueue } from '@/lib/onboarding-hooks';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
-import { freeComfyUiMemory, interruptComfyUiQueue } from '@/lib/comfyui-queue-control';
+import {
+  freeComfyUiMemory,
+  interruptComfyUiQueue,
+  restartComfyUi,
+} from '@/lib/comfyui-queue-control';
 import { cancelComfyGalleryJob } from '@/lib/comfyui-queue-cancel';
 import {
   COMFY_LIVE_PREVIEW_UPDATED_EVENT,
@@ -175,6 +179,19 @@ export default function QueueTool() {
     void refreshHealth();
   }
 
+  async function restartComfy() {
+    setStatus('Sending ComfyUI restart…');
+    const result = await restartComfyUi(queueHealth?.url);
+    if (!result.ok) {
+      setStatus(result.error ?? 'Restart failed.');
+      return;
+    }
+    setStatus('ComfyUI restart requested. Wait a few seconds, then refresh.');
+    window.setTimeout(() => {
+      void refreshHealth();
+    }, 4000);
+  }
+
   async function cancelJob(entry: ComfyGalleryEntry) {
     setStatus(`Cancelling ${entry.promptId || 'job'}…`);
     const result = await cancelComfyGalleryJob(entry);
@@ -234,6 +251,9 @@ export default function QueueTool() {
           ) : null}
           <Button size="sm" variant="secondary" onClick={() => void freeComfyVram()}>
             Free VRAM
+          </Button>
+          <Button size="sm" variant="secondary" onClick={() => void restartComfy()}>
+            Restart ComfyUI
           </Button>
         </div>
       ) : (

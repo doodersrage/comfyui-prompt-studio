@@ -11,17 +11,20 @@ import {
   type LoraLibraryEntry,
 } from '@/lib/lora-stack';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
+import LoraSearchDownloadPanel from '@/components/settings/LoraSearchDownloadPanel';
 
 type LoraLibrarySettingsPanelProps = {
   library: LoraLibraryEntry[] | undefined;
   comfyUrl?: string;
   onChange: (next: LoraLibraryEntry[]) => void;
+  onStatus?: (message: string) => void;
 };
 
 export default function LoraLibrarySettingsPanel({
   library,
   comfyUrl,
   onChange,
+  onStatus,
 }: LoraLibrarySettingsPanelProps) {
   const entries = library ?? [];
   const [inventoryLoras, setInventoryLoras] = useState<string[]>([]);
@@ -146,6 +149,14 @@ export default function LoraLibrarySettingsPanel({
         or use the tool sidebar <span className="text-[var(--text-secondary)]">LoRA stack</span> for
         the current session.
       </p>
+
+      <LoraSearchDownloadPanel
+        comfyUrl={comfyUrl}
+        libraryFilenames={libraryFilenames}
+        onAddToLibrary={addFromInventory}
+        onRefreshInventory={refreshInventory}
+        onStatus={onStatus}
+      />
 
       <div className="space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">

@@ -17,6 +17,7 @@ import {
   retryComfyAssetDownload,
   runComfyAssetDownloadJob,
   startComfyAssetDownload,
+  startAdhocAssetDownload,
 } from "./comfy-asset-download";
 import {
   canWriteComfyModelsRoot,
@@ -93,12 +94,20 @@ describe("comfy asset paths", () => {
 });
 
 describe("comfy asset catalog", () => {
-  it("allowlists huggingface hosts only", () => {
+  it("allowlists huggingface hosts and Civitai download paths", () => {
     assert.equal(
       isAllowlistedAssetUrl(
         "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors",
       ),
       true,
+    );
+    assert.equal(
+      isAllowlistedAssetUrl("https://civitai.com/api/download/models/12345"),
+      true,
+    );
+    assert.equal(
+      isAllowlistedAssetUrl("https://civitai.com/api/v1/models"),
+      false,
     );
     assert.equal(
       isAllowlistedAssetUrl("https://evil.example/model.safetensors"),
@@ -497,6 +506,57 @@ describe("comfy asset download", () => {
         done?.status === "complete" || /SHA-256|mismatch/i.test(done?.error ?? ""),
         done?.error,
       );
+    } finally {
+      await fsp.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses client-shaped adhoc URLs and writes Civitai LoRAs into models/loras", async () => {
+    const root = await fsp.mkdtemp(path.join(os.tmpdir(), "comfy-lora-dl-"));
+    try {
+      await fsp.mkdir(path.join(root, "models", "loras"), { recursive: true });
+      assert.throws(() =>
+        startAdhocAssetDownload({
+          assetId: "civitai:1",
+          label: "nope",
+          filename: "evil.safetensors",
+          kind: "lora",
+          url: "https://evil.example/lora.safetensors",
+          root,
+          deferStart: true,
+        }),
+      );
+      const payload = Buffer.from("fake-civitai-lora");
+      const job = startAdhocAssetDownload({
+        assetId: "civitai:4242",
+        label: "Test LoRA",
+        filename: "test_lora.safetensors",
+        kind: "lora",
+        url: "https://civitai.com/api/download/models/4242",
+        root,
+        deferStart: true,
+        fetchImpl: async () =>
+          new Response(payload, {
+            status: 200,
+            headers: {
+              "content-length": String(payload.length),
+              "content-type": "application/octet-stream",
+            },
+          }),
+      });
+      assert.equal(job.status, "queued");
+      await runComfyAssetDownloadJob(job.id);
+      for (let i = 0; i < 50; i += 1) {
+        const current = getComfyAssetJob(job.id);
+        if (current?.status === "complete" || current?.status === "error") {
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      const done = getComfyAssetJob(job.id);
+      assert.equal(done?.status, "complete", done?.error);
+      const dest = path.join(root, "models", "loras", "test_lora.safetensors");
+      assert.equal(fs.existsSync(dest), true);
     } finally {
       await fsp.rm(root, { recursive: true, force: true });
     }

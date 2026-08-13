@@ -26,6 +26,9 @@ describe("settings-comfyui-nav", () => {
     assert.ok(hits.some((section) => section.id === "lora-library"));
     assert.ok(hits.some((section) => section.id === "lora-train"));
     assert.ok(hits.some((section) => section.id === "model-assets"));
+    assert.ok(
+      filterComfyUiSettingsSections("civitai").some((section) => section.id === "lora-library"),
+    );
     assert.equal(
       settingsComfyUiSectionHref("lora-library"),
       "/settings?tab=comfyui&section=lora-library",
@@ -55,11 +58,13 @@ describe("settings-comfyui-nav", () => {
     );
   });
 
-  it("surfaces Connection from pool/export keywords", () => {
+  it("surfaces Connection from pool/export/restart keywords", () => {
     const poolHits = filterComfyUiSettingsSections("cluster");
     assert.ok(poolHits.some((section) => section.id === "connection"));
     const exportHits = filterComfyUiSettingsSections("sidecar");
     assert.ok(exportHits.some((section) => section.id === "connection"));
+    const restartHits = filterComfyUiSettingsSections("reboot");
+    assert.ok(restartHits.some((section) => section.id === "connection"));
   });
 
   it("marks advanced ComfyUI deep links as requiring full settings", () => {

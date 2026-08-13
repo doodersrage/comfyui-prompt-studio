@@ -163,6 +163,14 @@ export function getServerEnvSummary(): ServerEnvSummary {
           hint: 'Optional Bearer token for gated / rate-limited Hugging Face downloads.',
         },
         {
+          key: 'CIVITAI_API_TOKEN',
+          label: 'Civitai API token',
+          value: flag(process.env.CIVITAI_API_TOKEN) ? 'configured' : 'not set',
+          configured: flag(process.env.CIVITAI_API_TOKEN),
+          hint: 'Optional token for gated Civitai LoRA downloads (Settings → LoRA library search).',
+          uiOverride: 'Settings → ComfyUI → LoRA library',
+        },
+        {
           key: 'COMFYUI_ALLOW_CLIENT_URL',
           label: 'Allow client URL override',
           value: process.env.COMFYUI_ALLOW_CLIENT_URL === 'false' ? 'false' : 'true',
