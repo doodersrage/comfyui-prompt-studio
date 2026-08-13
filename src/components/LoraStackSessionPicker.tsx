@@ -20,7 +20,12 @@ import {
   type ModelLoraMap,
   type SessionActiveLoraIdsByModel,
 } from '@/lib/model-lora-map';
-import { filterLorasForSelectedModel, loraModelFilterLabel } from '@/lib/lora-model-compat';
+import {
+  filterLorasForSelectedModel,
+  isLoraCompatibleWithModel,
+  loraModelFilterLabel,
+} from '@/lib/lora-model-compat';
+import { comfyLoraPreviewSrc } from '@/lib/comfyui-object-info-cache';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import { loadSettingsCache } from '@/lib/settings-cache';
 import { Button } from '@/components/ui/Button';
@@ -152,6 +157,10 @@ export default function LoraStackSessionPicker({
   });
   const hiddenCount = Math.max(0, selectable.length - visible.length);
   const activeSet = new Set(activeIds);
+  const mismatchCount = selectable.filter(
+    entry => activeSet.has(entry.id) && !isLoraCompatibleWithModel(entry, snapshot.model)
+  ).length;
+  const previewComfyUrl = loadComfyUiSettings().apiUrl;
 
   const modelDefaultIds = !sessionOverride
     ? resolveModelDefaultLoraIds(snapshot.model, snapshot.modelLoraMap)
@@ -199,6 +208,13 @@ export default function LoraStackSessionPicker({
         </p>
       ) : null}
 
+      {mismatchCount > 0 ? (
+        <p className="type-caption ui-status-danger">
+          {mismatchCount} selected LoRA{mismatchCount === 1 ? '' : 's'} look like a different family
+          than {loraModelFilterLabel(snapshot.model)}.
+        </p>
+      ) : null}
+
       {hiddenCount > 0 || showAllLoras ? (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="type-caption text-[var(--text-muted)]">
@@ -228,6 +244,7 @@ export default function LoraStackSessionPicker({
             const checked = activeSet.has(entry.id);
             const isTuning = tuningEntryId === entry.id;
             const strengths = resolveLoraStrengths(entry, sessionLoraStrengthOverrides);
+            const mismatched = checked && !isLoraCompatibleWithModel(entry, snapshot.model);
 
             return (
               <li
@@ -258,6 +275,19 @@ export default function LoraStackSessionPicker({
                       'h-4 w-4 shrink-0 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-[var(--accent)]'
                     }
                   />
+                  {entry.tokenValue ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={comfyLoraPreviewSrc(entry.tokenValue, 0, previewComfyUrl)}
+                      alt=""
+                      width={32}
+                      height={32}
+                      className="h-8 w-8 shrink-0 rounded object-cover"
+                      onError={event => {
+                        event.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  ) : null}
                   <button
                     type="button"
                     aria-expanded={isTuning}
@@ -267,8 +297,13 @@ export default function LoraStackSessionPicker({
                     }}
                     className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-md px-1 py-0.5 text-left transition hover:bg-[var(--bg-muted)]/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
                   >
-                    <span className="truncate text-sm text-[var(--text-primary)]">
-                      {entry.label || entry.id}
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm text-[var(--text-primary)]">
+                        {entry.label || entry.id}
+                      </span>
+                      {mismatched ? (
+                        <span className="block text-[10px] ui-status-danger">Family mismatch</span>
+                      ) : null}
                     </span>
                     {checked || strengths.hasSessionOverride ? (
                       <span className="shrink-0 font-mono text-[10px] tabular-nums text-[var(--text-muted)]">

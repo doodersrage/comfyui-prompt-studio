@@ -78,6 +78,7 @@ import { isBrowserStorageReady, whenBrowserStorageReady } from '@/lib/browser-st
 import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
 import { workspaceControlsDefaultOpen, workspaceShowsAdvancedControls } from '@/lib/workspace-mode';
 import { resolveModelStackFamily } from '@/lib/workflow-stack-fingerprint';
+import { modelSupportsTextualInversion } from '@/lib/textual-inversion';
 import { isQwenLightningModel } from '@/lib/model-sampling-patch';
 import { expandWildcardText, textHasWildcardTokens } from '@/lib/wildcard-expand';
 import {
@@ -114,6 +115,10 @@ const DiffusersCheckpointSelector = dynamic(
   }
 );
 const LoraStackSessionPicker = dynamic(() => import('@/components/LoraStackSessionPicker'), {
+  ssr: false,
+  loading: () => null,
+});
+const EmbeddingSessionChips = dynamic(() => import('@/components/EmbeddingSessionChips'), {
   ssr: false,
   loading: () => null,
 });
@@ -1369,6 +1374,34 @@ export default function SharedToolControls({
                 onSessionStrengthOverridesChange={handleSessionLoraStrengthOverridesChange}
               />
             </CollapsibleSection>
+
+            {modelSupportsTextualInversion(shared.model) ? (
+              <CollapsibleSection
+                title="Embeddings"
+                summary={
+                  (shared.sessionEmbeddingTokens?.length ?? 0) > 0
+                    ? `${shared.sessionEmbeddingTokens?.length} selected`
+                    : 'SD/SDXL textual inversion'
+                }
+                defaultOpen={advancedOpenByDefault}
+                persistKey="shared-embeddings"
+              >
+                <EmbeddingSessionChips
+                  model={shared.model}
+                  selected={shared.sessionEmbeddingTokens ?? []}
+                  onChange={names => {
+                    if (onSharedSettingsChange) {
+                      onSharedSettingsChange({ sessionEmbeddingTokens: names });
+                    } else {
+                      saveSharedSettings({
+                        ...loadSettingsCache().shared,
+                        sessionEmbeddingTokens: names,
+                      });
+                    }
+                  }}
+                />
+              </CollapsibleSection>
+            ) : null}
 
             <CollapsibleSection
               title="Quality & sampling"

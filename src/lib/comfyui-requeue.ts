@@ -1095,7 +1095,13 @@ export async function requeueComfyJobFromEntry(
   entry: ComfyGalleryEntry,
   options?: Pick<
     RequeueComfyJobInput,
-    'newSeed' | 'onStatus' | 'hints' | 'qualityProfile' | 'comfyUrlOverride' | 'workflowJson'
+    | 'newSeed'
+    | 'onStatus'
+    | 'hints'
+    | 'qualityProfile'
+    | 'comfyUrlOverride'
+    | 'workflowJson'
+    | 'sessionActiveLoraIds'
   > & {
     /** When true (default), prefer the exact Comfy history graph for this promptId. */
     exactGraph?: boolean;
@@ -1111,14 +1117,18 @@ export async function requeueComfyJobFromEntry(
   const isVariation = Boolean(options?.newSeed || options?.qualityProfile || seedOverride != null);
 
   const storedEntry =
-    !options?.workflowJson?.trim() && !entry.workflowJson?.trim()
-      ? (await import('./gallery-db-store')).getGalleryEntryById(entry.id)
-      : undefined;
+    options?.exactGraph === false
+      ? undefined
+      : !options?.workflowJson?.trim() && !entry.workflowJson?.trim()
+        ? (await import('./gallery-db-store')).getGalleryEntryById(entry.id)
+        : undefined;
   let workflowJson =
-    options?.workflowJson?.trim() ||
-    entry.workflowJson?.trim() ||
-    storedEntry?.workflowJson?.trim() ||
-    undefined;
+    options?.exactGraph === false
+      ? options?.workflowJson?.trim() || undefined
+      : options?.workflowJson?.trim() ||
+        entry.workflowJson?.trim() ||
+        storedEntry?.workflowJson?.trim() ||
+        undefined;
   if (
     workflowJson &&
     !options?.workflowJson?.trim() &&
@@ -1174,7 +1184,7 @@ export async function requeueComfyJobFromEntry(
     sourceImageUrl: urls.sourceImageUrl,
     maskImageUrl: urls.maskImageUrl,
     storedQualityProfile: entry.queueQualityProfile,
-    sessionActiveLoraIds: resolveRequeueSessionLoraIds(entry),
+    sessionActiveLoraIds: options?.sessionActiveLoraIds ?? resolveRequeueSessionLoraIds(entry),
     // seedOverride already applied — don't randomize on top of it.
     newSeed: seedOverride != null ? false : options?.newSeed,
     hints: options?.hints,

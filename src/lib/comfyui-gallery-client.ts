@@ -271,6 +271,69 @@ export function importComfyGalleryFromHistory(items: ComfyHistoryImportItem[]): 
   };
 }
 
+export async function fetchComfyJobImportItem(
+  promptId: string,
+  comfyUrl?: string
+): Promise<ComfyHistoryImportItem | null> {
+  const params = new URLSearchParams({ promptId });
+  if (comfyUrl?.trim()) {
+    params.set('comfyUrl', comfyUrl.trim());
+  }
+  const response = await fetch(`/api/comfyui/jobs?${params.toString()}`);
+  if (!response.ok) {
+    return null;
+  }
+  const data = (await response.json()) as { item?: ComfyHistoryImportItem | null };
+  return data.item ?? null;
+}
+
+/** Pull a Comfy-side job that is not in this gallery into Gallery and start polling if needed. */
+export async function claimOrphanComfyJob(input: {
+  promptId: string;
+  status?: string;
+  comfyUrl?: string;
+}): Promise<{ ok: boolean; imported: number; message: string }> {
+  const promptId = input.promptId.trim();
+  if (!promptId) {
+    return { ok: false, imported: 0, message: 'Missing prompt id.' };
+  }
+  const existing = loadComfyGallery().find(entry => entry.promptId === promptId);
+  if (existing) {
+    return { ok: true, imported: 0, message: 'Already in gallery.' };
+  }
+
+  const comfyUrl =
+    input.comfyUrl?.trim() || resolveComfyUiRuntime()?.apiUrl?.trim() || 'http://127.0.0.1:8188';
+  const item = await fetchComfyJobImportItem(promptId, comfyUrl);
+  if (item?.images?.length) {
+    const result = importComfyGalleryFromHistory([item]);
+    return {
+      ok: result.imported > 0 || result.upgraded > 0,
+      imported: result.imported,
+      message:
+        result.imported > 0
+          ? 'Imported into gallery.'
+          : result.upgraded > 0
+            ? 'Updated existing gallery row.'
+            : 'Already in gallery.',
+    };
+  }
+
+  registerComfyGalleryJob({
+    promptId,
+    prompt: item?.prompt?.trim() || `Host job ${promptId.slice(0, 8)}`,
+    negativePrompt: item?.negativePrompt,
+    model: item?.model,
+    queueParams: item?.queueParams,
+    workflowJson: item?.workflowJson,
+    comfyUrl,
+    tool: 'comfyui-import',
+  });
+  const { scheduleComfyGalleryPoll } = await import('./comfyui-gallery-poller');
+  void scheduleComfyGalleryPoll(promptId, { comfyUrl });
+  return { ok: true, imported: 1, message: 'Claimed. Tracking in gallery.' };
+}
+
 export async function fetchComfyHistoryImports(limit = 40, comfyUrl?: string) {
   const params = new URLSearchParams({ limit: String(limit) });
   const sticky = comfyUrl?.trim();

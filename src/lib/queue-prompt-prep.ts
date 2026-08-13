@@ -36,7 +36,7 @@ import {
   loadWildcardSeed,
 } from './wildcard-settings';
 import { buildClothingNegativePack } from './clothing-quality';
-import { inferAthleticSport } from './clothing-tags';
+import { appendEmbeddingTokens, modelSupportsTextualInversion } from './textual-inversion';
 
 /** Distilled Lightning (CFG 1) softens with long auto-negatives — keep only short explicit ones. */
 const LIGHTNING_MAX_EXPLICIT_NEGATIVE_CHARS = 160;
@@ -328,12 +328,17 @@ export async function prepareQueuePrompts(input: {
   expandWildcards?: boolean;
   /** Overrides the shared `wildcardSeed` setting for this call (reproducible expands). */
   wildcardSeed?: string;
+  /** SD/SDXL textual inversion stems; appended as embedding:name. */
+  embeddingTokens?: string[];
 }): Promise<{ positive: string; negative?: string }> {
   const wildcardOptions = {
     expandWildcards: input.expandWildcards,
     wildcardSeed: input.wildcardSeed,
   };
-  const positive = expandWildcardsForQueue(input.positive, wildcardOptions) ?? input.positive;
+  let positive = expandWildcardsForQueue(input.positive, wildcardOptions) ?? input.positive;
+  if (modelSupportsTextualInversion(input.model) && input.embeddingTokens?.length) {
+    positive = appendEmbeddingTokens(positive, input.embeddingTokens);
+  }
   const hints = expandWildcardsForQueue(input.hints, wildcardOptions);
   const explicitNegative = expandWildcardsForQueue(input.explicitNegative, wildcardOptions);
 

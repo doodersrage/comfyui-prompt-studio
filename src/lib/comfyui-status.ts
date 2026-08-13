@@ -4,7 +4,7 @@ import { detectWorkflowPlaceholders } from './comfyui-config';
 import { extractImagesFromOutputs, type ComfyOutputImage } from './comfyui-outputs';
 import { extractParamsFromWorkflow } from './workflow-param-extract';
 import { extractComfyExecutionTiming } from './comfyui-render-duration';
-import { interpretComfyJobDetail } from './comfyui-jobs';
+import { interpretComfyJobDetail, parseComfyJobList } from './comfyui-jobs';
 
 export type ComfyPromptStatus = {
   promptId: string;
@@ -387,12 +387,188 @@ export async function deleteComfyUiHistoryItems(
   }
 }
 
+function buildHistoryImportItem(input: {
+  promptId: string;
+  comfyUrl: string;
+  images: ComfyOutputImage[];
+  statusMessage?: string;
+  workflow?: Record<string, unknown> | null;
+  positive?: string;
+  negative?: string;
+  renderDurationMs?: number;
+  executionStartedAt?: number;
+}): ComfyHistoryImportItem {
+  const queueParams = input.workflow ? extractParamsFromWorkflow(input.workflow) : undefined;
+  const hasParams = queueParams && Object.keys(queueParams).length > 0;
+  return {
+    promptId: input.promptId,
+    prompt: input.positive?.trim() || `Imported ComfyUI job ${input.promptId.slice(0, 8)}`,
+    negativePrompt: input.negative,
+    comfyUrl: input.comfyUrl,
+    images: input.images,
+    statusMessage: input.statusMessage,
+    queueParams: hasParams ? queueParams : undefined,
+    model: input.workflow ? extractCheckpointHintFromWorkflow(input.workflow) : undefined,
+    workflowJson: input.workflow ? JSON.stringify(input.workflow) : undefined,
+    ...(input.renderDurationMs != null ? { renderDurationMs: input.renderDurationMs } : {}),
+    ...(input.executionStartedAt != null ? { executionStartedAt: input.executionStartedAt } : {}),
+  };
+}
+
+function historyEntryToImportItem(
+  promptId: string,
+  comfyUrl: string,
+  entry: ComfyHistoryEntry
+): ComfyHistoryImportItem | null {
+  const status = interpretHistoryEntry(promptId, comfyUrl, entry);
+  if (status.status !== 'completed' || !status.images?.length) {
+    return null;
+  }
+  const workflow = extractWorkflowFromHistoryEntry(entry);
+  const extracted = extractPromptFromHistoryEntry(entry);
+  return buildHistoryImportItem({
+    promptId,
+    comfyUrl,
+    images: status.images,
+    statusMessage: status.statusMessage,
+    workflow,
+    positive: extracted.positive,
+    negative: extracted.negative,
+    renderDurationMs: status.renderDurationMs,
+    executionStartedAt: status.executionStartedAt,
+  });
+}
+
+async function fetchJson(url: string, timeoutMs: number): Promise<unknown | null> {
+  try {
+    const response = await fetch(url, {
+      signal: AbortSignal.timeout(timeoutMs),
+      cache: 'no-store',
+    });
+    if (!response.ok) {
+      return null;
+    }
+    return await response.json().catch(() => null);
+  } catch {
+    return null;
+  }
+}
+
+async function fetchHistoryEntry(
+  comfyUrl: string,
+  promptId: string
+): Promise<ComfyHistoryEntry | null> {
+  const raw = await fetchJson(`${comfyUrl}/history/${encodeURIComponent(promptId)}`, 8000);
+  if (!raw || typeof raw !== 'object') {
+    return null;
+  }
+  const record = raw as Record<string, unknown>;
+  const nested = record[promptId];
+  if (nested && typeof nested === 'object') {
+    return nested as ComfyHistoryEntry;
+  }
+  if (record.status || record.outputs || record.prompt) {
+    return record as ComfyHistoryEntry;
+  }
+  return null;
+}
+
+function extractWorkflowFromUnknown(raw: unknown): Record<string, unknown> | null {
+  if (!raw || typeof raw !== 'object') {
+    return null;
+  }
+  const record = raw as Record<string, unknown>;
+  if (record.prompt && typeof record.prompt === 'object' && !Array.isArray(record.prompt)) {
+    return record.prompt as Record<string, unknown>;
+  }
+  const extra = record.extra_data;
+  if (extra && typeof extra === 'object') {
+    const pnginfo = (extra as { extra_pnginfo?: { workflow?: unknown } }).extra_pnginfo;
+    if (pnginfo?.workflow && typeof pnginfo.workflow === 'object') {
+      return pnginfo.workflow as Record<string, unknown>;
+    }
+  }
+  return extractWorkflowFromHistoryEntry(record as ComfyHistoryEntry);
+}
+
+async function listComfyUiJobImports(
+  comfyUrl: string,
+  limit: number
+): Promise<ComfyHistoryImportItem[] | null> {
+  const listRaw = await fetchJson(`${comfyUrl}/api/jobs?status=completed&limit=${limit}`, 8000);
+  if (listRaw == null) {
+    return null;
+  }
+  const jobs = parseComfyJobList(listRaw).filter(job => job.status === 'completed');
+  if (jobs.length === 0) {
+    return [];
+  }
+
+  const items: ComfyHistoryImportItem[] = [];
+  const chunkSize = 8;
+  for (let index = 0; index < jobs.length && items.length < limit; index += chunkSize) {
+    const chunk = jobs.slice(index, index + chunkSize);
+    const chunkItems = await Promise.all(
+      chunk.map(job => fetchComfyJobImportItem(job.id, comfyUrl))
+    );
+    for (const item of chunkItems) {
+      if (item && items.length < limit) {
+        items.push(item);
+      }
+    }
+  }
+  return items;
+}
+
+/** One completed job as a gallery import item (jobs API + history metadata). */
+export async function fetchComfyJobImportItem(
+  promptId: string,
+  comfyUrl: string
+): Promise<ComfyHistoryImportItem | null> {
+  const trimmed = promptId.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const origin = comfyUrl.replace(/\/+$/, '');
+  const detailRaw = await fetchJson(`${origin}/api/jobs/${encodeURIComponent(trimmed)}`, 8000);
+  const mapped = detailRaw ? interpretComfyJobDetail(trimmed, origin, detailRaw) : null;
+  const history = await fetchHistoryEntry(origin, trimmed);
+  const fromHistory = history ? historyEntryToImportItem(trimmed, origin, history) : null;
+
+  if (fromHistory?.images.length) {
+    return fromHistory;
+  }
+  if (mapped?.status === 'completed' && mapped.images?.length) {
+    const workflow = extractWorkflowFromUnknown(detailRaw) ?? extractWorkflowFromUnknown(history);
+    const extracted = history ? extractPromptFromHistoryEntry(history) : {};
+    return buildHistoryImportItem({
+      promptId: trimmed,
+      comfyUrl: origin,
+      images: mapped.images,
+      statusMessage: mapped.statusMessage,
+      workflow,
+      positive: extracted.positive,
+      negative: extracted.negative,
+      renderDurationMs: mapped.renderDurationMs,
+      executionStartedAt: mapped.executionStartedAt,
+    });
+  }
+  return fromHistory;
+}
+
 export async function listComfyUiHistoryImports(
   runtime?: ComfyUiRuntimeConfig,
   limit = 40
 ): Promise<ComfyHistoryImportItem[]> {
-  const comfyUrl = getComfyUiBaseUrl(runtime);
+  const comfyUrl = getComfyUiBaseUrl(runtime).replace(/\/+$/, '');
   const maxItems = Math.min(80, Math.max(1, limit));
+
+  const fromJobs = await listComfyUiJobImports(comfyUrl, maxItems);
+  if (fromJobs && fromJobs.length > 0) {
+    return fromJobs
+      .sort((left, right) => right.promptId.localeCompare(left.promptId))
+      .slice(0, limit);
+  }
 
   try {
     const response = await fetch(`${comfyUrl}/history?max_items=${maxItems}`, {
@@ -400,41 +576,21 @@ export async function listComfyUiHistoryImports(
     });
 
     if (!response.ok) {
-      return [];
+      return fromJobs ?? [];
     }
 
     const history = (await response.json()) as Record<string, ComfyHistoryEntry>;
     const items: ComfyHistoryImportItem[] = [];
 
     for (const [promptId, entry] of Object.entries(history)) {
-      const status = interpretHistoryEntry(promptId, comfyUrl, entry);
-      if (status.status !== 'completed' || !status.images?.length) {
-        continue;
+      const item = historyEntryToImportItem(promptId, comfyUrl, entry);
+      if (item) {
+        items.push(item);
       }
-
-      const workflow = extractWorkflowFromHistoryEntry(entry);
-      const extracted = extractPromptFromHistoryEntry(entry);
-      const queueParams = workflow ? extractParamsFromWorkflow(workflow) : undefined;
-      const hasParams = queueParams && Object.keys(queueParams).length > 0;
-      items.push({
-        promptId,
-        prompt: extracted.positive?.trim() || `Imported ComfyUI job ${promptId.slice(0, 8)}`,
-        negativePrompt: extracted.negative,
-        comfyUrl,
-        images: status.images,
-        statusMessage: status.statusMessage,
-        queueParams: hasParams ? queueParams : undefined,
-        model: workflow ? extractCheckpointHintFromWorkflow(workflow) : undefined,
-        workflowJson: workflow ? JSON.stringify(workflow) : undefined,
-        ...(status.renderDurationMs != null ? { renderDurationMs: status.renderDurationMs } : {}),
-        ...(status.executionStartedAt != null
-          ? { executionStartedAt: status.executionStartedAt }
-          : {}),
-      });
     }
 
     return items.sort((left, right) => right.promptId.localeCompare(left.promptId)).slice(0, limit);
   } catch {
-    return [];
+    return fromJobs ?? [];
   }
 }

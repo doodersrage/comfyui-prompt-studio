@@ -18,6 +18,19 @@ export async function GET(request: Request) {
     return apiError(error instanceof Error ? error.message : 'Invalid ComfyUI URL.', 400);
   }
 
+  const promptId = searchParams.get('promptId')?.trim() || searchParams.get('id')?.trim();
+  if (promptId) {
+    const { fetchComfyJobImportItem } = await import('@/lib/comfyui-status');
+    const item = await fetchComfyJobImportItem(promptId, baseUrl);
+    return apiJson({
+      ok: true,
+      promptId,
+      comfyUrl: baseUrl,
+      item,
+      found: Boolean(item),
+    });
+  }
+
   const params = new URLSearchParams();
   const status = searchParams.get('status')?.trim();
   const limit = searchParams.get('limit')?.trim();

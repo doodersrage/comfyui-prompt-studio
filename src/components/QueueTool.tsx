@@ -23,7 +23,8 @@ import {
   interruptComfyUiQueue,
   restartComfyUi,
 } from '@/lib/comfyui-queue-control';
-import type { ComfyJobListItem } from '@/lib/comfyui-jobs';
+import { claimOrphanComfyJob } from '@/lib/comfyui-gallery-client';
+import FailedJobFixButtons from '@/components/FailedJobFixButtons';
 import { cancelComfyGalleryJob } from '@/lib/comfyui-queue-cancel';
 import {
   COMFY_LIVE_PREVIEW_UPDATED_EVENT,
@@ -240,6 +241,18 @@ export default function QueueTool() {
     void refreshHealth();
   }
 
+  async function claimHostJob(job: ComfyJobListItem) {
+    setStatus(`Importing ${job.id}…`);
+    const result = await claimOrphanComfyJob({
+      promptId: job.id,
+      status: job.status,
+      comfyUrl: queueHealth?.url,
+    });
+    setStatus(result.message);
+    refreshEntries();
+    void refreshHealth();
+  }
+
   async function retryFailed() {
     if (failed.length === 0) {
       return;
@@ -365,8 +378,8 @@ export default function QueueTool() {
       {orphanHostJobs.length > 0 ? (
         <ToolSection title={`On ComfyUI (${orphanHostJobs.length})`}>
           <p className="mb-3 text-xs text-[var(--text-muted)]">
-            Running or queued on the host, but not in this gallery. Cancel one without interrupting
-            the rest of the queue.
+            Running or queued on the host, but not in this gallery. Import to track outputs here, or
+            cancel one without interrupting the rest of the queue.
           </p>
           <ul className="ui-list">
             {orphanHostJobs.map(job => (
@@ -381,14 +394,14 @@ export default function QueueTool() {
                     {job.statusMessage ? ` · ${job.statusMessage}` : ''}
                   </p>
                 </div>
-                <Button
-                  size="sm"
-                  variant="danger"
-                  className="shrink-0 self-start"
-                  onClick={() => void cancelHostJob(job)}
-                >
-                  Cancel
-                </Button>
+                <div className="flex shrink-0 flex-wrap items-center gap-2 self-start">
+                  <Button size="sm" variant="secondary" onClick={() => void claimHostJob(job)}>
+                    Import
+                  </Button>
+                  <Button size="sm" variant="danger" onClick={() => void cancelHostJob(job)}>
+                    Cancel
+                  </Button>
+                </div>
               </li>
             ))}
           </ul>
@@ -433,14 +446,24 @@ export default function QueueTool() {
                         {entry.statusMessage ?? entry.status} · {entry.model}
                       </p>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="shrink-0 self-start"
-                      onClick={() => void requeueComfyJobFromEntry(entry)}
-                    >
-                      Retry
-                    </Button>
+                    <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="shrink-0 self-start"
+                        onClick={() => void requeueComfyJobFromEntry(entry)}
+                      >
+                        Retry
+                      </Button>
+                      <FailedJobFixButtons
+                        entry={entry}
+                        onStatus={setStatus}
+                        onDone={() => {
+                          refreshEntries();
+                          void refreshHealth();
+                        }}
+                      />
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -475,13 +498,23 @@ export default function QueueTool() {
                         {entry.statusMessage ?? entry.status} · {entry.model}
                       </p>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => void requeueComfyJobFromEntry(entry)}
-                    >
-                      Retry
-                    </Button>
+                    <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => void requeueComfyJobFromEntry(entry)}
+                      >
+                        Retry
+                      </Button>
+                      <FailedJobFixButtons
+                        entry={entry}
+                        onStatus={setStatus}
+                        onDone={() => {
+                          refreshEntries();
+                          void refreshHealth();
+                        }}
+                      />
+                    </div>
                   </li>
                 ))}
               </ul>

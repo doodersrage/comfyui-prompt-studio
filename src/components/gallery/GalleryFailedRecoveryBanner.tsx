@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import type { ComfyGalleryEntry } from '@/lib/comfyui-gallery';
+import { applyQueueFailureFix, resolveQueueFailureFixes } from '@/lib/queue-failure-fix';
 import {
   loadLastFailedQueue,
   requestRetryLastFailedQueue,
@@ -85,7 +86,7 @@ export default function GalleryFailedRecoveryBanner({
             {clusters.length > 1 ? ` · ${clusters.length} error groups` : ''}
           </p>
           <p className="type-caption text-[var(--text-muted)]">
-            Retry with the same seed, a new seed, or exact graph when stored.
+            Retry with the same seed, a new seed, exact graph, or a one-click fix for the error.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -154,14 +155,32 @@ export default function GalleryFailedRecoveryBanner({
                 </span>
                 {cluster.label.length > 120 ? `${cluster.label.slice(0, 120)}…` : cluster.label}
               </p>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => onRetryCluster(cluster.entries, retryMode)}
-              >
-                Retry group
-              </Button>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {resolveQueueFailureFixes(cluster.entries[0]!).map(fix => (
+                  <Button
+                    key={fix.kind}
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    title={fix.reason}
+                    onClick={() => {
+                      void Promise.all(
+                        cluster.entries.map(entry => applyQueueFailureFix(entry, fix.kind))
+                      );
+                    }}
+                  >
+                    {fix.label}
+                  </Button>
+                ))}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onRetryCluster(cluster.entries, retryMode)}
+                >
+                  Retry group
+                </Button>
+              </div>
             </div>
           ))}
           {clusters.length > 6 ? (

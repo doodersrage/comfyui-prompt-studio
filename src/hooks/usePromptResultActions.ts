@@ -546,6 +546,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           sport,
           tool: config.tool,
           explicitNegative: options?.explicitNegative ?? pluginNegative,
+          embeddingTokens: loadSettingsCache().shared.sessionEmbeddingTokens,
         });
         failedQueueSnapshot = {
           prompt: preparedPrompt,
@@ -1085,6 +1086,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           hints: config.hints,
           sport,
           tool: config.tool,
+          embeddingTokens: loadSettingsCache().shared.sessionEmbeddingTokens,
         });
 
         const [{ fetchWorkflowPreview }, { resolveRuntimeForQueueAsync }] = await Promise.all([
@@ -1359,6 +1361,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           sport,
           tool: config.tool,
           explicitNegative,
+          embeddingTokens: loadSettingsCache().shared.sessionEmbeddingTokens,
         });
         const text = formatPromptPair({
           positive,

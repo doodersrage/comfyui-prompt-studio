@@ -29,6 +29,9 @@ export type FirstRunSetupResult = {
   systemWorkflowsEnabled: boolean;
   mapsAdapted: boolean;
   llmOk?: boolean;
+  nodesInstalled?: string[];
+  nodesUnresolved?: string[];
+  restartRequested?: boolean;
 };
 
 /** Turn on system workflows and adapt maps (suggested + live inventory when available). */
@@ -111,12 +114,21 @@ export async function enableSystemWorkflowsAndHeal(options?: {
         });
         await flushBrowserStorageNow();
       }
+      const nodeHeal = await installMissingWorkflowNodePacks(comfyUrl);
       return {
         ok: true,
         comfyOk: true,
         systemWorkflowsEnabled: true,
         mapsAdapted: true,
-        message: 'Saved — system workflows on. Loader maps adapted from ComfyUI inventory.',
+        message: [
+          'Saved — system workflows on. Loader maps adapted from ComfyUI inventory.',
+          nodeHeal.message,
+        ]
+          .filter(Boolean)
+          .join(' '),
+        nodesInstalled: nodeHeal.installed,
+        nodesUnresolved: nodeHeal.unresolved,
+        restartRequested: nodeHeal.restartRequested,
       };
     }
   } catch {
@@ -191,4 +203,77 @@ export function readAdaptedLoaderMapTexts(): {
     upscale: formatModelUpscaleMap(shared.modelUpscaleMap),
     controlNet: formatModelControlNetMap(shared.modelControlNetMap),
   };
+}
+
+async function installMissingWorkflowNodePacks(comfyUrl?: string): Promise<{
+  message: string;
+  installed: string[];
+  unresolved: string[];
+  restartRequested: boolean;
+}> {
+  try {
+    const { loadComfyWorkflowFiles } = await import('./comfyui-workflow-files');
+    const { collectMissingWorkflowNodeTypes } = await import('./workflow-node-type-audit');
+    const objectInfo = await fetchComfyObjectInfoCached({
+      comfyUrl,
+      forceRefresh: true,
+    });
+    if (!objectInfo?.nodeTypes || objectInfo.nodeTypes.size === 0) {
+      return { message: '', installed: [], unresolved: [], restartRequested: false };
+    }
+    const missing = collectMissingWorkflowNodeTypes(loadComfyWorkflowFiles(), objectInfo.nodeTypes);
+    if (missing.length === 0) {
+      return { message: '', installed: [], unresolved: [], restartRequested: false };
+    }
+
+    const response = await fetch('/api/comfyui/manager/install', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nodeTypes: missing, comfyUrl }),
+    });
+    const data = (await response.json().catch(() => null)) as {
+      installed?: string[];
+      unresolved?: string[];
+      restartNeeded?: boolean;
+      error?: string;
+      missingManager?: boolean;
+    } | null;
+    const installed = data?.installed ?? [];
+    const unresolved = data?.unresolved ?? missing;
+    if (!response.ok) {
+      return {
+        message: data?.missingManager
+          ? `Missing nodes: ${missing.join(', ')}. Install ComfyUI-Manager to auto-install packs.`
+          : data?.error || `Could not install missing nodes: ${missing.join(', ')}.`,
+        installed,
+        unresolved,
+        restartRequested: false,
+      };
+    }
+
+    let restartRequested = false;
+    if (data?.restartNeeded && installed.length > 0) {
+      const { restartComfyUi } = await import('./comfyui-queue-control');
+      const restart = await restartComfyUi(comfyUrl);
+      restartRequested = restart.ok;
+      if (restart.ok) {
+        await new Promise(resolve => setTimeout(resolve, 4000));
+        await fetchComfyObjectInfoCached({ comfyUrl, forceRefresh: true });
+      }
+    }
+
+    const parts = [
+      installed.length > 0 ? `Installed ${installed.join(', ')}.` : '',
+      restartRequested ? 'ComfyUI restart requested.' : '',
+      unresolved.length > 0 ? `Still missing: ${unresolved.join(', ')}.` : '',
+    ].filter(Boolean);
+    return {
+      message: parts.join(' '),
+      installed,
+      unresolved,
+      restartRequested,
+    };
+  } catch {
+    return { message: '', installed: [], unresolved: [], restartRequested: false };
+  }
 }

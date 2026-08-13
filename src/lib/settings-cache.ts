@@ -543,6 +543,10 @@ export type SharedToolSettings = {
    */
   sessionActiveLoraIds?: string[];
   /**
+   * Textual-inversion embedding stems (SD/SDXL). Appended as embedding:name at queue time.
+   */
+  sessionEmbeddingTokens?: string[];
+  /**
    * Per-model session LoRA picks. Key present (even with []) = explicit override
    * for that model; missing key = follow model LoRA map / library enabled.
    */
@@ -1008,6 +1012,7 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
   modelUpscaleMap: {},
   modelLoraMap: {},
   sessionActiveLoraIdsByModel: {},
+  sessionEmbeddingTokens: [],
   sessionLoraStrengthOverrides: {},
   sessionLoraStrengthOverridesByModel: {},
   autoSelectWorkflowForModel: true,

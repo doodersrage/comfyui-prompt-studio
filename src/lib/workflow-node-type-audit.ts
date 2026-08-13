@@ -63,3 +63,23 @@ export function auditWorkflowNodeTypes(input: {
 
   return issues;
 }
+
+/** Unique class_type values that object_info does not know about. */
+export function collectMissingWorkflowNodeTypes(
+  workflows: Array<{ workflowJson?: string; workflow?: Record<string, unknown> | null }>,
+  knownNodeTypes?: Set<string> | string[]
+): string[] {
+  const known = knownNodeTypes instanceof Set ? knownNodeTypes : new Set(knownNodeTypes ?? []);
+  if (known.size === 0) {
+    return [];
+  }
+  const missing = new Set<string>();
+  for (const workflow of workflows) {
+    for (const classType of listWorkflowClassTypes(workflow.workflowJson, workflow.workflow)) {
+      if (!known.has(classType)) {
+        missing.add(classType);
+      }
+    }
+  }
+  return [...missing].sort((a, b) => a.localeCompare(b));
+}
