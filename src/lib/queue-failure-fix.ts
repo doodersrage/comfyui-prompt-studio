@@ -9,9 +9,15 @@ import {
 import type { RequeueComfyJobResult } from './comfyui-requeue';
 import { resolveQueueFailureHref } from './queue-failure-playbook';
 import { normalizeQueueQualityProfile } from './queue-quality-profile';
+import { isMissingCustomNodeFailure } from './workflow-node-type-audit';
 
 export type QueueFailureFixKind =
-  'drop-loras' | 'downgrade-quality' | 'compact-draft' | 'pool-failover' | 'remap-loader';
+  | 'install-missing-nodes'
+  | 'drop-loras'
+  | 'downgrade-quality'
+  | 'compact-draft'
+  | 'pool-failover'
+  | 'remap-loader';
 
 export type QueueFailureFix = {
   kind: QueueFailureFixKind;
@@ -37,6 +43,14 @@ export function resolveQueueFailureFixes(
     seen.add(fix.kind);
     fixes.push(fix);
   };
+
+  if (isMissingCustomNodeFailure(message)) {
+    add({
+      kind: 'install-missing-nodes',
+      label: 'Install missing nodes',
+      reason: 'Install the custom node pack via ComfyUI-Manager, restart, then retry.',
+    });
+  }
 
   if (
     /lora/i.test(message) ||
@@ -109,6 +123,29 @@ export async function applyQueueFailureFix(
 ): Promise<RequeueComfyJobResult> {
   const { requeueComfyJobFromEntry } = await import('./comfyui-requeue');
   const onStatus = options?.onStatus;
+
+  if (kind === 'install-missing-nodes') {
+    const { requestComfyManagerInstall, resolveMissingNodeTypesForJob } =
+      await import('./comfyui-manager-install-client');
+    onStatus?.('Resolving missing custom nodes…');
+    const nodeTypes = await resolveMissingNodeTypesForJob(entry);
+    if (nodeTypes.length === 0) {
+      return { ok: false, error: 'Could not tell which custom node pack is missing.' };
+    }
+    const installed = await requestComfyManagerInstall({
+      nodeTypes,
+      comfyUrl: entry.comfyUrl,
+      restart: true,
+    });
+    if (!installed.ok && installed.installed.length === 0) {
+      return { ok: false, error: installed.message };
+    }
+    onStatus?.(installed.message || 'Retrying after node install…');
+    return requeueComfyJobFromEntry(entry, {
+      exactGraph: false,
+      onStatus,
+    });
+  }
 
   if (kind === 'drop-loras') {
     onStatus?.('Retrying without LoRAs…');

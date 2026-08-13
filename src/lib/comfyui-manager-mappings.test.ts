@@ -6,7 +6,12 @@ import {
   parseComfyManagerNodeList,
   resolvePacksForMissingNodeTypes,
 } from './comfyui-manager-mappings';
-import { collectMissingWorkflowNodeTypes } from './workflow-node-type-audit';
+import {
+  collectMissingNodeTypesFromIssues,
+  collectMissingWorkflowNodeTypes,
+  extractMissingNodeTypesFromMessage,
+  isMissingCustomNodeFailure,
+} from './workflow-node-type-audit';
 
 describe('parseComfyManagerMappings', () => {
   it('maps pack key → class types arrays', () => {
@@ -94,6 +99,33 @@ describe('collectMissingWorkflowNodeTypes', () => {
     assert.deepEqual(
       collectMissingWorkflowNodeTypes([{ workflow: { '1': { class_type: 'X' } } }], []),
       []
+    );
+  });
+});
+
+describe('missing node message helpers', () => {
+  it('detects unknown node type failures', () => {
+    assert.equal(
+      isMissingCustomNodeFailure('unknown node type: FaceDetailer is not installed'),
+      true
+    );
+    assert.equal(isMissingCustomNodeFailure('CUDA out of memory'), false);
+  });
+
+  it('extracts quoted and known class types', () => {
+    const types = extractMissingNodeTypesFromMessage(
+      'Workflow node type “FaceDetailer” is not installed in ComfyUI'
+    );
+    assert.ok(types.includes('FaceDetailer'));
+  });
+
+  it('collects classType from structured issues', () => {
+    assert.deepEqual(
+      collectMissingNodeTypesFromIssues([
+        { classType: 'IPAdapterApply', message: 'missing' },
+        { message: 'unknown node type: UltimateSDUpscale' },
+      ]),
+      ['IPAdapterApply', 'UltimateSDUpscale']
     );
   });
 });

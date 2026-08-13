@@ -99,6 +99,8 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 ## Gallery {#gallery}
 
 - **ComfyUI gallery** — `/gallery` stores queued jobs in IndexedDB (Dexie) and displays output images when ComfyUI finishes; previews appear inline on result panels
+- **Import completed host jobs** — Gallery import prefers Comfy `GET /api/jobs` and falls back to `/history`; imported rows keep the workflow graph when present
+- **Failed-job node install** — missing `class_type` errors offer Install missing nodes (Manager + restart + retry) on Queue, Gallery, and workflow preview
 - **Gallery stats bar** — at-a-glance totals (completed, in queue, favorites, unreviewed, avg rating) with one-click filter chips
 - **Gallery layout modes** — Grid, Dense, or List view (persisted)
 - **Gallery review focus** — review mode auto-selects the first card; keyboard 1–5 / F / N / P
@@ -164,6 +166,7 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 - **Queue orchestration panel** — home/gallery view of ComfyUI server queue, VRAM, and local tracked jobs
 - **Central job queue** — `/queue` page for pending ComfyUI jobs
 - **Queue upgrades** — `/queue` shows ComfyUI queue stats, failed jobs, and bulk retry
+- **Orphan host jobs** — Queue lists in-flight Comfy jobs that are not in this gallery; Import or Import all to track them
 - **VRAM-aware Max → Final** — when free VRAM is under ~6 GB, Max queues downgrade to Final
 - **Hold Max until idle** — optional park for Max jobs until ComfyUI is empty; flush from Orchestration
 - **Sampler memory** — 4–5★ gallery ratings remember per-model CFG/steps/sampler/scheduler
@@ -199,7 +202,7 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 - **Settings cache** — target model, detail level, and per-tool options persist across reloads and pages
 - **Settings hub** — `/settings` tabs: Overview (Heal & ready, health, backup), LLM, ComfyUI (cluster + assets), Automation, Data, Users (SMTP + invite)
 - **Settings env panel** — copy `.env` snippet and re-run LLM/ComfyUI health tests from Overview
-- **Heal & ready** — one-click first install: system workflows, loader maps, inventory adapt, health refresh
+- **Heal & ready** — one-click first install: system workflows, loader maps, inventory adapt, ComfyUI-Manager pack install on each pool host, restart, health refresh
 - **Studio backup v5** — export/import history, settings, gallery, workflows, projects, recipes, **and extras** (gallery ELO, views, appearance, shortcuts). v1–v4 still import
 - **Overview one-click backup** — Export / Import on Settings → Overview for a new browser or machine
 - **Full user backup** — Profile downloads/restores the same studio backup JSON

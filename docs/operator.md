@@ -22,7 +22,7 @@ npm run dev
 
 Open [http://localhost:47832](http://localhost:47832) → **Settings → Overview**.
 
-1. Click **Heal & ready**. That enables system workflows, merges suggested loader maps, adapts from ComfyUI inventory when reachable, and refreshes health.
+1. Click **Heal & ready**. That enables system workflows, merges suggested loader maps, adapts from ComfyUI inventory when reachable, installs missing custom-node packs via ComfyUI-Manager on each pool host (then restarts those hosts), and refreshes health.
 2. Confirm the heal checklist: LLM, ComfyUI, vision model, `PROMPT_DATA_DIR`, auth, SMTP.
 3. Generate a prompt on **Generate**, then **Send to ComfyUI**.
 
@@ -32,14 +32,14 @@ If vision tools fail, `LLM_VISION_MODEL` is unset or the model is text-only. Set
 
 ## Settings map
 
-| Tab | Use it for |
-| --- | --- |
-| **Overview** | Heal & ready, health, `.env` catalog, **Export / Import backup**, collab backend |
-| **LLM** | Session model override, template-only / force-on, embedding model override |
-| **ComfyUI** | Connection, workflow map, model assets, cluster (extra hosts, load-balance, OOM retry) |
-| **Automation** | Webhooks, avoided tokens, browser scheduled batch, **server** scheduled batch overlay |
-| **Data** | Gallery snapshot, reliability, settings bundle, full studio backup, local reset |
-| **Users** | SMTP overlay, accounts, groups, audit, **Invite by email** |
+| Tab            | Use it for                                                                             |
+| -------------- | -------------------------------------------------------------------------------------- |
+| **Overview**   | Heal & ready, health, `.env` catalog, **Export / Import backup**, collab backend       |
+| **LLM**        | Session model override, template-only / force-on, embedding model override             |
+| **ComfyUI**    | Connection, workflow map, model assets, cluster (extra hosts, load-balance, OOM retry) |
+| **Automation** | Webhooks, avoided tokens, browser scheduled batch, **server** scheduled batch overlay  |
+| **Data**       | Gallery snapshot, reliability, settings bundle, full studio backup, local reset        |
+| **Users**      | SMTP overlay, accounts, groups, audit, **Invite by email**                             |
 
 Profile (`/profile`) holds appearance, 2FA, sessions, personal email, and the same full backup/restore JSON.
 
@@ -47,7 +47,7 @@ Profile (`/profile`) holds appearance, 2FA, sessions, personal email, and the sa
 
 ## Second GPU {#second-gpu}
 
-Settings extras can *list* another ComfyUI URL. They cannot change the SSRF allowlist. Probe and queue still require the hostname on `COMFYUI_ALLOWED_HOSTS` when that list is set.
+Settings extras can _list_ another ComfyUI URL. They cannot change the SSRF allowlist. Probe and queue still require the hostname on `COMFYUI_ALLOWED_HOSTS` when that list is set.
 
 ### Flow
 
@@ -89,11 +89,11 @@ Set `PROMPT_DATA_DIR` (absolute path) so settings, history, gallery, and extras 
 
 Also stored there when configured:
 
-| File | Contents |
-| --- | --- |
-| `studio.sqlite` | Auth, gallery rows, settings/history/extras, SMTP overlay, collab rooms (copy `-wal` / `-shm` too if the app is running) |
-| `users/{userId}/exports/` | Per-user export snapshots (still JSON files) |
-| `*.json.imported` | One-shot leftovers from the pre-SQLite layout |
+| File                      | Contents                                                                                                                 |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `studio.sqlite`           | Auth, gallery rows, settings/history/extras, SMTP overlay, collab rooms (copy `-wal` / `-shm` too if the app is running) |
+| `users/{userId}/exports/` | Per-user export snapshots (still JSON files)                                                                             |
+| `*.json.imported`         | One-shot leftovers from the pre-SQLite layout                                                                            |
 
 Copy or snapshot `PROMPT_DATA_DIR` as part of host backups. Settings → Advanced can pull/push namespaces when storage is enabled.
 
@@ -147,6 +147,8 @@ At queue time the server merges:
 
 Each extra URL is validated against `COMFYUI_ALLOWED_HOSTS` and dropped if it fails. Invalid extras do not abort the whole pool.
 
+**Heal & ready** walks every pool URL (env + Settings extras + health endpoints): missing system-workflow node types are installed via ComfyUI-Manager, then that host is restarted. A host without Manager is reported, not skipped silently.
+
 `COMFYUI_ALLOW_CLIENT_URL` and `COMFYUI_ALLOWED_HOSTS` are **env only**. The UI never writes them.
 
 `POST /api/comfyui/probe` health-checks a URL only after allowlist normalization. An allowlist miss returns `code: "allowlist"` without fetching the host.
@@ -155,12 +157,12 @@ Each extra URL is validated against `COMFYUI_ALLOWED_HOSTS` and dropped if it fa
 
 ## What stays in env {#what-stays-in-env}
 
-| Knob | Why it is not a Settings toggle |
-| --- | --- |
-| `COMFYUI_ALLOW_CLIENT_URL` | SSRF: callers must not point the server at arbitrary URLs |
-| `COMFYUI_ALLOWED_HOSTS` | Same; the cluster panel copies a snippet instead |
-| `PROMPT_SESSION_SECRET` / `PROMPT_API_TOKEN` / `PROMPT_ADMIN_PASSWORD` | Secrets |
-| `PROMPT_DATA_DIR` | Process-level filesystem root |
+| Knob                                                                   | Why it is not a Settings toggle                           |
+| ---------------------------------------------------------------------- | --------------------------------------------------------- |
+| `COMFYUI_ALLOW_CLIENT_URL`                                             | SSRF: callers must not point the server at arbitrary URLs |
+| `COMFYUI_ALLOWED_HOSTS`                                                | Same; the cluster panel copies a snippet instead          |
+| `PROMPT_SESSION_SECRET` / `PROMPT_API_TOKEN` / `PROMPT_ADMIN_PASSWORD` | Secrets                                                   |
+| `PROMPT_DATA_DIR`                                                      | Process-level filesystem root                             |
 
 Settings **can** overlay: SMTP, queue-export directory, extra pool members, session LLM model, server scheduled-batch flags (still need `PROMPT_DATA_DIR` for headless persistence).
 

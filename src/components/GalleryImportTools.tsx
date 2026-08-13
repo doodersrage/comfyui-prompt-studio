@@ -3,10 +3,7 @@
 import { useState } from 'react';
 import PngMetadataImportButton from '@/components/PngMetadataImportButton';
 import SidecarImportButton from '@/components/SidecarImportButton';
-import {
-  fetchComfyHistoryImports,
-  importComfyGalleryFromHistory,
-} from '@/lib/comfyui-gallery-client';
+import { importCompletedHostJobs } from '@/lib/comfyui-gallery-client';
 import {
   requeueComfyJob,
   requeueRefineFromGalleryEntry,
@@ -57,22 +54,19 @@ export default function GalleryImportTools() {
           onClick={() => {
             setHistoryLoading(true);
             const stickyUrl = resolveComfyUiRuntime()?.apiUrl?.trim();
-            void fetchComfyHistoryImports(40, stickyUrl)
-              .then(payload => {
-                const result = importComfyGalleryFromHistory(payload.items ?? []);
+            void importCompletedHostJobs(40, stickyUrl)
+              .then(result => {
                 setImportStatus(
-                  `Imported ${result.imported}, upgraded ${result.upgraded}, skipped ${result.skipped} from ComfyUI history.`
+                  `Imported ${result.imported}, upgraded ${result.upgraded}, skipped ${result.skipped} completed host jobs.`
                 );
               })
               .catch(error => {
-                setImportStatus(
-                  error instanceof Error ? error.message : 'ComfyUI history import failed.'
-                );
+                setImportStatus(error instanceof Error ? error.message : 'Host job import failed.');
               })
               .finally(() => setHistoryLoading(false));
           }}
         >
-          Import ComfyUI history
+          Import completed host jobs
         </Button>
       </div>
       {importStatus ? <p className="text-xs text-[var(--text-muted)]">{importStatus}</p> : null}

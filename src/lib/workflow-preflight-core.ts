@@ -18,6 +18,7 @@ export type WorkflowPreflightIssue = {
   message: string;
   /** Optional deep-link for queue-failure playbooks / toasts. */
   href?: string;
+  classType?: string;
 };
 
 export type WorkflowGraphPreflightInput = {

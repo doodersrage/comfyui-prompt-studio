@@ -20,6 +20,7 @@ export type { WorkflowPreflightIssue };
 export type WorkflowPreflightResult = {
   ok: boolean;
   issues: WorkflowPreflightIssue[];
+  installMessage?: string;
 };
 
 export async function runWorkflowPreflight(input: {
@@ -190,5 +191,28 @@ export async function runWorkflowPreflight(input: {
   return {
     ok: !issues.some(issue => issue.severity === 'error'),
     issues,
+  };
+}
+
+/** Run preflight; if missing custom nodes are the block, install once and re-audit. */
+export async function runWorkflowPreflightWithNodeInstall(
+  input: Parameters<typeof runWorkflowPreflight>[0]
+): Promise<WorkflowPreflightResult> {
+  const first = await runWorkflowPreflight(input);
+  if (first.ok) {
+    return first;
+  }
+  const { tryInstallMissingNodesFromIssues } = await import('./comfyui-manager-install-client');
+  const installed = await tryInstallMissingNodesFromIssues({
+    issues: first.issues,
+    comfyUrl: input.comfy?.apiUrl,
+  });
+  if (!installed || installed.installed.length === 0) {
+    return installed?.message ? { ...first, installMessage: installed.message } : first;
+  }
+  const retry = await runWorkflowPreflight(input);
+  return {
+    ...retry,
+    installMessage: installed.message,
   };
 }

@@ -559,8 +559,8 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         const engineAdapter = getEngineAdapter();
         const engineSettings = loadEngineSettings();
         if (engineAdapter.id === 'comfyui') {
-          const { runWorkflowPreflight } = await import('@/lib/workflow-preflight');
-          const preflight = await runWorkflowPreflight({
+          const { runWorkflowPreflightWithNodeInstall } = await import('@/lib/workflow-preflight');
+          const preflight = await runWorkflowPreflightWithNodeInstall({
             model: queueModel,
             prompts: [preparedPrompt],
             negativePrompt,
@@ -589,9 +589,14 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             ),
             comfy: runtime,
           });
+          if (preflight.installMessage) {
+            setComfyUiStatus(preflight.installMessage);
+          }
           if (!preflight.ok) {
             const playbook = resolveQueueFailurePlaybook(preflight.issues);
-            const error = new Error(playbook.message);
+            const error = new Error(
+              [preflight.installMessage, playbook.message].filter(Boolean).join(' ')
+            );
             (error as Error & { href?: string }).href = playbook.href;
             throw error;
           }
@@ -1191,8 +1196,8 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           }
         }
 
-        const { runWorkflowPreflight } = await import('@/lib/workflow-preflight');
-        const preflight = await runWorkflowPreflight({
+        const { runWorkflowPreflightWithNodeInstall } = await import('@/lib/workflow-preflight');
+        const preflight = await runWorkflowPreflightWithNodeInstall({
           model: queueModel,
           prompts: prepared,
           negativePrompt,
@@ -1200,9 +1205,14 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           queueParams: paramsPerPrompt[0],
           comfy: runtime,
         });
+        if (preflight.installMessage) {
+          setComfyUiStatus(preflight.installMessage);
+        }
         if (!preflight.ok) {
           const playbook = resolveQueueFailurePlaybook(preflight.issues);
-          const error = new Error(playbook.message);
+          const error = new Error(
+            [preflight.installMessage, playbook.message].filter(Boolean).join(' ')
+          );
           (error as Error & { href?: string }).href = playbook.href;
           throw error;
         }

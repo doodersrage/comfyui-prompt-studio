@@ -215,6 +215,14 @@ export function mergeHistoryImportItems(
           prior.negativePrompt = item.negativePrompt;
         }
         prior.statusMessage = item.statusMessage ?? prior.statusMessage;
+        const clamped = clampGalleryWorkflowJsonDetailed(item.workflowJson);
+        if (!prior.workflowJson?.trim() && clamped.workflowJson) {
+          prior.workflowJson = clamped.workflowJson;
+          prior.hasStoredWorkflow = true;
+        }
+        if (clamped.omitted) {
+          prior.workflowJsonOmitted = true;
+        }
         upgraded += 1;
       } else {
         skipped += 1;
@@ -222,6 +230,7 @@ export function mergeHistoryImportItems(
       continue;
     }
 
+    const clamped = clampGalleryWorkflowJsonDetailed(item.workflowJson);
     const entry: ComfyGalleryEntry = {
       id: createId(),
       promptId: item.promptId,
@@ -241,6 +250,10 @@ export function mergeHistoryImportItems(
       ...(item.executionStartedAt != null ? { executionStartedAt: item.executionStartedAt } : {}),
       images: item.images,
       queueParams: item.queueParams,
+      ...(clamped.workflowJson
+        ? { workflowJson: clamped.workflowJson, hasStoredWorkflow: true }
+        : {}),
+      ...(clamped.omitted ? { workflowJsonOmitted: true } : {}),
     };
     imported.push(entry);
     byPromptId.set(item.promptId, entry);
@@ -334,6 +347,43 @@ export async function claimOrphanComfyJob(input: {
   return { ok: true, imported: 1, message: 'Claimed. Tracking in gallery.' };
 }
 
+export async function claimOrphanComfyJobs(
+  jobs: Array<{ promptId: string; status?: string; comfyUrl?: string }>
+): Promise<{ imported: number; skipped: number; failed: number; message: string }> {
+  let imported = 0;
+  let skipped = 0;
+  let failed = 0;
+  for (const job of jobs) {
+    const result = await claimOrphanComfyJob(job);
+    if (!result.ok) {
+      failed += 1;
+    } else if (result.imported === 0) {
+      skipped += 1;
+    } else {
+      imported += result.imported;
+    }
+  }
+  const parts = [
+    imported > 0 ? `Imported ${imported}` : '',
+    skipped > 0 ? `skipped ${skipped}` : '',
+    failed > 0 ? `${failed} failed` : '',
+  ].filter(Boolean);
+  return {
+    imported,
+    skipped,
+    failed,
+    message: parts.length > 0 ? `${parts.join(', ')}.` : 'Nothing to import.',
+  };
+}
+
+export async function importCompletedHostJobs(
+  limit = 40,
+  comfyUrl?: string
+): Promise<{ imported: number; upgraded: number; skipped: number }> {
+  const payload = await fetchComfyHistoryImports(limit, comfyUrl);
+  return importComfyGalleryFromHistory(payload.items ?? []);
+}
+
 export async function fetchComfyHistoryImports(limit = 40, comfyUrl?: string) {
   const params = new URLSearchParams({ limit: String(limit) });
   const sticky = comfyUrl?.trim();
@@ -351,6 +401,25 @@ export async function fetchComfyHistoryImports(limit = 40, comfyUrl?: string) {
   };
 }
 
+type ComfyJobStatusPayload = {
+  status?: string;
+  statusMessage?: string;
+  comfyUrl?: string;
+  queuePosition?: number | null;
+  images?: ComfyGalleryEntry['images'];
+  renderDurationMs?: number;
+  executionStartedAt?: number;
+};
+
+function isUsableJobStatus(status: ComfyJobStatusPayload | null | undefined): boolean {
+  return (
+    status?.status === 'pending' ||
+    status?.status === 'running' ||
+    status?.status === 'completed' ||
+    status?.status === 'error'
+  );
+}
+
 export async function fetchComfyJobStatus(promptId: string, comfyUrl?: string) {
   const params = new URLSearchParams({ promptId });
   const resolvedUrl = resolveComfyUrlForJob(promptId, comfyUrl);
@@ -358,20 +427,49 @@ export async function fetchComfyJobStatus(promptId: string, comfyUrl?: string) {
     params.set('comfyUrl', resolvedUrl);
   }
 
+  try {
+    const jobsResponse = await fetch(`/api/comfyui/jobs?${params.toString()}`);
+    if (jobsResponse.ok) {
+      const data = (await jobsResponse.json()) as {
+        status?: ComfyJobStatusPayload | null;
+        item?: ComfyHistoryImportItem | null;
+      };
+      const fromJobs = data.status ?? null;
+      if (isUsableJobStatus(fromJobs)) {
+        if (
+          fromJobs?.status === 'completed' &&
+          !(fromJobs.images && fromJobs.images.length > 0) &&
+          data.item?.images?.length
+        ) {
+          return {
+            ...fromJobs,
+            images: data.item.images,
+            statusMessage: data.item.statusMessage ?? fromJobs.statusMessage,
+          };
+        }
+        return fromJobs;
+      }
+      if (data.item?.images?.length) {
+        return {
+          status: 'completed',
+          statusMessage: data.item.statusMessage,
+          comfyUrl: data.item.comfyUrl,
+          images: data.item.images,
+          renderDurationMs: data.item.renderDurationMs,
+          executionStartedAt: data.item.executionStartedAt,
+        } satisfies ComfyJobStatusPayload;
+      }
+    }
+  } catch {
+    // Fall through to /status (history).
+  }
+
   const response = await fetch(`/api/comfyui/status?${params.toString()}`);
   if (!response.ok) {
     return null;
   }
 
-  return (await response.json()) as {
-    status?: string;
-    statusMessage?: string;
-    comfyUrl?: string;
-    queuePosition?: number | null;
-    images?: ComfyGalleryEntry['images'];
-    renderDurationMs?: number;
-    executionStartedAt?: number;
-  };
+  return (await response.json()) as ComfyJobStatusPayload;
 }
 
 function normalizeTrackerStatus(status: string | undefined): ComfyGalleryJobStatus | null {

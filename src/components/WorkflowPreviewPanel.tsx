@@ -1,6 +1,10 @@
 'use client';
 
-import { Skeleton, Spinner } from '@/components/ui/Button';
+import { useState } from 'react';
+import { Button, Skeleton, Spinner } from '@/components/ui/Button';
+import { collectMissingNodeTypesFromIssues } from '@/lib/workflow-node-type-audit';
+import { requestComfyManagerInstall } from '@/lib/comfyui-manager-install-client';
+import { resolveComfyUiRuntime } from '@/lib/comfyui-runtime';
 
 type WorkflowPreviewPanelProps = {
   loading?: boolean;
@@ -23,7 +27,7 @@ type WorkflowPreviewPanelProps = {
     snippets?: Array<{ path: string; value: string }>;
     workflowJson?: string;
     truncated?: boolean;
-    preflightIssues?: Array<{ severity: 'error' | 'warn'; message: string }>;
+    preflightIssues?: Array<{ severity: 'error' | 'warn'; message: string; classType?: string }>;
     queueOptimizeChanges?: string[];
   } | null;
 };
@@ -33,6 +37,8 @@ export default function WorkflowPreviewPanel({
   error,
   preview,
 }: WorkflowPreviewPanelProps) {
+  const [installStatus, setInstallStatus] = useState<string | null>(null);
+  const [installing, setInstalling] = useState(false);
   if (loading) {
     return (
       <div
@@ -58,6 +64,8 @@ export default function WorkflowPreviewPanel({
   if (!preview) {
     return null;
   }
+
+  const missingNodeTypes = collectMissingNodeTypesFromIssues(preview.preflightIssues ?? []);
 
   return (
     <div className="ui-surface space-y-3 p-4">
@@ -128,6 +136,35 @@ export default function WorkflowPreviewPanel({
             </li>
           ))}
         </ul>
+      ) : null}
+
+      {missingNodeTypes.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            loading={installing}
+            loadingLabel="Installing missing nodes"
+            onClick={() => {
+              setInstalling(true);
+              setInstallStatus('Installing missing custom nodes…');
+              void requestComfyManagerInstall({
+                nodeTypes: missingNodeTypes,
+                comfyUrl: resolveComfyUiRuntime()?.apiUrl,
+                restart: true,
+              })
+                .then(result => {
+                  setInstallStatus(result.message || 'Install finished.');
+                })
+                .finally(() => setInstalling(false));
+            }}
+          >
+            Install missing nodes
+          </Button>
+          {installStatus ? (
+            <p className="type-caption text-[var(--text-muted)]">{installStatus}</p>
+          ) : null}
+        </div>
       ) : null}
 
       {preview.snippets && preview.snippets.length > 0 && (

@@ -33,6 +33,14 @@ describe('resolveQueueFailureFixes', () => {
     assert.ok(fixes.some(fix => fix.kind === 'pool-failover'));
   });
 
+  it('offers install-missing-nodes for unknown class types', () => {
+    const fixes = resolveQueueFailureFixes({
+      statusMessage: 'Workflow node type “FaceDetailer” is not installed in ComfyUI',
+      comfyUrl: 'http://127.0.0.1:8188',
+    });
+    assert.ok(fixes.some(fix => fix.kind === 'install-missing-nodes'));
+  });
+
   it('offers loader remap for missing checkpoint files', () => {
     const fixes = resolveQueueFailureFixes({
       statusMessage: 'Checkpoint loader filename not found in inventory',

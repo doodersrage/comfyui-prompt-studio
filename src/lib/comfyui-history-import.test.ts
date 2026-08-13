@@ -33,6 +33,7 @@ describe("mergeHistoryImportItems", () => {
         comfyUrl: "http://127.0.0.1:8188",
         images: [{ filename: "b.png", type: "output", subfolder: "" }],
         queueParams: { seed: "2" },
+        workflowJson: '{"1":{"class_type":"KSampler"}}',
       },
     ];
 
@@ -50,5 +51,8 @@ describe("mergeHistoryImportItems", () => {
     assert.deepEqual(upgraded?.queueParams, { seed: "1", steps: "20" });
     assert.equal(upgraded?.model, "flux1-dev.safetensors");
     assert.ok(result.entries.some((entry) => entry.promptId === "abc-2"));
+    const imported = result.entries.find((entry) => entry.promptId === "abc-2");
+    assert.equal(imported?.workflowJson, '{"1":{"class_type":"KSampler"}}');
+    assert.equal(imported?.hasStoredWorkflow, true);
   });
 });

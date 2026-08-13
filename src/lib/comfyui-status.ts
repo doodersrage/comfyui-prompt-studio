@@ -136,6 +136,19 @@ export async function getComfyUiPromptStatus(
           const queue = await resolveQueueContext(promptId, comfyUrl);
           return applyQueueContext(mapped, queue);
         }
+        if (mapped.status === 'completed' && !(mapped.images && mapped.images.length > 0)) {
+          const history = await fetchHistoryEntry(comfyUrl, promptId);
+          const fromHistory = history
+            ? historyEntryToImportItem(promptId, comfyUrl, history)
+            : null;
+          if (fromHistory?.images.length) {
+            return {
+              ...mapped,
+              images: fromHistory.images,
+              statusMessage: fromHistory.statusMessage ?? mapped.statusMessage,
+            };
+          }
+        }
         return mapped;
       }
     }

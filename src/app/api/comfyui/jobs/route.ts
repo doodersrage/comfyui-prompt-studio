@@ -20,14 +20,19 @@ export async function GET(request: Request) {
 
   const promptId = searchParams.get('promptId')?.trim() || searchParams.get('id')?.trim();
   if (promptId) {
-    const { fetchComfyJobImportItem } = await import('@/lib/comfyui-status');
-    const item = await fetchComfyJobImportItem(promptId, baseUrl);
+    const { fetchComfyJobImportItem, getComfyUiPromptStatus } =
+      await import('@/lib/comfyui-status');
+    const [item, status] = await Promise.all([
+      fetchComfyJobImportItem(promptId, baseUrl),
+      getComfyUiPromptStatus(promptId, runtime),
+    ]);
     return apiJson({
       ok: true,
       promptId,
       comfyUrl: baseUrl,
       item,
-      found: Boolean(item),
+      status,
+      found: Boolean(item || status),
     });
   }
 

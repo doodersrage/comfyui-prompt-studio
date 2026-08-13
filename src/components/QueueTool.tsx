@@ -23,7 +23,8 @@ import {
   interruptComfyUiQueue,
   restartComfyUi,
 } from '@/lib/comfyui-queue-control';
-import { claimOrphanComfyJob } from '@/lib/comfyui-gallery-client';
+import { claimOrphanComfyJob, claimOrphanComfyJobs } from '@/lib/comfyui-gallery-client';
+import type { ComfyJobListItem } from '@/lib/comfyui-jobs';
 import FailedJobFixButtons from '@/components/FailedJobFixButtons';
 import { cancelComfyGalleryJob } from '@/lib/comfyui-queue-cancel';
 import {
@@ -253,6 +254,23 @@ export default function QueueTool() {
     void refreshHealth();
   }
 
+  async function claimAllHostJobs() {
+    if (orphanHostJobs.length === 0) {
+      return;
+    }
+    setStatus(`Importing ${orphanHostJobs.length} host job(s)…`);
+    const result = await claimOrphanComfyJobs(
+      orphanHostJobs.map(job => ({
+        promptId: job.id,
+        status: job.status,
+        comfyUrl: queueHealth?.url,
+      }))
+    );
+    setStatus(result.message);
+    refreshEntries();
+    void refreshHealth();
+  }
+
   async function retryFailed() {
     if (failed.length === 0) {
       return;
@@ -377,10 +395,17 @@ export default function QueueTool() {
 
       {orphanHostJobs.length > 0 ? (
         <ToolSection title={`On ComfyUI (${orphanHostJobs.length})`}>
-          <p className="mb-3 text-xs text-[var(--text-muted)]">
-            Running or queued on the host, but not in this gallery. Import to track outputs here, or
-            cancel one without interrupting the rest of the queue.
-          </p>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-[var(--text-muted)]">
+              Running or queued on the host, but not in this gallery. Import to track outputs here,
+              or cancel one without interrupting the rest of the queue.
+            </p>
+            {orphanHostJobs.length > 1 ? (
+              <Button size="sm" variant="secondary" onClick={() => void claimAllHostJobs()}>
+                Import all
+              </Button>
+            ) : null}
+          </div>
           <ul className="ui-list">
             {orphanHostJobs.map(job => (
               <li

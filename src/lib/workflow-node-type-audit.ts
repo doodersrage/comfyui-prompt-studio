@@ -1,3 +1,4 @@
+import { KNOWN_COMFY_NODE_PACK_BY_CLASS } from './comfyui-custom-node-registry';
 import { settingsComfyUiSectionHref } from './settings-comfyui-nav';
 
 export type WorkflowNodeTypeIssue = {
@@ -5,6 +6,7 @@ export type WorkflowNodeTypeIssue = {
   message: string;
   /** Optional deep-link for queue-failure playbooks / toasts. */
   href?: string;
+  classType?: string;
 };
 
 export function listWorkflowClassTypes(
@@ -57,6 +59,7 @@ export function auditWorkflowNodeTypes(input: {
         severity: 'error',
         message: `Workflow node type “${classType}” is not installed in ComfyUI — install the custom node pack or pick a different workflow.`,
         href: settingsComfyUiSectionHref('workflow-map'),
+        classType,
       });
     }
   }
@@ -82,4 +85,61 @@ export function collectMissingWorkflowNodeTypes(
     }
   }
   return [...missing].sort((a, b) => a.localeCompare(b));
+}
+
+const MISSING_NODE_FAILURE =
+  /not installed in ComfyUI|custom node pack|unknown node type|missing node type|node type .* not found|object_info.*(missing|unknown|not found)/i;
+
+export function isMissingCustomNodeFailure(message: string): boolean {
+  return MISSING_NODE_FAILURE.test(message.trim());
+}
+
+/** Pull class_type names from preflight / execution error text. */
+export function extractMissingNodeTypesFromMessage(message: string): string[] {
+  const text = message.trim();
+  if (!text) {
+    return [];
+  }
+  const found = new Set<string>();
+  for (const match of text.matchAll(/[“"']([A-Za-z][\w.]+)[”"']/g)) {
+    if (match[1]) {
+      found.add(match[1]);
+    }
+  }
+  for (const match of text.matchAll(/unknown node type[:\s]+([A-Za-z][\w.]+)/gi)) {
+    if (match[1]) {
+      found.add(match[1]);
+    }
+  }
+  for (const match of text.matchAll(/missing node type[:\s]+([A-Za-z][\w.]+)/gi)) {
+    if (match[1]) {
+      found.add(match[1]);
+    }
+  }
+  const hashed = text.match(/^([A-Za-z][\w.]+)\s+#\d+/);
+  if (hashed?.[1] && /not (installed|found)|unknown|missing/i.test(text)) {
+    found.add(hashed[1]);
+  }
+  for (const classType of Object.keys(KNOWN_COMFY_NODE_PACK_BY_CLASS)) {
+    if (text.includes(classType)) {
+      found.add(classType);
+    }
+  }
+  return [...found];
+}
+
+export function collectMissingNodeTypesFromIssues(
+  issues: Array<{ message?: string; classType?: string }>
+): string[] {
+  const found = new Set<string>();
+  for (const issue of issues) {
+    const typed = issue.classType?.trim();
+    if (typed) {
+      found.add(typed);
+    }
+    for (const classType of extractMissingNodeTypesFromMessage(issue.message ?? '')) {
+      found.add(classType);
+    }
+  }
+  return [...found].sort((a, b) => a.localeCompare(b));
 }
