@@ -324,7 +324,7 @@ export function getServerEnvSummary(): ServerEnvSummary {
             : 'not set',
           configured: isServerStorageEnabled(),
           uiOverride: 'Settings → Data → storage sync (when enabled)',
-          hint: 'Enables browser ↔ server backup of settings, history, and gallery.',
+          hint: 'Enables browser ↔ server SQLite backup of settings, history, and gallery (studio.sqlite).',
         },
       ],
     },

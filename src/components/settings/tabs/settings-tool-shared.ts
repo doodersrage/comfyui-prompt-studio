@@ -145,6 +145,6 @@ export type HealthResponse = {
     redisConfigured: boolean;
     redisConnected: boolean;
     filePersistence: boolean;
-    backend: 'redis' | 'file' | 'memory';
+    backend: 'redis' | 'sqlite' | 'file' | 'memory';
   };
 };

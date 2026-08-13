@@ -1,17 +1,16 @@
-import fs from 'node:fs';
-import path from 'node:path';
 import {
   pruneStalePeers,
   type CollabDraftPayload,
   type CollabPresencePeer,
 } from './collab-presence';
+import { isServerStorageEnabled } from './server-storage';
+import { loadCollabRoom, saveCollabRoom } from './sqlite/tables';
 
 export type CollabRoomState = {
   peers: CollabPresencePeer[];
   draft?: CollabDraftPayload;
 };
 
-type CollabRoomsDocument = Record<string, CollabRoomState>;
 type CollabSseSend = (event: string, data: unknown) => void;
 
 const memoryRooms = new Map<string, CollabRoomState>();
@@ -36,34 +35,18 @@ function emptyRoom(): CollabRoomState {
   return { peers: [] };
 }
 
-function collabFilePath(): string | null {
-  const dir = process.env.PROMPT_DATA_DIR?.trim();
-  if (!dir) {
+function readPersistedRoom(projectId: string): CollabRoomState | null {
+  if (!isServerStorageEnabled()) {
     return null;
   }
-  const resolved = path.resolve(/* turbopackIgnore: true */ dir);
-  fs.mkdirSync(resolved, { recursive: true });
-  return path.join(resolved, 'collab-rooms.json');
+  return loadCollabRoom(projectId);
 }
 
-function readFileRooms(): CollabRoomsDocument {
-  const filePath = collabFilePath();
-  if (!filePath) {
-    return {};
-  }
-  try {
-    return JSON.parse(fs.readFileSync(filePath, 'utf8')) as CollabRoomsDocument;
-  } catch {
-    return {};
-  }
-}
-
-function writeFileRooms(rooms: CollabRoomsDocument): void {
-  const filePath = collabFilePath();
-  if (!filePath) {
+function writePersistedRoom(projectId: string, room: CollabRoomState): void {
+  if (!isServerStorageEnabled()) {
     return;
   }
-  fs.writeFileSync(filePath, JSON.stringify(rooms, null, 2), 'utf8');
+  saveCollabRoom(projectId, room);
 }
 
 async function initRedis(): Promise<void> {
@@ -138,10 +121,7 @@ async function loadRoomFromRedis(projectId: string): Promise<CollabRoomState | n
 async function persistRoom(projectId: string, room: CollabRoomState): Promise<void> {
   const key = roomKey(projectId);
   memoryRooms.set(key, room);
-
-  const fileRooms = readFileRooms();
-  fileRooms[key] = room;
-  writeFileRooms(fileRooms);
+  writePersistedRoom(key, room);
 
   await ensureRedis();
   if (redisClient) {
@@ -177,7 +157,7 @@ export async function getCollabRoom(projectId: string): Promise<CollabRoomState>
     };
   }
 
-  const fromFile = readFileRooms()[key];
+  const fromFile = readPersistedRoom(key);
   if (fromFile) {
     memoryRooms.set(key, fromFile);
     return {
@@ -247,19 +227,19 @@ export type CollabBackendStatus = {
   redisConfigured: boolean;
   redisConnected: boolean;
   filePersistence: boolean;
-  backend: 'redis' | 'file' | 'memory';
+  backend: 'redis' | 'sqlite' | 'memory';
 };
 
 /** Summarizes collab persistence backend for health/observability surfaces. */
 export async function getCollabBackendStatus(): Promise<CollabBackendStatus> {
   const redisConfigured = Boolean(process.env.COLLAB_REDIS_URL?.trim());
-  const filePersistence = Boolean(process.env.PROMPT_DATA_DIR?.trim());
+  const filePersistence = isServerStorageEnabled();
   await ensureRedis();
   const redisConnected = Boolean(redisClient);
   const backend: CollabBackendStatus['backend'] = redisConnected
     ? 'redis'
     : filePersistence
-      ? 'file'
+      ? 'sqlite'
       : 'memory';
   return { redisConfigured, redisConnected, filePersistence, backend };
 }

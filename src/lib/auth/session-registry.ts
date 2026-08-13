@@ -1,7 +1,5 @@
-import fs from 'node:fs';
-import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { resolvePromptAuthDir } from '@/lib/prompt-data-paths';
+import { loadSessions, trimSessions, upsertSession } from '@/lib/sqlite/tables';
 
 export type RegisteredSession = {
   id: string;
@@ -14,30 +12,7 @@ export type RegisteredSession = {
   revoked: boolean;
 };
 
-type SessionsDocument = {
-  version: 1;
-  sessions: RegisteredSession[];
-};
-
 const MAX_SESSIONS = 500;
-
-function sessionsPath(): string {
-  const dir = resolvePromptAuthDir();
-  fs.mkdirSync(dir, { recursive: true });
-  return path.join(dir, 'sessions.json');
-}
-
-function readDoc(): SessionsDocument {
-  try {
-    return JSON.parse(fs.readFileSync(sessionsPath(), 'utf8')) as SessionsDocument;
-  } catch {
-    return { version: 1, sessions: [] };
-  }
-}
-
-function writeDoc(doc: SessionsDocument): void {
-  fs.writeFileSync(sessionsPath(), JSON.stringify(doc, null, 2), 'utf8');
-}
 
 export function registerSession(input: {
   userId: string;
@@ -45,10 +20,9 @@ export function registerSession(input: {
   userAgent?: string;
   ip?: string;
 }): string {
-  const doc = readDoc();
   const id = randomUUID();
   const now = Date.now();
-  doc.sessions.unshift({
+  upsertSession({
     id,
     userId: input.userId,
     username: input.username,
@@ -58,50 +32,40 @@ export function registerSession(input: {
     ip: input.ip,
     revoked: false,
   });
-  if (doc.sessions.length > MAX_SESSIONS) {
-    doc.sessions.length = MAX_SESSIONS;
-  }
-  writeDoc(doc);
+  trimSessions(MAX_SESSIONS);
   return id;
 }
 
 export function touchSession(sessionId: string): void {
-  const doc = readDoc();
-  const session = doc.sessions.find(entry => entry.id === sessionId && !entry.revoked);
+  const session = loadSessions().find(entry => entry.id === sessionId && !entry.revoked);
   if (!session) {
     return;
   }
-  session.lastSeenAt = Date.now();
-  writeDoc(doc);
+  upsertSession({ ...session, lastSeenAt: Date.now() });
 }
 
 export function listUserSessions(userId: string): RegisteredSession[] {
-  return readDoc().sessions.filter(session => session.userId === userId && !session.revoked);
+  return loadSessions().filter(session => session.userId === userId && !session.revoked);
 }
 
 export function revokeSession(userId: string, sessionId: string): boolean {
-  const doc = readDoc();
-  const session = doc.sessions.find(entry => entry.id === sessionId && entry.userId === userId);
+  const session = loadSessions().find(entry => entry.id === sessionId && entry.userId === userId);
   if (!session) {
     return false;
   }
-  session.revoked = true;
-  writeDoc(doc);
+  upsertSession({ ...session, revoked: true });
   return true;
 }
 
 export function revokeAllUserSessions(userId: string, exceptSessionId?: string): number {
-  const doc = readDoc();
+  const sessions = loadSessions();
   let count = 0;
-  for (const session of doc.sessions) {
+  for (const session of sessions) {
     if (session.userId !== userId || session.revoked || session.id === exceptSessionId) {
       continue;
     }
-    session.revoked = true;
+    upsertSession({ ...session, revoked: true });
     count += 1;
-  }
-  if (count > 0) {
-    writeDoc(doc);
   }
   return count;
 }
@@ -110,6 +74,6 @@ export function isSessionRevoked(sessionId: string | undefined): boolean {
   if (!sessionId) {
     return false;
   }
-  const session = readDoc().sessions.find(entry => entry.id === sessionId);
+  const session = loadSessions().find(entry => entry.id === sessionId);
   return Boolean(session?.revoked);
 }

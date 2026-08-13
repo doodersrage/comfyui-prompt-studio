@@ -1,6 +1,7 @@
-import fs from 'node:fs';
 import path from 'node:path';
 import type { PublicQueueExportConfig, StoredQueueExportConfig } from './queue-export-types';
+import { isServerStorageEnabled } from './server-storage';
+import { readKv, writeKv } from './sqlite/kv';
 
 export type { PublicQueueExportConfig, StoredQueueExportConfig } from './queue-export-types';
 
@@ -37,42 +38,27 @@ export function assertSafeQueueExportDir(raw: string): string {
   return resolved;
 }
 
-function overlayPath(): string | null {
-  const dir = process.env.PROMPT_DATA_DIR?.trim();
-  if (!dir) {
-    return null;
-  }
-  return path.join(path.resolve(dir), 'queue-export.json');
-}
-
 export function readStoredQueueExportConfig(): StoredQueueExportConfig | null {
-  const filePath = overlayPath();
-  if (!filePath) {
+  if (!isServerStorageEnabled()) {
     return null;
   }
-  try {
-    return JSON.parse(fs.readFileSync(filePath, 'utf8')) as StoredQueueExportConfig;
-  } catch {
-    return null;
-  }
+  return readKv<StoredQueueExportConfig>('global', 'queue-export');
 }
 
 export function writeStoredQueueExportConfig(input: StoredQueueExportConfig): {
   persisted: boolean;
   config: StoredQueueExportConfig;
 } {
-  const filePath = overlayPath();
   const next: StoredQueueExportConfig = { ...readStoredQueueExportConfig(), ...input };
   if (typeof next.dir === 'string' && next.dir.trim()) {
     next.dir = assertSafeQueueExportDir(next.dir);
   } else {
     next.dir = undefined;
   }
-  if (!filePath) {
+  if (!isServerStorageEnabled()) {
     return { persisted: false, config: next };
   }
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, `${JSON.stringify(next, null, 2)}\n`, 'utf8');
+  writeKv('global', 'queue-export', next);
   return { persisted: true, config: next };
 }
 

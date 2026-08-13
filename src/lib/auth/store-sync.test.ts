@@ -4,6 +4,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { hashPassword, verifyPassword } from "./password";
+import { closeStudioDb } from "../sqlite/studio-db";
+import { invalidateAuthStoreCache } from "./store";
 
 describe("default admin env sync", () => {
   let tempDir = "";
@@ -13,6 +15,8 @@ describe("default admin env sync", () => {
   const previousAdminPassword = process.env.PROMPT_ADMIN_PASSWORD;
 
   beforeEach(() => {
+    closeStudioDb();
+    invalidateAuthStoreCache();
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "prompt-auth-sync-"));
     process.env.PROMPT_DATA_DIR = tempDir;
     process.env.PROMPT_AUTH_ENABLED = "true";
@@ -21,6 +25,8 @@ describe("default admin env sync", () => {
   });
 
   afterEach(() => {
+    closeStudioDb();
+    invalidateAuthStoreCache();
     if (tempDir) {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
@@ -87,12 +93,10 @@ describe("default admin env sync", () => {
       "utf8",
     );
 
-    const { verifyUserCredentials } = await import("./store");
+    const { findUserByUsername, verifyUserCredentials } = await import("./store");
     assert.equal(verifyUserCredentials("admin", "first-password")?.role, "admin");
-    assert.equal(
-      JSON.parse(fs.readFileSync(usersPath, "utf8")).users[0].passwordHash,
-      passwordHash,
-    );
+    assert.equal(findUserByUsername("admin")?.passwordHash, passwordHash);
+    assert.equal(fs.existsSync(`${usersPath}.imported`), true);
   });
 });
 

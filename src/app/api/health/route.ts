@@ -74,7 +74,10 @@ export async function GET(request: Request) {
     collab,
     workflow,
     apiUsage: summarizeApiUsage(),
-    storage: { enabled: isServerStorageEnabled() },
+    storage: {
+      enabled: isServerStorageEnabled(),
+      engine: isServerStorageEnabled() ? 'sqlite' : 'none',
+    },
     email: { configured: isEmailConfigured() },
     auth: getAuthBootstrapInfo(),
     config: {

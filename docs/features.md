@@ -74,7 +74,7 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 - **Cherry-pick merge** — Studio Diff tab merges two prompts with lint checks
 - **Experiment dashboard** — Studio Experiments tab groups gallery outputs by prompt/seed variants
 - **Experiment list virtualization** — window virtualizer for large experiment group lists (48+ groups)
-- **Shared-project collab** — presence bar + field-level draft sync (`hints`, `instruction`, `positive`, etc.) via BroadcastChannel and `/api/collab` SSE; room state persists to `PROMPT_DATA_DIR/collab-rooms.json` and optional `COLLAB_REDIS_URL` for multi-node; Settings → Overview shows collab backend health; **Apply draft** merges remote edits on Generate, Character, Refine, and Compose
+- **Shared-project collab** — presence bar + field-level draft sync (`hints`, `instruction`, `positive`, etc.) via BroadcastChannel and `/api/collab` SSE; room state persists to SQLite and optional `COLLAB_REDIS_URL` for multi-node; Settings → Overview shows collab backend health; **Apply draft** merges remote edits on Generate, Character, Refine, and Compose
 - **Experiment winner workflow** — crown winners, compare export, re-queue groups on Studio Experiments tab
 - **Style transplant** — Studio → Experiments applies lighting/camera mood from one prompt to another
 - **Duplicate detection** — Studio → Experiments finds near-identical history clusters
@@ -206,7 +206,7 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 - **Backup reminder** — Overview/Data warn when no recent export
 - **Prompt sidecar** — download JSON sidecar (prompt, model, diagnostics, seed) from result panels or Studio history
 - **Sidecar import** — load sidecar JSON on Gallery, Lint, and Variations to restore prompts or re-queue
-- **Server storage sync** — optional `PROMPT_DATA_DIR` file-backed namespaces via `/api/storage`; per-user paths when logged in
+- **Server storage sync** — optional `PROMPT_DATA_DIR` SQLite (`studio.sqlite`) via `/api/storage`; per-user scopes when logged in
 - **Server storage pull** — Settings advanced panel restores server namespaces into the app database
 - **Auto storage sync** — pull on login when browser is empty; conflict merge UI when local/server diverge
 - **Auto-push storage** — history and gallery saves debounce-push to server when storage sync is enabled
@@ -219,7 +219,7 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 
 - **User accounts & feature ACL** — optional login, groups, blocked features, **viewer** role, per-user ComfyUI URL override, API quotas (Settings → Users)
 - **Invite by email** — admin creates a user (or re-sends) via SMTP; 1-hour `/login?reset=` link. Password optional on invite
-- **SMTP overlay** — Settings → Users persists host/port/from under `PROMPT_DATA_DIR`; **Send test** uses the overlay immediately
+- **SMTP overlay** — Settings → Users persists host/port/from in SQLite when `PROMPT_DATA_DIR` is set; **Send test** uses the overlay immediately
 - **Password reset** — `/login` forgot-password + `POST /api/auth/reset-password`; same mailer as invites
 - **Profile** — password change, export toggle, scheduled campaign settings, 2FA, sessions, email, appearance
 - **Admin tools** — audit log, user impersonation, shared read-only preset library, analytics trends over time

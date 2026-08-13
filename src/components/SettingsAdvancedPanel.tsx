@@ -291,10 +291,10 @@ export default function SettingsAdvancedPanel() {
           </ul>
         </div>
         <p className="text-sm text-[var(--text-muted)]">
-          Optional file-backed storage when{' '}
-          <code className="text-[var(--text-secondary)]">PROMPT_DATA_DIR</code> is set on the
-          server. When signed in, history and gallery sync to your personal namespace under{' '}
-          <code className="text-[var(--text-secondary)]">users/&lt;id&gt;/</code>.
+          Optional SQLite storage when{' '}
+          <code className="text-[var(--text-secondary)]">PROMPT_DATA_DIR</code> is set on the server
+          (<code className="text-[var(--text-secondary)]">studio.sqlite</code>). When signed in,
+          history and gallery sync to your personal scope in that database.
         </p>
         <p className="mt-2 text-sm text-[var(--text-muted)]">
           Status: {storageEnabled ? 'enabled' : 'disabled (browser database only)'}

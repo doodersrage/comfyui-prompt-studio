@@ -9,7 +9,7 @@ Next.js App Router under `src/app/`, shared UI in `src/components/`, domain logi
 | Layer                         | Responsibility                                                                                                 |
 | ----------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | **Client**                    | Tool UIs, Dexie settings/history/workflows/gallery, plugin install, Comfy job register + poll/WebSocket        |
-| **Server (`src/app/api/**`)** | LLM calls, ComfyUI `/prompt` proxy + inject/preflight, auth/session/ACL, optional JSON under `PROMPT_DATA_DIR` |
+| **Server (`src/app/api/**`)** | LLM calls, ComfyUI `/prompt` proxy + inject/preflight, auth/session/ACL, optional SQLite under `PROMPT_DATA_DIR` |
 | **Edge gate**                 | `src/proxy.ts` — auth, rate limit, usage log before route handlers                                             |
 
 Shell (`src/app/layout.tsx`) wraps pages with `AuthProvider`, `AppNav`, gallery background poller, and storage sync.
@@ -27,16 +27,18 @@ Access: `src/lib/browser-storage.ts`, `src/lib/gallery-db-store.ts`, init `src/l
 
 Durable browser writes listed in `src/lib/durable-sync-keys.ts` schedule a debounced server push.
 
-### Server (optional)
+### Server (optional SQLite)
 
-When `PROMPT_DATA_DIR` is set (`src/lib/server-storage.ts`):
+When `PROMPT_DATA_DIR` is set, Prompt Studio opens `{PROMPT_DATA_DIR}/studio.sqlite` (WAL) via `src/lib/sqlite/studio-db.ts`:
 
-- `{PROMPT_DATA_DIR}/{namespace}.json` — namespaces in `src/lib/storage-namespaces.ts`
-- Per-user (auth on): `{PROMPT_DATA_DIR}/users/{userId}/…` (`src/lib/user-server-storage.ts`)
-- Auth: `{PROMPT_AUTH_DIR|PROMPT_DATA_DIR}/auth/users.json`, `groups.json`, `password-reset-tokens.json` (`src/lib/auth/store.ts`, `src/lib/auth/password-reset-store.ts`)
-- Analytics snapshots: `auth/analytics-snapshots.json` (client push via `/api/auth/analytics`)
-- SMTP overlay: `email-config.json` (`src/lib/email/store.ts`) — env is the fallback; in-memory overlay if `PROMPT_DATA_DIR` is unset
-- Queue-export overlay: `queue-export.json` (`src/lib/queue-export-store.ts`)
+- Namespaces (`src/lib/storage-namespaces.ts`) in a `kv` table, scoped `global` or `user:{userId}`
+- Gallery rows in `gallery_entries` (not one JSON blob); tombstones in `gallery_deleted_ids`
+- Auth, sessions, API keys, reset tokens, audit, LLM usage, analytics, collab rooms as tables
+- SMTP / queue-export overlays in `kv`
+
+Leftover JSON files (`*.json` under the data dir and `auth/`) are imported once on first open and renamed to `*.json.imported`. Per-user export snapshots remain files under `users/{userId}/exports/`. ComfyUI view-cache images stay as files.
+
+Without `PROMPT_DATA_DIR`, `/api/storage` is disabled. Auth and shared presets still persist to `studio.sqlite` under the default data root (`.prompt-studio-data`). SMTP overlay stays in memory until restart.
 
 **Studio backup** (`src/lib/studio-backup.ts`) is a versioned JSON download (v5) of history, settings, gallery, and `collectStudioExtras()` (gallery ELO and other Dexie KV). It is not a dump of `PROMPT_DATA_DIR`.
 
@@ -44,9 +46,7 @@ When `PROMPT_DATA_DIR` is set (`src/lib/server-storage.ts`):
 
 `studio-extras` covers workflows, ComfyUI settings, recipes, projects, webhooks, avoided tokens, templates, campaigns, appearance prefs, onboarding, workspace mode, held-max jobs, notifications, and other durable browser state. Legacy namespaces (`scheduled-batch`, `webhook-settings`, `avoided-tokens`, `prompt-projects`) are folded into `studio-extras` on pull.
 
-Sync helpers: `src/lib/storage-sync.ts`, `src/lib/auto-storage-sync.ts`, `src/lib/studio-extras.ts`, APIs under `src/app/api/storage/**`.
-
-There is no SQLite — server state is JSON files.
+Sync helpers: `src/lib/storage-sync.ts`, `src/lib/auto-storage-sync.ts`, `src/lib/studio-extras.ts`, APIs under `src/app/api/storage/**`. Browser Dexie remains the working cache; the server database is the durable copy.
 
 ## ComfyUI queue path
 
@@ -107,7 +107,7 @@ Consumers: gallery re-queue (`src/lib/comfyui-requeue.ts`), result-panel send/ba
 
 ## Auth and ACL
 
-Enabled when `PROMPT_AUTH_ENABLED=true` or an existing `users.json` is on disk (`src/lib/auth/config.ts`, `src/lib/auth/store.ts`).
+Enabled when `PROMPT_AUTH_ENABLED=true` or leftover `users.json` / imported users exist (`src/lib/auth/config.ts`, `src/lib/auth/store.ts`).
 
 Roles (`src/lib/auth/types.ts`): `admin` | `user` | `viewer`.
 
@@ -164,7 +164,7 @@ See `.env.example` for the full list. Groups that matter for architecture:
 | ComfyUI     | `COMFYUI_API_URL`, `COMFYUI_POOL`, `COMFYUI_ALLOW_CLIENT_URL`, `COMFYUI_ALLOWED_HOSTS`, `COMFYUI_ROOT` |
 | Auth        | `PROMPT_AUTH_ENABLED`, `PROMPT_ADMIN_*`, `PROMPT_SESSION_SECRET`, `PROMPT_API_TOKEN`, `PROMPT_API_URL` |
 | Persistence | `PROMPT_DATA_DIR`, `PROMPT_AUTH_DIR`                                                                  |
-| Email       | `PROMPT_SMTP_*`, `PROMPT_EMAIL_FROM` (overlay: `email-config.json`)                                    |
+| Email       | `PROMPT_SMTP_*`, `PROMPT_EMAIL_FROM` (overlay in SQLite `kv`)                                          |
 | Ops         | `API_RATE_LIMIT_*`, scheduled batch / maintenance flags                                               |
 
 ## Where to look next

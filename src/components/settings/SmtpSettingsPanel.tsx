@@ -46,7 +46,7 @@ export default function SmtpSettingsPanel({ isAdmin }: { isAdmin: boolean }) {
   return (
     <ToolSection
       title="SMTP"
-      description="Operator mail for invites, password resets, and batch alerts. Env values are the fallback; this overlay persists under PROMPT_DATA_DIR. Save, then Send test before inviting users."
+      description="Operator mail for invites, password resets, and batch alerts. Env values are the fallback; this overlay persists in SQLite when PROMPT_DATA_DIR is set. Save, then Send test before inviting users."
     >
       <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
         <input

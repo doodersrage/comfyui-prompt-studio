@@ -1,17 +1,9 @@
-import fs from 'node:fs';
-import path from 'node:path';
 import type { EmailConfig } from './types';
 import type { PublicEmailConfig, StoredEmailConfig } from './types';
+import { isServerStorageEnabled } from '@/lib/server-storage';
+import { readKv, writeKv } from '@/lib/sqlite/kv';
 
 export type { PublicEmailConfig, StoredEmailConfig } from './types';
-
-function emailConfigPath(): string | null {
-  const dir = process.env.PROMPT_DATA_DIR?.trim();
-  if (!dir) {
-    return null;
-  }
-  return path.join(path.resolve(dir), 'email-config.json');
-}
 
 let memoryOverlay: StoredEmailConfig | null = null;
 
@@ -20,12 +12,10 @@ export function clearEmailConfigMemory(): void {
 }
 
 export function readStoredEmailConfig(): StoredEmailConfig | null {
-  const filePath = emailConfigPath();
-  if (filePath) {
-    try {
-      return JSON.parse(fs.readFileSync(filePath, 'utf8')) as StoredEmailConfig;
-    } catch {
-      // Fall through to the in-memory overlay used when PROMPT_DATA_DIR is unset.
+  if (isServerStorageEnabled()) {
+    const stored = readKv<StoredEmailConfig>('global', 'email-config');
+    if (stored) {
+      return stored;
     }
   }
   return memoryOverlay;
@@ -54,13 +44,11 @@ export function writeStoredEmailConfig(input: StoredEmailConfig): {
   config: StoredEmailConfig;
 } {
   const next = mergeStoredEmailConfig(readStoredEmailConfig() ?? {}, input);
-  const filePath = emailConfigPath();
-  if (!filePath) {
+  if (!isServerStorageEnabled()) {
     memoryOverlay = next;
     return { persisted: false, config: next };
   }
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, `${JSON.stringify(next, null, 2)}\n`, 'utf8');
+  writeKv('global', 'email-config', next);
   memoryOverlay = null;
   return { persisted: true, config: next };
 }

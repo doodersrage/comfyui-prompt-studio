@@ -1,6 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { isServerStorageEnabled } from './server-storage';
+import {
+  countNamespaceGallery,
+  readNamespaceStorage,
+  writeNamespaceStorage,
+} from './sqlite/namespace-storage';
 import { SYNC_STORAGE_NAMESPACES, type StorageNamespace } from './storage-namespaces';
 
 /** Per-user durable namespaces (when auth is enabled). */
@@ -18,13 +23,6 @@ function dataDir(): string {
   return resolved;
 }
 
-function userFilePath(userId: string, namespace: UserStorageNamespace): string {
-  const safeUserId = userId.replace(/[^a-zA-Z0-9_-]/g, '_');
-  const dir = path.join(dataDir(), 'users', safeUserId);
-  fs.mkdirSync(dir, { recursive: true });
-  return path.join(dir, `${namespace}.json`);
-}
-
 export function readUserServerStorage<T>(
   userId: string,
   namespace: UserStorageNamespace
@@ -32,11 +30,7 @@ export function readUserServerStorage<T>(
   if (!isServerStorageEnabled()) {
     return null;
   }
-  try {
-    return JSON.parse(fs.readFileSync(userFilePath(userId, namespace), 'utf8')) as T;
-  } catch {
-    return null;
-  }
+  return readNamespaceStorage<T>(namespace, userId);
 }
 
 export function writeUserServerStorage<T>(
@@ -47,7 +41,14 @@ export function writeUserServerStorage<T>(
   if (!isServerStorageEnabled()) {
     throw new Error('Server storage is disabled. Set PROMPT_DATA_DIR.');
   }
-  fs.writeFileSync(userFilePath(userId, namespace), JSON.stringify(data, null, 2), 'utf8');
+  writeNamespaceStorage(namespace, data, userId);
+}
+
+export function countUserGalleryEntries(userId: string): number {
+  if (!isServerStorageEnabled()) {
+    return 0;
+  }
+  return countNamespaceGallery(userId);
 }
 
 export function listUserExportFiles(userId: string): string[] {

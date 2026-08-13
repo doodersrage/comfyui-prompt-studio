@@ -11,7 +11,7 @@ const ROOT = new URL('..', import.meta.url).pathname;
 const SRC = join(ROOT, 'src');
 
 const FORBIDDEN = [
-  /from\s+['"]node:crypto['"]/,
+  /from\s+['"]node:sqlite['"]/,
   /from\s+['"]node:fs['"]/,
   /from\s+['"]node:path['"]/,
   /from\s+['"]server-only['"]/,

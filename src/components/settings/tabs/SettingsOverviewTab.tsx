@@ -346,7 +346,7 @@ export default function SettingsOverviewTab({
                       ? 'Redis connected'
                       : 'Redis configured but unreachable'
                     : health.collab.filePersistence
-                      ? 'file persistence'
+                      ? 'sqlite persistence'
                       : 'in-memory only',
                 ]
                   .filter(Boolean)

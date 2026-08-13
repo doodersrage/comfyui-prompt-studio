@@ -1,6 +1,4 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import { resolvePromptDataDir } from '@/lib/prompt-data-paths';
+import { loadSharedPresets, saveSharedPresets } from '@/lib/sqlite/tables';
 
 export type SharedPresetEntry = {
   id: string;
@@ -14,41 +12,18 @@ export type SharedPresetEntry = {
   publishedBy?: string;
 };
 
-type SharedPresetDocument = {
-  version: 1;
-  presets: SharedPresetEntry[];
-};
-
-function presetPath(): string {
-  const base = resolvePromptDataDir();
-  fs.mkdirSync(base, { recursive: true });
-  return path.join(base, 'shared-presets.json');
-}
-
-function readDocument(): SharedPresetDocument {
-  try {
-    return JSON.parse(fs.readFileSync(presetPath(), 'utf8')) as SharedPresetDocument;
-  } catch {
-    return { version: 1, presets: [] };
-  }
-}
-
-function writeDocument(document: SharedPresetDocument): void {
-  fs.writeFileSync(presetPath(), JSON.stringify(document, null, 2), 'utf8');
-}
-
 export function listSharedPresets(): SharedPresetEntry[] {
-  return readDocument().presets.sort((a, b) => a.label.localeCompare(b.label));
+  return loadSharedPresets().sort((a, b) => a.label.localeCompare(b.label));
 }
 
 export function upsertSharedPreset(
   input: Omit<SharedPresetEntry, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }
 ): SharedPresetEntry {
-  const document = readDocument();
+  const presets = loadSharedPresets();
   const now = Date.now();
   const index = input.id
-    ? document.presets.findIndex(entry => entry.id === input.id)
-    : document.presets.findIndex(
+    ? presets.findIndex(entry => entry.id === input.id)
+    : presets.findIndex(
         entry => entry.label.trim().toLowerCase() === input.label.trim().toLowerCase()
       );
 
@@ -60,22 +35,20 @@ export function upsertSharedPreset(
     model: input.model?.trim() || undefined,
     notes: input.notes?.trim() || undefined,
     publishedBy: input.publishedBy,
-    createdAt: index >= 0 ? document.presets[index].createdAt : now,
+    createdAt: index >= 0 ? presets[index].createdAt : now,
     updatedAt: now,
   };
 
   if (index >= 0) {
-    document.presets[index] = next;
+    presets[index] = next;
   } else {
-    document.presets.unshift(next);
+    presets.unshift(next);
   }
 
-  writeDocument(document);
+  saveSharedPresets(presets);
   return next;
 }
 
 export function deleteSharedPreset(id: string): void {
-  const document = readDocument();
-  document.presets = document.presets.filter(entry => entry.id !== id);
-  writeDocument(document);
+  saveSharedPresets(loadSharedPresets().filter(entry => entry.id !== id));
 }

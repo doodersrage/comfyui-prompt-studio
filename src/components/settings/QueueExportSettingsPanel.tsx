@@ -42,7 +42,7 @@ export default function QueueExportSettingsPanel() {
         <p className="mt-1 text-xs leading-relaxed text-[var(--text-muted)]">
           Writes JSON sidecars after each queue. Env{' '}
           <code className="ui-inline-code">COMFYUI_QUEUE_EXPORT_DIR</code> wins when set. Overlay
-          persists under <code className="ui-inline-code">PROMPT_DATA_DIR</code>.
+          persists in SQLite when <code className="ui-inline-code">PROMPT_DATA_DIR</code> is set.
         </p>
       </div>
       {config?.envWins ? (

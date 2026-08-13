@@ -1,7 +1,5 @@
 import fs from 'node:fs';
-import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { resolvePromptAuthDir } from '@/lib/prompt-data-paths';
 import { ALL_FEATURE_IDS, type AppFeatureId } from './features';
 import type { AuthGroup, AuthUser, AuthUserPublic, GroupsDocument, UsersDocument } from './types';
 import { VIEWER_ALLOWED_FEATURES } from './types';
@@ -11,39 +9,22 @@ import {
   isAuthExplicitlyEnabled,
 } from './config';
 import { hashPassword, verifyPassword } from './password';
-
-function authDir(): string {
-  const dir = resolvePromptAuthDir();
-  fs.mkdirSync(dir, { recursive: true });
-  return dir;
-}
-
-function usersPath(): string {
-  return path.join(authDir(), 'users.json');
-}
-
-function groupsPath(): string {
-  return path.join(authDir(), 'groups.json');
-}
-
-function readJsonFile<T>(filePath: string, fallback: T): T {
-  try {
-    return JSON.parse(fs.readFileSync(filePath, 'utf8')) as T;
-  } catch {
-    return fallback;
-  }
-}
-
-function writeJsonFile<T>(filePath: string, data: T): void {
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
-}
+import { getStudioDb, studioDbFileExists, studioDbPath } from '@/lib/sqlite/studio-db';
+import {
+  countUsers,
+  loadGroups,
+  loadUsers,
+  saveGroups as saveGroupsTable,
+  saveUsers as saveUsersTable,
+} from '@/lib/sqlite/tables';
+import { legacyAuthUsersImportedPath, legacyAuthUsersPath } from '@/lib/sqlite/json-import';
 
 const AUTH_STORE_CACHE_MS = 2000;
 let authStoreCache: {
   users: UsersDocument;
   groups: GroupsDocument;
   loadedAt: number;
-  authDir: string;
+  dbPath: string;
 } | null = null;
 
 export function invalidateAuthStoreCache(): void {
@@ -138,10 +119,25 @@ function syncDefaultAdminFromEnv(users: UsersDocument): UsersDocument {
   return { version: 1, users: nextUsers };
 }
 
+function loadUsersDocument(): UsersDocument {
+  getStudioDb();
+  const users = loadUsers();
+  if (users.length > 0) {
+    return { version: 1, users };
+  }
+  return defaultUsersDocument();
+}
+
+function loadGroupsDocument(): GroupsDocument {
+  getStudioDb();
+  const groups = loadGroups();
+  return groups.length > 0 ? { version: 1, groups } : defaultGroupsDocument();
+}
+
 export function ensureAuthStore(): { users: UsersDocument; groups: GroupsDocument } {
   const now = Date.now();
-  const currentAuthDir = authDir();
-  if (authStoreCache && authStoreCache.authDir !== currentAuthDir) {
+  const currentDbPath = studioDbPath();
+  if (authStoreCache && authStoreCache.dbPath !== currentDbPath) {
     authStoreCache = null;
   }
 
@@ -150,27 +146,21 @@ export function ensureAuthStore(): { users: UsersDocument; groups: GroupsDocumen
     const users = isAuthExplicitlyEnabled()
       ? syncDefaultAdminFromEnv(authStoreCache.users)
       : authStoreCache.users;
-    authStoreCache = { users, groups, loadedAt: now, authDir: currentAuthDir };
+    authStoreCache = { users, groups, loadedAt: now, dbPath: currentDbPath };
     return { users, groups };
   }
 
-  const usersFile = usersPath();
-  const groupsFile = groupsPath();
-
-  if (!fs.existsSync(usersFile)) {
-    writeJsonFile(usersFile, defaultUsersDocument());
+  let users = loadUsersDocument();
+  if (countUsers() === 0) {
+    saveUsersTable(users.users);
+  }
+  users = syncDefaultAdminFromEnv(users);
+  const groups = loadGroupsDocument();
+  if (loadGroups().length === 0 && groups.groups.length > 0) {
+    saveGroupsTable(groups.groups);
   }
 
-  if (!fs.existsSync(groupsFile)) {
-    writeJsonFile(groupsFile, defaultGroupsDocument());
-  }
-
-  const users = syncDefaultAdminFromEnv(
-    readJsonFile<UsersDocument>(usersFile, defaultUsersDocument())
-  );
-  const groups = readJsonFile<GroupsDocument>(groupsFile, defaultGroupsDocument());
-
-  authStoreCache = { users, groups, loadedAt: now, authDir: currentAuthDir };
+  authStoreCache = { users, groups, loadedAt: now, dbPath: currentDbPath };
   return { users, groups };
 }
 
@@ -180,7 +170,19 @@ export function isAuthEnabled(): boolean {
     return true;
   }
 
-  return fs.existsSync(usersPath());
+  try {
+    if (fs.existsSync(legacyAuthUsersPath()) || fs.existsSync(legacyAuthUsersImportedPath())) {
+      return true;
+    }
+  } catch {
+    // Fall through to SQLite.
+  }
+
+  if (!studioDbFileExists()) {
+    return false;
+  }
+  getStudioDb();
+  return countUsers() > 0;
 }
 
 export function toPublicUser(user: AuthUser): AuthUserPublic {
@@ -224,12 +226,12 @@ export function verifyUserCredentials(username: string, password: string): AuthU
 
 export function saveUsers(users: AuthUser[]): void {
   invalidateAuthStoreCache();
-  writeJsonFile(usersPath(), { version: 1, users });
+  saveUsersTable(users);
 }
 
 export function saveGroups(groups: AuthGroup[]): void {
   invalidateAuthStoreCache();
-  writeJsonFile(groupsPath(), { version: 1, groups });
+  saveGroupsTable(groups);
 }
 
 export function upsertUser(input: {

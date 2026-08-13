@@ -1,7 +1,5 @@
-import fs from 'node:fs';
-import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { resolvePromptAuthDir } from '@/lib/prompt-data-paths';
+import { loadLlmUsage, saveLlmUsage } from '@/lib/sqlite/tables';
 
 export type LlmUsageEntry = {
   id: string;
@@ -17,38 +15,15 @@ export type LlmUsageEntry = {
   ok: boolean;
 };
 
-type LlmUsageDocument = {
-  version: 1;
-  entries: LlmUsageEntry[];
-};
-
 const MAX_ENTRIES = 2000;
 
-function usagePath(): string {
-  const dir = resolvePromptAuthDir();
-  fs.mkdirSync(dir, { recursive: true });
-  return path.join(dir, 'llm-usage.json');
-}
-
-function readDoc(): LlmUsageDocument {
-  try {
-    return JSON.parse(fs.readFileSync(usagePath(), 'utf8')) as LlmUsageDocument;
-  } catch {
-    return { version: 1, entries: [] };
-  }
-}
-
-function writeDoc(doc: LlmUsageDocument): void {
-  fs.writeFileSync(usagePath(), JSON.stringify(doc, null, 2), 'utf8');
-}
-
 export function logLlmUsage(entry: Omit<LlmUsageEntry, 'id'>): void {
-  const doc = readDoc();
-  doc.entries.unshift({ ...entry, id: randomUUID() });
-  if (doc.entries.length > MAX_ENTRIES) {
-    doc.entries.length = MAX_ENTRIES;
+  const entries = loadLlmUsage();
+  entries.unshift({ ...entry, id: randomUUID() });
+  if (entries.length > MAX_ENTRIES) {
+    entries.length = MAX_ENTRIES;
   }
-  writeDoc(doc);
+  saveLlmUsage(entries);
 }
 
 export function listLlmUsage(options?: {
@@ -57,7 +32,7 @@ export function listLlmUsage(options?: {
   since?: number;
 }): LlmUsageEntry[] {
   const limit = options?.limit ?? 100;
-  let entries = readDoc().entries;
+  let entries = loadLlmUsage();
   if (options?.userId) {
     entries = entries.filter(entry => entry.userId === options.userId);
   }
@@ -75,7 +50,7 @@ export function summarizeLlmUsage(userId?: string): {
   byModel: Record<string, number>;
 } {
   const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
-  let entries = readDoc().entries;
+  let entries = loadLlmUsage();
   if (userId) {
     entries = entries.filter(entry => entry.userId === userId);
   }

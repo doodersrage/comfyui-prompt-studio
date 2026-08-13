@@ -1,39 +1,7 @@
-import fs from 'node:fs';
-import path from 'node:path';
 import { randomBytes } from 'node:crypto';
-import { resolvePromptAuthDir } from '@/lib/prompt-data-paths';
 import { hashPassword } from './password';
 import { findUserByUsername, saveUsers, ensureAuthStore } from './store';
-
-type PasswordResetToken = {
-  userId: string;
-  tokenHash: string;
-  expiresAt: number;
-  createdAt: number;
-};
-
-type PasswordResetDocument = {
-  version: 1;
-  tokens: PasswordResetToken[];
-};
-
-function resetPath(): string {
-  const base = resolvePromptAuthDir();
-  fs.mkdirSync(base, { recursive: true });
-  return path.join(base, 'password-reset-tokens.json');
-}
-
-function readDoc(): PasswordResetDocument {
-  try {
-    return JSON.parse(fs.readFileSync(resetPath(), 'utf8')) as PasswordResetDocument;
-  } catch {
-    return { version: 1, tokens: [] };
-  }
-}
-
-function writeDoc(doc: PasswordResetDocument): void {
-  fs.writeFileSync(resetPath(), JSON.stringify(doc, null, 2), 'utf8');
-}
+import { loadPasswordResetTokens, savePasswordResetTokens } from '@/lib/sqlite/tables';
 
 function hashToken(token: string): string {
   return hashPassword(token);
@@ -41,16 +9,17 @@ function hashToken(token: string): string {
 
 export function createPasswordResetToken(userId: string): string {
   const token = randomBytes(32).toString('hex');
-  const doc = readDoc();
   const now = Date.now();
-  doc.tokens = doc.tokens.filter(entry => entry.expiresAt > now && entry.userId !== userId);
-  doc.tokens.push({
+  const tokens = loadPasswordResetTokens().filter(
+    entry => entry.expiresAt > now && entry.userId !== userId
+  );
+  tokens.push({
     userId,
     tokenHash: hashToken(token),
     expiresAt: now + 60 * 60 * 1000,
     createdAt: now,
   });
-  writeDoc(doc);
+  savePasswordResetTokens(tokens);
   return token;
 }
 
@@ -63,17 +32,15 @@ export function consumePasswordResetToken(
     return { ok: false, error: 'Invalid token or password too short.' };
   }
 
-  const doc = readDoc();
+  const tokens = loadPasswordResetTokens();
   const now = Date.now();
   const tokenHash = hashToken(trimmed);
-  const index = doc.tokens.findIndex(
-    entry => entry.tokenHash === tokenHash && entry.expiresAt > now
-  );
+  const index = tokens.findIndex(entry => entry.tokenHash === tokenHash && entry.expiresAt > now);
   if (index < 0) {
     return { ok: false, error: 'Reset link expired or invalid.' };
   }
 
-  const { userId } = doc.tokens[index]!;
+  const { userId } = tokens[index]!;
   const { users } = ensureAuthStore();
   const userIndex = users.users.findIndex(user => user.id === userId);
   if (userIndex < 0) {
@@ -86,8 +53,7 @@ export function consumePasswordResetToken(
     updatedAt: now,
   };
   saveUsers(users.users);
-  doc.tokens = doc.tokens.filter(entry => entry.userId !== userId);
-  writeDoc(doc);
+  savePasswordResetTokens(tokens.filter(entry => entry.userId !== userId));
 
   return { ok: true, username: users.users[userIndex]!.username };
 }

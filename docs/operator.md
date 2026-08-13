@@ -85,16 +85,15 @@ This file is **local browser state**. It does not include server auth users, SMT
 
 ### Server data directory
 
-Set `PROMPT_DATA_DIR` (absolute path) so settings, history, gallery, and extras sync to JSON on disk. With auth on, each user gets `PROMPT_DATA_DIR/users/{userId}/`.
+Set `PROMPT_DATA_DIR` (absolute path) so settings, history, gallery, and extras sync to `{PROMPT_DATA_DIR}/studio.sqlite`. With auth on, each user’s namespaces are scoped inside that database. Leftover JSON files are imported once and renamed `*.json.imported`.
 
 Also stored there when configured:
 
 | File | Contents |
 | --- | --- |
-| `email-config.json` | SMTP overlay (password on disk; never returned to the browser) |
-| `queue-export.json` | Queue sidecar directory overlay |
-| `auth/` | `users.json`, `groups.json`, password-reset tokens, analytics |
-| `collab-rooms.json` | Shared-project collab rooms |
+| `studio.sqlite` | Auth, gallery rows, settings/history/extras, SMTP overlay, collab rooms (copy `-wal` / `-shm` too if the app is running) |
+| `users/{userId}/exports/` | Per-user export snapshots (still JSON files) |
+| `*.json.imported` | One-shot leftovers from the pre-SQLite layout |
 
 Copy or snapshot `PROMPT_DATA_DIR` as part of host backups. Settings → Advanced can pull/push namespaces when storage is enabled.
 
@@ -119,7 +118,7 @@ Quote passwords that contain `$` or `#`. Restart after changing admin credential
 
 ### SMTP
 
-Env (`PROMPT_SMTP_*`, `PROMPT_EMAIL_FROM`) is the fallback. Settings → Users → **SMTP** writes an overlay under `PROMPT_DATA_DIR/email-config.json` (or an in-memory overlay until restart if `PROMPT_DATA_DIR` is unset). Saving SMTP rebuilds the mailer so **Send test** uses the values you just saved.
+Env (`PROMPT_SMTP_*`, `PROMPT_EMAIL_FROM`) is the fallback. Settings → Users → **SMTP** writes an overlay in SQLite (or an in-memory overlay until restart if `PROMPT_DATA_DIR` is unset). Saving SMTP rebuilds the mailer so **Send test** uses the values you just saved.
 
 1. Enable outbound mail, fill host/port/from, save.
 2. **Send test** — defaults to your profile email; pass a recipient if auth is off.

@@ -96,7 +96,7 @@ Allowlist miss: HTTP 400 `{ "error": "Host … is not on COMFYUI_ALLOWED_HOSTS�
 | `/api/email/forgot-password` | POST | `{ username }` or `{ email }` — always generic success |
 | `/api/auth/invite` | POST | Admin: create/re-send invite email |
 | `/api/auth/reset-password` | POST | `{ token, password }` |
-| `/api/storage` | GET, PUT | Namespaced server sync (`PROMPT_DATA_DIR`) |
+| `/api/storage` | GET, PUT | Namespaced server sync (`PROMPT_DATA_DIR` SQLite) |
 | `/api/storage/restore` | GET | Read-only pull of one namespace |
 | `/api/storage/export` | POST | Encrypted server export snapshot |
 

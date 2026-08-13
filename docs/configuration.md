@@ -27,7 +27,7 @@ Before exposing Prompt Studio beyond a trusted LAN:
 - [ ] Set `PROMPT_API_URL` to the public origin used in invite / password-reset emails
 - [ ] Set `COMFYUI_ALLOW_CLIENT_URL=false` and pin `COMFYUI_API_URL` or `COMFYUI_POOL`
 - [ ] If using `COMFYUI_ALLOWED_HOSTS`, include every pool hostname (Settings cluster copies a snippet)
-- [ ] Back up `PROMPT_DATA_DIR` (auth, analytics, storage sync, `email-config.json`) on a schedule
+- [ ] Back up `PROMPT_DATA_DIR` (`studio.sqlite` plus `-wal`/`-shm`, leftover `*.json.imported`, export snapshots) on a schedule
 - [ ] Export a studio backup JSON after the first real session (Settings → Overview)
 - [ ] Run `npm run lint`, `npm test`, and `npm run test:e2e` before deploy (CI runs these on push)
 - [ ] For Playwright with auth enabled locally, credentials load from `.env.local` (`PROMPT_ADMIN_*`) or set `PROMPT_E2E_USERNAME` / `PROMPT_E2E_PASSWORD`
@@ -78,9 +78,9 @@ The generator calls any **OpenAI-compatible** chat completions API. Configure vi
 | `PROMPT_ADMIN_USERNAME`                | `admin`                         | Default admin username (seeded on first enable)                                                                                                                                        |
 | `PROMPT_ADMIN_PASSWORD`                | `admin`                         | Default admin password (change in production)                                                                                                                                          |
 | `PROMPT_SESSION_SECRET`                | _(falls back to API token)_     | HMAC secret for session cookies                                                                                                                                                        |
-| `PROMPT_AUTH_DIR`                      | _(uses `PROMPT_DATA_DIR/auth`)_ | Directory for `users.json`, `groups.json`, and `analytics-snapshots.json`                                                                                                              |
-| `PROMPT_DATA_DIR`                      | _(empty)_                       | Server file storage root for `/api/storage`, auth data, collab rooms, SMTP overlay (`email-config.json`), and queue-export overlay                                                     |
-| `COLLAB_REDIS_URL`                     | _(empty)_                       | Optional Redis URL for multi-node collab SSE (requires `ioredis`; falls back to file/memory when unset)                                                                                |
+| `PROMPT_AUTH_DIR`                      | _(uses `PROMPT_DATA_DIR/auth`)_ | Legacy JSON import directory (`users.json`, `groups.json`, analytics). Live auth now lives in `studio.sqlite`.                                                                         |
+| `PROMPT_DATA_DIR`                      | _(empty)_                       | Server SQLite root (`studio.sqlite`) for `/api/storage`, auth, collab rooms, SMTP overlay, and queue-export overlay                                                                    |
+| `COLLAB_REDIS_URL`                     | _(empty)_                       | Optional Redis URL for multi-node collab SSE (requires `ioredis`; falls back to SQLite/memory when unset)                                                                              |
 | `SERVER_USER_MAINTENANCE`              | `false`                         | Enable `/api/maintenance/run` for per-user scheduled campaigns and export snapshots                                                                                                    |
 | `SERVER_USER_MAINTENANCE_INTERVAL_MIN` | `15`                            | When `SERVER_USER_MAINTENANCE=true`, run maintenance on this interval (minutes)                                                                                                        |
 | `API_RATE_LIMIT_WINDOW_MS`             | `60000`                         | Rate limit window (ms) for API proxy                                                                                                                                                   |
@@ -110,9 +110,9 @@ The generator calls any **OpenAI-compatible** chat completions API. Configure vi
 | `SERVER_SCHEDULED_BATCH_COUNT`         | `3`                             | Prompts per headless run                                                                                                                                                               |
 | `SERVER_SCHEDULED_BATCH_QUEUE`         | `false`                         | Queue headless results to ComfyUI                                                                                                                                                      |
 
-**Settings overlays:** SMTP (`GET`/`POST /api/settings/email`) and queue-export dir (`/api/settings/queue-export`) persist under `PROMPT_DATA_DIR` when set. Without it, SMTP is kept in memory until restart. Env values remain the fallback. Passwords are never returned to the browser.
+**Settings overlays:** SMTP (`GET`/`POST /api/settings/email`) and queue-export dir (`/api/settings/queue-export`) persist in SQLite when `PROMPT_DATA_DIR` is set. Without it, SMTP is kept in memory until restart. Env values remain the fallback. Passwords are never returned to the browser.
 
-**Invite and password reset:** With auth and SMTP enabled, admins send `POST /api/auth/invite` from Settings → Users. Users request `POST /api/email/forgot-password` and complete `POST /api/auth/reset-password`. Links are `{PROMPT_API_URL}/login?reset=…` and expire in **1 hour**. Tokens live in `PROMPT_DATA_DIR/auth/password-reset-tokens.json`.
+**Invite and password reset:** With auth and SMTP enabled, admins send `POST /api/auth/invite` from Settings → Users. Users request `POST /api/email/forgot-password` and complete `POST /api/auth/reset-password`. Links are `{PROMPT_API_URL}/login?reset=…` and expire in **1 hour**. Tokens live in SQLite (`password_reset_tokens`).
 
 **Queue interrupt:** `POST /api/comfyui/interrupt` forwards an interrupt to ComfyUI (also available on the Queue page).
 

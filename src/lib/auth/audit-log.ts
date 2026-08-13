@@ -1,6 +1,4 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import { resolvePromptAuthDir } from '@/lib/prompt-data-paths';
+import { loadAuditLog, saveAuditLog } from '@/lib/sqlite/tables';
 
 export type AuditLogEntry = {
   id: string;
@@ -12,42 +10,18 @@ export type AuditLogEntry = {
   details?: string;
 };
 
-type AuditDocument = {
-  version: 1;
-  entries: AuditLogEntry[];
-};
-
 const MAX_ENTRIES = 500;
 
-function auditPath(): string {
-  const dir = resolvePromptAuthDir();
-  fs.mkdirSync(dir, { recursive: true });
-  return path.join(dir, 'audit-log.json');
-}
-
-function readDocument(): AuditDocument {
-  try {
-    return JSON.parse(fs.readFileSync(auditPath(), 'utf8')) as AuditDocument;
-  } catch {
-    return { version: 1, entries: [] };
-  }
-}
-
-function writeDocument(document: AuditDocument): void {
-  fs.writeFileSync(auditPath(), JSON.stringify(document, null, 2), 'utf8');
-}
-
 export function appendAuditLog(entry: Omit<AuditLogEntry, 'id' | 'at'>): void {
-  const document = readDocument();
-  document.entries.unshift({
+  const entries = loadAuditLog();
+  entries.unshift({
     ...entry,
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     at: Date.now(),
   });
-  document.entries = document.entries.slice(0, MAX_ENTRIES);
-  writeDocument(document);
+  saveAuditLog(entries.slice(0, MAX_ENTRIES));
 }
 
 export function listAuditLog(limit = 100): AuditLogEntry[] {
-  return readDocument().entries.slice(0, limit);
+  return loadAuditLog().slice(0, limit);
 }
