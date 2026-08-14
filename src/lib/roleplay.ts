@@ -4,6 +4,8 @@ export type RoleplayContentId = 'clean' | 'pg13' | 'suggestive' | 'sultry' | 'ex
 
 export type RoleplayContentGroup = 'sfw' | 'adult';
 
+export type RoleplayPlayAs = 'text' | 'photo';
+
 export type RoleplayBio = {
   name: string;
   look: string;
@@ -68,6 +70,15 @@ export const ROLEPLAY_CONTENT: Array<{
     label: 'Raunchy',
     hint: 'Adult comedy, crude, not necessarily pornographic',
     group: 'adult',
+  },
+];
+
+export const ROLEPLAY_PLAY_AS: Array<{ id: RoleplayPlayAs; label: string; hint: string }> = [
+  { id: 'text', label: 'From bio', hint: 'Invent the look from the bio' },
+  {
+    id: 'photo',
+    label: 'From photo',
+    hint: 'Play as yourself or a generated still — img2img from this reference',
   },
 ];
 
@@ -750,6 +761,36 @@ export function normalizeRoleplayContent(value: string | null | undefined): Role
 
 export function isRoleplayAdultContent(content: RoleplayContentId): boolean {
   return content === 'sultry' || content === 'explicit' || content === 'raunchy';
+}
+
+export function normalizeRoleplayPlayAs(value: string | null | undefined): RoleplayPlayAs {
+  const trimmed = String(value ?? '')
+    .trim()
+    .toLowerCase();
+  if (
+    trimmed === 'photo' ||
+    trimmed === 'image' ||
+    trimmed === 'img2img' ||
+    trimmed === 'i2i' ||
+    trimmed === 'reference'
+  ) {
+    return 'photo';
+  }
+  return 'text';
+}
+
+export function lastRoleplayStillImage(
+  story: RoleplayStoryBeat[] | null | undefined
+): { url: string; title: string } | null {
+  for (let index = (story ?? []).length - 1; index >= 0; index -= 1) {
+    const beat = story?.[index];
+    const url = beat?.imageUrl?.trim();
+    if (!beat || !url) {
+      continue;
+    }
+    return { url, title: beat.title.trim() || 'Still' };
+  }
+  return null;
 }
 
 export function resolveRoleplayToneAndContent(

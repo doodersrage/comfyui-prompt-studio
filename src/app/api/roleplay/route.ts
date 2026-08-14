@@ -30,6 +30,7 @@ type RoleplayRequestBody = {
   tone?: string;
   content?: string;
   allowGore?: boolean;
+  hasReferenceImage?: boolean;
   bio?: RoleplayBio;
   story?: RoleplayStoryBeat[];
   situation?: RoleplayScene;
@@ -94,6 +95,7 @@ export async function POST(request: Request) {
       tone: body.tone,
       content: body.content,
       allowGore: parseRoleplayAllowGore(body.allowGore),
+      hasReferenceImage: body.hasReferenceImage === true,
       bio: body.bio ? parseRoleplayBio(body.bio) : undefined,
       story: parseStory(body.story),
     };

@@ -1942,9 +1942,12 @@ describe("gallery handoff", () => {
       galleryHandoffHomePath,
       galleryPickActionLabel,
     } = await import("./gallery-handoff");
-    assert.equal(galleryPickPath("video"), "/gallery?pickFor=video");
+    assert.equal(galleryPickPath("roleplay"), "/gallery?pickFor=roleplay");
+    assert.equal(parseGalleryPickTarget("roleplay"), "roleplay");
     assert.equal(parseGalleryPickTarget("video"), "video");
     assert.equal(parseGalleryPickTarget("bogus"), null);
+    assert.equal(galleryHandoffHomePath("roleplay"), "/roleplay");
+    assert.equal(galleryPickActionLabel("roleplay"), "Use for Roleplay");
     assert.equal(galleryHandoffHomePath("video"), "/video");
     assert.equal(galleryPickActionLabel("video"), "Use for Video");
   });

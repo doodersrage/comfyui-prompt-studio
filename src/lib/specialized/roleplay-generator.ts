@@ -38,6 +38,7 @@ export type RoleplaySharedOptions = SharedGenerationOptions & {
   bio?: RoleplayBio;
   story?: RoleplayStoryBeat[];
   situation?: RoleplayScene;
+  hasReferenceImage?: boolean;
 };
 
 function toneLine(tone: RoleplayTone): string {
@@ -148,6 +149,12 @@ function templatePromptFallback(
     : `${lookLock}, ${blurb}, ${tone} storybook lighting, expressive pose, readable scene`;
 }
 
+function referenceLine(hasReferenceImage: boolean): string {
+  return hasReferenceImage
+    ? "A reference photo is provided. Keep THAT person/character's face and body. Costume and species from the part can overlay the photo — do not invent a different face."
+    : '';
+}
+
 function hasRoleplayPlot(story: RoleplayStoryBeat[] | undefined): boolean {
   return Boolean(lastRoleplayPlotBeat(story));
 }
@@ -187,6 +194,7 @@ export async function generateRoleplayBio(
 ): Promise<{ bio: RoleplayBio; provider: 'llm' | 'template' }> {
   const { tone, content } = resolveRoleplayToneAndContent(options.tone, options.content);
   const allowGore = Boolean(options.allowGore);
+  const hasReferenceImage = Boolean(options.hasReferenceImage);
   const persona = resolveRoleplayPersonaPrompt(options.personaId, options.customPersona);
   const fallback = templateRoleplayBio(options.personaId, options.customPersona);
   const raw = await llmJson({
@@ -195,8 +203,13 @@ export async function generateRoleplayBio(
     temperature: 0.95,
     system: `You invent a fun roleplay character for an image-generation game.
 ${toneLine(tone)}
+${referenceLine(hasReferenceImage)}
 Return ONLY JSON: {"name":"","look":"","personality":"","catchphrase":""}
-- look: one visual sentence (species/body, clothes, colors, distinctive props).
+- look: one visual sentence (species/body, clothes, colors, distinctive props).${
+      hasReferenceImage
+        ? ' Describe the reference person as they appear, plus the costume/species overlay from the part.'
+        : ''
+    }
 - personality: one or two sentences, first or close third person.
 - ${contentLine(content, allowGore)}`,
     user: [
@@ -277,6 +290,7 @@ export async function generateRoleplayPrompt(
   const persona = resolveRoleplayPersonaPrompt(options.personaId, options.customPersona);
   const lookLock = bio.look.trim();
   const styleLine = promptStyleLine(content, allowGore);
+  const hasReferenceImage = Boolean(options.hasReferenceImage);
 
   return runSpecializedPrompt({
     model: options.model,
@@ -284,9 +298,14 @@ export async function generateRoleplayPrompt(
     toolInstructions: `You write a single image prompt for a roleplay still.
 ${toneLine(tone)}
 ${contentLine(content, allowGore)}
+${referenceLine(hasReferenceImage)}
 - The SAME character must appear: ${lookLock}
 - Name (${bio.name}) can appear once; do not invent a new cast unless the beat requires one extra figure.
-- Describe the chosen situation as a readable tableau: pose, props, setting, light.
+- Describe the chosen situation as a readable tableau: pose, props, setting, light.${
+      hasReferenceImage
+        ? '\n- This still is img2img from the reference photo: keep identity, change pose/scene/wardrobe as the beat requires.'
+        : ''
+    }
 - If this is a first-look / establishing beat, make a character portrait in a fitting environment — not a crowded plot.
 - ${styleLine} No camera brand names, no quality-tag soup, no comic-book lettering.`,
     userMessage: [
@@ -315,6 +334,7 @@ ${contentLine(content, allowGore)}
       tone,
       content,
       allowGore,
+      hasReferenceImage,
       bioName: bio.name,
       sceneTitle: situation.title,
       sceneBlurb: situation.blurb,

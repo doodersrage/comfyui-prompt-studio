@@ -865,6 +865,9 @@ export type RoleplayToolCache = {
   extraHints?: string;
   tone?: import('./roleplay').RoleplayTone;
   content?: import('./roleplay').RoleplayContentId;
+  playAs?: import('./roleplay').RoleplayPlayAs;
+  referenceImageUrl?: string;
+  referenceImageFilename?: string;
   bio?: import('./roleplay').RoleplayBio;
   story?: import('./roleplay').RoleplayStoryBeat[];
   autoQueue?: boolean;
@@ -1221,6 +1224,7 @@ export const DEFAULT_ROLEPLAY_TOOL_CACHE: RoleplayToolCache = {
   extraHints: '',
   tone: 'silly',
   content: 'pg13',
+  playAs: 'text',
   autoQueue: true,
 };
 

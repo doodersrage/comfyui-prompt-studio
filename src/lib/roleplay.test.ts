@@ -18,6 +18,8 @@ import {
   resolveRoleplayToneAndContent,
   isRoleplayAdultContent,
   lastRoleplayPlotBeat,
+  lastRoleplayStillImage,
+  normalizeRoleplayPlayAs,
   roleplayIntroScene,
   roleplayStillBasename,
   ROLEPLAY_ARCHETYPES,
@@ -78,6 +80,9 @@ describe('roleplay parsers', () => {
       tone: 'cinematic',
       content: 'raunchy',
     });
+    assert.equal(normalizeRoleplayPlayAs('photo'), 'photo');
+    assert.equal(normalizeRoleplayPlayAs('img2img'), 'photo');
+    assert.equal(normalizeRoleplayPlayAs(''), 'text');
     assert.equal(isRoleplayAdultContent('sultry'), true);
     assert.equal(isRoleplayAdultContent('pg13'), false);
     assert.equal(parseRoleplayAllowGore(true), true);
@@ -110,6 +115,20 @@ describe('roleplay parsers', () => {
     assert.equal(intro.title, 'First look');
     assert.match(intro.blurb, /Crisp/);
     assert.match(intro.blurb, /toaster with a scarf/);
+    const still = lastRoleplayStillImage([
+      { ...intro, at: 1, stillStatus: 'queued' },
+      {
+        id: 'dock',
+        title: 'Foggy dock',
+        blurb: 'Tide in.',
+        at: 2,
+        imageUrl: '/view/dock.png',
+        stillStatus: 'completed',
+      },
+    ]);
+    assert.equal(still?.url, '/view/dock.png');
+    assert.equal(still?.title, 'Foggy dock');
+    assert.equal(lastRoleplayStillImage([{ ...intro, at: 1 }]), null);
   });
 
   it('rolls later options from the last chosen beat instead of the starter vignettes', () => {

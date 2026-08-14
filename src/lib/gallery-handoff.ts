@@ -35,7 +35,8 @@ export type GalleryHandoffPayload = {
     | 'video'
     | 'compose'
     | 'background'
-    | 'mesh';
+    | 'mesh'
+    | 'roleplay';
   improveIntent?: string;
   /** Gallery → Anatomy repair opens Inpaint with pre-filled limb-fix prompts. */
   anatomyRepair?: boolean;
@@ -249,6 +250,9 @@ export function galleryHandoffPath(target: GalleryHandoffPayload['target']): str
   if (target === 'mesh') {
     return '/mesh?from=gallery';
   }
+  if (target === 'roleplay') {
+    return '/roleplay?from=gallery';
+  }
   return '/image-prompt?from=gallery';
 }
 
@@ -272,6 +276,7 @@ const GALLERY_PICK_TARGETS = new Set<GalleryHandoffPayload['target']>([
   'compose',
   'background',
   'mesh',
+  'roleplay',
 ]);
 
 export function parseGalleryPickTarget(
@@ -306,6 +311,8 @@ export function galleryPickPurposeLabel(target: GalleryHandoffPayload['target'])
       return 'Background reference';
     case 'mesh':
       return 'Mesh reference';
+    case 'roleplay':
+      return 'Roleplay character';
     default:
       return 'tool reference';
   }
@@ -333,6 +340,8 @@ export function galleryPickActionLabel(target: GalleryHandoffPayload['target']):
       return 'Use for Mesh';
     case 'promptEditor':
       return 'Use for Prompt Editor';
+    case 'roleplay':
+      return 'Use for Roleplay';
     default:
       return 'Use this image';
   }

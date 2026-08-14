@@ -7,6 +7,7 @@ import SharedToolControls from '@/components/SharedToolControls';
 import RoleplayStoryReel from '@/components/RoleplayStoryReel';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
+import { useGalleryHandoff } from '@/hooks/useGalleryHandoff';
 import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
 import { usePromptResultActions } from '@/hooks/usePromptResultActions';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
@@ -22,15 +23,21 @@ import {
   galleryEntryPrimaryViewUrl,
   loadComfyGallery,
 } from '@/lib/comfyui-gallery';
+import { persistIdentityImage } from '@/lib/gallery-media-client';
+import { galleryPickPath } from '@/lib/gallery-handoff';
+import { resolveQueueInputImage } from '@/lib/queue-input-image';
 import {
   CUSTOM_ROLEPLAY_PERSONA_ID,
   ROLEPLAY_ARCHETYPES,
   ROLEPLAY_CONTENT,
+  ROLEPLAY_PLAY_AS,
   ROLEPLAY_TONES,
   appendRoleplayStoryBeat,
   formatRoleplayBio,
   getRoleplayArchetype,
+  lastRoleplayStillImage,
   mergeRoleplayStoryStills,
+  normalizeRoleplayPlayAs,
   patchRoleplayStoryBeat,
   resolveRoleplayToneAndContent,
   roleplayIntroScene,
@@ -41,7 +48,7 @@ import {
 import { downloadRoleplayStoryBundle } from '@/lib/roleplay-export';
 import type { EnrichedToolGenerateResult } from '@/lib/specialized/types';
 import { ChipButton, FieldError, TextArea } from '@/components/ui/Field';
-import { Button } from '@/components/ui/Button';
+import { Button, ButtonLink } from '@/components/ui/Button';
 import {
   ToolBadge,
   ToolLayout,
@@ -61,7 +68,7 @@ type RoleplayApiPayload = EnrichedToolGenerateResult & {
 
 export default function RoleplayTool() {
   const description = useToolPageDescription(
-    'Cast yourself as someone (or something). The bio and each story beat render a still inline while ComfyUI works.',
+    'Cast yourself as someone (or something). Upload a photo to play as yourself, or pick a generated still.',
     'Pick a character, write a bio, tap a scene — stills show up in the story as they render.'
   );
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
@@ -74,9 +81,12 @@ export default function RoleplayTool() {
   const [scenesLoading, setScenesLoading] = useState(false);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [referencePreviewUrl, setReferencePreviewUrl] = useState<string | null>(null);
+  const [referenceUploading, setReferenceUploading] = useState(false);
 
   const personaId = toolSettings.personaId ?? ROLEPLAY_ARCHETYPES[0].id;
   const { tone, content } = resolveRoleplayToneAndContent(toolSettings.tone, toolSettings.content);
+  const playAs = normalizeRoleplayPlayAs(toolSettings.playAs);
   const bio = toolSettings.bio;
   const story = toolSettings.story ?? [];
   const autoQueue = toolSettings.autoQueue !== false;
@@ -84,6 +94,101 @@ export default function RoleplayTool() {
   useEffect(() => {
     storyRef.current = toolSettings.story ?? [];
   }, [toolSettings.story]);
+
+  const referenceImageUrl = toolSettings.referenceImageUrl?.trim() || '';
+  const referenceImageFilename = toolSettings.referenceImageFilename?.trim() || '';
+  const hasReferenceImage = Boolean(referenceImageUrl || referenceImageFilename);
+  const lastStill = lastRoleplayStillImage(story);
+  const photoReady = playAs !== 'photo' || hasReferenceImage;
+
+  const clearReferencePreview = useCallback(() => {
+    setReferencePreviewUrl(current => {
+      if (current?.startsWith('blob:')) {
+        URL.revokeObjectURL(current);
+      }
+      return null;
+    });
+  }, []);
+
+  const applyReference = useCallback(
+    async (input: { file?: File | null; imageUrl?: string; filename?: string }) => {
+      const imageUrl = input.imageUrl?.trim() || '';
+      const file = input.file ?? null;
+      if (!file && !imageUrl) {
+        throw new Error('Choose a photo or a gallery still first.');
+      }
+      setReferenceUploading(true);
+      setError(null);
+      const localPreview = file ? URL.createObjectURL(file) : imageUrl;
+      setReferencePreviewUrl(previous => {
+        if (previous?.startsWith('blob:') && previous !== localPreview) {
+          URL.revokeObjectURL(previous);
+        }
+        return localPreview;
+      });
+      try {
+        const uploaded = await resolveQueueInputImage({
+          file,
+          imageUrl: file ? undefined : imageUrl,
+          filename: input.filename || file?.name || `roleplay-ref-${Date.now()}.png`,
+          model: shared.model,
+        });
+        const filename = uploaded?.filename?.trim();
+        if (!filename) {
+          throw new Error('Upload did not return a filename.');
+        }
+        const durableUrl = await persistIdentityImage({
+          file: file ?? undefined,
+          filename,
+        });
+        const nextUrl = durableUrl || imageUrl || localPreview;
+        if (durableUrl && localPreview.startsWith('blob:')) {
+          URL.revokeObjectURL(localPreview);
+          setReferencePreviewUrl(durableUrl);
+        }
+        updateToolSettings({
+          playAs: 'photo',
+          referenceImageFilename: filename,
+          referenceImageUrl: nextUrl.startsWith('blob:') ? durableUrl || imageUrl : nextUrl,
+        });
+      } catch (err) {
+        clearReferencePreview();
+        throw err;
+      } finally {
+        setReferenceUploading(false);
+      }
+    },
+    [clearReferencePreview, shared.model, updateToolSettings]
+  );
+
+  const clearReference = useCallback(() => {
+    clearReferencePreview();
+    updateToolSettings({
+      playAs: 'text',
+      referenceImageUrl: '',
+      referenceImageFilename: '',
+    });
+  }, [clearReferencePreview, updateToolSettings]);
+
+  const applyGalleryHandoff = useCallback(
+    (handoff: {
+      file: File | null;
+      previewUrl: string | null;
+      payload: { imageFilename?: string; imageUrl?: string };
+    }) => {
+      void applyReference({
+        file: handoff.file,
+        imageUrl: handoff.previewUrl || handoff.payload.imageUrl,
+        filename: handoff.payload.imageFilename,
+      }).catch(err => {
+        setError(err instanceof Error ? err.message : 'Could not use that still.');
+      });
+    },
+    [applyReference]
+  );
+  useGalleryHandoff('roleplay', applyGalleryHandoff);
+
+  const displayReferenceUrl = referencePreviewUrl || referenceImageUrl;
 
   useSeedToolDraft(mounted, {
     toolKey: TOOL_ID,
@@ -115,6 +220,7 @@ export default function RoleplayTool() {
       tone,
       content,
       allowGore: toolSettings.allowGore === true,
+      hasReferenceImage: playAs === 'photo' && hasReferenceImage,
       bio,
       story: toolSettings.story,
       situation,
@@ -127,12 +233,38 @@ export default function RoleplayTool() {
       shared,
       tone,
       content,
+      playAs,
+      hasReferenceImage,
       toolSettings.customPersona,
       toolSettings.extraHints,
       toolSettings.allowGore,
       toolSettings.story,
     ]
   );
+
+  const queueStillOptions = useCallback(() => {
+    if (playAs !== 'photo') {
+      return undefined;
+    }
+    const filename = referenceImageFilename;
+    const imageUrl = referenceImageUrl;
+    if (!filename && !imageUrl) {
+      return undefined;
+    }
+    return {
+      inputImageFilename: filename || undefined,
+      inputImageUrl: imageUrl || undefined,
+      identityLock: true,
+      identityLockStrength: shared.ipAdapterStrength,
+      identityKind: shared.identityKind,
+    };
+  }, [
+    playAs,
+    referenceImageFilename,
+    referenceImageUrl,
+    shared.identityKind,
+    shared.ipAdapterStrength,
+  ]);
 
   useEffect(() => {
     const sync = () => {
@@ -190,7 +322,7 @@ export default function RoleplayTool() {
       let promptId: string | undefined;
       let stillStatus: RoleplayStoryBeat['stillStatus'];
       if (autoQueue) {
-        promptId = await actions.sendComfyUi(prompt);
+        promptId = await actions.sendComfyUi(prompt, undefined, undefined, queueStillOptions());
         stillStatus = promptId ? 'queued' : 'error';
       }
       const nextStory = patchRoleplayStoryBeat(currentStory, beat, {
@@ -201,10 +333,14 @@ export default function RoleplayTool() {
       updateToolSettings({ bio: nextBio, story: nextStory });
       return nextStory;
     },
-    [actions, autoQueue, shared.model, updateToolSettings]
+    [actions, autoQueue, queueStillOptions, shared.model, updateToolSettings]
   );
 
   const writeBio = useCallback(async () => {
+    if (playAs === 'photo' && !hasReferenceImage) {
+      setError('Upload a photo or pick a gallery still first.');
+      return;
+    }
     setBioLoading(true);
     setError(null);
     let introBeat: RoleplayStoryBeat | undefined;
@@ -272,7 +408,7 @@ export default function RoleplayTool() {
     } finally {
       setBioLoading(false);
     }
-  }, [commitStill, requestBody, updateToolSettings]);
+  }, [commitStill, hasReferenceImage, playAs, requestBody, updateToolSettings]);
 
   const rollScenes = useCallback(async () => {
     if (!bio) {
@@ -303,6 +439,10 @@ export default function RoleplayTool() {
     async (scene: RoleplayScene) => {
       if (!bio) {
         setError('Write a bio first.');
+        return;
+      }
+      if (playAs === 'photo' && !hasReferenceImage) {
+        setError('Upload a photo or pick a gallery still first.');
         return;
       }
       setPlayingId(scene.id);
@@ -348,7 +488,7 @@ export default function RoleplayTool() {
         setPlayingId(null);
       }
     },
-    [bio, commitStill, requestBody, updateToolSettings]
+    [bio, commitStill, hasReferenceImage, playAs, requestBody, updateToolSettings]
   );
 
   const queueBeat = useCallback(
@@ -361,7 +501,7 @@ export default function RoleplayTool() {
       updateToolSettings({
         story: patchRoleplayStoryBeat(storyRef.current, beat, { stillStatus: 'writing' }),
       });
-      const promptId = await actions.sendComfyUi(prompt);
+      const promptId = await actions.sendComfyUi(prompt, undefined, undefined, queueStillOptions());
       updateToolSettings({
         story: patchRoleplayStoryBeat(storyRef.current, beat, {
           promptId,
@@ -369,7 +509,7 @@ export default function RoleplayTool() {
         }),
       });
     },
-    [actions, updateToolSettings]
+    [actions, queueStillOptions, updateToolSettings]
   );
 
   const copyBeatPrompt = useCallback(async (beat: RoleplayStoryBeat) => {
@@ -427,7 +567,7 @@ export default function RoleplayTool() {
     return null;
   }
 
-  const busy = bioLoading || scenesLoading || Boolean(playingId) || exporting;
+  const busy = bioLoading || scenesLoading || Boolean(playingId) || exporting || referenceUploading;
 
   return (
     <ToolLayout
@@ -456,7 +596,7 @@ export default function RoleplayTool() {
       <ToolSection title="Cast yourself">
         <p className="text-sm text-[var(--text-muted)]">
           Pick a part — raccoon pirate, sentient toaster, bad-at-haunting ghost — or type your own.
-          The bio is the character bible for every still.
+          Optional: play as yourself from a photo, or lock an existing generated still.
         </p>
         <div className="flex flex-wrap gap-1.5">
           {ROLEPLAY_ARCHETYPES.map(entry => (
@@ -499,6 +639,90 @@ export default function RoleplayTool() {
             rows={2}
           />
         ) : null}
+        <div className="space-y-2">
+          <p className="type-caption text-[var(--text-muted)]">Play as</p>
+          <div className="flex flex-wrap gap-1.5">
+            {ROLEPLAY_PLAY_AS.map(entry => (
+              <ChipButton
+                key={entry.id}
+                active={playAs === entry.id}
+                disabled={busy}
+                title={entry.hint}
+                onClick={() => {
+                  if (entry.id === 'text') {
+                    clearReference();
+                    return;
+                  }
+                  updateToolSettings({ playAs: 'photo' });
+                }}
+              >
+                {entry.label}
+              </ChipButton>
+            ))}
+          </div>
+          {playAs === 'photo' ? (
+            <div className="space-y-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-muted)]/40 p-3">
+              <p className="text-xs text-[var(--text-muted)]">
+                Every still queues img2img from this reference so you stay the same person. Pick a
+                selfie or a generated character.
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="file"
+                  accept="image/*"
+                  disabled={busy}
+                  className="ui-file-input block min-w-0 flex-1"
+                  onChange={event => {
+                    const file = event.target.files?.[0];
+                    event.target.value = '';
+                    if (!file) {
+                      return;
+                    }
+                    void applyReference({ file }).catch(err => {
+                      setError(err instanceof Error ? err.message : 'Could not upload that photo.');
+                    });
+                  }}
+                />
+                <ButtonLink href={galleryPickPath('roleplay')} variant="secondary" size="sm">
+                  Choose from Gallery
+                </ButtonLink>
+                {lastStill ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => {
+                      void applyReference({
+                        imageUrl: lastStill.url,
+                        filename: `roleplay-${lastStill.title}.png`,
+                      }).catch(err => {
+                        setError(err instanceof Error ? err.message : 'Could not use that still.');
+                      });
+                    }}
+                  >
+                    Use last still
+                  </Button>
+                ) : null}
+                {hasReferenceImage ? (
+                  <Button variant="ghost" size="sm" disabled={busy} onClick={clearReference}>
+                    Clear
+                  </Button>
+                ) : null}
+              </div>
+              {displayReferenceUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- session blob / comfy preview
+                <img
+                  src={displayReferenceUrl}
+                  alt="Roleplay reference"
+                  className="h-24 w-24 rounded-lg border border-[var(--border-subtle)] object-cover"
+                />
+              ) : null}
+              {referenceUploading ? (
+                <p className="text-xs text-[var(--text-muted)]">Uploading reference…</p>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
         <div className="space-y-2">
           <p className="type-caption text-[var(--text-muted)]">Tone</p>
           <div className="flex flex-wrap gap-1.5">
@@ -576,7 +800,7 @@ export default function RoleplayTool() {
             variant="primary"
             loading={bioLoading}
             loadingLabel={autoQueue ? 'Writing bio and queueing still' : 'Writing bio and still'}
-            disabled={busy && !bioLoading}
+            disabled={(busy && !bioLoading) || !photoReady}
             onClick={() => void writeBio()}
           >
             Write my bio
