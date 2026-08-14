@@ -29,11 +29,9 @@ function rgbaFromCutout(raw: CutoutRaw): {
   const channels = raw.channels ?? 4;
   const pixels = width * height;
   if (channels === 4) {
-    return {
-      data: src instanceof Uint8ClampedArray ? src : new Uint8ClampedArray(src),
-      width,
-      height,
-    };
+    const data = new Uint8ClampedArray(src.length);
+    data.set(src);
+    return { data, width, height };
   }
   if (channels === 3) {
     const data = new Uint8ClampedArray(pixels * 4);
@@ -79,14 +77,9 @@ async function getSegmenter(): Promise<(source: Blob) => Promise<CutoutRaw>> {
 }
 
 /** Node MODNet cutout flattened onto an opaque white PNG. */
-export async function isolateSubjectOnWhiteBuffer(input: {
-  buffer: Buffer;
-  mimeType?: string;
-}): Promise<Buffer> {
-  const mime = input.mimeType?.startsWith('image/') ? input.mimeType : 'image/png';
-  const blob = new Blob([input.buffer], { type: mime });
+export async function isolateSubjectOnWhiteBuffer(source: Blob): Promise<Buffer> {
   const segment = await getSegmenter();
-  const raw = await segment(blob);
+  const raw = await segment(source);
   const cutout = rgbaFromCutout(raw);
   if (!cutoutLooksIsolated(cutout.data)) {
     throw new Error('Could not cut the subject out of that photo.');

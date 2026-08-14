@@ -24,15 +24,13 @@ export async function POST(request: Request) {
     if (file.size > MAX_ISOLATE_BYTES) {
       return apiError('Image must be 24MB or smaller.', 400);
     }
-    const buffer = Buffer.from(await file.arrayBuffer());
-    if (buffer.length === 0) {
+    if (file.size === 0) {
       return apiError('Image file is empty.', 400);
     }
-    const png = await isolateSubjectOnWhiteBuffer({
-      buffer,
-      mimeType: file.type || 'image/png',
-    });
-    return new NextResponse(new Uint8Array(png), {
+    const png = await isolateSubjectOnWhiteBuffer(file);
+    const body = new Uint8Array(png.byteLength);
+    body.set(png);
+    return new NextResponse(body, {
       status: 200,
       headers: {
         'Content-Type': 'image/png',
