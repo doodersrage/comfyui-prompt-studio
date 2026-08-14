@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 import BrandMark from '@/components/BrandMark';
+import ReportBugLink from '@/components/ReportBugLink';
 import { canAccessNavFeature, useAuth } from '@/hooks/useAuth';
 import { featureForPath } from '@/lib/auth/features';
 import { MOBILE_STUDIO_TABS, mobileStudioTabFromPath } from '@/lib/mobile-studio';
@@ -31,6 +32,8 @@ export default function MobileStudioShell({ children }: { children: ReactNode })
             <p className="type-brand type-heading truncate tracking-tight">Mobile Studio</p>
             <p className="type-caption text-[var(--text-muted)]">
               {MOBILE_STUDIO_TABS.find(entry => entry.id === tab)?.hint ?? 'Phone companion'}
+              <span className="mx-1 text-[var(--border-strong)]">·</span>
+              <ReportBugLink className="text-[var(--text-muted)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]" />
             </p>
           </div>
         </div>

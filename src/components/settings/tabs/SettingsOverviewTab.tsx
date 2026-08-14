@@ -6,6 +6,7 @@ import ServerEnvPanel from '@/components/settings/ServerEnvPanel';
 import StorageHealthChip from '@/components/StorageHealthChip';
 import { ToolSection, HealthCard } from '@/components/ui/ToolPageShell';
 import { Button } from '@/components/ui/Button';
+import ReportBugLink from '@/components/ReportBugLink';
 import type { SharedToolSettings } from '@/lib/settings-cache';
 import type { ComfyUiSettingsSectionId } from '@/lib/settings-comfyui-nav';
 import { settingsComfyUiSectionHref } from '@/lib/settings-comfyui-nav';
@@ -461,6 +462,15 @@ export default function SettingsOverviewTab({
             <ComfyLogsSnippet comfyUrl={health.comfyui.url} />
           </>
         )}
+      </ToolSection>
+
+      <ToolSection title="Feedback">
+        <p className="text-sm text-[var(--text-secondary)]">
+          File an issue on GitHub if something in Prompt Studio is broken or confusing.
+        </p>
+        <div className="mt-3">
+          <ReportBugLink variant="button" />
+        </div>
       </ToolSection>
 
       {health?.serverEnv ? (

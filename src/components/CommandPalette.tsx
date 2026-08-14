@@ -94,6 +94,15 @@ const ACTION_ITEMS: CommandItem[] = [
     action: () => window.location.reload(),
     group: 'Actions',
   },
+  {
+    id: 'report-bug',
+    label: 'Report a bug',
+    subtitle: 'Open a GitHub issue',
+    action: () => {
+      void import('@/lib/project-links').then(m => m.openGitHubBugReport());
+    },
+    group: 'Actions',
+  },
 ];
 
 function isCommandItemAllowed(
@@ -101,7 +110,12 @@ function isCommandItemAllowed(
   allowedFeatures: AppFeatureId[] | 'all',
   guestShell: boolean
 ): boolean {
-  if (item.id === 'keyboard-shortcuts' || item.id === 'reload' || item.id === 'dismiss-continue') {
+  if (
+    item.id === 'keyboard-shortcuts' ||
+    item.id === 'reload' ||
+    item.id === 'dismiss-continue' ||
+    item.id === 'report-bug'
+  ) {
     return true;
   }
   if (guestShell) {

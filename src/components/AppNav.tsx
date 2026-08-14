@@ -34,6 +34,7 @@ import {
 } from '@/lib/nav-expanded-groups';
 import BrandMark from '@/components/BrandMark';
 import ConnectionHealthChip from '@/components/ConnectionHealthChip';
+import ReportBugLink from '@/components/ReportBugLink';
 import { pushRecentDestination } from '@/lib/recent-destinations';
 import { saveLastToolRoute } from '@/lib/last-tool-route';
 
@@ -575,6 +576,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             />
           </div>
         ) : null}
+        <ReportBugLink className="mt-1 block px-3 py-1.5 text-xs text-[var(--text-tertiary)] transition hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]" />
       </div>
     </div>
   );
