@@ -14,7 +14,9 @@ import {
 const GALLERY_NAMESPACE = 'comfy-gallery' as const;
 const DELETED_IDS_NAMESPACE = 'gallery-deleted-ids' as const;
 
-type MergeableGalleryEntry = Pick<ComfyGalleryEntry, 'id' | 'queuedAt' | 'completedAt'>;
+type MergeableGalleryEntry = Pick<ComfyGalleryEntry, 'id' | 'queuedAt' | 'completedAt'> & {
+  status?: ComfyGalleryEntry['status'];
+};
 
 function entryTimestamp(entry: MergeableGalleryEntry): number {
   return entry.completedAt ?? entry.queuedAt ?? 0;
@@ -54,6 +56,13 @@ export function mergeGalleryWithServer<T extends MergeableGalleryEntry>(
     if (!localEntry) {
       byId.set(serverEntry.id, serverEntry);
       addedFromServer += 1;
+      continue;
+    }
+    if (
+      (localEntry.status === 'pending' || localEntry.status === 'running') &&
+      serverEntry.status !== 'completed' &&
+      serverEntry.status !== 'error'
+    ) {
       continue;
     }
     if (entryTimestamp(serverEntry) > entryTimestamp(localEntry)) {
@@ -177,6 +186,18 @@ export async function pullAndMergeGalleryFromServer(): Promise<GalleryServerPull
     evictedLocally: capped.evicted.length,
     skippedDeleted,
   };
+}
+
+/** Immediate write-through of the current Dexie gallery (add / complete / error). */
+export async function pushGallerySnapshotToServer(): Promise<void> {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  if (!(await isServerStorageEnabledClient())) {
+    return;
+  }
+  const { loadComfyGallery } = await import('./comfyui-gallery');
+  await syncNamespaceToServer(GALLERY_NAMESPACE, loadComfyGallery());
 }
 
 /** Push gallery + tombstones immediately (used after delete/clear). */

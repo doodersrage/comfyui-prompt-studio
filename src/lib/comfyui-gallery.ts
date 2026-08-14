@@ -625,6 +625,9 @@ export function addComfyGalleryEntry(
 
   (entry as { _corpus?: string })._corpus = galleryEntryCorpus(entry);
   saveComfyGallery([entry, ...loadComfyGallery()]);
+  void import('./gallery-server-sync').then(({ pushGallerySnapshotToServer }) => {
+    void pushGallerySnapshotToServer();
+  });
   return entry;
 }
 
@@ -708,6 +711,11 @@ export function updateComfyGalleryEntryById(
     }
   }
   saveComfyGallery(next);
+  if (patch.status === 'completed' || patch.status === 'error') {
+    void import('./gallery-server-sync').then(({ pushGallerySnapshotToServer }) => {
+      void pushGallerySnapshotToServer();
+    });
+  }
   return updated;
 }
 
@@ -786,6 +794,11 @@ export function updateComfyGalleryByPromptId(
   saveComfyGallery(next, {
     syncRemote: !galleryPatchIsEphemeralProgress(patch),
   });
+  if (patch.status === 'completed' || patch.status === 'error') {
+    void import('./gallery-server-sync').then(({ pushGallerySnapshotToServer }) => {
+      void pushGallerySnapshotToServer();
+    });
+  }
   return updated;
 }
 

@@ -44,6 +44,10 @@ import {
   type GalleryLayoutMode,
 } from '@/lib/comfyui-gallery';
 import { galleryDerivedKindLabel } from '@/lib/gallery-derived-kind';
+import {
+  applyGalleryStackToSession,
+  galleryEntryHasRestorableStack,
+} from '@/lib/gallery-stack-restore';
 
 type GalleryCardProps = {
   entry: ComfyGalleryEntry;
@@ -496,6 +500,23 @@ export default function GalleryCard({
                         Requeue
                       </button>
                     )}
+                    {galleryEntryHasRestorableStack(entry) ? (
+                      <button
+                        type="button"
+                        data-testid="gallery-use-stack"
+                        onClick={() => {
+                          applyGalleryStackToSession(entry);
+                          router.push('/');
+                        }}
+                        className={`shrink-0 whitespace-nowrap rounded-lg border px-2 py-0.5 text-[10px] backdrop-blur transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98] ${
+                          (entry.reviewRating ?? 0) >= 4
+                            ? 'border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)] hover:bg-[var(--accent-soft)]'
+                            : 'border-[var(--border-subtle)] bg-[var(--bg-base)]/70 text-[var(--text-secondary)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]'
+                        }`}
+                      >
+                        Stack
+                      </button>
+                    ) : null}
                     {showFaceDetailAction && onFaceDetail ? (
                       <button
                         type="button"
@@ -1259,6 +1280,17 @@ export default function GalleryCard({
                       tone="danger"
                       onClick={() => {
                         onCancel();
+                        setMenuOpen(false);
+                      }}
+                    />
+                  ) : null}
+                  {galleryEntryHasRestorableStack(entry) ? (
+                    <GalleryMenuButton
+                      label="Use this stack on Generate"
+                      data-testid="gallery-use-stack-menu"
+                      onClick={() => {
+                        applyGalleryStackToSession(entry);
+                        router.push('/');
                         setMenuOpen(false);
                       }}
                     />

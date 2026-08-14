@@ -537,6 +537,8 @@ export type SharedToolSettings = {
   ipAdapterStrength?: number;
   /** Optional ipadapter_file filename override for {{IPADAPTER_MODEL}}. */
   ipAdapterModelFilename?: string;
+  /** Preferred identity insert: IP-Adapter, InstantID, PuLID, or auto fallback. */
+  identityKind?: import('./compose-identity-lock').ComposeIdentityKind;
   /**
    * Current-model LoRA picks mirrored for queue/recipes. Prefer
    * sessionActiveLoraIdsByModel for per-model persistence.
@@ -1022,6 +1024,7 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
   systemWorkflowsLimitPicker: true,
   showAllModelsOverride: false,
   ipAdapterStrength: 0.6,
+  identityKind: 'ipadapter',
   expandWildcards: true,
   autoRetryOnOom: true,
   oomRetryDowngrade: true,

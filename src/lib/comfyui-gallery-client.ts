@@ -73,6 +73,7 @@ export type RegisterComfyGalleryJobInput = {
   /** Session LoRA ids active at queue time (for re-edit same stack). */
   sessionActiveLoraIds?: string[];
   sessionLoraStrengthOverrides?: import('./lora-stack').SessionLoraStrengthOverrides;
+  sessionEmbeddingTokens?: string[];
   projectId?: string;
   comfyUrl: string;
   /** Inference engine for this job (defaults to active adapter). */
@@ -119,8 +120,14 @@ function resolveComfyUrlForJob(promptId: string, comfyUrl?: string): string | un
 }
 
 export function inheritGallerySessionFields(
-  entry: Pick<ComfyGalleryEntry, 'sessionActiveLoraIds' | 'sessionLoraStrengthOverrides'>
-): Pick<RegisterComfyGalleryJobInput, 'sessionActiveLoraIds' | 'sessionLoraStrengthOverrides'> {
+  entry: Pick<
+    ComfyGalleryEntry,
+    'sessionActiveLoraIds' | 'sessionLoraStrengthOverrides' | 'sessionEmbeddingTokens'
+  >
+): Pick<
+  RegisterComfyGalleryJobInput,
+  'sessionActiveLoraIds' | 'sessionLoraStrengthOverrides' | 'sessionEmbeddingTokens'
+> {
   return {
     ...(entry.sessionActiveLoraIds?.length
       ? { sessionActiveLoraIds: entry.sessionActiveLoraIds }
@@ -128,6 +135,9 @@ export function inheritGallerySessionFields(
     ...(entry.sessionLoraStrengthOverrides &&
     Object.keys(entry.sessionLoraStrengthOverrides).length > 0
       ? { sessionLoraStrengthOverrides: entry.sessionLoraStrengthOverrides }
+      : {}),
+    ...(entry.sessionEmbeddingTokens?.length
+      ? { sessionEmbeddingTokens: entry.sessionEmbeddingTokens }
       : {}),
   };
 }
@@ -173,6 +183,7 @@ export function registerComfyGalleryJob(input: RegisterComfyGalleryJobInput): Co
     queueQualityProfile: input.queueQualityProfile,
     sessionActiveLoraIds: input.sessionActiveLoraIds,
     sessionLoraStrengthOverrides: input.sessionLoraStrengthOverrides,
+    sessionEmbeddingTokens: input.sessionEmbeddingTokens,
     projectId: input.projectId,
     comfyUrl: input.comfyUrl,
     engineId: input.engineId ?? getEngineAdapter().id,

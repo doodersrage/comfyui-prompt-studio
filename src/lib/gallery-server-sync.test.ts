@@ -84,6 +84,22 @@ describe("mergeGalleryWithServer", () => {
     assert.equal(result.merged[0]?.queuedAt, 9);
   });
 
+  it("keeps a local in-flight job instead of an older server pending copy", () => {
+    const local = [{ id: "job", queuedAt: 5, status: "running" as const, progressValue: 12 }];
+    const server = [{ id: "job", queuedAt: 5, status: "pending" as const }];
+    const result = mergeGalleryWithServer(local, server);
+    assert.equal(result.updatedFromServer, 0);
+    assert.equal(result.merged[0]?.status, "running");
+  });
+
+  it("takes a server completed copy over a local pending job", () => {
+    const local = [{ id: "job", queuedAt: 5, status: "pending" as const }];
+    const server = [{ id: "job", queuedAt: 5, completedAt: 20, status: "completed" as const }];
+    const result = mergeGalleryWithServer(local, server);
+    assert.equal(result.updatedFromServer, 1);
+    assert.equal(result.merged[0]?.status, "completed");
+  });
+
   it("sorts the merged list newest-first", () => {
     const local = [entry("older", 1), entry("newer", 3)];
     const server = [entry("middle", 2)];

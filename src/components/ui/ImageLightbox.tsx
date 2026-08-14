@@ -97,6 +97,7 @@ export type ImageLightboxSlideChrome = {
   onCompose?: () => void;
   onInpaint?: () => void;
   onExactRequeue?: () => void;
+  onUseStack?: () => void;
   onRequeue?: () => void;
   onRequeueNewSeed?: () => void;
   onRequeueSeedPlusOne?: () => void;
@@ -105,6 +106,7 @@ export type ImageLightboxSlideChrome = {
   showCompose?: boolean;
   showInpaint?: boolean;
   showExact?: boolean;
+  showUseStack?: boolean;
   showRequeue?: boolean;
   showSeedVariation?: boolean;
   /** Seed / model / prompt details for the Details (M) panel. */
@@ -685,6 +687,16 @@ export default function ImageLightbox({
       ) {
         event.preventDefault();
         slideChrome.onCompose();
+        return;
+      }
+
+      if (
+        (event.key === 'u' || event.key === 'U') &&
+        slideChrome?.onUseStack &&
+        slideChrome.showUseStack !== false
+      ) {
+        event.preventDefault();
+        slideChrome.onUseStack();
         return;
       }
 
@@ -1568,6 +1580,14 @@ export default function ImageLightbox({
               label: 'Exact',
               title: 'Exact requeue',
               onClick: () => slideChrome.onExactRequeue?.(),
+            })
+          : null}
+        {slideChrome?.showUseStack !== false && slideChrome?.onUseStack
+          ? renderIconAction(compact, {
+              label: 'Stack',
+              title: 'Use this stack on Generate (U)',
+              onClick: () => slideChrome.onUseStack?.(),
+              testId: 'lightbox-action-use-stack',
             })
           : null}
         {slideChrome?.showRequeue !== false && slideChrome?.onRequeue

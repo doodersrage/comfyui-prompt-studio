@@ -49,6 +49,10 @@ import {
   previewGalleryCapEviction,
 } from '@/lib/gallery-cap';
 import { galleryDerivedKindChipLabel, galleryDerivedKindLabel } from '@/lib/gallery-derived-kind';
+import {
+  applyGalleryStackToSession,
+  galleryEntryHasRestorableStack,
+} from '@/lib/gallery-stack-restore';
 import { MAX_GALLERY_ENTRIES } from '@/lib/comfyui-gallery-storage-meta';
 import { applyGalleryUrlState, parseGalleryUrlState } from '@/lib/gallery-url-state';
 import { useGalleryReview } from '@/hooks/useGalleryReview';
@@ -798,6 +802,7 @@ export default function ComfyUiGalleryPanel({
       showCompose: completed && !isVideo,
       showInpaint: completed && !isVideo,
       showExact: Boolean(entry.hasStoredWorkflow || entry.workflowJson),
+      showUseStack: galleryEntryHasRestorableStack(entry),
       showRequeue: true,
       onImprove: () => startImproveFromGalleryEntry(entry),
       onCompose: () => startComposeFromGalleryEntry(entry),
@@ -812,6 +817,12 @@ export default function ComfyUiGalleryPanel({
           })
         );
       },
+      onUseStack: galleryEntryHasRestorableStack(entry)
+        ? () => {
+            applyGalleryStackToSession(entry);
+            router.push('/');
+          }
+        : undefined,
       onRequeue: () => {
         setRequeueStatus('Re-queueing…');
         void import('@/lib/comfyui-requeue').then(({ requeueComfyJobFromEntry }) =>

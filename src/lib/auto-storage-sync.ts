@@ -372,11 +372,19 @@ export async function autoPullStorageIfEmpty(): Promise<AutoSyncResult> {
     return { synced, conflicts: [], skipped: false, pulledIntoEmpty: synced.length > 0 };
   }
 
+  const { pullAndMergeGalleryFromServer } = await import('./gallery-server-sync');
+  const galleryPull = await pullAndMergeGalleryFromServer();
+
   const conflicts = await probeStorageConflicts();
   if (conflicts.length === 0) {
     // Still push extras/settings so durable prefs stay backed up even without conflicts.
     await autoPushStorageDebounced();
-    return { synced: [...SYNC_NAMESPACES], conflicts: [], skipped: false };
+    return {
+      synced: [...SYNC_NAMESPACES],
+      conflicts: [],
+      skipped: false,
+      pulledIntoEmpty: galleryPull.changed,
+    };
   }
 
   const choices: Partial<Record<StorageNamespace, MergeChoice>> = {};
@@ -392,7 +400,7 @@ export async function autoPullStorageIfEmpty(): Promise<AutoSyncResult> {
     synced: result.synced,
     conflicts: [],
     skipped: false,
-    pulledIntoEmpty: false,
+    pulledIntoEmpty: galleryPull.changed,
   };
 }
 

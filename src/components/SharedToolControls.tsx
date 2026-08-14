@@ -79,6 +79,7 @@ import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
 import { workspaceControlsDefaultOpen, workspaceShowsAdvancedControls } from '@/lib/workspace-mode';
 import { resolveModelStackFamily } from '@/lib/workflow-stack-fingerprint';
 import { modelSupportsTextualInversion } from '@/lib/textual-inversion';
+import { modelSupportsSessionIdentityLock } from '@/lib/compose-identity-lock';
 import { isQwenLightningModel } from '@/lib/model-sampling-patch';
 import { expandWildcardText, textHasWildcardTokens } from '@/lib/wildcard-expand';
 import {
@@ -122,6 +123,13 @@ const EmbeddingSessionChips = dynamic(() => import('@/components/EmbeddingSessio
   ssr: false,
   loading: () => null,
 });
+const IdentityLockSessionControl = dynamic(
+  () => import('@/components/IdentityLockSessionControl'),
+  {
+    ssr: false,
+    loading: () => null,
+  }
+);
 const ComfyWorkflowSelector = dynamic(() => import('@/components/ComfyWorkflowSelector'), {
   ssr: false,
   loading: () => null,
@@ -1396,6 +1404,41 @@ export default function SharedToolControls({
                       saveSharedSettings({
                         ...loadSettingsCache().shared,
                         sessionEmbeddingTokens: names,
+                      });
+                    }
+                  }}
+                />
+              </CollapsibleSection>
+            ) : null}
+
+            {modelSupportsSessionIdentityLock(shared.model) &&
+            toolId !== 'video' &&
+            toolId !== 'compose' ? (
+              <CollapsibleSection
+                title="Identity lock"
+                summary={
+                  shared.ipAdapterImageFilename?.trim()
+                    ? `${shared.identityKind === 'instantid' ? 'InstantID' : shared.identityKind === 'pulid' ? 'PuLID' : shared.identityKind === 'auto' ? 'Auto' : 'IP-Adapter'} · ${shared.ipAdapterImageFilename}`
+                    : 'Lock a face or style reference'
+                }
+                defaultOpen={
+                  advancedOpenByDefault || Boolean(shared.ipAdapterImageFilename?.trim())
+                }
+                persistKey="shared-identity-lock"
+              >
+                <IdentityLockSessionControl
+                  model={shared.model}
+                  filename={shared.ipAdapterImageFilename}
+                  imageUrl={shared.ipAdapterImageUrl}
+                  strength={shared.ipAdapterStrength}
+                  identityKind={shared.identityKind}
+                  onChange={patch => {
+                    if (onSharedSettingsChange) {
+                      onSharedSettingsChange(patch);
+                    } else {
+                      saveSharedSettings({
+                        ...loadSettingsCache().shared,
+                        ...patch,
                       });
                     }
                   }}

@@ -4,6 +4,7 @@ import {
   buildComposeIdentityLockQueuePatch,
   buildComposeKleinQueuePatch,
   formatComposeIdentityLockHint,
+  modelSupportsSessionIdentityLock,
   normalizeComposeIdentityLockStrength,
 } from "./compose-identity-lock";
 import {
@@ -48,6 +49,12 @@ describe("compose identity lock", () => {
   it("clamps strength", () => {
     assert.equal(normalizeComposeIdentityLockStrength(2), 1);
     assert.equal(normalizeComposeIdentityLockStrength(0), 0.05);
+  });
+
+  it("hides Generate identity lock on Z-Image", () => {
+    assert.equal(modelSupportsSessionIdentityLock("sdxl"), true);
+    assert.equal(modelSupportsSessionIdentityLock("z-image-turbo"), false);
+    assert.equal(modelSupportsSessionIdentityLock(""), false);
   });
 
   it("maps Klein Compose figures for ReferenceLatent (+ optional identity lock)", () => {

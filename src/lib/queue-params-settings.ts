@@ -38,6 +38,7 @@ import { loadSettingsCache } from './settings-cache';
 import { findComfyWorkflowFile, mergeCustomWorkflowTokens } from './comfyui-workflow-files';
 import { getSelectedWorkflowFileId } from './comfyui-runtime';
 import { isQwenRapidAioModel } from './model-denoise-defaults';
+import { normalizeComposeIdentityKind } from './compose-identity-lock';
 import {
   resolveEffectiveResolutionSizeTier,
   resolveEffectiveSamplerPreset,
@@ -359,6 +360,9 @@ export function resolveQueueParams(
     }
     if (shared.ipAdapterModelFilename?.trim()) {
       merged.ipAdapterModelFilename = shared.ipAdapterModelFilename.trim();
+    }
+    if (shared.identityKind) {
+      merged.identityKind = normalizeComposeIdentityKind(shared.identityKind);
     }
 
     const resolvedFilenames = (() => {

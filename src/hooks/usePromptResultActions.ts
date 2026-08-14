@@ -144,6 +144,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         queueQualityProfile: input.queueQualityProfile,
         sessionActiveLoraIds: input.sessionActiveLoraIds,
         sessionLoraStrengthOverrides: input.sessionLoraStrengthOverrides,
+        sessionEmbeddingTokens: loadSettingsCache().shared.sessionEmbeddingTokens,
         projectId: loadActiveProjectId(),
         engineId,
       });

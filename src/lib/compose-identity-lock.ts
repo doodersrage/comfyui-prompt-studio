@@ -1,5 +1,5 @@
 import { getFaceDetailerHealth } from './face-detailer-health';
-import { isFluxKleinModel } from './model-denoise-defaults';
+import { isFluxKleinModel, isZImageModel } from './model-denoise-defaults';
 import { resolveKleinEnhancerIdentityPreset } from './klein-enhancer-workflow-patch';
 import { normalizeInputImageFilenames } from './workflow-load-image-bindings';
 
@@ -7,6 +7,12 @@ import { normalizeInputImageFilenames } from './workflow-load-image-bindings';
 export const DEFAULT_COMPOSE_IDENTITY_LOCK_STRENGTH = 0.5;
 
 export const DEFAULT_COMPOSE_IDENTITY_KIND = 'ipadapter' as const;
+
+/** Generate sidebar identity lock — skip Z-Image (no IP-Adapter/InstantID path). */
+export function modelSupportsSessionIdentityLock(model?: string | null): boolean {
+  const id = model?.trim();
+  return Boolean(id) && !isZImageModel(id);
+}
 
 export type ComposeIdentityKind = 'ipadapter' | 'instantid' | 'pulid' | 'auto';
 

@@ -1,3 +1,4 @@
+import type { ComfyGalleryEntry } from '@/lib/comfyui-gallery-entry';
 import { STORAGE_NAMESPACES, type StorageNamespace } from '@/lib/storage-namespaces';
 import {
   countGalleryEntries,
@@ -8,6 +9,25 @@ import {
 } from './gallery';
 import { kvScopeForUser, readKv, writeKv } from './kv';
 
+function mergeOwnedAndGlobalGallery(
+  owned: ComfyGalleryEntry[],
+  global: ComfyGalleryEntry[]
+): ComfyGalleryEntry[] {
+  if (global.length === 0) {
+    return owned;
+  }
+  const byId = new Map<string, ComfyGalleryEntry>();
+  for (const entry of global) {
+    byId.set(entry.id, entry);
+  }
+  for (const entry of owned) {
+    byId.set(entry.id, entry);
+  }
+  return [...byId.values()].sort(
+    (a, b) => (b.completedAt ?? b.queuedAt ?? 0) - (a.completedAt ?? a.queuedAt ?? 0)
+  );
+}
+
 export function readNamespaceStorage<T>(
   namespace: StorageNamespace,
   userId?: string | null
@@ -15,7 +35,11 @@ export function readNamespaceStorage<T>(
   const owner = userId?.trim() || '';
   const scope = kvScopeForUser(userId);
   if (namespace === 'comfy-gallery') {
-    return readGalleryEntries(owner) as T;
+    const owned = readGalleryEntries(owner);
+    if (!owner) {
+      return owned as T;
+    }
+    return mergeOwnedAndGlobalGallery(owned, readGalleryEntries('')) as T;
   }
   if (namespace === 'gallery-deleted-ids') {
     return readGalleryDeletedIds(owner) as T;

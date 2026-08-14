@@ -40,6 +40,8 @@ export type ComfyGalleryEntry = {
   sessionActiveLoraIds?: string[];
   /** Session LoRA strength tweaks active when this job was queued. */
   sessionLoraStrengthOverrides?: import('./lora-stack').SessionLoraStrengthOverrides;
+  /** Session textual-inversion stems active when this job was queued. */
+  sessionEmbeddingTokens?: string[];
   /** Quick review rating from gallery review mode. */
   reviewRating?: 1 | 2 | 3 | 4 | 5;
   /** Short freeform review note from lightbox / review mode. */

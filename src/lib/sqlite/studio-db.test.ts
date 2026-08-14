@@ -64,6 +64,16 @@ describe('studio sqlite', () => {
     assert.equal(entries.find(entry => entry.id === 'b')?.prompt, 'two-updated');
   });
 
+  it('reads user gallery merged with global scheduled stills', () => {
+    upsertGalleryEntries('', [galleryEntry('scheduled', 'batch', 1)]);
+    upsertGalleryEntries('user-1', [galleryEntry('mine', 'local', 2)]);
+    const entries = readNamespaceStorage<Array<{ id: string }>>('comfy-gallery', 'user-1') ?? [];
+    assert.deepEqual(
+      entries.map(entry => entry.id).sort(),
+      ['mine', 'scheduled']
+    );
+  });
+
   it('tombstones remove gallery rows', () => {
     writeNamespaceStorage('comfy-gallery', [
       galleryEntry('keep', 'keep', 1),
