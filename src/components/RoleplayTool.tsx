@@ -26,12 +26,14 @@ import {
 } from '@/lib/comfyui-gallery';
 import { persistIdentityImage } from '@/lib/gallery-media-client';
 import { galleryPickPath } from '@/lib/gallery-handoff';
+import { isolateSubjectOnWhite } from '@/lib/isolate-subject';
 import { resolveQueueInputImage } from '@/lib/queue-input-image';
 import {
   CUSTOM_ROLEPLAY_PERSONA_ID,
   ROLEPLAY_ARCHETYPES,
   ROLEPLAY_CONTENT,
   ROLEPLAY_PLAY_AS,
+  ROLEPLAY_SETTING_PRESETS,
   ROLEPLAY_TONES,
   appendRoleplayStoryBeat,
   formatRoleplayBio,
@@ -39,16 +41,18 @@ import {
   lastRoleplayStillImage,
   mergeRoleplayStoryStills,
   normalizeRoleplayPlayAs,
+  normalizeRoleplayIsolateSubject,
   patchRoleplayStoryBeat,
   resolveRoleplayToneAndContent,
   roleplayIntroScene,
+  rollRoleplaySetting,
   type RoleplayBio,
   type RoleplayScene,
   type RoleplayStoryBeat,
 } from '@/lib/roleplay';
 import { downloadRoleplayStoryBundle } from '@/lib/roleplay-export';
 import type { EnrichedToolGenerateResult } from '@/lib/specialized/types';
-import { ChipButton, FieldError, TextArea } from '@/components/ui/Field';
+import { ChipButton, FieldError, TextArea, TextInput } from '@/components/ui/Field';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import {
   ToolBadge,
@@ -84,6 +88,7 @@ export default function RoleplayTool() {
   const [exporting, setExporting] = useState(false);
   const [referencePreviewUrl, setReferencePreviewUrl] = useState<string | null>(null);
   const [referenceUploading, setReferenceUploading] = useState(false);
+  const [isolateStatus, setIsolateStatus] = useState<string | null>(null);
 
   const personaId = toolSettings.personaId ?? ROLEPLAY_ARCHETYPES[0].id;
   const { tone, content } = resolveRoleplayToneAndContent(toolSettings.tone, toolSettings.content);
@@ -100,6 +105,9 @@ export default function RoleplayTool() {
   const referenceImageFilename = toolSettings.referenceImageFilename?.trim() || '';
   const hasReferenceImage = Boolean(referenceImageUrl || referenceImageFilename);
   const lastStill = lastRoleplayStillImage(story);
+  const isolateSubject = normalizeRoleplayIsolateSubject(toolSettings.isolateSubject);
+  const referenceOriginalUrl = toolSettings.referenceOriginalUrl?.trim() || '';
+  const referenceOriginalFilename = toolSettings.referenceOriginalFilename?.trim() || '';
   const photoReady = playAs !== 'photo' || hasReferenceImage;
 
   const clearReferencePreview = useCallback(() => {
@@ -112,13 +120,20 @@ export default function RoleplayTool() {
   }, []);
 
   const applyReference = useCallback(
-    async (input: { file?: File | null; imageUrl?: string; filename?: string }) => {
+    async (input: {
+      file?: File | null;
+      imageUrl?: string;
+      filename?: string;
+      isolate?: boolean;
+    }) => {
       const imageUrl = input.imageUrl?.trim() || '';
       const file = input.file ?? null;
       if (!file && !imageUrl) {
         throw new Error('Choose a photo or a gallery still first.');
       }
+      const shouldIsolate = input.isolate ?? isolateSubject;
       setReferenceUploading(true);
+      setIsolateStatus(null);
       setError(null);
       const localPreview = file ? URL.createObjectURL(file) : imageUrl;
       setReferencePreviewUrl(previous => {
@@ -128,38 +143,103 @@ export default function RoleplayTool() {
         return localPreview;
       });
       try {
-        const uploaded = await resolveQueueInputImage({
+        const originalName = input.filename || file?.name || `roleplay-ref-${Date.now()}.png`;
+        const originalUploaded = await resolveQueueInputImage({
           file,
           imageUrl: file ? undefined : imageUrl,
-          filename: input.filename || file?.name || `roleplay-ref-${Date.now()}.png`,
+          filename: originalName,
           model: shared.model,
         });
-        const filename = uploaded?.filename?.trim();
-        if (!filename) {
+        const originalFilename = originalUploaded?.filename?.trim();
+        if (!originalFilename) {
           throw new Error('Upload did not return a filename.');
         }
-        const durableUrl = await persistIdentityImage({
+        const originalDurable = await persistIdentityImage({
           file: file ?? undefined,
-          filename,
+          filename: originalFilename,
         });
-        const nextUrl = durableUrl || imageUrl || localPreview;
-        if (durableUrl && localPreview.startsWith('blob:')) {
+        const originalUrl = originalDurable || imageUrl || localPreview;
+
+        let queueFilename = originalFilename;
+        let queueUrl = originalUrl;
+        let isolated = false;
+
+        if (shouldIsolate) {
+          setIsolateStatus('Isolating subject on white…');
+          try {
+            const source: Blob =
+              file ??
+              (await fetch(imageUrl).then(response => {
+                if (!response.ok) {
+                  throw new Error('Could not load that photo to isolate.');
+                }
+                return response.blob();
+              }));
+            const cutout = await isolateSubjectOnWhite(source, originalName);
+            const cutoutUploaded = await resolveQueueInputImage({
+              file: cutout,
+              filename: cutout.name,
+              model: shared.model,
+            });
+            const cutoutFilename = cutoutUploaded?.filename?.trim();
+            if (!cutoutFilename) {
+              throw new Error('Cut-out upload did not return a filename.');
+            }
+            const cutoutDurable = await persistIdentityImage({
+              file: cutout,
+              filename: cutoutFilename,
+            });
+            const cutoutPreview = URL.createObjectURL(cutout);
+            setReferencePreviewUrl(previous => {
+              if (previous?.startsWith('blob:') && previous !== cutoutPreview) {
+                URL.revokeObjectURL(previous);
+              }
+              return cutoutDurable || cutoutPreview;
+            });
+            queueFilename = cutoutFilename;
+            queueUrl = cutoutDurable || cutoutPreview;
+            isolated = true;
+            if (cutoutDurable && cutoutPreview.startsWith('blob:')) {
+              URL.revokeObjectURL(cutoutPreview);
+            }
+          } catch (err) {
+            isolated = false;
+            setIsolateStatus(null);
+            setError(
+              err instanceof Error
+                ? `${err.message} Using the original photo.`
+                : 'Could not isolate the subject. Using the original photo.'
+            );
+          }
+        }
+
+        if (originalUrl && localPreview.startsWith('blob:') && originalUrl !== localPreview) {
           URL.revokeObjectURL(localPreview);
-          setReferencePreviewUrl(durableUrl);
         }
         updateToolSettings({
           playAs: 'photo',
-          referenceImageFilename: filename,
-          referenceImageUrl: nextUrl.startsWith('blob:') ? durableUrl || imageUrl : nextUrl,
+          isolateSubject: shouldIsolate,
+          referenceOriginalFilename: originalFilename,
+          referenceOriginalUrl: originalUrl.startsWith('blob:')
+            ? originalDurable || imageUrl
+            : originalUrl,
+          referenceImageFilename: queueFilename,
+          referenceImageUrl: queueUrl,
+          referenceIsolated: isolated,
         });
+        if (!isolated) {
+          setReferencePreviewUrl(originalUrl);
+        }
+        setIsolateStatus(isolated ? 'Subject isolated on white.' : null);
       } catch (err) {
         clearReferencePreview();
+        setIsolateStatus(null);
         throw err;
       } finally {
         setReferenceUploading(false);
       }
     },
-    [clearReferencePreview, shared.model, updateToolSettings]
+    [clearReferencePreview, isolateSubject, shared.model, updateToolSettings]
   );
 
   const clearReference = useCallback(() => {
@@ -168,6 +248,9 @@ export default function RoleplayTool() {
       playAs: 'text',
       referenceImageUrl: '',
       referenceImageFilename: '',
+      referenceOriginalUrl: '',
+      referenceOriginalFilename: '',
+      referenceIsolated: false,
     });
   }, [clearReferencePreview, updateToolSettings]);
 
@@ -208,14 +291,14 @@ export default function RoleplayTool() {
     toolKey: TOOL_ID,
     label: 'Roleplay',
     href: '/roleplay',
-    fields: [bio?.name, toolSettings.customPersona, toolSettings.extraHints],
+    fields: [bio?.name, toolSettings.customPersona, toolSettings.extraHints, toolSettings.setting],
   });
 
   const actions = usePromptResultActions({
     tool: TOOL_ID,
     model: shared.model,
     detail: shared.detail,
-    hints: [bio?.name, toolSettings.extraHints].filter(Boolean).join(' · '),
+    hints: [bio?.name, toolSettings.extraHints, toolSettings.setting].filter(Boolean).join(' · '),
     autoFixRules: shared.autoFixRules !== false,
     reformatTarget: getReformatTargetModel(shared.model),
   });
@@ -231,6 +314,10 @@ export default function RoleplayTool() {
       personaId,
       customPersona: toolSettings.customPersona,
       extraHints: toolSettings.extraHints,
+      setting: toolSettings.setting,
+      lockedLocation: shared.lockedLocation,
+      isolatedSubject:
+        playAs === 'photo' && hasReferenceImage && toolSettings.referenceIsolated === true,
       tone,
       content,
       allowGore: toolSettings.allowGore === true,
@@ -251,6 +338,8 @@ export default function RoleplayTool() {
       hasReferenceImage,
       toolSettings.customPersona,
       toolSettings.extraHints,
+      toolSettings.setting,
+      toolSettings.referenceIsolated,
       toolSettings.allowGore,
       toolSettings.story,
     ]
@@ -678,10 +767,50 @@ export default function RoleplayTool() {
           {playAs === 'photo' ? (
             <div className="space-y-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-muted)]/40 p-3">
               <p className="text-xs text-[var(--text-muted)]">
-                Every still queues img2img from this reference so you stay the same person. The
-                sidebar model list switches to edit / img2img checkpoints — a text-to-image model
-                overbakes the photo. Pick a selfie or a generated character.
+                Every still queues img2img from this reference so you stay the same person. Isolate
+                on white (default) cuts the subject out so the model does not keep the photo&apos;s
+                street or room. Pair with Setting to place them somewhere new.
               </p>
+              <div className="flex flex-wrap gap-1.5">
+                <ChipButton
+                  active={isolateSubject}
+                  disabled={busy}
+                  title="Cut the subject out and place them on a white backdrop before queueing. First use downloads a small on-device model."
+                  onClick={() => {
+                    const next = !isolateSubject;
+                    if (!next && (referenceOriginalFilename || referenceOriginalUrl)) {
+                      updateToolSettings({
+                        isolateSubject: false,
+                        referenceIsolated: false,
+                        referenceImageFilename: referenceOriginalFilename || referenceImageFilename,
+                        referenceImageUrl: referenceOriginalUrl || referenceImageUrl,
+                      });
+                      if (referenceOriginalUrl || referenceImageUrl) {
+                        setReferencePreviewUrl(referenceOriginalUrl || referenceImageUrl);
+                      }
+                      setIsolateStatus(null);
+                      return;
+                    }
+                    updateToolSettings({ isolateSubject: next });
+                    const originalUrl = referenceOriginalUrl || referenceImageUrl;
+                    const originalFilename = referenceOriginalFilename || referenceImageFilename;
+                    if (!originalUrl && !originalFilename) {
+                      return;
+                    }
+                    void applyReference({
+                      imageUrl: originalUrl,
+                      filename: originalFilename || 'roleplay-ref.png',
+                      isolate: next,
+                    }).catch(err => {
+                      setError(
+                        err instanceof Error ? err.message : 'Could not update the reference.'
+                      );
+                    });
+                  }}
+                >
+                  Isolate on white
+                </ChipButton>
+              </div>
               <div className="flex flex-wrap items-center gap-2">
                 <input
                   type="file"
@@ -730,11 +859,15 @@ export default function RoleplayTool() {
                 <img
                   src={displayReferenceUrl}
                   alt="Roleplay reference"
-                  className="h-24 w-24 rounded-lg border border-[var(--border-subtle)] object-cover"
+                  className="h-24 w-24 rounded-lg border border-[var(--border-subtle)] bg-white object-contain"
                 />
               ) : null}
               {referenceUploading ? (
-                <p className="text-xs text-[var(--text-muted)]">Uploading reference…</p>
+                <p className="text-xs text-[var(--text-muted)]">
+                  {isolateStatus ?? 'Uploading reference…'}
+                </p>
+              ) : isolateStatus ? (
+                <p className="text-xs text-[var(--text-muted)]">{isolateStatus}</p>
               ) : null}
             </div>
           ) : null}
@@ -799,6 +932,61 @@ export default function RoleplayTool() {
           >
             Gore
           </ChipButton>
+        </div>
+        <div className="space-y-2">
+          <p className="type-caption text-[var(--text-muted)]">Setting</p>
+          <p className="text-xs text-[var(--text-muted)]">
+            {playAs === 'photo'
+              ? 'Stills replace the photo background with this place. Leave blank to invent a new scene per beat. Write a new bio or roll scenes after changing it.'
+              : 'Opening beats and stills happen here. Leave blank to let the story pick places. Write a new bio or roll scenes after changing it.'}
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {ROLEPLAY_SETTING_PRESETS.map(entry => (
+              <ChipButton
+                key={entry.id}
+                active={(toolSettings.setting ?? '').trim() === entry.setting}
+                disabled={busy}
+                title={entry.setting}
+                onClick={() =>
+                  updateToolSettings({
+                    setting:
+                      (toolSettings.setting ?? '').trim() === entry.setting ? '' : entry.setting,
+                  })
+                }
+              >
+                {entry.label}
+              </ChipButton>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <TextInput
+              value={toolSettings.setting ?? ''}
+              disabled={busy}
+              placeholder="e.g. flooded cathedral, your kitchen, a moonlit pier"
+              onChange={event => updateToolSettings({ setting: event.target.value })}
+              className={`min-w-0 flex-1 ${accentFocusClass(ACCENT)}`}
+            />
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={busy}
+              onClick={() =>
+                updateToolSettings({ setting: rollRoleplaySetting(toolSettings.setting) })
+              }
+            >
+              Roll
+            </Button>
+            {(toolSettings.setting ?? '').trim() ? (
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={busy}
+                onClick={() => updateToolSettings({ setting: '' })}
+              >
+                Clear
+              </Button>
+            ) : null}
+          </div>
         </div>
         <label className="block space-y-1.5 text-sm">
           <span className="type-caption text-[var(--text-muted)]">Optional notes</span>

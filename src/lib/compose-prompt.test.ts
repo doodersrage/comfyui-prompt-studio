@@ -359,4 +359,56 @@ describe("compose instruction builder", () => {
     assert.match(built, /Image 1, Image 2/i);
     assert.match(built, /swap the jacket/);
   });
+
+  it("prefixes isolated Image 1 on Modify so the white plate is replaced", () => {
+    const built = buildComposeInstruction({
+      mode: "modify",
+      instruction: "replace: rainy neon alley",
+      figureCount: 1,
+      isolatedSubject: true,
+    });
+    assert.match(built, /isolated on a blank white backdrop/i);
+    assert.match(built, /Do not keep a studio void/i);
+    assert.match(built, /rainy neon alley/i);
+  });
+
+  it("prefixes isolated Image 1 on Transfer as identity-only", () => {
+    const built = buildComposeInstruction({
+      mode: "transfer",
+      instruction: "swap the jacket",
+      figureCount: 2,
+      isolatedSubject: true,
+    });
+    assert.match(built, /isolated on a blank white backdrop \(identity only\)/i);
+    assert.match(built, /Do not keep a studio void/i);
+    assert.match(built, /Using Image 1, Image 2/i);
+    assert.match(built, /swap the jacket/);
+  });
+
+  it("does not double-prefix when the isolate cue is already present", () => {
+    const text =
+      "Image 1 is the subject isolated on a blank white backdrop. Replace the white with a forest.";
+    assert.equal(
+      buildComposeInstruction({
+        mode: "modify",
+        instruction: text,
+        figureCount: 1,
+        isolatedSubject: true,
+      }),
+      text,
+    );
+  });
+
+  it("adds isolate cue alongside Klein preserve prefix on Modify", () => {
+    const built = buildComposeInstruction({
+      mode: "modify",
+      instruction: "warmer golden-hour light",
+      figureCount: 1,
+      model: "flux-2-klein-9b-distilled",
+      isolatedSubject: true,
+    });
+    assert.match(built, /isolated on a blank white backdrop/i);
+    assert.match(built, /Keep the subject/i);
+    assert.match(built, /warmer golden-hour light/);
+  });
 });

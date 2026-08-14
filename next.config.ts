@@ -50,8 +50,16 @@ const baseConfig: NextConfig = {
     },
     optimizeCss: true,
   },
-
-  productionBrowserSourceMaps: false,
+  serverExternalPackages: ['onnxruntime-web', '@huggingface/transformers'],
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        'onnxruntime-web/webgpu': false,
+      };
+    }
+    return config;
+  },
 
   async redirects() {
     return [

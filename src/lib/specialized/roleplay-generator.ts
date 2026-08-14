@@ -9,6 +9,7 @@ import { stripPromptArtifacts } from '../prompt-cleanup';
 import {
   extractJsonValue,
   formatRoleplayBio,
+  formatRoleplaySettingCue,
   formatRoleplayStoryDigest,
   isRoleplayAdultContent,
   lastRoleplayPlotBeat,
@@ -16,6 +17,7 @@ import {
   parseRoleplayBio,
   parseRoleplayScenes,
   resolveRoleplayPersonaPrompt,
+  resolveRoleplaySetting,
   resolveRoleplayToneAndContent,
   templateRoleplayBio,
   templateRoleplayScenes,
@@ -32,6 +34,8 @@ export type RoleplaySharedOptions = SharedGenerationOptions & {
   personaId?: string;
   customPersona?: string;
   extraHints?: string;
+  setting?: string;
+  lockedLocation?: string;
   tone?: string;
   content?: string;
   allowGore?: boolean;
@@ -39,6 +43,7 @@ export type RoleplaySharedOptions = SharedGenerationOptions & {
   story?: RoleplayStoryBeat[];
   situation?: RoleplayScene;
   hasReferenceImage?: boolean;
+  isolatedSubject?: boolean;
 };
 
 function toneLine(tone: RoleplayTone): string {
@@ -140,27 +145,39 @@ function templatePromptFallback(
   blurb: string,
   tone: RoleplayTone,
   content: RoleplayContentId,
-  allowGore: boolean
+  allowGore: boolean,
+  setting?: string,
+  hasReferenceImage?: boolean
 ): string {
   const gore = allowGore ? ', blood and viscera as readable detail' : '';
+  const place = setting?.trim() ?? '';
+  const lead =
+    hasReferenceImage && place
+      ? `Replace the scene with ${place}. `
+      : place
+        ? `in ${place}, `
+        : hasReferenceImage
+          ? 'new environment not from the reference photo, '
+          : '';
+  const core = `${lookLock}, ${blurb}`;
   if (content === 'explicit') {
-    return `${lookLock}, ${blurb}, explicit sex, nude bodies, anatomical detail, intimate lighting${gore}, readable scene`;
+    return `${lead}${core}, explicit sex, nude bodies, anatomical detail, intimate lighting${gore}, readable scene`;
   }
   if (content === 'sultry') {
-    return `${lookLock}, ${blurb}, erotic undress, bare skin, sultry low-key lighting, sexual pose${gore}, readable scene`;
+    return `${lead}${core}, erotic undress, bare skin, sultry low-key lighting, sexual pose${gore}, readable scene`;
   }
   if (content === 'raunchy') {
-    return `${lookLock}, ${blurb}, crude sexual gag, explicit wardrobe fail, raunchy comedy lighting${gore}, readable scene`;
+    return `${lead}${core}, crude sexual gag, explicit wardrobe fail, raunchy comedy lighting${gore}, readable scene`;
   }
   if (content === 'suggestive') {
-    return `${lookLock}, ${blurb}, charged lighting, teasing pose${gore}, readable scene`;
+    return `${lead}${core}, charged lighting, teasing pose${gore}, readable scene`;
   }
   if (content === 'clean') {
-    return `${lookLock}, ${blurb}, all-ages storybook lighting, fully clothed, expressive pose${gore}`;
+    return `${lead}${core}, all-ages storybook lighting, fully clothed, expressive pose${gore}`;
   }
   return allowGore
-    ? `${lookLock}, ${blurb}, ${tone} horror lighting, blood and viscera as readable detail, expressive pose`
-    : `${lookLock}, ${blurb}, ${tone} storybook lighting, expressive pose, readable scene`;
+    ? `${lead}${core}, ${tone} horror lighting, blood and viscera as readable detail, expressive pose`
+    : `${lead}${core}, ${tone} storybook lighting, expressive pose, readable scene`;
 }
 
 function adultLookHint(content: RoleplayContentId): string {
@@ -176,10 +193,14 @@ function adultLookHint(content: RoleplayContentId): string {
   return '';
 }
 
-function referenceLine(hasReferenceImage: boolean): string {
-  return hasReferenceImage
-    ? "A reference photo is provided. Keep THAT person/character's face and body. Costume and species from the part can overlay the photo — do not invent a different face."
-    : '';
+function referenceLine(hasReferenceImage: boolean, isolatedSubject?: boolean): string {
+  if (!hasReferenceImage) {
+    return '';
+  }
+  if (isolatedSubject) {
+    return 'A cut-out of THAT person/character on a white backdrop is provided. Keep THAT face and body. Fill the white with a new scene — do not leave a blank studio.';
+  }
+  return "A reference photo is provided. Keep THAT person/character's face and body. Costume and species from the part can overlay the photo — do not invent a different face.";
 }
 
 function hasRoleplayPlot(story: RoleplayStoryBeat[] | undefined): boolean {
@@ -222,8 +243,16 @@ export async function generateRoleplayBio(
   const { tone, content } = resolveRoleplayToneAndContent(options.tone, options.content);
   const allowGore = Boolean(options.allowGore);
   const hasReferenceImage = Boolean(options.hasReferenceImage);
+  const isolatedSubject = hasReferenceImage && Boolean(options.isolatedSubject);
+  const setting = resolveRoleplaySetting(options.setting, options.lockedLocation);
   const persona = resolveRoleplayPersonaPrompt(options.personaId, options.customPersona);
   const fallback = templateRoleplayBio(options.personaId, options.customPersona);
+  const settingCue = formatRoleplaySettingCue({
+    setting,
+    hasReferenceImage,
+    isolatedSubject,
+    phase: 'bio',
+  });
   const raw = await llmJson({
     llm: options.llm,
     maxTokens: 420,
@@ -231,11 +260,12 @@ export async function generateRoleplayBio(
     system: `You invent a fun roleplay character for an image-generation game.
 ${toneLine(tone)}
 ${uncensoredAdultLine(content)}
-${referenceLine(hasReferenceImage)}
+${referenceLine(hasReferenceImage, isolatedSubject)}
+${settingCue}
 Return ONLY JSON: {"name":"","look":"","personality":"","catchphrase":""}
 - look: one visual sentence (species/body, clothes, colors, distinctive props).${adultLookHint(content)}${
       hasReferenceImage
-        ? ' Describe the reference person as they appear, plus the costume/species overlay from the part.'
+        ? ' Describe the reference person as they appear (face, body, costume overlay from the part) — not the photo location.'
         : ''
     }
 - personality: one or two sentences, first or close third person.
@@ -243,6 +273,7 @@ Return ONLY JSON: {"name":"","look":"","personality":"","catchphrase":""}
     user: [
       `Play as: ${persona}`,
       options.extraHints?.trim() ? `Extra notes: ${options.extraHints.trim()}` : '',
+      setting ? `Setting: ${setting}` : '',
       options.avoidedTokensInstruction ?? '',
       'Write the bio JSON now.',
     ]
@@ -260,6 +291,9 @@ export async function generateRoleplayScenes(
 ): Promise<{ scenes: RoleplayScene[]; provider: 'llm' | 'template' }> {
   const { tone, content } = resolveRoleplayToneAndContent(options.tone, options.content);
   const allowGore = Boolean(options.allowGore);
+  const hasReferenceImage = Boolean(options.hasReferenceImage);
+  const isolatedSubject = hasReferenceImage && Boolean(options.isolatedSubject);
+  const setting = resolveRoleplaySetting(options.setting, options.lockedLocation);
   const bio = options.bio ?? templateRoleplayBio(options.personaId, options.customPersona);
   const continuing = hasRoleplayPlot(options.story);
   const fallback = templateRoleplayScenes(
@@ -268,6 +302,13 @@ export async function generateRoleplayScenes(
     options.story,
     bio.name
   );
+  const settingCue = formatRoleplaySettingCue({
+    setting,
+    hasReferenceImage,
+    isolatedSubject,
+    phase: 'scenes',
+    continuing,
+  });
   const raw = await llmJson({
     llm: options.llm,
     maxTokens: 700,
@@ -275,11 +316,16 @@ export async function generateRoleplayScenes(
     system: `You write choose-your-own-adventure forks for an image roleplay.
 ${toneLine(tone)}
 ${uncensoredAdultLine(content)}
+${settingCue}
 Return ONLY JSON: {"scenes":[{"title":"","blurb":""}]}
 - Exactly 4 scenes. Titles 2–6 words. Blurbs one sentence, visual, actionable.
 - Each option is a different way THIS character's story continues from the last chosen beat.
-- Keep the same setting, props, and relationships unless a branch is clearly leaving that moment.
-- Do not jump to an unrelated location or a new plot that ignores what just happened.
+- Keep the same props and relationships unless a branch is clearly leaving that moment.
+${
+  setting
+    ? '- Name the seeded setting in each blurb so the still can show it.'
+    : '- Keep the same setting unless a branch is clearly leaving that moment.\n- Do not jump to an unrelated location or a new plot that ignores what just happened.'
+}
 - Each beat should make a distinct still image of THIS character.
 - ${sceneGuard(content, allowGore)}`,
     user: [
@@ -289,6 +335,7 @@ Return ONLY JSON: {"scenes":[{"title":"","blurb":""}]}
         ? 'The player just picked the last beat. Write four mutually exclusive next moments that follow from it.'
         : 'No plot yet. Write four opening options for this character.',
       options.extraHints?.trim() ? `Player notes: ${options.extraHints.trim()}` : '',
+      setting ? `Setting: ${setting}` : '',
       options.avoidedTokensInstruction ?? '',
       continuing ? 'Four continuing scenes.' : 'Four opening scenes.',
     ]
@@ -320,6 +367,14 @@ export async function generateRoleplayPrompt(
   const lookLock = bio.look.trim();
   const styleLine = promptStyleLine(content, allowGore);
   const hasReferenceImage = Boolean(options.hasReferenceImage);
+  const isolatedSubject = hasReferenceImage && Boolean(options.isolatedSubject);
+  const setting = resolveRoleplaySetting(options.setting, options.lockedLocation);
+  const settingCue = formatRoleplaySettingCue({
+    setting,
+    hasReferenceImage,
+    isolatedSubject,
+    phase: 'prompt',
+  });
 
   return runSpecializedPrompt({
     model: options.model,
@@ -328,12 +383,15 @@ export async function generateRoleplayPrompt(
 ${toneLine(tone)}
 ${uncensoredAdultLine(content)}
 ${contentLine(content, allowGore)}
-${referenceLine(hasReferenceImage)}
+${referenceLine(hasReferenceImage, isolatedSubject)}
+${settingCue}
 - The SAME character must appear: ${lookLock}
 - Name (${bio.name}) can appear once; do not invent a new cast unless the beat requires one extra figure.
 - Describe the chosen situation as a readable tableau: pose, props, setting, light, bodies.${
       hasReferenceImage
-        ? '\n- This still is img2img from the reference photo: keep identity, change pose/scene/wardrobe as the beat requires.'
+        ? isolatedSubject
+          ? "\n- This still is img2img from a subject cut-out on white: keep identity, fill the white with the beat's environment — do not leave a studio backdrop."
+          : "\n- This still is img2img from the reference photo: keep identity only. Change pose, wardrobe, and especially the environment — do not keep the photo's background."
         : ''
     }
 - If this is a first-look / establishing beat, make a character portrait in a fitting environment${
@@ -346,14 +404,18 @@ ${referenceLine(hasReferenceImage)}
       formatRoleplayBio(bio),
       formatRoleplayStoryDigest(options.story),
       `This beat: ${situation.title} — ${situation.blurb}`,
-      'Keep continuity with the last chosen beats: same character, and the same setting/props unless this beat clearly moves.',
+      setting
+        ? `Seeded setting: ${setting}. Put this still there.`
+        : 'Keep continuity with the last chosen beats: same character, and the same setting/props unless this beat clearly moves.',
       options.extraHints?.trim() ? `Player notes: ${options.extraHints.trim()}` : '',
       options.avoidedTokensInstruction ?? '',
       'Write only the image prompt.',
     ]
       .filter(Boolean)
       .join('\n\n'),
-    sanitizeInput: [persona, situation.title, options.extraHints].filter(Boolean).join(' '),
+    sanitizeInput: [persona, situation.title, options.extraHints, setting]
+      .filter(Boolean)
+      .join(' '),
     temperature: options.llm?.temperature ?? (tone === 'cozy' ? 0.7 : 0.95),
     allowTemplateFallback: options.llm?.allowTemplateFallback,
     llmModel: options.llm?.llmModel,
@@ -361,7 +423,15 @@ ${referenceLine(hasReferenceImage)}
     llmProvider: options.llm?.llmProvider,
     llmApiKey: options.llm?.llmApiKey,
     templateFallback: () =>
-      templatePromptFallback(lookLock, situation.blurb, tone, content, allowGore),
+      templatePromptFallback(
+        lookLock,
+        situation.blurb,
+        tone,
+        content,
+        allowGore,
+        setting,
+        hasReferenceImage
+      ),
     metadata: {
       tool: 'roleplay',
       personaId: options.personaId ?? null,
@@ -369,6 +439,8 @@ ${referenceLine(hasReferenceImage)}
       content,
       allowGore,
       hasReferenceImage,
+      isolatedSubject,
+      setting: setting || null,
       bioName: bio.name,
       sceneTitle: situation.title,
       sceneBlurb: situation.blurb,

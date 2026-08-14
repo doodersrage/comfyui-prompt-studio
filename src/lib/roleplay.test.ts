@@ -19,7 +19,12 @@ import {
   isRoleplayAdultContent,
   lastRoleplayPlotBeat,
   lastRoleplayStillImage,
+  normalizeRoleplayIsolateSubject,
   normalizeRoleplayPlayAs,
+  resolveRoleplaySetting,
+  formatRoleplaySettingCue,
+  rollRoleplaySetting,
+  ROLEPLAY_SETTING_PRESETS,
   roleplayIntroScene,
   roleplayStillBasename,
   ROLEPLAY_ARCHETYPES,
@@ -90,6 +95,57 @@ describe('roleplay parsers', () => {
     assert.equal(parseRoleplayAllowGore(false), false);
     assert.match(resolveRoleplayPersonaPrompt('hoodie-dragon'), /dragon/i);
     assert.equal(resolveRoleplayPersonaPrompt('custom', ' a sentient lamp '), 'a sentient lamp');
+  });
+
+  it('resolves a seeded setting and writes replace-scene cues for From photo', () => {
+    assert.equal(resolveRoleplaySetting('  neon alley  ', 'studio lock'), 'neon alley');
+    assert.equal(resolveRoleplaySetting('', 'locked tavern'), 'locked tavern');
+    assert.equal(resolveRoleplaySetting('', ''), '');
+    assert.ok(ROLEPLAY_SETTING_PRESETS.length >= 4);
+    const rolled = rollRoleplaySetting();
+    assert.ok(ROLEPLAY_SETTING_PRESETS.some(entry => entry.setting === rolled));
+    assert.match(
+      formatRoleplaySettingCue({
+        setting: 'flooded cathedral',
+        hasReferenceImage: true,
+        phase: 'prompt',
+      }),
+      /Replace the scene with flooded cathedral/i
+    );
+    assert.match(
+      formatRoleplaySettingCue({
+        setting: 'flooded cathedral',
+        hasReferenceImage: true,
+        phase: 'bio',
+      }),
+      /not the photo's background/i
+    );
+    assert.match(
+      formatRoleplaySettingCue({
+        setting: 'tavern',
+        phase: 'scenes',
+      }),
+      /opening options happen in or around this place/i
+    );
+    assert.match(
+      formatRoleplaySettingCue({
+        hasReferenceImage: true,
+        isolatedSubject: true,
+        setting: 'neon alley',
+        phase: 'prompt',
+      }),
+      /isolated on a blank white backdrop/i
+    );
+    assert.match(
+      formatRoleplaySettingCue({
+        hasReferenceImage: true,
+        isolatedSubject: true,
+        phase: 'prompt',
+      }),
+      /Do not keep the white background/i
+    );
+    assert.equal(normalizeRoleplayIsolateSubject(undefined), true);
+    assert.equal(normalizeRoleplayIsolateSubject(false), false);
   });
 
   it('caps story beats', () => {

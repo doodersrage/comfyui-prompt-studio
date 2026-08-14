@@ -1,7 +1,7 @@
 'use client';
 
 import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
 import { resolveCollabFieldValue } from '@/lib/collab-presence';
 import CollabPresenceBar from '@/components/CollabPresenceBar';
@@ -52,6 +52,7 @@ import {
 } from '@/lib/compose-identity-lock';
 import { createDefaultRegionalSlots } from '@/lib/regional-prompt-slots';
 import { galleryPickPath, sharedPatchFromGalleryHandoff } from '@/lib/gallery-handoff';
+import { isolateSubjectOnWhite, normalizeIsolateSubject } from '@/lib/isolate-subject';
 import { DEFAULT_IMAGE_COMPOSE_TOOL_CACHE } from '@/lib/settings-cache';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
@@ -63,21 +64,59 @@ import {
   accentButtonClass,
   accentFocusClass,
 } from '@/components/ui/ToolPageShell';
-import { FieldError, FieldLabel, TextArea } from '@/components/ui/Field';
+import { ChipButton, FieldError, FieldLabel, TextArea } from '@/components/ui/Field';
 import { ButtonLink, PrimaryButton } from '@/components/ui/Button';
 
 const ACCENT = 'cyan' as const;
 
 type FigureSlot = {
   file: File | null;
+  originalFile: File | null;
   previewUrl: string | null;
+  originalPreviewUrl: string | null;
+  isolated?: boolean;
 };
 
-function emptySlots(): FigureSlot[] {
-  return Array.from({ length: MAX_COMPOSE_FIGURES }, () => ({
+function emptyFigure(): FigureSlot {
+  return {
     file: null,
+    originalFile: null,
     previewUrl: null,
-  }));
+    originalPreviewUrl: null,
+    isolated: false,
+  };
+}
+
+function emptySlots(): FigureSlot[] {
+  return Array.from({ length: MAX_COMPOSE_FIGURES }, () => emptyFigure());
+}
+
+function revokeBlobUrl(url: string | null | undefined) {
+  if (url?.startsWith('blob:')) {
+    URL.revokeObjectURL(url);
+  }
+}
+
+function revokeFigureUrls(slot: FigureSlot | undefined) {
+  if (!slot) {
+    return;
+  }
+  revokeBlobUrl(slot.previewUrl);
+  if (slot.originalPreviewUrl && slot.originalPreviewUrl !== slot.previewUrl) {
+    revokeBlobUrl(slot.originalPreviewUrl);
+  }
+}
+
+async function fileFromPreviewUrl(previewUrl: string, filename: string): Promise<File> {
+  const response = await fetch(previewUrl);
+  if (!response.ok) {
+    throw new Error('Could not load Image 1 to isolate.');
+  }
+  const blob = await response.blob();
+  return new File([blob], filename, {
+    type: blob.type || 'image/png',
+    lastModified: Date.now(),
+  });
 }
 
 export default function ComposeTool() {
@@ -98,9 +137,13 @@ export default function ComposeTool() {
   const [output, setOutput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [isolating, setIsolating] = useState(false);
+  const [isolateStatus, setIsolateStatus] = useState<string | null>(null);
+  const isolateGenRef = useRef(0);
 
   const instruction = toolSettings.instruction ?? '';
   const mode = (toolSettings.mode ?? 'transfer') as ComposeMode;
+  const isolateSubject = normalizeIsolateSubject(toolSettings.isolateSubject);
 
   const setInstruction = useCallback(
     (value: string) => {
@@ -167,8 +210,9 @@ export default function ComposeTool() {
         instruction,
         figureCount: Math.max(filledCount, mode === 'transfer' ? 2 : 1),
         model: shared.model,
+        isolatedSubject: slots[0]?.isolated === true,
       }),
-    [filledCount, instruction, mode, shared.model]
+    [filledCount, instruction, mode, shared.model, slots]
   );
 
   useEffect(() => {
@@ -197,25 +241,132 @@ export default function ComposeTool() {
     });
   }, []);
 
-  const setFigure = useCallback(
-    (index: number, nextFile: File | null) => {
+  const assignFigure = useCallback(
+    async (
+      index: number,
+      nextFile: File | null,
+      options?: { skipIsolate?: boolean; isolate?: boolean; previewUrl?: string | null }
+    ) => {
+      if (index !== 0) {
+        setSlots(current => {
+          const next = current.map(slot => ({ ...slot }));
+          revokeFigureUrls(next[index]);
+          next[index] = nextFile
+            ? {
+                file: nextFile,
+                originalFile: nextFile,
+                previewUrl: URL.createObjectURL(nextFile),
+                originalPreviewUrl: null,
+                isolated: false,
+              }
+            : emptyFigure();
+          return next;
+        });
+        return;
+      }
+
+      isolateGenRef.current += 1;
+      const gen = isolateGenRef.current;
+      clearMaskState();
+
+      const incomingPreview = options?.previewUrl ?? null;
+      if (!nextFile && !incomingPreview) {
+        setSlots(current => {
+          const next = current.map(slot => ({ ...slot }));
+          revokeFigureUrls(next[0]);
+          next[0] = emptyFigure();
+          return next;
+        });
+        setIsolateStatus(null);
+        setIsolating(false);
+        return;
+      }
+
+      const originalPreviewUrl =
+        incomingPreview ?? (nextFile ? URL.createObjectURL(nextFile) : null);
       setSlots(current => {
         const next = current.map(slot => ({ ...slot }));
-        const prev = next[index];
-        if (prev?.previewUrl && prev.file) {
-          URL.revokeObjectURL(prev.previewUrl);
+        const prev = next[0];
+        if (prev) {
+          if (prev.previewUrl && prev.previewUrl !== originalPreviewUrl) {
+            revokeBlobUrl(prev.previewUrl);
+          }
+          if (
+            prev.originalPreviewUrl &&
+            prev.originalPreviewUrl !== originalPreviewUrl &&
+            prev.originalPreviewUrl !== prev.previewUrl
+          ) {
+            revokeBlobUrl(prev.originalPreviewUrl);
+          }
         }
-        next[index] = {
+        next[0] = {
           file: nextFile,
-          previewUrl: nextFile ? URL.createObjectURL(nextFile) : null,
+          originalFile: nextFile,
+          previewUrl: originalPreviewUrl,
+          originalPreviewUrl,
+          isolated: false,
         };
         return next;
       });
-      if (index === 0) {
-        clearMaskState();
+
+      const shouldIsolate = (options?.isolate ?? isolateSubject) && !options?.skipIsolate;
+      if (!shouldIsolate) {
+        setIsolateStatus(null);
+        setIsolating(false);
+        return;
+      }
+
+      setIsolating(true);
+      setIsolateStatus('Isolating subject on white…');
+      setError(null);
+      try {
+        const source =
+          nextFile ??
+          (await fileFromPreviewUrl(
+            incomingPreview as string,
+            `compose-image-1-${Date.now()}.png`
+          ));
+        if (gen !== isolateGenRef.current) {
+          return;
+        }
+        const cutout = await isolateSubjectOnWhite(source, source.name);
+        if (gen !== isolateGenRef.current) {
+          return;
+        }
+        const cutoutPreview = URL.createObjectURL(cutout);
+        setSlots(current => {
+          const next = current.map(slot => ({ ...slot }));
+          const prev = next[0];
+          if (prev?.previewUrl && prev.previewUrl !== prev.originalPreviewUrl) {
+            revokeBlobUrl(prev.previewUrl);
+          }
+          next[0] = {
+            file: cutout,
+            originalFile: prev?.originalFile ?? source,
+            previewUrl: cutoutPreview,
+            originalPreviewUrl: prev?.originalPreviewUrl ?? originalPreviewUrl,
+            isolated: true,
+          };
+          return next;
+        });
+        setIsolateStatus('Subject isolated on white.');
+      } catch (err) {
+        if (gen !== isolateGenRef.current) {
+          return;
+        }
+        setIsolateStatus(null);
+        setError(
+          err instanceof Error
+            ? `${err.message} Using the original photo.`
+            : 'Could not isolate the subject. Using the original photo.'
+        );
+      } finally {
+        if (gen === isolateGenRef.current) {
+          setIsolating(false);
+        }
       }
     },
-    [clearMaskState]
+    [clearMaskState, isolateSubject]
   );
 
   const applyGalleryHandoff = useCallback(
@@ -267,20 +418,12 @@ export default function ComposeTool() {
           identityLock: true,
         });
       }
-      setSlots(current => {
-        const next = current.map(slot => ({ ...slot }));
-        if (next[0]?.previewUrl && next[0].file) {
-          URL.revokeObjectURL(next[0].previewUrl);
-        }
-        next[0] = {
-          file: handoff.file,
-          previewUrl: handoff.previewUrl,
-        };
-        return next;
+      void assignFigure(0, handoff.file, {
+        skipIsolate: handoff.handoffMode === 'reedit',
+        previewUrl: handoff.previewUrl,
       });
-      clearMaskState();
     },
-    [clearMaskState, setInstruction, updateShared, updateToolSettings]
+    [assignFigure, setInstruction, updateShared, updateToolSettings]
   );
 
   useGalleryHandoff('compose', applyGalleryHandoff);
@@ -358,6 +501,10 @@ export default function ComposeTool() {
   ]);
 
   const assertReadyToQueue = useCallback(() => {
+    if (isolating) {
+      setError('Wait for Image 1 to finish isolating.');
+      return false;
+    }
     const fig1 = slots[0];
     if (!fig1?.file && !fig1?.previewUrl) {
       setError('Upload Image 1 (base image) before queueing.');
@@ -373,7 +520,7 @@ export default function ComposeTool() {
     }
     setError(null);
     return true;
-  }, [filledCount, mode, output, slots]);
+  }, [filledCount, isolating, mode, output, slots]);
 
   const applyTemplate = useCallback(
     (text: string) => {
@@ -533,19 +680,51 @@ export default function ComposeTool() {
           </div>
         ) : null}
 
-        <FieldLabel hint="Image 1 is the base canvas. Images 2–4 are optional reference donors.">
+        <FieldLabel hint="Image 1 is the base canvas. Isolate on white cuts Image 1 so the original background cannot leak. Images 2–4 stay intact as pose and scene donors.">
           Images
         </FieldLabel>
+        <div className="flex flex-wrap items-center gap-2">
+          <ChipButton
+            active={isolateSubject}
+            disabled={isolating}
+            title="Cut Image 1 out and place them on a white backdrop before queueing. First use downloads a small on-device model. Continue-edit gallery handoffs skip this so the full canvas stays."
+            onClick={() => {
+              const next = !isolateSubject;
+              updateToolSettings({ isolateSubject: next });
+              const slot0 = slots[0];
+              const original = slot0?.originalFile ?? slot0?.file;
+              if (!original && !slot0?.originalPreviewUrl && !slot0?.previewUrl) {
+                return;
+              }
+              if (!next) {
+                void assignFigure(0, original, {
+                  skipIsolate: true,
+                  previewUrl: original ? undefined : slot0?.originalPreviewUrl || slot0?.previewUrl,
+                });
+                return;
+              }
+              void assignFigure(0, original, {
+                isolate: true,
+                previewUrl: original ? undefined : slot0?.originalPreviewUrl || slot0?.previewUrl,
+              });
+            }}
+          >
+            Isolate on white
+          </ChipButton>
+          {isolateStatus ? (
+            <span className="text-xs text-[var(--text-muted)]">{isolateStatus}</span>
+          ) : null}
+        </div>
         <div className="grid gap-3 sm:grid-cols-2">
           {slots.map((slot, index) => {
             const required = index === 0 || (mode === 'transfer' && index === 1);
-            const disabled = mode === 'modify' && index > 0;
+            const disabled = (mode === 'modify' && index > 0) || (index === 0 && isolating);
             return (
               <div
                 key={`figure-${index + 1}`}
                 className={[
                   'rounded-2xl border p-3 transition',
-                  disabled
+                  disabled && !(index === 0 && isolating)
                     ? 'border-[var(--border-subtle)]/80 bg-[var(--bg-muted)]/20 opacity-45'
                     : 'border-[var(--border-subtle)] bg-gradient-to-b from-[var(--bg-muted)]/50 to-[var(--bg-base)]/40',
                 ].join(' ')}
@@ -558,12 +737,17 @@ export default function ComposeTool() {
                         required
                       </span>
                     ) : null}
+                    {index === 0 && slot.isolated ? (
+                      <span className="ml-1.5 text-xs font-normal text-[var(--text-muted)]">
+                        on white
+                      </span>
+                    ) : null}
                   </p>
                   {slot.previewUrl ? (
                     <button
                       type="button"
-                      disabled={disabled}
-                      onClick={() => setFigure(index, null)}
+                      disabled={mode === 'modify' && index > 0}
+                      onClick={() => void assignFigure(index, null)}
                       className="rounded-lg px-2 py-1 text-xs text-[var(--text-muted)] transition hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:pointer-events-none"
                     >
                       Clear
@@ -575,7 +759,11 @@ export default function ComposeTool() {
                     type="file"
                     accept="image/*"
                     disabled={disabled}
-                    onChange={event => setFigure(index, event.target.files?.[0] ?? null)}
+                    onChange={event => {
+                      const file = event.target.files?.[0] ?? null;
+                      event.target.value = '';
+                      void assignFigure(index, file);
+                    }}
                     className="ui-file-input w-full disabled:opacity-50"
                   />
                   {index === 0 ? (
@@ -594,7 +782,10 @@ export default function ComposeTool() {
                   <img
                     src={slot.previewUrl}
                     alt={`Image ${index + 1} preview`}
-                    className="mt-3 max-h-40 w-full rounded-xl border border-[var(--border-subtle)] object-contain"
+                    className={[
+                      'mt-3 max-h-40 w-full rounded-xl border border-[var(--border-subtle)] object-contain',
+                      index === 0 && slot.isolated ? 'bg-white' : '',
+                    ].join(' ')}
                   />
                 ) : (
                   <p className="mt-3 text-xs text-[var(--text-muted)]">

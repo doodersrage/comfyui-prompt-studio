@@ -27,10 +27,13 @@ type RoleplayRequestBody = {
   personaId?: string;
   customPersona?: string;
   extraHints?: string;
+  setting?: string;
+  lockedLocation?: string;
   tone?: string;
   content?: string;
   allowGore?: boolean;
   hasReferenceImage?: boolean;
+  isolatedSubject?: boolean;
   bio?: RoleplayBio;
   story?: RoleplayStoryBeat[];
   situation?: RoleplayScene;
@@ -92,10 +95,13 @@ export async function POST(request: Request) {
       personaId: body.personaId?.trim(),
       customPersona: body.customPersona?.trim(),
       extraHints: body.extraHints?.trim(),
+      setting: body.setting?.trim() || body.lockedLocation?.trim(),
+      lockedLocation: body.lockedLocation?.trim(),
       tone: body.tone,
       content: body.content,
       allowGore: parseRoleplayAllowGore(body.allowGore),
       hasReferenceImage: body.hasReferenceImage === true,
+      isolatedSubject: body.hasReferenceImage === true && body.isolatedSubject === true,
       bio: body.bio ? parseRoleplayBio(body.bio) : undefined,
       story: parseStory(body.story),
     };
@@ -113,7 +119,10 @@ export async function POST(request: Request) {
     const situation = body.situation ? parseRoleplayScenes([body.situation])[0] : undefined;
     const result = await generateRoleplayPrompt({ ...common, situation });
     return apiJson(
-      enrichGenerateResult(result, [common.extraHints, situation?.title].filter(Boolean).join(' '))
+      enrichGenerateResult(
+        result,
+        [common.extraHints, common.setting, situation?.title].filter(Boolean).join(' ')
+      )
     );
   } catch (error) {
     return apiError(error instanceof Error ? error.message : 'Roleplay generation failed.', 500);

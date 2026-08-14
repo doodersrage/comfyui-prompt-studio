@@ -693,6 +693,11 @@ export type ImageComposeToolCache = {
   mode?: 'transfer' | 'modify';
   /** Last figure-slot count hint (1–4). */
   figureCountHint?: number;
+  /**
+   * Cut Image 1 onto a white plate before queueing so edit models cannot lock
+   * onto the original background. Default on; Images 2–4 are left intact.
+   */
+  isolateSubject?: boolean;
   /** Pull identity from Figure 1 via IP-Adapter at queue time. */
   identityLock?: boolean;
   /** IP-Adapter weight when identityLock is on (default 0.5). */
@@ -863,11 +868,16 @@ export type RoleplayToolCache = {
   personaId?: string;
   customPersona?: string;
   extraHints?: string;
+  setting?: string;
   tone?: import('./roleplay').RoleplayTone;
   content?: import('./roleplay').RoleplayContentId;
   playAs?: import('./roleplay').RoleplayPlayAs;
   referenceImageUrl?: string;
   referenceImageFilename?: string;
+  referenceOriginalUrl?: string;
+  referenceOriginalFilename?: string;
+  isolateSubject?: boolean;
+  referenceIsolated?: boolean;
   bio?: import('./roleplay').RoleplayBio;
   story?: import('./roleplay').RoleplayStoryBeat[];
   autoQueue?: boolean;
@@ -1117,6 +1127,7 @@ export const DEFAULT_IMAGE_COMPOSE_TOOL_CACHE: ImageComposeToolCache = {
   instruction: '',
   mode: 'transfer',
   figureCountHint: 2,
+  isolateSubject: true,
   identityLock: false,
   identityLockStrength: 0.5,
   identityKind: 'ipadapter',
@@ -1222,9 +1233,11 @@ export const DEFAULT_ROLEPLAY_TOOL_CACHE: RoleplayToolCache = {
   personaId: 'raccoon-pirate',
   customPersona: '',
   extraHints: '',
+  setting: '',
   tone: 'silly',
   content: 'pg13',
   playAs: 'text',
+  isolateSubject: true,
   autoQueue: true,
 };
 

@@ -77,6 +77,28 @@ export { normalizeInputImageFilenames };
 
 const IMAGE_REF_LABEL_RE = /\b(?:image|picture|figure|ref|photo)\s*[1-4]\b/i;
 
+const COMPOSE_ISOLATE_MODIFY_PREFIX =
+  'Image 1 is the subject isolated on a blank white backdrop. Replace the white with the new environment described below. Keep the subject’s identity. Do not keep a studio void.';
+
+const COMPOSE_ISOLATE_TRANSFER_PREFIX =
+  'Image 1 is the subject isolated on a blank white backdrop (identity only). Replace the white; do not keep a studio void.';
+
+function withIsolatedSubjectPrefix(
+  text: string,
+  isolated: boolean | undefined,
+  mode: ComposeMode
+): string {
+  if (!isolated || !text) {
+    return text;
+  }
+  if (/isolated on a blank white/i.test(text)) {
+    return text;
+  }
+  const prefix =
+    mode === 'modify' ? COMPOSE_ISOLATE_MODIFY_PREFIX : COMPOSE_ISOLATE_TRANSFER_PREFIX;
+  return `${prefix} ${text}`;
+}
+
 const MULTI_INPUT_IMAGE_TOKENS = [
   DEFAULT_INPUT_IMAGE_TOKEN,
   DEFAULT_INPUT_IMAGE_2_TOKEN,
@@ -1294,67 +1316,62 @@ export function buildComposeInstruction(input: {
   figureCount: number;
   /** When Klein, Modify prompts get a preserve-composition prefix for CLIP img2img. */
   model?: string;
+  /** Image 1 is a white-plate cutout; tell the model to replace the void. */
+  isolatedSubject?: boolean;
 }): string {
   const raw = input.instruction.trim();
   if (!raw) {
     return '';
   }
 
+  let text: string;
+
   if (input.mode === 'modify') {
-    let text = raw;
+    text = raw;
     if (/^(keep|replace|add|remove)\s*:/im.test(raw)) {
       const built = buildQwenEditPrompt(parseQwenEditSegments(raw));
       text = built || raw;
     }
     if (isFluxKleinModel(input.model)) {
-      if (text.toLowerCase().startsWith('edit the input image')) {
-        return text;
+      if (!text.toLowerCase().startsWith('edit the input image')) {
+        text = `${KLEIN_MODIFY_PRESERVE_PREFIX} ${text}`;
       }
-      return `${KLEIN_MODIFY_PRESERVE_PREFIX} ${text}`;
-    }
-    if (isZImageModel(input.model)) {
-      if (text.toLowerCase().startsWith('edit image 1')) {
-        return text;
+    } else if (isZImageModel(input.model)) {
+      if (!text.toLowerCase().startsWith('edit image 1')) {
+        text = `${Z_IMAGE_MODIFY_PRESERVE_PREFIX} ${text}`;
       }
-      return `${Z_IMAGE_MODIFY_PRESERVE_PREFIX} ${text}`;
-    }
-    if (
+    } else if (
       isVisionEncodedComposeModel(input.model) &&
       isAggressiveComposeInstruction(raw) &&
       !/\bfacial identity only\b/i.test(text)
     ) {
-      return `${QWEN_POSE_UNLOCK_MODIFY_PREFIX} ${text}`;
+      text = `${QWEN_POSE_UNLOCK_MODIFY_PREFIX} ${text}`;
     }
-    return text;
+  } else {
+    text = raw;
+    if (
+      isVisionEncodedComposeModel(input.model) &&
+      input.figureCount >= 2 &&
+      isAggressiveComposeInstruction(raw) &&
+      !/\bfacial identity only\b/i.test(raw)
+    ) {
+      text = `${QWEN_POSE_UNLOCK_TRANSFER_PREFIX} ${raw}`;
+    }
+
+    if (!(IMAGE_REF_LABEL_RE.test(text) || input.figureCount < 2)) {
+      const labels = Array.from(
+        { length: Math.min(input.figureCount, MAX_COMPOSE_FIGURES) },
+        (_, i) => `${QWEN_EDIT_IMAGE_REF_PREFIX} ${i + 1}`
+      ).join(', ');
+      if (isZImageModel(input.model) && input.figureCount >= 2) {
+        text = `Image 1 is the img2img base — ${Z_IMAGE_IDENTITY_ANCHOR.toLowerCase()}. Using ${labels} in the prompt: ${text}`;
+      } else {
+        text = `Using ${labels}: ${text}`;
+      }
+    }
   }
 
-  let transferText = raw;
-  if (
-    isVisionEncodedComposeModel(input.model) &&
-    input.figureCount >= 2 &&
-    isAggressiveComposeInstruction(raw) &&
-    !/\bfacial identity only\b/i.test(raw)
-  ) {
-    transferText = `${QWEN_POSE_UNLOCK_TRANSFER_PREFIX} ${raw}`;
-  }
-
-  if (IMAGE_REF_LABEL_RE.test(transferText) || input.figureCount < 2) {
-    return transferText;
-  }
-
-  if (isZImageModel(input.model) && input.figureCount >= 2) {
-    const labels = Array.from(
-      { length: Math.min(input.figureCount, MAX_COMPOSE_FIGURES) },
-      (_, i) => `${QWEN_EDIT_IMAGE_REF_PREFIX} ${i + 1}`
-    ).join(', ');
-    return `Image 1 is the img2img base — ${Z_IMAGE_IDENTITY_ANCHOR.toLowerCase()}. Using ${labels} in the prompt: ${transferText}`;
-  }
-
-  const labels = Array.from(
-    { length: Math.min(input.figureCount, MAX_COMPOSE_FIGURES) },
-    (_, i) => `${QWEN_EDIT_IMAGE_REF_PREFIX} ${i + 1}`
-  ).join(', ');
-  return `Using ${labels}: ${transferText}`;
+  return withIsolatedSubjectPrefix(text, input.isolatedSubject, input.mode);
 }
 
 export function composeFigureCountFromFilenames(

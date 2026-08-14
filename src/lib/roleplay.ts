@@ -82,6 +82,123 @@ export const ROLEPLAY_PLAY_AS: Array<{ id: RoleplayPlayAs; label: string; hint: 
   },
 ];
 
+export const ROLEPLAY_SETTING_PRESETS: Array<{ id: string; label: string; setting: string }> = [
+  {
+    id: 'neon-alley',
+    label: 'Neon alley',
+    setting: 'rain-slick cyberpunk alley with neon reflections',
+  },
+  {
+    id: 'tavern',
+    label: 'Tavern',
+    setting: 'candlelit tavern with sticky wood tables and a roaring hearth',
+  },
+  {
+    id: 'kitchen',
+    label: 'Kitchen',
+    setting: 'sunlit suburban kitchen with breakfast clutter on the counters',
+  },
+  {
+    id: 'forest',
+    label: 'Forest',
+    setting: 'misty pine forest path after rainfall',
+  },
+  {
+    id: 'rooftop',
+    label: 'Rooftop',
+    setting: 'rooftop garden overlooking a sprawling city at golden hour',
+  },
+  {
+    id: 'station',
+    label: 'Station',
+    setting: 'marble train station concourse at midnight',
+  },
+  {
+    id: 'beach',
+    label: 'Beach',
+    setting: 'volcanic black sand beach with driftwood at dusk',
+  },
+  {
+    id: 'orbit',
+    label: 'Orbit',
+    setting: 'orbital station observation deck above Earth',
+  },
+];
+
+export function resolveRoleplaySetting(
+  setting?: string | null,
+  lockedLocation?: string | null
+): string {
+  return setting?.trim() || lockedLocation?.trim() || '';
+}
+
+export function rollRoleplaySetting(exclude?: string | null): string {
+  const skip = exclude?.trim() ?? '';
+  const pool = ROLEPLAY_SETTING_PRESETS.filter(entry => entry.setting !== skip);
+  const pickFrom = pool.length > 0 ? pool : ROLEPLAY_SETTING_PRESETS;
+  const index = Math.floor(Math.random() * pickFrom.length);
+  return pickFrom[index]?.setting ?? ROLEPLAY_SETTING_PRESETS[0]!.setting;
+}
+
+export function formatRoleplaySettingCue(input: {
+  setting?: string | null;
+  hasReferenceImage?: boolean;
+  isolatedSubject?: boolean;
+  phase: 'bio' | 'scenes' | 'prompt';
+  continuing?: boolean;
+}): string {
+  const setting = input.setting?.trim() ?? '';
+  const photo = Boolean(input.hasReferenceImage);
+  const isolated = photo && Boolean(input.isolatedSubject);
+
+  if (input.phase === 'bio') {
+    if (setting && photo) {
+      return `Seeded setting: ${setting}. Look describes the person and costume only — not the photo's background. They may be placed in this setting.`;
+    }
+    if (setting) {
+      return `Seeded setting: ${setting}. The look can mention this place.`;
+    }
+    if (photo) {
+      return `Look describes the person and costume only. Do not copy the reference photo's background, furniture, or lighting.`;
+    }
+    return '';
+  }
+
+  if (input.phase === 'scenes') {
+    if (setting && input.continuing) {
+      return `Seeded setting: ${setting}. Stay here unless a branch clearly leaves this place.`;
+    }
+    if (setting) {
+      return `Seeded setting: ${setting}. All four opening options happen in or around this place.`;
+    }
+    if (photo) {
+      return `Do not reuse the reference photo's location. Invent a fitting place for this character.`;
+    }
+    return '';
+  }
+
+  if (isolated && setting) {
+    return `The reference is the subject isolated on a blank white backdrop. Replace the white with ${setting}. Keep the person's face and body. Do not keep a studio void.`;
+  }
+  if (isolated) {
+    return `The reference is the subject isolated on a blank white backdrop. Invent a full environment around them. Keep identity only. Do not keep the white background.`;
+  }
+  if (setting && photo) {
+    return `Replace the scene with ${setting}. Keep the person's face and body from the reference. Discard the photo's background, furniture, and lighting.`;
+  }
+  if (setting) {
+    return `This still is set in: ${setting}.`;
+  }
+  if (photo) {
+    return `Discard the reference photo's background. Place them in the beat's setting. Keep identity only.`;
+  }
+  return '';
+}
+
+export function normalizeRoleplayIsolateSubject(value: unknown): boolean {
+  return value !== false && value !== 'false' && value !== 0;
+}
+
 const ROLEPLAY_CONTENT_ALIASES: Record<string, RoleplayContentId> = {
   clean: 'clean',
   'all-ages': 'clean',
