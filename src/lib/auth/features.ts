@@ -83,6 +83,7 @@ const API_FEATURE_MAP: Array<{ prefix: string; feature: AppFeatureId }> = [
   { prefix: '/api/plugin-hooks', feature: 'plugins' },
   { prefix: '/api/comfyui', feature: 'comfyui-api' },
   { prefix: '/api/diffusers', feature: 'comfyui-api' },
+  { prefix: '/api/fal', feature: 'comfyui-api' },
 
   { prefix: '/api/generate', feature: 'llm-api' },
   { prefix: '/api/random-scene', feature: 'llm-api' },

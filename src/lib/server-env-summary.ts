@@ -134,7 +134,7 @@ export function getServerEnvSummary(): ServerEnvSummary {
           label: 'Default inference engine',
           value: process.env.PROMPT_ENGINE?.trim() || 'comfyui',
           configured: flag(process.env.PROMPT_ENGINE),
-          hint: 'comfyui (default) or diffusers — browser Settings override wins.',
+          hint: 'comfyui (default), diffusers, or fal — browser Settings override wins.',
           uiOverride: 'Settings → ComfyUI → Inference engine',
         },
         {
@@ -144,6 +144,16 @@ export function getServerEnvSummary(): ServerEnvSummary {
           configured: flag(process.env.DIFFUSERS_AUTOSTART),
           hint: 'Set to 0 to block spawning services/diffusers-engine. Browser Settings can also disable.',
           uiOverride: 'Settings → ComfyUI → Inference engine → Auto-start',
+        },
+        {
+          key: 'FAL_KEY',
+          label: 'Fal API key',
+          value: flag(process.env.FAL_KEY ?? process.env.FAL_API_KEY)
+            ? '•••• configured'
+            : 'not set',
+          configured: flag(process.env.FAL_KEY ?? process.env.FAL_API_KEY),
+          hint: 'Used when Settings → Inference engine is Fal and the browser key is empty.',
+          uiOverride: 'Settings → ComfyUI → Inference engine → Fal API key',
         },
         {
           key: 'COMFYUI_ROOT',

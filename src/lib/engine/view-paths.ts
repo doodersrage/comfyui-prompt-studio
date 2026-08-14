@@ -36,6 +36,20 @@ export function buildDiffusersViewPath(
   return `/api/diffusers/view?${params.toString()}`;
 }
 
+export function buildFalViewPath(
+  _engineUrl: string,
+  image: EngineOutputImage,
+  options?: EngineViewPathOptions
+): string {
+  const params = new URLSearchParams({
+    filename: image.filename,
+    subfolder: image.subfolder,
+    type: image.type,
+  });
+  appendWidth(params, options);
+  return `/api/fal/view?${params.toString()}`;
+}
+
 export function buildEngineViewPath(
   engineId: EngineId | undefined,
   engineUrl: string,
@@ -49,6 +63,8 @@ export function buildEngineViewPath(
   let result: string;
   if (engineId === 'diffusers') {
     result = buildDiffusersViewPath(engineUrl, image, options);
+  } else if (engineId === 'fal') {
+    result = buildFalViewPath(engineUrl, image, options);
   } else {
     const params = new URLSearchParams({
       filename: image.filename,

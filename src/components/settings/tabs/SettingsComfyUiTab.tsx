@@ -55,6 +55,7 @@ import type { SharedToolSettings } from '@/lib/settings-cache';
 import { markOnboardingSystemWorkflowsEnabled } from '@/lib/onboarding-hooks';
 import { fetchWorkflowPreview } from '@/lib/comfyui-requeue';
 import type { ComfyUiSettingsSectionId } from '@/lib/settings-comfyui-nav';
+import { FAL_MODEL_PRESETS } from '@/lib/engine/capabilities';
 import {
   SETTINGS_TOOL_ACCENT,
   formatModelWorkflowMap,
@@ -218,7 +219,7 @@ export default function SettingsComfyUiTab({
       <ToolSection
         id="settings-comfyui-inference-engine"
         title="Inference engine"
-        description="ComfyUI is the default generate path (Qwen Lightning bf16, Final/Max enrich, specialty graphs). Diffusers is optional for experimental txt2img / SDXL trials."
+        description="ComfyUI is the default generate path (Qwen Lightning bf16, Final/Max enrich, specialty graphs). Diffusers is optional local txt2img. Fal is a cloud API for prompt + optional reference image — no workflows, LoRAs, or live latents."
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1">
@@ -227,16 +228,23 @@ export default function SettingsComfyUiTab({
             </label>
             <select
               id="inference-engine"
-              value={sharedSettings.inferenceEngine === 'diffusers' ? 'diffusers' : 'comfyui'}
-              onChange={event =>
-                updateSharedSettings({
-                  inferenceEngine: event.target.value === 'diffusers' ? 'diffusers' : 'comfyui',
-                })
+              value={
+                sharedSettings.inferenceEngine === 'diffusers' ||
+                sharedSettings.inferenceEngine === 'fal'
+                  ? sharedSettings.inferenceEngine
+                  : 'comfyui'
               }
+              onChange={event => {
+                const value = event.target.value;
+                updateSharedSettings({
+                  inferenceEngine: value === 'diffusers' || value === 'fal' ? value : 'comfyui',
+                });
+              }}
               className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 text-sm text-[var(--text-primary)] shadow-inner transition focus-visible:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
             >
               <option value="comfyui">ComfyUI (primary generate)</option>
               <option value="diffusers">Diffusers (optional / experimental)</option>
+              <option value="fal">Fal (cloud txt2img)</option>
             </select>
           </div>
           <div className="space-y-1">
@@ -309,6 +317,60 @@ export default function SettingsComfyUiTab({
               <option value="never">Allow hands in frame</option>
             </select>
           </div>
+          <div className="space-y-1 sm:col-span-2">
+            <label htmlFor="fal-api-key" className="text-xs text-[var(--text-secondary)]">
+              Fal API key
+            </label>
+            <input
+              id="fal-api-key"
+              type="password"
+              autoComplete="off"
+              value={sharedSettings.sessionFalApiKey ?? ''}
+              onChange={event =>
+                updateSharedSettings({
+                  sessionFalApiKey: event.target.value.trim() || undefined,
+                })
+              }
+              placeholder="Server FAL_KEY is used when this is empty"
+              disabled={sharedSettings.inferenceEngine !== 'fal'}
+              className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 text-sm text-[var(--text-primary)] shadow-inner transition focus-visible:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:cursor-not-allowed disabled:opacity-50"
+            />
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="fal-model" className="text-xs text-[var(--text-secondary)]">
+              Fal txt2img model
+            </label>
+            <input
+              id="fal-model"
+              list="fal-model-presets"
+              value={sharedSettings.falModel ?? ''}
+              onChange={event => updateSharedSettings({ falModel: event.target.value })}
+              placeholder="fal-ai/flux/schnell"
+              disabled={sharedSettings.inferenceEngine !== 'fal'}
+              className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 text-sm text-[var(--text-primary)] shadow-inner transition focus-visible:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:cursor-not-allowed disabled:opacity-50"
+            />
+            <datalist id="fal-model-presets">
+              {FAL_MODEL_PRESETS.map(preset => (
+                <option key={preset.id} value={preset.id}>
+                  {preset.label}
+                </option>
+              ))}
+            </datalist>
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="fal-img2img-model" className="text-xs text-[var(--text-secondary)]">
+              Fal image-to-image model
+            </label>
+            <input
+              id="fal-img2img-model"
+              list="fal-model-presets"
+              value={sharedSettings.falImg2ImgModel ?? ''}
+              onChange={event => updateSharedSettings({ falImg2ImgModel: event.target.value })}
+              placeholder="fal-ai/flux/dev/image-to-image"
+              disabled={sharedSettings.inferenceEngine !== 'fal'}
+              className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 text-sm text-[var(--text-primary)] shadow-inner transition focus-visible:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:cursor-not-allowed disabled:opacity-50"
+            />
+          </div>
         </div>
         <p className="text-xs text-[var(--text-muted)]">
           Default Generate uses ComfyUI (Dynamic VRAM / bf16 Lightning). Diffusers remains available
@@ -316,7 +378,19 @@ export default function SettingsComfyUiTab({
           <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
             cd services/diffusers-engine && ./run.sh
           </code>{' '}
-          or enable auto-start when that engine is selected. Server proxy uses{' '}
+          or enable auto-start when that engine is selected. Fal queues{' '}
+          <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
+            prompt + optional Image 1
+          </code>{' '}
+          through{' '}
+          <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
+            /api/fal
+          </code>
+          ; key from Settings or{' '}
+          <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
+            FAL_KEY
+          </code>
+          . Server proxy uses{' '}
           <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
             DIFFUSERS_API_URL
           </code>

@@ -141,6 +141,23 @@ export async function uploadComfyInputImage(input: {
     /* optional */
   }
 
+  const { getEngineAdapter } = await import('./engine');
+  const adapter = getEngineAdapter();
+  if (adapter.id !== 'comfyui') {
+    const uploaded = await adapter.uploadInputImage({
+      file: prepared,
+      engineUrl: comfyUrl,
+      model: typeof input.model === 'string' ? input.model : undefined,
+    });
+    return {
+      name: uploaded.name,
+      subfolder: uploaded.subfolder,
+      type: uploaded.type,
+      width,
+      height,
+    };
+  }
+
   try {
     const uploaded = await uploadMultipart(prepared, comfyUrl, extra);
     return { ...uploaded, width, height };

@@ -38,6 +38,7 @@ import {
 } from '@/lib/comfyui-settings';
 import { loadSettingsCache } from '@/lib/settings-cache';
 import { getEngineAdapter } from '@/lib/engine';
+import { engineDisplayName, isCloudEngine } from '@/lib/engine/capabilities';
 import { loadEngineSettings } from '@/lib/engine-settings';
 import { workshopCropToApi } from '@/lib/diffusers-defaults';
 import { computePromptContentHash, nextPromptVersionFields } from '@/lib/prompt-versioning';
@@ -166,7 +167,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
       const initialJob: ComfyUiJobTrackerState = {
         promptId: input.promptId,
         status: 'pending',
-        statusMessage: engineId === 'diffusers' ? 'Submitted to Diffusers' : 'Submitted to ComfyUI',
+        statusMessage: `Submitted to ${engineDisplayName(engineId)}`,
         comfyUrl: input.comfyUrl,
         engineId,
       };
@@ -520,19 +521,40 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         const pluginDenoise = pluginPreflight.payload.denoise;
         const pluginCfg = pluginPreflight.payload.cfg;
 
-        const { resolveRuntimeForQueueAsync } = await import('@/lib/comfyui-runtime-for-model');
-        const baseRuntime = await resolveRuntimeForQueueAsync(config.model, config.tool);
-        const queueModel = resolveModelForQueueTool(config.model, config.tool);
-        const vramGuard = await guardQueueQualityForVram({
-          profile: options?.qualityProfile ?? baseRuntime.queueQualityProfile,
-          runtime: baseRuntime,
-        });
-        const runtime = {
-          ...(vramGuard.runtime ?? baseRuntime),
-        };
-        const effectiveQualityProfile = vramGuard.profile;
+        const engineAdapter = getEngineAdapter();
+        const engineSettings = loadEngineSettings();
+        const cloudEngine = isCloudEngine(engineAdapter.id);
 
-        if (options?.customTokens?.length) {
+        const queueModel = resolveModelForQueueTool(config.model, config.tool);
+        let runtime:
+          | Awaited<
+              ReturnType<
+                typeof import('@/lib/comfyui-runtime-for-model').resolveRuntimeForQueueAsync
+              >
+            >
+          | undefined;
+        let effectiveQualityProfile =
+          options?.qualityProfile ?? loadSettingsCache().shared.queueQualityProfile ?? 'final';
+        let vramGuard: {
+          downgraded: boolean;
+          profile: typeof effectiveQualityProfile;
+          runtime?: typeof runtime;
+        } = { downgraded: false, profile: effectiveQualityProfile };
+
+        if (!cloudEngine) {
+          const { resolveRuntimeForQueueAsync } = await import('@/lib/comfyui-runtime-for-model');
+          const baseRuntime = await resolveRuntimeForQueueAsync(config.model, config.tool);
+          vramGuard = await guardQueueQualityForVram({
+            profile: options?.qualityProfile ?? baseRuntime.queueQualityProfile,
+            runtime: baseRuntime,
+          });
+          runtime = {
+            ...(vramGuard.runtime ?? baseRuntime),
+          };
+          effectiveQualityProfile = vramGuard.profile;
+        }
+
+        if (options?.customTokens?.length && runtime) {
           const byToken = new Map((runtime.customTokens ?? []).map(entry => [entry.token, entry]));
           for (const entry of options.customTokens) {
             if (entry.token?.trim() && entry.value?.trim()) {
@@ -545,7 +567,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           runtime.customTokens = [...byToken.values()];
         }
 
-        if (options?.regionalSlots?.length) {
+        if (options?.regionalSlots?.length && runtime) {
           runtime.regionalSlots = options.regionalSlots;
         }
 
@@ -566,8 +588,6 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           workflowJson: runtime?.workflowJson,
         };
 
-        const engineAdapter = getEngineAdapter();
-        const engineSettings = loadEngineSettings();
         if (engineAdapter.id === 'comfyui') {
           const { runWorkflowPreflightWithNodeInstall } = await import('@/lib/workflow-preflight');
           const preflight = await runWorkflowPreflightWithNodeInstall({
@@ -626,7 +646,9 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         }
 
         if (options?.inputImage || options?.inputImageUrl?.trim()) {
-          setComfyUiStatus('Uploading image to ComfyUI…');
+          setComfyUiStatus(
+            cloudEngine ? 'Uploading reference image…' : 'Uploading image to ComfyUI…'
+          );
           if (!uploadedFigureSize && options?.inputImage) {
             try {
               const { probeImageFileDimensions } = await import('@/lib/browser-image-dimensions');
@@ -689,6 +711,9 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         }
 
         for (let i = 1; i < 4; i += 1) {
+          if (cloudEngine) {
+            break;
+          }
           const file = options?.inputImages?.[i];
           const imageUrl = options?.inputImageUrls?.[i];
           const existing = uploadedFilenames[i]?.trim();
@@ -713,7 +738,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         }
 
         let maskImageFilename = options?.maskImageFilename?.trim();
-        if (options?.maskImage || options?.maskImageUrl?.trim()) {
+        if (!cloudEngine && (options?.maskImage || options?.maskImageUrl?.trim())) {
           setComfyUiStatus('Uploading mask to ComfyUI…');
           maskImageFilename = await resolveQueueInputImageFilename({
             file: options.maskImage,
@@ -732,7 +757,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         while (controlUploaded.length < 4) {
           controlUploaded.push('');
         }
-        if (options?.controlImage || options?.controlImageUrl?.trim()) {
+        if (!cloudEngine && (options?.controlImage || options?.controlImageUrl?.trim())) {
           setComfyUiStatus('Uploading control image to ComfyUI…');
           controlImageFilename = await resolveQueueInputImageFilename({
             file: options.controlImage,
@@ -910,8 +935,11 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
               })
             : undefined);
 
-        const previewComfyUrlHint =
-          engineAdapter.id === 'diffusers'
+        const previewComfyUrlHint = cloudEngine
+          ? engineSettings.falModel
+            ? 'https://queue.fal.run'
+            : undefined
+          : engineAdapter.id === 'diffusers'
             ? engineSettings.diffusersApiUrl
             : runtime?.apiUrl?.trim() || loadComfyUiSettings().apiUrl?.trim() || undefined;
 
@@ -927,29 +955,33 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         const queued = await engineAdapter.postPrompt({
           prompt: preparedPrompt,
           negativePrompt,
-          model: queueModel,
+          model: cloudEngine ? engineSettings.falModel : queueModel,
           params: queueParams,
           front: true,
-          ...(engineAdapter.id === 'diffusers'
+          ...(engineAdapter.id === 'fal'
             ? {
-                engineUrl: engineSettings.diffusersApiUrl,
-                workshopCrop: workshopCropToApi(loadSettingsCache().shared.diffusersWorkshopCrop),
-                modelCheckpointMap: loadSettingsCache().shared.modelCheckpointMap,
-                qualityProfile: effectiveQualityProfile,
+                falApiKey: loadSettingsCache().shared.sessionFalApiKey,
                 hasInputImage: Boolean(inputImageFilename),
+                inputImageFilename,
+                qualityProfile: effectiveQualityProfile,
               }
-            : runtime
-              ? { comfy: runtime }
-              : {}),
+            : engineAdapter.id === 'diffusers'
+              ? {
+                  engineUrl: engineSettings.diffusersApiUrl,
+                  workshopCrop: workshopCropToApi(loadSettingsCache().shared.diffusersWorkshopCrop),
+                  modelCheckpointMap: loadSettingsCache().shared.modelCheckpointMap,
+                  qualityProfile: effectiveQualityProfile,
+                  hasInputImage: Boolean(inputImageFilename),
+                }
+              : runtime
+                ? { comfy: runtime }
+                : {}),
         });
 
         try {
           if (!queued.ok || !queued.promptId) {
             const error = new Error(
-              queued.error ??
-                (engineAdapter.id === 'diffusers'
-                  ? 'Diffusers queue failed.'
-                  : 'ComfyUI queue failed.')
+              queued.error ?? `${engineDisplayName(engineAdapter.id)} queue failed.`
             );
             if (queued.href?.trim()) {
               (error as Error & { href?: string }).href = queued.href.trim();
@@ -989,15 +1021,14 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           );
           toastQueueOutcome({
             ok: true,
-            text: `Queued to ${engineAdapter.id === 'diffusers' ? 'Diffusers' : 'ComfyUI'} · ${queued.promptId}`,
+            text: `Queued to ${engineDisplayName(engineAdapter.id)} · ${queued.promptId}`,
             href: '/gallery',
           });
 
           setComfyUiJob({
             promptId: queued.promptId,
             status: 'pending',
-            statusMessage:
-              engineAdapter.id === 'diffusers' ? 'Submitted to Diffusers' : 'Submitted to ComfyUI',
+            statusMessage: `Submitted to ${engineDisplayName(engineAdapter.id)}`,
             comfyUrl: queued.engineUrl,
             engineId: engineAdapter.id,
           });
@@ -1008,9 +1039,11 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             comfyUrl:
               queued.engineUrl ??
               previewComfyUrlHint ??
-              (engineAdapter.id === 'diffusers'
-                ? 'http://127.0.0.1:8190'
-                : 'http://127.0.0.1:8188'),
+              (engineAdapter.id === 'fal'
+                ? 'https://queue.fal.run'
+                : engineAdapter.id === 'diffusers'
+                  ? 'http://127.0.0.1:8190'
+                  : 'http://127.0.0.1:8188'),
             clientId: queued.clientId,
             historyId: resolvedHistoryId,
             queueParams,
@@ -1022,8 +1055,8 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
               options?.controlImageUrl ||
               options?.inputImageUrl ||
               undefined,
-            queueQualityProfile: runtime?.queueQualityProfile,
-            model: queueModel,
+            queueQualityProfile: runtime?.queueQualityProfile ?? effectiveQualityProfile,
+            model: cloudEngine ? engineSettings.falModel : queueModel,
             sessionActiveLoraIds: resolveSharedEffectiveSessionLoraIds(queueModel),
             sessionLoraStrengthOverrides:
               resolveSharedEffectiveSessionLoraStrengthOverrides(queueModel),
@@ -1202,9 +1235,9 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         );
 
         const engineAdapter = getEngineAdapter();
-        if (engineAdapter.id === 'diffusers') {
+        if (engineAdapter.id === 'diffusers' || engineAdapter.id === 'fal') {
           throw new Error(
-            'Batch queue is ComfyUI-only. Switch Settings → Inference engine to ComfyUI, or send a single prompt.'
+            `Batch queue is ComfyUI-only. Switch Settings → Inference engine to ComfyUI, or send a single prompt.`
           );
         }
 

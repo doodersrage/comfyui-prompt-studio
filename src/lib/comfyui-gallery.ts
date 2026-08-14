@@ -1125,7 +1125,7 @@ export function galleryEntryPrimaryThumbSrcSet(entry: ComfyGalleryEntry): string
   if (entry.durableThumbPath) {
     return `${durableGalleryThumbUrl(entry.id)} ${GALLERY_THUMB_WIDTH}w`;
   }
-  if (entry.engineId === 'diffusers') {
+  if (entry.engineId === 'diffusers' || entry.engineId === 'fal') {
     return GALLERY_THUMB_SRCSET_WIDTHS.map(
       width => `${galleryEntryBuildViewPath(entry, image, { width })} ${width}w`
     ).join(', ');

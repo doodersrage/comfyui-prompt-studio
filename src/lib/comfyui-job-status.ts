@@ -1,5 +1,7 @@
 import type { ComfyGalleryJobStatus } from './comfyui-gallery';
 
+import { engineDisplayName } from './engine/capabilities';
+
 export type ComfyUiJobTrackerState = {
   promptId: string;
   status: ComfyGalleryJobStatus;
@@ -23,11 +25,14 @@ export type ComfyUiJobTrackerState = {
 export function comfyUiJobEngineLabel(
   job: Pick<ComfyUiJobTrackerState, 'engineId' | 'statusMessage'>
 ): string {
-  if (job.engineId === 'diffusers') {
-    return 'Diffusers';
+  if (job.engineId) {
+    return engineDisplayName(job.engineId);
   }
   if (job.statusMessage?.toLowerCase().includes('diffusers')) {
     return 'Diffusers';
+  }
+  if (job.statusMessage?.toLowerCase().includes('fal')) {
+    return 'Fal';
   }
   return 'ComfyUI';
 }

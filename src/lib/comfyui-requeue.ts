@@ -3,7 +3,9 @@
 import type { ComfyImageModel } from './comfy-models/client';
 import { registerComfyGalleryJob, inheritGallerySessionFields } from './comfyui-gallery-client';
 import { scheduleComfyGalleryPoll } from './comfyui-gallery-poller';
-import { getEngineAdapter } from './engine';
+import { getEngineAdapter, getEngineAdapterById } from './engine';
+import { FAL_QUEUE_HOST } from './engine/capabilities';
+import { loadEngineSettings } from './engine-settings';
 import { scheduleRefineAfterUpscaleComplete } from './gallery-pending-actions';
 import {
   resolveWorkflowGraphEnrichOptions,
@@ -1091,6 +1093,67 @@ export async function bulkRefineGalleryEntries(
   return { queued, failed, skipped, errors };
 }
 
+async function requeueFalJobFromEntry(
+  entry: ComfyGalleryEntry,
+  options?: {
+    newSeed?: boolean;
+    onStatus?: (message: string) => void;
+    seedOverride?: string | number;
+  }
+): Promise<RequeueComfyJobResult> {
+  const prompt = entry.prompt?.trim();
+  if (!prompt) {
+    return { ok: false, error: 'Prompt is required.' };
+  }
+  options?.onStatus?.('Queueing Fal…');
+  const settings = loadEngineSettings();
+  const adapter = getEngineAdapterById('fal');
+  const seed =
+    options?.seedOverride != null
+      ? String(options.seedOverride)
+      : options?.newSeed
+        ? String(Math.floor(Math.random() * 2 ** 32))
+        : entry.queueParams?.seed;
+  const queued = await adapter.postPrompt({
+    prompt,
+    negativePrompt: entry.negativePrompt,
+    model: settings.falModel,
+    params: {
+      ...entry.queueParams,
+      ...(seed != null ? { seed } : {}),
+    },
+    hasInputImage: Boolean(entry.queueParams?.inputImageFilename),
+    inputImageFilename: entry.queueParams?.inputImageFilename,
+    falApiKey: loadSettingsCache().shared.sessionFalApiKey,
+  });
+  if (!queued.ok || !queued.promptId) {
+    queued.releaseLiveSocket();
+    return { ok: false, error: queued.error ?? 'Fal queue failed.', comfyUrl: queued.engineUrl };
+  }
+  registerComfyGalleryJob({
+    promptId: queued.promptId,
+    prompt,
+    negativePrompt: entry.negativePrompt,
+    tool: entry.tool,
+    model: settings.falModel,
+    comfyUrl: queued.engineUrl ?? FAL_QUEUE_HOST,
+    clientId: queued.clientId,
+    queueParams: { ...entry.queueParams, ...(seed != null ? { seed } : {}) },
+    parentGalleryEntryId: options?.newSeed || options?.seedOverride != null ? entry.id : undefined,
+    derivedKind: options?.newSeed || options?.seedOverride != null ? 'variation' : undefined,
+    historyId: entry.historyId,
+    engineId: 'fal',
+    ...inheritGallerySessionFields(entry),
+  });
+  void scheduleComfyGalleryPoll(queued.promptId, {
+    comfyUrl: queued.engineUrl ?? FAL_QUEUE_HOST,
+    clientId: queued.clientId,
+    onStatus: options?.onStatus,
+  });
+  queued.releaseLiveSocket();
+  return { ok: true, promptId: queued.promptId, comfyUrl: queued.engineUrl ?? FAL_QUEUE_HOST };
+}
+
 export async function requeueComfyJobFromEntry(
   entry: ComfyGalleryEntry,
   options?: Pick<
@@ -1109,6 +1172,9 @@ export async function requeueComfyJobFromEntry(
     seedOverride?: string | number;
   }
 ): Promise<RequeueComfyJobResult> {
+  if (entry.engineId === 'fal') {
+    return requeueFalJobFromEntry(entry, options);
+  }
   const urls = resolveRequeueImageUrlsFromEntry(entry);
   const seedOverride =
     options?.seedOverride === undefined || options?.seedOverride === null

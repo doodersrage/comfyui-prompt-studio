@@ -3,10 +3,11 @@ import { describe, it } from "node:test";
 import {
   comfyEngineAdapter,
   diffusersEngineAdapter,
+  falEngineAdapter,
   getEngineAdapter,
   getEngineAdapterById,
 } from "./index";
-import { buildDiffusersViewPath, buildEngineViewPath } from "./view-paths";
+import { buildDiffusersViewPath, buildEngineViewPath, buildFalViewPath } from "./view-paths";
 
 describe("engine adapter", () => {
   it("defaults to ComfyUI outside the browser", () => {
@@ -17,6 +18,7 @@ describe("engine adapter", () => {
   it("resolves adapters by id", () => {
     assert.equal(getEngineAdapterById("comfyui"), comfyEngineAdapter);
     assert.equal(getEngineAdapterById("diffusers"), diffusersEngineAdapter);
+    assert.equal(getEngineAdapterById("fal"), falEngineAdapter);
     assert.equal(getEngineAdapterById(undefined), comfyEngineAdapter);
   });
 
@@ -56,10 +58,35 @@ describe("engine adapter", () => {
     );
   });
 
-  it("exposes progress subscribe helpers on both adapters", () => {
+  it("maps Fal view paths through /api/fal/view", () => {
+    const path = falEngineAdapter.buildViewPath(
+      "https://queue.fal.run",
+      { filename: "req.png", subfolder: "fal-ai--flux--schnell", type: "output" },
+      { width: 256 },
+    );
+    assert.match(path, /^\/api\/fal\/view\?/);
+    assert.match(path, /filename=req\.png/);
+    assert.match(path, /w=256/);
+    assert.equal(
+      buildEngineViewPath("fal", "https://queue.fal.run", {
+        filename: "req.png",
+        subfolder: "fal-ai--flux--schnell",
+        type: "output",
+      }),
+      buildFalViewPath("https://queue.fal.run", {
+        filename: "req.png",
+        subfolder: "fal-ai--flux--schnell",
+        type: "output",
+      }),
+    );
+  });
+
+  it("exposes progress subscribe helpers on adapters", () => {
     assert.equal(typeof comfyEngineAdapter.subscribeProgress, "function");
     assert.equal(typeof comfyEngineAdapter.openProgressBeforeQueue, "function");
     assert.equal(typeof diffusersEngineAdapter.subscribeProgress, "function");
     assert.equal(typeof diffusersEngineAdapter.openProgressBeforeQueue, "function");
+    assert.equal(typeof falEngineAdapter.subscribeProgress, "function");
+    assert.equal(typeof falEngineAdapter.openProgressBeforeQueue, "function");
   });
 });

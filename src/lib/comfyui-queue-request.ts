@@ -5,6 +5,7 @@
  * enabled, and returns that same clientId for gallery registration/polling.
  */
 
+import { parseEngineId } from './engine/capabilities';
 import { loadComfyUiSettings } from './comfyui-settings';
 import {
   createComfyUiClientId,
@@ -21,7 +22,7 @@ export type ComfyUiQueueRequestResult = {
   error?: string;
   href?: string;
   workflowSource?: string;
-  engineId?: 'comfyui' | 'diffusers';
+  engineId?: import('./engine/types').EngineId;
   family?: string;
   raw: Record<string, unknown>;
   /** Call after registerComfyGalleryJob + scheduleComfyGalleryPoll. */
@@ -116,8 +117,7 @@ export async function postComfyUiPrompt(
       error: typeof raw.error === 'string' ? raw.error : undefined,
       href: typeof raw.href === 'string' ? raw.href : undefined,
       workflowSource: typeof raw.workflowSource === 'string' ? raw.workflowSource : undefined,
-      engineId:
-        raw.engineId === 'diffusers' || raw.engineId === 'comfyui' ? raw.engineId : undefined,
+      engineId: parseEngineId(raw.engineId),
       family: typeof raw.family === 'string' ? raw.family : undefined,
       raw,
       releaseLiveSocket,

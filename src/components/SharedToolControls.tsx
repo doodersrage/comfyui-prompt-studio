@@ -114,6 +114,7 @@ import {
   normalizeSessionLoraStrengthOverrides,
   type SessionLoraStrengthOverrides,
 } from '@/lib/lora-stack';
+import { DEFAULT_FAL_TXT2IMG_MODEL, isCloudEngine } from '@/lib/engine/capabilities';
 
 const ModelSelector = dynamic(() => import('@/components/ModelSelector'), {
   ssr: false,
@@ -805,6 +806,7 @@ export default function SharedToolControls({
   ]);
 
   const systemPathActive = usesSystemWorkflowPath(shared, shared.model);
+  const cloudEngine = isCloudEngine(shared.inferenceEngine);
   const modelFilterHint =
     preferEditModels && !showAllModelsOverride
       ? `From photo · edit / img2img models (${pickerModels.length}). T2I checkpoints overbake the reference.`
@@ -1230,22 +1232,42 @@ export default function SharedToolControls({
       <div className="space-y-3">
         <FieldLabel
           hint={
-            shared.inferenceEngine === 'diffusers'
-              ? 'Optional Diffusers inventory (experimental). Prefer ComfyUI for Lightning quality/speed on 24GB.'
-              : systemPathActive
-                ? undefined
-                : shared.autoSelectWorkflowForModel !== false
-                  ? 'Choosing a model auto-selects its mapped ComfyUI workflow below (when configured).'
-                  : 'Shared across tools and remembered between page reloads.'
+            cloudEngine
+              ? 'Fal ignores Comfy workflows, LoRAs, and live latents. Image 1 is sent as img2img when present.'
+              : shared.inferenceEngine === 'diffusers'
+                ? 'Optional Diffusers inventory (experimental). Prefer ComfyUI for Lightning quality/speed on 24GB.'
+                : systemPathActive
+                  ? undefined
+                  : shared.autoSelectWorkflowForModel !== false
+                    ? 'Choosing a model auto-selects its mapped ComfyUI workflow below (when configured).'
+                    : 'Shared across tools and remembered between page reloads.'
           }
         >
-          {shared.inferenceEngine === 'diffusers'
-            ? 'Diffusers model (Qwen / Flux)'
-            : systemPathActive
-              ? 'Model'
-              : 'Target model'}
+          {cloudEngine
+            ? 'Fal model'
+            : shared.inferenceEngine === 'diffusers'
+              ? 'Diffusers model (Qwen / Flux)'
+              : systemPathActive
+                ? 'Model'
+                : 'Target model'}
         </FieldLabel>
-        {shared.inferenceEngine === 'diffusers' ? (
+        {cloudEngine ? (
+          <div className="space-y-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)]/40 px-3 py-2.5">
+            <p className="text-sm text-[var(--text-primary)]">
+              {shared.falModel?.trim() || DEFAULT_FAL_TXT2IMG_MODEL}
+            </p>
+            <p className="text-xs leading-relaxed text-[var(--text-muted)]">
+              Cloud txt2img via Fal. Change the key and model in{' '}
+              <a
+                href="/settings?tab=comfyui&section=inference-engine"
+                className="text-[var(--text-secondary)] underline-offset-2 hover:underline"
+              >
+                Settings → Inference engine
+              </a>
+              .
+            </p>
+          </div>
+        ) : shared.inferenceEngine === 'diffusers' ? (
           <DiffusersCheckpointSelector
             value={diffusersSelectedAssetId}
             onChange={handleDiffusersAssetChange}
@@ -1268,7 +1290,9 @@ export default function SharedToolControls({
         {shared.inferenceEngine === 'diffusers' ? (
           <DiffusersQueueHint workflowJson={selectedWorkflowJson} />
         ) : null}
-        {toolId === 'generate' && /qwen-image-edit-2511-lightning/i.test(shared.model) ? (
+        {!cloudEngine &&
+        toolId === 'generate' &&
+        /qwen-image-edit-2511-lightning/i.test(shared.model) ? (
           <div className="space-y-2 rounded-xl border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-3 py-2.5">
             <p className="text-xs leading-relaxed text-[var(--tint-warning-text)]">
               Edit-2511 Lightning on Generate runs as T2I (reference images disconnected). For clean
@@ -1416,7 +1440,11 @@ export default function SharedToolControls({
       ) : null}
 
       {(() => {
-        const queueQualityBlock = systemPathActive ? (
+        const queueQualityBlock = cloudEngine ? (
+          <p className="text-xs leading-relaxed text-[var(--text-muted)]">
+            Fal uses the prompt and size from this tool. Draft/Final/Max do not patch a Comfy graph.
+          </p>
+        ) : systemPathActive ? (
           <div className="space-y-2">
             <p
               data-testid="queue-seed-quality-clarity"
@@ -1458,6 +1486,7 @@ export default function SharedToolControls({
         ) : null;
 
         const workflowBlock =
+          !cloudEngine &&
           onWorkflowPresetChange &&
           workflowSelection.mounted &&
           !usesSystemWorkflowPath(shared, shared.model) ? (
@@ -1485,177 +1514,183 @@ export default function SharedToolControls({
           <>
             {queueQualityBlock}
             {workflowBlock}
-            <CollapsibleSection
-              title="LoRA stack"
-              summary={(() => {
-                const tuned = countSessionLoraStrengthOverrides(sessionLoraStrengthOverrides);
-                if (sessionActiveLoraIds !== undefined) {
-                  return `${sessionActiveLoraIds.length} selected${tuned ? ` · ${tuned} tuned` : ''}`;
-                }
-                return tuned
-                  ? `${tuned} strength tweak${tuned === 1 ? '' : 's'}`
-                  : 'Pick LoRAs for this model';
-              })()}
-              defaultOpen={advancedOpenByDefault}
-              persistKey="shared-lora-stack"
-            >
-              <LoraStackSessionPicker
-                model={shared.model}
-                sessionActiveLoraIds={
-                  hasSessionLoraIdsForModel(sessionActiveLoraIdsByModel, shared.model)
-                    ? sessionActiveLoraIds
-                    : undefined
-                }
-                sessionLoraStrengthOverrides={sessionLoraStrengthOverrides}
-                checkboxClassName={checkboxClass}
-                onChange={handleSessionActiveLoraIdsChange}
-                onSessionStrengthOverridesChange={handleSessionLoraStrengthOverridesChange}
-              />
-            </CollapsibleSection>
+            {!cloudEngine ? (
+              <>
+                <CollapsibleSection
+                  title="LoRA stack"
+                  summary={(() => {
+                    const tuned = countSessionLoraStrengthOverrides(sessionLoraStrengthOverrides);
+                    if (sessionActiveLoraIds !== undefined) {
+                      return `${sessionActiveLoraIds.length} selected${tuned ? ` · ${tuned} tuned` : ''}`;
+                    }
+                    return tuned
+                      ? `${tuned} strength tweak${tuned === 1 ? '' : 's'}`
+                      : 'Pick LoRAs for this model';
+                  })()}
+                  defaultOpen={advancedOpenByDefault}
+                  persistKey="shared-lora-stack"
+                >
+                  <LoraStackSessionPicker
+                    model={shared.model}
+                    sessionActiveLoraIds={
+                      hasSessionLoraIdsForModel(sessionActiveLoraIdsByModel, shared.model)
+                        ? sessionActiveLoraIds
+                        : undefined
+                    }
+                    sessionLoraStrengthOverrides={sessionLoraStrengthOverrides}
+                    checkboxClassName={checkboxClass}
+                    onChange={handleSessionActiveLoraIdsChange}
+                    onSessionStrengthOverridesChange={handleSessionLoraStrengthOverridesChange}
+                  />
+                </CollapsibleSection>
 
-            {modelSupportsTextualInversion(shared.model) ? (
+                {modelSupportsTextualInversion(shared.model) ? (
+                  <CollapsibleSection
+                    title="Embeddings"
+                    summary={
+                      (shared.sessionEmbeddingTokens?.length ?? 0) > 0
+                        ? `${shared.sessionEmbeddingTokens?.length} selected`
+                        : 'SD/SDXL textual inversion'
+                    }
+                    defaultOpen={advancedOpenByDefault}
+                    persistKey="shared-embeddings"
+                  >
+                    <EmbeddingSessionChips
+                      model={shared.model}
+                      selected={shared.sessionEmbeddingTokens ?? []}
+                      onChange={names => {
+                        if (onSharedSettingsChange) {
+                          onSharedSettingsChange({ sessionEmbeddingTokens: names });
+                        } else {
+                          saveSharedSettings({
+                            ...loadSettingsCache().shared,
+                            sessionEmbeddingTokens: names,
+                          });
+                        }
+                      }}
+                    />
+                  </CollapsibleSection>
+                ) : null}
+
+                {modelSupportsSessionIdentityLock(shared.model) &&
+                toolId !== 'video' &&
+                toolId !== 'compose' ? (
+                  <CollapsibleSection
+                    title="Identity lock"
+                    summary={
+                      shared.ipAdapterImageFilename?.trim()
+                        ? `${shared.identityKind === 'instantid' ? 'InstantID' : shared.identityKind === 'pulid' ? 'PuLID' : shared.identityKind === 'auto' ? 'Auto' : 'IP-Adapter'} · ${shared.ipAdapterImageFilename}`
+                        : 'Lock a face or style reference'
+                    }
+                    defaultOpen={
+                      advancedOpenByDefault || Boolean(shared.ipAdapterImageFilename?.trim())
+                    }
+                    persistKey="shared-identity-lock"
+                  >
+                    <IdentityLockSessionControl
+                      model={shared.model}
+                      filename={shared.ipAdapterImageFilename}
+                      imageUrl={shared.ipAdapterImageUrl}
+                      strength={shared.ipAdapterStrength}
+                      identityKind={shared.identityKind}
+                      onChange={patch => {
+                        if (onSharedSettingsChange) {
+                          onSharedSettingsChange(patch);
+                        } else {
+                          saveSharedSettings({
+                            ...loadSettingsCache().shared,
+                            ...patch,
+                          });
+                        }
+                      }}
+                    />
+                  </CollapsibleSection>
+                ) : null}
+              </>
+            ) : null}
+
+            {!cloudEngine ? (
               <CollapsibleSection
-                title="Embeddings"
+                title="Quality & sampling"
                 summary={
-                  (shared.sessionEmbeddingTokens?.length ?? 0) > 0
-                    ? `${shared.sessionEmbeddingTokens?.length} selected`
-                    : 'SD/SDXL textual inversion'
+                  systemPathActive
+                    ? `Sampler${hasModelSamplerOverrides(samplerOverrides) ? ' · overrides' : ''}, resolution, realism, anatomy.`
+                    : `Sampler${hasModelSamplerOverrides(samplerOverrides) ? ' · overrides' : ''}, resolution, queue quality, realism, anatomy.`
                 }
                 defaultOpen={advancedOpenByDefault}
-                persistKey="shared-embeddings"
+                persistKey="shared-quality-sampling"
               >
-                <EmbeddingSessionChips
+                <ModelSamplerHints
                   model={shared.model}
-                  selected={shared.sessionEmbeddingTokens ?? []}
-                  onChange={names => {
-                    if (onSharedSettingsChange) {
-                      onSharedSettingsChange({ sessionEmbeddingTokens: names });
-                    } else {
-                      saveSharedSettings({
-                        ...loadSettingsCache().shared,
-                        sessionEmbeddingTokens: names,
-                      });
-                    }
-                  }}
+                  preset={samplerPreset}
+                  onPresetChange={handleSamplerPresetChange}
+                  overrides={samplerOverrides}
+                  onOverridesChange={handleSamplerOverridesChange}
                 />
+
+                <ModelResolutionHints
+                  model={shared.model}
+                  orientation={resolutionOrientation}
+                  sizeTier={resolutionSizeTier}
+                  onOrientationChange={handleResolutionOrientationChange}
+                  onSizeTierChange={handleResolutionSizeTierChange}
+                />
+
+                {!systemPathActive ? (
+                  <>
+                    <QueueQualityProfileHints
+                      profile={queueQualityProfile}
+                      samplerPreset={samplerPreset}
+                      resolutionSizeTier={resolutionSizeTier}
+                      onProfileChange={handleQueueQualityProfileChange}
+                      toolId={toolId}
+                      toolProfile={toolProfileOverride}
+                      onToolProfileChange={handleToolQueueQualityChange}
+                    />
+                    <p
+                      data-testid="queue-seed-quality-clarity"
+                      className="rounded-lg border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/40 px-2.5 py-1.5 text-[11px] leading-relaxed text-[var(--text-secondary)]"
+                    >
+                      Queue uses{' '}
+                      <span className="font-medium text-[var(--text-primary)]">
+                        {formatQueueQualityProfileLabel(queueQualityProfile)}
+                      </span>
+                      {' · '}
+                      {lockedVariationSeed?.trim()
+                        ? `pinned seed ${lockedVariationSeed.trim().slice(0, 24)}${lockedVariationSeed.trim().length > 24 ? '…' : ''}`
+                        : 'new seed each send'}
+                    </p>
+                    <QueueRecipesPanel
+                      toolId={toolId}
+                      shared={recipesShared}
+                      qualityProfile={queueQualityProfile}
+                      orientation={resolutionOrientation}
+                      sizeTier={resolutionSizeTier}
+                      onApplied={handleRecipesApplied}
+                    />
+                  </>
+                ) : null}
+
+                <RenderRealismHints
+                  mode={renderRealismMode}
+                  onModeChange={handleRenderRealismModeChange}
+                />
+
+                <AnatomyGuardHints
+                  mode={anatomyGuardMode}
+                  onModeChange={handleAnatomyGuardModeChange}
+                  model={shared.model}
+                />
+
+                {recommendFromText ? (
+                  <ModelRecommenderHints
+                    text={recommendFromText}
+                    currentModel={shared.model}
+                    onApplyModel={model => handleModelChange(model)}
+                  />
+                ) : null}
               </CollapsibleSection>
             ) : null}
-
-            {modelSupportsSessionIdentityLock(shared.model) &&
-            toolId !== 'video' &&
-            toolId !== 'compose' ? (
-              <CollapsibleSection
-                title="Identity lock"
-                summary={
-                  shared.ipAdapterImageFilename?.trim()
-                    ? `${shared.identityKind === 'instantid' ? 'InstantID' : shared.identityKind === 'pulid' ? 'PuLID' : shared.identityKind === 'auto' ? 'Auto' : 'IP-Adapter'} · ${shared.ipAdapterImageFilename}`
-                    : 'Lock a face or style reference'
-                }
-                defaultOpen={
-                  advancedOpenByDefault || Boolean(shared.ipAdapterImageFilename?.trim())
-                }
-                persistKey="shared-identity-lock"
-              >
-                <IdentityLockSessionControl
-                  model={shared.model}
-                  filename={shared.ipAdapterImageFilename}
-                  imageUrl={shared.ipAdapterImageUrl}
-                  strength={shared.ipAdapterStrength}
-                  identityKind={shared.identityKind}
-                  onChange={patch => {
-                    if (onSharedSettingsChange) {
-                      onSharedSettingsChange(patch);
-                    } else {
-                      saveSharedSettings({
-                        ...loadSettingsCache().shared,
-                        ...patch,
-                      });
-                    }
-                  }}
-                />
-              </CollapsibleSection>
-            ) : null}
-
-            <CollapsibleSection
-              title="Quality & sampling"
-              summary={
-                systemPathActive
-                  ? `Sampler${hasModelSamplerOverrides(samplerOverrides) ? ' · overrides' : ''}, resolution, realism, anatomy.`
-                  : `Sampler${hasModelSamplerOverrides(samplerOverrides) ? ' · overrides' : ''}, resolution, queue quality, realism, anatomy.`
-              }
-              defaultOpen={advancedOpenByDefault}
-              persistKey="shared-quality-sampling"
-            >
-              <ModelSamplerHints
-                model={shared.model}
-                preset={samplerPreset}
-                onPresetChange={handleSamplerPresetChange}
-                overrides={samplerOverrides}
-                onOverridesChange={handleSamplerOverridesChange}
-              />
-
-              <ModelResolutionHints
-                model={shared.model}
-                orientation={resolutionOrientation}
-                sizeTier={resolutionSizeTier}
-                onOrientationChange={handleResolutionOrientationChange}
-                onSizeTierChange={handleResolutionSizeTierChange}
-              />
-
-              {!systemPathActive ? (
-                <>
-                  <QueueQualityProfileHints
-                    profile={queueQualityProfile}
-                    samplerPreset={samplerPreset}
-                    resolutionSizeTier={resolutionSizeTier}
-                    onProfileChange={handleQueueQualityProfileChange}
-                    toolId={toolId}
-                    toolProfile={toolProfileOverride}
-                    onToolProfileChange={handleToolQueueQualityChange}
-                  />
-                  <p
-                    data-testid="queue-seed-quality-clarity"
-                    className="rounded-lg border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/40 px-2.5 py-1.5 text-[11px] leading-relaxed text-[var(--text-secondary)]"
-                  >
-                    Queue uses{' '}
-                    <span className="font-medium text-[var(--text-primary)]">
-                      {formatQueueQualityProfileLabel(queueQualityProfile)}
-                    </span>
-                    {' · '}
-                    {lockedVariationSeed?.trim()
-                      ? `pinned seed ${lockedVariationSeed.trim().slice(0, 24)}${lockedVariationSeed.trim().length > 24 ? '…' : ''}`
-                      : 'new seed each send'}
-                  </p>
-                  <QueueRecipesPanel
-                    toolId={toolId}
-                    shared={recipesShared}
-                    qualityProfile={queueQualityProfile}
-                    orientation={resolutionOrientation}
-                    sizeTier={resolutionSizeTier}
-                    onApplied={handleRecipesApplied}
-                  />
-                </>
-              ) : null}
-
-              <RenderRealismHints
-                mode={renderRealismMode}
-                onModeChange={handleRenderRealismModeChange}
-              />
-
-              <AnatomyGuardHints
-                mode={anatomyGuardMode}
-                onModeChange={handleAnatomyGuardModeChange}
-                model={shared.model}
-              />
-
-              {recommendFromText ? (
-                <ModelRecommenderHints
-                  text={recommendFromText}
-                  currentModel={shared.model}
-                  onApplyModel={model => handleModelChange(model)}
-                />
-              ) : null}
-            </CollapsibleSection>
 
             <CollapsibleSection
               title="Wildcards & auto-retry"

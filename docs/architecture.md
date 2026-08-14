@@ -73,7 +73,7 @@ flowchart LR
 | Gallery + progress                       | `src/lib/comfyui-gallery-client.ts`, `src/lib/comfyui-websocket.ts`       |
 | Engine seam (queue / progress)           | `src/lib/engine` → `getEngineAdapter()`                                   |
 
-Related routes: `src/app/api/comfyui/{status,history,view,upload,interrupt,live,probe,…}/` and `src/app/api/diffusers/{,status,view,upload}/`.
+Related routes: `src/app/api/comfyui/{status,history,view,upload,interrupt,live,probe,…}/`, `src/app/api/diffusers/{,status,view,upload}/`, and `src/app/api/fal/{,status,view,upload}/`.
 
 Pool members: `parseComfyUiPool()` merges `COMFYUI_POOL` with Settings `comfyPoolUrls` after `normalizeComfyPoolUrlList` (allowlist fail-closed per URL). Probe (`POST /api/comfyui/probe`) does not fetch hosts missing from `COMFYUI_ALLOWED_HOSTS`.
 
@@ -86,8 +86,9 @@ Thin browser seam for **queue / status / view / upload / progress** so backends 
 | Interface                | `src/lib/engine/types.ts` (`EngineAdapter`)                                  |
 | Comfy implementation     | `src/lib/engine/comfy-adapter.ts`                                            |
 | Diffusers implementation | `src/lib/engine/diffusers-adapter.ts`                                        |
+| Fal implementation       | `src/lib/engine/fal-adapter.ts`                                              |
 | Selection                | `getEngineAdapter()` / `getEngineAdapterById()` in `src/lib/engine/index.ts` |
-| Settings                 | `inferenceEngine` + `diffusersApiUrl` (Settings → Inference engine)          |
+| Settings                 | `inferenceEngine` + `diffusersApiUrl` + Fal key/model (Settings → Inference engine) |
 | Python service           | `services/diffusers-engine/` (optional FastAPI txt2img)                      |
 
 Methods: `postPrompt`, `fetchJobStatus`, `buildViewPath`, `uploadInputImage`, `subscribeProgress`, `openProgressBeforeQueue`.
@@ -96,6 +97,7 @@ Backends today:
 
 - **`comfyui`** (default) — primary generate path via `/api/comfyui/*` (Qwen Lightning bf16 + Dynamic VRAM, Final/Max enrich, ControlNet, FaceDetailer, edit, video, custom graphs).
 - **`diffusers`** (optional) — experimental txt2img via `/api/diffusers/*` → local FastAPI (`DIFFUSERS_API_URL`, default `http://127.0.0.1:8190`). Opt in from Settings or `PROMPT_ENGINE=diffusers`. On 24GB, Qwen Lightning quality/speed remains Comfy’s strength; Diffusers is not pursued for Dynamic VRAM / bf16 parity.
+- **`fal`** (optional) — cloud txt2img / img2img via `/api/fal/*` → [Fal queue](https://fal.ai). Prompt + optional Image 1 only. No workflows, LoRAs, live latents, or Queue host controls. Key: `FAL_KEY` or Settings.
 
 Diffusers progress is **poll-backed** (no live latent WebSocket). Gallery entries store `comfyUrl` as the engine host and optional `engineId` so poll/view use the correct adapter after the user switches engines.
 

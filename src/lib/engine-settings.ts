@@ -2,6 +2,11 @@
 
 import { loadSettingsCache, saveSharedSettings, type SharedToolSettings } from './settings-cache';
 import type { EngineId } from './engine/types';
+import {
+  DEFAULT_FAL_IMG2IMG_MODEL,
+  DEFAULT_FAL_TXT2IMG_MODEL,
+  normalizeEngineId,
+} from './engine/capabilities';
 import { DEFAULT_DIFFUSERS_API_URL } from './diffusers-client';
 
 export type EngineSettings = {
@@ -9,24 +14,17 @@ export type EngineSettings = {
   diffusersApiUrl: string;
   /** Spawn local Diffusers when health fails (default true). */
   diffusersAutoStart: boolean;
+  falModel: string;
+  falImg2ImgModel: string;
 };
-
-function normalizeEngineId(value: unknown): EngineId {
-  return value === 'diffusers' ? 'diffusers' : 'comfyui';
-}
 
 function envDefaultEngine(): EngineId {
   if (typeof process !== 'undefined') {
     const raw =
       process.env.NEXT_PUBLIC_PROMPT_ENGINE?.trim().toLowerCase() ||
       process.env.PROMPT_ENGINE?.trim().toLowerCase();
-    // ComfyUI is the primary generate path (Lightning bf16 + Dynamic VRAM).
-    // Opt into Diffusers explicitly for experimental txt2img / SDXL trials.
-    if (raw === 'diffusers') {
-      return 'diffusers';
-    }
-    if (raw === 'comfyui' || raw === 'comfy' || !raw) {
-      return 'comfyui';
+    if (raw === 'diffusers' || raw === 'fal') {
+      return raw;
     }
   }
   return 'comfyui';
@@ -43,12 +41,35 @@ function envDefaultDiffusersUrl(): string {
   return DEFAULT_DIFFUSERS_API_URL;
 }
 
+function envDefaultFalModel(): string {
+  if (typeof process !== 'undefined') {
+    const raw = process.env.NEXT_PUBLIC_FAL_MODEL?.trim() || process.env.FAL_MODEL?.trim();
+    if (raw) {
+      return raw;
+    }
+  }
+  return DEFAULT_FAL_TXT2IMG_MODEL;
+}
+
+function envDefaultFalImg2ImgModel(): string {
+  if (typeof process !== 'undefined') {
+    const raw =
+      process.env.NEXT_PUBLIC_FAL_IMG2IMG_MODEL?.trim() || process.env.FAL_IMG2IMG_MODEL?.trim();
+    if (raw) {
+      return raw;
+    }
+  }
+  return DEFAULT_FAL_IMG2IMG_MODEL;
+}
+
 export function loadEngineSettings(): EngineSettings {
   if (typeof window === 'undefined') {
     return {
       engine: envDefaultEngine(),
       diffusersApiUrl: envDefaultDiffusersUrl(),
       diffusersAutoStart: true,
+      falModel: envDefaultFalModel(),
+      falImg2ImgModel: envDefaultFalImg2ImgModel(),
     };
   }
 
@@ -57,6 +78,8 @@ export function loadEngineSettings(): EngineSettings {
     engine: normalizeEngineId(shared.inferenceEngine ?? envDefaultEngine()),
     diffusersApiUrl: shared.diffusersApiUrl?.trim() || envDefaultDiffusersUrl(),
     diffusersAutoStart: shared.diffusersAutoStart !== false,
+    falModel: shared.falModel?.trim() || envDefaultFalModel(),
+    falImg2ImgModel: shared.falImg2ImgModel?.trim() || envDefaultFalImg2ImgModel(),
   };
 }
 
@@ -72,6 +95,14 @@ export function saveEngineSettings(patch: Partial<EngineSettings>): EngineSettin
       patch.diffusersAutoStart !== undefined
         ? patch.diffusersAutoStart
         : current.diffusersAutoStart,
+    falModel:
+      patch.falModel !== undefined
+        ? patch.falModel.trim() || envDefaultFalModel()
+        : current.falModel,
+    falImg2ImgModel:
+      patch.falImg2ImgModel !== undefined
+        ? patch.falImg2ImgModel.trim() || envDefaultFalImg2ImgModel()
+        : current.falImg2ImgModel,
   };
 
   const shared: SharedToolSettings = {
@@ -79,6 +110,8 @@ export function saveEngineSettings(patch: Partial<EngineSettings>): EngineSettin
     inferenceEngine: next.engine,
     diffusersApiUrl: next.diffusersApiUrl,
     diffusersAutoStart: next.diffusersAutoStart,
+    falModel: next.falModel,
+    falImg2ImgModel: next.falImg2ImgModel,
   };
   saveSharedSettings(shared);
   return next;

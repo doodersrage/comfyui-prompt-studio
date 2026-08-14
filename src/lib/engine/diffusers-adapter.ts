@@ -2,6 +2,7 @@
 
 import { loadEngineSettings } from '@/lib/engine-settings';
 import { createComfyUiClientId } from '@/lib/comfyui-websocket';
+import { parseEngineId } from './capabilities';
 import { buildDiffusersViewPath } from './view-paths';
 import type {
   EngineAdapter,
@@ -126,8 +127,7 @@ export const diffusersEngineAdapter: EngineAdapter = {
           (typeof raw.engineUrl === 'string' && raw.engineUrl.trim()) ||
           (typeof raw.comfyUrl === 'string' && raw.comfyUrl.trim()) ||
           engineUrlHint;
-        const engineId =
-          raw.engineId === 'comfyui' || raw.engineId === 'diffusers' ? raw.engineId : 'diffusers';
+        const engineId = parseEngineId(raw.engineId) ?? 'diffusers';
 
         if (!response.ok || !promptId) {
           return {

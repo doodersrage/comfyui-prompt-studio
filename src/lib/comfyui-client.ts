@@ -61,7 +61,7 @@ export type ComfyQueueResult = {
   clientId?: string;
   workflowSource?: 'client' | 'env' | 'minimal' | 'diffusers-workflow';
   /** Which backend actually accepted the job (Diffusers-first may fall back). */
-  engineId?: 'comfyui' | 'diffusers';
+  engineId?: import('./engine/types').EngineId;
   family?: string;
   replacements?: { positive: number; negative: number };
   /** How a multi-host pool pick routed this queue (when COMFYUI_POOL is set). */

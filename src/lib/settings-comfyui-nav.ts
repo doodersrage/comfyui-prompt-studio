@@ -25,7 +25,7 @@ export const COMFYUI_SETTINGS_SECTIONS: ComfyUiSettingsSection[] = [
   {
     id: 'inference-engine',
     label: 'Inference engine',
-    keywords: ['diffusers', 'engine', 'comfyui', 'backend', 'txt2img'],
+    keywords: ['diffusers', 'engine', 'comfyui', 'backend', 'txt2img', 'fal', 'cloud'],
   },
   {
     id: 'presets',
