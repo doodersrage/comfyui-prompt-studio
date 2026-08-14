@@ -478,8 +478,13 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
       <div className="space-y-3 border-t border-[var(--border-subtle)] px-2 pt-4">
         {navReady ? (
-          <div className="px-1" onClick={onNavigate}>
-            <ConnectionHealthChip compact />
+          <div className="flex items-center justify-between gap-2 px-1">
+            <div className="min-w-0" onClick={onNavigate}>
+              <ConnectionHealthChip compact />
+            </div>
+            <div className="shrink-0">
+              <NotificationBell />
+            </div>
           </div>
         ) : null}
         {navReady && workspaceMode !== 'simple' ? (
@@ -494,7 +499,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         ) : null}
         {navReady && workspaceMode === 'simple' ? (
           <p className="type-caption px-3 text-[var(--text-muted)]">
-            Simple workspace — theme, workspace, and alerts live in{' '}
+            Simple workspace — theme and workspace live in{' '}
             <Link
               href="/profile"
               onClick={onNavigate}
@@ -507,11 +512,6 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         {workspaceMode !== 'simple' ? (
           <div className="px-1">
             <ThemePreferenceControl showHint={false} />
-          </div>
-        ) : null}
-        {navReady && workspaceMode !== 'simple' ? (
-          <div className="flex justify-end px-1">
-            <NotificationBell />
           </div>
         ) : null}
         <div
