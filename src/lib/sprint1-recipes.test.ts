@@ -132,4 +132,30 @@ describe("session recipes", () => {
       skin: { strengthModel: 0.55, strengthClip: 0.7 },
     });
   });
+
+  it("round-trips embeddings and identity on a look", () => {
+    const recipe = buildSessionRecipeFromShared({
+      shared: {
+        model: "sdxl",
+        sessionEmbeddingTokens: ["embedding:EasyNegative"],
+        ipAdapterImageFilename: "face.png",
+        ipAdapterImageFilenames: ["face.png"],
+        ipAdapterStrength: 0.45,
+        identityKind: "instantid",
+      },
+      toolId: "generate",
+      label: "Look · sdxl",
+    });
+    const normalized = normalizeSessionRecipe(recipe);
+    assert.deepEqual(normalized?.shared.sessionEmbeddingTokens, ["EasyNegative"]);
+    assert.equal(normalized?.shared.ipAdapterImageFilename, "face.png");
+    assert.equal(normalized?.shared.identityKind, "instantid");
+    const applied = applySessionRecipeShared(
+      { model: "qwen-image-2512" },
+      normalized!,
+    );
+    assert.deepEqual(applied.sessionEmbeddingTokens, ["EasyNegative"]);
+    assert.equal(applied.ipAdapterImageFilename, "face.png");
+    assert.equal(applied.identityKind, "instantid");
+  });
 });

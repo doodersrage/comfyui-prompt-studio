@@ -46,8 +46,11 @@ import {
 import { galleryDerivedKindLabel } from '@/lib/gallery-derived-kind';
 import {
   applyGalleryStackToSession,
+  galleryEntryCanSaveLook,
   galleryEntryHasRestorableStack,
+  saveGalleryLookFromEntry,
 } from '@/lib/gallery-stack-restore';
+import { applyGalleryFaceToSession, galleryEntryCanLockFace } from '@/lib/gallery-identity-lock';
 
 type GalleryCardProps = {
   entry: ComfyGalleryEntry;
@@ -515,6 +518,34 @@ export default function GalleryCard({
                         }`}
                       >
                         Stack
+                      </button>
+                    ) : null}
+                    {galleryEntryCanLockFace(entry) ? (
+                      <button
+                        type="button"
+                        data-testid="gallery-lock-face"
+                        onClick={() => {
+                          void applyGalleryFaceToSession(entry).then(result => {
+                            if (result.ok) {
+                              router.push('/');
+                            }
+                          });
+                        }}
+                        className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)]/70 px-2 py-0.5 text-[10px] text-[var(--text-secondary)] backdrop-blur transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
+                      >
+                        Lock
+                      </button>
+                    ) : null}
+                    {galleryEntryCanSaveLook(entry) ? (
+                      <button
+                        type="button"
+                        data-testid="gallery-save-look"
+                        onClick={() => {
+                          saveGalleryLookFromEntry(entry);
+                        }}
+                        className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)]/70 px-2 py-0.5 text-[10px] text-[var(--text-secondary)] backdrop-blur transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
+                      >
+                        Look
                       </button>
                     ) : null}
                     {showFaceDetailAction && onFaceDetail ? (
@@ -1291,6 +1322,30 @@ export default function GalleryCard({
                       onClick={() => {
                         applyGalleryStackToSession(entry);
                         router.push('/');
+                        setMenuOpen(false);
+                      }}
+                    />
+                  ) : null}
+                  {galleryEntryCanLockFace(entry) ? (
+                    <GalleryMenuButton
+                      label="Lock this face on Generate"
+                      data-testid="gallery-lock-face-menu"
+                      onClick={() => {
+                        void applyGalleryFaceToSession(entry).then(result => {
+                          if (result.ok) {
+                            router.push('/');
+                          }
+                        });
+                        setMenuOpen(false);
+                      }}
+                    />
+                  ) : null}
+                  {galleryEntryCanSaveLook(entry) ? (
+                    <GalleryMenuButton
+                      label="Save look from this still"
+                      data-testid="gallery-save-look-menu"
+                      onClick={() => {
+                        saveGalleryLookFromEntry(entry);
                         setMenuOpen(false);
                       }}
                     />

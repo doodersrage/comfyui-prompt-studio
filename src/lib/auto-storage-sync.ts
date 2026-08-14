@@ -25,7 +25,9 @@ import {
 import {
   buildLoaderMapDiffSamples,
   detectLoaderMapDivergence,
+  applyServerSessionStack,
   detectStorageConflicts,
+  localSessionStackLooksEmpty,
   mergeArraysById,
   mergeSettingsCache,
   suggestMergeChoice,
@@ -274,7 +276,8 @@ export async function applyStorageMerge(
         }
         if (
           localShared?.sessionActiveLoraIdsByModel &&
-          Object.keys(localShared.sessionActiveLoraIdsByModel).length > 0
+          Object.keys(localShared.sessionActiveLoraIdsByModel).length > 0 &&
+          !localSessionStackLooksEmpty(localShared as Record<string, unknown>)
         ) {
           merged.shared = {
             ...merged.shared,
@@ -283,6 +286,9 @@ export async function applyStorageMerge(
               ...localShared.sessionActiveLoraIdsByModel,
             },
           };
+        } else if (server) {
+          const stacked = applyServerSessionStack(merged, server as SettingsCache);
+          merged.shared = stacked.shared;
         }
         saveSettingsCache(merged);
         await syncNamespaceToServer(namespace, loadSettingsCache());
@@ -367,13 +373,36 @@ export async function autoPullStorageIfEmpty(): Promise<AutoSyncResult> {
       await syncNamespaceToServer('studio-extras', collectStudioExtras());
       synced.push('studio-extras');
     }
-    await syncNamespaceToServer('settings-cache', localSettings);
+    const serverSettings = await pullNamespaceFromServer<SettingsCache>('settings-cache');
+    if (serverSettings?.shared) {
+      const merged = applyServerSessionStack(
+        {
+          ...localSettings,
+          ...serverSettings,
+          shared: { ...localSettings.shared, ...serverSettings.shared },
+          tools: { ...(serverSettings.tools ?? {}), ...(localSettings.tools ?? {}) },
+        },
+        serverSettings
+      );
+      saveSettingsCache(merged);
+    } else {
+      await syncNamespaceToServer('settings-cache', localSettings);
+    }
     synced.push('settings-cache');
     return { synced, conflicts: [], skipped: false, pulledIntoEmpty: synced.length > 0 };
   }
 
   const { pullAndMergeGalleryFromServer } = await import('./gallery-server-sync');
   const galleryPull = await pullAndMergeGalleryFromServer();
+
+  const serverSettings = await pullNamespaceFromServer<SettingsCache>('settings-cache');
+  const localSettings = loadSettingsCache();
+  if (
+    serverSettings?.shared &&
+    localSessionStackLooksEmpty(localSettings.shared as Record<string, unknown>)
+  ) {
+    saveSettingsCache(applyServerSessionStack(localSettings, serverSettings));
+  }
 
   const conflicts = await probeStorageConflicts();
   if (conflicts.length === 0) {
@@ -389,8 +418,10 @@ export async function autoPullStorageIfEmpty(): Promise<AutoSyncResult> {
 
   const choices: Partial<Record<StorageNamespace, MergeChoice>> = {};
   for (const conflict of conflicts) {
-    if (conflict.namespace === 'settings-cache' || conflict.namespace === 'studio-extras') {
-      choices[conflict.namespace as StorageNamespace] = 'local';
+    if (conflict.namespace === 'studio-extras') {
+      choices[conflict.namespace] = 'local';
+    } else if (conflict.namespace === 'settings-cache') {
+      choices[conflict.namespace] = 'merge';
     } else {
       choices[conflict.namespace as StorageNamespace] = suggestMergeChoice(conflict);
     }

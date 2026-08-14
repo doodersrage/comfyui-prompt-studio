@@ -11,7 +11,38 @@ import {
 } from './model-lora-map';
 import { normalizeQueueQualityProfile } from './queue-quality-profile';
 import { loadSettingsCache, saveSharedSettings, type SharedToolSettings } from './settings-cache';
+import { buildSessionRecipeFromShared, pushSessionRecipe } from './session-recipes';
 import { embeddingStem } from './textual-inversion';
+
+export function parseEmbeddingTokensFromPrompt(prompt?: string): string[] {
+  if (!prompt?.trim()) {
+    return [];
+  }
+  const stems: string[] = [];
+  const pattern = /\bembedding:([^\s,]+)/gi;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(prompt)) !== null) {
+    stems.push(match[1] ?? '');
+  }
+  return normalizeSessionEmbeddingTokens(stems);
+}
+
+function resolveEntryEmbeddingTokens(
+  entry: Pick<ComfyGalleryEntry, 'sessionEmbeddingTokens' | 'prompt'>
+): string[] | undefined {
+  const stored =
+    entry.sessionEmbeddingTokens !== undefined
+      ? normalizeSessionEmbeddingTokens(entry.sessionEmbeddingTokens)
+      : undefined;
+  if (stored && stored.length > 0) {
+    return stored;
+  }
+  const parsed = parseEmbeddingTokensFromPrompt(entry.prompt);
+  if (parsed.length > 0) {
+    return parsed;
+  }
+  return stored;
+}
 
 export function normalizeSessionEmbeddingTokens(value: unknown): string[] {
   if (!Array.isArray(value)) {
@@ -43,6 +74,7 @@ export function galleryEntryHasRestorableStack(
     | 'sessionEmbeddingTokens'
     | 'queueQualityProfile'
     | 'queueParams'
+    | 'prompt'
   >
 ): boolean {
   if (entry.model?.trim()) {
@@ -57,7 +89,7 @@ export function galleryEntryHasRestorableStack(
   ) {
     return true;
   }
-  if (entry.sessionEmbeddingTokens && entry.sessionEmbeddingTokens.length > 0) {
+  if (resolveEntryEmbeddingTokens(entry)?.length) {
     return true;
   }
   if (entry.queueQualityProfile) {
@@ -74,6 +106,7 @@ export function formatGalleryStackRestoreSummary(
     | 'sessionEmbeddingTokens'
     | 'queueQualityProfile'
     | 'queueParams'
+    | 'prompt'
   >
 ): string {
   const parts: string[] = [];
@@ -86,8 +119,9 @@ export function formatGalleryStackRestoreSummary(
   if (entry.sessionActiveLoraIds !== undefined) {
     parts.push(`${entry.sessionActiveLoraIds.length} LoRAs`);
   }
-  if (entry.sessionEmbeddingTokens?.length) {
-    parts.push(`${entry.sessionEmbeddingTokens.length} embeddings`);
+  const embeddings = resolveEntryEmbeddingTokens(entry);
+  if (embeddings?.length) {
+    parts.push(`${embeddings.length} embeddings`);
   }
   if (entry.queueParams?.ipAdapterImageFilename?.trim()) {
     parts.push('identity');
@@ -106,6 +140,7 @@ export function applyGalleryStackToShared<T extends SharedToolSettings>(
     | 'sessionEmbeddingTokens'
     | 'queueQualityProfile'
     | 'queueParams'
+    | 'prompt'
   >
 ): T {
   const model = entry.model?.trim();
@@ -152,10 +187,11 @@ export function applyGalleryStackToShared<T extends SharedToolSettings>(
     };
   }
 
-  if (entry.sessionEmbeddingTokens !== undefined) {
+  const embeddings = resolveEntryEmbeddingTokens(entry);
+  if (embeddings !== undefined) {
     next = {
       ...next,
-      sessionEmbeddingTokens: normalizeSessionEmbeddingTokens(entry.sessionEmbeddingTokens),
+      sessionEmbeddingTokens: embeddings,
     };
   }
 
@@ -199,4 +235,42 @@ export function applyGalleryStackToSession(entry: ComfyGalleryEntry): {
     });
   });
   return { applied: true, summary };
+}
+
+export function galleryEntryCanSaveLook(
+  entry: Pick<ComfyGalleryEntry, 'status' | 'reviewRating' | 'model'>
+): boolean {
+  return (
+    entry.status === 'completed' && (entry.reviewRating ?? 0) >= 4 && Boolean(entry.model?.trim())
+  );
+}
+
+/** Save a named Generate look from a 4–5★ still (session recipe, not a new tab). */
+export function saveGalleryLookFromEntry(entry: ComfyGalleryEntry): {
+  ok: boolean;
+  label?: string;
+  error?: string;
+} {
+  if (typeof window === 'undefined') {
+    return { ok: false, error: 'Browser only.' };
+  }
+  if (!galleryEntryCanSaveLook(entry)) {
+    return { ok: false, error: 'Rate 4–5★ to save a look.' };
+  }
+  const shared = applyGalleryStackToShared(loadSettingsCache().shared, entry);
+  const stamp = new Date();
+  const date = `${stamp.getMonth() + 1}/${stamp.getDate()}`;
+  const label = `Look · ${entry.model?.trim() ?? 'session'} · ${date}`.slice(0, 48);
+  const recipe = buildSessionRecipeFromShared({
+    shared,
+    toolId: 'generate',
+    label,
+  });
+  pushSessionRecipe(recipe);
+  void import('./app-toast').then(({ pushAppToast }) => {
+    pushAppToast({
+      text: `Saved look · ${recipe.label}`,
+    });
+  });
+  return { ok: true, label: recipe.label };
 }

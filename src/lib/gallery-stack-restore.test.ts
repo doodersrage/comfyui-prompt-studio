@@ -4,8 +4,10 @@ import type { SharedToolSettings } from './settings-cache';
 import {
   applyGalleryStackToShared,
   formatGalleryStackRestoreSummary,
+  galleryEntryCanSaveLook,
   galleryEntryHasRestorableStack,
   normalizeSessionEmbeddingTokens,
+  parseEmbeddingTokensFromPrompt,
 } from './gallery-stack-restore';
 
 function sharedSlice(
@@ -91,6 +93,21 @@ describe('applyGalleryStackToShared', () => {
     assert.deepEqual(next.sessionActiveLoraIdsByModel?.sdxl, []);
   });
 
+  it('recovers embeddings from the prompt when the field is missing', () => {
+    const next = applyGalleryStackToShared(sharedSlice({ sessionEmbeddingTokens: [] }), {
+      prompt: 'portrait, embedding:EasyNegative, film grain',
+    });
+    assert.deepEqual(next.sessionEmbeddingTokens, ['EasyNegative']);
+  });
+
+  it('prefers stored sessionEmbeddingTokens over prompt text', () => {
+    const next = applyGalleryStackToShared(sharedSlice(), {
+      sessionEmbeddingTokens: ['kept'],
+      prompt: 'portrait, embedding:EasyNegative',
+    });
+    assert.deepEqual(next.sessionEmbeddingTokens, ['kept']);
+  });
+
   it('restores identity from queueParams without using workflowJson', () => {
     const next = applyGalleryStackToShared(sharedSlice(), {
       queueParams: {
@@ -107,6 +124,27 @@ describe('applyGalleryStackToShared', () => {
   });
 });
 
+describe('parseEmbeddingTokensFromPrompt', () => {
+  it('recovers embedding: stems from a positive prompt', () => {
+    assert.deepEqual(
+      parseEmbeddingTokensFromPrompt('a portrait, embedding:EasyNegative, embedding:style'),
+      ['EasyNegative', 'style']
+    );
+  });
+
+  it('ignores bare words that are not embedding: tokens', () => {
+    assert.deepEqual(parseEmbeddingTokensFromPrompt('easy negative style'), []);
+  });
+});
+
+describe('galleryEntryCanSaveLook', () => {
+  it('requires a completed 4–5★ still with a model', () => {
+    assert.equal(galleryEntryCanSaveLook({ status: 'completed', reviewRating: 4, model: 'sdxl' }), true);
+    assert.equal(galleryEntryCanSaveLook({ status: 'completed', reviewRating: 3, model: 'sdxl' }), false);
+    assert.equal(galleryEntryCanSaveLook({ status: 'pending', reviewRating: 5, model: 'sdxl' }), false);
+  });
+});
+
 describe('formatGalleryStackRestoreSummary', () => {
   it('joins the restored pieces', () => {
     assert.equal(
@@ -118,6 +156,15 @@ describe('formatGalleryStackRestoreSummary', () => {
         queueParams: { ipAdapterImageFilename: 'face.png' },
       }),
       'sdxl · final · 2 LoRAs · 1 embeddings · identity'
+    );
+  });
+
+  it('counts embeddings parsed from the prompt', () => {
+    assert.equal(
+      formatGalleryStackRestoreSummary({
+        prompt: 'a, embedding:EasyNegative, embedding:style',
+      }),
+      '2 embeddings'
     );
   });
 });

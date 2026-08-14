@@ -1,5 +1,5 @@
 import { readBrowserValue, writeBrowserValue } from './browser-storage';
-import { COMFY_MODEL_IDS, type ComfyImageModel } from './comfy-models/client';
+import { type ComfyImageModel } from './comfy-models/client';
 import {
   normalizeModelSamplerPresetTier,
   type ModelSamplerPresetTier,
@@ -20,6 +20,12 @@ import {
   setSessionLoraStrengthOverridesForModel,
 } from './model-lora-map';
 import { normalizeQueueQualityProfile, type QueueQualityProfile } from './queue-quality-profile';
+import {
+  normalizeComposeIdentityKind,
+  normalizeComposeIdentityLockStrength,
+  type ComposeIdentityKind,
+} from './compose-identity-lock';
+import { embeddingStem } from './textual-inversion';
 
 export const SESSION_RECIPES_KEY = 'comfy-prompt-session-recipes-v1';
 export const MAX_SESSION_RECIPES = 20;
@@ -34,6 +40,11 @@ export type SessionRecipeShared = {
   modelResolutionOrientation?: ResolutionOrientation;
   modelResolutionSizeTier?: ResolutionSizeTier;
   editDenoiseStrength?: number;
+  sessionEmbeddingTokens?: string[];
+  ipAdapterImageFilename?: string;
+  ipAdapterImageFilenames?: string[];
+  ipAdapterStrength?: number;
+  identityKind?: ComposeIdentityKind;
 };
 
 export type SessionRecipe = {
@@ -49,6 +60,45 @@ function normalizeSessionMode(value: unknown): 'iterate' | 'keeper' | 'off' | un
     return value;
   }
   return undefined;
+}
+
+function pickSessionLookFields(
+  sharedRaw: Record<string, unknown>
+): Pick<
+  SessionRecipeShared,
+  | 'sessionEmbeddingTokens'
+  | 'ipAdapterImageFilename'
+  | 'ipAdapterImageFilenames'
+  | 'ipAdapterStrength'
+  | 'identityKind'
+> {
+  const tokens = Array.isArray(sharedRaw.sessionEmbeddingTokens)
+    ? sharedRaw.sessionEmbeddingTokens
+        .map(entry => (typeof entry === 'string' ? embeddingStem(entry) : ''))
+        .filter(Boolean)
+        .slice(0, 32)
+    : undefined;
+  const filename =
+    typeof sharedRaw.ipAdapterImageFilename === 'string'
+      ? sharedRaw.ipAdapterImageFilename.trim()
+      : '';
+  const stack = Array.isArray(sharedRaw.ipAdapterImageFilenames)
+    ? sharedRaw.ipAdapterImageFilenames
+        .map(entry => (typeof entry === 'string' ? entry.trim() : ''))
+        .filter(Boolean)
+        .slice(0, 4)
+    : undefined;
+  return {
+    ...(tokens?.length ? { sessionEmbeddingTokens: tokens } : {}),
+    ...(filename ? { ipAdapterImageFilename: filename } : {}),
+    ...(stack?.length ? { ipAdapterImageFilenames: stack } : {}),
+    ...(sharedRaw.ipAdapterStrength != null
+      ? { ipAdapterStrength: normalizeComposeIdentityLockStrength(sharedRaw.ipAdapterStrength) }
+      : {}),
+    ...(sharedRaw.identityKind
+      ? { identityKind: normalizeComposeIdentityKind(sharedRaw.identityKind) }
+      : {}),
+  };
 }
 
 export function normalizeSessionRecipe(value: unknown): SessionRecipe | null {
@@ -68,7 +118,7 @@ export function normalizeSessionRecipe(value: unknown): SessionRecipe | null {
     return null;
   }
   const modelRaw = typeof sharedRaw.model === 'string' ? sharedRaw.model.trim() : '';
-  if (!modelRaw || !COMFY_MODEL_IDS.has(modelRaw)) {
+  if (!modelRaw || modelRaw.length > 64) {
     return null;
   }
   const label =
@@ -120,6 +170,7 @@ export function normalizeSessionRecipe(value: unknown): SessionRecipe | null {
         Number.isFinite(denoise) && denoise >= 0.05 && denoise <= 1
           ? Math.round(denoise * 100) / 100
           : undefined,
+      ...pickSessionLookFields(sharedRaw),
     },
   };
 }
@@ -195,6 +246,7 @@ export function buildSessionRecipeFromShared(input: {
         Number.isFinite(input.shared.editDenoiseStrength)
           ? input.shared.editDenoiseStrength
           : undefined,
+      ...pickSessionLookFields(input.shared),
     },
   };
 }
@@ -277,6 +329,20 @@ export function applySessionRecipeShared<T extends SessionRecipeShared>(
       ),
     };
   }
+  if (snap.sessionEmbeddingTokens) {
+    next = { ...next, sessionEmbeddingTokens: snap.sessionEmbeddingTokens };
+  }
+  if (snap.ipAdapterImageFilename) {
+    next = {
+      ...next,
+      ipAdapterImageFilename: snap.ipAdapterImageFilename,
+      ipAdapterImageFilenames: snap.ipAdapterImageFilenames?.length
+        ? snap.ipAdapterImageFilenames
+        : [snap.ipAdapterImageFilename],
+      ...(snap.ipAdapterStrength != null ? { ipAdapterStrength: snap.ipAdapterStrength } : {}),
+      ...(snap.identityKind ? { identityKind: snap.identityKind } : {}),
+    };
+  }
   return next;
 }
 
@@ -293,6 +359,12 @@ export function formatSessionRecipeSubtitle(recipe: SessionRecipe): string {
     if (tuned > 0) {
       parts.push(`${tuned} tuned`);
     }
+  }
+  if (recipe.shared.sessionEmbeddingTokens?.length) {
+    parts.push(`${recipe.shared.sessionEmbeddingTokens.length} embeddings`);
+  }
+  if (recipe.shared.ipAdapterImageFilename) {
+    parts.push('identity');
   }
   if (recipe.toolId) {
     parts.push(recipe.toolId);

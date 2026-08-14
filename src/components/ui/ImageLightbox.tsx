@@ -98,6 +98,8 @@ export type ImageLightboxSlideChrome = {
   onInpaint?: () => void;
   onExactRequeue?: () => void;
   onUseStack?: () => void;
+  onUseFace?: () => void;
+  onSaveLook?: () => void;
   onRequeue?: () => void;
   onRequeueNewSeed?: () => void;
   onRequeueSeedPlusOne?: () => void;
@@ -107,6 +109,8 @@ export type ImageLightboxSlideChrome = {
   showInpaint?: boolean;
   showExact?: boolean;
   showUseStack?: boolean;
+  showUseFace?: boolean;
+  showSaveLook?: boolean;
   showRequeue?: boolean;
   showSeedVariation?: boolean;
   /** Seed / model / prompt details for the Details (M) panel. */
@@ -697,6 +701,16 @@ export default function ImageLightbox({
       ) {
         event.preventDefault();
         slideChrome.onUseStack();
+        return;
+      }
+
+      if (
+        (event.key === 'l' || event.key === 'L') &&
+        slideChrome?.onUseFace &&
+        slideChrome.showUseFace !== false
+      ) {
+        event.preventDefault();
+        slideChrome.onUseFace();
         return;
       }
 
@@ -1588,6 +1602,22 @@ export default function ImageLightbox({
               title: 'Use this stack on Generate (U)',
               onClick: () => slideChrome.onUseStack?.(),
               testId: 'lightbox-action-use-stack',
+            })
+          : null}
+        {slideChrome?.showUseFace !== false && slideChrome?.onUseFace
+          ? renderIconAction(compact, {
+              label: 'Lock',
+              title: 'Lock this face on Generate (L)',
+              onClick: () => slideChrome.onUseFace?.(),
+              testId: 'lightbox-action-use-face',
+            })
+          : null}
+        {slideChrome?.showSaveLook && slideChrome?.onSaveLook
+          ? renderIconAction(compact, {
+              label: 'Look',
+              title: 'Save look from this still',
+              onClick: () => slideChrome.onSaveLook?.(),
+              testId: 'lightbox-action-save-look',
             })
           : null}
         {slideChrome?.showRequeue !== false && slideChrome?.onRequeue

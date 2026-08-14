@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useCallback, useState } from 'react';
 import {
   appendUserToolQualityRecipe,
@@ -17,6 +18,7 @@ import type { ComfyGalleryEntry } from '@/lib/comfyui-gallery';
 import type { GalleryComparePanelProps } from '@/components/GalleryComparePanel';
 import { experimentGroupIdForPrompt } from '@/lib/experiment-groups';
 import { markExperimentWinner } from '@/lib/experiment-winners';
+import { applyGalleryStackToSession } from '@/lib/gallery-stack-restore';
 
 const loadGalleryRequeue = () => import('@/lib/comfyui-requeue');
 
@@ -33,6 +35,7 @@ export function useGalleryCompareHandlers({
   setReviewRating,
   toggleFavorite,
 }: UseGalleryCompareHandlersInput) {
+  const router = useRouter();
   const [compareStatus, setCompareStatus] = useState<string | null>(null);
   const [compareWinnerId, setCompareWinnerId] = useState<string | null>(null);
 
@@ -77,11 +80,13 @@ export function useGalleryCompareHandlers({
           toolQualityRecipes: nextRecipes,
         });
       }
+      const stack = applyGalleryStackToSession(entry);
       setCompareStatus(
         `Winner: ${entry.model ?? 'unknown'} · seed ${entry.queueParams?.seed ?? '?'}${
           built.ok ? ' · recipe saved' : ''
-        }`
+        }${stack.applied ? ' · stack on Generate' : ''}`
       );
+      router.push('/');
       void import('@/lib/auto-improve-loop')
         .then(({ runAutoImproveOnRating }) => runAutoImproveOnRating(entry, 5))
         .then(message => {
@@ -93,7 +98,7 @@ export function useGalleryCompareHandlers({
           setCompareStatus(error instanceof Error ? error.message : 'Auto-improve failed.');
         });
     },
-    [selectedEntries, setFavorites, setReviewRating]
+    [router, selectedEntries, setFavorites, setReviewRating]
   );
 
   const onSaveWinnerRecipe = useCallback<

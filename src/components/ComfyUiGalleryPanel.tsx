@@ -51,8 +51,11 @@ import {
 import { galleryDerivedKindChipLabel, galleryDerivedKindLabel } from '@/lib/gallery-derived-kind';
 import {
   applyGalleryStackToSession,
+  galleryEntryCanSaveLook,
   galleryEntryHasRestorableStack,
+  saveGalleryLookFromEntry,
 } from '@/lib/gallery-stack-restore';
+import { applyGalleryFaceToSession, galleryEntryCanLockFace } from '@/lib/gallery-identity-lock';
 import { MAX_GALLERY_ENTRIES } from '@/lib/comfyui-gallery-storage-meta';
 import { applyGalleryUrlState, parseGalleryUrlState } from '@/lib/gallery-url-state';
 import { useGalleryReview } from '@/hooks/useGalleryReview';
@@ -803,6 +806,8 @@ export default function ComfyUiGalleryPanel({
       showInpaint: completed && !isVideo,
       showExact: Boolean(entry.hasStoredWorkflow || entry.workflowJson),
       showUseStack: galleryEntryHasRestorableStack(entry),
+      showUseFace: galleryEntryCanLockFace(entry),
+      showSaveLook: galleryEntryCanSaveLook(entry),
       showRequeue: true,
       onImprove: () => startImproveFromGalleryEntry(entry),
       onCompose: () => startComposeFromGalleryEntry(entry),
@@ -821,6 +826,26 @@ export default function ComfyUiGalleryPanel({
         ? () => {
             applyGalleryStackToSession(entry);
             router.push('/');
+          }
+        : undefined,
+      onUseFace: galleryEntryCanLockFace(entry)
+        ? () => {
+            setRequeueStatus('Locking face on Generate…');
+            void applyGalleryFaceToSession(entry).then(result => {
+              if (result.ok) {
+                router.push('/');
+                return;
+              }
+              setRequeueStatus(result.error ?? 'Face lock failed.');
+            });
+          }
+        : undefined,
+      onSaveLook: galleryEntryCanSaveLook(entry)
+        ? () => {
+            const saved = saveGalleryLookFromEntry(entry);
+            setRequeueStatus(
+              saved.ok ? `Saved look · ${saved.label}` : (saved.error ?? 'Save look failed.')
+            );
           }
         : undefined,
       onRequeue: () => {

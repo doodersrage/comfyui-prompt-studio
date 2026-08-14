@@ -197,6 +197,53 @@ export function mergeArraysById<T extends { id: string }>(
   });
 }
 
+export const SERVER_SESSION_STACK_KEYS = [
+  'model',
+  'sessionActiveLoraIds',
+  'sessionActiveLoraIdsByModel',
+  'sessionLoraStrengthOverrides',
+  'sessionLoraStrengthOverridesByModel',
+  'sessionEmbeddingTokens',
+  'queueQualityProfile',
+  'ipAdapterImageFilename',
+  'ipAdapterImageFilenames',
+  'ipAdapterImageUrl',
+  'ipAdapterStrength',
+  'ipAdapterModelFilename',
+  'identityKind',
+] as const;
+
+export function localSessionStackLooksEmpty(shared?: Record<string, unknown>): boolean {
+  const byModel = shared?.sessionActiveLoraIdsByModel as Record<string, unknown> | undefined;
+  const hasLoras = Boolean(
+    byModel && Object.values(byModel).some(value => Array.isArray(value) && value.length > 0)
+  );
+  const current = shared?.sessionActiveLoraIds;
+  const hasCurrentLoras = Array.isArray(current) && current.length > 0;
+  const hasEmbeds =
+    Array.isArray(shared?.sessionEmbeddingTokens) && shared.sessionEmbeddingTokens.length > 0;
+  const hasIdentity =
+    typeof shared?.ipAdapterImageFilename === 'string' &&
+    Boolean(shared.ipAdapterImageFilename.trim());
+  return !hasLoras && !hasCurrentLoras && !hasEmbeds && !hasIdentity;
+}
+
+/** Copy server Generate-session stack fields onto local shared settings. */
+export function applyServerSessionStack<T extends { shared?: Record<string, unknown> }>(
+  local: T,
+  server: T
+): T {
+  const serverShared = server.shared ?? {};
+  const localShared = local.shared ?? {};
+  const nextShared = { ...localShared };
+  for (const key of SERVER_SESSION_STACK_KEYS) {
+    if (serverShared[key] !== undefined) {
+      nextShared[key] = serverShared[key];
+    }
+  }
+  return { ...local, shared: nextShared };
+}
+
 export function mergeSettingsCache<
   T extends {
     updatedAt?: number;

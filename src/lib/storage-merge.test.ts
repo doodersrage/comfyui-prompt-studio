@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  applyServerSessionStack,
   buildLoaderMapDiffSamples,
   detectLoaderMapDivergence,
   detectStorageConflicts,
+  localSessionStackLooksEmpty,
   suggestMergeChoice,
 } from "./storage-merge";
 
@@ -91,6 +93,46 @@ describe("suggestMergeChoice", () => {
         serverCount: 5,
       } as const),
       "merge",
+    );
+  });
+});
+
+describe("applyServerSessionStack", () => {
+  it("copies server session stack and keeps local tools", () => {
+    const local = {
+      shared: {
+        model: "qwen-image-2512",
+        sessionActiveLoraIds: [],
+        detail: "balanced",
+      },
+      tools: { generate: { prompt: "drafting" } },
+    };
+    const server = {
+      shared: {
+        model: "sdxl",
+        sessionActiveLoraIds: ["skin"],
+        sessionActiveLoraIdsByModel: { sdxl: ["skin"] },
+        sessionEmbeddingTokens: ["EasyNegative"],
+        queueQualityProfile: "final",
+        ipAdapterImageFilename: "face.png",
+        identityKind: "instantid",
+      },
+      tools: { generate: { prompt: "server" } },
+    };
+    const merged = applyServerSessionStack(local, server);
+    assert.equal(merged.shared.model, "sdxl");
+    assert.deepEqual(merged.shared.sessionActiveLoraIds, ["skin"]);
+    assert.deepEqual(merged.shared.sessionEmbeddingTokens, ["EasyNegative"]);
+    assert.equal(merged.shared.identityKind, "instantid");
+    assert.equal(merged.shared.detail, "balanced");
+    assert.equal(merged.tools.generate.prompt, "drafting");
+  });
+
+  it("treats a default session as empty", () => {
+    assert.equal(localSessionStackLooksEmpty({ model: "qwen-image-2512" }), true);
+    assert.equal(
+      localSessionStackLooksEmpty({ sessionActiveLoraIdsByModel: { sdxl: ["skin"] } }),
+      false,
     );
   });
 });
