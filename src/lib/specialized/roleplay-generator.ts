@@ -43,7 +43,17 @@ function toneLine(tone: RoleplayTone): string {
   if (tone === 'chaotic') {
     return 'Tone: chaotic bit — too many plots, physical comedy, still readable as one image.';
   }
+  if (tone === 'sultry') {
+    return 'Tone: sultry / adult — heat, low light, lingering looks, bodies and wardrobe can be revealing. Consenting adults only. No minors, no gore.';
+  }
   return 'Tone: silly — jokes, cartoon physics, committed nonsense.';
+}
+
+function contentLine(tone: RoleplayTone): string {
+  if (tone === 'sultry') {
+    return 'Adult and specific. Sensual is welcome. Consenting adults only. No minors, no gore, no lore dumps.';
+  }
+  return 'Keep it PG-13, weird, and specific. No lore dumps.';
 }
 
 function storyDigest(story: RoleplayStoryBeat[] | undefined): string {
@@ -98,8 +108,8 @@ export async function generateRoleplayBio(
 ${toneLine(tone)}
 Return ONLY JSON: {"name":"","look":"","personality":"","catchphrase":""}
 - look: one visual sentence (species/body, clothes, colors, distinctive props).
-- personality: one or two playful sentences, first or close third person.
-- Keep it PG-13, weird, and specific. No lore dumps.`,
+- personality: one or two sentences, first or close third person.
+- ${contentLine(tone)}`,
     user: [
       `Play as: ${persona}`,
       options.extraHints?.trim() ? `Extra notes: ${options.extraHints.trim()}` : '',
@@ -125,12 +135,12 @@ export async function generateRoleplayScenes(
     llm: options.llm,
     maxTokens: 700,
     temperature: 1.05,
-    system: `You write branching story beats for a silly image roleplay.
+    system: `You write branching story beats for an image roleplay.
 ${toneLine(tone)}
 Return ONLY JSON: {"scenes":[{"title":"","blurb":""}]}
 - Exactly 4 scenes. Titles 2–6 words. Blurbs one sentence, visual, actionable.
 - Each beat should make a distinct still image of THIS character.
-- Do not repeat earlier story titles. No gore, no cruelty.`,
+- Do not repeat earlier story titles. No gore, no cruelty, no minors.`,
     user: [
       formatRoleplayBio(bio),
       storyDigest(options.story),
@@ -172,7 +182,7 @@ ${toneLine(tone)}
 - Name (${bio.name}) can appear once; do not invent a new cast unless the beat requires one extra figure.
 - Describe the chosen situation as a readable tableau: pose, props, setting, light.
 - If this is a first-look / establishing beat, make a character portrait in a fitting environment — not a crowded plot.
-- Playful, specific, visual. No camera brand names, no quality-tag soup, no comic-book lettering.`,
+- ${tone === 'sultry' ? 'Sensual, specific, visual.' : 'Playful, specific, visual.'} No camera brand names, no quality-tag soup, no comic-book lettering.`,
     userMessage: [
       formatRoleplayBio(bio),
       storyDigest(options.story),
@@ -191,7 +201,9 @@ ${toneLine(tone)}
     llmProvider: options.llm?.llmProvider,
     llmApiKey: options.llm?.llmApiKey,
     templateFallback: () =>
-      `${lookLock}, ${situation.blurb}, ${tone} storybook lighting, expressive pose, readable scene`,
+      tone === 'sultry'
+        ? `${lookLock}, ${situation.blurb}, sultry low-key lighting, intimate pose, readable scene`
+        : `${lookLock}, ${situation.blurb}, ${tone} storybook lighting, expressive pose, readable scene`,
     metadata: {
       tool: 'roleplay',
       personaId: options.personaId ?? null,

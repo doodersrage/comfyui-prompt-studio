@@ -50,6 +50,8 @@ describe('roleplay parsers', () => {
 
   it('normalizes tone and custom persona prompts', () => {
     assert.equal(normalizeRoleplayTone('CHAOTIC'), 'chaotic');
+    assert.equal(normalizeRoleplayTone('sultry'), 'sultry');
+    assert.equal(normalizeRoleplayTone('adult'), 'sultry');
     assert.equal(normalizeRoleplayTone('nope'), 'silly');
     assert.match(resolveRoleplayPersonaPrompt('hoodie-dragon'), /dragon/i);
     assert.equal(resolveRoleplayPersonaPrompt('custom', ' a sentient lamp '), 'a sentient lamp');

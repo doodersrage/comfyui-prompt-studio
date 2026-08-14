@@ -1,4 +1,4 @@
-export type RoleplayTone = 'silly' | 'cinematic' | 'cozy' | 'chaotic';
+export type RoleplayTone = 'silly' | 'cinematic' | 'cozy' | 'chaotic' | 'sultry';
 
 export type RoleplayBio = {
   name: string;
@@ -36,6 +36,7 @@ export const ROLEPLAY_TONES: Array<{ id: RoleplayTone; label: string; hint: stri
   { id: 'cinematic', label: 'Cinematic', hint: 'Movie stills, dramatic light' },
   { id: 'cozy', label: 'Cozy', hint: 'Warm, low-stakes, soft lighting' },
   { id: 'chaotic', label: 'Chaotic', hint: 'Too many plots, all of them now' },
+  { id: 'sultry', label: 'Sultry', hint: 'Adult heat, low light, lingering looks' },
 ];
 
 export const CUSTOM_ROLEPLAY_PERSONA_ID = 'custom';
@@ -675,8 +676,16 @@ export function normalizeRoleplayTone(value: string | null | undefined): Rolepla
   const trimmed = String(value ?? '')
     .trim()
     .toLowerCase();
-  if (trimmed === 'cinematic' || trimmed === 'cozy' || trimmed === 'chaotic') {
+  if (
+    trimmed === 'cinematic' ||
+    trimmed === 'cozy' ||
+    trimmed === 'chaotic' ||
+    trimmed === 'sultry'
+  ) {
     return trimmed;
+  }
+  if (trimmed === 'adult' || trimmed === 'sexy' || trimmed === 'nsfw') {
+    return 'sultry';
   }
   return 'silly';
 }
