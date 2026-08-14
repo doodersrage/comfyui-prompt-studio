@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EmptyState } from '@/components/ui/ViewState';
+import ComfyLoraPreviewThumb from '@/components/ComfyLoraPreviewThumb';
 import {
-  comfyLoraPreviewSrc,
   fetchComfyLoraInventoryFiles,
   fetchLoraTriggerPhrase,
   type ComfyLoraInventoryFile,
@@ -228,16 +228,10 @@ export default function LoraLibrarySettingsPanel({
                 className="flex flex-wrap items-center justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-[var(--bg-muted)]/80"
               >
                 <span className="flex min-w-0 flex-1 items-center gap-2">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- ComfyUI preview is a remote binary */}
-                  <img
-                    src={comfyLoraPreviewSrc(file.name, file.pathIndex, comfyUrl)}
-                    alt=""
-                    width={32}
-                    height={32}
-                    className="h-8 w-8 shrink-0 rounded object-cover"
-                    onError={event => {
-                      event.currentTarget.style.display = 'none';
-                    }}
+                  <ComfyLoraPreviewThumb
+                    filename={file.name}
+                    pathIndex={file.pathIndex}
+                    comfyUrl={comfyUrl}
                   />
                   <code className="min-w-0 flex-1 truncate text-xs text-[var(--text-secondary)]">
                     {file.name}
@@ -347,20 +341,10 @@ export default function LoraLibrarySettingsPanel({
                     LoRA file
                     <span className="flex items-center gap-2">
                       {selectedFile ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={comfyLoraPreviewSrc(
-                            selectedFile.name,
-                            selectedFile.pathIndex,
-                            comfyUrl
-                          )}
-                          alt=""
-                          width={32}
-                          height={32}
-                          className="h-8 w-8 shrink-0 rounded object-cover"
-                          onError={event => {
-                            event.currentTarget.style.display = 'none';
-                          }}
+                        <ComfyLoraPreviewThumb
+                          filename={selectedFile.name}
+                          pathIndex={selectedFile.pathIndex}
+                          comfyUrl={comfyUrl}
                         />
                       ) : null}
                       <select

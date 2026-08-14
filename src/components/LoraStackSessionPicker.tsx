@@ -25,11 +25,11 @@ import {
   isLoraCompatibleWithModel,
   loraModelFilterLabel,
 } from '@/lib/lora-model-compat';
-import { comfyLoraPreviewSrc } from '@/lib/comfyui-object-info-cache';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import { loadSettingsCache } from '@/lib/settings-cache';
 import { Button } from '@/components/ui/Button';
 import { ChipButton } from '@/components/ui/Field';
+import ComfyLoraPreviewThumb from '@/components/ComfyLoraPreviewThumb';
 
 type LoraStackSessionPickerProps = {
   model?: string;
@@ -276,17 +276,7 @@ export default function LoraStackSessionPicker({
                     }
                   />
                   {entry.tokenValue ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={comfyLoraPreviewSrc(entry.tokenValue, 0, previewComfyUrl)}
-                      alt=""
-                      width={32}
-                      height={32}
-                      className="h-8 w-8 shrink-0 rounded object-cover"
-                      onError={event => {
-                        event.currentTarget.style.display = 'none';
-                      }}
-                    />
+                    <ComfyLoraPreviewThumb filename={entry.tokenValue} comfyUrl={previewComfyUrl} />
                   ) : null}
                   <button
                     type="button"

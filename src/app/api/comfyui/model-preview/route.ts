@@ -3,9 +3,23 @@ import { getComfyUiBaseUrl } from '@/lib/comfyui-client';
 import { stripEmptyComfyUiRuntime } from '@/lib/comfyui-config';
 import { isAllowedComfyModelFolder } from '@/lib/comfyui-models';
 import { sanitizeComfyModelPreviewFilename } from '@/lib/comfyui-experiment-models';
+import {
+  clearModelPreviewMiss,
+  hasCachedModelPreviewMiss,
+  modelPreviewCacheKey,
+  rememberModelPreviewMiss,
+} from '@/lib/comfyui-model-preview-cache';
 import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
+
+const MISS_HEADERS = {
+  'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+};
+
+function missingPreviewResponse(): NextResponse {
+  return new NextResponse(null, { status: 204, headers: MISS_HEADERS });
+}
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -33,6 +47,16 @@ export async function GET(request: Request) {
     return apiError(`Unknown ComfyUI model folder "${folder}".`, 400);
   }
 
+  const missKey = modelPreviewCacheKey({
+    baseUrl,
+    folder,
+    pathIndex,
+    filename,
+  });
+  if (hasCachedModelPreviewMiss(missKey)) {
+    return missingPreviewResponse();
+  }
+
   const encodedName = filename.split('/').map(encodeURIComponent).join('/');
   const url = `${baseUrl}/experiment/models/preview/${encodeURIComponent(folder)}/${pathIndex}/${encodedName}`;
 
@@ -43,12 +67,15 @@ export async function GET(request: Request) {
       redirect: 'manual',
     });
     if (!response.ok) {
-      return new NextResponse(null, { status: 404 });
+      rememberModelPreviewMiss(missKey);
+      return missingPreviewResponse();
     }
     const buffer = Buffer.from(await response.arrayBuffer());
     if (buffer.byteLength < 32) {
-      return new NextResponse(null, { status: 404 });
+      rememberModelPreviewMiss(missKey);
+      return missingPreviewResponse();
     }
+    clearModelPreviewMiss(missKey);
     return new NextResponse(buffer, {
       status: 200,
       headers: {
@@ -57,7 +84,8 @@ export async function GET(request: Request) {
       },
     });
   } catch {
-    return new NextResponse(null, { status: 404 });
+    rememberModelPreviewMiss(missKey);
+    return missingPreviewResponse();
   }
 }
 
