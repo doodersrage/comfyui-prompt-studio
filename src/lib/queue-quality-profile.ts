@@ -36,19 +36,18 @@ export const QUEUE_QUALITY_PROFILE_OPTIONS: {
   },
   {
     id: 'draft',
-    label: 'Draft',
-    description: 'Fast iteration — base sampler tier, medium-or-smaller resolution.',
+    label: 'Fast',
+    description: 'Quick iteration — lighter sampler and a smaller canvas.',
   },
   {
     id: 'final',
-    label: 'Final',
-    description: 'Production renders — at least Optimized sampler, medium-or-larger resolution.',
+    label: 'Good',
+    description: 'Everyday keepers — stronger sampler and a medium-or-larger canvas.',
   },
   {
     id: 'max',
-    label: 'Max',
-    description:
-      'Best quality — full Max sampler tier, largest resolution, and Max graph polish (upscale / detail / sharpen).',
+    label: 'Best',
+    description: 'Highest quality — full sampler, largest canvas, and extra polish.',
   },
 ];
 
@@ -208,7 +207,7 @@ export function formatQueueQualityProfileHint(
           })
           ? ' · native decode (no Lanczos) · CFG-1 short negatives'
           : ' · Lanczos polish · CFG-1 short negatives'
-        : ' · Draft (no Lanczos) · CFG-1 short negatives';
+        : ' · Fast (no Lanczos) · CFG-1 short negatives';
   } else if (isFluxFineTuneCheckpointModel(model) && profileUsesUpscaleEnrich(profile)) {
     upscaleNote =
       profile === 'max'
@@ -247,7 +246,7 @@ export function formatQueueQualityProfileHint(
     profile === 'max' &&
     options?.neuralUpscaleAvailable &&
     profileUsesNeuralUpscaleEnrich(profile, { model })
-      ? ' · Max sharpen'
+      ? ' · Best sharpen'
       : '';
 
   return `${option.label} queue → ${effectivePreset} sampler · ${effectiveSize} resolution${upscaleNote}${refinerNote}${detailNote}${sharpenNote} (sidebar: ${userPreset} · ${userSizeTier}).`;
@@ -306,9 +305,9 @@ export function formatQueuePipelineStatusNotes(input: {
   const notes: string[] = [];
 
   if (input.vramDowngraded) {
-    notes.push('Max → Final (VRAM)');
+    notes.push('Best → Good (VRAM)');
   } else if (profile === 'final' || profile === 'max' || profile === 'draft') {
-    notes.push(`${profile} quality`);
+    notes.push(formatQueueQualityProfileLabel(profile));
   }
 
   if (input.samplerMemory) {
@@ -344,14 +343,14 @@ export function formatQueuePipelineStatusNotes(input: {
       notes.push('moiré polish on');
       notes.push('upscale skipped (Rapid AIO)');
     } else {
-      notes.push('moiré polish off (use Final/Max)');
+      notes.push('moiré polish off (use Good/Best)');
     }
   } else if (/qwen-image-2512-lightning/i.test(model)) {
     notes.push('Lightning CFG-1 · short negatives');
     if (profile === 'final' || profile === 'max') {
       notes.push('native decode · soft blur (no upscale)');
     } else if (profile === 'draft') {
-      notes.push('Draft · native decode');
+      notes.push('Fast · native decode');
     }
   } else if (/qwen-image-edit-2511-lightning/i.test(model)) {
     notes.push('Lightning CFG-1 · short negatives');
@@ -362,7 +361,7 @@ export function formatQueuePipelineStatusNotes(input: {
         notes.push('native decode (no Lanczos)');
       }
     } else if (profile === 'draft') {
-      notes.push('Draft · no Lanczos');
+      notes.push('Fast · no Lanczos');
     }
   } else if (/wan.*lightning-(4|8)\b/i.test(model)) {
     notes.push('WAN Lightning · CFG-1 short temporal negatives');
@@ -371,9 +370,9 @@ export function formatQueuePipelineStatusNotes(input: {
   } else if (/lightning-(4|8)\b/i.test(model)) {
     notes.push('Lightning CFG-1 · short negatives');
     if (profile === 'final' || profile === 'max') {
-      notes.push('Final/Max adds Lanczos');
+      notes.push('Good/Best adds Lanczos');
     } else if (profile === 'draft') {
-      notes.push('Draft · no Lanczos');
+      notes.push('Fast · no Lanczos');
     }
   } else if (profile === 'final' || profile === 'max') {
     if (profileUsesLatentDetailPass(profile, { model })) {
@@ -452,7 +451,7 @@ export function formatQueueSizeQualityExplain(input: {
   }
 
   if (profile === 'draft' || profile === 'final' || profile === 'max') {
-    parts.push(profile);
+    parts.push(formatQueueQualityProfileLabel(profile));
   }
 
   const scale = upscaleScaleForProfile(profile, {

@@ -439,10 +439,10 @@ export default function SettingsComfyUiTab({
             </span>
             <span className="block text-xs text-[var(--text-muted)]">
               Queue from the best matching library pack when one scores well, otherwise a built-in
-              scaffold. Draft / Final / Max still drive sampler, resolution, and polish.
-              Checkpoint/VAE maps still apply. For FLUX / Qwen / video, hides the workflow picker
-              while enabled. Enabling scans ComfyUI inventory and adapts checkpoint/VAE/upscale
-              maps.
+              scaffold. Fast / Good / Best still drive sampler, resolution, and polish (same
+              pipelines as Draft / Final / Max). Checkpoint/VAE maps still apply. For FLUX / Qwen /
+              video, hides the workflow picker while enabled. Enabling scans ComfyUI inventory and
+              adapts checkpoint/VAE/upscale maps.
             </span>
           </span>
         </label>
@@ -884,7 +884,7 @@ export default function SettingsComfyUiTab({
                 Per-tool queue quality
               </p>
               <p className="text-xs text-[var(--text-muted)]">
-                Set default Draft / Final / Max profiles for individual tools. Overrides the global
+                Set default Fast / Good / Best profiles for individual tools. Overrides the global
                 sidebar profile when that tool queues to ComfyUI.
               </p>
               <ToolQualityProfilesSettings

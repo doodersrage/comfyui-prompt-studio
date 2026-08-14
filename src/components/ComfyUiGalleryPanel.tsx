@@ -1144,6 +1144,7 @@ export default function ComfyUiGalleryPanel({
           galleryEntryPrimaryMediaKind(entry) === 'image'
         }
         pickLabel={pickFor ? galleryPickActionLabel(pickFor) : undefined}
+        leanActions={leanGallery}
       />
     ),
     [
@@ -1154,6 +1155,7 @@ export default function ComfyUiGalleryPanel({
       filter.reviewMode,
       galleryCardActionsRef,
       layout,
+      leanGallery,
       pickFor,
       primaryThumbUrl,
       reviewFocusEntry?.id,

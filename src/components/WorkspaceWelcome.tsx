@@ -194,7 +194,7 @@ export default function WorkspaceWelcome() {
               {setupMessage ??
                 (generateCta.href === '/dashboard'
                   ? 'Open your Dashboard for queue status and recent outputs, then Generate when you are ready.'
-                  : "Open Generate for your first prompt, then Queue generate when you're ready.")}
+                  : "Open Generate for your first prompt, then Queue when you're ready.")}
             </p>
             <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
               <Button type="button" variant="ghost" size="sm" onClick={() => setPhase(null)}>

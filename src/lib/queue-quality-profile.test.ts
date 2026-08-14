@@ -1,11 +1,18 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  formatQueueQualityProfileLabel,
   resolveEffectiveResolutionSizeTier,
   resolveEffectiveSamplerPreset,
 } from "./queue-quality-profile";
 
 describe("queue-quality-profile", () => {
+  it("labels draft/final/max as Fast/Good/Best", () => {
+    assert.equal(formatQueueQualityProfileLabel("draft"), "Fast");
+    assert.equal(formatQueueQualityProfileLabel("final"), "Good");
+    assert.equal(formatQueueQualityProfileLabel("max"), "Best");
+    assert.equal(formatQueueQualityProfileLabel("followSettings"), "Follow sidebar");
+  });
   it("keeps sidebar preset when profile follows settings", () => {
     assert.equal(
       resolveEffectiveSamplerPreset("optimized", "followSettings"),

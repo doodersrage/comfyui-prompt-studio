@@ -168,8 +168,8 @@ export default function QueueQualityProfileHints({
           </div>
           <p className="type-caption text-[var(--text-muted)]">
             {draftBumped
-              ? 'Iterate → Draft (queues as Final for polish/Base on this model). Keeper → Final. Max stays separate.'
-              : 'Iterate → Draft for fast loops. Keeper → Final for keepers. Max stays a separate quality chip.'}
+              ? 'Iterate → Fast (queues as Good for polish on this model). Keeper → Good. Best stays separate.'
+              : 'Iterate → Fast for quick loops. Keeper → Good for keepers. Best stays a separate quality chip.'}
           </p>
         </div>
 
@@ -181,7 +181,7 @@ export default function QueueQualityProfileHints({
               onClick={() => handleProfileChange(option.id)}
               className="w-full justify-center px-2"
             >
-              {option.id === 'draft' && draftBumped ? 'Draft → Final' : option.label}
+              {option.id === 'draft' && draftBumped ? 'Fast → Good' : option.label}
             </ChipButton>
           ))}
         </div>
@@ -203,7 +203,7 @@ export default function QueueQualityProfileHints({
                   href="/queue"
                   className="rounded-md border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-2 py-0.5 text-[11px] text-[var(--tint-warning-text)] transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
                 >
-                  {heldCount} Max held
+                  {heldCount} Best held
                 </a>
               ) : null}
             </div>
@@ -222,11 +222,11 @@ export default function QueueQualityProfileHints({
               setSettingsTick(value => value + 1);
             }}
           >
-            Hold Max until idle
+            Hold Best until idle
           </ChipButton>
           {shared.holdMaxUntilIdle ? (
             <span className="type-caption text-[var(--text-muted)]">
-              Max waits for an empty ComfyUI queue
+              Best waits for an empty ComfyUI queue
             </span>
           ) : null}
         </div>
@@ -268,14 +268,14 @@ export default function QueueQualityProfileHints({
       <p className="mt-1.5 type-caption text-[var(--text-muted)]">
         {/^qwen-rapid-aio-/i.test(shared.model) ? (
           <>
-            Rapid AIO: Draft queues as Final so moiré polish runs. Max uses 10-step sgm_uniform plus
-            short anti-moiré cues; Final uses soft blur only, Max adds a mild bicubic resample.
+            Rapid AIO: Fast queues as Good so moiré polish runs. Best uses 10-step sgm_uniform plus
+            short anti-moiré cues; Good uses soft blur only, Best adds a mild bicubic resample.
             Output upscale is skipped (it re-amplifies screen-door).
           </>
         ) : /qwen-image-2512-lightning/i.test(shared.model) ? (
           <>
-            Qwen 2512 Lightning: CFG-1 short negatives. Draft/Final/Max all skip output upscale
-            (Lanczos and UltraSharp make wet streets and skin look hard). Final/Max add a soft blur
+            Qwen 2512 Lightning: CFG-1 short negatives. Fast/Good/Best all skip output upscale
+            (Lanczos and UltraSharp make wet streets and skin look hard). Good/Best add a soft blur
             after decode instead. Gallery Upscale/Refine are disabled — re-queue with a new seed.
           </>
         ) : /lightning-(4|8)\b/i.test(shared.model) ? (
@@ -286,17 +286,17 @@ export default function QueueQualityProfileHints({
           </>
         ) : /^qwen-image-2512$/i.test(shared.model) ? (
           <>
-            Vanilla 2512: Draft queues as Final. Final/Max bump sampler steps and use Lanczos-only
+            Vanilla 2512: Fast queues as Good. Good/Best bump sampler steps and use Lanczos-only
             image upscale (~1.25× chroma guard — no neural 4×). Latent detail hires-fix is off — it
             melted anatomy on hard poses.
           </>
         ) : (
           <>
-            Draft favors speed; Final and Max bump sampler steps and resolution. Flux Final/Max may
+            Fast favors speed; Good and Best bump sampler steps and resolution. Flux Good/Best may
             insert a soft latent detail pass; SDXL may insert a refiner. When an upscale model is
-            mapped, Final/Max run <span className="text-[var(--text-muted)]">UpscaleModel</span>{' '}
-            then area-scale to ~1.25×/1.5× (Max may add Lanczos polish + sharpen); otherwise Lanczos{' '}
-            <span className="text-[var(--text-muted)]">ImageScale</span> before SaveImage.
+            mapped, Good/Best run <span className="text-[var(--text-muted)]">UpscaleModel</span>{' '}
+            then area-scale to ~1.25×/1.5× (Best may add Lanczos polish + sharpen); otherwise
+            Lanczos <span className="text-[var(--text-muted)]">ImageScale</span> before SaveImage.
           </>
         )}
       </p>

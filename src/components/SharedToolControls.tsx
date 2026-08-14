@@ -45,6 +45,8 @@ import { normalizeAnatomyGuardMode, type AnatomyGuardMode } from '@/lib/anatomy-
 import {
   normalizeQueueQualityProfile,
   formatQueueQualityProfileHint,
+  formatQueueQualityProfileLabel,
+  QUEUE_QUALITY_PROFILE_OPTIONS,
   type QueueQualityProfile,
 } from '@/lib/queue-quality-profile';
 import { normalizeRenderRealismMode, type RenderRealismMode } from '@/lib/render-realism';
@@ -83,7 +85,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import { isBrowserStorageReady, whenBrowserStorageReady } from '@/lib/browser-storage';
 import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
-import { workspaceControlsDefaultOpen, workspaceShowsAdvancedControls } from '@/lib/workspace-mode';
+import { workspaceControlsDefaultOpen } from '@/lib/workspace-mode';
 import { resolveModelStackFamily } from '@/lib/workflow-stack-fingerprint';
 import { modelSupportsTextualInversion } from '@/lib/textual-inversion';
 import { modelSupportsSessionIdentityLock } from '@/lib/compose-identity-lock';
@@ -236,7 +238,6 @@ export default function SharedToolControls({
 }: SharedToolControlsProps) {
   const workspaceMode = useWorkspaceMode();
   const advancedOpenByDefault = workspaceControlsDefaultOpen(workspaceMode);
-  const showsAdvancedShell = workspaceShowsAdvancedControls(workspaceMode);
   const selectedModel = getComfyModelDefinition(shared.model);
   const activeLimits = getDetailLimits(shared.detail, shared.model);
   const workflowSelection = useComfyWorkflowSelection();
@@ -1283,47 +1284,101 @@ export default function SharedToolControls({
         </div>
       </div>
 
+      <div className="space-y-2">
+        <FieldLabel hint="How long the render takes and how much polish it gets.">
+          Quality
+        </FieldLabel>
+        <div className="flex flex-wrap gap-2">
+          {QUEUE_QUALITY_PROFILE_OPTIONS.filter(option => option.id !== 'followSettings').map(
+            option => (
+              <ChipButton
+                key={option.id}
+                active={queueQualityProfile === option.id}
+                onClick={() => handleQueueQualityProfileChange(option.id)}
+              >
+                {option.label}
+              </ChipButton>
+            )
+          )}
+        </div>
+        {systemPathActive && systemQualityHint ? (
+          <p className="text-xs leading-relaxed text-[var(--text-muted)]">{systemQualityHint}</p>
+        ) : null}
+      </div>
+
+      {lastLookRecipe ? (
+        <div className="space-y-1.5">
+          <FieldLabel hint="Newest saved look from a 4–5★ still. Applies the same session stack on every image tool.">
+            Last look
+          </FieldLabel>
+          <ChipButton
+            active={false}
+            title={lastLookRecipe.label}
+            onClick={() => {
+              const recipe = latestGenerateLookRecipe() ?? lastLookRecipe;
+              const next = applySessionRecipeShared(loadSettingsCache().shared, recipe);
+              saveSharedSettings(next, { notify: true });
+              handleRecipesApplied(next);
+            }}
+          >
+            <span data-testid="last-generate-look" className="truncate">
+              {lastLookRecipe.label}
+            </span>
+          </ChipButton>
+        </div>
+      ) : null}
+
+      {modelSupportsSessionIdentityLock(shared.model) &&
+      toolId !== 'video' &&
+      toolId !== 'compose' &&
+      shared.ipAdapterImageFilename?.trim() ? (
+        <div className="flex flex-wrap items-center gap-2">
+          {shared.ipAdapterImageUrl?.trim() ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={shared.ipAdapterImageUrl}
+              alt=""
+              className="h-8 w-8 rounded-lg object-cover"
+            />
+          ) : null}
+          <span className="type-caption rounded-[var(--radius-full)] border border-[var(--accent-border)] bg-[var(--accent-muted)] px-2.5 py-1 text-[var(--accent-text)]">
+            Face locked
+          </span>
+          <Button
+            variant="ghost"
+            className="!min-h-8 px-2 type-caption"
+            onClick={() => {
+              const patch = {
+                ipAdapterImageFilename: '',
+                ipAdapterImageFilenames: [] as string[],
+                ipAdapterImageUrl: '',
+                ipAdapterComfyUrl: '',
+              };
+              if (onSharedSettingsChange) {
+                onSharedSettingsChange(patch);
+              } else {
+                saveSharedSettings({
+                  ...loadSettingsCache().shared,
+                  ...patch,
+                });
+              }
+            }}
+          >
+            Clear
+          </Button>
+        </div>
+      ) : null}
+
       {(() => {
         const queueQualityBlock = systemPathActive ? (
           <div className="space-y-2">
-            <FieldLabel hint="Steps, resolution, and polish scale with this choice.">
-              Queue quality
-            </FieldLabel>
-            <div className="flex flex-wrap gap-2">
-              {(
-                [
-                  { id: 'draft' as const, label: 'Draft' },
-                  { id: 'final' as const, label: 'Final' },
-                  { id: 'max' as const, label: 'Max' },
-                ] as const
-              ).map(option => (
-                <ChipButton
-                  key={option.id}
-                  active={queueQualityProfile === option.id}
-                  onClick={() => handleQueueQualityProfileChange(option.id)}
-                >
-                  {option.label}
-                </ChipButton>
-              ))}
-            </div>
-            {systemQualityHint ? (
-              <p className="text-xs leading-relaxed text-[var(--text-muted)]">
-                {systemQualityHint}
-              </p>
-            ) : null}
             <p
               data-testid="queue-seed-quality-clarity"
               className="rounded-lg border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/40 px-2.5 py-1.5 text-[11px] leading-relaxed text-[var(--text-secondary)]"
             >
               Queue uses{' '}
               <span className="font-medium text-[var(--text-primary)]">
-                {queueQualityProfile === 'followSettings'
-                  ? 'Follow sidebar'
-                  : queueQualityProfile === 'draft'
-                    ? 'Draft'
-                    : queueQualityProfile === 'final'
-                      ? 'Final'
-                      : 'Max'}
+                {formatQueueQualityProfileLabel(queueQualityProfile)}
               </span>
               {' · '}
               {lockedVariationSeed?.trim()
@@ -1382,27 +1437,6 @@ export default function SharedToolControls({
 
         const advancedSections = (
           <>
-            {lastLookRecipe ? (
-              <div className="space-y-1.5">
-                <FieldLabel hint="Newest saved look from a 4–5★ still. Applies the same session stack on every image tool.">
-                  Last look
-                </FieldLabel>
-                <ChipButton
-                  active={false}
-                  title={lastLookRecipe.label}
-                  onClick={() => {
-                    const recipe = latestGenerateLookRecipe() ?? lastLookRecipe;
-                    const next = applySessionRecipeShared(loadSettingsCache().shared, recipe);
-                    saveSharedSettings(next, { notify: true });
-                    handleRecipesApplied(next);
-                  }}
-                >
-                  <span data-testid="last-generate-look" className="truncate">
-                    {lastLookRecipe.label}
-                  </span>
-                </ChipButton>
-              </div>
-            ) : null}
             {queueQualityBlock}
             {workflowBlock}
             <CollapsibleSection
@@ -1539,13 +1573,7 @@ export default function SharedToolControls({
                   >
                     Queue uses{' '}
                     <span className="font-medium text-[var(--text-primary)]">
-                      {queueQualityProfile === 'followSettings'
-                        ? 'Follow sidebar'
-                        : queueQualityProfile === 'draft'
-                          ? 'Draft'
-                          : queueQualityProfile === 'final'
-                            ? 'Final'
-                            : 'Max'}
+                      {formatQueueQualityProfileLabel(queueQualityProfile)}
                     </span>
                     {' · '}
                     {lockedVariationSeed?.trim()
@@ -1682,7 +1710,7 @@ export default function SharedToolControls({
                 <span className="space-y-1">
                   <span className="type-heading block">Auto-retry on OOM</span>
                   <span className="type-caption block">
-                    When a Max/Final gallery job fails with an OOM/CUDA/execution_error,
+                    When a Best/Good gallery job fails with an OOM/CUDA/execution_error,
                     automatically re-queue it once.
                   </span>
                 </span>
@@ -1703,8 +1731,8 @@ export default function SharedToolControls({
                 <span className="space-y-1">
                   <span className="type-heading block">Downgrade quality on retry</span>
                   <span className="type-caption block">
-                    Max → Final / Final → Draft on the same host; if a pool has multiple endpoints,
-                    an alternate one is also tried.
+                    Best → Good / Good → Fast on the same host; if a pool has multiple endpoints, an
+                    alternate one is also tried.
                   </span>
                 </span>
               </label>
@@ -1860,15 +1888,11 @@ export default function SharedToolControls({
           </>
         );
 
-        if (!showsAdvancedShell) {
-          return advancedSections;
-        }
-
         return (
           <CollapsibleSection
             title="Advanced settings"
-            summary="Queue quality, workflow, LoRA, sampling, wildcards, and automation."
-            defaultOpen={false}
+            summary="LoRAs, embeddings, identity, sampling, wildcards, and automation."
+            defaultOpen={advancedOpenByDefault}
             persistKey="shared-advanced-settings"
           >
             {advancedSections}

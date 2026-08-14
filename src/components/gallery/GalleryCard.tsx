@@ -110,6 +110,8 @@ type GalleryCardProps = {
   pickable?: boolean;
   pickLabel?: string;
   onPick?: () => void;
+  /** Simple workspace: hover chips are Open, Stack, and Lock only. */
+  leanHoverActions?: boolean;
 };
 
 function statusLabel(status: ComfyGalleryEntry['status'], entry?: ComfyGalleryEntry): string {
@@ -185,6 +187,7 @@ export default function GalleryCard({
   pickable = false,
   pickLabel = 'Use this image',
   onPick,
+  leanHoverActions = false,
 }: GalleryCardProps) {
   const router = useRouter();
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -471,38 +474,42 @@ export default function GalleryCard({
                 </button>
                 {entry.status === 'completed' && !isVideoHero ? (
                   <>
-                    <button
-                      type="button"
-                      onClick={() => startImproveFromGalleryEntry(entry)}
-                      className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] px-2 py-0.5 text-[10px] text-[var(--tint-success-text)] backdrop-blur transition hover:bg-[var(--tint-success-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tint-success-border)] active:scale-[0.98]"
-                    >
-                      Improve
-                    </button>
-                    {layout !== 'dense' ? (
-                      <button
-                        type="button"
-                        onClick={() => startInpaintFromGalleryEntry(entry)}
-                        className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-2 py-0.5 text-[10px] text-[var(--tint-warning-text)] backdrop-blur transition hover:bg-[var(--tint-warning-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
-                      >
-                        Inpaint
-                      </button>
-                    ) : null}
-                    {entry.hasStoredWorkflow || entry.workflowJson ? (
-                      <button
-                        type="button"
-                        onClick={() => onRequeue(false, undefined, { exactGraph: true })}
-                        className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] px-2 py-0.5 text-[10px] text-[var(--tint-info-text)] backdrop-blur transition hover:bg-[var(--tint-info-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
-                      >
-                        Exact
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => onRequeue(false)}
-                        className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)]/70 px-2 py-0.5 text-[10px] text-[var(--text-secondary)] backdrop-blur transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
-                      >
-                        Requeue
-                      </button>
+                    {leanHoverActions ? null : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => startImproveFromGalleryEntry(entry)}
+                          className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] px-2 py-0.5 text-[10px] text-[var(--tint-success-text)] backdrop-blur transition hover:bg-[var(--tint-success-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tint-success-border)] active:scale-[0.98]"
+                        >
+                          Improve
+                        </button>
+                        {layout !== 'dense' ? (
+                          <button
+                            type="button"
+                            onClick={() => startInpaintFromGalleryEntry(entry)}
+                            className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-2 py-0.5 text-[10px] text-[var(--tint-warning-text)] backdrop-blur transition hover:bg-[var(--tint-warning-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
+                          >
+                            Inpaint
+                          </button>
+                        ) : null}
+                        {entry.hasStoredWorkflow || entry.workflowJson ? (
+                          <button
+                            type="button"
+                            onClick={() => onRequeue(false, undefined, { exactGraph: true })}
+                            className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] px-2 py-0.5 text-[10px] text-[var(--tint-info-text)] backdrop-blur transition hover:bg-[var(--tint-info-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
+                          >
+                            Exact
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => onRequeue(false)}
+                            className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)]/70 px-2 py-0.5 text-[10px] text-[var(--text-secondary)] backdrop-blur transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
+                          >
+                            Requeue
+                          </button>
+                        )}
+                      </>
                     )}
                     {galleryEntryHasRestorableStack(entry) ? (
                       <button
@@ -521,7 +528,8 @@ export default function GalleryCard({
                         Stack
                       </button>
                     ) : null}
-                    {galleryEntryHasRestorableStack(entry) && entry.prompt?.trim() ? (
+                    {leanHoverActions ? null : galleryEntryHasRestorableStack(entry) &&
+                      entry.prompt?.trim() ? (
                       <button
                         type="button"
                         data-testid="gallery-use-prompt-stack"
@@ -550,40 +558,44 @@ export default function GalleryCard({
                         Lock
                       </button>
                     ) : null}
-                    {galleryEntryCanSaveLook(entry) ? (
-                      <button
-                        type="button"
-                        data-testid="gallery-save-look"
-                        onClick={() => {
-                          saveGalleryLookFromEntry(entry);
-                        }}
-                        className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)]/70 px-2 py-0.5 text-[10px] text-[var(--text-secondary)] backdrop-blur transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
-                      >
-                        Look
-                      </button>
-                    ) : null}
-                    {showFaceDetailAction && onFaceDetail ? (
-                      <button
-                        type="button"
-                        onClick={() => onFaceDetail()}
-                        className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--accent-border)] bg-[var(--accent-muted)] px-2 py-0.5 text-[10px] text-[var(--accent-text)] backdrop-blur transition hover:bg-[var(--accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
-                      >
-                        Face
-                      </button>
-                    ) : null}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        void downloadGalleryImage(entry, 0).catch(error => {
-                          onDownloadError(
-                            error instanceof Error ? error.message : 'Download failed'
-                          );
-                        });
-                      }}
-                      className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)]/70 px-2 py-0.5 text-[10px] text-[var(--text-secondary)] backdrop-blur transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
-                    >
-                      ↓
-                    </button>
+                    {leanHoverActions ? null : (
+                      <>
+                        {galleryEntryCanSaveLook(entry) ? (
+                          <button
+                            type="button"
+                            data-testid="gallery-save-look"
+                            onClick={() => {
+                              saveGalleryLookFromEntry(entry);
+                            }}
+                            className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)]/70 px-2 py-0.5 text-[10px] text-[var(--text-secondary)] backdrop-blur transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
+                          >
+                            Look
+                          </button>
+                        ) : null}
+                        {showFaceDetailAction && onFaceDetail ? (
+                          <button
+                            type="button"
+                            onClick={() => onFaceDetail()}
+                            className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--accent-border)] bg-[var(--accent-muted)] px-2 py-0.5 text-[10px] text-[var(--accent-text)] backdrop-blur transition hover:bg-[var(--accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
+                          >
+                            Face
+                          </button>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void downloadGalleryImage(entry, 0).catch(error => {
+                              onDownloadError(
+                                error instanceof Error ? error.message : 'Download failed'
+                              );
+                            });
+                          }}
+                          className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)]/70 px-2 py-0.5 text-[10px] text-[var(--text-secondary)] backdrop-blur transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
+                        >
+                          ↓
+                        </button>
+                      </>
+                    )}
                   </>
                 ) : null}
               </div>
@@ -1421,14 +1433,14 @@ export default function GalleryCard({
                     }}
                   />
                   <GalleryMenuButton
-                    label="Variation · Final (hires sampler)"
+                    label="Variation · Good (hires sampler)"
                     onClick={() => {
                       onRequeue(true, 'final', { exactGraph: false });
                       setMenuOpen(false);
                     }}
                   />
                   <GalleryMenuButton
-                    label="Variation · Max (heavy polish)"
+                    label="Variation · Best (heavy polish)"
                     onClick={() => {
                       onRequeue(true, 'max', { exactGraph: false });
                       setMenuOpen(false);
@@ -1474,7 +1486,7 @@ export default function GalleryCard({
                     <GalleryMenuGroup label="Enhance">
                       {shouldShowUpscaleFinal && (
                         <GalleryMenuButton
-                          label="Upscale → Final (~1.25× Lanczos)"
+                          label="Upscale → Good (~1.25× Lanczos)"
                           onClick={() => {
                             onUpscale('final');
                             setMenuOpen(false);
@@ -1483,7 +1495,7 @@ export default function GalleryCard({
                       )}
                       {shouldShowUpscaleMax && (
                         <GalleryMenuButton
-                          label="Upscale → Max (full pipeline)"
+                          label="Upscale → Best (full pipeline)"
                           onClick={() => {
                             onUpscale('max');
                             setMenuOpen(false);
@@ -1492,7 +1504,7 @@ export default function GalleryCard({
                       )}
                       {shouldShowForceUpscaleMax && (
                         <GalleryMenuButton
-                          label="Force Upscale · Max"
+                          label="Force Upscale · Best"
                           onClick={() => {
                             onUpscale('max', { force: true });
                             setMenuOpen(false);
@@ -1528,7 +1540,7 @@ export default function GalleryCard({
                       )}
                       {shouldShowMoireFinal && (
                         <GalleryMenuButton
-                          label="Flux polish → Final (blur only)"
+                          label="Flux polish → Good (blur only)"
                           onClick={() => {
                             onMoireClean('final');
                             setMenuOpen(false);
@@ -1537,7 +1549,7 @@ export default function GalleryCard({
                       )}
                       {shouldShowMoireMax && (
                         <GalleryMenuButton
-                          label="Flux polish → Max (blur + resample)"
+                          label="Flux polish → Best (blur + resample)"
                           onClick={() => {
                             onMoireClean('max');
                             setMenuOpen(false);
@@ -1546,7 +1558,7 @@ export default function GalleryCard({
                       )}
                       {shouldShowForceMoireCleanMax && (
                         <GalleryMenuButton
-                          label="Force Flux polish → Max"
+                          label="Force Flux polish → Best"
                           onClick={() => {
                             onMoireClean('max', { force: true });
                             setMenuOpen(false);

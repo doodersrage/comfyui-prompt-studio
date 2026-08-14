@@ -117,7 +117,7 @@ export function BatchPromptCard({
                 className="!min-h-9 px-4 type-caption"
                 onClick={onQueueComfyUi}
               >
-                Queue generate
+                Queue
               </Button>
             ) : null}
             {onSaveHistory ? (

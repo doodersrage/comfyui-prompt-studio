@@ -64,6 +64,7 @@ type GalleryCardItemProps = {
   pickMode?: boolean;
   pickable?: boolean;
   pickLabel?: string;
+  leanActions?: boolean;
 };
 
 function GalleryCardItem({
@@ -82,6 +83,7 @@ function GalleryCardItem({
   pickMode = false,
   pickable = false,
   pickLabel,
+  leanActions = false,
 }: GalleryCardItemProps) {
   const onToggleSelected = useCallback(
     (event?: { shiftKey?: boolean }) =>
@@ -238,6 +240,7 @@ function GalleryCardItem({
       pickable={pickable}
       pickLabel={pickLabel}
       onPick={pickMode ? onPick : undefined}
+      leanHoverActions={leanActions}
     />
   );
 }
@@ -257,6 +260,7 @@ function propsEqual(previous: GalleryCardItemProps, next: GalleryCardItemProps):
     previous.pickMode === next.pickMode &&
     previous.pickable === next.pickable &&
     previous.pickLabel === next.pickLabel &&
+    previous.leanActions === next.leanActions &&
     previous.imageUrls.length === next.imageUrls.length &&
     previous.imageUrls[0] === next.imageUrls[0]
   );
