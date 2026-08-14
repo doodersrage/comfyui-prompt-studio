@@ -28,6 +28,7 @@ import {
   ROLEPLAY_TONES,
   appendRoleplayStoryBeat,
   formatRoleplayBio,
+  getRoleplayArchetype,
   mergeRoleplayStoryStills,
   normalizeRoleplayTone,
   patchRoleplayStoryBeat,
@@ -36,6 +37,7 @@ import {
   type RoleplayScene,
   type RoleplayStoryBeat,
 } from '@/lib/roleplay';
+import { downloadRoleplayStoryBundle } from '@/lib/roleplay-export';
 import type { EnrichedToolGenerateResult } from '@/lib/specialized/types';
 import { ChipButton, FieldError, TextArea } from '@/components/ui/Field';
 import { Button } from '@/components/ui/Button';
@@ -70,6 +72,7 @@ export default function RoleplayTool() {
   const [bioLoading, setBioLoading] = useState(false);
   const [scenesLoading, setScenesLoading] = useState(false);
   const [playingId, setPlayingId] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   const personaId = toolSettings.personaId ?? ROLEPLAY_ARCHETYPES[0].id;
   const tone = normalizeRoleplayTone(toolSettings.tone);
@@ -375,6 +378,32 @@ export default function RoleplayTool() {
     }
   }, []);
 
+  const downloadStory = useCallback(async () => {
+    if (!bio && storyRef.current.length === 0) {
+      setError('Write a bio or a beat first.');
+      return;
+    }
+    setExporting(true);
+    setError(null);
+    try {
+      const personaLabel =
+        personaId === CUSTOM_ROLEPLAY_PERSONA_ID
+          ? toolSettings.customPersona?.trim() || 'Custom'
+          : (getRoleplayArchetype(personaId)?.label ?? personaId);
+      const toneLabel = ROLEPLAY_TONES.find(entry => entry.id === tone)?.label ?? tone;
+      await downloadRoleplayStoryBundle({
+        bio,
+        story: storyRef.current,
+        tone: toneLabel,
+        personaLabel,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not download the story.');
+    } finally {
+      setExporting(false);
+    }
+  }, [bio, personaId, tone, toolSettings.customPersona]);
+
   const surpriseCast = useCallback(() => {
     const pick = ROLEPLAY_ARCHETYPES[Math.floor(Math.random() * ROLEPLAY_ARCHETYPES.length)];
     updateToolSettings({
@@ -390,7 +419,7 @@ export default function RoleplayTool() {
     return null;
   }
 
-  const busy = bioLoading || scenesLoading || Boolean(playingId);
+  const busy = bioLoading || scenesLoading || Boolean(playingId) || exporting;
 
   return (
     <ToolLayout
@@ -542,6 +571,15 @@ export default function RoleplayTool() {
           Stills land here as they render
           {autoQueue ? ' — queued automatically from the bio and each pick' : ''}.
         </p>
+        <Button
+          variant="secondary"
+          loading={exporting}
+          loadingLabel="Packing story"
+          disabled={(!bio && story.length === 0) || (busy && !exporting)}
+          onClick={() => void downloadStory()}
+        >
+          Download story
+        </Button>
         <RoleplayStoryReel
           story={story}
           busy={busy}

@@ -10,8 +10,11 @@ import {
   patchRoleplayStoryBeat,
   resolveRoleplayPersonaPrompt,
   roleplayIntroScene,
+  roleplayStillBasename,
   ROLEPLAY_ARCHETYPES,
   ROLEPLAY_INTRO_SCENE_ID,
+  formatRoleplayStoryMarkdown,
+  slugRoleplayExportPart,
   templateRoleplayBio,
 } from './roleplay';
 
@@ -108,5 +111,28 @@ describe('roleplay parsers', () => {
     assert.ok(ids.includes('subway-mermaid'));
     assert.ok(ids.includes('lava-lamp'));
     assert.equal(resolveRoleplayPersonaPrompt('moon-intern').length > 0, true);
+  });
+
+  it('formats a downloadable story markdown with still filenames', () => {
+    assert.equal(slugRoleplayExportPart('First look!'), 'first-look');
+    assert.equal(roleplayStillBasename('First look', 0), '01-first-look');
+    const markdown = formatRoleplayStoryMarkdown({
+      bio: {
+        name: 'Crisp',
+        look: 'a toaster with a scarf',
+        personality: 'sincere',
+        catchphrase: 'heat!',
+      },
+      tone: 'Silly',
+      personaLabel: 'Sentient toaster',
+      story: [
+        { id: 'intro', title: 'First look', blurb: 'Hello crumbs.', at: 1, prompt: 'a toaster' },
+      ],
+      stillFilenames: ['01-first-look.png'],
+    });
+    assert.match(markdown, /^# Crisp/m);
+    assert.match(markdown, /Part: Sentient toaster/);
+    assert.match(markdown, /Still: `stills\/01-first-look.png`/);
+    assert.match(markdown, /a toaster/);
   });
 });

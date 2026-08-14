@@ -4,11 +4,16 @@ import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Spinner } from '@/components/ui/Button';
 import type { ImageLightboxState } from '@/components/ui/ImageLightbox';
+import { downloadRoleplayUrl } from '@/lib/roleplay-export';
 import {
   COMFY_LIVE_PREVIEW_UPDATED_EVENT,
   getComfyLivePreviewUrl,
 } from '@/lib/comfyui-live-preview-store';
-import type { RoleplayStillStatus, RoleplayStoryBeat } from '@/lib/roleplay';
+import {
+  roleplayStillBasename,
+  type RoleplayStillStatus,
+  type RoleplayStoryBeat,
+} from '@/lib/roleplay';
 
 const ImageLightbox = dynamic(() => import('@/components/ui/ImageLightbox'), {
   ssr: false,
@@ -222,6 +227,23 @@ export default function RoleplayStoryReel({
               : previous
           )
         }
+        onDownloadImage={async index => {
+          const slide = playlist[index];
+          if (!slide?.url) {
+            return;
+          }
+          const storyIndex = story.findIndex(
+            entry => entry.title === slide.title && entry.prompt === slide.prompt
+          );
+          try {
+            await downloadRoleplayUrl(
+              slide.url,
+              `${roleplayStillBasename(slide.title, storyIndex >= 0 ? storyIndex : index)}.png`
+            );
+          } catch {
+            // Lightbox download is best-effort; the zip export is the full bundle.
+          }
+        }}
         slideChrome={
           activeSlide?.prompt
             ? {

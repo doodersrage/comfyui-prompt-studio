@@ -712,6 +712,65 @@ export function formatRoleplayBio(bio: RoleplayBio): string {
     .join('\n');
 }
 
+export function slugRoleplayExportPart(value: string, fallback = 'beat'): string {
+  const slug = value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 40);
+  return slug || fallback;
+}
+
+export function roleplayStillBasename(title: string, index: number): string {
+  const n = String(index + 1).padStart(2, '0');
+  return `${n}-${slugRoleplayExportPart(title)}`;
+}
+
+export function formatRoleplayStoryMarkdown(input: {
+  bio?: RoleplayBio | null;
+  story: RoleplayStoryBeat[];
+  tone?: string;
+  personaLabel?: string;
+  stillFilenames?: Array<string | null | undefined>;
+}): string {
+  const name = input.bio?.name.trim() || 'Untitled roleplay';
+  const tone = input.tone?.trim();
+  const persona = input.personaLabel?.trim();
+  const lines: string[] = [`# ${name}`, ''];
+  if (persona) {
+    lines.push(`Part: ${persona}`, '');
+  }
+  if (tone) {
+    lines.push(`Tone: ${tone}`, '');
+  }
+  if (input.bio) {
+    lines.push('## Character', '', formatRoleplayBio(input.bio), '');
+  }
+  if (input.story.length === 0) {
+    lines.push('_No beats yet._', '');
+    return lines.join('\n').trim() + '\n';
+  }
+  lines.push('## Story', '');
+  input.story.forEach((beat, index) => {
+    lines.push(`### ${index + 1}. ${beat.title.trim() || 'Beat'}`, '');
+    if (beat.blurb.trim()) {
+      lines.push(beat.blurb.trim(), '');
+    }
+    const stillName = input.stillFilenames?.[index]?.trim();
+    if (stillName) {
+      lines.push(`Still: \`stills/${stillName}\``, '');
+    } else if (beat.stillStatus && beat.stillStatus !== 'completed') {
+      lines.push(`Still: _${beat.stillStatus}_`, '');
+    } else {
+      lines.push('Still: _not captured_', '');
+    }
+    if (beat.prompt?.trim()) {
+      lines.push('Prompt:', '', '```', beat.prompt.trim(), '```', '');
+    }
+  });
+  return lines.join('\n').trim() + '\n';
+}
+
 function readString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
