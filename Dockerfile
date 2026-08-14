@@ -7,8 +7,10 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-# Use --omit=dev to avoid installing devDependencies in production
-RUN npm ci --omit=dev
+# Full install: Next build needs TypeScript. HUSKY=0 skips the prepare hook
+# (husky is a devDependency and is not on PATH with a partial install).
+ENV HUSKY=0
+RUN npm ci
 
 FROM base AS builder
 WORKDIR /app
@@ -17,6 +19,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV HUSKY=0
 RUN npm run build
 
 FROM base AS runner
