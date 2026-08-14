@@ -51,6 +51,12 @@ const baseConfig: NextConfig = {
     optimizeCss: true,
   },
   serverExternalPackages: ['onnxruntime-web', '@huggingface/transformers'],
+  // Next 16 defaults to Turbopack; keep the webpack alias for `next dev --webpack`.
+  turbopack: {
+    resolveAlias: {
+      'onnxruntime-web/webgpu': './src/lib/onnxruntime-webgpu-stub.ts',
+    },
+  },
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.alias = {
