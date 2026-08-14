@@ -643,7 +643,7 @@ export default function RoleplayTool() {
 
       <ToolSection title="What happens next?">
         <p className="text-sm text-[var(--text-muted)]">
-          Tap a beat to continue the story. The next still writes into the reel above.
+          Tap a beat to continue the story. The next four options fork from that pick.
         </p>
         <label className="flex cursor-pointer items-start gap-3 text-sm text-[var(--text-secondary)]">
           <input

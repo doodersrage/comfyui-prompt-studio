@@ -968,10 +968,201 @@ export function templateRoleplayBio(
   };
 }
 
+export const ROLEPLAY_INTRO_SCENE_ID = 'intro-first-look';
+
+function clipRoleplayWords(value: string, maxWords: number): string {
+  return value.trim().split(/\s+/).filter(Boolean).slice(0, Math.max(1, maxWords)).join(' ');
+}
+
+export function clipRoleplayTitle(value: string, maxWords = 6): string {
+  return clipRoleplayWords(value.replace(/[:—–|/]+/g, ' '), maxWords) || 'Next beat';
+}
+
+export function roleplaySceneTitleKey(title: string): string {
+  return title.trim().toLowerCase();
+}
+
+export function usedRoleplaySceneTitles(story: RoleplayStoryBeat[] | undefined): Set<string> {
+  return new Set((story ?? []).map(beat => roleplaySceneTitleKey(beat.title)).filter(Boolean));
+}
+
+export function lastRoleplayPlotBeat(
+  story: RoleplayStoryBeat[] | undefined
+): RoleplayStoryBeat | undefined {
+  return (story ?? []).filter(beat => beat.id !== ROLEPLAY_INTRO_SCENE_ID).at(-1);
+}
+
+export function formatRoleplayStoryDigest(story: RoleplayStoryBeat[] | undefined): string {
+  const recent = (story ?? []).slice(-8);
+  if (recent.length === 0) {
+    return 'Story so far: nothing yet — this is the opening beat. Write four opening options.';
+  }
+  const lines = recent.map((beat, index) => `${index + 1}. ${beat.title} — ${beat.blurb}`);
+  const lastPlot = lastRoleplayPlotBeat(recent);
+  if (!lastPlot) {
+    return [
+      `Story so far:\n${lines.join('\n')}`,
+      'Write four opening plot options — first things that can happen to this character.',
+    ].join('\n');
+  }
+  return [
+    `Story so far:\n${lines.join('\n')}`,
+    `Last chosen beat (continue from here): ${lastPlot.title} — ${lastPlot.blurb}`,
+    'Every option must be a next moment after that pick, not a random new vignette.',
+  ].join('\n');
+}
+
+type RoleplayContinuationFork = {
+  titlePrefix: string;
+  blurb: (name: string, last: RoleplayStoryBeat) => string;
+};
+
+const ROLEPLAY_CONTINUATION_FORKS: RoleplayContinuationFork[] = [
+  {
+    titlePrefix: 'Right after',
+    blurb: (name, last) =>
+      `${name} is still inside "${last.title}": ${last.blurb} The next second happens in the same place.`,
+  },
+  {
+    titlePrefix: 'Fallout from',
+    blurb: (name, last) =>
+      `Consequences land from ${last.title.toLowerCase()}. ${name} has to deal with what they just did.`,
+  },
+  {
+    titlePrefix: 'Worse than',
+    blurb: (name, last) =>
+      `${last.title} was only the setup. It gets messier for ${name} without leaving that situation.`,
+  },
+  {
+    titlePrefix: 'Double down on',
+    blurb: (name, last) =>
+      `${name} refuses to walk away from ${last.title.toLowerCase()} and leans harder into it.`,
+  },
+  {
+    titlePrefix: 'Caught during',
+    blurb: (name, last) =>
+      `Someone interrupts ${last.title.toLowerCase()}. ${name} is still holding the pose.`,
+  },
+  {
+    titlePrefix: 'Bargain after',
+    blurb: (name, last) =>
+      `${name} tries to talk their way out of the mess left by ${last.title.toLowerCase()}.`,
+  },
+  {
+    titlePrefix: 'Escape from',
+    blurb: (name, last) =>
+      `${name} attempts a getaway that still starts from ${last.title.toLowerCase()}.`,
+  },
+  {
+    titlePrefix: 'Reveal during',
+    blurb: (name, last) =>
+      `A hidden detail from ${last.title.toLowerCase()} comes into view and ${name} has to react.`,
+  },
+];
+
+function forkTitleFromLast(prefix: string, lastTitle: string): string {
+  const prefixWords = prefix.trim().split(/\s+/).filter(Boolean).length;
+  const room = Math.max(1, 6 - prefixWords);
+  return clipRoleplayTitle(`${prefix} ${clipRoleplayWords(lastTitle, room)}`);
+}
+
+function uniqueRoleplayTitle(title: string, used: Set<string>): string {
+  const base = clipRoleplayTitle(title);
+  if (!used.has(roleplaySceneTitleKey(base))) {
+    return base;
+  }
+  const stem = clipRoleplayWords(base, 5);
+  for (const suffix of ['next', 'again', 'now', 'too']) {
+    const candidate = clipRoleplayTitle(`${stem} ${suffix}`);
+    if (!used.has(roleplaySceneTitleKey(candidate))) {
+      return candidate;
+    }
+  }
+  return stem;
+}
+
+export function continueRoleplayScenes(
+  last: RoleplayStoryBeat,
+  story?: RoleplayStoryBeat[],
+  characterName?: string
+): RoleplayScene[] {
+  const name = characterName?.trim() || 'You';
+  const used = usedRoleplaySceneTitles(story);
+  const start = (story?.length ?? 0) % ROLEPLAY_CONTINUATION_FORKS.length;
+  const rotated = [
+    ...ROLEPLAY_CONTINUATION_FORKS.slice(start),
+    ...ROLEPLAY_CONTINUATION_FORKS.slice(0, start),
+  ];
+  const scenes: RoleplayScene[] = [];
+  for (const fork of rotated) {
+    if (scenes.length >= 4) {
+      break;
+    }
+    const title = uniqueRoleplayTitle(forkTitleFromLast(fork.titlePrefix, last.title), used);
+    used.add(roleplaySceneTitleKey(title));
+    scenes.push({
+      id: slugId(title, scenes.length),
+      title,
+      blurb: fork.blurb(name, last),
+    });
+  }
+  return scenes;
+}
+
+export function filterFreshRoleplayScenes(
+  scenes: RoleplayScene[],
+  story?: RoleplayStoryBeat[]
+): RoleplayScene[] {
+  const used = usedRoleplaySceneTitles(story);
+  const seen = new Set<string>();
+  const fresh: RoleplayScene[] = [];
+  for (const scene of scenes) {
+    const key = roleplaySceneTitleKey(scene.title);
+    if (!key || used.has(key) || seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    fresh.push(scene);
+  }
+  return fresh;
+}
+
+export function mergeRoleplaySceneOptions(
+  preferred: RoleplayScene[],
+  fallback: RoleplayScene[],
+  story?: RoleplayStoryBeat[],
+  limit = 4
+): RoleplayScene[] {
+  const freshPreferred = filterFreshRoleplayScenes(preferred, story);
+  const used = new Set([
+    ...usedRoleplaySceneTitles(story),
+    ...freshPreferred.map(scene => roleplaySceneTitleKey(scene.title)),
+  ]);
+  const merged = [...freshPreferred];
+  for (const extra of fallback) {
+    if (merged.length >= limit) {
+      break;
+    }
+    const key = roleplaySceneTitleKey(extra.title);
+    if (!key || used.has(key)) {
+      continue;
+    }
+    used.add(key);
+    merged.push(extra);
+  }
+  return merged.slice(0, limit);
+}
+
 export function templateRoleplayScenes(
   personaId: string | null | undefined,
-  customPersona?: string
+  customPersona?: string,
+  story?: RoleplayStoryBeat[],
+  characterName?: string
 ): RoleplayScene[] {
+  const lastPlot = lastRoleplayPlotBeat(story);
+  if (lastPlot) {
+    return continueRoleplayScenes(lastPlot, story, characterName);
+  }
   const archetype = getRoleplayArchetype(personaId);
   const rows = archetype?.templateScenes ?? [
     {
@@ -985,14 +1176,15 @@ export function templateRoleplayScenes(
     },
     { title: 'Quiet victory pose', blurb: 'Nothing happened, so you pose like it did.' },
   ];
-  return rows.map((row, index) => ({
-    id: slugId(row.title, index),
-    title: row.title,
-    blurb: row.blurb,
-  }));
+  return filterFreshRoleplayScenes(
+    rows.map((row, index) => ({
+      id: slugId(row.title, index),
+      title: row.title,
+      blurb: row.blurb,
+    })),
+    story
+  );
 }
-
-export const ROLEPLAY_INTRO_SCENE_ID = 'intro-first-look';
 
 export function roleplayIntroScene(bio: RoleplayBio): RoleplayScene {
   const name = bio.name.trim() || 'the character';

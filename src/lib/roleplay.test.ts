@@ -2,7 +2,11 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   appendRoleplayStoryBeat,
+  continueRoleplayScenes,
   extractJsonValue,
+  filterFreshRoleplayScenes,
+  formatRoleplayStoryDigest,
+  mergeRoleplaySceneOptions,
   mergeRoleplayStoryStills,
   normalizeRoleplayTone,
   normalizeRoleplayContent,
@@ -13,6 +17,7 @@ import {
   resolveRoleplayPersonaPrompt,
   resolveRoleplayToneAndContent,
   isRoleplayAdultContent,
+  lastRoleplayPlotBeat,
   roleplayIntroScene,
   roleplayStillBasename,
   ROLEPLAY_ARCHETYPES,
@@ -20,6 +25,7 @@ import {
   formatRoleplayStoryMarkdown,
   slugRoleplayExportPart,
   templateRoleplayBio,
+  templateRoleplayScenes,
 } from './roleplay';
 
 describe('roleplay parsers', () => {
@@ -104,6 +110,73 @@ describe('roleplay parsers', () => {
     assert.equal(intro.title, 'First look');
     assert.match(intro.blurb, /Crisp/);
     assert.match(intro.blurb, /toaster with a scarf/);
+  });
+
+  it('rolls later options from the last chosen beat instead of the starter vignettes', () => {
+    const opening = templateRoleplayScenes('raccoon-pirate');
+    assert.equal(opening[0]?.title, 'Mutiny at brunch');
+
+    const intro = roleplayIntroScene(templateRoleplayBio('raccoon-pirate'));
+    const afterIntro = templateRoleplayScenes('raccoon-pirate', undefined, [
+      { ...intro, at: 1 },
+    ]);
+    assert.equal(afterIntro[0]?.title, 'Mutiny at brunch');
+
+    const chosen = {
+      id: 'mutiny-at-brunch-1',
+      title: 'Mutiny at brunch',
+      blurb: 'The crew wants pancakes. You want the map. The syrup is a hostage.',
+      at: 2,
+    };
+    const story = [
+      { ...intro, at: 1 },
+      chosen,
+    ];
+    assert.equal(lastRoleplayPlotBeat(story)?.title, 'Mutiny at brunch');
+
+    const next = templateRoleplayScenes('raccoon-pirate', undefined, story, 'Captain Nib');
+    assert.equal(next.length, 4);
+    assert.ok(next.every(scene => scene.title !== 'Mutiny at brunch'));
+    assert.ok(next.every(scene => scene.title !== 'Foggy dock heist'));
+    assert.ok(next.some(scene => /mutiny|brunch/i.test(`${scene.title} ${scene.blurb}`)));
+    assert.ok(next.every(scene => /Captain Nib|brunch|mutiny|pancakes|syrup|map/i.test(scene.blurb)));
+
+    const digest = formatRoleplayStoryDigest(story);
+    assert.match(digest, /Last chosen beat/);
+    assert.match(digest, /Mutiny at brunch/);
+    assert.match(digest, /continue from here/i);
+
+    const openingDigest = formatRoleplayStoryDigest([{ ...intro, at: 1 }]);
+    assert.match(openingDigest, /opening plot options/i);
+    assert.doesNotMatch(openingDigest, /Last chosen beat/);
+  });
+
+  it('drops already-played titles and fills from continuations', () => {
+    const story = [
+      {
+        id: 'mutiny-at-brunch-1',
+        title: 'Mutiny at brunch',
+        blurb: 'The syrup is a hostage.',
+        at: 1,
+      },
+    ];
+    const fresh = filterFreshRoleplayScenes(
+      [
+        { id: 'dup', title: 'Mutiny at brunch', blurb: 'again' },
+        { id: 'new', title: 'Syrup tribunal', blurb: 'The crew holds court.' },
+      ],
+      story
+    );
+    assert.equal(fresh.length, 1);
+    assert.equal(fresh[0]?.title, 'Syrup tribunal');
+
+    const merged = mergeRoleplaySceneOptions(
+      [{ id: 'dup', title: 'Mutiny at brunch', blurb: 'again' }],
+      continueRoleplayScenes(story[0]!, story, 'Captain Nib'),
+      story
+    );
+    assert.equal(merged.length, 4);
+    assert.ok(merged.every(scene => scene.title.toLowerCase() !== 'mutiny at brunch'));
   });
 
   it('patches a beat and hydrates stills from gallery jobs', () => {

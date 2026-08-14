@@ -9,7 +9,10 @@ import { stripPromptArtifacts } from '../prompt-cleanup';
 import {
   extractJsonValue,
   formatRoleplayBio,
+  formatRoleplayStoryDigest,
   isRoleplayAdultContent,
+  lastRoleplayPlotBeat,
+  mergeRoleplaySceneOptions,
   parseRoleplayBio,
   parseRoleplayScenes,
   resolveRoleplayPersonaPrompt,
@@ -145,12 +148,8 @@ function templatePromptFallback(
     : `${lookLock}, ${blurb}, ${tone} storybook lighting, expressive pose, readable scene`;
 }
 
-function storyDigest(story: RoleplayStoryBeat[] | undefined): string {
-  const recent = (story ?? []).slice(-6);
-  if (recent.length === 0) {
-    return 'Story so far: nothing yet — this is the opening beat.';
-  }
-  return `Story so far:\n${recent.map((beat, index) => `${index + 1}. ${beat.title} — ${beat.blurb}`).join('\n')}`;
+function hasRoleplayPlot(story: RoleplayStoryBeat[] | undefined): boolean {
+  return Boolean(lastRoleplayPlotBeat(story));
 }
 
 async function llmJson(options: {
@@ -221,23 +220,35 @@ export async function generateRoleplayScenes(
   const { tone, content } = resolveRoleplayToneAndContent(options.tone, options.content);
   const allowGore = Boolean(options.allowGore);
   const bio = options.bio ?? templateRoleplayBio(options.personaId, options.customPersona);
-  const fallback = templateRoleplayScenes(options.personaId, options.customPersona);
+  const continuing = hasRoleplayPlot(options.story);
+  const fallback = templateRoleplayScenes(
+    options.personaId,
+    options.customPersona,
+    options.story,
+    bio.name
+  );
   const raw = await llmJson({
     llm: options.llm,
     maxTokens: 700,
-    temperature: 1.05,
-    system: `You write branching story beats for an image roleplay.
+    temperature: continuing ? 0.86 : 1.05,
+    system: `You write choose-your-own-adventure forks for an image roleplay.
 ${toneLine(tone)}
 Return ONLY JSON: {"scenes":[{"title":"","blurb":""}]}
 - Exactly 4 scenes. Titles 2–6 words. Blurbs one sentence, visual, actionable.
+- Each option is a different way THIS character's story continues from the last chosen beat.
+- Keep the same setting, props, and relationships unless a branch is clearly leaving that moment.
+- Do not jump to an unrelated location or a new plot that ignores what just happened.
 - Each beat should make a distinct still image of THIS character.
 - ${sceneGuard(content, allowGore)}`,
     user: [
       formatRoleplayBio(bio),
-      storyDigest(options.story),
+      formatRoleplayStoryDigest(options.story),
+      continuing
+        ? 'The player just picked the last beat. Write four mutually exclusive next moments that follow from it.'
+        : 'No plot yet. Write four opening options for this character.',
       options.extraHints?.trim() ? `Player notes: ${options.extraHints.trim()}` : '',
       options.avoidedTokensInstruction ?? '',
-      'Four new scenes.',
+      continuing ? 'Four continuing scenes.' : 'Four opening scenes.',
     ]
       .filter(Boolean)
       .join('\n\n'),
@@ -245,10 +256,11 @@ Return ONLY JSON: {"scenes":[{"title":"","blurb":""}]}
   if (!raw) {
     return { scenes: fallback, provider: 'template' };
   }
-  const scenes = parseRoleplayScenes(extractJsonValue(raw));
+  const parsed = parseRoleplayScenes(extractJsonValue(raw));
+  const scenes = mergeRoleplaySceneOptions(parsed, fallback, options.story);
   return {
     scenes: scenes.length > 0 ? scenes : fallback,
-    provider: scenes.length > 0 ? 'llm' : 'template',
+    provider: parsed.length > 0 ? 'llm' : 'template',
   };
 }
 
@@ -279,8 +291,9 @@ ${contentLine(content, allowGore)}
 - ${styleLine} No camera brand names, no quality-tag soup, no comic-book lettering.`,
     userMessage: [
       formatRoleplayBio(bio),
-      storyDigest(options.story),
+      formatRoleplayStoryDigest(options.story),
       `This beat: ${situation.title} — ${situation.blurb}`,
+      'Keep continuity with the last chosen beats: same character, and the same setting/props unless this beat clearly moves.',
       options.extraHints?.trim() ? `Player notes: ${options.extraHints.trim()}` : '',
       options.avoidedTokensInstruction ?? '',
       'Write only the image prompt.',
