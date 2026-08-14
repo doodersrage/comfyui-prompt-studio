@@ -23,6 +23,7 @@ import { getComfyModelDefinition } from '@/lib/comfy-models/client';
 import { isBooguEditModel, isZImageModel } from '@/lib/model-denoise-defaults';
 import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-target';
 import { DEFAULT_IMAGE_PROMPT_TOOL_CACHE } from '@/lib/settings-cache';
+import { appendSharedLlmFormData, sharedLlmRequestBody } from '@/lib/llm-request-options';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
 import { normalizeHistorySeedScope, normalizeSceneHintSource } from '@/lib/scene-hint-source';
 import type {
@@ -213,6 +214,7 @@ export default function ImagePromptTool() {
         if (toolSettings.extraHints?.trim()) {
           formData.append('extraHints', toolSettings.extraHints.trim());
         }
+        appendSharedLlmFormData(formData, shared);
 
         const response = await fetch('/api/image-prompt', {
           method: 'POST',
@@ -241,6 +243,7 @@ export default function ImagePromptTool() {
             detail: shared.detail,
             descriptionPreset: toolSettings.descriptionPreset ?? 'standard',
             extraHints: toolSettings.extraHints?.trim() || undefined,
+            ...sharedLlmRequestBody(shared),
           }),
         });
         data = (await response.json()) as ToolGenerateResult & { error?: string };
@@ -303,6 +306,7 @@ export default function ImagePromptTool() {
           detail: shared.detail,
           currentPrompt: output || undefined,
           intentHints: refineIntent.trim(),
+          ...sharedLlmRequestBody(shared),
         }),
       });
 

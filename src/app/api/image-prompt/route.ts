@@ -8,7 +8,7 @@ import {
 } from '@/lib/specialized/image-prompt-generator';
 import type { ImagePromptFocus } from '@/lib/specialized/types';
 import { normalizeImagePromptDescriptionPreset } from '@/lib/image-prompt-presets';
-import { parseLlmRequestOptions } from '@/lib/llm-request-options';
+import { parseLlmRequestOptions, parseLlmRequestOptionsFromForm } from '@/lib/llm-request-options';
 import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
@@ -56,7 +56,7 @@ async function parseImagePromptRequest(request: Request): Promise<{
       focus: normalizeFocus(formData.get('focus')),
       descriptionPreset: normalizeImagePromptDescriptionPreset(formData.get('descriptionPreset')),
       extraHints: String(formData.get('extraHints') ?? '').trim() || undefined,
-      llm: parseLlmRequestOptions(null),
+      llm: parseLlmRequestOptionsFromForm(formData),
     };
   }
 
@@ -73,6 +73,8 @@ async function parseImagePromptRequest(request: Request): Promise<{
     llmModel?: string;
     llmVisionModel?: string;
     llmEnabled?: boolean;
+    llmProvider?: string;
+    llmApiKey?: string;
   };
 
   if (!body.image?.trim()) {

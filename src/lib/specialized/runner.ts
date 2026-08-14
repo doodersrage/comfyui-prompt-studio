@@ -7,6 +7,7 @@ import {
 import { getDetailLimits } from '../detail-level';
 import {
   resolveRequestLlmEnabled,
+  resolveRequestLlmEndpoint,
   resolveRequestTemplateFallback,
   resolveRequestTemperature,
 } from '../llm-request-options';
@@ -66,6 +67,8 @@ export async function runSpecializedPrompt(options: {
   llmModel?: string;
   /** false = template-only for this request/browser; undefined = server LLM_ENABLED default. */
   llmEnabled?: boolean;
+  llmProvider?: import('../llm-providers').SessionLlmProvider;
+  llmApiKey?: string;
   maxTokens?: number;
   metadata?: Record<string, unknown>;
   seed?: string;
@@ -86,7 +89,12 @@ ${buildModelClarityAddendum(options.detail, options.model)}
 
 Output ONLY the raw prompt text. No quotes around the whole prompt, labels, markdown, numbered analysis, thinking steps, or explanations.`;
 
-  if (resolveRequestLlmEnabled({ llmEnabled: options.llmEnabled })) {
+  if (
+    resolveRequestLlmEnabled({
+      llmEnabled: options.llmEnabled,
+      llmProvider: options.llmProvider,
+    })
+  ) {
     try {
       const content = await chatCompletion({
         messages: [
@@ -96,6 +104,10 @@ Output ONLY the raw prompt text. No quotes around the whole prompt, labels, mark
         maxTokens,
         temperature: resolveRequestTemperature({ temperature: options.temperature }),
         model: options.llmModel,
+        endpoint: resolveRequestLlmEndpoint({
+          llmProvider: options.llmProvider,
+          llmApiKey: options.llmApiKey,
+        }),
       });
 
       const rawPrompt = stripPromptArtifacts(content).trim() || content.trim();
@@ -107,7 +119,12 @@ Output ONLY the raw prompt text. No quotes around the whole prompt, labels, mark
         options.soloSubject,
         options.enforceMinimum,
         options.postProcessPrompt,
-        true
+        true,
+        {
+          llmProvider: options.llmProvider,
+          llmApiKey: options.llmApiKey,
+          llmModel: options.llmModel,
+        }
       );
 
       return buildToolResult(prompt, 'llm', reportedModel, options.detail, {
@@ -154,7 +171,12 @@ async function finalizeSpecializedPrompt(
   soloSubject = false,
   enforceMinimum = true,
   postProcessPrompt?: (prompt: string) => string,
-  allowSparseLlmExpand = false
+  allowSparseLlmExpand = false,
+  llm?: {
+    llmProvider?: import('../llm-providers').SessionLlmProvider;
+    llmApiKey?: string;
+    llmModel?: string;
+  }
 ): Promise<string> {
   const cleaned = stripPromptArtifacts(raw);
   if (!cleaned.trim() || isThinkingOnlyArtifact(cleaned)) {
@@ -173,6 +195,8 @@ async function finalizeSpecializedPrompt(
         hints: input,
         detail,
         model,
+        endpoint: resolveRequestLlmEndpoint(llm),
+        llmModel: llm?.llmModel,
       });
       if (expanded) {
         source = expanded;

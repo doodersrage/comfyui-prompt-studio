@@ -1,4 +1,4 @@
-import { chatCompletion, isLlmEnabled } from './llm-client';
+import { chatCompletion, isLlmEnabled, type LlmEndpointOverride } from './llm-client';
 import { buildModelClarityAddendum, type ComfyImageModel } from './comfy-models';
 import { getDetailLimits, type DetailLevel } from './detail-level';
 import { promptHasSceneDensity } from './prompt-shape';
@@ -32,8 +32,10 @@ export async function expandSparsePromptWithLlm(input: {
   hints: string;
   detail: DetailLevel;
   model: ComfyImageModel;
+  endpoint?: LlmEndpointOverride;
+  llmModel?: string;
 }): Promise<string | null> {
-  if (!isLlmEnabled()) {
+  if (!isLlmEnabled() && !input.endpoint) {
     return null;
   }
 
@@ -68,6 +70,8 @@ Rewrite a denser, scene-specific prompt.`;
       ],
       maxTokens: Math.min(maxTokens, 512),
       temperature: 0.55,
+      model: input.llmModel,
+      endpoint: input.endpoint,
     });
     const cleaned = stripPromptArtifacts(content).trim();
     if (!cleaned || cleaned.length < input.draft.trim().length) {

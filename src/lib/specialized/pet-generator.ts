@@ -105,6 +105,8 @@ export async function generatePetPrompt(options: PetOptions): Promise<ToolGenera
     allowTemplateFallback: options.llm?.allowTemplateFallback,
     llmModel: options.llm?.llmModel,
     llmEnabled: options.llm?.llmEnabled,
+    llmProvider: options.llm?.llmProvider,
+    llmApiKey: options.llm?.llmApiKey,
     // Hints only — never the rolled pet scene seed (location leaks into padding).
     sanitizeInput: effectiveHints?.trim() || undefined,
     templateFallback: () => buildPetTemplate(seed, portraitStyle, parsed.pair),

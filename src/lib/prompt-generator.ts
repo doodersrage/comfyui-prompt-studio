@@ -15,6 +15,7 @@ import { withRawPrompt } from './raw-prompt';
 import { chatCompletion, chatCompletionStream } from './llm-client';
 import {
   resolveRequestLlmEnabled,
+  resolveRequestLlmEndpoint,
   resolveRequestLlmModel,
   resolveRequestTemplateFallback,
   type LlmRequestOptions,
@@ -393,7 +394,8 @@ async function finalizePromptWithSparseExpand(
   mode: PromptMode,
   settings: GenerationSettings,
   wardrobeAssignments?: GenerateWardrobeAssignment[] | null,
-  tool?: string
+  tool?: string,
+  llm?: LlmRequestOptions
 ): Promise<string> {
   let source = preparePromptSource(raw, input, mode, settings);
   // Sparse expand explicitly invents garments/locations — skip in keywords-only mode.
@@ -408,6 +410,8 @@ async function finalizePromptWithSparseExpand(
         hints: input,
         detail: settings.detail,
         model: settings.model,
+        endpoint: resolveRequestLlmEndpoint(llm),
+        llmModel: resolveRequestLlmModel(llm),
       });
       if (expanded) {
         source = expanded;
@@ -514,6 +518,7 @@ export async function generateWithLlm(
     temperature: request.temperature,
     model: resolveRequestLlmModel(llm),
     extraBody: request.extraBody,
+    endpoint: resolveRequestLlmEndpoint(llm),
   });
 
   const rawPrompt = stripPromptArtifacts(content).trim() || content.trim();
@@ -523,7 +528,8 @@ export async function generateWithLlm(
     mode,
     settings,
     wardrobeAssignments,
-    tool
+    tool,
+    llm
   );
   return { prompt, rawPrompt };
 }
@@ -943,6 +949,7 @@ export async function* generatePromptStream(
         model: resolveRequestLlmModel(options?.llm),
         extraBody: request.extraBody,
         usageContext: { route: 'generate-stream' },
+        endpoint: resolveRequestLlmEndpoint(options?.llm),
       })) {
         raw += delta;
         yield { type: 'delta', text: delta };
@@ -955,7 +962,8 @@ export async function* generatePromptStream(
         mode,
         writeSettings,
         wardrobeAssignments,
-        options?.tool
+        options?.tool,
+        options?.llm
       );
 
       yield {

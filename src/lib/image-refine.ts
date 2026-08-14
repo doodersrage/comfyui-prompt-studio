@@ -1,7 +1,11 @@
 import { getComfyModelDefinition, comfyModelLabel } from './comfy-models';
 import { getDetailLimits } from './detail-level';
 import { visionCompletion } from './llm-client';
-import { resolveRequestLlmEnabled, resolveRequestVisionModel } from './llm-request-options';
+import {
+  resolveRequestLlmEnabled,
+  resolveRequestLlmEndpoint,
+  resolveRequestVisionModel,
+} from './llm-request-options';
 import { stripPromptArtifacts } from './prompt-cleanup';
 import { formatPromptForModel, sanitizeQwenPrompt } from './qwen-clarity';
 import { buildToolResult } from './specialized/runner';
@@ -64,6 +68,7 @@ Rules:
       maxTokens: Math.max(limits.maxTokens + 256, 768),
       temperature: 0.35,
       model: visionModel,
+      endpoint: resolveRequestLlmEndpoint(options.llm),
     });
   } catch (error) {
     if (error instanceof RangeError) {

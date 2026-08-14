@@ -59,9 +59,17 @@ export type LlmConfig = {
   visionModel: string;
 };
 
-export function getLlmConfig(): LlmConfig {
-  const baseUrl = process.env.LLM_API_BASE_URL?.replace(/\/$/, '') ?? 'http://localhost:11434/v1';
-  const apiKey = process.env.LLM_API_KEY ?? '';
+export type LlmEndpointOverride = {
+  baseUrl?: string;
+  apiKey?: string;
+};
+
+export function getLlmConfig(override?: LlmEndpointOverride): LlmConfig {
+  const baseUrl =
+    override?.baseUrl?.replace(/\/$/, '') ||
+    process.env.LLM_API_BASE_URL?.replace(/\/$/, '') ||
+    'http://localhost:11434/v1';
+  const apiKey = override?.apiKey?.trim() || process.env.LLM_API_KEY || '';
   const model = process.env.LLM_MODEL ?? 'dolphin-llama3';
   const visionModel =
     process.env.LLM_VISION_MODEL?.trim() || process.env.LLM_MODEL?.trim() || model;
@@ -367,7 +375,7 @@ async function ollamaNativeChatCompletion(options: {
 }): Promise<string> {
   const response = await fetch(`${ollamaNativeBaseUrl(options.baseUrl)}/api/chat`, {
     method: 'POST',
-    headers: buildAuthHeaders(options.apiKey),
+    headers: buildAuthHeaders(options.apiKey, options.baseUrl),
     body: JSON.stringify({
       model: options.model,
       messages: options.messages.map(message => ({
@@ -407,13 +415,18 @@ async function ollamaNativeChatCompletion(options: {
   return text;
 }
 
-function buildAuthHeaders(apiKey: string): Record<string, string> {
+function buildAuthHeaders(apiKey: string, baseUrl?: string): Record<string, string> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
 
   if (apiKey) {
     headers.Authorization = `Bearer ${apiKey}`;
+  }
+
+  if (baseUrl && /openrouter\.ai/i.test(baseUrl)) {
+    headers['HTTP-Referer'] = 'https://github.com';
+    headers['X-Title'] = 'ComfyUI Prompt Studio';
   }
 
   return headers;
@@ -463,7 +476,7 @@ async function ollamaNativeVisionCompletion(options: {
 
   const response = await fetch(`${ollamaNativeBaseUrl(options.baseUrl)}/api/chat`, {
     method: 'POST',
-    headers: buildAuthHeaders(options.apiKey),
+    headers: buildAuthHeaders(options.apiKey, options.baseUrl),
     body: requestBody,
   });
 
@@ -627,7 +640,7 @@ async function openAiCompatibleChatCompletion(options: {
 
   const response = await fetch(`${options.baseUrl}/chat/completions`, {
     method: 'POST',
-    headers: buildAuthHeaders(options.apiKey),
+    headers: buildAuthHeaders(options.apiKey, options.baseUrl),
     body: requestBody,
   });
 
@@ -699,7 +712,7 @@ async function* ollamaNativeChatCompletionStream(options: {
 }): AsyncGenerator<string> {
   const response = await fetch(`${ollamaNativeBaseUrl(options.baseUrl)}/api/chat`, {
     method: 'POST',
-    headers: buildAuthHeaders(options.apiKey),
+    headers: buildAuthHeaders(options.apiKey, options.baseUrl),
     signal: options.signal,
     body: JSON.stringify({
       model: options.model,
@@ -759,7 +772,7 @@ async function* openAiCompatibleChatCompletionStream(options: {
 }): AsyncGenerator<string> {
   const response = await fetch(`${options.baseUrl}/chat/completions`, {
     method: 'POST',
-    headers: buildAuthHeaders(options.apiKey),
+    headers: buildAuthHeaders(options.apiKey, options.baseUrl),
     signal: options.signal,
     body: JSON.stringify({
       model: options.model,
@@ -821,9 +834,10 @@ export async function* chatCompletionStream(options: {
   extraBody?: Record<string, unknown>;
   usageContext?: LlmUsageContext;
   signal?: AbortSignal;
+  endpoint?: LlmEndpointOverride;
 }): AsyncGenerator<string, void, unknown> {
   const started = Date.now();
-  const { baseUrl, apiKey, model } = getLlmConfig();
+  const { baseUrl, apiKey, model } = getLlmConfig(options.endpoint);
   const resolvedModel = options.model ?? model;
   const extraBody = { think: false, ...options.extraBody };
   const release = acquireLlmSlot();
@@ -895,6 +909,7 @@ export async function chatCompletion(options: {
   model?: string;
   extraBody?: Record<string, unknown>;
   usageContext?: LlmUsageContext;
+  endpoint?: LlmEndpointOverride;
 }): Promise<string> {
   return withLlmSlot(() => chatCompletionUnthrottled(options));
 }
@@ -906,9 +921,10 @@ async function chatCompletionUnthrottled(options: {
   model?: string;
   extraBody?: Record<string, unknown>;
   usageContext?: LlmUsageContext;
+  endpoint?: LlmEndpointOverride;
 }): Promise<string> {
   const started = Date.now();
-  const { baseUrl, apiKey, model } = getLlmConfig();
+  const { baseUrl, apiKey, model } = getLlmConfig(options.endpoint);
   const resolvedModel = options.model ?? model;
   const extraBody = { think: false, ...options.extraBody };
 
@@ -984,6 +1000,7 @@ export async function visionCompletion(options: {
   /** Request-scoped vision model override (falls back to LLM_VISION_MODEL). */
   model?: string;
   usageContext?: LlmUsageContext;
+  endpoint?: LlmEndpointOverride;
 }): Promise<string> {
   const started = Date.now();
   const resolvedModel = getVisionModel(options.model);
@@ -1029,8 +1046,9 @@ async function visionCompletionUnsafe(options: {
   maxTokens: number;
   temperature?: number;
   model?: string;
+  endpoint?: LlmEndpointOverride;
 }): Promise<string> {
-  const { baseUrl, apiKey } = getLlmConfig();
+  const { baseUrl, apiKey } = getLlmConfig(options.endpoint);
   const visionModel = getVisionModel(options.model);
 
   // Always downscale/recompress before leaving this process — large camera

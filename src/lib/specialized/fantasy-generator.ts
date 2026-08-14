@@ -154,6 +154,8 @@ export async function generateFantasyPrompt(options: FantasyOptions): Promise<To
     allowTemplateFallback: options.llm?.allowTemplateFallback,
     llmModel: options.llm?.llmModel,
     llmEnabled: options.llm?.llmEnabled,
+    llmProvider: options.llm?.llmProvider,
+    llmApiKey: options.llm?.llmApiKey,
     // Hints only — never the rolled fantasy ingredient seed.
     sanitizeInput: hintText || undefined,
     templateFallback: () =>

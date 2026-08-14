@@ -11,6 +11,7 @@ import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { usePromptResultActions } from '@/hooks/usePromptResultActions';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { avoidedTokensRequestBody } from '@/lib/avoided-tokens';
+import { sharedLlmRequestBody } from '@/lib/llm-request-options';
 import { getComfyModelDefinition } from '@/lib/comfy-models/client';
 import type { NsfwGeneratorPreset } from '@/lib/nsfw-generator-presets';
 import {
@@ -216,6 +217,7 @@ export default function NsfwGeneratorTool() {
           wildness: toolSettings.wildness,
           presetId: toolSettings.nsfwPresetId,
           ...avoidedTokensRequestBody(),
+          ...sharedLlmRequestBody(shared),
         }),
       });
 

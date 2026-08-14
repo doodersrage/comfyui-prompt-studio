@@ -163,6 +163,8 @@ export async function generateRandomScene(
       allowTemplateFallback: options.llm?.allowTemplateFallback,
       llmModel: options.llm?.llmModel,
       llmEnabled: options.llm?.llmEnabled,
+      llmProvider: options.llm?.llmProvider,
+      llmApiKey: options.llm?.llmApiKey,
       seed: keywordsOnly ? genreText || undefined : seed,
       metadata,
       resultModel: options.model,

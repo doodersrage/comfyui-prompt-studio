@@ -1,7 +1,11 @@
 import { getComfyModelDefinition, comfyModelLabel } from '../comfy-models';
 import { getDetailLimits, type DetailLevel } from '../detail-level';
 import { allowTemplateFallback, visionCompletion } from '../llm-client';
-import { resolveRequestLlmEnabled, resolveRequestVisionModel } from '../llm-request-options';
+import {
+  resolveRequestLlmEnabled,
+  resolveRequestLlmEndpoint,
+  resolveRequestVisionModel,
+} from '../llm-request-options';
 import {
   applyVisionFocusTrim,
   stripPromptArtifacts,
@@ -176,9 +180,12 @@ export async function generateImagePrompt(
   const userMessage = buildVisionUserPrompt(options.model, focus, mergedHints);
   const limits = getDetailLimits(options.detail, options.model);
 
+  const hosted = Boolean(options.llm?.llmProvider && options.llm.llmProvider !== 'server');
   if (!resolveRequestLlmEnabled(options.llm)) {
     throw new Error(
-      'Image prompt generation requires a vision-capable LLM. Set LLM_ENABLED=true and configure LLM_VISION_MODEL (e.g. qwen3-vl:latest).'
+      hosted
+        ? 'Image → Prompt needs a hosted vision model. Pick one under Settings → LLM and paste your API key.'
+        : 'Image prompt generation requires a vision-capable LLM. Set LLM_ENABLED=true and configure LLM_VISION_MODEL (e.g. qwen3-vl:latest).'
     );
   }
 
@@ -186,7 +193,9 @@ export async function generateImagePrompt(
     resolveRequestVisionModel(options.llm) ?? process.env.LLM_VISION_MODEL?.trim();
   if (!visionModel) {
     throw new Error(
-      'LLM_VISION_MODEL is not set. Add LLM_VISION_MODEL=qwen3-vl:latest to .env.local and restart the dev server.'
+      hosted
+        ? 'Pick a session vision model under Settings → LLM for Image → Prompt on this hosted provider.'
+        : 'LLM_VISION_MODEL is not set. Add LLM_VISION_MODEL=qwen3-vl:latest to .env.local and restart the dev server.'
     );
   }
 
@@ -199,6 +208,7 @@ export async function generateImagePrompt(
       maxTokens: visionMaxTokens,
       temperature: 0.35,
       model: visionModel,
+      endpoint: resolveRequestLlmEndpoint(options.llm),
     });
 
     let prompt = finalizeImagePrompt(content, options.detail, options.model, focus);
@@ -221,6 +231,7 @@ export async function generateImagePrompt(
         maxTokens: visionMaxTokens,
         temperature: attempt === 0 ? 0.25 : 0.15,
         model: visionModel,
+        endpoint: resolveRequestLlmEndpoint(options.llm),
       });
       prompt = finalizeImagePrompt(content, options.detail, options.model, focus);
     }

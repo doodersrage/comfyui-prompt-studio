@@ -2,6 +2,7 @@ import { buildMandatoryLocationBlock, parseSettingHint } from '../hint-location'
 import { chatCompletion } from '../llm-client';
 import {
   resolveRequestLlmEnabled,
+  resolveRequestLlmEndpoint,
   resolveRequestLlmModel,
   resolveRequestTemplateFallback,
 } from '../llm-request-options';
@@ -117,6 +118,7 @@ async function requestTopicsFromLlm(
       : (options.llm?.temperature ?? 0.72 + variety / 140),
     model: resolveRequestLlmModel(options.llm),
     usageContext: { route: 'topics' },
+    endpoint: resolveRequestLlmEndpoint(options.llm),
   });
 
   return parseTopicLines(content, count);

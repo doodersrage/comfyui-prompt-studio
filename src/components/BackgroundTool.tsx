@@ -31,6 +31,7 @@ import {
   applyHintSourceFromSearchParams,
 } from '@/lib/tool-url-params';
 import { avoidedTokensRequestBody } from '@/lib/avoided-tokens';
+import { sharedLlmRequestBody } from '@/lib/llm-request-options';
 import { DEFAULT_BACKGROUND_TOOL_CACHE } from '@/lib/settings-cache';
 import type { EnrichedToolGenerateResult } from '@/lib/specialized/types';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
@@ -157,6 +158,7 @@ export default function BackgroundTool() {
           recentLocations: getRecent(),
           blockedLocations: getBlocklist(),
           ...avoidedTokensRequestBody(),
+          ...sharedLlmRequestBody(shared),
         }),
       });
 

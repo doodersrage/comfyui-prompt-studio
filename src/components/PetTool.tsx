@@ -15,6 +15,7 @@ import { presetOptionsFromPetCache } from '@/lib/pet-options';
 import { getComfyModelDefinition } from '@/lib/comfy-models/client';
 import { applyHintSourceFromSearchParams } from '@/lib/tool-url-params';
 import { avoidedTokensRequestBody } from '@/lib/avoided-tokens';
+import { sharedLlmRequestBody } from '@/lib/llm-request-options';
 import { getReformatTargetModel } from '@/lib/reformat-target';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
 import { applyShareableSceneParams, parseScenePresetFromSearch } from '@/lib/scene-preset-url';
@@ -162,6 +163,7 @@ export default function PetTool() {
           lockedLocation: shared.lockedLocation,
           variationSeed: shared.lockedVariationSeed,
           ...avoidedTokensRequestBody(),
+          ...sharedLlmRequestBody(shared),
         }),
       });
 

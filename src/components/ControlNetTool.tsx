@@ -25,6 +25,7 @@ import {
   type GalleryHandoffPayload,
 } from '@/lib/gallery-handoff';
 import { DEFAULT_CONTROLNET_TOOL_CACHE, type ControlNetSlotPreset } from '@/lib/settings-cache';
+import { sharedLlmRequestBody } from '@/lib/llm-request-options';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
 import { normalizeControlNetMode, type ControlNetMode } from '@/lib/controlnet-prompt';
 import { normalizeHistorySeedScope, normalizeSceneHintSource } from '@/lib/scene-hint-source';
@@ -396,6 +397,7 @@ export default function ControlNetTool() {
         detail: detailNotes,
         model: shared.model,
         detailLevel: shared.detail,
+        ...sharedLlmRequestBody(shared),
       };
       if (refFile) {
         payload.image = await fileToDataUrl(refFile);

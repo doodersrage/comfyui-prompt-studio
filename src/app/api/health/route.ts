@@ -85,6 +85,8 @@ export async function GET(request: Request) {
       allowTemplateFallback: allowTemplateFallback(),
       llmModel: getLlmConfig().model,
       visionModel: getLlmConfig().visionModel,
+      llmApiKeyConfigured: Boolean(process.env.LLM_API_KEY?.trim()),
+      visionModelConfigured: Boolean(process.env.LLM_VISION_MODEL?.trim()),
       comfyUiUrl,
     },
     serverEnv: getServerEnvSummary(),

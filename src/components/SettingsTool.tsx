@@ -827,6 +827,8 @@ export default function SettingsTool() {
                 inFlight: health?.llm.inFlight,
                 maxInflight: health?.llm.maxInflight,
                 busy: health?.llm.busy,
+                apiKeyConfigured: health?.config.llmApiKeyConfigured,
+                visionModelConfigured: health?.config.visionModelConfigured,
               }}
               autoVisionTags={settings.autoVisionTags !== false}
               onAutoVisionTagsChange={value => updateSettings({ autoVisionTags: value })}

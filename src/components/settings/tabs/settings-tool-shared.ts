@@ -133,6 +133,8 @@ export type HealthResponse = {
     allowTemplateFallback: boolean;
     llmModel: string;
     visionModel: string;
+    llmApiKeyConfigured?: boolean;
+    visionModelConfigured?: boolean;
     comfyUiUrl: string;
   };
   serverEnv?: ServerEnvSummary;

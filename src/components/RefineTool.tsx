@@ -28,6 +28,7 @@ import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-t
 import { diffPromptWords } from '@/lib/prompt-diff';
 import { resolveParentHistoryId } from '@/lib/prompt-lineage-session';
 import { DEFAULT_REFINE_TOOL_CACHE } from '@/lib/settings-cache';
+import { sharedLlmRequestBody } from '@/lib/llm-request-options';
 import { createDefaultRegionalSlots } from '@/lib/regional-prompt-slots';
 import {
   galleryPickPath,
@@ -267,6 +268,7 @@ export default function RefineTool() {
           detail: shared.detail,
           currentPrompt: currentPrompt.trim() || undefined,
           intentHints: intentHints.trim() || undefined,
+          ...sharedLlmRequestBody(shared),
         }),
       });
 

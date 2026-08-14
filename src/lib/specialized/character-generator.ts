@@ -437,6 +437,8 @@ ${soloRules}
     allowTemplateFallback: options.llm?.allowTemplateFallback,
     llmModel: options.llm?.llmModel,
     llmEnabled: options.llm?.llmEnabled,
+    llmProvider: options.llm?.llmProvider,
+    llmApiKey: options.llm?.llmApiKey,
     soloSubject: !duoMode,
     seed: keywordsOnly ? hintText || undefined : environmentSeed,
     metadata: {

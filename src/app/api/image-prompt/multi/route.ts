@@ -44,6 +44,8 @@ export async function POST(request: Request) {
       llmModel?: string;
       llmVisionModel?: string;
       llmEnabled?: boolean;
+      llmProvider?: string;
+      llmApiKey?: string;
     };
 
     const images = body.images?.filter(entry => entry.image?.trim()) ?? [];

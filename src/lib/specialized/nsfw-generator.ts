@@ -53,7 +53,12 @@ export async function generateNsfwPrompt(
     toolInstructions: NSFW_TOOL_INSTRUCTIONS,
     userMessage,
     sanitizeInput: hints,
-    temperature: 0.85 + wildness / 400,
+    temperature: options.llm?.temperature ?? 0.85 + wildness / 400,
+    allowTemplateFallback: options.llm?.allowTemplateFallback,
+    llmModel: options.llm?.llmModel,
+    llmEnabled: options.llm?.llmEnabled,
+    llmProvider: options.llm?.llmProvider,
+    llmApiKey: options.llm?.llmApiKey,
     templateFallback: async () => {
       const base =
         hints ||

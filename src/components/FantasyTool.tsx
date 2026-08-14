@@ -20,6 +20,7 @@ import { getReformatTargetModel } from '@/lib/reformat-target';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
 import { applyHintSourceFromSearchParams } from '@/lib/tool-url-params';
 import { avoidedTokensRequestBody } from '@/lib/avoided-tokens';
+import { sharedLlmRequestBody } from '@/lib/llm-request-options';
 import { applyShareableSceneParams, parseScenePresetFromSearch } from '@/lib/scene-preset-url';
 import { getFantasyPreset } from '@/lib/fantasy-presets';
 import { readSceneLocationFromMetadata } from '@/lib/recent-locations';
@@ -210,6 +211,7 @@ export default function FantasyTool() {
           alwaysIncludeClothing: shared.alwaysIncludeClothing !== false,
           seedLlmWithIngredients: shared.seedLlmWithIngredients !== false,
           ...avoidedTokensRequestBody(),
+          ...sharedLlmRequestBody(shared),
         }),
       });
 

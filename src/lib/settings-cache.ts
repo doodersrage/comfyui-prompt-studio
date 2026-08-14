@@ -444,6 +444,10 @@ export type SharedToolSettings = {
   comfyPoolUrls?: string[];
   /** Session LLM enabled override (undefined = server default; false = template-only for this browser). */
   sessionLlmEnabled?: boolean;
+  /** Public LLM provider for this browser (`server` = env LLM_API_BASE_URL). */
+  sessionLlmProvider?: import('./llm-providers').SessionLlmProvider;
+  /** Session API key for OpenRouter / Groq. Stored in this browser only. */
+  sessionLlmApiKey?: string;
   /** Pinned character appearance block injected into Character/Duo generations. */
   activeCharacterDescriptor?: string;
   /** KSampler preset tier applied when queueing (base, optimized, max compatible, or max quality). */

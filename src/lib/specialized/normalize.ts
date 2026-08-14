@@ -12,6 +12,8 @@ export function normalizeSharedGenerationOptions(
     llmModel?: string;
     llmVisionModel?: string;
     llmEnabled?: boolean;
+    llmProvider?: string;
+    llmApiKey?: string;
   }> | null
 ): SharedGenerationOptions {
   return {
