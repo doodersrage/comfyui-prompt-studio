@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
   collectIsolateSourceUrls,
   compositeRgbaOnFill,
+  cutoutLooksIsolated,
   ISOLATE_FILL_WHITE,
   normalizeIsolateSubject,
 } from './isolate-subject';
@@ -30,6 +31,26 @@ describe('isolate-subject', () => {
     assert.equal(out[1], out[0]);
     assert.equal(out[2], out[0]);
     assert.equal(out[3], 255);
+  });
+
+  it('treats mostly-opaque pixels as not isolated', () => {
+    const src = new Uint8ClampedArray(16);
+    src[3] = 255;
+    src[7] = 255;
+    src[11] = 255;
+    src[15] = 255;
+    assert.equal(cutoutLooksIsolated(src), false);
+  });
+
+  it('treats mixed subject and punched-out background as isolated', () => {
+    const src = new Uint8ClampedArray(400);
+    for (let i = 3; i < 200; i += 4) {
+      src[i] = 0;
+    }
+    for (let i = 203; i < 400; i += 4) {
+      src[i] = 255;
+    }
+    assert.equal(cutoutLooksIsolated(src), true);
   });
 
   it('defaults isolate on unless explicitly disabled', () => {

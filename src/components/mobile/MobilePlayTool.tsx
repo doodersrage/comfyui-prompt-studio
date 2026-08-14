@@ -18,6 +18,7 @@ import { IDENTITY_MEDIA_URL, persistIdentityImage } from '@/lib/gallery-media-cl
 import {
   collectIsolateSourceUrls,
   isolateSubjectOnWhite,
+  ISOLATE_QUEUE_BLOCKED_MESSAGE,
   loadImageBlobFromUrls,
 } from '@/lib/isolate-subject';
 import { sharedLlmRequestBody } from '@/lib/llm-request-options';
@@ -184,8 +185,8 @@ export default function MobilePlayTool() {
       } catch (err) {
         setError(
           err instanceof Error
-            ? `${err.message} Using the original photo.`
-            : 'Could not isolate the subject. Using the original photo.'
+            ? `${err.message} ${ISOLATE_QUEUE_BLOCKED_MESSAGE}`
+            : ISOLATE_QUEUE_BLOCKED_MESSAGE
         );
       } finally {
         setIsolating(false);
@@ -256,6 +257,9 @@ export default function MobilePlayTool() {
     if (!hasReferenceImage) {
       return undefined;
     }
+    if (isolateSubject && toolSettings.referenceIsolated !== true) {
+      throw new Error(ISOLATE_QUEUE_BLOCKED_MESSAGE);
+    }
     return {
       inputImageFilename: referenceImageFilename || undefined,
       inputImageUrl: referenceImageUrl || undefined,
@@ -265,10 +269,12 @@ export default function MobilePlayTool() {
     };
   }, [
     hasReferenceImage,
+    isolateSubject,
     referenceImageFilename,
     referenceImageUrl,
     shared.identityKind,
     shared.ipAdapterStrength,
+    toolSettings.referenceIsolated,
   ]);
 
   useEffect(() => {

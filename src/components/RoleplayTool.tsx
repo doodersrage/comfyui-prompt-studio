@@ -35,6 +35,7 @@ import { galleryPickPath } from '@/lib/gallery-handoff';
 import {
   collectIsolateSourceUrls,
   isolateSubjectOnWhite,
+  ISOLATE_QUEUE_BLOCKED_MESSAGE,
   loadImageBlobFromUrls,
 } from '@/lib/isolate-subject';
 import { resolveQueueInputImage } from '@/lib/queue-input-image';
@@ -253,8 +254,8 @@ export default function RoleplayTool() {
             setIsolateStatus(null);
             setError(
               err instanceof Error
-                ? `${err.message} Using the original photo.`
-                : 'Could not isolate the subject. Using the original photo.'
+                ? `${err.message} ${ISOLATE_QUEUE_BLOCKED_MESSAGE}`
+                : ISOLATE_QUEUE_BLOCKED_MESSAGE
             );
             const originalDurable = await persistIdentityImage({
               file: sourceFile,
@@ -450,6 +451,9 @@ export default function RoleplayTool() {
     if (playAs !== 'photo') {
       return undefined;
     }
+    if (isolateSubject && toolSettings.referenceIsolated !== true) {
+      throw new Error(ISOLATE_QUEUE_BLOCKED_MESSAGE);
+    }
     const filename = referenceImageFilename;
     const imageUrl = referenceImageUrl;
     if (!filename && !imageUrl) {
@@ -463,11 +467,13 @@ export default function RoleplayTool() {
       identityKind: shared.identityKind,
     };
   }, [
+    isolateSubject,
     playAs,
     referenceImageFilename,
     referenceImageUrl,
     shared.identityKind,
     shared.ipAdapterStrength,
+    toolSettings.referenceIsolated,
   ]);
 
   useEffect(() => {

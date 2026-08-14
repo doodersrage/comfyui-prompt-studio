@@ -52,7 +52,11 @@ import {
 } from '@/lib/compose-identity-lock';
 import { createDefaultRegionalSlots } from '@/lib/regional-prompt-slots';
 import { galleryPickPath, sharedPatchFromGalleryHandoff } from '@/lib/gallery-handoff';
-import { isolateSubjectOnWhite, normalizeIsolateSubject } from '@/lib/isolate-subject';
+import {
+  isolateSubjectOnWhite,
+  ISOLATE_QUEUE_BLOCKED_MESSAGE,
+  normalizeIsolateSubject,
+} from '@/lib/isolate-subject';
 import { DEFAULT_IMAGE_COMPOSE_TOOL_CACHE } from '@/lib/settings-cache';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
@@ -140,6 +144,7 @@ export default function ComposeTool() {
   const [isolating, setIsolating] = useState(false);
   const [isolateStatus, setIsolateStatus] = useState<string | null>(null);
   const isolateGenRef = useRef(0);
+  const autoIsolateAttemptedRef = useRef(false);
 
   const instruction = toolSettings.instruction ?? '';
   const mode = (toolSettings.mode ?? 'transfer') as ComposeMode;
@@ -357,8 +362,8 @@ export default function ComposeTool() {
         setIsolateStatus(null);
         setError(
           err instanceof Error
-            ? `${err.message} Using the original photo.`
-            : 'Could not isolate the subject. Using the original photo.'
+            ? `${err.message} ${ISOLATE_QUEUE_BLOCKED_MESSAGE}`
+            : ISOLATE_QUEUE_BLOCKED_MESSAGE
         );
       } finally {
         if (gen === isolateGenRef.current) {
@@ -368,6 +373,35 @@ export default function ComposeTool() {
     },
     [clearMaskState, isolateSubject]
   );
+
+  useEffect(() => {
+    if (!isolateSubject) {
+      autoIsolateAttemptedRef.current = false;
+      return;
+    }
+    if (isolating) {
+      return;
+    }
+    const slot0 = slots[0];
+    if (slot0?.isolated) {
+      autoIsolateAttemptedRef.current = false;
+      return;
+    }
+    const original = slot0?.originalFile ?? slot0?.file ?? null;
+    const preview = slot0?.originalPreviewUrl || slot0?.previewUrl || null;
+    if (!original && !preview) {
+      autoIsolateAttemptedRef.current = false;
+      return;
+    }
+    if (autoIsolateAttemptedRef.current) {
+      return;
+    }
+    autoIsolateAttemptedRef.current = true;
+    void assignFigure(0, original, {
+      isolate: true,
+      previewUrl: original ? undefined : preview,
+    });
+  }, [assignFigure, isolateSubject, isolating, slots]);
 
   const applyGalleryHandoff = useCallback(
     (handoff: {
@@ -510,6 +544,21 @@ export default function ComposeTool() {
       setError('Upload Image 1 (base image) before queueing.');
       return false;
     }
+    if (isolateSubject && fig1 && !fig1.isolated) {
+      autoIsolateAttemptedRef.current = false;
+      const original = fig1.originalFile ?? fig1.file ?? null;
+      const preview = fig1.originalPreviewUrl || fig1.previewUrl || null;
+      if (original || preview) {
+        setError('Isolating subject on white…');
+        void assignFigure(0, original, {
+          isolate: true,
+          previewUrl: original ? undefined : preview,
+        });
+        return false;
+      }
+      setError(ISOLATE_QUEUE_BLOCKED_MESSAGE);
+      return false;
+    }
     if (mode === 'transfer' && filledCount < 2) {
       setError('Transfer mode needs at least Image 1 and Image 2.');
       return false;
@@ -520,7 +569,7 @@ export default function ComposeTool() {
     }
     setError(null);
     return true;
-  }, [filledCount, isolating, mode, output, slots]);
+  }, [assignFigure, filledCount, isolateSubject, isolating, mode, output, slots]);
 
   const applyTemplate = useCallback(
     (text: string) => {
