@@ -18,6 +18,7 @@ import { avoidedTokensRequestBody } from '@/lib/avoided-tokens';
 import { sharedLlmRequestBody } from '@/lib/llm-request-options';
 import { dispatchWebhook } from '@/lib/webhook-settings';
 import { DEFAULT_ROLEPLAY_TOOL_CACHE } from '@/lib/settings-cache';
+import { isSceneGenerationModel, resolveTxt2iCounterpartForGenerate } from '@/lib/queue-tool-model';
 import {
   COMFYUI_GALLERY_UPDATED_EVENT,
   galleryEntryPrimaryViewUrl,
@@ -169,6 +170,19 @@ export default function RoleplayTool() {
       referenceImageFilename: '',
     });
   }, [clearReferencePreview, updateToolSettings]);
+
+  useEffect(() => {
+    if (!mounted || playAs !== 'text') {
+      return;
+    }
+    if (isSceneGenerationModel(shared.model)) {
+      return;
+    }
+    const next = resolveTxt2iCounterpartForGenerate(shared.model);
+    if (next !== shared.model) {
+      updateShared({ model: next });
+    }
+  }, [mounted, playAs, shared.model, updateShared]);
 
   const applyGalleryHandoff = useCallback(
     (handoff: {
@@ -587,6 +601,7 @@ export default function RoleplayTool() {
           onAutoFixRulesChange={value => updateShared({ autoFixRules: value })}
           recommendFromText={lastPrompt || bio?.look}
           toolId={TOOL_ID}
+          preferEditModels={playAs === 'photo'}
           onSharedSettingsChange={updateShared}
         />
       }
@@ -663,8 +678,9 @@ export default function RoleplayTool() {
           {playAs === 'photo' ? (
             <div className="space-y-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-muted)]/40 p-3">
               <p className="text-xs text-[var(--text-muted)]">
-                Every still queues img2img from this reference so you stay the same person. Pick a
-                selfie or a generated character.
+                Every still queues img2img from this reference so you stay the same person. The
+                sidebar model list switches to edit / img2img checkpoints — a text-to-image model
+                overbakes the photo. Pick a selfie or a generated character.
               </p>
               <div className="flex flex-wrap items-center gap-2">
                 <input

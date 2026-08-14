@@ -210,6 +210,18 @@ export function isComposeCapableModel(model: ComfyImageModel | string | null | u
   );
 }
 
+/**
+ * Models that can consume a reference image without a T2I overbake:
+ * dedicated edit/inpaint checkpoints, plus Klein / Z-Image / Boogu Edit
+ * img2img graphs.
+ */
+export function isImg2imgCapableModel(model: ComfyImageModel | string | null | undefined): boolean {
+  if (!model?.toString().trim()) {
+    return false;
+  }
+  return isEditCapableModel(model) || isComposeCapableModel(model);
+}
+
 export function isInpaintModel(model: ComfyImageModel | string): boolean {
   if (model === 'flux-inpaint') {
     return true;

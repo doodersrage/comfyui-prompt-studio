@@ -5,6 +5,7 @@ import {
   isEditCapableModel,
   isEditQueueTool,
   isFluxKleinModel,
+  isImg2imgCapableModel,
   isInstructionEditDenoiseContext,
   isQwenEditModel,
   isZImageImg2imgEditContext,
@@ -93,6 +94,18 @@ describe("model denoise defaults", () => {
     assert.equal(isComposeCapableModel("flux-dev"), false);
     assert.equal(isComposeCapableModel("flux-inpaint"), false);
     assert.equal(isComposeCapableModel("qwen-image-2512"), false);
+  });
+
+  it("treats edit, Klein, Z-Image, and Boogu Edit as img2img-capable", () => {
+    assert.equal(isImg2imgCapableModel("qwen-image-edit-2511-lightning-8"), true);
+    assert.equal(isImg2imgCapableModel("qwen-rapid-aio-edit"), true);
+    assert.equal(isImg2imgCapableModel("flux-2-klein"), true);
+    assert.equal(isImg2imgCapableModel("z-image-turbo"), true);
+    assert.equal(isImg2imgCapableModel("boogu-image-edit"), true);
+    assert.equal(isImg2imgCapableModel("qwen-image-2512"), false);
+    assert.equal(isImg2imgCapableModel("qwen-rapid-aio-nsfw"), false);
+    assert.equal(isImg2imgCapableModel("flux-dev"), false);
+    assert.equal(isImg2imgCapableModel("boogu-image"), false);
   });
 
   it("returns edit denoise when an input image is present", () => {

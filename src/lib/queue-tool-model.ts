@@ -9,6 +9,7 @@ import {
   isComposeCapableModel,
   isEditCapableModel,
   isEditQueueTool,
+  isImg2imgCapableModel,
   isInpaintModel,
 } from './model-denoise-defaults';
 
@@ -20,6 +21,18 @@ const EDIT_TO_TXT2I: Partial<Record<ComfyImageModel, ComfyImageModel>> = {
   'qwen-rapid-aio-edit': 'qwen-image-2512-lightning-8',
   'flux-inpaint': 'flux-dev',
 };
+
+const TXT2I_TO_EDIT: Partial<Record<ComfyImageModel, ComfyImageModel>> = {
+  'qwen-image-2512': 'qwen-image-edit-2511',
+  'qwen-image-2512-lightning-4': 'qwen-image-edit-2511-lightning-4',
+  'qwen-image-2512-lightning-8': 'qwen-image-edit-2511-lightning-8',
+  'qwen-rapid-aio-sfw': 'qwen-rapid-aio-edit',
+  'qwen-rapid-aio-nsfw': 'qwen-rapid-aio-edit',
+  'boogu-image': 'boogu-image-edit',
+  'boogu-image-turbo': 'boogu-image-edit-turbo',
+};
+
+const DEFAULT_IMG2IMG_MODEL: ComfyImageModel = 'qwen-image-edit-2511-lightning-8';
 
 function inferTxt2iCounterpart(model: ComfyImageModel | string): ComfyImageModel {
   const mapped = EDIT_TO_TXT2I[model as ComfyImageModel];
@@ -122,6 +135,97 @@ function normalizeModel(model: ComfyImageModel | string): ComfyImageModel {
   return DEFAULT_COMFY_MODEL;
 }
 
+function sameImg2imgFamily(current: string, candidate: string): boolean {
+  const id = current.toLowerCase();
+  const other = candidate.toLowerCase();
+  if (id.includes('boogu')) {
+    return other.includes('boogu');
+  }
+  if (id.includes('z-image')) {
+    return other.includes('z-image');
+  }
+  if (id.includes('flux')) {
+    return other.includes('flux-2-klein') || other.includes('klein');
+  }
+  if (id.includes('qwen') || id.includes('rapid-aio')) {
+    return other.includes('qwen') || other.includes('rapid-aio');
+  }
+  return false;
+}
+
+function inferEditCounterpart(model: ComfyImageModel | string): ComfyImageModel {
+  const normalized = normalizeModel(model);
+  if (isImg2imgCapableModel(normalized)) {
+    return normalized;
+  }
+
+  const mapped = TXT2I_TO_EDIT[normalized];
+  if (mapped) {
+    return mapped;
+  }
+
+  const id = normalized.toLowerCase();
+  if (id.includes('lightning-4')) {
+    return 'qwen-image-edit-2511-lightning-4';
+  }
+  if (id.includes('lightning-8')) {
+    return 'qwen-image-edit-2511-lightning-8';
+  }
+  if (id.includes('rapid-aio')) {
+    return 'qwen-rapid-aio-edit';
+  }
+  if (id.includes('boogu') && id.includes('turbo')) {
+    return 'boogu-image-edit-turbo';
+  }
+  if (id.includes('boogu')) {
+    return 'boogu-image-edit';
+  }
+  if (id.includes('qwen')) {
+    return 'qwen-image-edit-2511-lightning-8';
+  }
+  return DEFAULT_IMG2IMG_MODEL;
+}
+
+/**
+ * Snap a T2I (or unknown) pick onto an img2img/edit checkpoint in `allowed`.
+ * Keeps the current model when it is already img2img-capable and listed.
+ */
+export function resolvePreferredImg2imgModel(input: {
+  current?: string | null;
+  allowed?: readonly ComfyImageModel[];
+  fallback?: ComfyImageModel;
+}): ComfyImageModel {
+  const allowed = (input.allowed ?? []).filter(model => isImg2imgCapableModel(model));
+  const pool = allowed.length > 0 ? [...allowed] : undefined;
+  const current = input.current?.trim();
+
+  if (current && pool?.includes(current as ComfyImageModel)) {
+    return current as ComfyImageModel;
+  }
+  if (current && !pool && isImg2imgCapableModel(current)) {
+    return current as ComfyImageModel;
+  }
+
+  const mapped = current ? inferEditCounterpart(current) : undefined;
+  if (mapped && (!pool || pool.includes(mapped))) {
+    return mapped;
+  }
+
+  if (current && pool) {
+    const family = pool.find(model => sameImg2imgFamily(current, model));
+    if (family) {
+      return family;
+    }
+  }
+
+  return pool?.[0] ?? input.fallback ?? mapped ?? DEFAULT_IMG2IMG_MODEL;
+}
+
+/** Edit/img2img counterpart for a T2I preset (e.g. 2512 Lightning → Edit-2511 Lightning). */
+export function resolveEditCounterpartForImg2img(model: ComfyImageModel | string): ComfyImageModel {
+  return inferEditCounterpart(normalizeModel(model));
+}
+
 /**
  * Queue uses the selected model as-is. Edit-2511 Lightning stays on its own
  * stack (and {{LORA_LIGHTNING}} overrides) — remapping Generate → 2512 broke
@@ -162,6 +266,11 @@ export type FilterModelsForQueueToolOptions = {
    * Workflow-backed catalogs still prefer scene models when any exist.
    */
   includeEditModels?: boolean;
+  /**
+   * Roleplay From photo (and similar): show edit / img2img checkpoints only.
+   * Ignored when `includeEditModels` is set (Show all).
+   */
+  preferEditModels?: boolean;
 };
 
 export function filterModelsForQueueTool(
@@ -194,6 +303,11 @@ export function filterModelsForQueueTool(
   if (tool === 'inpaint' || tool === 'outpaint') {
     const masked = models.filter(model => isInpaintModel(model) || isEditCapableModel(model));
     return masked.length > 0 ? masked : models;
+  }
+
+  if (options?.preferEditModels && !options?.includeEditModels) {
+    const img2img = models.filter(model => isImg2imgCapableModel(model));
+    return img2img.length > 0 ? img2img : models;
   }
 
   if (!shouldUseSceneGenerationModel(tool)) {

@@ -19,6 +19,7 @@ import {
 import {
   filterModelsForQueueTool,
   isSceneGenerationModel,
+  resolvePreferredImg2imgModel,
   resolveTxt2iCounterpartForGenerate,
   shouldUseSceneGenerationModel,
   toolIgnoresSystemWorkflowSnap,
@@ -27,6 +28,7 @@ import {
   isBooguEditModel,
   isComposeCapableModel,
   isEditCapableModel,
+  isImg2imgCapableModel,
 } from '@/lib/model-denoise-defaults';
 import {
   hasModelSamplerOverrides,
@@ -205,6 +207,11 @@ type SharedToolControlsProps = {
   wildcardPreviewText?: string;
   /** When set, enables a per-tool queue quality override below the global profile. */
   toolId?: string;
+  /**
+   * Roleplay From photo: limit the picker to edit / img2img checkpoints.
+   * T2I models overbake a reference still.
+   */
+  preferEditModels?: boolean;
   onSharedSettingsChange?: (partial: Partial<SharedToolSettings>) => void;
 };
 
@@ -234,6 +241,7 @@ export default function SharedToolControls({
   recommendFromText,
   wildcardPreviewText,
   toolId,
+  preferEditModels = false,
   onSharedSettingsChange,
 }: SharedToolControlsProps) {
   const workspaceMode = useWorkspaceMode();
@@ -403,15 +411,20 @@ export default function SharedToolControls({
     const supportedCatalog = [...new Set([...supportedModels.models, ...scaffoldBackedModels])];
     const filtered = filterModelsForQueueTool(supportedCatalog, toolId, {
       includeEditModels: showAllModelsOverride,
+      preferEditModels,
     });
     const base =
       filtered.length > 0
         ? filtered
-        : toolId && shouldUseSceneGenerationModel(toolId)
-          ? COMFY_IMAGE_MODELS.filter(entry => isSceneGenerationModel(entry.id)).map(
+        : preferEditModels
+          ? COMFY_IMAGE_MODELS.filter(entry => isImg2imgCapableModel(entry.id)).map(
               entry => entry.id
             )
-          : supportedModels.models;
+          : toolId && shouldUseSceneGenerationModel(toolId)
+            ? COMFY_IMAGE_MODELS.filter(entry => isSceneGenerationModel(entry.id)).map(
+                entry => entry.id
+              )
+            : supportedModels.models;
 
     if (
       !shouldLimitSystemWorkflowPicker(shared) ||
@@ -428,9 +441,11 @@ export default function SharedToolControls({
     return listSystemWorkflowSupportedModels().filter(model =>
       filterModelsForQueueTool([model], toolId, {
         includeEditModels: showAllModelsOverride,
+        preferEditModels,
       }).includes(model)
     );
   }, [
+    preferEditModels,
     showAllModelsOverride,
     scaffoldBackedModels,
     shared.systemWorkflowsLimitPicker,
@@ -672,6 +687,34 @@ export default function SharedToolControls({
     toolId,
   ]);
 
+  // From photo / img2img tools: don't leave a T2I checkpoint selected — that
+  // overbakes the reference (neon skin, crunchy texture, blown contrast).
+  useEffect(() => {
+    if (!storageReady || !preferEditModels || showAllModelsOverride) {
+      return;
+    }
+    if (pickerModels.length === 0) {
+      return;
+    }
+    if (pickerModels.includes(shared.model)) {
+      return;
+    }
+    const fallback = resolvePreferredImg2imgModel({
+      current: shared.model,
+      allowed: pickerModels,
+    });
+    if (fallback !== shared.model) {
+      onModelChange(fallback);
+    }
+  }, [
+    onModelChange,
+    pickerModels,
+    preferEditModels,
+    shared.model,
+    showAllModelsOverride,
+    storageReady,
+  ]);
+
   const [inventoryTick, setInventoryTick] = useState(0);
 
   useEffect(() => {
@@ -762,13 +805,16 @@ export default function SharedToolControls({
   ]);
 
   const systemPathActive = usesSystemWorkflowPath(shared, shared.model);
-  const modelFilterHint = systemPathActive
-    ? shouldLimitSystemWorkflowPicker(shared) && !showAllModelsOverride
-      ? `System path · FLUX / Qwen / Z-Image / Boogu / video (${pickerModels.length} models).`
-      : `System path for this model (${pickerModels.length} in picker).`
-    : shared.useSystemWorkflows === true
-      ? `Hybrid · mapped/manual workflow for this model (${pickerModels.length} in picker).`
-      : supportedModelsFilterHint(supportedModels.source, supportedModels.models.length);
+  const modelFilterHint =
+    preferEditModels && !showAllModelsOverride
+      ? `From photo · edit / img2img models (${pickerModels.length}). T2I checkpoints overbake the reference.`
+      : systemPathActive
+        ? shouldLimitSystemWorkflowPicker(shared) && !showAllModelsOverride
+          ? `System path · FLUX / Qwen / Z-Image / Boogu / video (${pickerModels.length} models).`
+          : `System path for this model (${pickerModels.length} in picker).`
+        : shared.useSystemWorkflows === true
+          ? `Hybrid · mapped/manual workflow for this model (${pickerModels.length} in picker).`
+          : supportedModelsFilterHint(supportedModels.source, supportedModels.models.length);
 
   useEffect(() => {
     // Respect a persisted library/picker selection — do not replace it with auto-ranked defaults.

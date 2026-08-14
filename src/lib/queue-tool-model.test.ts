@@ -4,8 +4,10 @@ import {
   filterModelsForQueueTool,
   isSceneGenerationModel,
   isVideoModel,
+  resolveEditCounterpartForImg2img,
   resolveModelForPromptGeneration,
   resolveModelForQueueTool,
+  resolvePreferredImg2imgModel,
   resolveTxt2iCounterpartForGenerate,
   stripEditInstructionLead,
   toolIgnoresSystemWorkflowSnap,
@@ -145,6 +147,104 @@ describe("queue-tool-model", () => {
       "generate",
     );
     assert.deepEqual(filtered, ["qwen-image-2512", "qwen-rapid-aio-nsfw"]);
+  });
+
+  it("filters Roleplay From photo to img2img/edit models", () => {
+    const filtered = filterModelsForQueueTool(
+      [
+        "qwen-image-2512",
+        "qwen-image-2512-lightning-8",
+        "qwen-rapid-aio-nsfw",
+        "qwen-rapid-aio-edit",
+        "qwen-image-edit-2511-lightning-8",
+        "flux-dev",
+        "flux-2-klein",
+        "z-image-turbo",
+        "boogu-image",
+        "boogu-image-edit",
+      ],
+      "roleplay",
+      { preferEditModels: true },
+    );
+    assert.deepEqual(filtered, [
+      "qwen-rapid-aio-edit",
+      "qwen-image-edit-2511-lightning-8",
+      "flux-2-klein",
+      "z-image-turbo",
+      "boogu-image-edit",
+    ]);
+  });
+
+  it("keeps Roleplay From bio on the T2I catalog", () => {
+    const filtered = filterModelsForQueueTool(
+      [
+        "qwen-image-2512",
+        "qwen-rapid-aio-nsfw",
+        "qwen-rapid-aio-edit",
+        "qwen-image-edit-2511-lightning-8",
+      ],
+      "roleplay",
+    );
+    assert.deepEqual(filtered, ["qwen-image-2512", "qwen-rapid-aio-nsfw"]);
+  });
+
+  it("lets Show all override Roleplay From photo img2img filter", () => {
+    const filtered = filterModelsForQueueTool(
+      ["qwen-image-2512", "qwen-image-edit-2511-lightning-8"],
+      "roleplay",
+      { preferEditModels: true, includeEditModels: true },
+    );
+    assert.deepEqual(filtered, [
+      "qwen-image-2512",
+      "qwen-image-edit-2511-lightning-8",
+    ]);
+  });
+
+  it("maps T2I Lightning to Edit Lightning for From photo", () => {
+    assert.equal(
+      resolveEditCounterpartForImg2img("qwen-image-2512-lightning-8"),
+      "qwen-image-edit-2511-lightning-8",
+    );
+    assert.equal(
+      resolveEditCounterpartForImg2img("qwen-rapid-aio-nsfw"),
+      "qwen-rapid-aio-edit",
+    );
+    assert.equal(
+      resolveEditCounterpartForImg2img("boogu-image-turbo"),
+      "boogu-image-edit-turbo",
+    );
+    assert.equal(
+      resolveEditCounterpartForImg2img("qwen-image-edit-2511-lightning-8"),
+      "qwen-image-edit-2511-lightning-8",
+    );
+  });
+
+  it("snaps a T2I pick onto an allowed img2img counterpart", () => {
+    assert.equal(
+      resolvePreferredImg2imgModel({
+        current: "qwen-image-2512-lightning-8",
+        allowed: [
+          "qwen-image-edit-2511-lightning-8",
+          "qwen-rapid-aio-edit",
+          "flux-2-klein",
+        ],
+      }),
+      "qwen-image-edit-2511-lightning-8",
+    );
+    assert.equal(
+      resolvePreferredImg2imgModel({
+        current: "qwen-rapid-aio-nsfw",
+        allowed: ["qwen-image-edit-2511", "qwen-rapid-aio-edit"],
+      }),
+      "qwen-rapid-aio-edit",
+    );
+    assert.equal(
+      resolvePreferredImg2imgModel({
+        current: "z-image-turbo",
+        allowed: ["qwen-image-edit-2511-lightning-8", "z-image-turbo"],
+      }),
+      "z-image-turbo",
+    );
   });
 
   it("does not remap Rapid AIO NSFW away on generate", () => {

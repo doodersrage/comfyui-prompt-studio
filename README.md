@@ -79,7 +79,7 @@ Audio and 3D use **Audio** (`/audio`) and **3D Mesh** (`/mesh`). **WAN / Hunyuan
 | **Character**       | `/character`       | Solo person, duo/sport, or subject + background compose                                                                                                                       |
 | **Pet**             | `/pet`             | Pet-focused prompts with scene pools                                                                                                                                          |
 | **Fantasy**         | `/fantasy`         | Fantasy character/scene prompts                                                                                                                                               |
-| **Roleplay**        | `/roleplay`        | Cast a character, pick a beat, queue a still. Tone plus SFW/adult content; optional photo/still img2img |
+| **Roleplay**        | `/roleplay`        | Cast a character, pick a beat, queue a still. Tone plus SFW/adult content; From photo switches to edit/img2img models |
 | **Topics**          | `/topics`          | Topic lists for batch prompt builds                                                                                                                                           |
 | **Background**      | `/background`      | Environment-only prompt with no people                                                                                                                                        |
 | **Image → Prompt**  | `/image-prompt`    | Upload an image; vision LLM writes the prompt                                                                                                                                 |
