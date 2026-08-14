@@ -34,6 +34,9 @@ export function comfyUiJobEngineLabel(
   if (job.statusMessage?.toLowerCase().includes('fal')) {
     return 'Fal';
   }
+  if (job.statusMessage?.toLowerCase().includes('replicate')) {
+    return 'Replicate';
+  }
   return 'ComfyUI';
 }
 

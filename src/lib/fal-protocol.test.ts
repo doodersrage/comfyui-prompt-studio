@@ -20,18 +20,23 @@ import {
 describe('engine capabilities', () => {
   it('parses known engine ids and defaults the rest to ComfyUI', () => {
     assert.equal(parseEngineId('fal'), 'fal');
+    assert.equal(parseEngineId('replicate'), 'replicate');
     assert.equal(parseEngineId('diffusers'), 'diffusers');
     assert.equal(parseEngineId('nope'), undefined);
     assert.equal(normalizeEngineId('fal'), 'fal');
+    assert.equal(normalizeEngineId('replicate'), 'replicate');
     assert.equal(normalizeEngineId(''), 'comfyui');
   });
 
-  it('treats Fal as a cloud engine without a Comfy graph', () => {
+  it('treats Fal and Replicate as cloud engines without a Comfy graph', () => {
     assert.equal(isCloudEngine('fal'), true);
+    assert.equal(isCloudEngine('replicate'), true);
     assert.equal(isCloudEngine('comfyui'), false);
     assert.equal(engineUsesComfyGraph('fal'), false);
+    assert.equal(engineUsesComfyGraph('replicate'), false);
     assert.equal(engineUsesComfyGraph('diffusers'), true);
     assert.equal(engineDisplayName('fal'), 'Fal');
+    assert.equal(engineDisplayName('replicate'), 'Replicate');
   });
 });
 

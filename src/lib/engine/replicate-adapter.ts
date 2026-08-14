@@ -3,13 +3,13 @@
 import { loadEngineSettings } from '@/lib/engine-settings';
 import { loadSettingsCache } from '@/lib/settings-cache';
 import { createComfyUiClientId } from '@/lib/comfyui-websocket';
-import { FAL_QUEUE_HOST, cloudSettingsHref } from './capabilities';
+import { REPLICATE_API_HOST, cloudSettingsHref } from './capabilities';
 import {
   createNoopProgressSubscription,
   fetchCloudStatusViaProxy,
   subscribeCloudProgress,
 } from './cloud-poll';
-import { buildFalViewPath } from './view-paths';
+import { buildReplicateViewPath } from './view-paths';
 import type {
   EngineAdapter,
   EngineOutputImage,
@@ -20,21 +20,22 @@ import type {
   EngineViewPathOptions,
 } from './types';
 
-function sessionFalApiKey(): string | undefined {
-  const key = loadSettingsCache().shared.sessionFalApiKey?.trim();
-  return key || undefined;
+function sessionReplicateToken(): string | undefined {
+  const token = loadSettingsCache().shared.sessionReplicateApiToken?.trim();
+  return token || undefined;
 }
 
-/** Fal cloud adapter: txt2img / img2img via `/api/fal`. No workflow graph. */
-export const falEngineAdapter: EngineAdapter = {
-  id: 'fal',
+/** Replicate cloud adapter: txt2img / img2img via `/api/replicate`. No workflow graph. */
+export const replicateEngineAdapter: EngineAdapter = {
+  id: 'replicate',
 
   async postPrompt(body: Record<string, unknown>): Promise<EngineQueueResult> {
     const settings = loadEngineSettings();
     const clientId =
       (typeof body.clientId === 'string' && body.clientId.trim()) || createComfyUiClientId();
-    const falApiKey =
-      (typeof body.falApiKey === 'string' && body.falApiKey.trim()) || sessionFalApiKey();
+    const replicateApiToken =
+      (typeof body.replicateApiToken === 'string' && body.replicateApiToken.trim()) ||
+      sessionReplicateToken();
     const params =
       body.params && typeof body.params === 'object' && !Array.isArray(body.params)
         ? (body.params as Record<string, unknown>)
@@ -43,9 +44,9 @@ export const falEngineAdapter: EngineAdapter = {
     const payload = {
       prompt: body.prompt,
       negativePrompt: body.negativePrompt,
-      model: typeof body.model === 'string' ? body.model : settings.falModel,
-      img2imgModel: settings.falImg2ImgModel,
-      falApiKey,
+      model: typeof body.model === 'string' ? body.model : settings.replicateModel,
+      img2imgModel: settings.replicateImg2ImgModel,
+      replicateApiToken,
       clientId,
       hasInputImage: body.hasInputImage === true,
       inputImageFilename:
@@ -63,7 +64,7 @@ export const falEngineAdapter: EngineAdapter = {
     };
 
     try {
-      const response = await fetch('/api/fal', {
+      const response = await fetch('/api/replicate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -71,16 +72,16 @@ export const falEngineAdapter: EngineAdapter = {
       const raw = (await response.json().catch(() => ({}))) as Record<string, unknown>;
       const promptId = typeof raw.promptId === 'string' ? raw.promptId.trim() : undefined;
       const engineUrl =
-        (typeof raw.engineUrl === 'string' && raw.engineUrl.trim()) || FAL_QUEUE_HOST;
+        (typeof raw.engineUrl === 'string' && raw.engineUrl.trim()) || REPLICATE_API_HOST;
 
       if (!response.ok || !promptId) {
         return {
           ok: false,
           status: response.status,
-          error: typeof raw.error === 'string' ? raw.error : 'Fal queue failed.',
+          error: typeof raw.error === 'string' ? raw.error : 'Replicate queue failed.',
           href: typeof raw.href === 'string' ? raw.href : cloudSettingsHref(),
           engineUrl,
-          engineId: 'fal',
+          engineId: 'replicate',
           raw,
           releaseLiveSocket: () => undefined,
         };
@@ -92,8 +93,8 @@ export const falEngineAdapter: EngineAdapter = {
         promptId,
         clientId: (typeof raw.clientId === 'string' && raw.clientId.trim()) || clientId,
         engineUrl,
-        engineId: 'fal',
-        workflowSource: 'fal',
+        engineId: 'replicate',
+        workflowSource: 'replicate',
         raw,
         releaseLiveSocket: () => undefined,
       };
@@ -101,8 +102,8 @@ export const falEngineAdapter: EngineAdapter = {
       return {
         ok: false,
         status: 0,
-        error: error instanceof Error ? error.message : 'Fal queue failed.',
-        engineId: 'fal',
+        error: error instanceof Error ? error.message : 'Replicate queue failed.',
+        engineId: 'replicate',
         raw: {},
         releaseLiveSocket: () => undefined,
       };
@@ -110,7 +111,7 @@ export const falEngineAdapter: EngineAdapter = {
   },
 
   async fetchJobStatus(promptId: string): Promise<EngineStatusResult | null> {
-    return fetchCloudStatusViaProxy('/api/fal/status', promptId, FAL_QUEUE_HOST);
+    return fetchCloudStatusViaProxy('/api/replicate/status', promptId, REPLICATE_API_HOST);
   },
 
   buildViewPath(
@@ -118,7 +119,7 @@ export const falEngineAdapter: EngineAdapter = {
     image: EngineOutputImage,
     options?: EngineViewPathOptions
   ): string {
-    return buildFalViewPath(engineUrl, image, options);
+    return buildReplicateViewPath(engineUrl, image, options);
   },
 
   async uploadInputImage(input: EngineUploadInput) {
@@ -130,7 +131,7 @@ export const falEngineAdapter: EngineAdapter = {
     });
     const formData = new FormData();
     formData.append('image', prepared, prepared.name);
-    const response = await fetch('/api/fal/upload', {
+    const response = await fetch('/api/replicate/upload', {
       method: 'POST',
       body: formData,
     });
@@ -141,7 +142,7 @@ export const falEngineAdapter: EngineAdapter = {
       error?: string;
     };
     if (!response.ok || !data.name?.trim()) {
-      throw new Error(data.error ?? 'Fal image upload failed.');
+      throw new Error(data.error ?? 'Replicate image upload failed.');
     }
     return {
       name: data.name.trim(),
@@ -152,9 +153,9 @@ export const falEngineAdapter: EngineAdapter = {
 
   subscribeProgress(input: EngineSubscribeProgressInput) {
     return subscribeCloudProgress({
-      statusPath: '/api/fal/status',
-      fallbackHost: FAL_QUEUE_HOST,
-      engineLabel: 'Fal',
+      statusPath: '/api/replicate/status',
+      fallbackHost: REPLICATE_API_HOST,
+      engineLabel: 'Replicate',
       subscribe: input,
     });
   },

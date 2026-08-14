@@ -5,6 +5,10 @@ import type { EngineId } from './engine/types';
 import {
   DEFAULT_FAL_IMG2IMG_MODEL,
   DEFAULT_FAL_TXT2IMG_MODEL,
+  DEFAULT_REPLICATE_IMG2IMG_MODEL,
+  DEFAULT_REPLICATE_TXT2IMG_MODEL,
+  cloudEngineHost,
+  isCloudEngine,
   normalizeEngineId,
 } from './engine/capabilities';
 import { DEFAULT_DIFFUSERS_API_URL } from './diffusers-client';
@@ -16,6 +20,8 @@ export type EngineSettings = {
   diffusersAutoStart: boolean;
   falModel: string;
   falImg2ImgModel: string;
+  replicateModel: string;
+  replicateImg2ImgModel: string;
 };
 
 function envDefaultEngine(): EngineId {
@@ -23,7 +29,7 @@ function envDefaultEngine(): EngineId {
     const raw =
       process.env.NEXT_PUBLIC_PROMPT_ENGINE?.trim().toLowerCase() ||
       process.env.PROMPT_ENGINE?.trim().toLowerCase();
-    if (raw === 'diffusers' || raw === 'fal') {
+    if (raw === 'diffusers' || raw === 'fal' || raw === 'replicate') {
       return raw;
     }
   }
@@ -41,25 +47,35 @@ function envDefaultDiffusersUrl(): string {
   return DEFAULT_DIFFUSERS_API_URL;
 }
 
-function envDefaultFalModel(): string {
+function envOr(keys: string[], fallback: string): string {
   if (typeof process !== 'undefined') {
-    const raw = process.env.NEXT_PUBLIC_FAL_MODEL?.trim() || process.env.FAL_MODEL?.trim();
-    if (raw) {
-      return raw;
+    for (const key of keys) {
+      const raw = process.env[key]?.trim();
+      if (raw) {
+        return raw;
+      }
     }
   }
-  return DEFAULT_FAL_TXT2IMG_MODEL;
+  return fallback;
+}
+
+function envDefaultFalModel(): string {
+  return envOr(['NEXT_PUBLIC_FAL_MODEL', 'FAL_MODEL'], DEFAULT_FAL_TXT2IMG_MODEL);
 }
 
 function envDefaultFalImg2ImgModel(): string {
-  if (typeof process !== 'undefined') {
-    const raw =
-      process.env.NEXT_PUBLIC_FAL_IMG2IMG_MODEL?.trim() || process.env.FAL_IMG2IMG_MODEL?.trim();
-    if (raw) {
-      return raw;
-    }
-  }
-  return DEFAULT_FAL_IMG2IMG_MODEL;
+  return envOr(['NEXT_PUBLIC_FAL_IMG2IMG_MODEL', 'FAL_IMG2IMG_MODEL'], DEFAULT_FAL_IMG2IMG_MODEL);
+}
+
+function envDefaultReplicateModel(): string {
+  return envOr(['NEXT_PUBLIC_REPLICATE_MODEL', 'REPLICATE_MODEL'], DEFAULT_REPLICATE_TXT2IMG_MODEL);
+}
+
+function envDefaultReplicateImg2ImgModel(): string {
+  return envOr(
+    ['NEXT_PUBLIC_REPLICATE_IMG2IMG_MODEL', 'REPLICATE_IMG2IMG_MODEL'],
+    DEFAULT_REPLICATE_IMG2IMG_MODEL
+  );
 }
 
 export function loadEngineSettings(): EngineSettings {
@@ -70,6 +86,8 @@ export function loadEngineSettings(): EngineSettings {
       diffusersAutoStart: true,
       falModel: envDefaultFalModel(),
       falImg2ImgModel: envDefaultFalImg2ImgModel(),
+      replicateModel: envDefaultReplicateModel(),
+      replicateImg2ImgModel: envDefaultReplicateImg2ImgModel(),
     };
   }
 
@@ -80,6 +98,9 @@ export function loadEngineSettings(): EngineSettings {
     diffusersAutoStart: shared.diffusersAutoStart !== false,
     falModel: shared.falModel?.trim() || envDefaultFalModel(),
     falImg2ImgModel: shared.falImg2ImgModel?.trim() || envDefaultFalImg2ImgModel(),
+    replicateModel: shared.replicateModel?.trim() || envDefaultReplicateModel(),
+    replicateImg2ImgModel:
+      shared.replicateImg2ImgModel?.trim() || envDefaultReplicateImg2ImgModel(),
   };
 }
 
@@ -103,6 +124,14 @@ export function saveEngineSettings(patch: Partial<EngineSettings>): EngineSettin
       patch.falImg2ImgModel !== undefined
         ? patch.falImg2ImgModel.trim() || envDefaultFalImg2ImgModel()
         : current.falImg2ImgModel,
+    replicateModel:
+      patch.replicateModel !== undefined
+        ? patch.replicateModel.trim() || envDefaultReplicateModel()
+        : current.replicateModel,
+    replicateImg2ImgModel:
+      patch.replicateImg2ImgModel !== undefined
+        ? patch.replicateImg2ImgModel.trim() || envDefaultReplicateImg2ImgModel()
+        : current.replicateImg2ImgModel,
   };
 
   const shared: SharedToolSettings = {
@@ -112,7 +141,44 @@ export function saveEngineSettings(patch: Partial<EngineSettings>): EngineSettin
     diffusersAutoStart: next.diffusersAutoStart,
     falModel: next.falModel,
     falImg2ImgModel: next.falImg2ImgModel,
+    replicateModel: next.replicateModel,
+    replicateImg2ImgModel: next.replicateImg2ImgModel,
   };
   saveSharedSettings(shared);
   return next;
 }
+
+export function resolveCloudTxt2ImgModel(engine: EngineId = loadEngineSettings().engine): string {
+  const settings = loadEngineSettings();
+  return engine === 'replicate' ? settings.replicateModel : settings.falModel;
+}
+
+export function resolveCloudQueueExtras(
+  engine: EngineId,
+  input?: { hasInputImage?: boolean; inputImageFilename?: string }
+): Record<string, unknown> {
+  const shared = loadSettingsCache().shared;
+  const settings = loadEngineSettings();
+  const common = {
+    hasInputImage: input?.hasInputImage === true,
+    inputImageFilename: input?.inputImageFilename,
+  };
+  if (engine === 'replicate') {
+    return {
+      ...common,
+      replicateApiToken: shared.sessionReplicateApiToken,
+      img2imgModel: settings.replicateImg2ImgModel,
+    };
+  }
+  return {
+    ...common,
+    falApiKey: shared.sessionFalApiKey,
+    img2imgModel: settings.falImg2ImgModel,
+  };
+}
+
+export function resolveCloudEngineHost(engine: EngineId): string {
+  return cloudEngineHost(engine);
+}
+
+export { isCloudEngine };

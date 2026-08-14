@@ -416,7 +416,7 @@ export type SharedToolSettings = {
   systemWorkflowsLimitPicker?: boolean;
   /** Temporary override to show every model in the picker. */
   showAllModelsOverride?: boolean;
-  /** Active inference engine (`comfyui` default | `diffusers` optional | `fal` cloud). */
+  /** Active inference engine (`comfyui` default | `diffusers` optional | `fal` / `replicate` cloud). */
   inferenceEngine?: import('./engine/types').EngineId;
   /** Browser Diffusers engine URL (proxied via `/api/diffusers`). */
   diffusersApiUrl?: string;
@@ -431,6 +431,12 @@ export type SharedToolSettings = {
   falImg2ImgModel?: string;
   /** Session Fal API key. Stored in this browser only; server `FAL_KEY` is the fallback. */
   sessionFalApiKey?: string;
+  /** Replicate txt2img model id (e.g. black-forest-labs/flux-schnell). */
+  replicateModel?: string;
+  /** Replicate image-to-image model when a reference photo is queued. */
+  replicateImg2ImgModel?: string;
+  /** Session Replicate token. Stored in this browser only; server `REPLICATE_API_TOKEN` is the fallback. */
+  sessionReplicateApiToken?: string;
   /**
    * Diffusers workshop crop: auto-detect craft roles, always hide hands,
    * or never force the head-and-shoulders crop.

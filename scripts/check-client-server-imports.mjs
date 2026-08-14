@@ -17,6 +17,8 @@ const FORBIDDEN = [
   /from\s+['"]server-only['"]/,
   /from\s+['"]@\/lib\/fal-client['"]/,
   /from\s+['"]\.\.?\/.*fal-client['"]/,
+  /from\s+['"]@\/lib\/replicate-client['"]/,
+  /from\s+['"]\.\.?\/.*replicate-client['"]/,
   /from\s+['"]@\/lib\/comfyui-server-workflows['"]/,
   /from\s+['"]\.\.?\/.*comfyui-server-workflows['"]/,
   /from\s+['"]@\/lib\/export-encryption['"]/,
@@ -68,4 +70,6 @@ if (violations.length) {
   process.exit(1);
 }
 
-console.log(`check-client-server-imports: ok (${files.filter(f => isClientFile(readFileSync(f, 'utf8'))).length} client files scanned)`);
+console.log(
+  `check-client-server-imports: ok (${files.filter(f => isClientFile(readFileSync(f, 'utf8'))).length} client files scanned)`
+);

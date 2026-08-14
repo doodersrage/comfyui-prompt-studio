@@ -1,10 +1,10 @@
 /**
  * Thin browser-facing seam for queue / status / view / upload / progress.
- * ComfyUI is the primary backend; Diffusers and Fal plug in at this I/O seam.
+ * ComfyUI is the primary backend; Diffusers, Fal, and Replicate plug in at this I/O seam.
  * Gallery, prompts, and quality profiles stay studio-owned above this interface.
  */
 
-export type EngineId = 'comfyui' | 'diffusers' | 'fal';
+export type EngineId = 'comfyui' | 'diffusers' | 'fal' | 'replicate';
 
 export type EngineJobStatus = 'pending' | 'running' | 'completed' | 'error' | 'unknown';
 

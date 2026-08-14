@@ -114,7 +114,11 @@ import {
   normalizeSessionLoraStrengthOverrides,
   type SessionLoraStrengthOverrides,
 } from '@/lib/lora-stack';
-import { DEFAULT_FAL_TXT2IMG_MODEL, isCloudEngine } from '@/lib/engine/capabilities';
+import {
+  defaultCloudTxt2ImgModel,
+  engineDisplayName,
+  isCloudEngine,
+} from '@/lib/engine/capabilities';
 
 const ModelSelector = dynamic(() => import('@/components/ModelSelector'), {
   ssr: false,
@@ -1233,7 +1237,7 @@ export default function SharedToolControls({
         <FieldLabel
           hint={
             cloudEngine
-              ? 'Fal ignores Comfy workflows, LoRAs, and live latents. Image 1 is sent as img2img when present.'
+              ? `${engineDisplayName(shared.inferenceEngine)} ignores Comfy workflows, LoRAs, and live latents. Image 1 is sent as img2img when present.`
               : shared.inferenceEngine === 'diffusers'
                 ? 'Optional Diffusers inventory (experimental). Prefer ComfyUI for Lightning quality/speed on 24GB.'
                 : systemPathActive
@@ -1244,7 +1248,7 @@ export default function SharedToolControls({
           }
         >
           {cloudEngine
-            ? 'Fal model'
+            ? `${engineDisplayName(shared.inferenceEngine)} model`
             : shared.inferenceEngine === 'diffusers'
               ? 'Diffusers model (Qwen / Flux)'
               : systemPathActive
@@ -1254,10 +1258,13 @@ export default function SharedToolControls({
         {cloudEngine ? (
           <div className="space-y-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)]/40 px-3 py-2.5">
             <p className="text-sm text-[var(--text-primary)]">
-              {shared.falModel?.trim() || DEFAULT_FAL_TXT2IMG_MODEL}
+              {shared.inferenceEngine === 'replicate'
+                ? shared.replicateModel?.trim() || defaultCloudTxt2ImgModel('replicate')
+                : shared.falModel?.trim() || defaultCloudTxt2ImgModel('fal')}
             </p>
             <p className="text-xs leading-relaxed text-[var(--text-muted)]">
-              Cloud txt2img via Fal. Change the key and model in{' '}
+              Cloud txt2img via {engineDisplayName(shared.inferenceEngine)}. Change the key and
+              model in{' '}
               <a
                 href="/settings?tab=comfyui&section=inference-engine"
                 className="text-[var(--text-secondary)] underline-offset-2 hover:underline"
@@ -1442,7 +1449,8 @@ export default function SharedToolControls({
       {(() => {
         const queueQualityBlock = cloudEngine ? (
           <p className="text-xs leading-relaxed text-[var(--text-muted)]">
-            Fal uses the prompt and size from this tool. Draft/Final/Max do not patch a Comfy graph.
+            Cloud engines use the prompt and size from this tool. Draft/Final/Max do not patch a
+            Comfy graph.
           </p>
         ) : systemPathActive ? (
           <div className="space-y-2">

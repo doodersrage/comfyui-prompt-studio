@@ -39,7 +39,12 @@ import {
 import { loadSettingsCache } from '@/lib/settings-cache';
 import { getEngineAdapter } from '@/lib/engine';
 import { engineDisplayName, isCloudEngine } from '@/lib/engine/capabilities';
-import { loadEngineSettings } from '@/lib/engine-settings';
+import {
+  loadEngineSettings,
+  resolveCloudEngineHost,
+  resolveCloudQueueExtras,
+  resolveCloudTxt2ImgModel,
+} from '@/lib/engine-settings';
 import { workshopCropToApi } from '@/lib/diffusers-defaults';
 import { computePromptContentHash, nextPromptVersionFields } from '@/lib/prompt-versioning';
 import { loadPromptHistoryStore } from '@/lib/prompt-history';
@@ -936,9 +941,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             : undefined);
 
         const previewComfyUrlHint = cloudEngine
-          ? engineSettings.falModel
-            ? 'https://queue.fal.run'
-            : undefined
+          ? resolveCloudEngineHost(engineAdapter.id)
           : engineAdapter.id === 'diffusers'
             ? engineSettings.diffusersApiUrl
             : runtime?.apiUrl?.trim() || loadComfyUiSettings().apiUrl?.trim() || undefined;
@@ -955,14 +958,15 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         const queued = await engineAdapter.postPrompt({
           prompt: preparedPrompt,
           negativePrompt,
-          model: cloudEngine ? engineSettings.falModel : queueModel,
+          model: cloudEngine ? resolveCloudTxt2ImgModel(engineAdapter.id) : queueModel,
           params: queueParams,
           front: true,
-          ...(engineAdapter.id === 'fal'
+          ...(cloudEngine
             ? {
-                falApiKey: loadSettingsCache().shared.sessionFalApiKey,
-                hasInputImage: Boolean(inputImageFilename),
-                inputImageFilename,
+                ...resolveCloudQueueExtras(engineAdapter.id, {
+                  hasInputImage: Boolean(inputImageFilename),
+                  inputImageFilename,
+                }),
                 qualityProfile: effectiveQualityProfile,
               }
             : engineAdapter.id === 'diffusers'
@@ -1039,8 +1043,8 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             comfyUrl:
               queued.engineUrl ??
               previewComfyUrlHint ??
-              (engineAdapter.id === 'fal'
-                ? 'https://queue.fal.run'
+              (cloudEngine
+                ? resolveCloudEngineHost(engineAdapter.id)
                 : engineAdapter.id === 'diffusers'
                   ? 'http://127.0.0.1:8190'
                   : 'http://127.0.0.1:8188'),
@@ -1056,7 +1060,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
               options?.inputImageUrl ||
               undefined,
             queueQualityProfile: runtime?.queueQualityProfile ?? effectiveQualityProfile,
-            model: cloudEngine ? engineSettings.falModel : queueModel,
+            model: cloudEngine ? resolveCloudTxt2ImgModel(engineAdapter.id) : queueModel,
             sessionActiveLoraIds: resolveSharedEffectiveSessionLoraIds(queueModel),
             sessionLoraStrengthOverrides:
               resolveSharedEffectiveSessionLoraStrengthOverrides(queueModel),
@@ -1235,7 +1239,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         );
 
         const engineAdapter = getEngineAdapter();
-        if (engineAdapter.id === 'diffusers' || engineAdapter.id === 'fal') {
+        if (engineAdapter.id === 'diffusers' || isCloudEngine(engineAdapter.id)) {
           throw new Error(
             `Batch queue is ComfyUI-only. Switch Settings → Inference engine to ComfyUI, or send a single prompt.`
           );

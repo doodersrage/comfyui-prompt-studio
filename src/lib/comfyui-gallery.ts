@@ -10,6 +10,7 @@ import {
   stripGalleryViewWidthParam,
 } from './comfyui-outputs';
 import { buildEngineViewPath } from './engine/view-paths';
+import { isCloudEngine } from './engine/capabilities';
 import { filterBySemanticQuery } from './semantic-search';
 import { orderGalleryBySimilarity, orderGalleryByVisualSimilarity } from './gallery-similarity';
 import { clusterGalleryDuplicates, duplicateEntryIds } from './gallery-duplicate-clusters';
@@ -1125,7 +1126,7 @@ export function galleryEntryPrimaryThumbSrcSet(entry: ComfyGalleryEntry): string
   if (entry.durableThumbPath) {
     return `${durableGalleryThumbUrl(entry.id)} ${GALLERY_THUMB_WIDTH}w`;
   }
-  if (entry.engineId === 'diffusers' || entry.engineId === 'fal') {
+  if (entry.engineId === 'diffusers' || isCloudEngine(entry.engineId)) {
     return GALLERY_THUMB_SRCSET_WIDTHS.map(
       width => `${galleryEntryBuildViewPath(entry, image, { width })} ${width}w`
     ).join(', ');

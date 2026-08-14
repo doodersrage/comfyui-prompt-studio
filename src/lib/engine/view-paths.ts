@@ -41,13 +41,29 @@ export function buildFalViewPath(
   image: EngineOutputImage,
   options?: EngineViewPathOptions
 ): string {
+  return buildCloudViewPath('fal', image, options);
+}
+
+export function buildReplicateViewPath(
+  _engineUrl: string,
+  image: EngineOutputImage,
+  options?: EngineViewPathOptions
+): string {
+  return buildCloudViewPath('replicate', image, options);
+}
+
+function buildCloudViewPath(
+  engineId: 'fal' | 'replicate',
+  image: EngineOutputImage,
+  options?: EngineViewPathOptions
+): string {
   const params = new URLSearchParams({
     filename: image.filename,
     subfolder: image.subfolder,
     type: image.type,
   });
   appendWidth(params, options);
-  return `/api/fal/view?${params.toString()}`;
+  return `/api/${engineId}/view?${params.toString()}`;
 }
 
 export function buildEngineViewPath(
@@ -65,6 +81,8 @@ export function buildEngineViewPath(
     result = buildDiffusersViewPath(engineUrl, image, options);
   } else if (engineId === 'fal') {
     result = buildFalViewPath(engineUrl, image, options);
+  } else if (engineId === 'replicate') {
+    result = buildReplicateViewPath(engineUrl, image, options);
   } else {
     const params = new URLSearchParams({
       filename: image.filename,

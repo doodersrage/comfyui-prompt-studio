@@ -14,6 +14,7 @@ import { resolveComfyUiRuntime } from './comfyui-runtime';
 import { loadComfyUiSettings } from './comfyui-settings';
 import { clearComfyLivePreviewUrl } from './comfyui-live-preview-store';
 import { getEngineAdapter, getEngineAdapterById } from './engine';
+import { isCloudEngine } from './engine/capabilities';
 import type { EngineProgressSubscription } from './engine';
 import { dispatchWebhook } from './webhook-settings';
 import { noteScheduledBatchJobComplete } from './scheduled-batch-tracker';
@@ -647,9 +648,10 @@ function applyComfyJobStatus(
       prompt: entry.prompt,
     });
     const shouldParkComfy =
-      entry.engineId === 'diffusers' ||
-      (loadSettingsCache().shared.freeVramAfterMax === true &&
-        normalizeQueueQualityProfile(entry.queueQualityProfile) === 'max');
+      !isCloudEngine(entry.engineId) &&
+      (entry.engineId === 'diffusers' ||
+        (loadSettingsCache().shared.freeVramAfterMax === true &&
+          normalizeQueueQualityProfile(entry.queueQualityProfile) === 'max'));
     if (shouldParkComfy) {
       // Best-effort — never blocks the completion path. Diffusers jobs park
       // Comfy on the default Comfy host (entry.comfyUrl is the Diffusers URL).

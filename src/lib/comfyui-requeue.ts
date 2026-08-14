@@ -4,8 +4,8 @@ import type { ComfyImageModel } from './comfy-models/client';
 import { registerComfyGalleryJob, inheritGallerySessionFields } from './comfyui-gallery-client';
 import { scheduleComfyGalleryPoll } from './comfyui-gallery-poller';
 import { getEngineAdapter, getEngineAdapterById } from './engine';
-import { FAL_QUEUE_HOST } from './engine/capabilities';
-import { loadEngineSettings } from './engine-settings';
+import { cloudEngineHost, engineDisplayName, isCloudEngine } from './engine/capabilities';
+import { resolveCloudQueueExtras, resolveCloudTxt2ImgModel } from './engine-settings';
 import { scheduleRefineAfterUpscaleComplete } from './gallery-pending-actions';
 import {
   resolveWorkflowGraphEnrichOptions,
@@ -1093,7 +1093,7 @@ export async function bulkRefineGalleryEntries(
   return { queued, failed, skipped, errors };
 }
 
-async function requeueFalJobFromEntry(
+async function requeueCloudJobFromEntry(
   entry: ComfyGalleryEntry,
   options?: {
     newSeed?: boolean;
@@ -1101,13 +1101,16 @@ async function requeueFalJobFromEntry(
     seedOverride?: string | number;
   }
 ): Promise<RequeueComfyJobResult> {
+  const engineId = isCloudEngine(entry.engineId) ? entry.engineId : 'fal';
   const prompt = entry.prompt?.trim();
   if (!prompt) {
     return { ok: false, error: 'Prompt is required.' };
   }
-  options?.onStatus?.('Queueing Fal…');
-  const settings = loadEngineSettings();
-  const adapter = getEngineAdapterById('fal');
+  const label = engineDisplayName(engineId);
+  options?.onStatus?.(`Queueing ${label}…`);
+  const adapter = getEngineAdapterById(engineId);
+  const host = cloudEngineHost(engineId);
+  const model = resolveCloudTxt2ImgModel(engineId);
   const seed =
     options?.seedOverride != null
       ? String(options.seedOverride)
@@ -1117,41 +1120,46 @@ async function requeueFalJobFromEntry(
   const queued = await adapter.postPrompt({
     prompt,
     negativePrompt: entry.negativePrompt,
-    model: settings.falModel,
+    model,
     params: {
       ...entry.queueParams,
       ...(seed != null ? { seed } : {}),
     },
-    hasInputImage: Boolean(entry.queueParams?.inputImageFilename),
-    inputImageFilename: entry.queueParams?.inputImageFilename,
-    falApiKey: loadSettingsCache().shared.sessionFalApiKey,
+    ...resolveCloudQueueExtras(engineId, {
+      hasInputImage: Boolean(entry.queueParams?.inputImageFilename),
+      inputImageFilename: entry.queueParams?.inputImageFilename,
+    }),
   });
   if (!queued.ok || !queued.promptId) {
     queued.releaseLiveSocket();
-    return { ok: false, error: queued.error ?? 'Fal queue failed.', comfyUrl: queued.engineUrl };
+    return {
+      ok: false,
+      error: queued.error ?? `${label} queue failed.`,
+      comfyUrl: queued.engineUrl,
+    };
   }
   registerComfyGalleryJob({
     promptId: queued.promptId,
     prompt,
     negativePrompt: entry.negativePrompt,
     tool: entry.tool,
-    model: settings.falModel,
-    comfyUrl: queued.engineUrl ?? FAL_QUEUE_HOST,
+    model,
+    comfyUrl: queued.engineUrl ?? host,
     clientId: queued.clientId,
     queueParams: { ...entry.queueParams, ...(seed != null ? { seed } : {}) },
     parentGalleryEntryId: options?.newSeed || options?.seedOverride != null ? entry.id : undefined,
     derivedKind: options?.newSeed || options?.seedOverride != null ? 'variation' : undefined,
     historyId: entry.historyId,
-    engineId: 'fal',
+    engineId,
     ...inheritGallerySessionFields(entry),
   });
   void scheduleComfyGalleryPoll(queued.promptId, {
-    comfyUrl: queued.engineUrl ?? FAL_QUEUE_HOST,
+    comfyUrl: queued.engineUrl ?? host,
     clientId: queued.clientId,
     onStatus: options?.onStatus,
   });
   queued.releaseLiveSocket();
-  return { ok: true, promptId: queued.promptId, comfyUrl: queued.engineUrl ?? FAL_QUEUE_HOST };
+  return { ok: true, promptId: queued.promptId, comfyUrl: queued.engineUrl ?? host };
 }
 
 export async function requeueComfyJobFromEntry(
@@ -1172,8 +1180,8 @@ export async function requeueComfyJobFromEntry(
     seedOverride?: string | number;
   }
 ): Promise<RequeueComfyJobResult> {
-  if (entry.engineId === 'fal') {
-    return requeueFalJobFromEntry(entry, options);
+  if (isCloudEngine(entry.engineId)) {
+    return requeueCloudJobFromEntry(entry, options);
   }
   const urls = resolveRequeueImageUrlsFromEntry(entry);
   const seedOverride =

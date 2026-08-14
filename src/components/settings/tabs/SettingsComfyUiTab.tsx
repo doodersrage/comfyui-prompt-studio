@@ -55,7 +55,13 @@ import type { SharedToolSettings } from '@/lib/settings-cache';
 import { markOnboardingSystemWorkflowsEnabled } from '@/lib/onboarding-hooks';
 import { fetchWorkflowPreview } from '@/lib/comfyui-requeue';
 import type { ComfyUiSettingsSectionId } from '@/lib/settings-comfyui-nav';
-import { FAL_MODEL_PRESETS } from '@/lib/engine/capabilities';
+import {
+  FAL_MODEL_PRESETS,
+  CLOUD_ENGINE_OPTIONS,
+  REPLICATE_MODEL_PRESETS,
+  normalizeEngineId,
+  parseEngineId,
+} from '@/lib/engine/capabilities';
 import {
   SETTINGS_TOOL_ACCENT,
   formatModelWorkflowMap,
@@ -219,7 +225,7 @@ export default function SettingsComfyUiTab({
       <ToolSection
         id="settings-comfyui-inference-engine"
         title="Inference engine"
-        description="ComfyUI is the default generate path (Qwen Lightning bf16, Final/Max enrich, specialty graphs). Diffusers is optional local txt2img. Fal is a cloud API for prompt + optional reference image — no workflows, LoRAs, or live latents."
+        description="ComfyUI is the default generate path (Qwen Lightning bf16, Final/Max enrich, specialty graphs). Diffusers is optional local txt2img. Fal and Replicate are cloud APIs for prompt + optional reference image — no workflows, LoRAs, or live latents."
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1">
@@ -228,23 +234,21 @@ export default function SettingsComfyUiTab({
             </label>
             <select
               id="inference-engine"
-              value={
-                sharedSettings.inferenceEngine === 'diffusers' ||
-                sharedSettings.inferenceEngine === 'fal'
-                  ? sharedSettings.inferenceEngine
-                  : 'comfyui'
-              }
-              onChange={event => {
-                const value = event.target.value;
+              value={parseEngineId(sharedSettings.inferenceEngine) ?? 'comfyui'}
+              onChange={event =>
                 updateSharedSettings({
-                  inferenceEngine: value === 'diffusers' || value === 'fal' ? value : 'comfyui',
-                });
-              }}
+                  inferenceEngine: normalizeEngineId(event.target.value),
+                })
+              }
               className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 text-sm text-[var(--text-primary)] shadow-inner transition focus-visible:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
             >
               <option value="comfyui">ComfyUI (primary generate)</option>
               <option value="diffusers">Diffusers (optional / experimental)</option>
-              <option value="fal">Fal (cloud txt2img)</option>
+              {CLOUD_ENGINE_OPTIONS.map(option => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
             </select>
           </div>
           <div className="space-y-1">
@@ -371,6 +375,65 @@ export default function SettingsComfyUiTab({
               className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 text-sm text-[var(--text-primary)] shadow-inner transition focus-visible:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
+          <div className="space-y-1 sm:col-span-2">
+            <label htmlFor="replicate-api-token" className="text-xs text-[var(--text-secondary)]">
+              Replicate API token
+            </label>
+            <input
+              id="replicate-api-token"
+              type="password"
+              autoComplete="off"
+              value={sharedSettings.sessionReplicateApiToken ?? ''}
+              onChange={event =>
+                updateSharedSettings({
+                  sessionReplicateApiToken: event.target.value.trim() || undefined,
+                })
+              }
+              placeholder="Server REPLICATE_API_TOKEN is used when this is empty"
+              disabled={sharedSettings.inferenceEngine !== 'replicate'}
+              className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 text-sm text-[var(--text-primary)] shadow-inner transition focus-visible:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:cursor-not-allowed disabled:opacity-50"
+            />
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="replicate-model" className="text-xs text-[var(--text-secondary)]">
+              Replicate txt2img model
+            </label>
+            <input
+              id="replicate-model"
+              list="replicate-model-presets"
+              value={sharedSettings.replicateModel ?? ''}
+              onChange={event => updateSharedSettings({ replicateModel: event.target.value })}
+              placeholder="black-forest-labs/flux-schnell"
+              disabled={sharedSettings.inferenceEngine !== 'replicate'}
+              className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 text-sm text-[var(--text-primary)] shadow-inner transition focus-visible:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:cursor-not-allowed disabled:opacity-50"
+            />
+            <datalist id="replicate-model-presets">
+              {REPLICATE_MODEL_PRESETS.map(preset => (
+                <option key={preset.id} value={preset.id}>
+                  {preset.label}
+                </option>
+              ))}
+            </datalist>
+          </div>
+          <div className="space-y-1">
+            <label
+              htmlFor="replicate-img2img-model"
+              className="text-xs text-[var(--text-secondary)]"
+            >
+              Replicate image-to-image model
+            </label>
+            <input
+              id="replicate-img2img-model"
+              list="replicate-model-presets"
+              value={sharedSettings.replicateImg2ImgModel ?? ''}
+              onChange={event =>
+                updateSharedSettings({ replicateImg2ImgModel: event.target.value })
+              }
+              placeholder="black-forest-labs/flux-dev"
+              disabled={sharedSettings.inferenceEngine !== 'replicate'}
+              className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 text-sm text-[var(--text-primary)] shadow-inner transition focus-visible:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:cursor-not-allowed disabled:opacity-50"
+            />
+          </div>
         </div>
         <p className="text-xs text-[var(--text-muted)]">
           Default Generate uses ComfyUI (Dynamic VRAM / bf16 Lightning). Diffusers remains available
@@ -378,17 +441,25 @@ export default function SettingsComfyUiTab({
           <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
             cd services/diffusers-engine && ./run.sh
           </code>{' '}
-          or enable auto-start when that engine is selected. Fal queues{' '}
+          or enable auto-start when that engine is selected. Fal and Replicate queue{' '}
           <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
             prompt + optional Image 1
           </code>{' '}
           through{' '}
           <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
             /api/fal
+          </code>{' '}
+          and{' '}
+          <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
+            /api/replicate
           </code>
-          ; key from Settings or{' '}
+          ; keys from Settings or{' '}
           <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
             FAL_KEY
+          </code>{' '}
+          /{' '}
+          <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
+            REPLICATE_API_TOKEN
           </code>
           . Server proxy uses{' '}
           <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">

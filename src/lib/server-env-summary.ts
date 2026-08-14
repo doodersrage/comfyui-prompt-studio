@@ -134,7 +134,7 @@ export function getServerEnvSummary(): ServerEnvSummary {
           label: 'Default inference engine',
           value: process.env.PROMPT_ENGINE?.trim() || 'comfyui',
           configured: flag(process.env.PROMPT_ENGINE),
-          hint: 'comfyui (default), diffusers, or fal — browser Settings override wins.',
+          hint: 'comfyui (default), diffusers, fal, or replicate — browser Settings override wins.',
           uiOverride: 'Settings → ComfyUI → Inference engine',
         },
         {
@@ -154,6 +154,16 @@ export function getServerEnvSummary(): ServerEnvSummary {
           configured: flag(process.env.FAL_KEY ?? process.env.FAL_API_KEY),
           hint: 'Used when Settings → Inference engine is Fal and the browser key is empty.',
           uiOverride: 'Settings → ComfyUI → Inference engine → Fal API key',
+        },
+        {
+          key: 'REPLICATE_API_TOKEN',
+          label: 'Replicate API token',
+          value: flag(process.env.REPLICATE_API_TOKEN ?? process.env.REPLICATE_API_KEY)
+            ? '•••• configured'
+            : 'not set',
+          configured: flag(process.env.REPLICATE_API_TOKEN ?? process.env.REPLICATE_API_KEY),
+          hint: 'Used when Settings → Inference engine is Replicate and the browser token is empty.',
+          uiOverride: 'Settings → ComfyUI → Inference engine → Replicate API token',
         },
         {
           key: 'COMFYUI_ROOT',
