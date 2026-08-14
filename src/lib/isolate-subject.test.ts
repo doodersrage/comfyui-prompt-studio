@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { compositeRgbaOnFill, ISOLATE_FILL_WHITE, normalizeIsolateSubject } from './isolate-subject';
+import {
+  collectIsolateSourceUrls,
+  compositeRgbaOnFill,
+  ISOLATE_FILL_WHITE,
+  normalizeIsolateSubject,
+} from './isolate-subject';
 
 describe('isolate-subject', () => {
   it('keeps opaque pixels and fills fully transparent pixels with white', () => {
@@ -33,5 +38,19 @@ describe('isolate-subject', () => {
     assert.equal(normalizeIsolateSubject(false), false);
     assert.equal(normalizeIsolateSubject('false'), false);
     assert.equal(normalizeIsolateSubject(0), false);
+  });
+
+  it('collects identity and Comfy view URLs for an already-uploaded photo', () => {
+    const urls = collectIsolateSourceUrls({
+      imageUrl: 'blob:http://localhost/1',
+      filename: 'sam.png',
+      comfyUrl: 'http://127.0.0.1:8188',
+    });
+    assert.deepEqual(urls, [
+      'blob:http://localhost/1',
+      '/api/gallery/media/identity',
+      '/api/comfyui/view?filename=sam.png&subfolder=&type=input&comfyUrl=http%3A%2F%2F127.0.0.1%3A8188',
+      '/api/comfyui/view?filename=sam.png&subfolder=&type=output&comfyUrl=http%3A%2F%2F127.0.0.1%3A8188',
+    ]);
   });
 });

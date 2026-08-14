@@ -13,6 +13,13 @@ import {
   galleryEntryPrimaryViewUrl,
   loadComfyGallery,
 } from '@/lib/comfyui-gallery';
+import { loadComfyUiSettings } from '@/lib/comfyui-settings';
+import { IDENTITY_MEDIA_URL, persistIdentityImage } from '@/lib/gallery-media-client';
+import {
+  collectIsolateSourceUrls,
+  isolateSubjectOnWhite,
+  loadImageBlobFromUrls,
+} from '@/lib/isolate-subject';
 import { sharedLlmRequestBody } from '@/lib/llm-request-options';
 import {
   normalizeCharacterPlates,
@@ -20,6 +27,7 @@ import {
   type CharacterPlate,
 } from '@/lib/mobile-studio';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
+import { resolveQueueInputImage } from '@/lib/queue-input-image';
 import { getReformatTargetModel } from '@/lib/reformat-target';
 import {
   appendRoleplayStoryBeat,
@@ -76,6 +84,8 @@ export default function MobilePlayTool() {
   const [error, setError] = useState<string | null>(null);
   const [bioLoading, setBioLoading] = useState(false);
   const [playingId, setPlayingId] = useState<string | null>(null);
+  const [isolating, setIsolating] = useState(false);
+  const autoIsolateAttemptedRef = useRef(false);
 
   const personaId = toolSettings.personaId ?? 'raccoon-pirate';
   const { tone, content } = resolveRoleplayToneAndContent(toolSettings.tone, toolSettings.content);
@@ -91,6 +101,8 @@ export default function MobilePlayTool() {
 
   const referenceImageUrl = toolSettings.referenceImageUrl?.trim() || '';
   const referenceImageFilename = toolSettings.referenceImageFilename?.trim() || '';
+  const referenceOriginalUrl = toolSettings.referenceOriginalUrl?.trim() || '';
+  const referenceOriginalFilename = toolSettings.referenceOriginalFilename?.trim() || '';
   const hasReferenceImage = Boolean(referenceImageUrl || referenceImageFilename);
 
   useEffect(() => {
@@ -102,6 +114,95 @@ export default function MobilePlayTool() {
     window.addEventListener(SETTINGS_CACHE_UPDATED_EVENT, refresh);
     return () => window.removeEventListener(SETTINGS_CACHE_UPDATED_EVENT, refresh);
   }, []);
+
+  useEffect(() => {
+    if (!mounted || isolating) {
+      return;
+    }
+    if (!isolateSubject) {
+      autoIsolateAttemptedRef.current = false;
+      return;
+    }
+    if (toolSettings.referenceIsolated === true) {
+      autoIsolateAttemptedRef.current = false;
+      return;
+    }
+    const originalUrl = referenceOriginalUrl || referenceImageUrl;
+    const originalFilename = referenceOriginalFilename || referenceImageFilename;
+    if (!originalUrl && !originalFilename) {
+      autoIsolateAttemptedRef.current = false;
+      return;
+    }
+    if (autoIsolateAttemptedRef.current) {
+      return;
+    }
+    autoIsolateAttemptedRef.current = true;
+    setIsolating(true);
+    void (async () => {
+      try {
+        const originalName = originalFilename || 'roleplay-ref.png';
+        const blob = await loadImageBlobFromUrls(
+          collectIsolateSourceUrls({
+            imageUrl: originalUrl || IDENTITY_MEDIA_URL,
+            filename: originalName,
+            comfyUrl: loadComfyUiSettings().apiUrl?.trim() || undefined,
+          })
+        );
+        const source = new File([blob], originalName, {
+          type: blob.type || 'image/png',
+          lastModified: Date.now(),
+        });
+        const originalUploaded = await resolveQueueInputImage({
+          file: source,
+          filename: originalName,
+          model: shared.model,
+        });
+        const originalNameOnHost = originalUploaded?.filename?.trim() || originalName;
+        const cutout = await isolateSubjectOnWhite(source, originalName);
+        const cutoutUploaded = await resolveQueueInputImage({
+          file: cutout,
+          filename: cutout.name,
+          model: shared.model,
+        });
+        const cutoutFilename = cutoutUploaded?.filename?.trim();
+        if (!cutoutFilename) {
+          throw new Error('Cut-out upload did not return a filename.');
+        }
+        const cutoutDurable = await persistIdentityImage({
+          file: cutout,
+          filename: cutoutFilename,
+        });
+        updateToolSettings({
+          playAs: 'photo',
+          isolateSubject: true,
+          referenceIsolated: true,
+          referenceOriginalFilename: originalNameOnHost,
+          referenceOriginalUrl: originalUrl || referenceOriginalUrl,
+          referenceImageFilename: cutoutFilename,
+          referenceImageUrl: cutoutDurable || referenceImageUrl,
+        });
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? `${err.message} Using the original photo.`
+            : 'Could not isolate the subject. Using the original photo.'
+        );
+      } finally {
+        setIsolating(false);
+      }
+    })();
+  }, [
+    isolateSubject,
+    isolating,
+    mounted,
+    referenceImageFilename,
+    referenceImageUrl,
+    referenceOriginalFilename,
+    referenceOriginalUrl,
+    shared.model,
+    toolSettings.referenceIsolated,
+    updateToolSettings,
+  ]);
 
   const actions = usePromptResultActions({
     tool: TOOL_ID,
@@ -410,7 +511,13 @@ export default function MobilePlayTool() {
             </p>
             <p className="type-caption text-[var(--text-muted)]">
               {playAs === 'photo' ? 'From photo' : 'Switching to From photo'}
-              {isolateSubject ? ' · isolated' : ''}
+              {toolSettings.referenceIsolated === true
+                ? ' · isolated'
+                : isolating
+                  ? ' · isolating…'
+                  : isolateSubject
+                    ? ' · isolate on'
+                    : ''}
             </p>
           </div>
         </div>
@@ -430,6 +537,7 @@ export default function MobilePlayTool() {
               key={plate.id}
               type="button"
               onClick={() => {
+                autoIsolateAttemptedRef.current = false;
                 updateToolSettings(roleplayPatchFromPlate(plate));
                 setActivePlate(plate);
                 const mobile = loadToolSettings('mobileStudio', DEFAULT_MOBILE_STUDIO_TOOL_CACHE);
@@ -457,7 +565,7 @@ export default function MobilePlayTool() {
       ) : null}
 
       <PrimaryButton
-        disabled={!hasReferenceImage || bioLoading}
+        disabled={!hasReferenceImage || bioLoading || isolating}
         loading={bioLoading}
         onClick={() => void writeBio()}
         className="w-full justify-center"

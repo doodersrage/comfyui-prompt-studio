@@ -11,6 +11,7 @@ import {
   formatRoleplayBio,
   formatRoleplaySettingCue,
   formatRoleplayStoryDigest,
+  formatRoleplayWardrobeCue,
   isRoleplayAdultContent,
   lastRoleplayPlotBeat,
   mergeRoleplaySceneOptions,
@@ -153,11 +154,11 @@ function templatePromptFallback(
   const place = setting?.trim() ?? '';
   const lead =
     hasReferenceImage && place
-      ? `Replace the scene with ${place}. `
+      ? `Replace the scene with ${place}. Replace the reference clothing with the beat outfit. `
       : place
         ? `in ${place}, `
         : hasReferenceImage
-          ? 'new environment not from the reference photo, '
+          ? 'new environment not from the reference photo, replace the reference clothing with the beat outfit, '
           : '';
   const core = `${lookLock}, ${blurb}`;
   if (content === 'explicit') {
@@ -198,9 +199,9 @@ function referenceLine(hasReferenceImage: boolean, isolatedSubject?: boolean): s
     return '';
   }
   if (isolatedSubject) {
-    return 'A cut-out of THAT person/character on a white backdrop is provided. Keep THAT face and body. Fill the white with a new scene — do not leave a blank studio.';
+    return 'A cut-out of THAT person/character on a white backdrop is provided. Keep THAT face, hair, and body identity. Replace the photo clothing with the part and beat outfit. Fill the white with a new scene — do not leave a blank studio.';
   }
-  return "A reference photo is provided. Keep THAT person/character's face and body. Costume and species from the part can overlay the photo — do not invent a different face.";
+  return "A reference photo is provided. Keep THAT person/character's face, hair, and body identity. Costume, species, and wardrobe from the part and this beat replace the photo's clothes — do not invent a different face, and do not keep the photo's outfit.";
 }
 
 function hasRoleplayPlot(story: RoleplayStoryBeat[] | undefined): boolean {
@@ -253,6 +254,10 @@ export async function generateRoleplayBio(
     isolatedSubject,
     phase: 'bio',
   });
+  const wardrobeCue = formatRoleplayWardrobeCue({
+    hasReferenceImage,
+    phase: 'bio',
+  });
   const raw = await llmJson({
     llm: options.llm,
     maxTokens: 420,
@@ -262,10 +267,11 @@ ${toneLine(tone)}
 ${uncensoredAdultLine(content)}
 ${referenceLine(hasReferenceImage, isolatedSubject)}
 ${settingCue}
+${wardrobeCue}
 Return ONLY JSON: {"name":"","look":"","personality":"","catchphrase":""}
 - look: one visual sentence (species/body, clothes, colors, distinctive props).${adultLookHint(content)}${
       hasReferenceImage
-        ? ' Describe the reference person as they appear (face, body, costume overlay from the part) — not the photo location.'
+        ? ' Face, hair, and body from the reference; clothes from the part — not the photo location or the photo outfit.'
         : ''
     }
 - personality: one or two sentences, first or close third person.
@@ -309,6 +315,10 @@ export async function generateRoleplayScenes(
     phase: 'scenes',
     continuing,
   });
+  const wardrobeCue = formatRoleplayWardrobeCue({
+    hasReferenceImage,
+    phase: 'scenes',
+  });
   const raw = await llmJson({
     llm: options.llm,
     maxTokens: 700,
@@ -317,6 +327,7 @@ export async function generateRoleplayScenes(
 ${toneLine(tone)}
 ${uncensoredAdultLine(content)}
 ${settingCue}
+${wardrobeCue}
 Return ONLY JSON: {"scenes":[{"title":"","blurb":""}]}
 - Exactly 4 scenes. Titles 2–6 words. Blurbs one sentence, visual, actionable.
 - Each option is a different way THIS character's story continues from the last chosen beat.
@@ -375,6 +386,10 @@ export async function generateRoleplayPrompt(
     isolatedSubject,
     phase: 'prompt',
   });
+  const wardrobeCue = formatRoleplayWardrobeCue({
+    hasReferenceImage,
+    phase: 'prompt',
+  });
 
   return runSpecializedPrompt({
     model: options.model,
@@ -385,13 +400,14 @@ ${uncensoredAdultLine(content)}
 ${contentLine(content, allowGore)}
 ${referenceLine(hasReferenceImage, isolatedSubject)}
 ${settingCue}
-- The SAME character must appear: ${lookLock}
+${wardrobeCue}
+- The SAME character must appear (face, hair, body): ${lookLock}
 - Name (${bio.name}) can appear once; do not invent a new cast unless the beat requires one extra figure.
-- Describe the chosen situation as a readable tableau: pose, props, setting, light, bodies.${
+- Describe the chosen situation as a readable tableau: pose, props, setting, light, bodies, and what they are wearing.${
       hasReferenceImage
         ? isolatedSubject
-          ? "\n- This still is img2img from a subject cut-out on white: keep identity, fill the white with the beat's environment — do not leave a studio backdrop."
-          : "\n- This still is img2img from the reference photo: keep identity only. Change pose, wardrobe, and especially the environment — do not keep the photo's background."
+          ? "\n- This still is img2img from a subject cut-out on white: keep face/hair/body identity, replace clothing with this beat's outfit, fill the white with the beat's environment — do not leave a studio backdrop or the photo's clothes."
+          : "\n- This still is img2img from the reference photo: keep face/hair/body identity only. Replace wardrobe with this beat's clothes. Change pose and especially the environment — do not keep the photo's background or outfit."
         : ''
     }
 - If this is a first-look / establishing beat, make a character portrait in a fitting environment${

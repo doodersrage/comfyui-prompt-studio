@@ -178,21 +178,38 @@ export function formatRoleplaySettingCue(input: {
   }
 
   if (isolated && setting) {
-    return `The reference is the subject isolated on a blank white backdrop. Replace the white with ${setting}. Keep the person's face and body. Do not keep a studio void.`;
+    return `The reference is the subject isolated on a blank white backdrop. Replace the white with ${setting}. Keep the person's face, hair, and body identity. Replace the photo's clothing with this beat's outfit. Do not keep a studio void.`;
   }
   if (isolated) {
-    return `The reference is the subject isolated on a blank white backdrop. Invent a full environment around them. Keep identity only. Do not keep the white background.`;
+    return `The reference is the subject isolated on a blank white backdrop. Invent a full environment around them. Keep face, hair, and body identity only. Replace the photo's clothing. Do not keep the white background.`;
   }
   if (setting && photo) {
-    return `Replace the scene with ${setting}. Keep the person's face and body from the reference. Discard the photo's background, furniture, and lighting.`;
+    return `Replace the scene with ${setting}. Keep the person's face, hair, and body identity from the reference. Discard the photo's clothing, background, furniture, and lighting.`;
   }
   if (setting) {
     return `This still is set in: ${setting}.`;
   }
   if (photo) {
-    return `Discard the reference photo's background. Place them in the beat's setting. Keep identity only.`;
+    return `Discard the reference photo's background and clothing. Place them in the beat's setting in the beat's outfit. Keep face, hair, and body identity only.`;
   }
   return '';
+}
+
+/** From photo: scene/part wardrobe replaces the reference outfit. */
+export function formatRoleplayWardrobeCue(input: {
+  hasReferenceImage?: boolean;
+  phase: 'bio' | 'scenes' | 'prompt';
+}): string {
+  if (!input.hasReferenceImage) {
+    return '';
+  }
+  if (input.phase === 'bio') {
+    return `Clothes in look come from the part and setting, not the photo. Keep face, hair, and body from the reference; wardrobe is the role (coat, armor, gown, kit) — do not copy the photo's shirt, jacket, jeans, shoes, or uniform.`;
+  }
+  if (input.phase === 'scenes') {
+    return `When a beat's outfit matters, name the garments in the blurb so the still can replace the photo's clothes.`;
+  }
+  return `Replace the reference photo's clothing with the outfit in this beat (and the character look if the beat does not name clothes). Keep face, hair, and body identity only. Do not keep the photo's street clothes, uniform, or shoes unless this beat explicitly keeps them. If the beat names different clothes than the look, the beat's clothes win.`;
 }
 
 export function normalizeRoleplayIsolateSubject(value: unknown): boolean {

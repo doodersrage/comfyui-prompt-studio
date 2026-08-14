@@ -1,4 +1,68 @@
+import { IDENTITY_MEDIA_URL } from './gallery-media-client';
+
 export const ISOLATE_FILL_WHITE = { r: 255, g: 255, b: 255 } as const;
+
+function comfyViewUrl(filename: string, type: 'input' | 'output', comfyUrl?: string): string {
+  const params = new URLSearchParams({
+    filename,
+    subfolder: '',
+    type,
+  });
+  const host = comfyUrl?.trim().replace(/\/+$/, '');
+  if (host) {
+    params.set('comfyUrl', host);
+  }
+  return `/api/comfyui/view?${params.toString()}`;
+}
+
+/** Fetch candidates for a photo that is already in Roleplay (cache, identity lock, or Comfy input). */
+export function collectIsolateSourceUrls(input: {
+  imageUrl?: string;
+  filename?: string;
+  comfyUrl?: string;
+}): string[] {
+  const urls: string[] = [];
+  const push = (url?: string) => {
+    const trimmed = url?.trim();
+    if (!trimmed || urls.includes(trimmed)) {
+      return;
+    }
+    urls.push(trimmed);
+  };
+  push(input.imageUrl);
+  push(IDENTITY_MEDIA_URL);
+  const filename = input.filename?.trim();
+  if (filename) {
+    push(comfyViewUrl(filename, 'input', input.comfyUrl));
+    push(comfyViewUrl(filename, 'output', input.comfyUrl));
+  }
+  return urls;
+}
+
+export async function loadImageBlobFromUrls(urls: string[]): Promise<Blob> {
+  let lastError: Error | null = null;
+  for (const url of urls) {
+    const trimmed = url.trim();
+    if (!trimmed) {
+      continue;
+    }
+    try {
+      const response = await fetch(trimmed);
+      if (!response.ok) {
+        lastError = new Error(`Could not load that photo to isolate (HTTP ${response.status}).`);
+        continue;
+      }
+      const blob = await response.blob();
+      if (blob.size === 0) {
+        continue;
+      }
+      return blob;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error('Could not load that photo to isolate.');
+    }
+  }
+  throw lastError ?? new Error('Could not load that photo to isolate.');
+}
 
 /** Default on; only an explicit falsey flag turns isolation off. */
 export function normalizeIsolateSubject(value: unknown): boolean {

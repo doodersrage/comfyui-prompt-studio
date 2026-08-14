@@ -23,6 +23,7 @@ import {
   normalizeRoleplayPlayAs,
   resolveRoleplaySetting,
   formatRoleplaySettingCue,
+  formatRoleplayWardrobeCue,
   rollRoleplaySetting,
   ROLEPLAY_SETTING_PRESETS,
   roleplayIntroScene,
@@ -144,6 +145,30 @@ describe('roleplay parsers', () => {
       }),
       /Do not keep the white background/i
     );
+    assert.match(
+      formatRoleplaySettingCue({
+        hasReferenceImage: true,
+        isolatedSubject: true,
+        setting: 'neon alley',
+        phase: 'prompt',
+      }),
+      /Replace the photo's clothing/i
+    );
+    assert.match(
+      formatRoleplayWardrobeCue({
+        hasReferenceImage: true,
+        phase: 'prompt',
+      }),
+      /beat's clothes win/i
+    );
+    assert.match(
+      formatRoleplayWardrobeCue({
+        hasReferenceImage: true,
+        phase: 'bio',
+      }),
+      /not the photo/i
+    );
+    assert.equal(formatRoleplayWardrobeCue({ phase: 'prompt' }), '');
     assert.equal(normalizeRoleplayIsolateSubject(undefined), true);
     assert.equal(normalizeRoleplayIsolateSubject(false), false);
   });

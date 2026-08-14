@@ -62,4 +62,11 @@ describe('character plates', () => {
     assert.equal(patch.referenceImageUrl, '/api/gallery/media/identity?id=cut');
     assert.equal(patch.referenceOriginalUrl, '/api/gallery/media/identity?id=orig');
   });
+
+  it('does not turn Isolate on white off when the plate is a raw gallery still', () => {
+    const patch = roleplayPatchFromPlate(plate({ isolated: false, isolatedUrl: plate().originalUrl }));
+    assert.equal(patch.referenceIsolated, false);
+    assert.equal(patch.isolateSubject, undefined);
+    assert.equal(patch.referenceImageUrl, plate().originalUrl);
+  });
 });

@@ -3,6 +3,11 @@ import { resolveComfyOutputMediaKind } from './comfyui-outputs';
 
 export const IDENTITY_MEDIA_URL = '/api/gallery/media/identity';
 
+export function isIdentityMediaUrl(url: string): boolean {
+  const path = url.trim().split('?')[0] ?? '';
+  return path === IDENTITY_MEDIA_URL || path.endsWith('/api/gallery/media/identity');
+}
+
 /** Identity persist always rewrites one lock file — bust so <img> does not keep the previous decode. */
 export function cacheBustIdentityMediaUrl(url: string): string {
   const trimmed = url.trim();
@@ -10,7 +15,7 @@ export function cacheBustIdentityMediaUrl(url: string): string {
     return trimmed;
   }
   const [path, query = ''] = trimmed.split('?');
-  if (path !== IDENTITY_MEDIA_URL && !path.endsWith('/api/gallery/media/identity')) {
+  if (!isIdentityMediaUrl(path)) {
     return trimmed;
   }
   const params = new URLSearchParams(query);

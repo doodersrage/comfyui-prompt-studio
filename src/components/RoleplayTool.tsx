@@ -24,9 +24,19 @@ import {
   galleryEntryPrimaryViewUrl,
   loadComfyGallery,
 } from '@/lib/comfyui-gallery';
-import { cacheBustIdentityMediaUrl, persistIdentityImage } from '@/lib/gallery-media-client';
+import { loadComfyUiSettings } from '@/lib/comfyui-settings';
+import {
+  cacheBustIdentityMediaUrl,
+  IDENTITY_MEDIA_URL,
+  isIdentityMediaUrl,
+  persistIdentityImage,
+} from '@/lib/gallery-media-client';
 import { galleryPickPath } from '@/lib/gallery-handoff';
-import { isolateSubjectOnWhite } from '@/lib/isolate-subject';
+import {
+  collectIsolateSourceUrls,
+  isolateSubjectOnWhite,
+  loadImageBlobFromUrls,
+} from '@/lib/isolate-subject';
 import { resolveQueueInputImage } from '@/lib/queue-input-image';
 import {
   CUSTOM_ROLEPLAY_PERSONA_ID,
@@ -97,6 +107,8 @@ export default function RoleplayTool() {
   const story = toolSettings.story ?? [];
   const autoQueue = toolSettings.autoQueue !== false;
   const storyRef = useRef(toolSettings.story ?? []);
+  const isolateGenRef = useRef(0);
+  const autoIsolateAttemptedRef = useRef(false);
   useEffect(() => {
     storyRef.current = toolSettings.story ?? [];
   }, [toolSettings.story]);
@@ -128,54 +140,88 @@ export default function RoleplayTool() {
     }) => {
       const imageUrl = input.imageUrl?.trim() || '';
       const file = input.file ?? null;
-      if (!file && !imageUrl) {
+      if (!file && !imageUrl && !input.filename?.trim()) {
         throw new Error('Choose a photo or a gallery still first.');
       }
       const shouldIsolate = input.isolate ?? isolateSubject;
+      isolateGenRef.current += 1;
+      const gen = isolateGenRef.current;
       setReferenceUploading(true);
       setIsolateStatus(null);
       setError(null);
-      const localPreview = file ? URL.createObjectURL(file) : imageUrl;
-      setReferencePreviewUrl(previous => {
-        if (previous?.startsWith('blob:') && previous !== localPreview) {
-          URL.revokeObjectURL(previous);
-        }
-        return localPreview;
-      });
+      const localPreview = file ? URL.createObjectURL(file) : imageUrl || null;
+      if (localPreview) {
+        setReferencePreviewUrl(previous => {
+          if (previous?.startsWith('blob:') && previous !== localPreview) {
+            URL.revokeObjectURL(previous);
+          }
+          return localPreview;
+        });
+      }
       try {
         const originalName = input.filename || file?.name || `roleplay-ref-${Date.now()}.png`;
+        const comfyUrl = loadComfyUiSettings().apiUrl?.trim() || undefined;
+        const sourceFile =
+          file ??
+          (await (async () => {
+            const blob = await loadImageBlobFromUrls(
+              collectIsolateSourceUrls({
+                imageUrl,
+                filename: originalName,
+                comfyUrl,
+              })
+            );
+            return new File([blob], originalName, {
+              type: blob.type || 'image/png',
+              lastModified: Date.now(),
+            });
+          })());
+        if (gen !== isolateGenRef.current) {
+          return;
+        }
         const originalUploaded = await resolveQueueInputImage({
-          file,
-          imageUrl: file ? undefined : imageUrl,
+          file: sourceFile,
           filename: originalName,
           model: shared.model,
         });
+        if (gen !== isolateGenRef.current) {
+          return;
+        }
         const originalFilename = originalUploaded?.filename?.trim();
         if (!originalFilename) {
           throw new Error('Upload did not return a filename.');
         }
-        const originalDurable = await persistIdentityImage({
-          file: file ?? undefined,
-          filename: originalFilename,
-        });
-        const originalUrl = originalDurable || imageUrl || localPreview;
+        const incomingDurable =
+          imageUrl && !imageUrl.startsWith('blob:') && !isIdentityMediaUrl(imageUrl)
+            ? imageUrl
+            : '';
+        const originalViewUrl =
+          collectIsolateSourceUrls({
+            filename: originalFilename,
+            comfyUrl,
+          }).find(url => url.includes('/api/comfyui/view?')) ?? '';
+        const originalUrl = incomingDurable || originalViewUrl || imageUrl;
 
         let queueFilename = originalFilename;
         let queueUrl = originalUrl;
         let isolated = false;
 
-        if (shouldIsolate) {
+        if (!shouldIsolate) {
+          const originalDurable = await persistIdentityImage({
+            file: sourceFile,
+            filename: originalFilename,
+          });
+          if (gen !== isolateGenRef.current) {
+            return;
+          }
+          queueUrl = originalDurable || originalUrl;
+        } else {
           setIsolateStatus('Isolating subject on white…');
           try {
-            const source: Blob =
-              file ??
-              (await fetch(imageUrl).then(response => {
-                if (!response.ok) {
-                  throw new Error('Could not load that photo to isolate.');
-                }
-                return response.blob();
-              }));
-            const cutout = await isolateSubjectOnWhite(source, originalName);
+            const cutout = await isolateSubjectOnWhite(sourceFile, originalName);
+            if (gen !== isolateGenRef.current) {
+              return;
+            }
             const cutoutUploaded = await resolveQueueInputImage({
               file: cutout,
               filename: cutout.name,
@@ -189,6 +235,9 @@ export default function RoleplayTool() {
               file: cutout,
               filename: cutoutFilename,
             });
+            if (gen !== isolateGenRef.current) {
+              return;
+            }
             const cutoutPreview = URL.createObjectURL(cutout);
             setReferencePreviewUrl(previous => {
               if (previous?.startsWith('blob:') && previous !== cutoutPreview) {
@@ -207,10 +256,18 @@ export default function RoleplayTool() {
                 ? `${err.message} Using the original photo.`
                 : 'Could not isolate the subject. Using the original photo.'
             );
+            const originalDurable = await persistIdentityImage({
+              file: sourceFile,
+              filename: originalFilename,
+            });
+            queueUrl = originalDurable || originalUrl;
           }
         }
 
-        if (isolated && localPreview.startsWith('blob:')) {
+        if (gen !== isolateGenRef.current) {
+          return;
+        }
+        if (isolated && localPreview?.startsWith('blob:')) {
           URL.revokeObjectURL(localPreview);
         }
         updateToolSettings({
@@ -218,22 +275,27 @@ export default function RoleplayTool() {
           isolateSubject: shouldIsolate,
           referenceOriginalFilename: originalFilename,
           referenceOriginalUrl: originalUrl.startsWith('blob:')
-            ? originalDurable || imageUrl
+            ? incomingDurable || originalViewUrl
             : originalUrl,
           referenceImageFilename: queueFilename,
           referenceImageUrl: queueUrl,
           referenceIsolated: isolated,
         });
-        if (!isolated && !localPreview.startsWith('blob:')) {
-          setReferencePreviewUrl(cacheBustIdentityMediaUrl(originalUrl));
+        if (!isolated && !queueUrl.startsWith('blob:')) {
+          setReferencePreviewUrl(cacheBustIdentityMediaUrl(queueUrl));
         }
         setIsolateStatus(isolated ? 'Subject isolated on white.' : null);
       } catch (err) {
+        if (gen !== isolateGenRef.current) {
+          return;
+        }
         clearReferencePreview();
         setIsolateStatus(null);
         throw err;
       } finally {
-        setReferenceUploading(false);
+        if (gen === isolateGenRef.current) {
+          setReferenceUploading(false);
+        }
       }
     },
     [clearReferencePreview, isolateSubject, shared.model, updateToolSettings]
@@ -281,6 +343,48 @@ export default function RoleplayTool() {
     [applyReference]
   );
   useGalleryHandoff('roleplay', applyGalleryHandoff);
+
+  useEffect(() => {
+    if (!mounted || playAs !== 'photo' || referenceUploading) {
+      return;
+    }
+    if (!isolateSubject) {
+      autoIsolateAttemptedRef.current = false;
+      return;
+    }
+    if (toolSettings.referenceIsolated === true) {
+      autoIsolateAttemptedRef.current = false;
+      return;
+    }
+    const originalUrl = referenceOriginalUrl || referenceImageUrl;
+    const originalFilename = referenceOriginalFilename || referenceImageFilename;
+    if (!originalUrl && !originalFilename) {
+      autoIsolateAttemptedRef.current = false;
+      return;
+    }
+    if (autoIsolateAttemptedRef.current) {
+      return;
+    }
+    autoIsolateAttemptedRef.current = true;
+    void applyReference({
+      imageUrl: originalUrl || IDENTITY_MEDIA_URL,
+      filename: originalFilename || 'roleplay-ref.png',
+      isolate: true,
+    }).catch(err => {
+      setError(err instanceof Error ? err.message : 'Could not isolate that photo.');
+    });
+  }, [
+    applyReference,
+    isolateSubject,
+    mounted,
+    playAs,
+    referenceImageFilename,
+    referenceImageUrl,
+    referenceOriginalFilename,
+    referenceOriginalUrl,
+    referenceUploading,
+    toolSettings.referenceIsolated,
+  ]);
 
   const displayReferenceUrl = referencePreviewUrl || referenceImageUrl;
 
@@ -766,7 +870,8 @@ export default function RoleplayTool() {
               <p className="text-xs text-[var(--text-muted)]">
                 Every still queues img2img from this reference so you stay the same person. Isolate
                 on white (default) cuts the subject out so the model does not keep the photo&apos;s
-                street or room. Pair with Setting to place them somewhere new.
+                street or room. Scene and part clothing replace the photo&apos;s outfit — face,
+                hair, and body stay. Pair with Setting to place them somewhere new.
               </p>
               <div className="flex flex-wrap gap-1.5">
                 <ChipButton
@@ -797,7 +902,7 @@ export default function RoleplayTool() {
                       return;
                     }
                     void applyReference({
-                      imageUrl: originalUrl,
+                      imageUrl: originalUrl || IDENTITY_MEDIA_URL,
                       filename: originalFilename || 'roleplay-ref.png',
                       isolate: next,
                     }).catch(err => {

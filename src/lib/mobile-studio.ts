@@ -112,22 +112,23 @@ export function removeCharacterPlate(
 
 export function roleplayPatchFromPlate(plate: CharacterPlate): {
   playAs: 'photo';
-  isolateSubject: boolean;
+  isolateSubject?: boolean;
   referenceIsolated: boolean;
   referenceImageUrl: string;
   referenceImageFilename?: string;
   referenceOriginalUrl: string;
   referenceOriginalFilename?: string;
 } {
-  const isolated = plate.isolated !== false;
+  const isolated = plate.isolated === true;
   const queueUrl = isolated ? plate.isolatedUrl || plate.originalUrl : plate.originalUrl;
   const queueFilename = isolated
     ? plate.isolatedFilename || plate.originalFilename
     : plate.originalFilename;
   return {
     playAs: 'photo',
-    isolateSubject: isolated,
-    referenceIsolated: isolated && Boolean(plate.isolatedUrl),
+    ...(isolated
+      ? { isolateSubject: true, referenceIsolated: true }
+      : { referenceIsolated: false }),
     referenceImageUrl: queueUrl,
     referenceImageFilename: queueFilename,
     referenceOriginalUrl: plate.originalUrl,
