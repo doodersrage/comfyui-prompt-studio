@@ -37,6 +37,7 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 
 ## Scene tools & catalogs {#scene-tools}
 
+- **Roleplay** — `/roleplay` (More tools in Simple mode): pick an archetype or custom persona, write a bio, roll four story beats, tap a beat to queue a still in the story reel. Exclusive **Tone** (Silly / Cinematic / Cozy / Chaotic) and **Content** rating (SFW: Clean, PG-13, Suggestive; Adult: Sultry, Explicit, Raunchy) plus an additive **Gore** toggle. Stills render inline with live Comfy preview; download a zip of `story.md` + stills. Consenting adults only; no minors. Default PG-13.
 - **Character generator** — solo, duo/sport, and compose-with-background modes; sport presets, team kit, batch roll, ComfyUI queue
 - **Scene compose mode** — Character tool merges background + subject into one scene prompt
 - **Regional prompt composer** — Character tool merges labeled subject/background/lighting segments; queue-time `workflow-regional-patch` also wires AttentionCouple-style nodes when installed

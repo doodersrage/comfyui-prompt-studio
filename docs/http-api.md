@@ -27,6 +27,7 @@ curl -sS "http://localhost:47832/api/models?id=sdxl" | jq .
 | `/api/topics`       | POST   | Seed theme (optional) → list of topic ideas                                  |
 | `/api/random-scene` | POST   | Random cohesive scene prompt (also available via Generate → Random surprise) |
 | `/api/character`    | POST   | Detailed single-person prompt                                                |
+| `/api/roleplay`     | POST   | Roleplay bio, scene beats, or still prompt (`action`: bio / scenes / prompt) |
 | `/api/background`   | POST   | People-free environment prompt                                               |
 | `/api/image-prompt` | POST   | Image upload/base64 → prompt (vision LLM)                                    |
 
