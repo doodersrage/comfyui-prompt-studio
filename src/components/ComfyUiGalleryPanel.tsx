@@ -50,6 +50,7 @@ import {
 } from '@/lib/gallery-cap';
 import { galleryDerivedKindChipLabel, galleryDerivedKindLabel } from '@/lib/gallery-derived-kind';
 import {
+  applyGalleryPromptAndStackToSession,
   applyGalleryStackToSession,
   galleryEntryCanSaveLook,
   galleryEntryHasRestorableStack,
@@ -806,6 +807,7 @@ export default function ComfyUiGalleryPanel({
       showInpaint: completed && !isVideo,
       showExact: Boolean(entry.hasStoredWorkflow || entry.workflowJson),
       showUseStack: galleryEntryHasRestorableStack(entry),
+      showUsePromptStack: galleryEntryHasRestorableStack(entry) && Boolean(entry.prompt?.trim()),
       showUseFace: galleryEntryCanLockFace(entry),
       showSaveLook: galleryEntryCanSaveLook(entry),
       showRequeue: true,
@@ -828,6 +830,13 @@ export default function ComfyUiGalleryPanel({
             router.push('/');
           }
         : undefined,
+      onUsePromptStack:
+        galleryEntryHasRestorableStack(entry) && entry.prompt?.trim()
+          ? () => {
+              applyGalleryPromptAndStackToSession(entry);
+              router.push('/');
+            }
+          : undefined,
       onUseFace: galleryEntryCanLockFace(entry)
         ? () => {
             setRequeueStatus('Locking face on Generate…');

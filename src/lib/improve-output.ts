@@ -16,6 +16,7 @@ import {
   galleryAnatomyRepairPath,
 } from './anatomy-repair-handoff';
 import type { ComfyGalleryEntry } from './comfyui-gallery';
+import { applyGalleryStackToSession } from './gallery-stack-restore';
 
 export function startImproveFromResult(input: {
   prompt: string;
@@ -194,6 +195,7 @@ export function startOutpaintFromGalleryEntry(entry: ComfyGalleryEntry): void {
 
 export function startRefineFromGalleryEntry(entry: ComfyGalleryEntry): void {
   saveGalleryHandoff(buildGalleryHandoff(entry, 'refine'));
+  applyGalleryStackToSession(entry, { toast: false });
   window.location.href = galleryHandoffPath('refine');
 }
 
@@ -205,6 +207,7 @@ export function startImproveFromGalleryEntry(
     ...buildGalleryHandoff(entry, 'refine'),
     improveIntent: options?.intent?.trim() || IMPROVE_INTENT_DEFAULT,
   });
+  applyGalleryStackToSession(entry, { toast: false });
   window.location.href = galleryImprovePath();
 }
 
@@ -225,6 +228,7 @@ export function startVideoFromGalleryEntry(entry: ComfyGalleryEntry): void {
 
 export function startReeditRefineFromGalleryEntry(entry: ComfyGalleryEntry): void {
   saveGalleryHandoff(buildReeditGalleryHandoff(entry, 'refine'));
+  applyGalleryStackToSession(entry, { toast: false });
   window.location.href = galleryHandoffPath('refine');
 }
 

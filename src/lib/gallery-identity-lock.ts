@@ -59,6 +59,7 @@ export async function applyGalleryFaceToSession(entry: ComfyGalleryEntry): Promi
         ipAdapterImageFilename: filename,
         ipAdapterImageFilenames: [filename],
         ipAdapterImageUrl: viewUrl,
+        ipAdapterComfyUrl: uploaded.comfyUrl,
         ipAdapterStrength: normalizeComposeIdentityLockStrength(
           shared.ipAdapterStrength ?? DEFAULT_COMPOSE_IDENTITY_LOCK_STRENGTH
         ),

@@ -4,6 +4,7 @@ import {
   ensureLightningNativeResolutionParams,
   formatModelResolutionHint,
   getModelResolutionPreset,
+  inferResolutionOrientationAndTier,
   lightningSafeComposeLatentSize,
   normalizeResolutionOrientation,
   normalizeResolutionSizeTier,
@@ -19,6 +20,20 @@ describe("model resolution defaults", () => {
     assert.deepEqual(getModelResolutionPreset("sdxl", "square", "medium"), {
       width: 1024,
       height: 1024,
+    });
+  });
+
+  it("infers SDXL portrait medium from 832×1216", () => {
+    assert.deepEqual(inferResolutionOrientationAndTier("sdxl", 832, 1216), {
+      orientation: "portrait",
+      sizeTier: "medium",
+    });
+  });
+
+  it("picks the nearest SDXL square chip for an off-ladder size", () => {
+    assert.deepEqual(inferResolutionOrientationAndTier("sdxl", 1000, 1000), {
+      orientation: "square",
+      sizeTier: "medium",
     });
   });
 

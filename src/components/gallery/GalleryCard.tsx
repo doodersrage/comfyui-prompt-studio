@@ -45,6 +45,7 @@ import {
 } from '@/lib/comfyui-gallery';
 import { galleryDerivedKindLabel } from '@/lib/gallery-derived-kind';
 import {
+  applyGalleryPromptAndStackToSession,
   applyGalleryStackToSession,
   galleryEntryCanSaveLook,
   galleryEntryHasRestorableStack,
@@ -518,6 +519,19 @@ export default function GalleryCard({
                         }`}
                       >
                         Stack
+                      </button>
+                    ) : null}
+                    {galleryEntryHasRestorableStack(entry) && entry.prompt?.trim() ? (
+                      <button
+                        type="button"
+                        data-testid="gallery-use-prompt-stack"
+                        onClick={() => {
+                          applyGalleryPromptAndStackToSession(entry);
+                          router.push('/');
+                        }}
+                        className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)]/70 px-2 py-0.5 text-[10px] text-[var(--text-secondary)] backdrop-blur transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
+                      >
+                        Prompt+
                       </button>
                     ) : null}
                     {galleryEntryCanLockFace(entry) ? (
@@ -1321,6 +1335,17 @@ export default function GalleryCard({
                       data-testid="gallery-use-stack-menu"
                       onClick={() => {
                         applyGalleryStackToSession(entry);
+                        router.push('/');
+                        setMenuOpen(false);
+                      }}
+                    />
+                  ) : null}
+                  {galleryEntryHasRestorableStack(entry) && entry.prompt?.trim() ? (
+                    <GalleryMenuButton
+                      label="Prompt + stack on Generate"
+                      data-testid="gallery-use-prompt-stack-menu"
+                      onClick={() => {
+                        applyGalleryPromptAndStackToSession(entry);
                         router.push('/');
                         setMenuOpen(false);
                       }}

@@ -34,6 +34,9 @@ import {
 import { isQwenLightningModel } from './model-sampling-patch';
 import { workflowHasLoraLoader } from './workflow-lightning-queue';
 import { applySystemWorkflowToRuntime, usesSystemWorkflowPath } from './system-workflow-runtime';
+import { resolveIdentityLockApiUrl } from './identity-lock-host';
+
+export { resolveIdentityLockApiUrl } from './identity-lock-host';
 
 // Cache for parsed workflow JSON — avoids redundant parse on same string across model checks.
 const _workflowParseCache = new Map<string, Record<string, unknown>>();
@@ -262,6 +265,7 @@ function sharedQueueFlags(
     shared.comfyPoolBusyThreshold >= 0
       ? shared.comfyPoolBusyThreshold
       : undefined;
+  const identityUrl = resolveIdentityLockApiUrl(shared);
   return {
     directWorkflowPatching: shared.directWorkflowPatching !== false,
     syncWorkflowLoadersToModel: shared.syncWorkflowLoadersToModel === true,
@@ -291,6 +295,7 @@ function sharedQueueFlags(
       ? { comfyPoolUrls: shared.comfyPoolUrls }
       : {}),
     ...overrides,
+    ...(identityUrl ? { apiUrl: identityUrl } : {}),
   };
 }
 

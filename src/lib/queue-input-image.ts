@@ -8,6 +8,7 @@ export type ResolveQueueInputImageOptions = {
   filename?: string;
   imageUrl?: string;
   model?: ComfyImageModel | string;
+  comfyUrl?: string;
   kind?: 'image' | 'mask';
   originalRef?: {
     name: string;
@@ -22,6 +23,7 @@ export type ResolvedQueueInputImage = {
   height?: number;
   subfolder?: string;
   type?: string;
+  comfyUrl?: string;
 };
 
 export async function resolveQueueInputImageFilename(
@@ -39,6 +41,7 @@ export async function resolveQueueInputImage(
     const uploaded = await uploadComfyInputImage({
       file: options.file,
       model: options.model,
+      comfyUrl: options.comfyUrl,
       kind: options.kind,
       originalRef: options.originalRef,
     });
@@ -48,6 +51,7 @@ export async function resolveQueueInputImage(
       height: uploaded.height,
       subfolder: uploaded.subfolder,
       type: uploaded.type,
+      comfyUrl: uploaded.comfyUrl,
     };
   }
 
@@ -62,6 +66,7 @@ export async function resolveQueueInputImage(
     const uploaded = await uploadComfyInputImage({
       file,
       model: options.model,
+      comfyUrl: options.comfyUrl,
       kind: options.kind,
       originalRef: options.originalRef,
     });
@@ -71,6 +76,7 @@ export async function resolveQueueInputImage(
       height: uploaded.height,
       subfolder: uploaded.subfolder,
       type: uploaded.type,
+      comfyUrl: uploaded.comfyUrl,
     };
   }
 

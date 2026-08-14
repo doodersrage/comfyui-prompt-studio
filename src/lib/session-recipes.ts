@@ -2,6 +2,8 @@ import { readBrowserValue, writeBrowserValue } from './browser-storage';
 import { type ComfyImageModel } from './comfy-models/client';
 import {
   normalizeModelSamplerPresetTier,
+  pickModelSamplerOverrideFields,
+  type ModelSamplerOverrideFields,
   type ModelSamplerPresetTier,
 } from './model-sampler-defaults';
 import {
@@ -37,12 +39,14 @@ export type SessionRecipeShared = {
   sessionActiveLoraIds?: string[];
   sessionLoraStrengthOverrides?: SessionLoraStrengthOverrides;
   modelSamplerPreset?: ModelSamplerPresetTier;
+  modelSamplerOverrides?: ModelSamplerOverrideFields;
   modelResolutionOrientation?: ResolutionOrientation;
   modelResolutionSizeTier?: ResolutionSizeTier;
   editDenoiseStrength?: number;
   sessionEmbeddingTokens?: string[];
   ipAdapterImageFilename?: string;
   ipAdapterImageFilenames?: string[];
+  ipAdapterComfyUrl?: string;
   ipAdapterStrength?: number;
   identityKind?: ComposeIdentityKind;
 };
@@ -69,6 +73,7 @@ function pickSessionLookFields(
   | 'sessionEmbeddingTokens'
   | 'ipAdapterImageFilename'
   | 'ipAdapterImageFilenames'
+  | 'ipAdapterComfyUrl'
   | 'ipAdapterStrength'
   | 'identityKind'
 > {
@@ -92,6 +97,9 @@ function pickSessionLookFields(
     ...(tokens?.length ? { sessionEmbeddingTokens: tokens } : {}),
     ...(filename ? { ipAdapterImageFilename: filename } : {}),
     ...(stack?.length ? { ipAdapterImageFilenames: stack } : {}),
+    ...(typeof sharedRaw.ipAdapterComfyUrl === 'string' && sharedRaw.ipAdapterComfyUrl.trim()
+      ? { ipAdapterComfyUrl: sharedRaw.ipAdapterComfyUrl.trim() }
+      : {}),
     ...(sharedRaw.ipAdapterStrength != null
       ? { ipAdapterStrength: normalizeComposeIdentityLockStrength(sharedRaw.ipAdapterStrength) }
       : {}),
@@ -160,6 +168,17 @@ export function normalizeSessionRecipe(value: unknown): SessionRecipe | null {
       modelSamplerPreset: sharedRaw.modelSamplerPreset
         ? normalizeModelSamplerPresetTier(sharedRaw.modelSamplerPreset)
         : undefined,
+      ...(Object.keys(
+        pickModelSamplerOverrideFields(
+          sharedRaw.modelSamplerOverrides as ModelSamplerOverrideFields | undefined
+        )
+      ).length > 0
+        ? {
+            modelSamplerOverrides: pickModelSamplerOverrideFields(
+              sharedRaw.modelSamplerOverrides as ModelSamplerOverrideFields | undefined
+            ),
+          }
+        : {}),
       modelResolutionOrientation: sharedRaw.modelResolutionOrientation
         ? normalizeResolutionOrientation(sharedRaw.modelResolutionOrientation)
         : undefined,
@@ -235,6 +254,13 @@ export function buildSessionRecipeFromShared(input: {
       modelSamplerPreset: input.shared.modelSamplerPreset
         ? normalizeModelSamplerPresetTier(input.shared.modelSamplerPreset)
         : undefined,
+      ...(Object.keys(pickModelSamplerOverrideFields(input.shared.modelSamplerOverrides)).length > 0
+        ? {
+            modelSamplerOverrides: pickModelSamplerOverrideFields(
+              input.shared.modelSamplerOverrides
+            ),
+          }
+        : {}),
       modelResolutionOrientation: input.shared.modelResolutionOrientation
         ? normalizeResolutionOrientation(input.shared.modelResolutionOrientation)
         : undefined,
@@ -290,6 +316,9 @@ export function applySessionRecipeShared<T extends SessionRecipeShared>(
     ...(snap.queueQualityProfile ? { queueQualityProfile: snap.queueQualityProfile } : {}),
     ...(snap.sessionQueueMode ? { sessionQueueMode: snap.sessionQueueMode } : {}),
     ...(snap.modelSamplerPreset ? { modelSamplerPreset: snap.modelSamplerPreset } : {}),
+    ...(Object.keys(pickModelSamplerOverrideFields(snap.modelSamplerOverrides)).length > 0
+      ? { modelSamplerOverrides: pickModelSamplerOverrideFields(snap.modelSamplerOverrides) }
+      : {}),
     ...(snap.modelResolutionOrientation
       ? { modelResolutionOrientation: snap.modelResolutionOrientation }
       : {}),
@@ -339,6 +368,7 @@ export function applySessionRecipeShared<T extends SessionRecipeShared>(
       ipAdapterImageFilenames: snap.ipAdapterImageFilenames?.length
         ? snap.ipAdapterImageFilenames
         : [snap.ipAdapterImageFilename],
+      ...(snap.ipAdapterComfyUrl ? { ipAdapterComfyUrl: snap.ipAdapterComfyUrl } : {}),
       ...(snap.ipAdapterStrength != null ? { ipAdapterStrength: snap.ipAdapterStrength } : {}),
       ...(snap.identityKind ? { identityKind: snap.identityKind } : {}),
     };
@@ -370,4 +400,14 @@ export function formatSessionRecipeSubtitle(recipe: SessionRecipe): string {
     parts.push(recipe.toolId);
   }
   return parts.join(' · ');
+}
+
+/** Newest Generate look — `toolId === 'generate'` or a `Look ·` label. Recipes are newest-first. */
+export function latestGenerateLookRecipe(): SessionRecipe | null {
+  for (const recipe of loadSessionRecipes()) {
+    if (recipe.toolId === 'generate' || recipe.label.startsWith('Look ·')) {
+      return recipe;
+    }
+  }
+  return null;
 }

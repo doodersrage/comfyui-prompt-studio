@@ -11,6 +11,8 @@ export type ComfyUploadedImage = {
   type?: string;
   width?: number;
   height?: number;
+  /** Host that received the file — pin identity queues here. */
+  comfyUrl?: string;
 };
 
 async function uploadJson(
@@ -56,6 +58,7 @@ async function uploadJson(
     name: data.name.trim(),
     subfolder: data.subfolder?.trim() || undefined,
     type: data.type?.trim() || undefined,
+    comfyUrl: typeof data.comfyUrl === 'string' ? data.comfyUrl.trim() || undefined : undefined,
   };
 }
 
@@ -97,6 +100,7 @@ async function uploadMultipart(
     name: data.name.trim(),
     subfolder: data.subfolder?.trim() || undefined,
     type: data.type?.trim() || undefined,
+    comfyUrl: typeof data.comfyUrl === 'string' ? data.comfyUrl.trim() || undefined : undefined,
   };
 }
 

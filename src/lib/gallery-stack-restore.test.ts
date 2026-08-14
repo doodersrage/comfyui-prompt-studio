@@ -122,6 +122,36 @@ describe('applyGalleryStackToShared', () => {
     assert.equal(next.ipAdapterStrength, 0.45);
     assert.equal(next.identityKind, 'instantid');
   });
+
+  it('pins restored identity to the still host', () => {
+    const next = applyGalleryStackToShared(sharedSlice(), {
+      comfyUrl: 'http://127.0.0.1:8188',
+      queueParams: { ipAdapterImageFilename: 'face.png' },
+    });
+    assert.equal(next.ipAdapterComfyUrl, 'http://127.0.0.1:8188');
+  });
+
+  it('restores sampler overrides and resolution chips from queueParams', () => {
+    const next = applyGalleryStackToShared(sharedSlice(), {
+      model: 'sdxl',
+      queueParams: {
+        width: 832,
+        height: 1216,
+        cfg: 7,
+        steps: 28,
+        samplerName: 'euler',
+        scheduler: 'normal',
+        denoise: 1,
+      },
+    });
+    assert.equal(next.modelSamplerOverrides?.cfg, '7');
+    assert.equal(next.modelSamplerOverrides?.steps, '28');
+    assert.equal(next.modelSamplerOverrides?.samplerName, 'euler');
+    assert.equal(next.modelSamplerOverrides?.scheduler, 'normal');
+    assert.equal(next.modelSamplerOverrides?.denoise, '1');
+    assert.equal(next.modelResolutionOrientation, 'portrait');
+    assert.equal(next.modelResolutionSizeTier, 'medium');
+  });
 });
 
 describe('parseEmbeddingTokensFromPrompt', () => {
@@ -153,9 +183,14 @@ describe('formatGalleryStackRestoreSummary', () => {
         queueQualityProfile: 'final',
         sessionActiveLoraIds: ['a', 'b'],
         sessionEmbeddingTokens: ['neg'],
-        queueParams: { ipAdapterImageFilename: 'face.png' },
+        queueParams: {
+          ipAdapterImageFilename: 'face.png',
+          width: 832,
+          height: 1216,
+          samplerName: 'euler',
+        },
       }),
-      'sdxl · final · 2 LoRAs · 1 embeddings · identity'
+      'sdxl · final · 2 LoRAs · 1 embeddings · identity · 832×1216 · euler'
     );
   });
 

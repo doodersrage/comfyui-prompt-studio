@@ -51,6 +51,7 @@ export default function IdentityLockSessionControl({
       ipAdapterImageFilename: '',
       ipAdapterImageFilenames: [],
       ipAdapterImageUrl: '',
+      ipAdapterComfyUrl: '',
     });
     setStatus(null);
     if (fileRef.current) {
@@ -106,6 +107,7 @@ export default function IdentityLockSessionControl({
                 ipAdapterImageFilename: uploaded.name,
                 ipAdapterImageFilenames: [uploaded.name],
                 ipAdapterImageUrl: previewUrl,
+                ipAdapterComfyUrl: uploaded.comfyUrl,
                 ipAdapterStrength: weight,
                 identityKind: kind,
               });

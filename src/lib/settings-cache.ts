@@ -539,6 +539,8 @@ export type SharedToolSettings = {
   ipAdapterModelFilename?: string;
   /** Preferred identity insert: IP-Adapter, InstantID, PuLID, or auto fallback. */
   identityKind?: import('./compose-identity-lock').ComposeIdentityKind;
+  /** Comfy host that holds ipAdapterImageFilename (pin queue when identity is on). */
+  ipAdapterComfyUrl?: string;
   /**
    * Current-model LoRA picks mirrored for queue/recipes. Prefer
    * sessionActiveLoraIdsByModel for per-model persistence.

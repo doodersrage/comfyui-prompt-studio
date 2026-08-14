@@ -9,10 +9,13 @@ import {
   setSessionLoraIdsForModel,
   setSessionLoraStrengthOverridesForModel,
 } from './model-lora-map';
+import { inferResolutionOrientationAndTier } from './model-resolution-defaults';
+import { pickModelSamplerOverrideFields } from './model-sampler-defaults';
 import { normalizeQueueQualityProfile } from './queue-quality-profile';
 import { loadSettingsCache, saveSharedSettings, type SharedToolSettings } from './settings-cache';
 import { buildSessionRecipeFromShared, pushSessionRecipe } from './session-recipes';
 import { embeddingStem } from './textual-inversion';
+import { saveGenerateHandoff } from './generate-handoff';
 
 export function parseEmbeddingTokensFromPrompt(prompt?: string): string[] {
   if (!prompt?.trim()) {
@@ -95,7 +98,14 @@ export function galleryEntryHasRestorableStack(
   if (entry.queueQualityProfile) {
     return true;
   }
-  return Boolean(entry.queueParams?.ipAdapterImageFilename?.trim());
+  if (entry.queueParams?.ipAdapterImageFilename?.trim()) {
+    return true;
+  }
+  const params = entry.queueParams;
+  if (parseQueueDim(params?.width) && parseQueueDim(params?.height)) {
+    return true;
+  }
+  return Object.keys(pickModelSamplerOverrideFields(params)).length > 0;
 }
 
 export function formatGalleryStackRestoreSummary(
@@ -126,7 +136,24 @@ export function formatGalleryStackRestoreSummary(
   if (entry.queueParams?.ipAdapterImageFilename?.trim()) {
     parts.push('identity');
   }
+  const width = parseQueueDim(entry.queueParams?.width);
+  const height = parseQueueDim(entry.queueParams?.height);
+  if (width && height) {
+    parts.push(`${width}×${height}`);
+  }
+  const samplerName = entry.queueParams?.samplerName?.toString().trim();
+  if (samplerName) {
+    parts.push(samplerName);
+  }
   return parts.join(' · ');
+}
+
+function parseQueueDim(value: unknown): number | undefined {
+  const n = typeof value === 'number' ? value : Number(typeof value === 'string' ? value : NaN);
+  if (!Number.isFinite(n) || n <= 0) {
+    return undefined;
+  }
+  return Math.round(n);
 }
 
 /** Merge a still's Generate stack onto shared settings. Does not touch workflowJson. */
@@ -141,7 +168,7 @@ export function applyGalleryStackToShared<T extends SharedToolSettings>(
     | 'queueQualityProfile'
     | 'queueParams'
     | 'prompt'
-  >
+  > & { comfyUrl?: string }
 ): T {
   const model = entry.model?.trim();
   let next: T = { ...shared };
@@ -200,6 +227,7 @@ export function applyGalleryStackToShared<T extends SharedToolSettings>(
     const stack = (entry.queueParams?.ipAdapterImageFilenames ?? [])
       .map(name => name?.trim())
       .filter(Boolean) as string[];
+    const identityHost = typeof entry.comfyUrl === 'string' ? entry.comfyUrl.trim() : '';
     next = {
       ...next,
       ipAdapterImageFilename: identityFilename,
@@ -211,14 +239,42 @@ export function applyGalleryStackToShared<T extends SharedToolSettings>(
       identityKind: entry.queueParams?.identityKind
         ? normalizeComposeIdentityKind(entry.queueParams.identityKind)
         : next.identityKind,
+      ...(identityHost ? { ipAdapterComfyUrl: identityHost } : {}),
     };
+  }
+
+  const sampler = pickModelSamplerOverrideFields(entry.queueParams);
+  if (Object.keys(sampler).length > 0) {
+    next = {
+      ...next,
+      modelSamplerOverrides: {
+        ...next.modelSamplerOverrides,
+        ...sampler,
+      },
+    };
+  }
+
+  const width = parseQueueDim(entry.queueParams?.width);
+  const height = parseQueueDim(entry.queueParams?.height);
+  if (width && height) {
+    const inferred = inferResolutionOrientationAndTier(targetModel, width, height);
+    if (inferred) {
+      next = {
+        ...next,
+        modelResolutionOrientation: inferred.orientation,
+        modelResolutionSizeTier: inferred.sizeTier,
+      };
+    }
   }
 
   return next;
 }
 
 /** Persist the still's stack onto Generate session settings and toast. */
-export function applyGalleryStackToSession(entry: ComfyGalleryEntry): {
+export function applyGalleryStackToSession(
+  entry: ComfyGalleryEntry,
+  options?: { toast?: boolean; notify?: boolean }
+): {
   applied: boolean;
   summary: string;
 } {
@@ -226,15 +282,33 @@ export function applyGalleryStackToSession(entry: ComfyGalleryEntry): {
     return { applied: false, summary: '' };
   }
   const next = applyGalleryStackToShared(loadSettingsCache().shared, entry);
-  saveSharedSettings(next, { notify: true });
+  saveSharedSettings(next, { notify: options?.notify !== false });
   const summary = formatGalleryStackRestoreSummary(entry);
-  void import('./app-toast').then(({ pushAppToast }) => {
-    pushAppToast({
-      text: summary ? `Stack on Generate · ${summary}` : 'Stack restored on Generate',
-      href: '/',
+  if (options?.toast !== false) {
+    void import('./app-toast').then(({ pushAppToast }) => {
+      pushAppToast({
+        text: summary ? `Stack on Generate · ${summary}` : 'Stack restored on Generate',
+        href: '/',
+      });
     });
-  });
+  }
   return { applied: true, summary };
+}
+
+/** Restore the still's stack and hand the prompt/negative to Generate. */
+export function applyGalleryPromptAndStackToSession(entry: ComfyGalleryEntry): {
+  applied: boolean;
+  summary: string;
+} {
+  const stack = applyGalleryStackToSession(entry);
+  if (entry.prompt?.trim()) {
+    saveGenerateHandoff({
+      prompt: entry.prompt,
+      negativePrompt: entry.negativePrompt,
+      savedAt: Date.now(),
+    });
+  }
+  return stack;
 }
 
 export function galleryEntryCanSaveLook(

@@ -51,11 +51,17 @@ import { normalizeRenderRealismMode, type RenderRealismMode } from '@/lib/render
 import type { SharedToolSettings } from '@/lib/settings-cache';
 import {
   DEFAULT_VIDEO_TOOL_CACHE,
+  SETTINGS_CACHE_UPDATED_EVENT,
   loadSettingsCache,
   loadToolSettings,
   saveSessionLoraSelectionNow,
   saveSharedSettings,
 } from '@/lib/settings-cache';
+import {
+  applySessionRecipeShared,
+  latestGenerateLookRecipe,
+  type SessionRecipe,
+} from '@/lib/session-recipes';
 import {
   describeSystemWorkflowChoice,
   isSystemWorkflowSupportedModel,
@@ -277,6 +283,15 @@ export default function SharedToolControls({
   const [wildcardSeed, setWildcardSeed] = useState(() => shared.wildcardSeed ?? '');
   const [wildcardPreview, setWildcardPreview] = useState<string | null>(null);
   const [autoRetryOnOom, setAutoRetryOnOom] = useState(() => shared.autoRetryOnOom !== false);
+  const [lastLookRecipe, setLastLookRecipe] = useState<SessionRecipe | null>(() =>
+    typeof window === 'undefined' ? null : latestGenerateLookRecipe()
+  );
+  useEffect(() => {
+    const refresh = () => setLastLookRecipe(latestGenerateLookRecipe());
+    refresh();
+    window.addEventListener(SETTINGS_CACHE_UPDATED_EVENT, refresh);
+    return () => window.removeEventListener(SETTINGS_CACHE_UPDATED_EVENT, refresh);
+  }, []);
   const [oomRetryDowngrade, setOomRetryDowngrade] = useState(
     () => shared.oomRetryDowngrade !== false
   );
@@ -1118,9 +1133,16 @@ export default function SharedToolControls({
       sessionLoraStrengthOverrides: nextStrengthOverrides,
       sessionLoraStrengthOverridesByModel: nextStrengthByModel,
       modelSamplerPreset: next.modelSamplerPreset,
+      modelSamplerOverrides: next.modelSamplerOverrides,
       modelResolutionOrientation: next.modelResolutionOrientation,
       modelResolutionSizeTier: next.modelResolutionSizeTier,
       editDenoiseStrength: next.editDenoiseStrength,
+      sessionEmbeddingTokens: next.sessionEmbeddingTokens,
+      ipAdapterImageFilename: next.ipAdapterImageFilename,
+      ipAdapterImageFilenames: next.ipAdapterImageFilenames,
+      ipAdapterComfyUrl: next.ipAdapterComfyUrl,
+      ipAdapterStrength: next.ipAdapterStrength,
+      identityKind: next.identityKind,
       toolQueueQualityProfiles: next.toolQueueQualityProfiles,
       toolQualityRecipes: next.toolQualityRecipes,
     });
@@ -1136,6 +1158,7 @@ export default function SharedToolControls({
       sessionActiveLoraIdsByModel,
       sessionLoraStrengthOverrides,
       sessionLoraStrengthOverridesByModel,
+      modelSamplerOverrides: samplerOverrides,
     }),
     [
       shared,
@@ -1146,6 +1169,7 @@ export default function SharedToolControls({
       sessionActiveLoraIdsByModel,
       sessionLoraStrengthOverrides,
       sessionLoraStrengthOverridesByModel,
+      samplerOverrides,
     ]
   );
 
@@ -1353,6 +1377,27 @@ export default function SharedToolControls({
 
         const advancedSections = (
           <>
+            {toolId === 'generate' && lastLookRecipe ? (
+              <div className="space-y-1.5">
+                <FieldLabel hint="Newest saved Generate look from a 4–5★ still.">
+                  Last look
+                </FieldLabel>
+                <ChipButton
+                  active={false}
+                  title={lastLookRecipe.label}
+                  onClick={() => {
+                    const recipe = latestGenerateLookRecipe() ?? lastLookRecipe;
+                    const next = applySessionRecipeShared(loadSettingsCache().shared, recipe);
+                    saveSharedSettings(next, { notify: true });
+                    handleRecipesApplied(next);
+                  }}
+                >
+                  <span data-testid="last-generate-look" className="truncate">
+                    {lastLookRecipe.label}
+                  </span>
+                </ChipButton>
+              </div>
+            ) : null}
             {queueQualityBlock}
             {workflowBlock}
             <CollapsibleSection

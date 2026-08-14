@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { applySceneStarterWorkflowHints } from '@/lib/scene-starter-workflow-hints';
 import ScenePromptResultPanel from '@/components/scene-tool/ScenePromptResultPanel';
@@ -70,6 +70,7 @@ import { resolveCollabFieldValue } from '@/lib/collab-presence';
 import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { markComfyQueueIntent } from '@/lib/comfy-setup-intent';
+import { consumeGenerateHandoff } from '@/lib/generate-handoff';
 import { Button, PrimaryButton } from '@/components/ui/Button';
 
 const SceneStarterPresetChips = dynamic(() => import('@/components/SceneStarterPresetChips'), {
@@ -137,6 +138,7 @@ export default function PromptGenerator() {
   const { getBlocklist } = useLocationBlocklist();
   const [mode, setMode] = useState<PromptMode>(DEFAULT_GENERATE_TOOL_CACHE.mode ?? 'positive');
   const [output, setOutput] = useState('');
+  const generateHandoffNegativeRef = useRef('');
   const [provider, setProvider] = useState<'llm' | 'template' | null>(null);
   const [randomResult, setRandomResult] = useState<EnrichedToolGenerateResult | null>(null);
   const [randomSeed, setRandomSeed] = useState<string | null>(null);
@@ -199,6 +201,12 @@ export default function PromptGenerator() {
     autoFixRules,
     reformatTarget: getReformatTargetModel(generateModel),
   });
+
+  const queueGenerate = useCallback(() => {
+    markComfyQueueIntent();
+    const explicitNegative = generateHandoffNegativeRef.current.trim() || undefined;
+    void actions.sendComfyUi(output, undefined, undefined, { explicitNegative });
+  }, [actions, output]);
 
   const variationSeed = readVariationSeedFromResult(
     randomResult ?? { metadata: undefined, seed: undefined }
@@ -283,6 +291,18 @@ export default function PromptGenerator() {
       }
     });
   }, [updateShared, updateToolSettings]);
+
+  useEffect(() => {
+    const handoff = consumeGenerateHandoff();
+    if (!handoff) {
+      return;
+    }
+    generateHandoffNegativeRef.current = handoff.negativePrompt?.trim() || '';
+    scheduleAfterCommit(() => {
+      setOutput(handoff.prompt);
+      updateToolSettings({ hintSource: 'manual', generateSource: 'keywords' });
+    });
+  }, [updateToolSettings]);
 
   // History lives in localStorage — keep SSR/first paint at 0 to avoid hydration mismatch.
   const historyCandidateCount = mounted
@@ -889,6 +909,7 @@ export default function PromptGenerator() {
           variationSeed={variationSeed}
           preDiagnostics={actions.preDiagnostics}
           reformatTargetLabel={getReformatTargetLabel(generateModel)}
+          onSendComfyUi={queueGenerate}
           onLockSeed={() => {
             if (variationSeed) {
               updateShared({ lockedVariationSeed: variationSeed });
@@ -986,10 +1007,7 @@ export default function PromptGenerator() {
         label="Queue generate"
         status={actions.comfyUiStatus}
         primaryGenerate
-        onQueue={() => {
-          markComfyQueueIntent();
-          void actions.sendComfyUi(output);
-        }}
+        onQueue={queueGenerate}
       />
     </ToolLayout>
   );

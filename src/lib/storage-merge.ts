@@ -211,6 +211,7 @@ export const SERVER_SESSION_STACK_KEYS = [
   'ipAdapterStrength',
   'ipAdapterModelFilename',
   'identityKind',
+  'ipAdapterComfyUrl',
 ] as const;
 
 export function localSessionStackLooksEmpty(shared?: Record<string, unknown>): boolean {

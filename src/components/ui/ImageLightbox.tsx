@@ -98,6 +98,7 @@ export type ImageLightboxSlideChrome = {
   onInpaint?: () => void;
   onExactRequeue?: () => void;
   onUseStack?: () => void;
+  onUsePromptStack?: () => void;
   onUseFace?: () => void;
   onSaveLook?: () => void;
   onRequeue?: () => void;
@@ -109,6 +110,7 @@ export type ImageLightboxSlideChrome = {
   showInpaint?: boolean;
   showExact?: boolean;
   showUseStack?: boolean;
+  showUsePromptStack?: boolean;
   showUseFace?: boolean;
   showSaveLook?: boolean;
   showRequeue?: boolean;
@@ -1602,6 +1604,14 @@ export default function ImageLightbox({
               title: 'Use this stack on Generate (U)',
               onClick: () => slideChrome.onUseStack?.(),
               testId: 'lightbox-action-use-stack',
+            })
+          : null}
+        {slideChrome?.showUsePromptStack !== false && slideChrome?.onUsePromptStack
+          ? renderIconAction(compact, {
+              label: 'Prompt+',
+              title: 'Prompt + stack on Generate',
+              onClick: () => slideChrome.onUsePromptStack?.(),
+              testId: 'lightbox-action-use-prompt-stack',
             })
           : null}
         {slideChrome?.showUseFace !== false && slideChrome?.onUseFace

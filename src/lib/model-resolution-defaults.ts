@@ -725,6 +725,47 @@ export function normalizeResolutionSizeTier(value: unknown): ResolutionSizeTier 
   return DEFAULT_RESOLUTION_SIZE_TIER;
 }
 
+/**
+ * Map a still's width×height onto this model's orientation/tier chips.
+ * Exact preset match wins; otherwise nearest among the model's offered ARs × tiers.
+ */
+export function inferResolutionOrientationAndTier(
+  model: ComfyImageModel | string,
+  width: number,
+  height: number
+): { orientation: ResolutionOrientation; sizeTier: ResolutionSizeTier } | undefined {
+  const w = Math.round(Number(width));
+  const h = Math.round(Number(height));
+  if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) {
+    return undefined;
+  }
+
+  const orientations = resolutionOrientationsForModel(model);
+  const tiers = resolutionSizeTiersForModel(model);
+  const stillAspect = w / h;
+  const stillArea = w * h;
+  let best:
+    { orientation: ResolutionOrientation; sizeTier: ResolutionSizeTier; score: number } | undefined;
+
+  for (const orientation of orientations) {
+    for (const sizeTier of tiers) {
+      const preset = getModelResolutionPreset(model, orientation, sizeTier);
+      if (preset.width === w && preset.height === h) {
+        return { orientation, sizeTier };
+      }
+      const aspectDiff = Math.abs(preset.width / preset.height - stillAspect);
+      const presetArea = preset.width * preset.height;
+      const areaDiff = Math.abs(presetArea - stillArea) / Math.max(presetArea, stillArea);
+      const score = aspectDiff * 2 + areaDiff;
+      if (!best || score < best.score) {
+        best = { orientation, sizeTier, score };
+      }
+    }
+  }
+
+  return best ? { orientation: best.orientation, sizeTier: best.sizeTier } : undefined;
+}
+
 export function getModelResolutionPreset(
   model: ComfyImageModel | string = DEFAULT_COMFY_MODEL,
   orientation: ResolutionOrientation = DEFAULT_RESOLUTION_ORIENTATION,
