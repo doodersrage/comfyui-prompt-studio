@@ -134,7 +134,7 @@ export function getServerEnvSummary(): ServerEnvSummary {
           label: 'Default inference engine',
           value: process.env.PROMPT_ENGINE?.trim() || 'comfyui',
           configured: flag(process.env.PROMPT_ENGINE),
-          hint: 'comfyui (default), diffusers, fal, or replicate — browser Settings override wins.',
+          hint: 'comfyui (default), diffusers, fal, replicate, openai, gemini, or grok — browser Settings override wins.',
           uiOverride: 'Settings → ComfyUI → Inference engine',
         },
         {
@@ -164,6 +164,34 @@ export function getServerEnvSummary(): ServerEnvSummary {
           configured: flag(process.env.REPLICATE_API_TOKEN ?? process.env.REPLICATE_API_KEY),
           hint: 'Used when Settings → Inference engine is Replicate and the browser token is empty.',
           uiOverride: 'Settings → ComfyUI → Inference engine → Replicate API token',
+        },
+        {
+          key: 'OPENAI_API_KEY',
+          label: 'OpenAI API key',
+          value: flag(process.env.OPENAI_API_KEY) ? '•••• configured' : 'not set',
+          configured: flag(process.env.OPENAI_API_KEY),
+          hint: 'Used when Settings → Inference engine is ChatGPT / OpenAI Images.',
+          uiOverride: 'Settings → ComfyUI → Inference engine → OpenAI API key',
+        },
+        {
+          key: 'GEMINI_API_KEY',
+          label: 'Gemini API key',
+          value: flag(process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY)
+            ? '•••• configured'
+            : 'not set',
+          configured: flag(process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY),
+          hint: 'Used when Settings → Inference engine is Google Gemini.',
+          uiOverride: 'Settings → ComfyUI → Inference engine → Gemini API key',
+        },
+        {
+          key: 'XAI_API_KEY',
+          label: 'xAI / Grok API key',
+          value: flag(process.env.XAI_API_KEY ?? process.env.GROK_API_KEY)
+            ? '•••• configured'
+            : 'not set',
+          configured: flag(process.env.XAI_API_KEY ?? process.env.GROK_API_KEY),
+          hint: 'Used when Settings → Inference engine is Grok.',
+          uiOverride: 'Settings → ComfyUI → Inference engine → xAI API key',
         },
         {
           key: 'COMFYUI_ROOT',

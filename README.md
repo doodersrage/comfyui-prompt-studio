@@ -1,6 +1,6 @@
 # Prompt Studio
 
-A Next.js app that turns topics or keywords into model-specific prompts for image workflows (ComfyUI primary for generate / Lightning / specialty graphs; Diffusers optional for experimental txt2img; Fal and Replicate optional for cloud txt2img), and reformats existing drafts for any supported architecture.
+A Next.js app that turns topics or keywords into model-specific prompts for image workflows (ComfyUI primary for generate / Lightning / specialty graphs; Diffusers optional for experimental txt2img; Fal, Replicate, ChatGPT, Gemini, and Grok optional for cloud txt2img), and reformats existing drafts for any supported architecture.
 
 **Documentation hub:** [docs/README.md](docs/README.md) — features, API, configuration, architecture, and contributor notes.
 
@@ -115,7 +115,7 @@ Legacy URLs `/duo` and `/random-scene` redirect to Character and Generate.
 - **Architecture** — [docs/architecture.md](docs/architecture.md)
 - **Operator guide** — [docs/operator.md](docs/operator.md)
 - **Optional Diffusers engine** — [services/diffusers-engine/README.md](services/diffusers-engine/README.md)
-- **Optional Fal / Replicate cloud engines** — Settings → Inference engine; `FAL_KEY` / `REPLICATE_API_TOKEN` or a browser key, then queue a prompt (Image 1 becomes img2img)
+- **Optional cloud engines** — Settings → Inference engine (Fal, Replicate, ChatGPT, Gemini, Grok); set the matching env key or a browser key, then queue a prompt (Image 1 becomes img2img)
 
 ## CLI & data scripts
 

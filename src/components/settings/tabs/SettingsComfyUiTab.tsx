@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import dynamic from 'next/dynamic';
 import ComfyUiSettingsJumpNav from '@/components/settings/ComfyUiSettingsJumpNav';
 import SettingsBrowserPresetsPanel from '@/components/settings/SettingsBrowserPresetsPanel';
@@ -55,13 +55,7 @@ import type { SharedToolSettings } from '@/lib/settings-cache';
 import { markOnboardingSystemWorkflowsEnabled } from '@/lib/onboarding-hooks';
 import { fetchWorkflowPreview } from '@/lib/comfyui-requeue';
 import type { ComfyUiSettingsSectionId } from '@/lib/settings-comfyui-nav';
-import {
-  FAL_MODEL_PRESETS,
-  CLOUD_ENGINE_OPTIONS,
-  REPLICATE_MODEL_PRESETS,
-  normalizeEngineId,
-  parseEngineId,
-} from '@/lib/engine/capabilities';
+import { CLOUD_ENGINE_OPTIONS, normalizeEngineId, parseEngineId } from '@/lib/engine/capabilities';
 import {
   SETTINGS_TOOL_ACCENT,
   formatModelWorkflowMap,
@@ -225,7 +219,7 @@ export default function SettingsComfyUiTab({
       <ToolSection
         id="settings-comfyui-inference-engine"
         title="Inference engine"
-        description="ComfyUI is the default generate path (Qwen Lightning bf16, Final/Max enrich, specialty graphs). Diffusers is optional local txt2img. Fal and Replicate are cloud APIs for prompt + optional reference image — no workflows, LoRAs, or live latents."
+        description="ComfyUI is the default generate path (Qwen Lightning bf16, Final/Max enrich, specialty graphs). Diffusers is optional local txt2img. Cloud engines (Fal, Replicate, ChatGPT, Gemini, Grok) are prompt + optional reference image — no workflows, LoRAs, or live latents."
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1">
@@ -321,119 +315,88 @@ export default function SettingsComfyUiTab({
               <option value="never">Allow hands in frame</option>
             </select>
           </div>
-          <div className="space-y-1 sm:col-span-2">
-            <label htmlFor="fal-api-key" className="text-xs text-[var(--text-secondary)]">
-              Fal API key
-            </label>
-            <input
-              id="fal-api-key"
-              type="password"
-              autoComplete="off"
-              value={sharedSettings.sessionFalApiKey ?? ''}
-              onChange={event =>
-                updateSharedSettings({
-                  sessionFalApiKey: event.target.value.trim() || undefined,
-                })
-              }
-              placeholder="Server FAL_KEY is used when this is empty"
-              disabled={sharedSettings.inferenceEngine !== 'fal'}
-              className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 text-sm text-[var(--text-primary)] shadow-inner transition focus-visible:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:cursor-not-allowed disabled:opacity-50"
-            />
-          </div>
-          <div className="space-y-1">
-            <label htmlFor="fal-model" className="text-xs text-[var(--text-secondary)]">
-              Fal txt2img model
-            </label>
-            <input
-              id="fal-model"
-              list="fal-model-presets"
-              value={sharedSettings.falModel ?? ''}
-              onChange={event => updateSharedSettings({ falModel: event.target.value })}
-              placeholder="fal-ai/flux/schnell"
-              disabled={sharedSettings.inferenceEngine !== 'fal'}
-              className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 text-sm text-[var(--text-primary)] shadow-inner transition focus-visible:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:cursor-not-allowed disabled:opacity-50"
-            />
-            <datalist id="fal-model-presets">
-              {FAL_MODEL_PRESETS.map(preset => (
-                <option key={preset.id} value={preset.id}>
-                  {preset.label}
-                </option>
-              ))}
-            </datalist>
-          </div>
-          <div className="space-y-1">
-            <label htmlFor="fal-img2img-model" className="text-xs text-[var(--text-secondary)]">
-              Fal image-to-image model
-            </label>
-            <input
-              id="fal-img2img-model"
-              list="fal-model-presets"
-              value={sharedSettings.falImg2ImgModel ?? ''}
-              onChange={event => updateSharedSettings({ falImg2ImgModel: event.target.value })}
-              placeholder="fal-ai/flux/dev/image-to-image"
-              disabled={sharedSettings.inferenceEngine !== 'fal'}
-              className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 text-sm text-[var(--text-primary)] shadow-inner transition focus-visible:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:cursor-not-allowed disabled:opacity-50"
-            />
-          </div>
-          <div className="space-y-1 sm:col-span-2">
-            <label htmlFor="replicate-api-token" className="text-xs text-[var(--text-secondary)]">
-              Replicate API token
-            </label>
-            <input
-              id="replicate-api-token"
-              type="password"
-              autoComplete="off"
-              value={sharedSettings.sessionReplicateApiToken ?? ''}
-              onChange={event =>
-                updateSharedSettings({
-                  sessionReplicateApiToken: event.target.value.trim() || undefined,
-                })
-              }
-              placeholder="Server REPLICATE_API_TOKEN is used when this is empty"
-              disabled={sharedSettings.inferenceEngine !== 'replicate'}
-              className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 text-sm text-[var(--text-primary)] shadow-inner transition focus-visible:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:cursor-not-allowed disabled:opacity-50"
-            />
-          </div>
-          <div className="space-y-1">
-            <label htmlFor="replicate-model" className="text-xs text-[var(--text-secondary)]">
-              Replicate txt2img model
-            </label>
-            <input
-              id="replicate-model"
-              list="replicate-model-presets"
-              value={sharedSettings.replicateModel ?? ''}
-              onChange={event => updateSharedSettings({ replicateModel: event.target.value })}
-              placeholder="black-forest-labs/flux-schnell"
-              disabled={sharedSettings.inferenceEngine !== 'replicate'}
-              className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 text-sm text-[var(--text-primary)] shadow-inner transition focus-visible:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:cursor-not-allowed disabled:opacity-50"
-            />
-            <datalist id="replicate-model-presets">
-              {REPLICATE_MODEL_PRESETS.map(preset => (
-                <option key={preset.id} value={preset.id}>
-                  {preset.label}
-                </option>
-              ))}
-            </datalist>
-          </div>
-          <div className="space-y-1">
-            <label
-              htmlFor="replicate-img2img-model"
-              className="text-xs text-[var(--text-secondary)]"
-            >
-              Replicate image-to-image model
-            </label>
-            <input
-              id="replicate-img2img-model"
-              list="replicate-model-presets"
-              value={sharedSettings.replicateImg2ImgModel ?? ''}
-              onChange={event =>
-                updateSharedSettings({ replicateImg2ImgModel: event.target.value })
-              }
-              placeholder="black-forest-labs/flux-dev"
-              disabled={sharedSettings.inferenceEngine !== 'replicate'}
-              className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 text-sm text-[var(--text-primary)] shadow-inner transition focus-visible:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:cursor-not-allowed disabled:opacity-50"
-            />
-          </div>
+          {CLOUD_ENGINE_OPTIONS.map(option => {
+            const active = sharedSettings.inferenceEngine === option.id;
+            const tokenValue = sharedSettings[option.sessionTokenField] ?? '';
+            const modelValue = sharedSettings[option.modelField] ?? '';
+            const img2imgValue = sharedSettings[option.img2imgField] ?? '';
+            const listId = `${option.id}-model-presets`;
+            return (
+              <Fragment key={option.id}>
+                <div className="space-y-1 sm:col-span-2">
+                  <label
+                    htmlFor={`${option.id}-api-token`}
+                    className="text-xs text-[var(--text-secondary)]"
+                  >
+                    {option.tokenLabel}
+                  </label>
+                  <input
+                    id={`${option.id}-api-token`}
+                    type="password"
+                    autoComplete="off"
+                    value={tokenValue}
+                    onChange={event =>
+                      updateSharedSettings({
+                        [option.sessionTokenField]: event.target.value.trim() || undefined,
+                      })
+                    }
+                    placeholder={option.tokenPlaceholder}
+                    disabled={!active}
+                    className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 text-sm text-[var(--text-primary)] shadow-inner transition focus-visible:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label
+                    htmlFor={`${option.id}-model`}
+                    className="text-xs text-[var(--text-secondary)]"
+                  >
+                    {option.shortLabel} txt2img model
+                  </label>
+                  <input
+                    id={`${option.id}-model`}
+                    list={listId}
+                    value={modelValue}
+                    onChange={event =>
+                      updateSharedSettings({
+                        [option.modelField]: event.target.value,
+                      })
+                    }
+                    placeholder={option.defaultTxt2Img}
+                    disabled={!active}
+                    className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 text-sm text-[var(--text-primary)] shadow-inner transition focus-visible:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                  <datalist id={listId}>
+                    {option.presets.map(preset => (
+                      <option key={preset.id} value={preset.id}>
+                        {preset.label}
+                      </option>
+                    ))}
+                  </datalist>
+                </div>
+                <div className="space-y-1">
+                  <label
+                    htmlFor={`${option.id}-img2img-model`}
+                    className="text-xs text-[var(--text-secondary)]"
+                  >
+                    {option.shortLabel} image-to-image model
+                  </label>
+                  <input
+                    id={`${option.id}-img2img-model`}
+                    list={listId}
+                    value={img2imgValue}
+                    onChange={event =>
+                      updateSharedSettings({
+                        [option.img2imgField]: event.target.value,
+                      })
+                    }
+                    placeholder={option.defaultImg2Img}
+                    disabled={!active}
+                    className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 text-sm text-[var(--text-primary)] shadow-inner transition focus-visible:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                </div>
+              </Fragment>
+            );
+          })}
         </div>
         <p className="text-xs text-[var(--text-muted)]">
           Default Generate uses ComfyUI (Dynamic VRAM / bf16 Lightning). Diffusers remains available
@@ -441,25 +404,49 @@ export default function SettingsComfyUiTab({
           <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
             cd services/diffusers-engine && ./run.sh
           </code>{' '}
-          or enable auto-start when that engine is selected. Fal and Replicate queue{' '}
+          or enable auto-start when that engine is selected. Cloud engines queue{' '}
           <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
             prompt + optional Image 1
           </code>{' '}
           through{' '}
           <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
             /api/fal
-          </code>{' '}
-          and{' '}
+          </code>
+          ,{' '}
           <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
             /api/replicate
+          </code>
+          ,{' '}
+          <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
+            /api/openai
+          </code>
+          ,{' '}
+          <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
+            /api/gemini
+          </code>
+          , and{' '}
+          <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
+            /api/grok
           </code>
           ; keys from Settings or{' '}
           <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
             FAL_KEY
-          </code>{' '}
-          /{' '}
+          </code>
+          {' / '}
           <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
             REPLICATE_API_TOKEN
+          </code>
+          {' / '}
+          <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
+            OPENAI_API_KEY
+          </code>
+          {' / '}
+          <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
+            GEMINI_API_KEY
+          </code>
+          {' / '}
+          <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
+            XAI_API_KEY
           </code>
           . Server proxy uses{' '}
           <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">

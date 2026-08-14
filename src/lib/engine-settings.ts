@@ -3,13 +3,15 @@
 import { loadSettingsCache, saveSharedSettings, type SharedToolSettings } from './settings-cache';
 import type { EngineId } from './engine/types';
 import {
-  DEFAULT_FAL_IMG2IMG_MODEL,
-  DEFAULT_FAL_TXT2IMG_MODEL,
-  DEFAULT_REPLICATE_IMG2IMG_MODEL,
-  DEFAULT_REPLICATE_TXT2IMG_MODEL,
+  CLOUD_ENGINE_IDS,
+  CLOUD_ENGINE_OPTIONS,
   cloudEngineHost,
+  cloudEngineOption,
+  defaultCloudImg2ImgModel,
+  defaultCloudTxt2ImgModel,
   isCloudEngine,
   normalizeEngineId,
+  type CloudEngineId,
 } from './engine/capabilities';
 import { DEFAULT_DIFFUSERS_API_URL } from './diffusers-client';
 
@@ -22,6 +24,12 @@ export type EngineSettings = {
   falImg2ImgModel: string;
   replicateModel: string;
   replicateImg2ImgModel: string;
+  openaiModel: string;
+  openaiImg2ImgModel: string;
+  geminiModel: string;
+  geminiImg2ImgModel: string;
+  grokModel: string;
+  grokImg2ImgModel: string;
 };
 
 function envDefaultEngine(): EngineId {
@@ -29,8 +37,8 @@ function envDefaultEngine(): EngineId {
     const raw =
       process.env.NEXT_PUBLIC_PROMPT_ENGINE?.trim().toLowerCase() ||
       process.env.PROMPT_ENGINE?.trim().toLowerCase();
-    if (raw === 'diffusers' || raw === 'fal' || raw === 'replicate') {
-      return raw;
+    if (raw === 'diffusers' || (CLOUD_ENGINE_IDS as readonly string[]).includes(raw ?? '')) {
+      return raw as EngineId;
     }
   }
   return 'comfyui';
@@ -59,23 +67,62 @@ function envOr(keys: string[], fallback: string): string {
   return fallback;
 }
 
-function envDefaultFalModel(): string {
-  return envOr(['NEXT_PUBLIC_FAL_MODEL', 'FAL_MODEL'], DEFAULT_FAL_TXT2IMG_MODEL);
+function envCloudTxt2Img(id: CloudEngineId): string {
+  const option = cloudEngineOption(id)!;
+  const prefix = id.toUpperCase();
+  return envOr([`NEXT_PUBLIC_${prefix}_MODEL`, `${prefix}_MODEL`], option.defaultTxt2Img);
 }
 
-function envDefaultFalImg2ImgModel(): string {
-  return envOr(['NEXT_PUBLIC_FAL_IMG2IMG_MODEL', 'FAL_IMG2IMG_MODEL'], DEFAULT_FAL_IMG2IMG_MODEL);
-}
-
-function envDefaultReplicateModel(): string {
-  return envOr(['NEXT_PUBLIC_REPLICATE_MODEL', 'REPLICATE_MODEL'], DEFAULT_REPLICATE_TXT2IMG_MODEL);
-}
-
-function envDefaultReplicateImg2ImgModel(): string {
+function envCloudImg2Img(id: CloudEngineId): string {
+  const option = cloudEngineOption(id)!;
+  const prefix = id.toUpperCase();
   return envOr(
-    ['NEXT_PUBLIC_REPLICATE_IMG2IMG_MODEL', 'REPLICATE_IMG2IMG_MODEL'],
-    DEFAULT_REPLICATE_IMG2IMG_MODEL
+    [`NEXT_PUBLIC_${prefix}_IMG2IMG_MODEL`, `${prefix}_IMG2IMG_MODEL`],
+    option.defaultImg2Img
   );
+}
+
+function cloudModelsFromEnv(): Pick<
+  EngineSettings,
+  | 'falModel'
+  | 'falImg2ImgModel'
+  | 'replicateModel'
+  | 'replicateImg2ImgModel'
+  | 'openaiModel'
+  | 'openaiImg2ImgModel'
+  | 'geminiModel'
+  | 'geminiImg2ImgModel'
+  | 'grokModel'
+  | 'grokImg2ImgModel'
+> {
+  return {
+    falModel: envCloudTxt2Img('fal'),
+    falImg2ImgModel: envCloudImg2Img('fal'),
+    replicateModel: envCloudTxt2Img('replicate'),
+    replicateImg2ImgModel: envCloudImg2Img('replicate'),
+    openaiModel: envCloudTxt2Img('openai'),
+    openaiImg2ImgModel: envCloudImg2Img('openai'),
+    geminiModel: envCloudTxt2Img('gemini'),
+    geminiImg2ImgModel: envCloudImg2Img('gemini'),
+    grokModel: envCloudTxt2Img('grok'),
+    grokImg2ImgModel: envCloudImg2Img('grok'),
+  };
+}
+
+function cloudModelsFromShared(shared: SharedToolSettings): ReturnType<typeof cloudModelsFromEnv> {
+  const fromEnv = cloudModelsFromEnv();
+  return {
+    falModel: shared.falModel?.trim() || fromEnv.falModel,
+    falImg2ImgModel: shared.falImg2ImgModel?.trim() || fromEnv.falImg2ImgModel,
+    replicateModel: shared.replicateModel?.trim() || fromEnv.replicateModel,
+    replicateImg2ImgModel: shared.replicateImg2ImgModel?.trim() || fromEnv.replicateImg2ImgModel,
+    openaiModel: shared.openaiModel?.trim() || fromEnv.openaiModel,
+    openaiImg2ImgModel: shared.openaiImg2ImgModel?.trim() || fromEnv.openaiImg2ImgModel,
+    geminiModel: shared.geminiModel?.trim() || fromEnv.geminiModel,
+    geminiImg2ImgModel: shared.geminiImg2ImgModel?.trim() || fromEnv.geminiImg2ImgModel,
+    grokModel: shared.grokModel?.trim() || fromEnv.grokModel,
+    grokImg2ImgModel: shared.grokImg2ImgModel?.trim() || fromEnv.grokImg2ImgModel,
+  };
 }
 
 export function loadEngineSettings(): EngineSettings {
@@ -84,10 +131,7 @@ export function loadEngineSettings(): EngineSettings {
       engine: envDefaultEngine(),
       diffusersApiUrl: envDefaultDiffusersUrl(),
       diffusersAutoStart: true,
-      falModel: envDefaultFalModel(),
-      falImg2ImgModel: envDefaultFalImg2ImgModel(),
-      replicateModel: envDefaultReplicateModel(),
-      replicateImg2ImgModel: envDefaultReplicateImg2ImgModel(),
+      ...cloudModelsFromEnv(),
     };
   }
 
@@ -96,17 +140,15 @@ export function loadEngineSettings(): EngineSettings {
     engine: normalizeEngineId(shared.inferenceEngine ?? envDefaultEngine()),
     diffusersApiUrl: shared.diffusersApiUrl?.trim() || envDefaultDiffusersUrl(),
     diffusersAutoStart: shared.diffusersAutoStart !== false,
-    falModel: shared.falModel?.trim() || envDefaultFalModel(),
-    falImg2ImgModel: shared.falImg2ImgModel?.trim() || envDefaultFalImg2ImgModel(),
-    replicateModel: shared.replicateModel?.trim() || envDefaultReplicateModel(),
-    replicateImg2ImgModel:
-      shared.replicateImg2ImgModel?.trim() || envDefaultReplicateImg2ImgModel(),
+    ...cloudModelsFromShared(shared),
   };
 }
 
 export function saveEngineSettings(patch: Partial<EngineSettings>): EngineSettings {
   const current = loadEngineSettings();
   const next: EngineSettings = {
+    ...current,
+    ...patch,
     engine: patch.engine !== undefined ? normalizeEngineId(patch.engine) : current.engine,
     diffusersApiUrl:
       patch.diffusersApiUrl !== undefined
@@ -116,22 +158,6 @@ export function saveEngineSettings(patch: Partial<EngineSettings>): EngineSettin
       patch.diffusersAutoStart !== undefined
         ? patch.diffusersAutoStart
         : current.diffusersAutoStart,
-    falModel:
-      patch.falModel !== undefined
-        ? patch.falModel.trim() || envDefaultFalModel()
-        : current.falModel,
-    falImg2ImgModel:
-      patch.falImg2ImgModel !== undefined
-        ? patch.falImg2ImgModel.trim() || envDefaultFalImg2ImgModel()
-        : current.falImg2ImgModel,
-    replicateModel:
-      patch.replicateModel !== undefined
-        ? patch.replicateModel.trim() || envDefaultReplicateModel()
-        : current.replicateModel,
-    replicateImg2ImgModel:
-      patch.replicateImg2ImgModel !== undefined
-        ? patch.replicateImg2ImgModel.trim() || envDefaultReplicateImg2ImgModel()
-        : current.replicateImg2ImgModel,
   };
 
   const shared: SharedToolSettings = {
@@ -143,6 +169,12 @@ export function saveEngineSettings(patch: Partial<EngineSettings>): EngineSettin
     falImg2ImgModel: next.falImg2ImgModel,
     replicateModel: next.replicateModel,
     replicateImg2ImgModel: next.replicateImg2ImgModel,
+    openaiModel: next.openaiModel,
+    openaiImg2ImgModel: next.openaiImg2ImgModel,
+    geminiModel: next.geminiModel,
+    geminiImg2ImgModel: next.geminiImg2ImgModel,
+    grokModel: next.grokModel,
+    grokImg2ImgModel: next.grokImg2ImgModel,
   };
   saveSharedSettings(shared);
   return next;
@@ -150,7 +182,11 @@ export function saveEngineSettings(patch: Partial<EngineSettings>): EngineSettin
 
 export function resolveCloudTxt2ImgModel(engine: EngineId = loadEngineSettings().engine): string {
   const settings = loadEngineSettings();
-  return engine === 'replicate' ? settings.replicateModel : settings.falModel;
+  const option = cloudEngineOption(engine);
+  if (!option) {
+    return defaultCloudTxt2ImgModel(engine);
+  }
+  return settings[option.modelField] || option.defaultTxt2Img;
 }
 
 export function resolveCloudQueueExtras(
@@ -159,21 +195,18 @@ export function resolveCloudQueueExtras(
 ): Record<string, unknown> {
   const shared = loadSettingsCache().shared;
   const settings = loadEngineSettings();
+  const option = cloudEngineOption(engine);
   const common = {
     hasInputImage: input?.hasInputImage === true,
     inputImageFilename: input?.inputImageFilename,
   };
-  if (engine === 'replicate') {
-    return {
-      ...common,
-      replicateApiToken: shared.sessionReplicateApiToken,
-      img2imgModel: settings.replicateImg2ImgModel,
-    };
+  if (!option) {
+    return common;
   }
   return {
     ...common,
-    falApiKey: shared.sessionFalApiKey,
-    img2imgModel: settings.falImg2ImgModel,
+    [option.tokenBodyKey]: shared[option.sessionTokenField],
+    img2imgModel: settings[option.img2imgField] || defaultCloudImg2ImgModel(engine),
   };
 }
 
@@ -181,4 +214,4 @@ export function resolveCloudEngineHost(engine: EngineId): string {
   return cloudEngineHost(engine);
 }
 
-export { isCloudEngine };
+export { CLOUD_ENGINE_OPTIONS, isCloudEngine };

@@ -416,7 +416,7 @@ export type SharedToolSettings = {
   systemWorkflowsLimitPicker?: boolean;
   /** Temporary override to show every model in the picker. */
   showAllModelsOverride?: boolean;
-  /** Active inference engine (`comfyui` default | `diffusers` optional | `fal` / `replicate` cloud). */
+  /** Active inference engine (`comfyui` default | `diffusers` optional | cloud APIs). */
   inferenceEngine?: import('./engine/types').EngineId;
   /** Browser Diffusers engine URL (proxied via `/api/diffusers`). */
   diffusersApiUrl?: string;
@@ -437,6 +437,15 @@ export type SharedToolSettings = {
   replicateImg2ImgModel?: string;
   /** Session Replicate token. Stored in this browser only; server `REPLICATE_API_TOKEN` is the fallback. */
   sessionReplicateApiToken?: string;
+  openaiModel?: string;
+  openaiImg2ImgModel?: string;
+  sessionOpenaiApiKey?: string;
+  geminiModel?: string;
+  geminiImg2ImgModel?: string;
+  sessionGeminiApiKey?: string;
+  grokModel?: string;
+  grokImg2ImgModel?: string;
+  sessionGrokApiKey?: string;
   /**
    * Diffusers workshop crop: auto-detect craft roles, always hide hands,
    * or never force the head-and-shoulders crop.

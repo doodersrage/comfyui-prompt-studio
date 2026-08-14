@@ -114,11 +114,8 @@ import {
   normalizeSessionLoraStrengthOverrides,
   type SessionLoraStrengthOverrides,
 } from '@/lib/lora-stack';
-import {
-  defaultCloudTxt2ImgModel,
-  engineDisplayName,
-  isCloudEngine,
-} from '@/lib/engine/capabilities';
+import { engineDisplayName, isCloudEngine } from '@/lib/engine/capabilities';
+import { resolveCloudTxt2ImgModel } from '@/lib/engine-settings';
 
 const ModelSelector = dynamic(() => import('@/components/ModelSelector'), {
   ssr: false,
@@ -1258,9 +1255,7 @@ export default function SharedToolControls({
         {cloudEngine ? (
           <div className="space-y-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)]/40 px-3 py-2.5">
             <p className="text-sm text-[var(--text-primary)]">
-              {shared.inferenceEngine === 'replicate'
-                ? shared.replicateModel?.trim() || defaultCloudTxt2ImgModel('replicate')
-                : shared.falModel?.trim() || defaultCloudTxt2ImgModel('fal')}
+              {resolveCloudTxt2ImgModel(shared.inferenceEngine)}
             </p>
             <p className="text-xs leading-relaxed text-[var(--text-muted)]">
               Cloud txt2img via {engineDisplayName(shared.inferenceEngine)}. Change the key and

@@ -1,4 +1,5 @@
 import type { EngineId, EngineOutputImage, EngineViewPathOptions } from './types';
+import { isCloudEngine, type CloudEngineId } from './capabilities';
 
 /** Bounded per-URL cache to avoid re-allocating URLSearchParams across render passes. */
 const _viewPathCacheMaxSize = 4096;
@@ -41,7 +42,7 @@ export function buildFalViewPath(
   image: EngineOutputImage,
   options?: EngineViewPathOptions
 ): string {
-  return buildCloudViewPath('fal', image, options);
+  return buildNamedCloudViewPath('fal', _engineUrl, image, options);
 }
 
 export function buildReplicateViewPath(
@@ -49,11 +50,12 @@ export function buildReplicateViewPath(
   image: EngineOutputImage,
   options?: EngineViewPathOptions
 ): string {
-  return buildCloudViewPath('replicate', image, options);
+  return buildNamedCloudViewPath('replicate', _engineUrl, image, options);
 }
 
-function buildCloudViewPath(
-  engineId: 'fal' | 'replicate',
+export function buildNamedCloudViewPath(
+  engineId: CloudEngineId,
+  _engineUrl: string,
   image: EngineOutputImage,
   options?: EngineViewPathOptions
 ): string {
@@ -79,10 +81,8 @@ export function buildEngineViewPath(
   let result: string;
   if (engineId === 'diffusers') {
     result = buildDiffusersViewPath(engineUrl, image, options);
-  } else if (engineId === 'fal') {
-    result = buildFalViewPath(engineUrl, image, options);
-  } else if (engineId === 'replicate') {
-    result = buildReplicateViewPath(engineUrl, image, options);
+  } else if (isCloudEngine(engineId)) {
+    result = buildNamedCloudViewPath(engineId, engineUrl, image, options);
   } else {
     const params = new URLSearchParams({
       filename: image.filename,

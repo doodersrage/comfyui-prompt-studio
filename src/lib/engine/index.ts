@@ -3,6 +3,7 @@ import { comfyEngineAdapter } from './comfy-adapter';
 import { diffusersEngineAdapter } from './diffusers-adapter';
 import { falEngineAdapter } from './fal-adapter';
 import { replicateEngineAdapter } from './replicate-adapter';
+import { geminiEngineAdapter, grokEngineAdapter, openaiEngineAdapter } from './cloud-adapter';
 import type { EngineAdapter, EngineId } from './types';
 
 export type {
@@ -24,10 +25,19 @@ export {
   CLOUD_ENGINE_OPTIONS,
   DEFAULT_FAL_IMG2IMG_MODEL,
   DEFAULT_FAL_TXT2IMG_MODEL,
+  DEFAULT_GEMINI_IMG2IMG_MODEL,
+  DEFAULT_GEMINI_TXT2IMG_MODEL,
+  DEFAULT_GROK_IMG2IMG_MODEL,
+  DEFAULT_GROK_TXT2IMG_MODEL,
+  DEFAULT_OPENAI_IMG2IMG_MODEL,
+  DEFAULT_OPENAI_TXT2IMG_MODEL,
   DEFAULT_REPLICATE_IMG2IMG_MODEL,
   DEFAULT_REPLICATE_TXT2IMG_MODEL,
   FAL_MODEL_PRESETS,
   FAL_QUEUE_HOST,
+  GEMINI_MODEL_PRESETS,
+  GROK_MODEL_PRESETS,
+  OPENAI_MODEL_PRESETS,
   REPLICATE_API_HOST,
   REPLICATE_MODEL_PRESETS,
   cloudEngineHost,
@@ -45,10 +55,12 @@ export { comfyEngineAdapter } from './comfy-adapter';
 export { diffusersEngineAdapter } from './diffusers-adapter';
 export { falEngineAdapter } from './fal-adapter';
 export { replicateEngineAdapter } from './replicate-adapter';
+export { geminiEngineAdapter, grokEngineAdapter, openaiEngineAdapter } from './cloud-adapter';
 export {
   buildDiffusersViewPath,
   buildEngineViewPath,
   buildFalViewPath,
+  buildNamedCloudViewPath,
   buildReplicateViewPath,
 } from './view-paths';
 
@@ -62,10 +74,19 @@ export function getEngineAdapterById(id: EngineId | undefined): EngineAdapter {
   if (id === 'replicate') {
     return replicateEngineAdapter;
   }
+  if (id === 'openai') {
+    return openaiEngineAdapter;
+  }
+  if (id === 'gemini') {
+    return geminiEngineAdapter;
+  }
+  if (id === 'grok') {
+    return grokEngineAdapter;
+  }
   return comfyEngineAdapter;
 }
 
-/** Active inference engine (Comfy-primary; Diffusers / Fal / Replicate optional). */
+/** Active inference engine (Comfy-primary; Diffusers / cloud APIs optional). */
 export function getEngineAdapter(): EngineAdapter {
   return getEngineAdapterById(loadEngineSettings().engine);
 }

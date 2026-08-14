@@ -37,6 +37,18 @@ export function comfyUiJobEngineLabel(
   if (job.statusMessage?.toLowerCase().includes('replicate')) {
     return 'Replicate';
   }
+  if (
+    job.statusMessage?.toLowerCase().includes('openai') ||
+    job.statusMessage?.toLowerCase().includes('chatgpt')
+  ) {
+    return 'ChatGPT';
+  }
+  if (job.statusMessage?.toLowerCase().includes('gemini')) {
+    return 'Gemini';
+  }
+  if (job.statusMessage?.toLowerCase().includes('grok')) {
+    return 'Grok';
+  }
   return 'ComfyUI';
 }
 

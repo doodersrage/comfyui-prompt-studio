@@ -73,7 +73,7 @@ flowchart LR
 | Gallery + progress                       | `src/lib/comfyui-gallery-client.ts`, `src/lib/comfyui-websocket.ts`       |
 | Engine seam (queue / progress)           | `src/lib/engine` → `getEngineAdapter()`                                   |
 
-Related routes: `src/app/api/comfyui/{status,history,view,upload,interrupt,live,probe,…}/`, `src/app/api/diffusers/{,status,view,upload}/`, `src/app/api/fal/{,status,view,upload}/`, and `src/app/api/replicate/{,status,view,upload}/`.
+Related routes: `src/app/api/comfyui/{status,history,view,upload,interrupt,live,probe,…}/`, `src/app/api/diffusers/{,status,view,upload}/`, `src/app/api/fal/{,status,view,upload}/`, `src/app/api/replicate/{,status,view,upload}/`, and `src/app/api/{openai,gemini,grok}/{,status,view,upload}/`.
 
 Pool members: `parseComfyUiPool()` merges `COMFYUI_POOL` with Settings `comfyPoolUrls` after `normalizeComfyPoolUrlList` (allowlist fail-closed per URL). Probe (`POST /api/comfyui/probe`) does not fetch hosts missing from `COMFYUI_ALLOWED_HOSTS`.
 
@@ -81,17 +81,18 @@ Pool members: `parseComfyUiPool()` merges `COMFYUI_POOL` with Settings `comfyPoo
 
 Thin browser seam for **queue / status / view / upload / progress** so backends can plug in without rewriting gallery or prompt tools.
 
-| Piece                    | Path                                                                                      |
-| ------------------------ | ----------------------------------------------------------------------------------------- |
-| Interface                | `src/lib/engine/types.ts` (`EngineAdapter`)                                               |
-| Comfy implementation     | `src/lib/engine/comfy-adapter.ts`                                                         |
-| Diffusers implementation | `src/lib/engine/diffusers-adapter.ts`                                                     |
-| Fal implementation       | `src/lib/engine/fal-adapter.ts`                                                           |
-| Replicate implementation | `src/lib/engine/replicate-adapter.ts`                                                     |
-| Cloud registry           | `src/lib/engine/capabilities.ts` (`CLOUD_ENGINE_OPTIONS`)                                 |
-| Selection                | `getEngineAdapter()` / `getEngineAdapterById()` in `src/lib/engine/index.ts`              |
-| Settings                 | `inferenceEngine` + Diffusers URL + Fal/Replicate key/model (Settings → Inference engine) |
-| Python service           | `services/diffusers-engine/` (optional FastAPI txt2img)                                   |
+| Piece                    | Path                                                                              |
+| ------------------------ | --------------------------------------------------------------------------------- |
+| Interface                | `src/lib/engine/types.ts` (`EngineAdapter`)                                       |
+| Comfy implementation     | `src/lib/engine/comfy-adapter.ts`                                                 |
+| Diffusers implementation | `src/lib/engine/diffusers-adapter.ts`                                             |
+| Fal implementation       | `src/lib/engine/fal-adapter.ts`                                                   |
+| Replicate implementation | `src/lib/engine/replicate-adapter.ts`                                             |
+| ChatGPT / Gemini / Grok  | `src/lib/engine/cloud-adapter.ts` + `src/lib/llm-image-client.ts`                 |
+| Cloud registry           | `src/lib/engine/capabilities.ts` (`CLOUD_ENGINE_OPTIONS`)                         |
+| Selection                | `getEngineAdapter()` / `getEngineAdapterById()` in `src/lib/engine/index.ts`      |
+| Settings                 | `inferenceEngine` + Diffusers URL + cloud key/model (Settings → Inference engine) |
+| Python service           | `services/diffusers-engine/` (optional FastAPI txt2img)                           |
 
 Methods: `postPrompt`, `fetchJobStatus`, `buildViewPath`, `uploadInputImage`, `subscribeProgress`, `openProgressBeforeQueue`.
 
@@ -100,7 +101,12 @@ Backends today:
 - **`comfyui`** (default) — primary generate path via `/api/comfyui/*` (Qwen Lightning bf16 + Dynamic VRAM, Final/Max enrich, ControlNet, FaceDetailer, edit, video, custom graphs).
 - **`diffusers`** (optional) — experimental txt2img via `/api/diffusers/*` → local FastAPI (`DIFFUSERS_API_URL`, default `http://127.0.0.1:8190`). Opt in from Settings or `PROMPT_ENGINE=diffusers`. On 24GB, Qwen Lightning quality/speed remains Comfy’s strength; Diffusers is not pursued for Dynamic VRAM / bf16 parity.
 - **`fal`** (optional) — cloud txt2img / img2img via `/api/fal/*` → [Fal queue](https://fal.ai). Prompt + optional Image 1 only. Key: `FAL_KEY` or Settings.
-- **`replicate`** (optional) — same cloud contract via `/api/replicate/*` → [Replicate predictions](https://replicate.com). Token: `REPLICATE_API_TOKEN` or Settings. Add another provider by extending `CLOUD_ENGINE_OPTIONS` plus an adapter and `/api/<id>` proxy.
+- **`replicate`** (optional) — same cloud contract via `/api/replicate/*` → [Replicate predictions](https://replicate.com). Token: `REPLICATE_API_TOKEN` or Settings.
+- **`openai`** (optional) — ChatGPT Images via `/api/openai/*` → `POST /v1/images/generations` (default `gpt-image-2`). Key: `OPENAI_API_KEY` or Settings.
+- **`gemini`** (optional) — Gemini native image (Nano Banana) via `/api/gemini/*` → `generateContent` (default `gemini-3.1-flash-image`). Key: `GEMINI_API_KEY` or Settings.
+- **`grok`** (optional) — xAI Imagine via `/api/grok/*` → `POST /v1/images/generations` (default `grok-imagine-image-2.0`). Key: `XAI_API_KEY` or Settings.
+
+Add another provider by extending `CLOUD_ENGINE_OPTIONS` plus an adapter and `/api/<id>` proxy.
 
 Diffusers progress is **poll-backed** (no live latent WebSocket). Gallery entries store `comfyUrl` as the engine host and optional `engineId` so poll/view use the correct adapter after the user switches engines.
 

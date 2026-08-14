@@ -4,11 +4,14 @@ import {
   comfyEngineAdapter,
   diffusersEngineAdapter,
   falEngineAdapter,
+  geminiEngineAdapter,
   getEngineAdapter,
   getEngineAdapterById,
+  grokEngineAdapter,
+  openaiEngineAdapter,
   replicateEngineAdapter,
 } from "./index";
-import { buildDiffusersViewPath, buildEngineViewPath, buildFalViewPath, buildReplicateViewPath } from "./view-paths";
+import { buildDiffusersViewPath, buildEngineViewPath, buildFalViewPath, buildNamedCloudViewPath, buildReplicateViewPath } from "./view-paths";
 
 describe("engine adapter", () => {
   it("defaults to ComfyUI outside the browser", () => {
@@ -21,6 +24,9 @@ describe("engine adapter", () => {
     assert.equal(getEngineAdapterById("diffusers"), diffusersEngineAdapter);
     assert.equal(getEngineAdapterById("fal"), falEngineAdapter);
     assert.equal(getEngineAdapterById("replicate"), replicateEngineAdapter);
+    assert.equal(getEngineAdapterById("openai"), openaiEngineAdapter);
+    assert.equal(getEngineAdapterById("gemini"), geminiEngineAdapter);
+    assert.equal(getEngineAdapterById("grok"), grokEngineAdapter);
     assert.equal(getEngineAdapterById(undefined), comfyEngineAdapter);
   });
 
@@ -106,6 +112,37 @@ describe("engine adapter", () => {
     );
   });
 
+  it("maps ChatGPT / Gemini / Grok view paths through /api/<engine>/view", () => {
+    assert.match(
+      openaiEngineAdapter.buildViewPath("https://api.openai.com", {
+        filename: "job.png",
+        subfolder: "gpt-image-2",
+        type: "output",
+      }),
+      /^\/api\/openai\/view\?/,
+    );
+    assert.equal(
+      buildEngineViewPath("gemini", "https://generativelanguage.googleapis.com", {
+        filename: "job.png",
+        subfolder: "gemini-3.1-flash-image",
+        type: "output",
+      }),
+      buildNamedCloudViewPath("gemini", "https://generativelanguage.googleapis.com", {
+        filename: "job.png",
+        subfolder: "gemini-3.1-flash-image",
+        type: "output",
+      }),
+    );
+    assert.match(
+      grokEngineAdapter.buildViewPath("https://api.x.ai", {
+        filename: "job.png",
+        subfolder: "grok-imagine-image-2.0",
+        type: "output",
+      }),
+      /^\/api\/grok\/view\?/,
+    );
+  });
+
   it("exposes progress subscribe helpers on adapters", () => {
     assert.equal(typeof comfyEngineAdapter.subscribeProgress, "function");
     assert.equal(typeof comfyEngineAdapter.openProgressBeforeQueue, "function");
@@ -115,5 +152,8 @@ describe("engine adapter", () => {
     assert.equal(typeof falEngineAdapter.openProgressBeforeQueue, "function");
     assert.equal(typeof replicateEngineAdapter.subscribeProgress, "function");
     assert.equal(typeof replicateEngineAdapter.openProgressBeforeQueue, "function");
+    assert.equal(typeof openaiEngineAdapter.subscribeProgress, "function");
+    assert.equal(typeof geminiEngineAdapter.subscribeProgress, "function");
+    assert.equal(typeof grokEngineAdapter.subscribeProgress, "function");
   });
 });
