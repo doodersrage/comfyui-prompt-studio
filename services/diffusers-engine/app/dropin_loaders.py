@@ -140,7 +140,7 @@ def load_qwen25_vl_from_single_file(
     if is_fp8_scaled_name(path.name):
         raise RuntimeError(
             f"{path.name} is Comfy fp8-scaled (scale_weight tensors); "
-            "Diffusers needs qwen_2.5_vl_7b.safetensors (bf16) instead."
+            "Diffusers needs qwen_2.5_vl_7b_uncensored_comfy_ready_bf16.safetensors (bf16) instead."
         )
 
     config = Qwen2_5_VLConfig.from_pretrained(str(config_dir), local_files_only=True)

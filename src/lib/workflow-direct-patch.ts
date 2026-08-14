@@ -167,7 +167,7 @@ const DUAL_CLIP_LOADER_TYPES = new Set(['DualCLIPLoader']);
 const CLIP_LOADER_TYPES = new Set(['CLIPLoader']);
 
 const DEPRECATED_QWEN_CLIP_FILENAMES: Record<string, string> = {
-  'qwen_2.5_vl_7b_bf16.safetensors': 'qwen_2.5_vl_7b.safetensors',
+  'qwen_2.5_vl_7b_bf16.safetensors': 'qwen_2.5_vl_7b_uncensored_comfy_ready_bf16.safetensors',
 };
 
 const CONTROLNET_LOADER_TYPES = new Set(['ControlNetLoader', 'DiffControlNetLoader']);

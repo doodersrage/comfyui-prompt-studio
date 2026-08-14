@@ -101,7 +101,9 @@ export function qwenGenericUnetFilename(tier: LoaderPrecisionTier): string {
 }
 
 export function qwenDualClipFilename(tier: LoaderPrecisionTier): string {
-  return tier === 'fp8' ? 'qwen_2.5_vl_7b_fp8_scaled.safetensors' : 'qwen_2.5_vl_7b.safetensors';
+  return tier === 'fp8'
+    ? 'qwen_2.5_vl_7b_fp8_scaled.safetensors'
+    : 'qwen_2.5_vl_7b_uncensored_comfy_ready_bf16.safetensors';
 }
 
 /** Qwen diffusion weight family — never cross-swap under precision alignment. */

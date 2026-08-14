@@ -1,4 +1,16 @@
-export type RoleplayTone = 'silly' | 'cinematic' | 'cozy' | 'chaotic';
+export type RoleplayTone =
+  | 'silly'
+  | 'cinematic'
+  | 'cozy'
+  | 'chaotic'
+  | 'noir'
+  | 'romantic'
+  | 'horror'
+  | 'deadpan'
+  | 'epic'
+  | 'dreamy'
+  | 'gritty'
+  | 'melancholy';
 
 export type RoleplayContentId = 'clean' | 'pg13' | 'suggestive' | 'sultry' | 'explicit' | 'raunchy';
 
@@ -53,7 +65,43 @@ export const ROLEPLAY_TONES: Array<{ id: RoleplayTone; label: string; hint: stri
   { id: 'cinematic', label: 'Cinematic', hint: 'Movie stills, dramatic light' },
   { id: 'cozy', label: 'Cozy', hint: 'Warm, low-stakes, soft lighting' },
   { id: 'chaotic', label: 'Chaotic', hint: 'Too many plots, all of them now' },
+  { id: 'noir', label: 'Noir', hint: 'Hard shadows, wet streets, mystery' },
+  { id: 'romantic', label: 'Romantic', hint: 'Lingering looks, tender heat' },
+  { id: 'horror', label: 'Horror', hint: 'Dread, uncanny, isolated quiet' },
+  { id: 'deadpan', label: 'Deadpan', hint: 'Dry, understated, no wink' },
+  { id: 'epic', label: 'Epic', hint: 'Mythic scale, heroic framing' },
+  { id: 'dreamy', label: 'Dreamy', hint: 'Soft surreal, liminal glow' },
+  { id: 'gritty', label: 'Gritty', hint: 'Lived-in, handheld, documentary' },
+  { id: 'melancholy', label: 'Melancholy', hint: 'Quiet, bittersweet, overcast' },
 ];
+
+const ROLEPLAY_TONE_IDS = new Set<string>(ROLEPLAY_TONES.map(entry => entry.id));
+
+const ROLEPLAY_TONE_LINES: Record<RoleplayTone, string> = {
+  silly: 'Tone: silly — jokes, cartoon physics, committed nonsense.',
+  cinematic: 'Tone: cinematic still — dramatic light, movie framing.',
+  cozy: 'Tone: cozy and low-stakes — warm light, soft humor.',
+  chaotic: 'Tone: chaotic bit — too many plots, physical comedy, still readable as one image.',
+  noir: 'Tone: noir — hard shadows, wet streets, mystery, rain-and-cigarette mood.',
+  romantic: 'Tone: romantic — lingering looks, tender heat, dusk or candlelight.',
+  horror: 'Tone: horror — dread, uncanny staging, isolated subject, wrong quiet.',
+  deadpan: 'Tone: deadpan — dry, understated, no winking at the camera.',
+  epic: 'Tone: epic — mythic scale, heroic framing, weather as drama.',
+  dreamy: 'Tone: dreamy — soft surreal, liminal glow, slightly unmoored from physics.',
+  gritty: 'Tone: gritty — lived-in, handheld, documentary dirt and wear.',
+  melancholy: 'Tone: melancholy — quiet, bittersweet, overcast, held breath.',
+};
+
+export function roleplayToneLine(tone: RoleplayTone): string {
+  return ROLEPLAY_TONE_LINES[tone] ?? ROLEPLAY_TONE_LINES.silly;
+}
+
+export function roleplayToneTemperature(tone: RoleplayTone): number {
+  if (tone === 'cozy' || tone === 'melancholy' || tone === 'deadpan' || tone === 'noir') {
+    return 0.7;
+  }
+  return 0.95;
+}
 
 export const ROLEPLAY_CONTENT: Array<{
   id: RoleplayContentId;
@@ -891,8 +939,8 @@ export function normalizeRoleplayTone(value: string | null | undefined): Rolepla
   const trimmed = String(value ?? '')
     .trim()
     .toLowerCase();
-  if (trimmed === 'cinematic' || trimmed === 'cozy' || trimmed === 'chaotic') {
-    return trimmed;
+  if (ROLEPLAY_TONE_IDS.has(trimmed)) {
+    return trimmed as RoleplayTone;
   }
   return 'silly';
 }

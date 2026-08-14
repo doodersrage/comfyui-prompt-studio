@@ -281,7 +281,7 @@ def default_qwen_txt2img_stack(model_name: str) -> dict[str, str | None | bool]:
         return {"clip": None, "vae": None, "is_rapid_aio": True}
 
     clip = first_existing_asset(
-        "qwen_2.5_vl_7b.safetensors",
+        "qwen_2.5_vl_7b_uncensored_comfy_ready_bf16.safetensors",
         "Qwen2.5-VL-7B-Instruct-Ablit.safetensors",
         "qwen_2.5_vl_7b_fp8_scaled.safetensors",
         buckets=("text_encoders", "clip"),

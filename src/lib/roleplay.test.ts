@@ -16,6 +16,9 @@ import {
   patchRoleplayStoryBeat,
   resolveRoleplayPersonaPrompt,
   resolveRoleplayToneAndContent,
+  ROLEPLAY_TONES,
+  roleplayToneLine,
+  roleplayToneTemperature,
   isRoleplayAdultContent,
   lastRoleplayPlotBeat,
   lastRoleplayStillImage,
@@ -76,8 +79,14 @@ describe('roleplay parsers', () => {
 
   it('normalizes tone, content rating, and custom persona prompts', () => {
     assert.equal(normalizeRoleplayTone('CHAOTIC'), 'chaotic');
+    assert.equal(normalizeRoleplayTone('noir'), 'noir');
+    assert.equal(normalizeRoleplayTone('MELANCHOLY'), 'melancholy');
     assert.equal(normalizeRoleplayTone('sultry'), 'silly');
     assert.equal(normalizeRoleplayTone('nope'), 'silly');
+    assert.equal(ROLEPLAY_TONES.length, 12);
+    assert.match(roleplayToneLine('horror'), /dread/i);
+    assert.equal(roleplayToneTemperature('cozy'), 0.7);
+    assert.equal(roleplayToneTemperature('chaotic'), 0.95);
     assert.equal(normalizeRoleplayContent('SFW'), 'clean');
     assert.equal(normalizeRoleplayContent('suggestive'), 'suggestive');
     assert.equal(normalizeRoleplayContent('explicit'), 'explicit');

@@ -187,7 +187,7 @@ export const COMFY_ASSET_CATALOG: ComfyCatalogAsset[] = [
     id: 'qwen-2.5-vl-7b-bf16',
     label: 'Qwen 2.5-VL 7B text encoder (bf16)',
     kind: 'clip',
-    filename: 'qwen_2.5_vl_7b.safetensors',
+    filename: 'qwen_2.5_vl_7b_uncensored_comfy_ready_bf16.safetensors',
     url: 'https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/text_encoders/qwen_2.5_vl_7b.safetensors',
     bytes: 16584415576,
     modelIds: [...QWEN_SHARED_MODELS],

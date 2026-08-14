@@ -129,7 +129,7 @@ def _qwen_graph() -> dict:
         "2": {
             "class_type": "CLIPLoader",
             "inputs": {
-                "clip_name": "qwen_2.5_vl_7b.safetensors",
+                "clip_name": "qwen_2.5_vl_7b_uncensored_comfy_ready_bf16.safetensors",
                 "type": "qwen_image",
             },
         },

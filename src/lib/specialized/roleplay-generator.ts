@@ -20,6 +20,8 @@ import {
   resolveRoleplayPersonaPrompt,
   resolveRoleplaySetting,
   resolveRoleplayToneAndContent,
+  roleplayToneLine,
+  roleplayToneTemperature,
   templateRoleplayBio,
   templateRoleplayScenes,
   type RoleplayBio,
@@ -48,16 +50,7 @@ export type RoleplaySharedOptions = SharedGenerationOptions & {
 };
 
 function toneLine(tone: RoleplayTone): string {
-  if (tone === 'cinematic') {
-    return 'Tone: cinematic still — dramatic light, movie framing.';
-  }
-  if (tone === 'cozy') {
-    return 'Tone: cozy and low-stakes — warm light, soft humor.';
-  }
-  if (tone === 'chaotic') {
-    return 'Tone: chaotic bit — too many plots, physical comedy, still readable as one image.';
-  }
-  return 'Tone: silly — jokes, cartoon physics, committed nonsense.';
+  return roleplayToneLine(tone);
 }
 
 function goreLine(allowGore: boolean): string {
@@ -261,7 +254,7 @@ export async function generateRoleplayBio(
   const raw = await llmJson({
     llm: options.llm,
     maxTokens: 420,
-    temperature: 0.95,
+    temperature: options.llm?.temperature ?? roleplayToneTemperature(tone),
     system: `You invent a fun roleplay character for an image-generation game.
 ${toneLine(tone)}
 ${uncensoredAdultLine(content)}
@@ -432,7 +425,7 @@ ${wardrobeCue}
     sanitizeInput: [persona, situation.title, options.extraHints, setting]
       .filter(Boolean)
       .join(' '),
-    temperature: options.llm?.temperature ?? (tone === 'cozy' ? 0.7 : 0.95),
+    temperature: options.llm?.temperature ?? roleplayToneTemperature(tone),
     allowTemplateFallback: options.llm?.allowTemplateFallback,
     llmModel: options.llm?.llmModel,
     llmEnabled: options.llm?.llmEnabled,
