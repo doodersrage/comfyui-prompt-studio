@@ -1,11 +1,10 @@
 import type { Metadata, Viewport } from 'next';
-import { Suspense } from 'react';
 import { Fraunces, Geist, Geist_Mono } from 'next/font/google';
 import ThemeInit from '@/components/ThemeInit';
 import BrowserStorageInit from '@/components/BrowserStorageInit';
 import TabSyncInit from '@/components/TabSyncInit';
 import AmbientBackground from '@/components/AmbientBackground';
-import AppNav from '@/components/AppNav';
+import AppShell from '@/components/AppShell';
 import { AuthProvider } from '@/hooks/useAuth';
 import ComfyGalleryBackgroundPoller from '@/components/ComfyGalleryBackgroundPoller';
 import UserScopeInit from '@/components/UserScopeInit';
@@ -95,27 +94,7 @@ export default function RootLayout({
         <BrowserStorageInit />
         <TabSyncInit />
         <AuthProvider>
-          <div className="relative z-[1] min-h-full lg:pl-[var(--sidebar-width)]">
-            <Suspense
-              fallback={
-                <div
-                  className="sticky top-0 z-40 border-b border-[var(--border-subtle)] bg-[color-mix(in_oklab,var(--bg-base)_82%,transparent)] backdrop-blur-md lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:w-[var(--sidebar-width)] lg:border-b-0 lg:border-r"
-                  aria-hidden
-                >
-                  <div className="flex h-14 items-center gap-3 px-4 lg:h-auto lg:flex-col lg:items-stretch lg:gap-4 lg:p-5">
-                    <div className="h-8 w-8 shrink-0 rounded-[22%] bg-[var(--bg-active)]" />
-                    <div className="hidden h-3 w-28 rounded-[var(--radius-full)] bg-[var(--bg-active)] lg:block" />
-                    <div className="mt-2 hidden space-y-2 lg:block">
-                      <div className="h-8 w-full rounded-[var(--radius-md)] bg-[var(--bg-subtle)]" />
-                      <div className="h-8 w-full rounded-[var(--radius-md)] bg-[var(--bg-subtle)]" />
-                      <div className="h-8 w-4/5 rounded-[var(--radius-md)] bg-[var(--bg-subtle)]" />
-                    </div>
-                  </div>
-                </div>
-              }
-            >
-              <AppNav />
-            </Suspense>
+          <AppShell>
             <ComfyGalleryBackgroundPoller />
             <UserScopeInit />
             <AutoStorageSyncInit />
@@ -123,7 +102,7 @@ export default function RootLayout({
             <PluginRuntimeInit />
             <DeferredShellClient />
             {children}
-          </div>
+          </AppShell>
         </AuthProvider>
       </body>
     </html>

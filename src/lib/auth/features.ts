@@ -44,6 +44,10 @@ export type AppFeatureId = (typeof APP_FEATURES)[number]['id'];
 export const ALL_FEATURE_IDS = APP_FEATURES.map(feature => feature.id) as AppFeatureId[];
 
 const PAGE_FEATURE_MAP: Array<{ prefix: string; feature: AppFeatureId }> = [
+  { prefix: '/m/play', feature: 'roleplay' },
+  { prefix: '/m/queue', feature: 'queue' },
+  { prefix: '/m/gallery', feature: 'gallery' },
+  { prefix: '/m', feature: 'gallery' },
   { prefix: '/dashboard', feature: 'dashboard' },
   { prefix: '/queue', feature: 'queue' },
   { prefix: '/format', feature: 'format' },

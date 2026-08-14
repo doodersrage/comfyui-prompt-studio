@@ -34,7 +34,7 @@ export async function GET(request: Request) {
     status: 200,
     headers: {
       'Content-Type': file.contentType,
-      'Cache-Control': 'private, no-cache',
+      'Cache-Control': 'private, no-store, no-cache, must-revalidate',
     },
   });
 }

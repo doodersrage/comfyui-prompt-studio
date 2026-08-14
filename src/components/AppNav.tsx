@@ -610,15 +610,20 @@ export default function AppNav() {
             wordmarkClassName="type-brand type-heading tracking-tight"
           />
         </Link>
-        <button
-          type="button"
-          aria-expanded={mobileOpen}
-          aria-label={mobileOpen ? 'Close navigation menu' : 'Open navigation menu'}
-          onClick={() => setMobileOpen(open => !open)}
-          className="ui-btn-secondary px-3 py-2"
-        >
-          {mobileOpen ? 'Close' : 'Menu'}
-        </button>
+        <div className="flex items-center gap-2">
+          <Link href="/m" className="ui-btn-secondary px-3 py-2">
+            Phone
+          </Link>
+          <button
+            type="button"
+            aria-expanded={mobileOpen}
+            aria-label={mobileOpen ? 'Close navigation menu' : 'Open navigation menu'}
+            onClick={() => setMobileOpen(open => !open)}
+            className="ui-btn-secondary px-3 py-2"
+          >
+            {mobileOpen ? 'Close' : 'Menu'}
+          </button>
+        </div>
       </header>
 
       {mobileOpen ? (

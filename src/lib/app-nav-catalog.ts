@@ -17,6 +17,11 @@ export const APP_NAV_GROUPS: AppNavGroup[] = [
     links: [
       { href: '/dashboard', label: 'Dashboard', description: 'Jobs, queue & recent outputs' },
       { href: '/queue', label: 'Queue', description: 'Central ComfyUI job queue' },
+      {
+        href: '/m',
+        label: 'Mobile Studio',
+        description: 'Phone capture, queue, gallery, and play',
+      },
     ],
   },
   {

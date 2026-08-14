@@ -864,6 +864,11 @@ export type NsfwGeneratorToolCache = {
   duoOnly?: boolean;
 };
 
+export type MobileStudioToolCache = {
+  plates?: import('./mobile-studio').CharacterPlate[];
+  activePlateId?: string;
+};
+
 export type RoleplayToolCache = {
   personaId?: string;
   customPersona?: string;
@@ -960,6 +965,7 @@ export type ToolSettingsCache = {
   fantasy?: FantasyToolCache;
   nsfwGenerator?: NsfwGeneratorToolCache;
   roleplay?: RoleplayToolCache;
+  mobileStudio?: MobileStudioToolCache;
   character?: CharacterToolCache;
   imagePrompt?: ImagePromptToolCache;
   topics?: TopicToolCache;
@@ -1239,6 +1245,11 @@ export const DEFAULT_ROLEPLAY_TOOL_CACHE: RoleplayToolCache = {
   playAs: 'text',
   isolateSubject: true,
   autoQueue: true,
+};
+
+export const DEFAULT_MOBILE_STUDIO_TOOL_CACHE: MobileStudioToolCache = {
+  plates: [],
+  activePlateId: '',
 };
 
 export const DEFAULT_IMAGE_PROMPT_TOOL_CACHE: ImagePromptToolCache = {

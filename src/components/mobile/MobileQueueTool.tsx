@@ -1,0 +1,182 @@
+'use client';
+
+import Link from 'next/link';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Button } from '@/components/ui/Button';
+import {
+  COMFYUI_GALLERY_UPDATED_EVENT,
+  galleryEntryPrimaryThumbUrl,
+  initGalleryStore,
+  loadComfyGallery,
+  type ComfyGalleryEntry,
+} from '@/lib/comfyui-gallery';
+import { scheduleComfyGalleryPoll } from '@/lib/comfyui-gallery-poller';
+import {
+  COMFY_LIVE_PREVIEW_UPDATED_EVENT,
+  getComfyLivePreviewUrl,
+} from '@/lib/comfyui-live-preview-store';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
+
+type ComfyHealth = {
+  ok: boolean;
+  queuePending?: number;
+  queueRunning?: number;
+  error?: string;
+};
+
+function statusLabel(entry: ComfyGalleryEntry): string {
+  if (entry.status === 'running') {
+    return 'Running';
+  }
+  if (entry.status === 'pending') {
+    return 'Queued';
+  }
+  if (entry.status === 'error') {
+    return 'Failed';
+  }
+  return 'Done';
+}
+
+export default function MobileQueueTool() {
+  const [health, setHealth] = useState<ComfyHealth | null>(null);
+  const [entries, setEntries] = useState<ComfyGalleryEntry[]>([]);
+  const [previews, setPreviews] = useState(0);
+  const [polling, setPolling] = useState(false);
+
+  const refresh = useCallback(() => {
+    setEntries(loadComfyGallery());
+  }, []);
+
+  useEffect(() => {
+    void initGalleryStore().then(refresh);
+    const onGallery = () => refresh();
+    const onPreview = () => setPreviews(value => value + 1);
+    window.addEventListener(COMFYUI_GALLERY_UPDATED_EVENT, onGallery);
+    window.addEventListener(COMFY_LIVE_PREVIEW_UPDATED_EVENT, onPreview);
+    return () => {
+      window.removeEventListener(COMFYUI_GALLERY_UPDATED_EVENT, onGallery);
+      window.removeEventListener(COMFY_LIVE_PREVIEW_UPDATED_EVENT, onPreview);
+    };
+  }, [refresh]);
+
+  const refreshHealth = useCallback(async () => {
+    try {
+      const response = await fetch('/api/health');
+      const data = (await response.json()) as { comfyui?: ComfyHealth };
+      setHealth(data.comfyui ?? null);
+    } catch {
+      setHealth({ ok: false, error: 'Unreachable' });
+    }
+  }, []);
+
+  useEffect(() => {
+    scheduleAfterCommit(() => {
+      void refreshHealth();
+    });
+    const id = window.setInterval(() => void refreshHealth(), 8000);
+    return () => window.clearInterval(id);
+  }, [refreshHealth]);
+
+  const active = useMemo(
+    () =>
+      entries
+        .filter(entry => entry.status === 'pending' || entry.status === 'running')
+        .slice(0, 12),
+    [entries]
+  );
+  const recent = useMemo(
+    () => entries.filter(entry => entry.status === 'completed').slice(0, 8),
+    [entries]
+  );
+
+  const pollActive = useCallback(async () => {
+    setPolling(true);
+    try {
+      await Promise.all(
+        active.map(entry => scheduleComfyGalleryPoll(entry.promptId, { comfyUrl: entry.comfyUrl }))
+      );
+      refresh();
+    } finally {
+      setPolling(false);
+    }
+  }, [active, refresh]);
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-1">
+        <h1 className="type-display text-2xl tracking-tight">Queue</h1>
+        <p className="text-sm text-[var(--text-secondary)]">
+          {health?.ok
+            ? `${health.queueRunning ?? 0} running · ${health.queuePending ?? 0} pending`
+            : (health?.error ?? 'Checking ComfyUI…')}
+        </p>
+      </div>
+
+      <div className="flex gap-2">
+        <Button variant="secondary" size="sm" loading={polling} onClick={() => void pollActive()}>
+          Refresh jobs
+        </Button>
+        <Link href="/queue" className="ui-btn-ghost px-3 py-2 text-sm">
+          Full queue
+        </Link>
+      </div>
+
+      {active.length === 0 ? (
+        <p className="rounded-2xl border border-[var(--border-subtle)] px-4 py-8 text-center text-sm text-[var(--text-muted)]">
+          Nothing in flight. Capture a plate and Play a beat to queue a still.
+        </p>
+      ) : (
+        <ul className="space-y-2">
+          {active.map(entry => {
+            const live = getComfyLivePreviewUrl(entry.promptId);
+            const thumb = live || galleryEntryPrimaryThumbUrl(entry);
+            return (
+              <li
+                key={entry.id}
+                className="flex gap-3 overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-muted)]/40 p-2"
+              >
+                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[var(--bg-subtle)]">
+                  {thumb ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={thumb} alt="" className="h-full w-full object-cover" />
+                  ) : null}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{entry.model || 'Job'}</p>
+                  <p className="type-caption text-[var(--text-muted)]">{statusLabel(entry)}</p>
+                  <p className="mt-0.5 line-clamp-2 text-xs text-[var(--text-secondary)]">
+                    {entry.prompt}
+                  </p>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {recent.length > 0 ? (
+        <div className="space-y-2">
+          <p className="type-caption text-[var(--text-muted)]">Recent stills</p>
+          <div className="grid grid-cols-4 gap-1.5">
+            {recent.map(entry => {
+              const thumb = galleryEntryPrimaryThumbUrl(entry);
+              return (
+                <Link
+                  key={entry.id}
+                  href="/m/gallery"
+                  className="aspect-square overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)]"
+                >
+                  {thumb ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={thumb} alt="" className="h-full w-full object-cover" />
+                  ) : null}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+      <span className="sr-only">{previews} preview ticks</span>
+    </div>
+  );
+}

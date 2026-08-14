@@ -38,6 +38,7 @@ export const WORKSPACE_MODE_OPTIONS: {
 /** Primary destinations for Simple workspace (path or path?query). */
 export const SIMPLE_NAV_HREFS = [
   '/dashboard',
+  '/m',
   '/',
   '/character',
   '/refine',

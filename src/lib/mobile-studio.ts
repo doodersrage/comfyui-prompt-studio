@@ -1,0 +1,143 @@
+export const MOBILE_STUDIO_HOME = '/m' as const;
+export const MAX_CHARACTER_PLATES = 24;
+
+export type MobileStudioTabId = 'capture' | 'queue' | 'gallery' | 'play';
+
+export type MobileStudioTab = {
+  id: MobileStudioTabId;
+  href: string;
+  label: string;
+  hint: string;
+};
+
+export const MOBILE_STUDIO_TABS: MobileStudioTab[] = [
+  { id: 'capture', href: '/m', label: 'Capture', hint: 'Shoot a plate' },
+  { id: 'queue', href: '/m/queue', label: 'Queue', hint: 'Live jobs' },
+  { id: 'gallery', href: '/m/gallery', label: 'Gallery', hint: 'Rate stills' },
+  { id: 'play', href: '/m/play', label: 'Play', hint: 'Roleplay from plate' },
+];
+
+export type CharacterPlate = {
+  id: string;
+  name: string;
+  createdAt: number;
+  originalUrl: string;
+  originalFilename?: string;
+  isolatedUrl: string;
+  isolatedFilename?: string;
+  isolated: boolean;
+};
+
+export function isMobileStudioPath(pathname: string | null | undefined): boolean {
+  const path = (pathname ?? '').split('?')[0] || '';
+  return path === MOBILE_STUDIO_HOME || path.startsWith(`${MOBILE_STUDIO_HOME}/`);
+}
+
+export function mobileStudioTabFromPath(pathname: string | null | undefined): MobileStudioTabId {
+  const path = (pathname ?? '').split('?')[0] || '';
+  if (path === '/m/queue' || path.startsWith('/m/queue/')) {
+    return 'queue';
+  }
+  if (path === '/m/gallery' || path.startsWith('/m/gallery/')) {
+    return 'gallery';
+  }
+  if (path === '/m/play' || path.startsWith('/m/play/')) {
+    return 'play';
+  }
+  return 'capture';
+}
+
+export function normalizeCharacterPlate(value: unknown): CharacterPlate | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const raw = value as Record<string, unknown>;
+  const id = typeof raw.id === 'string' ? raw.id.trim() : '';
+  const originalUrl = typeof raw.originalUrl === 'string' ? raw.originalUrl.trim() : '';
+  const isolatedUrl = typeof raw.isolatedUrl === 'string' ? raw.isolatedUrl.trim() : '';
+  if (!id || (!originalUrl && !isolatedUrl)) {
+    return null;
+  }
+  const createdAt =
+    typeof raw.createdAt === 'number' && Number.isFinite(raw.createdAt)
+      ? raw.createdAt
+      : Date.now();
+  const name = typeof raw.name === 'string' && raw.name.trim() ? raw.name.trim() : 'Untitled plate';
+  return {
+    id,
+    name,
+    createdAt,
+    originalUrl: originalUrl || isolatedUrl,
+    originalFilename:
+      typeof raw.originalFilename === 'string' ? raw.originalFilename.trim() : undefined,
+    isolatedUrl: isolatedUrl || originalUrl,
+    isolatedFilename:
+      typeof raw.isolatedFilename === 'string' ? raw.isolatedFilename.trim() : undefined,
+    isolated: raw.isolated !== false && raw.isolated !== 'false' && raw.isolated !== 0,
+  };
+}
+
+export function normalizeCharacterPlates(value: unknown): CharacterPlate[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const seen = new Set<string>();
+  const plates: CharacterPlate[] = [];
+  for (const entry of value) {
+    const plate = normalizeCharacterPlate(entry);
+    if (!plate || seen.has(plate.id)) {
+      continue;
+    }
+    seen.add(plate.id);
+    plates.push(plate);
+  }
+  return plates.sort((a, b) => b.createdAt - a.createdAt).slice(0, MAX_CHARACTER_PLATES);
+}
+
+export function upsertCharacterPlate(
+  list: CharacterPlate[] | undefined,
+  plate: CharacterPlate
+): CharacterPlate[] {
+  const next = (list ?? []).filter(entry => entry.id !== plate.id);
+  next.unshift(plate);
+  return next.slice(0, MAX_CHARACTER_PLATES);
+}
+
+export function removeCharacterPlate(
+  list: CharacterPlate[] | undefined,
+  id: string
+): CharacterPlate[] {
+  return (list ?? []).filter(entry => entry.id !== id);
+}
+
+export function roleplayPatchFromPlate(plate: CharacterPlate): {
+  playAs: 'photo';
+  isolateSubject: boolean;
+  referenceIsolated: boolean;
+  referenceImageUrl: string;
+  referenceImageFilename?: string;
+  referenceOriginalUrl: string;
+  referenceOriginalFilename?: string;
+} {
+  const isolated = plate.isolated !== false;
+  const queueUrl = isolated ? plate.isolatedUrl || plate.originalUrl : plate.originalUrl;
+  const queueFilename = isolated
+    ? plate.isolatedFilename || plate.originalFilename
+    : plate.originalFilename;
+  return {
+    playAs: 'photo',
+    isolateSubject: isolated,
+    referenceIsolated: isolated && Boolean(plate.isolatedUrl),
+    referenceImageUrl: queueUrl,
+    referenceImageFilename: queueFilename,
+    referenceOriginalUrl: plate.originalUrl,
+    referenceOriginalFilename: plate.originalFilename,
+  };
+}
+
+export function newCharacterPlateId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `plate-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}

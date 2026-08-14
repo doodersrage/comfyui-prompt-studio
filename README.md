@@ -85,6 +85,7 @@ Audio and 3D use **Audio** (`/audio`) and **3D Mesh** (`/mesh`). **WAN / Hunyuan
 | **Image → Prompt**  | `/image-prompt`    | Upload an image; vision LLM writes the prompt                                                                                                                                 |
 | **Inpaint**         | `/inpaint`         | Mask a region and queue FLUX/Qwen inpaint with `{{INPUT_IMAGE}}` / `{{MASK_IMAGE}}`                                                                                           |
 | **Outpaint**        | `/outpaint`        | Expand canvas borders (pad + mask) and queue through the inpaint path with Final quality recipes                                                                              |
+| **Mobile Studio**   | `/m`               | Phone companion: capture a character plate (isolate on white), watch the queue, rate gallery stills, Play Roleplay from photo |
 | **Compose**         | `/compose`         | Multi-image transfer / edit with optional identity lock, Isolate on white for Image 1, regional edit, and gallery re-edit handoffs |
 | **Workflow editor** | `/workflow-editor` | Edit Comfy API graphs (React Flow), save to library, queue                                                                                                                    |
 | **Audio**           | `/audio`           | Stable Audio prompts + `{{AUDIO_SECONDS}}`                                                                                                                                    |

@@ -16,6 +16,7 @@ const PROMPT_TOOL_PATHS = new Set([
   '/pet',
   '/fantasy',
   '/roleplay',
+  '/m/play',
   '/variations',
   '/image-prompt',
 ]);

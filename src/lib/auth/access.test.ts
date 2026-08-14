@@ -16,6 +16,11 @@ describe("auth features", () => {
     assert.equal(featureForPath("/api/diffusers/status"), "comfyui-api");
     assert.equal(featureForPath("/roleplay"), "roleplay");
     assert.equal(featureForPath("/api/roleplay"), "llm-api");
+    assert.equal(featureForPath("/m"), "gallery");
+    assert.equal(featureForPath("/m/capture"), "gallery");
+    assert.equal(featureForPath("/m/queue"), "queue");
+    assert.equal(featureForPath("/m/gallery"), "gallery");
+    assert.equal(featureForPath("/m/play"), "roleplay");
   });
 });
 

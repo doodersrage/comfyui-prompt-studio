@@ -24,7 +24,7 @@ import {
   galleryEntryPrimaryViewUrl,
   loadComfyGallery,
 } from '@/lib/comfyui-gallery';
-import { persistIdentityImage } from '@/lib/gallery-media-client';
+import { cacheBustIdentityMediaUrl, persistIdentityImage } from '@/lib/gallery-media-client';
 import { galleryPickPath } from '@/lib/gallery-handoff';
 import { isolateSubjectOnWhite } from '@/lib/isolate-subject';
 import { resolveQueueInputImage } from '@/lib/queue-input-image';
@@ -194,14 +194,11 @@ export default function RoleplayTool() {
               if (previous?.startsWith('blob:') && previous !== cutoutPreview) {
                 URL.revokeObjectURL(previous);
               }
-              return cutoutDurable || cutoutPreview;
+              return cutoutPreview;
             });
             queueFilename = cutoutFilename;
             queueUrl = cutoutDurable || cutoutPreview;
             isolated = true;
-            if (cutoutDurable && cutoutPreview.startsWith('blob:')) {
-              URL.revokeObjectURL(cutoutPreview);
-            }
           } catch (err) {
             isolated = false;
             setIsolateStatus(null);
@@ -213,7 +210,7 @@ export default function RoleplayTool() {
           }
         }
 
-        if (originalUrl && localPreview.startsWith('blob:') && originalUrl !== localPreview) {
+        if (isolated && localPreview.startsWith('blob:')) {
           URL.revokeObjectURL(localPreview);
         }
         updateToolSettings({
@@ -227,8 +224,8 @@ export default function RoleplayTool() {
           referenceImageUrl: queueUrl,
           referenceIsolated: isolated,
         });
-        if (!isolated) {
-          setReferencePreviewUrl(originalUrl);
+        if (!isolated && !localPreview.startsWith('blob:')) {
+          setReferencePreviewUrl(cacheBustIdentityMediaUrl(originalUrl));
         }
         setIsolateStatus(isolated ? 'Subject isolated on white.' : null);
       } catch (err) {
@@ -786,7 +783,9 @@ export default function RoleplayTool() {
                         referenceImageUrl: referenceOriginalUrl || referenceImageUrl,
                       });
                       if (referenceOriginalUrl || referenceImageUrl) {
-                        setReferencePreviewUrl(referenceOriginalUrl || referenceImageUrl);
+                        setReferencePreviewUrl(
+                          cacheBustIdentityMediaUrl(referenceOriginalUrl || referenceImageUrl)
+                        );
                       }
                       setIsolateStatus(null);
                       return;
@@ -857,6 +856,7 @@ export default function RoleplayTool() {
               {displayReferenceUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element -- session blob / comfy preview
                 <img
+                  key={displayReferenceUrl}
                   src={displayReferenceUrl}
                   alt="Roleplay reference"
                   className="h-24 w-24 rounded-lg border border-[var(--border-subtle)] bg-white object-contain"
