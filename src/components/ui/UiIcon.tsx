@@ -1,4 +1,13 @@
-type UiIconName = 'play' | 'pending' | 'download' | 'pause' | 'close' | 'check';
+type UiIconName =
+  | 'play'
+  | 'pending'
+  | 'download'
+  | 'pause'
+  | 'close'
+  | 'check'
+  | 'retry'
+  | 'chevronLeft'
+  | 'chevronRight';
 
 const common = {
   fill: 'none',
@@ -53,6 +62,16 @@ export default function UiIcon({
         </>
       ) : null}
       {name === 'check' ? <path d="M3.5 8.25 6.5 11l6-6.5" /> : null}
+      {name === 'retry' ? (
+        <>
+          <path d="M3.75 8A4.25 4.25 0 0 1 11 4.6" />
+          <path d="M11.25 2.75v2.75h-2.75" />
+          <path d="M12.25 8A4.25 4.25 0 0 1 5 11.4" />
+          <path d="M4.75 13.25V10.5H7.5" />
+        </>
+      ) : null}
+      {name === 'chevronLeft' ? <path d="M10 3.5 5.5 8 10 12.5" /> : null}
+      {name === 'chevronRight' ? <path d="M6 3.5 10.5 8 6 12.5" /> : null}
     </svg>
   );
 }

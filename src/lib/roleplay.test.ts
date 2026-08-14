@@ -19,6 +19,8 @@ import {
   isRoleplayAdultContent,
   lastRoleplayPlotBeat,
   lastRoleplayStillImage,
+  lastCompletedRoleplayStillUrl,
+  MAX_ROLEPLAY_STILL_TAKES,
   normalizeRoleplayIsolateSubject,
   normalizeRoleplayPlayAs,
   resolveRoleplaySetting,
@@ -28,6 +30,12 @@ import {
   ROLEPLAY_SETTING_PRESETS,
   roleplayIntroScene,
   roleplayStillBasename,
+  roleplayStillTakes,
+  roleplayStoryPromptIds,
+  beginRoleplayStillRetryPatch,
+  canRetryRoleplayStill,
+  roleplayStillQueueResultPatch,
+  selectRoleplayStillTakePatch,
   ROLEPLAY_ARCHETYPES,
   ROLEPLAY_INTRO_SCENE_ID,
   formatRoleplayStoryMarkdown,
@@ -301,6 +309,84 @@ describe('roleplay parsers', () => {
     assert.equal(done.changed, true);
     assert.equal(done.story[0]?.stillStatus, 'completed');
     assert.equal(done.story[0]?.imageUrl, '/view/1.png');
+  });
+
+  it('archives completed stills on retry and hydrates every take from the gallery', () => {
+    const beat = {
+      id: 'intro',
+      title: 'First look',
+      blurb: 'hi',
+      at: 1,
+      prompt: 'a raccoon',
+      promptId: 'job-1',
+      imageUrl: '/view/1.png',
+      stillStatus: 'completed' as const,
+    };
+    assert.equal(canRetryRoleplayStill(beat), true);
+    assert.equal(canRetryRoleplayStill({ ...beat, prompt: undefined }), false);
+
+    const retrying = { ...beat, ...beginRoleplayStillRetryPatch(beat) };
+    assert.equal(retrying.stillTakes?.length, 2);
+    assert.equal(retrying.stillTakes?.[0]?.imageUrl, '/view/1.png');
+    assert.equal(retrying.promptId, undefined);
+    assert.equal(retrying.stillStatus, 'writing');
+    assert.equal(canRetryRoleplayStill(retrying), false);
+    assert.equal(lastCompletedRoleplayStillUrl(retrying), '/view/1.png');
+    assert.equal(lastRoleplayStillImage([retrying])?.url, '/view/1.png');
+
+    const queued = { ...retrying, ...roleplayStillQueueResultPatch(retrying, 'job-2') };
+    assert.equal(queued.promptId, 'job-2');
+    assert.equal(queued.stillStatus, 'queued');
+    assert.deepEqual(roleplayStoryPromptIds([queued]), ['job-1', 'job-2']);
+
+    const done = mergeRoleplayStoryStills([queued], [
+      { promptId: 'job-1', status: 'completed', imageUrl: '/view/1.png' },
+      { promptId: 'job-2', status: 'completed', imageUrl: '/view/2.png' },
+    ]);
+    assert.equal(done.changed, true);
+    assert.equal(done.story[0]?.imageUrl, '/view/2.png');
+    assert.equal(done.story[0]?.stillTakes?.[0]?.imageUrl, '/view/1.png');
+    assert.equal(done.story[0]?.stillTakes?.[1]?.imageUrl, '/view/2.png');
+
+    const selected = {
+      ...done.story[0]!,
+      ...selectRoleplayStillTakePatch(done.story[0]!, 0),
+    };
+    assert.equal(selected.imageUrl, '/view/1.png');
+    assert.equal(selected.stillTakeIndex, 0);
+    assert.equal(selected.promptId, 'job-1');
+
+    const later = mergeRoleplayStoryStills([selected], [
+      { promptId: 'job-2', status: 'completed', imageUrl: '/view/2b.png' },
+    ]);
+    assert.equal(later.story[0]?.imageUrl, '/view/1.png');
+    assert.equal(later.story[0]?.stillTakeIndex, 0);
+    assert.equal(later.story[0]?.stillTakes?.[1]?.imageUrl, '/view/2b.png');
+  });
+
+  it('caps archived still takes when retrying', () => {
+    const stillTakes = Array.from({ length: MAX_ROLEPLAY_STILL_TAKES }, (_, index) => ({
+      promptId: `job-${index}`,
+      imageUrl: `/view/${index}.png`,
+      stillStatus: 'completed' as const,
+    }));
+    const beat = {
+      id: 'intro',
+      title: 'First look',
+      blurb: 'hi',
+      at: 1,
+      prompt: 'a raccoon',
+      promptId: 'job-7',
+      imageUrl: '/view/7.png',
+      stillStatus: 'completed' as const,
+      stillTakes,
+      stillTakeIndex: 7,
+    };
+    assert.equal(roleplayStillTakes(beat).length, MAX_ROLEPLAY_STILL_TAKES);
+    const retrying = beginRoleplayStillRetryPatch(beat);
+    assert.equal(retrying.stillTakes?.length, MAX_ROLEPLAY_STILL_TAKES);
+    assert.equal(retrying.stillTakes?.[0]?.promptId, 'job-1');
+    assert.equal(retrying.stillTakes?.at(-1)?.stillStatus, 'writing');
   });
 
   it('keeps unique starter parts and includes the new cast', () => {

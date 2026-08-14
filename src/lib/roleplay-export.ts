@@ -6,6 +6,8 @@ import {
 } from './comfyui-gallery';
 import {
   formatRoleplayStoryMarkdown,
+  lastCompletedRoleplayStillUrl,
+  roleplayBeatPromptIds,
   roleplayStillBasename,
   slugRoleplayExportPart,
   type RoleplayBio,
@@ -44,25 +46,35 @@ function extFromResponse(contentType: string | null, url: string): string {
   return 'png';
 }
 
+function galleryUrlForPromptId(promptId: string | undefined): string | null {
+  const id = promptId?.trim();
+  if (!id) {
+    return null;
+  }
+  const entry = loadComfyGallery().find(item => item.promptId === id);
+  if (!entry) {
+    return null;
+  }
+  return (
+    galleryEntryLightboxUrls(entry)[0]?.trim() || galleryEntryPrimaryViewUrl(entry)?.trim() || null
+  );
+}
+
 function stillUrlForBeat(beat: RoleplayStoryBeat): string | null {
-  const promptId = beat.promptId?.trim();
-  if (promptId) {
-    const entry = loadComfyGallery().find(item => item.promptId === promptId);
-    if (entry) {
-      const lightbox = galleryEntryLightboxUrls(entry)[0]?.trim();
-      if (lightbox) {
-        return lightbox;
-      }
-      const view = galleryEntryPrimaryViewUrl(entry)?.trim();
-      if (view) {
-        return view;
-      }
+  const shown = galleryUrlForPromptId(beat.promptId);
+  if (shown) {
+    return shown;
+  }
+  if (beat.stillStatus === 'completed' && beat.imageUrl?.trim()) {
+    return beat.imageUrl.trim();
+  }
+  for (const promptId of [...roleplayBeatPromptIds(beat)].reverse()) {
+    const url = galleryUrlForPromptId(promptId);
+    if (url) {
+      return url;
     }
   }
-  if (beat.stillStatus === 'completed') {
-    return beat.imageUrl?.trim() || null;
-  }
-  return null;
+  return lastCompletedRoleplayStillUrl(beat);
 }
 
 export async function downloadRoleplayUrl(url: string, filename: string): Promise<void> {

@@ -1,16 +1,22 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { Button, Spinner } from '@/components/ui/Button';
 import type { ImageLightboxState } from '@/components/ui/ImageLightbox';
+import UiIcon from '@/components/ui/UiIcon';
 import { downloadRoleplayUrl } from '@/lib/roleplay-export';
 import {
   COMFY_LIVE_PREVIEW_UPDATED_EVENT,
   getComfyLivePreviewUrl,
 } from '@/lib/comfyui-live-preview-store';
 import {
+  canRetryRoleplayStill,
+  lastCompletedRoleplayStillUrl,
   roleplayStillBasename,
+  roleplayStillTakes,
+  roleplayStillTakeIndex,
+  roleplayStoryPromptIds,
   type RoleplayStillStatus,
   type RoleplayStoryBeat,
 } from '@/lib/roleplay';
@@ -56,79 +62,138 @@ function beatPreviewUrl(beat: RoleplayStoryBeat, liveUrl: string | null): string
   return liveUrl?.trim() || null;
 }
 
+function beatDisplayUrl(beat: RoleplayStoryBeat, liveUrl: string | null): string | null {
+  return beatPreviewUrl(beat, liveUrl) || lastCompletedRoleplayStillUrl(beat);
+}
+
+const overlayBtnClass =
+  'flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-[var(--bg-base)]/80 text-[var(--text-primary)] shadow-sm backdrop-blur-sm transition hover:bg-[var(--bg-base)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:opacity-40';
+
 function RoleplayStillFrame({
   beat,
   liveUrl,
   onOpen,
+  onRetry,
+  onSelectTake,
 }: {
   beat: RoleplayStoryBeat;
   liveUrl: string | null;
   onOpen?: () => void;
+  onRetry?: () => void;
+  onSelectTake?: (index: number) => void;
 }) {
+  const takes = roleplayStillTakes(beat);
+  const takeIndex = roleplayStillTakeIndex(beat);
   const completedUrl = beat.stillStatus === 'completed' ? beat.imageUrl : undefined;
-  const previewUrl = beatPreviewUrl(beat, liveUrl);
+  const openableUrl = beatPreviewUrl(beat, liveUrl);
+  const displayUrl = beatDisplayUrl(beat, liveUrl);
+  const ghost = Boolean(displayUrl && !openableUrl);
   const busy = isBusyStatus(beat.stillStatus) || Boolean(liveUrl && !completedUrl);
   const label = stillLabel(beat, liveUrl);
-  const clickable = Boolean(previewUrl && onOpen);
+  const clickable = Boolean(openableUrl && onOpen);
+  const canRetry = Boolean(onRetry && canRetryRoleplayStill(beat));
+  const canPage = Boolean(onSelectTake && takes.length > 1);
 
   const frameClass =
     'relative aspect-[4/5] overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-muted)]/40';
 
-  const body = (
-    <>
-      {previewUrl ? (
+  const stop = (event: MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  return (
+    <div className={frameClass} role="status" aria-live="polite" aria-busy={busy || undefined}>
+      {displayUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={previewUrl}
+          src={displayUrl}
           alt={beat.title}
-          className={`h-full w-full object-cover ${completedUrl ? '' : 'opacity-80'}`}
+          className={`h-full w-full object-cover ${completedUrl && !ghost ? '' : 'opacity-80'}`}
         />
       ) : null}
 
-      {busy && !previewUrl ? (
-        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-3 px-4 text-center">
+      {clickable ? (
+        <button
+          type="button"
+          onClick={onOpen}
+          className="absolute inset-0 z-10 cursor-zoom-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent-ring)]"
+          aria-label={`Open ${beat.title} full size`}
+        />
+      ) : null}
+
+      {busy && !displayUrl ? (
+        <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 px-4 text-center">
           <Spinner size="lg" />
           <p className="type-caption text-[var(--accent-text)]">{label}</p>
         </div>
       ) : null}
 
-      {busy && previewUrl ? (
+      {busy && displayUrl ? (
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex items-center justify-center gap-2 bg-[var(--bg-base)]/70 px-3 py-2 backdrop-blur-sm">
           <Spinner size="sm" />
           <p className="type-caption text-[var(--accent-text)]">{label}</p>
         </div>
       ) : null}
 
-      {beat.stillStatus === 'error' && !previewUrl ? (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-4 text-center">
+      {beat.stillStatus === 'error' && !displayUrl ? (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center px-4 text-center">
           <p className="type-caption text-[var(--tint-danger-text)]">{label}</p>
         </div>
       ) : null}
 
-      {!busy && !previewUrl && beat.stillStatus !== 'error' ? (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-4 text-center">
+      {!busy && !displayUrl && beat.stillStatus !== 'error' ? (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center px-4 text-center">
           <p className="type-caption text-[var(--text-muted)]">{label}</p>
         </div>
       ) : null}
-    </>
-  );
 
-  if (clickable) {
-    return (
-      <button
-        type="button"
-        onClick={onOpen}
-        className={`${frameClass} cursor-zoom-in transition hover:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]`}
-        aria-label={`Open ${beat.title} full size`}
-      >
-        {body}
-      </button>
-    );
-  }
+      {canPage ? (
+        <>
+          <button
+            type="button"
+            className={`${overlayBtnClass} absolute left-1.5 top-1/2 z-20 -translate-y-1/2`}
+            aria-label="Previous still version"
+            disabled={takeIndex <= 0}
+            onClick={event => {
+              stop(event);
+              onSelectTake?.(takeIndex - 1);
+            }}
+          >
+            <UiIcon name="chevronLeft" size={14} />
+          </button>
+          <button
+            type="button"
+            className={`${overlayBtnClass} absolute right-1.5 top-1/2 z-20 -translate-y-1/2`}
+            aria-label="Next still version"
+            disabled={takeIndex >= takes.length - 1}
+            onClick={event => {
+              stop(event);
+              onSelectTake?.(takeIndex + 1);
+            }}
+          >
+            <UiIcon name="chevronRight" size={14} />
+          </button>
+          <p className="pointer-events-none absolute left-1.5 top-1.5 z-20 rounded-full bg-[var(--bg-base)]/75 px-2 py-0.5 type-caption text-[var(--text-secondary)] backdrop-blur-sm">
+            {takeIndex + 1} / {takes.length}
+          </p>
+        </>
+      ) : null}
 
-  return (
-    <div className={frameClass} role="status" aria-live="polite" aria-busy={busy || undefined}>
-      {body}
+      {canRetry ? (
+        <button
+          type="button"
+          className={`${overlayBtnClass} absolute right-1.5 top-1.5 z-20`}
+          aria-label="Generate another still with a new seed"
+          title="Generate another still"
+          onClick={event => {
+            stop(event);
+            onRetry?.();
+          }}
+        >
+          <UiIcon name="retry" size={14} />
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -138,16 +203,17 @@ export default function RoleplayStoryReel({
   busy = false,
   onQueue,
   onCopy,
+  onRetry,
+  onSelectTake,
 }: {
   story: RoleplayStoryBeat[];
   busy?: boolean;
   onQueue?: (beat: RoleplayStoryBeat) => void;
   onCopy?: (beat: RoleplayStoryBeat) => void;
+  onRetry?: (beat: RoleplayStoryBeat) => void;
+  onSelectTake?: (beat: RoleplayStoryBeat, index: number) => void;
 }) {
-  const promptIds = useMemo(
-    () => story.map(beat => beat.promptId).filter((id): id is string => Boolean(id?.trim())),
-    [story]
-  );
+  const promptIds = useMemo(() => roleplayStoryPromptIds(story), [story]);
   const promptKey = promptIds.join('|');
   const [liveUrls, setLiveUrls] = useState<Record<string, string | null>>({});
   const [lightbox, setLightbox] = useState<ImageLightboxState | null>(null);
@@ -266,7 +332,20 @@ export default function RoleplayStoryReel({
       <ol className="grid gap-4 sm:grid-cols-2">
         {story.map((beat, index) => {
           const liveUrl = beat.promptId ? (liveUrls[beat.promptId] ?? null) : null;
-          const canQueue = Boolean(beat.prompt && !beat.promptId && onQueue);
+          const takes = roleplayStillTakes(beat);
+          const canQueue = Boolean(
+            beat.prompt &&
+            onQueue &&
+            !beat.promptId &&
+            !takes.some(
+              take =>
+                take.promptId ||
+                take.imageUrl ||
+                take.stillStatus === 'completed' ||
+                take.stillStatus === 'error' ||
+                isBusyStatus(take.stillStatus)
+            )
+          );
           const canCopy = Boolean(beat.prompt && onCopy);
           const canOpen = Boolean(beatPreviewUrl(beat, liveUrl));
           return (
@@ -276,6 +355,10 @@ export default function RoleplayStoryReel({
                   beat={beat}
                   liveUrl={liveUrl}
                   onOpen={canOpen ? () => openStill(beat) : undefined}
+                  onRetry={onRetry ? () => onRetry(beat) : undefined}
+                  onSelectTake={
+                    onSelectTake ? nextIndex => onSelectTake(beat, nextIndex) : undefined
+                  }
                 />
                 <div className="space-y-1">
                   <p className="text-sm font-medium text-[var(--text-primary)]">

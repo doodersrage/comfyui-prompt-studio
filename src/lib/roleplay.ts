@@ -21,13 +21,24 @@ export type RoleplayScene = {
 
 export type RoleplayStillStatus = 'writing' | 'queued' | 'running' | 'completed' | 'error';
 
+export type RoleplayStillTake = {
+  promptId?: string;
+  imageUrl?: string;
+  stillStatus?: RoleplayStillStatus;
+};
+
 export type RoleplayStoryBeat = RoleplayScene & {
   at: number;
   prompt?: string;
   promptId?: string;
   imageUrl?: string;
   stillStatus?: RoleplayStillStatus;
+  /** All still takes for this beat; `promptId` / `imageUrl` / `stillStatus` mirror the shown take. */
+  stillTakes?: RoleplayStillTake[];
+  stillTakeIndex?: number;
 };
+
+export const MAX_ROLEPLAY_STILL_TAKES = 8;
 
 export type RoleplayArchetype = {
   id: string;
@@ -918,8 +929,11 @@ export function lastRoleplayStillImage(
 ): { url: string; title: string } | null {
   for (let index = (story ?? []).length - 1; index >= 0; index -= 1) {
     const beat = story?.[index];
-    const url = beat?.imageUrl?.trim();
-    if (!beat || !url) {
+    if (!beat) {
+      continue;
+    }
+    const url = lastCompletedRoleplayStillUrl(beat) || beat.imageUrl?.trim();
+    if (!url) {
       continue;
     }
     return { url, title: beat.title.trim() || 'Still' };
@@ -1376,7 +1390,12 @@ export const MAX_ROLEPLAY_STORY_BEATS = 12;
 export function appendRoleplayStoryBeat(
   story: RoleplayStoryBeat[] | undefined,
   scene: RoleplayScene,
-  extras?: Partial<Pick<RoleplayStoryBeat, 'prompt' | 'promptId' | 'imageUrl' | 'stillStatus'>>
+  extras?: Partial<
+    Pick<
+      RoleplayStoryBeat,
+      'prompt' | 'promptId' | 'imageUrl' | 'stillStatus' | 'stillTakes' | 'stillTakeIndex'
+    >
+  >
 ): RoleplayStoryBeat[] {
   const next: RoleplayStoryBeat = { ...scene, at: Date.now(), ...extras };
   return [...(story ?? []), next].slice(-MAX_ROLEPLAY_STORY_BEATS);
@@ -1407,6 +1426,208 @@ function stillStatusFromGallery(
   return status;
 }
 
+function takeHasStill(take: RoleplayStillTake): boolean {
+  return Boolean(take.promptId?.trim() || take.imageUrl?.trim() || take.stillStatus);
+}
+
+function activeFieldsFromTake(
+  take: RoleplayStillTake | undefined
+): Pick<RoleplayStoryBeat, 'promptId' | 'imageUrl' | 'stillStatus'> {
+  return {
+    promptId: take?.promptId,
+    imageUrl: take?.imageUrl,
+    stillStatus: take?.stillStatus,
+  };
+}
+
+export function roleplayStillTakes(beat: RoleplayStoryBeat): RoleplayStillTake[] {
+  const stored = Array.isArray(beat.stillTakes) ? beat.stillTakes.filter(takeHasStill) : [];
+  const current: RoleplayStillTake = {
+    promptId: beat.promptId,
+    imageUrl: beat.imageUrl,
+    stillStatus: beat.stillStatus,
+  };
+  if (stored.length === 0) {
+    return takeHasStill(current) ? [current] : [];
+  }
+  if (!takeHasStill(current)) {
+    return stored.slice(-MAX_ROLEPLAY_STILL_TAKES);
+  }
+  const index =
+    typeof beat.stillTakeIndex === 'number' &&
+    Number.isInteger(beat.stillTakeIndex) &&
+    beat.stillTakeIndex >= 0 &&
+    beat.stillTakeIndex < stored.length
+      ? beat.stillTakeIndex
+      : stored.length - 1;
+  const overlay = (take: RoleplayStillTake): RoleplayStillTake => ({
+    promptId: current.promptId ?? take.promptId,
+    imageUrl: current.imageUrl ?? take.imageUrl,
+    stillStatus: current.stillStatus ?? take.stillStatus,
+  });
+  const currentId = current.promptId?.trim();
+  if (currentId) {
+    const found = stored.findIndex(take => take.promptId?.trim() === currentId);
+    if (found >= 0) {
+      return stored.map((take, takeIndex) => (takeIndex === found ? overlay(take) : take));
+    }
+    return [...stored, current].slice(-MAX_ROLEPLAY_STILL_TAKES);
+  }
+  return stored.map((take, takeIndex) => (takeIndex === index ? overlay(take) : take));
+}
+
+export function roleplayStillTakeIndex(beat: RoleplayStoryBeat): number {
+  const takes = roleplayStillTakes(beat);
+  if (takes.length === 0) {
+    return 0;
+  }
+  if (
+    typeof beat.stillTakeIndex === 'number' &&
+    Number.isInteger(beat.stillTakeIndex) &&
+    beat.stillTakeIndex >= 0 &&
+    beat.stillTakeIndex < takes.length
+  ) {
+    return beat.stillTakeIndex;
+  }
+  const currentId = beat.promptId?.trim();
+  if (currentId) {
+    const found = takes.findIndex(take => take.promptId?.trim() === currentId);
+    if (found >= 0) {
+      return found;
+    }
+  }
+  return takes.length - 1;
+}
+
+export function shownRoleplayStillTake(beat: RoleplayStoryBeat): RoleplayStillTake | undefined {
+  const takes = roleplayStillTakes(beat);
+  return takes[roleplayStillTakeIndex(beat)];
+}
+
+export function lastCompletedRoleplayStillUrl(beat: RoleplayStoryBeat): string | null {
+  const takes = roleplayStillTakes(beat);
+  for (let index = takes.length - 1; index >= 0; index -= 1) {
+    const url = takes[index]?.stillStatus === 'completed' ? takes[index]?.imageUrl?.trim() : '';
+    if (url) {
+      return url;
+    }
+  }
+  return beat.stillStatus === 'completed' ? beat.imageUrl?.trim() || null : null;
+}
+
+export function roleplayBeatPromptIds(beat: RoleplayStoryBeat): string[] {
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  for (const take of roleplayStillTakes(beat)) {
+    const id = take.promptId?.trim();
+    if (id && !seen.has(id)) {
+      seen.add(id);
+      ids.push(id);
+    }
+  }
+  const current = beat.promptId?.trim();
+  if (current && !seen.has(current)) {
+    ids.push(current);
+  }
+  return ids;
+}
+
+export function roleplayStoryPromptIds(story: RoleplayStoryBeat[] | undefined): string[] {
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  for (const beat of story ?? []) {
+    for (const id of roleplayBeatPromptIds(beat)) {
+      if (!seen.has(id)) {
+        seen.add(id);
+        ids.push(id);
+      }
+    }
+  }
+  return ids;
+}
+
+export function roleplayStillHasInFlightTake(beat: RoleplayStoryBeat): boolean {
+  return roleplayStillTakes(beat).some(
+    take =>
+      take.stillStatus === 'writing' ||
+      take.stillStatus === 'queued' ||
+      take.stillStatus === 'running'
+  );
+}
+
+export function canRetryRoleplayStill(beat: RoleplayStoryBeat): boolean {
+  if (!beat.prompt?.trim() || roleplayStillHasInFlightTake(beat)) {
+    return false;
+  }
+  return roleplayStillTakes(beat).some(
+    take =>
+      take.stillStatus === 'completed' ||
+      take.stillStatus === 'error' ||
+      Boolean(take.promptId?.trim()) ||
+      Boolean(take.imageUrl?.trim())
+  );
+}
+
+export function selectRoleplayStillTakePatch(
+  beat: RoleplayStoryBeat,
+  index: number
+): Partial<RoleplayStoryBeat> {
+  const takes = roleplayStillTakes(beat);
+  if (takes.length === 0) {
+    return {};
+  }
+  const nextIndex = Math.max(0, Math.min(takes.length - 1, Math.trunc(index)));
+  return {
+    stillTakes: takes,
+    stillTakeIndex: nextIndex,
+    ...activeFieldsFromTake(takes[nextIndex]),
+  };
+}
+
+export function beginRoleplayStillRetryPatch(beat: RoleplayStoryBeat): Partial<RoleplayStoryBeat> {
+  const previous = roleplayStillTakes(beat).filter(take =>
+    Boolean(take.promptId?.trim() || take.imageUrl?.trim())
+  );
+  const capped = previous.slice(-(MAX_ROLEPLAY_STILL_TAKES - 1));
+  const nextTakes: RoleplayStillTake[] = [...capped, { stillStatus: 'writing' }];
+  return {
+    stillTakes: nextTakes,
+    stillTakeIndex: nextTakes.length - 1,
+    promptId: undefined,
+    imageUrl: undefined,
+    stillStatus: 'writing',
+  };
+}
+
+export function roleplayStillQueueResultPatch(
+  beat: RoleplayStoryBeat,
+  promptId: string | undefined
+): Partial<RoleplayStoryBeat> {
+  const status: RoleplayStillStatus = promptId ? 'queued' : 'error';
+  const takes = roleplayStillTakes(beat);
+  const nextTake: RoleplayStillTake = { promptId, stillStatus: status };
+  if (takes.length === 0) {
+    return {
+      stillTakes: [nextTake],
+      stillTakeIndex: 0,
+      promptId,
+      imageUrl: undefined,
+      stillStatus: status,
+    };
+  }
+  const index = roleplayStillTakeIndex(beat);
+  const nextTakes = takes.map((take, takeIndex) =>
+    takeIndex === index ? { ...take, promptId, stillStatus: status } : take
+  );
+  return {
+    stillTakes: nextTakes,
+    stillTakeIndex: index,
+    promptId,
+    imageUrl: nextTakes[index]?.imageUrl,
+    stillStatus: status,
+  };
+}
+
 export function mergeRoleplayStoryStills(
   story: RoleplayStoryBeat[] | undefined,
   stills: RoleplayGalleryStill[]
@@ -1416,21 +1637,41 @@ export function mergeRoleplayStoryStills(
   );
   let changed = false;
   const next = (story ?? []).map(beat => {
-    const promptId = beat.promptId?.trim();
-    if (!promptId) {
+    const takes = roleplayStillTakes(beat);
+    if (takes.length === 0) {
       return beat;
     }
-    const match = byPromptId.get(promptId);
-    if (!match) {
-      return beat;
-    }
-    const imageUrl = match.imageUrl?.trim() || beat.imageUrl;
-    const stillStatus = stillStatusFromGallery(match.status);
-    if (beat.imageUrl === imageUrl && beat.stillStatus === stillStatus) {
+    let takeChanged = false;
+    const updatedTakes = takes.map(take => {
+      const id = take.promptId?.trim();
+      if (!id) {
+        return take;
+      }
+      const match = byPromptId.get(id);
+      if (!match) {
+        return take;
+      }
+      const imageUrl = match.imageUrl?.trim() || take.imageUrl;
+      const stillStatus = stillStatusFromGallery(match.status);
+      if (take.imageUrl === imageUrl && take.stillStatus === stillStatus) {
+        return take;
+      }
+      takeChanged = true;
+      return { ...take, imageUrl, stillStatus };
+    });
+    if (!takeChanged) {
       return beat;
     }
     changed = true;
-    return { ...beat, imageUrl, stillStatus };
+    const indexedBeat = { ...beat, stillTakes: updatedTakes };
+    const index = roleplayStillTakeIndex(indexedBeat);
+    const shown = updatedTakes[index];
+    return {
+      ...beat,
+      stillTakes: updatedTakes,
+      stillTakeIndex: index,
+      ...activeFieldsFromTake(shown),
+    };
   });
   return { story: next, changed };
 }
