@@ -34,6 +34,7 @@ export const TOOL_SETUP_LABELS = {
   settings: 'Settings',
   studio: 'Studio',
   nsfwGenerator: 'Adult generator',
+  roleplay: 'Roleplay',
   dashboard: 'Dashboard',
   profile: 'Profile',
 } as const;

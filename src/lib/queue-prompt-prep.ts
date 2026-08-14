@@ -371,7 +371,8 @@ export async function prepareQueuePrompts(input: {
     input.tool === 'generate' ||
     input.tool === 'gallery-mutate' ||
     input.tool === 'pet' ||
-    input.tool === 'fantasy';
+    input.tool === 'fantasy' ||
+    input.tool === 'roleplay';
   if (
     !distilledCfg1 &&
     modelUsesNegativePrompt(input.model) &&

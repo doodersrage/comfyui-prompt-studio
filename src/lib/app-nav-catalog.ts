@@ -40,6 +40,11 @@ export const APP_NAV_GROUPS: AppNavGroup[] = [
       { href: '/background', label: 'Background', description: 'No people' },
       { href: '/pet', label: 'Pet', description: 'Dogs, cats & more' },
       { href: '/fantasy', label: 'Fantasy', description: 'Magic & myth' },
+      {
+        href: '/roleplay',
+        label: 'Roleplay',
+        description: 'Be someone. Pick a scene. Get a still.',
+      },
     ],
   },
   {

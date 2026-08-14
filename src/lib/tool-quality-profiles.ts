@@ -24,6 +24,7 @@ export const TOOL_QUEUE_QUALITY_OPTIONS: ToolQueueQualityOption[] = [
   { id: 'duo', label: 'Duo' },
   { id: 'pet', label: 'Pet' },
   { id: 'fantasy', label: 'Fantasy' },
+  { id: 'roleplay', label: 'Roleplay' },
   { id: 'background', label: 'Background' },
   { id: 'recipe', label: 'Prompt recipes' },
   { id: 'campaign', label: 'Campaign' },
@@ -51,6 +52,7 @@ export const SUGGESTED_TOOL_QUEUE_QUALITY_PROFILES: ToolQueueQualityProfiles = {
   duo: 'final',
   pet: 'final',
   fantasy: 'final',
+  roleplay: 'final',
   background: 'final',
   format: 'followSettings',
 };

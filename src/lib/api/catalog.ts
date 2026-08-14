@@ -319,6 +319,13 @@ export function buildApiCatalog(baseUrl: string) {
         path: '/api/fantasy',
       },
       {
+        id: 'roleplay',
+        name: 'Roleplay',
+        description: 'Cast a character, roll story beats, and write still prompts.',
+        method: 'POST',
+        path: '/api/roleplay',
+      },
+      {
         id: 'background',
         name: 'Background',
         description: 'People-free environment prompts.',

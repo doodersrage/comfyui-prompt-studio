@@ -92,8 +92,8 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
       sport?: AthleticSport | null,
       historyId?: string,
       options?: object
-    ) => Promise<void>
-  >(async () => {});
+    ) => Promise<string | undefined>
+  >(async () => undefined);
 
   const resetStatuses = useCallback(() => {
     setHistorySaved(false);
@@ -1043,6 +1043,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             queueParams,
             completedAt: Date.now(),
           });
+          return queued.promptId;
         } catch (queueError) {
           queued.releaseLiveSocket();
           throw queueError;
@@ -1065,8 +1066,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
               model: config.model,
             });
             if (relocated.ok) {
-              await sendComfyUiRef.current(prompt, sport, historyId, options);
-              return;
+              return await sendComfyUiRef.current(prompt, sport, historyId, options);
             }
           }
         }

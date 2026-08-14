@@ -859,6 +859,16 @@ export type NsfwGeneratorToolCache = {
   duoOnly?: boolean;
 };
 
+export type RoleplayToolCache = {
+  personaId?: string;
+  customPersona?: string;
+  extraHints?: string;
+  tone?: import('./roleplay').RoleplayTone;
+  bio?: import('./roleplay').RoleplayBio;
+  story?: import('./roleplay').RoleplayStoryBeat[];
+  autoQueue?: boolean;
+};
+
 export type ImagePromptToolCache = {
   focus?: 'full' | 'subject' | 'background' | 'style';
   descriptionPreset?: import('./image-prompt-presets').ImagePromptDescriptionPreset;
@@ -934,6 +944,7 @@ export type ToolSettingsCache = {
   pet?: PetToolCache;
   fantasy?: FantasyToolCache;
   nsfwGenerator?: NsfwGeneratorToolCache;
+  roleplay?: RoleplayToolCache;
   character?: CharacterToolCache;
   imagePrompt?: ImagePromptToolCache;
   topics?: TopicToolCache;
@@ -1200,6 +1211,14 @@ export const DEFAULT_NSFW_GENERATOR_TOOL_CACHE: NsfwGeneratorToolCache = {
   hintSource: 'manual',
   wildness: 60,
   presetCategory: 'all',
+};
+
+export const DEFAULT_ROLEPLAY_TOOL_CACHE: RoleplayToolCache = {
+  personaId: 'raccoon-pirate',
+  customPersona: '',
+  extraHints: '',
+  tone: 'silly',
+  autoQueue: true,
 };
 
 export const DEFAULT_IMAGE_PROMPT_TOOL_CACHE: ImagePromptToolCache = {

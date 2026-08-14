@@ -77,6 +77,7 @@ export const ROUTE_ACCENT: Record<string, ToolAccent> = {
   '/background': 'teal',
   '/pet': 'rose',
   '/fantasy': 'violet',
+  '/roleplay': 'amber',
   '/plugins/nsfw-generator': 'fuchsia',
   '/image-prompt': 'fuchsia',
   '/refine': 'fuchsia',

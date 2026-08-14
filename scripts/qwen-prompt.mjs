@@ -109,6 +109,7 @@ Recipes-run: --prompt "..." --steps compact,format [--model sdxl-base]`);
     'topics-batch': '/api/topics/batch',
     pet: '/api/pet',
     fantasy: '/api/fantasy',
+    roleplay: '/api/roleplay',
     background: '/api/background',
     'random-scene': '/api/random-scene',
     refine: '/api/refine',

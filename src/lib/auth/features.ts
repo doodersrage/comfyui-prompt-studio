@@ -11,6 +11,11 @@ export const APP_FEATURES = [
   { id: 'pet', label: 'Pet', description: 'Pet scene generator' },
   { id: 'fantasy', label: 'Fantasy', description: 'Fantasy scene generator' },
   {
+    id: 'roleplay',
+    label: 'Roleplay',
+    description: 'Cast a character, pick story beats, queue stills',
+  },
+  {
     id: 'nsfw-generator',
     label: 'Adult generator',
     description: 'Env-gated NSFW scene generator plugin',
@@ -49,6 +54,7 @@ const PAGE_FEATURE_MAP: Array<{ prefix: string; feature: AppFeatureId }> = [
   { prefix: '/background', feature: 'background' },
   { prefix: '/pet', feature: 'pet' },
   { prefix: '/fantasy', feature: 'fantasy' },
+  { prefix: '/roleplay', feature: 'roleplay' },
   { prefix: '/plugins/nsfw-generator', feature: 'nsfw-generator' },
   { prefix: '/image-prompt', feature: 'image-prompt' },
   { prefix: '/refine', feature: 'refine' },
@@ -80,6 +86,7 @@ const API_FEATURE_MAP: Array<{ prefix: string; feature: AppFeatureId }> = [
   { prefix: '/api/background', feature: 'llm-api' },
   { prefix: '/api/pet', feature: 'llm-api' },
   { prefix: '/api/fantasy', feature: 'llm-api' },
+  { prefix: '/api/roleplay', feature: 'llm-api' },
   { prefix: '/api/nsfw-generate', feature: 'nsfw-generator' },
   { prefix: '/api/refine', feature: 'llm-api' },
   { prefix: '/api/format', feature: 'llm-api' },
