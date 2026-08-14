@@ -32,7 +32,7 @@ export async function POST(request: Request) {
       buffer,
       mimeType: file.type || 'image/png',
     });
-    return new NextResponse(new Uint8Array(png.buffer, png.byteOffset, png.byteLength), {
+    return new NextResponse(new Uint8Array(png), {
       status: 200,
       headers: {
         'Content-Type': 'image/png',
