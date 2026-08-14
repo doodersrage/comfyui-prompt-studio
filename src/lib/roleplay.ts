@@ -56,19 +56,19 @@ export const ROLEPLAY_CONTENT: Array<{
   {
     id: 'sultry',
     label: 'Sultry',
-    hint: 'Adult heat, lingering looks, revealing wardrobe',
+    hint: 'Erotic: skin, undress, sexual heat as the point of the still',
     group: 'adult',
   },
   {
     id: 'explicit',
     label: 'Explicit',
-    hint: 'NSFW stills, consenting adults only',
+    hint: 'Full NSFW: nudity, sex, anatomy named in the still',
     group: 'adult',
   },
   {
     id: 'raunchy',
     label: 'Raunchy',
-    hint: 'Adult comedy, crude, not necessarily pornographic',
+    hint: 'Crude sexual comedy — vulgar and graphic, not fade-to-black',
     group: 'adult',
   },
 ];

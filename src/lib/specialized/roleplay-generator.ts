@@ -60,6 +60,13 @@ function goreLine(allowGore: boolean): string {
     : 'No gore.';
 }
 
+function uncensoredAdultLine(content: RoleplayContentId): string {
+  if (!isRoleplayAdultContent(content)) {
+    return '';
+  }
+  return 'Uncensored. Do not sanitize, fade to black, refuse, hedge, or swap in a fully-clothed gag. Write the adult content this rating asks for. Consenting adults only. No minors.';
+}
+
 function contentLine(content: RoleplayContentId, allowGore: boolean): string {
   const gore = goreLine(allowGore);
   const adults = 'Consenting adults only. No minors. No lore dumps.';
@@ -70,13 +77,13 @@ function contentLine(content: RoleplayContentId, allowGore: boolean): string {
     return `Suggestive but not explicit: heat, lingering looks, implied, fade to black. No explicit nudity or sex. ${gore} ${adults}`;
   }
   if (content === 'sultry') {
-    return `Adult and specific. Sensual is welcome; wardrobe can be revealing. ${gore} ${adults}`;
+    return `Erotic NSFW. The still is about desire: skin, undress, lingerie or clothes coming off, body heat, sexual tension you can photograph. Describe cleavage, thighs, bare back, wet fabric, flushed skin, intimate distance. Not a polite portrait with a wink. ${gore} ${adults}`;
   }
   if (content === 'explicit') {
-    return `Explicit adult stills are allowed: nudity, sex, bodies, as a readable tableau. ${gore} ${adults}`;
+    return `Full explicit NSFW. Name nudity and sex as a readable tableau: genitals, breasts, ass, penetration, oral, hands on bodies, fluids, explicit pose. Be anatomical and specific — do not euphemize or cut away. ${gore} ${adults}`;
   }
   if (content === 'raunchy') {
-    return `Adult comedy: crude, vulgar, dirty jokes. Sex can be implied or slapstick; not necessarily pornographic unless the beat asks. ${gore} ${adults}`;
+    return `Raunchy sexual comedy. Crude, vulgar, graphic. The joke is sexual and on-camera (wardrobe malfunction, horny slapstick, explicit visual gag) — not a dirty one-liner over a clothed still. ${gore} ${adults}`;
   }
   return allowGore
     ? `Weird and specific. PG-13 language except gore. ${gore} No lore dumps.`
@@ -90,27 +97,34 @@ function sceneGuard(content: RoleplayContentId, allowGore: boolean): string {
     rating = 'Keep it all-ages. No innuendo.';
   } else if (content === 'suggestive') {
     rating = 'Suggestive is ok; no explicit sex or full nudity.';
-  } else if (isRoleplayAdultContent(content)) {
-    rating = 'Adult content matching the chosen rating is allowed. Consenting adults only.';
+  } else if (content === 'sultry') {
+    rating =
+      'Every option should be erotic: undress, skin, making out, grinding, a fuck-me look in a readable pose. Do not offer a tame fully-clothed branch.';
+  } else if (content === 'explicit') {
+    rating =
+      'Every option should be sexually explicit: sex in progress, oral, nude posing, hands on genitals — named in the blurb so the still can show it.';
+  } else if (content === 'raunchy') {
+    rating =
+      'Every option should be a crude sexual visual gag, not a clean joke with a dirty title.';
   }
   return `Do not repeat earlier story titles. ${rating} ${gore} No sexual content involving minors.`;
 }
 
 function promptStyleLine(content: RoleplayContentId, allowGore: boolean): string {
   if (allowGore && isRoleplayAdultContent(content)) {
-    return 'Adult or horrific, specific, visual. Gore may appear.';
+    return 'Graphic adult and/or horrific, specific, visual. Gore may appear.';
   }
   if (allowGore) {
     return 'Specific, visual. Gore may appear as a readable horror tableau.';
   }
   if (content === 'explicit') {
-    return 'Explicit, specific, visual.';
+    return 'Pornographic, anatomical, specific, visual. Show the sex.';
   }
   if (content === 'sultry') {
-    return 'Sensual, specific, visual.';
+    return 'Erotic, skin-forward, specific, visual. Heat is the subject.';
   }
   if (content === 'raunchy') {
-    return 'Crude comedy, specific, visual.';
+    return 'Vulgar sexual comedy, graphic, specific, visual.';
   }
   if (content === 'suggestive') {
     return 'Charged but not explicit, specific, visual.';
@@ -130,13 +144,13 @@ function templatePromptFallback(
 ): string {
   const gore = allowGore ? ', blood and viscera as readable detail' : '';
   if (content === 'explicit') {
-    return `${lookLock}, ${blurb}, explicit adult tableau, intimate lighting${gore}, readable scene`;
+    return `${lookLock}, ${blurb}, explicit sex, nude bodies, anatomical detail, intimate lighting${gore}, readable scene`;
   }
   if (content === 'sultry') {
-    return `${lookLock}, ${blurb}, sultry low-key lighting, intimate pose${gore}, readable scene`;
+    return `${lookLock}, ${blurb}, erotic undress, bare skin, sultry low-key lighting, sexual pose${gore}, readable scene`;
   }
   if (content === 'raunchy') {
-    return `${lookLock}, ${blurb}, raunchy comedy lighting, crude visual gag${gore}, readable scene`;
+    return `${lookLock}, ${blurb}, crude sexual gag, explicit wardrobe fail, raunchy comedy lighting${gore}, readable scene`;
   }
   if (content === 'suggestive') {
     return `${lookLock}, ${blurb}, charged lighting, teasing pose${gore}, readable scene`;
@@ -147,6 +161,19 @@ function templatePromptFallback(
   return allowGore
     ? `${lookLock}, ${blurb}, ${tone} horror lighting, blood and viscera as readable detail, expressive pose`
     : `${lookLock}, ${blurb}, ${tone} storybook lighting, expressive pose, readable scene`;
+}
+
+function adultLookHint(content: RoleplayContentId): string {
+  if (content === 'explicit') {
+    return ' For look: include body and sexual presentation (nude or mid-sex wardrobe), not just an outfit.';
+  }
+  if (content === 'sultry') {
+    return ' For look: include skin, body, and how little they are wearing.';
+  }
+  if (content === 'raunchy') {
+    return ' For look: include a sexually ridiculous wardrobe or body gag.';
+  }
+  return '';
 }
 
 function referenceLine(hasReferenceImage: boolean): string {
@@ -203,9 +230,10 @@ export async function generateRoleplayBio(
     temperature: 0.95,
     system: `You invent a fun roleplay character for an image-generation game.
 ${toneLine(tone)}
+${uncensoredAdultLine(content)}
 ${referenceLine(hasReferenceImage)}
 Return ONLY JSON: {"name":"","look":"","personality":"","catchphrase":""}
-- look: one visual sentence (species/body, clothes, colors, distinctive props).${
+- look: one visual sentence (species/body, clothes, colors, distinctive props).${adultLookHint(content)}${
       hasReferenceImage
         ? ' Describe the reference person as they appear, plus the costume/species overlay from the part.'
         : ''
@@ -246,6 +274,7 @@ export async function generateRoleplayScenes(
     temperature: continuing ? 0.86 : 1.05,
     system: `You write choose-your-own-adventure forks for an image roleplay.
 ${toneLine(tone)}
+${uncensoredAdultLine(content)}
 Return ONLY JSON: {"scenes":[{"title":"","blurb":""}]}
 - Exactly 4 scenes. Titles 2–6 words. Blurbs one sentence, visual, actionable.
 - Each option is a different way THIS character's story continues from the last chosen beat.
@@ -297,16 +326,21 @@ export async function generateRoleplayPrompt(
     detail: options.detail,
     toolInstructions: `You write a single image prompt for a roleplay still.
 ${toneLine(tone)}
+${uncensoredAdultLine(content)}
 ${contentLine(content, allowGore)}
 ${referenceLine(hasReferenceImage)}
 - The SAME character must appear: ${lookLock}
 - Name (${bio.name}) can appear once; do not invent a new cast unless the beat requires one extra figure.
-- Describe the chosen situation as a readable tableau: pose, props, setting, light.${
+- Describe the chosen situation as a readable tableau: pose, props, setting, light, bodies.${
       hasReferenceImage
         ? '\n- This still is img2img from the reference photo: keep identity, change pose/scene/wardrobe as the beat requires.'
         : ''
     }
-- If this is a first-look / establishing beat, make a character portrait in a fitting environment — not a crowded plot.
+- If this is a first-look / establishing beat, make a character portrait in a fitting environment${
+      isRoleplayAdultContent(content)
+        ? ' that already matches the rating (skin, wardrobe state, sexual heat) — not a fully clothed yearbook photo'
+        : ' — not a crowded plot'
+    }.
 - ${styleLine} No camera brand names, no quality-tag soup, no comic-book lettering.`,
     userMessage: [
       formatRoleplayBio(bio),
