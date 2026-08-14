@@ -41,7 +41,7 @@ npm run dev:analyze
 ANALYZE=true npm run build   # production bundle report
 ```
 
-**CI before deploy:** `npm run lint`, `npm test`, `npm run build`, `npm run test:e2e` (see [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)).
+**CI before deploy:** `npm run lint`, `npm test`, `npm run build`, `npm run test:e2e` (see [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)). **Cut a GitHub Release:** [Releases](../releasing.md).
 
 ---
 

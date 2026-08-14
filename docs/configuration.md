@@ -36,6 +36,22 @@ Before exposing Prompt Studio beyond a trusted LAN:
 
 ## Docker
 
+Published images (from [GitHub Releases](https://github.com/doodersrage/comfyui-prompt-studio/releases); see [Releases](releasing.md)):
+
+```bash
+docker pull ghcr.io/doodersrage/comfyui-prompt-studio:latest
+docker run -d --name comfyui-prompt-studio --restart=always \
+  -p 127.0.0.1:47832:47832 \
+  -e LLM_API_BASE_URL=http://host.docker.internal:11434/v1 \
+  -e LLM_MODEL=hermes3 \
+  -e LLM_VISION_MODEL=gemma4:latest \
+  ghcr.io/doodersrage/comfyui-prompt-studio:latest
+```
+
+Docker Hub (`doodersrage/comfyui-prompt-studio`) is updated on the same release when Hub secrets are set.
+
+Build locally:
+
 ```bash
 docker build -t qwen-image-prompt .
 docker run --rm -p 127.0.0.1:47832:47832 \
@@ -43,16 +59,6 @@ docker run --rm -p 127.0.0.1:47832:47832 \
   -e LLM_MODEL=dolphin-llama3 \
   -e LLM_VISION_MODEL=qwen3-vl:latest \
   qwen-image-prompt
-
-  From Docker Hub:
-docker run -d \
-  -p 47832:47832 \
-  --name=comfyui-prompt-studio \
-  --restart=always \
-  -e LLM_API_BASE_URL=http://host.docker.internal:11434/v1 \
-  -e LLM_MODEL=hermes3 \
-  -e LLM_VISION_MODEL=gemma4:latest \
-  doodersrage/comfyui-prompt-studio:latest
 ```
 
 On Linux, add `--add-host=host.docker.internal:host-gateway` if Ollama runs on the host. Override `PORT` only if you map a different host port.

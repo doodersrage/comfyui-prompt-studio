@@ -4,6 +4,8 @@ A Next.js app that turns topics or keywords into model-specific prompts for imag
 
 **Documentation hub:** [docs/README.md](docs/README.md) — features, API, configuration, architecture, and contributor notes.
 
+**Releases:** [GitHub Releases](https://github.com/doodersrage/comfyui-prompt-studio/releases) · [how to cut one](docs/releasing.md)
+
 ## Quick start
 
 Requires **Node.js 22+**.

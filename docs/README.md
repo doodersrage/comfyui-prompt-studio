@@ -52,6 +52,7 @@ Quick jumps inside [features.md](features.md):
 | Doc | Contents |
 | --- | --- |
 | [Architecture](architecture.md) | Storage, queue path, auth, plugins, engine adapter |
+| [Releases](releasing.md) | Cut `vX.Y.Z` GitHub Releases and GHCR images |
 | [Plugin iframe host](plugin-iframe-host.md) | postMessage protocol + example HTML for iframe tools |
 | [Performance & scripts](performance/guide.md) | npm scripts, build, Prettier, monitoring checklist |
 | [Diffusers engine](../services/diffusers-engine/README.md) | Optional FastAPI txt2img sidecar |
@@ -60,4 +61,5 @@ Quick jumps inside [features.md](features.md):
 
 - **Agent rules:** [AGENTS.md](../AGENTS.md) (Next.js conventions for AI assistants)
 - **CI:** [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) — lint, unit tests, build, Playwright
+- **Releases:** [releasing.md](releasing.md) — tag `vX.Y.Z` or Actions → Release; GitHub Release + GHCR image
 - **Env template:** [`.env.example`](../.env.example)

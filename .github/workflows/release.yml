@@ -1,0 +1,198 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Semver bump (from package.json)
+        type: choice
+        options: [patch, minor, major]
+        default: minor
+      dry_run:
+        description: Compute the next version without tagging or publishing
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    name: Main only
+    if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "Cut releases from main (Actions → Release → Run workflow on the main branch)."
+          exit 1
+
+  release:
+    name: GitHub Release
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.ref == 'refs/heads/main'
+    outputs:
+      tag: ${{ steps.ver.outputs.tag }}
+      version: ${{ steps.ver.outputs.version }}
+      dry_run: ${{ steps.ver.outputs.dry_run }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+      - name: Cut version on main
+        id: cut
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          BUMP: ${{ inputs.bump }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          npm version "$BUMP" --no-git-tag-version
+          VERSION="$(node -p "require('./package.json').version")"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Next version: v${VERSION}"
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "Dry run — not committing or tagging."
+            git checkout -- package.json package-lock.json
+            exit 0
+          fi
+          git add package.json package-lock.json
+          git commit -m "Release v${VERSION}"
+          git tag "v${VERSION}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+          git push origin "v${VERSION}"
+
+      - name: Resolve version
+        id: ver
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ steps.cut.outputs.version }}" >> "$GITHUB_OUTPUT"
+            echo "tag=v${{ steps.cut.outputs.version }}" >> "$GITHUB_OUTPUT"
+            echo "dry_run=${{ inputs.dry_run }}" >> "$GITHUB_OUTPUT"
+          else
+            TAG="${GITHUB_REF_NAME}"
+            echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+            echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+            echo "dry_run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create GitHub Release
+        if: steps.ver.outputs.dry_run != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.ver.outputs.tag }}
+          VERSION: ${{ steps.ver.outputs.version }}
+          IMAGE: ghcr.io/${{ github.repository }}
+        run: |
+          set -euo pipefail
+          IMAGE="$(echo "$IMAGE" | tr '[:upper:]' '[:lower:]')"
+          cat > /tmp/release-preamble.md <<EOF
+          ## Prompt Studio ${TAG}
+
+          **Docker (GHCR):**
+
+          \`\`\`bash
+          docker pull ${IMAGE}:${TAG}
+          docker run -d --name comfyui-prompt-studio -p 127.0.0.1:47832:47832 \\
+            ${IMAGE}:${TAG}
+          \`\`\`
+
+          \`latest\` tracks this tag after a successful image publish. Configuration: [docs/configuration.md](https://github.com/${{ github.repository }}/blob/main/docs/configuration.md). Cutting releases: [docs/releasing.md](https://github.com/${{ github.repository }}/blob/main/docs/releasing.md).
+          EOF
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release ${TAG} already exists — leaving notes unchanged."
+            exit 0
+          fi
+          gh release create "$TAG" \
+            --title "Prompt Studio ${TAG}" \
+            --notes-file /tmp/release-preamble.md \
+            --generate-notes
+
+  docker:
+    name: Publish container image
+    needs: release
+    if: needs.release.outputs.dry_run != 'true' && needs.release.outputs.tag != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        id: hub
+        continue-on-error: true
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Image names
+        id: images
+        run: |
+          set -euo pipefail
+          {
+            echo "ghcr.io/${GITHUB_REPOSITORY,,}"
+            if [ "${{ steps.hub.outcome }}" = "success" ]; then
+              echo "doodersrage/comfyui-prompt-studio"
+            fi
+          } > /tmp/docker-images.txt
+          echo "list<<EOF" >> "$GITHUB_OUTPUT"
+          cat /tmp/docker-images.txt >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.images.outputs.list }}
+          tags: |
+            type=semver,pattern={{version}},value=v${{ needs.release.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=v${{ needs.release.outputs.version }}
+            type=raw,value=latest
+          labels: |
+            org.opencontainers.image.title=Prompt Studio
+            org.opencontainers.image.description=ComfyUI prompt studio
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ needs.release.outputs.version }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

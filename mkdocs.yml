@@ -51,6 +51,7 @@ nav:
       - Data catalogs: data-catalogs.md
   - Contributors:
       - Architecture: architecture.md
+      - Releases: releasing.md
       - Plugin iframe host: plugin-iframe-host.md
       - Performance & scripts: performance/guide.md
   - External:
