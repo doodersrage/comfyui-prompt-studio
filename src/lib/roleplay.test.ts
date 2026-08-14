@@ -5,10 +5,14 @@ import {
   extractJsonValue,
   mergeRoleplayStoryStills,
   normalizeRoleplayTone,
+  normalizeRoleplayContent,
+  parseRoleplayAllowGore,
   parseRoleplayBio,
   parseRoleplayScenes,
   patchRoleplayStoryBeat,
   resolveRoleplayPersonaPrompt,
+  resolveRoleplayToneAndContent,
+  isRoleplayAdultContent,
   roleplayIntroScene,
   roleplayStillBasename,
   ROLEPLAY_ARCHETYPES,
@@ -48,11 +52,31 @@ describe('roleplay parsers', () => {
     assert.equal(scenes[1]?.title, 'Open mic');
   });
 
-  it('normalizes tone and custom persona prompts', () => {
+  it('normalizes tone, content rating, and custom persona prompts', () => {
     assert.equal(normalizeRoleplayTone('CHAOTIC'), 'chaotic');
-    assert.equal(normalizeRoleplayTone('sultry'), 'sultry');
-    assert.equal(normalizeRoleplayTone('adult'), 'sultry');
+    assert.equal(normalizeRoleplayTone('sultry'), 'silly');
     assert.equal(normalizeRoleplayTone('nope'), 'silly');
+    assert.equal(normalizeRoleplayContent('SFW'), 'clean');
+    assert.equal(normalizeRoleplayContent('suggestive'), 'suggestive');
+    assert.equal(normalizeRoleplayContent('explicit'), 'explicit');
+    assert.equal(normalizeRoleplayContent(''), 'pg13');
+    assert.deepEqual(resolveRoleplayToneAndContent('sultry'), {
+      tone: 'silly',
+      content: 'sultry',
+    });
+    assert.deepEqual(resolveRoleplayToneAndContent('nsfw'), {
+      tone: 'silly',
+      content: 'explicit',
+    });
+    assert.deepEqual(resolveRoleplayToneAndContent('cinematic', 'raunchy'), {
+      tone: 'cinematic',
+      content: 'raunchy',
+    });
+    assert.equal(isRoleplayAdultContent('sultry'), true);
+    assert.equal(isRoleplayAdultContent('pg13'), false);
+    assert.equal(parseRoleplayAllowGore(true), true);
+    assert.equal(parseRoleplayAllowGore('true'), true);
+    assert.equal(parseRoleplayAllowGore(false), false);
     assert.match(resolveRoleplayPersonaPrompt('hoodie-dragon'), /dragon/i);
     assert.equal(resolveRoleplayPersonaPrompt('custom', ' a sentient lamp '), 'a sentient lamp');
   });
@@ -126,6 +150,7 @@ describe('roleplay parsers', () => {
         catchphrase: 'heat!',
       },
       tone: 'Silly',
+      content: 'PG-13',
       personaLabel: 'Sentient toaster',
       story: [
         { id: 'intro', title: 'First look', blurb: 'Hello crumbs.', at: 1, prompt: 'a toaster' },
@@ -134,6 +159,7 @@ describe('roleplay parsers', () => {
     });
     assert.match(markdown, /^# Crisp/m);
     assert.match(markdown, /Part: Sentient toaster/);
+    assert.match(markdown, /Content: PG-13/);
     assert.match(markdown, /Still: `stills\/01-first-look.png`/);
     assert.match(markdown, /a toaster/);
   });

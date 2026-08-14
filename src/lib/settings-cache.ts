@@ -864,9 +864,11 @@ export type RoleplayToolCache = {
   customPersona?: string;
   extraHints?: string;
   tone?: import('./roleplay').RoleplayTone;
+  content?: import('./roleplay').RoleplayContentId;
   bio?: import('./roleplay').RoleplayBio;
   story?: import('./roleplay').RoleplayStoryBeat[];
   autoQueue?: boolean;
+  allowGore?: boolean;
 };
 
 export type ImagePromptToolCache = {
@@ -1218,6 +1220,7 @@ export const DEFAULT_ROLEPLAY_TOOL_CACHE: RoleplayToolCache = {
   customPersona: '',
   extraHints: '',
   tone: 'silly',
+  content: 'pg13',
   autoQueue: true,
 };
 

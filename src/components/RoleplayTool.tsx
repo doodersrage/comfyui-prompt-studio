@@ -25,13 +25,14 @@ import {
 import {
   CUSTOM_ROLEPLAY_PERSONA_ID,
   ROLEPLAY_ARCHETYPES,
+  ROLEPLAY_CONTENT,
   ROLEPLAY_TONES,
   appendRoleplayStoryBeat,
   formatRoleplayBio,
   getRoleplayArchetype,
   mergeRoleplayStoryStills,
-  normalizeRoleplayTone,
   patchRoleplayStoryBeat,
+  resolveRoleplayToneAndContent,
   roleplayIntroScene,
   type RoleplayBio,
   type RoleplayScene,
@@ -75,7 +76,7 @@ export default function RoleplayTool() {
   const [exporting, setExporting] = useState(false);
 
   const personaId = toolSettings.personaId ?? ROLEPLAY_ARCHETYPES[0].id;
-  const tone = normalizeRoleplayTone(toolSettings.tone);
+  const { tone, content } = resolveRoleplayToneAndContent(toolSettings.tone, toolSettings.content);
   const bio = toolSettings.bio;
   const story = toolSettings.story ?? [];
   const autoQueue = toolSettings.autoQueue !== false;
@@ -112,6 +113,8 @@ export default function RoleplayTool() {
       customPersona: toolSettings.customPersona,
       extraHints: toolSettings.extraHints,
       tone,
+      content,
+      allowGore: toolSettings.allowGore === true,
       bio,
       story: toolSettings.story,
       situation,
@@ -123,8 +126,10 @@ export default function RoleplayTool() {
       personaId,
       shared,
       tone,
+      content,
       toolSettings.customPersona,
       toolSettings.extraHints,
+      toolSettings.allowGore,
       toolSettings.story,
     ]
   );
@@ -391,10 +396,12 @@ export default function RoleplayTool() {
           ? toolSettings.customPersona?.trim() || 'Custom'
           : (getRoleplayArchetype(personaId)?.label ?? personaId);
       const toneLabel = ROLEPLAY_TONES.find(entry => entry.id === tone)?.label ?? tone;
+      const contentLabel = ROLEPLAY_CONTENT.find(entry => entry.id === content)?.label ?? content;
       await downloadRoleplayStoryBundle({
         bio,
         story: storyRef.current,
         tone: toneLabel,
+        content: contentLabel,
         personaLabel,
       });
     } catch (err) {
@@ -402,7 +409,7 @@ export default function RoleplayTool() {
     } finally {
       setExporting(false);
     }
-  }, [bio, personaId, tone, toolSettings.customPersona]);
+  }, [bio, content, personaId, tone, toolSettings.customPersona]);
 
   const surpriseCast = useCallback(() => {
     const pick = ROLEPLAY_ARCHETYPES[Math.floor(Math.random() * ROLEPLAY_ARCHETYPES.length)];
@@ -500,12 +507,57 @@ export default function RoleplayTool() {
                 active={tone === entry.id}
                 disabled={busy}
                 title={entry.hint}
-                onClick={() => updateToolSettings({ tone: entry.id })}
+                onClick={() => updateToolSettings({ tone: entry.id, content })}
               >
                 {entry.label}
               </ChipButton>
             ))}
           </div>
+        </div>
+        <div className="space-y-2">
+          <p className="type-caption text-[var(--text-muted)]">Content</p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="type-caption w-12 shrink-0 text-[var(--text-muted)]">SFW</span>
+            {ROLEPLAY_CONTENT.filter(entry => entry.group === 'sfw').map(entry => (
+              <ChipButton
+                key={entry.id}
+                active={content === entry.id}
+                disabled={busy}
+                title={entry.hint}
+                onClick={() => updateToolSettings({ content: entry.id, tone })}
+              >
+                {entry.label}
+              </ChipButton>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="type-caption w-12 shrink-0 text-[var(--text-muted)]">Adult</span>
+            {ROLEPLAY_CONTENT.filter(entry => entry.group === 'adult').map(entry => (
+              <ChipButton
+                key={entry.id}
+                active={content === entry.id}
+                disabled={busy}
+                title={entry.hint}
+                onClick={() => updateToolSettings({ content: entry.id, tone })}
+              >
+                {entry.label}
+              </ChipButton>
+            ))}
+          </div>
+          <ChipButton
+            active={toolSettings.allowGore === true}
+            disabled={busy}
+            title="Horror stills: blood, wounds, viscera. Stacks with any rating."
+            onClick={() =>
+              updateToolSettings({
+                allowGore: toolSettings.allowGore !== true,
+                tone,
+                content,
+              })
+            }
+          >
+            Gore
+          </ChipButton>
         </div>
         <label className="block space-y-1.5 text-sm">
           <span className="type-caption text-[var(--text-muted)]">Optional notes</span>

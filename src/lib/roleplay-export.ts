@@ -78,6 +78,7 @@ export async function downloadRoleplayStoryBundle(input: {
   bio?: RoleplayBio | null;
   story: RoleplayStoryBeat[];
   tone?: string;
+  content?: string;
   personaLabel?: string;
 }): Promise<{ files: number; stills: number }> {
   const stillFilenames: Array<string | null> = [];
@@ -111,6 +112,7 @@ export async function downloadRoleplayStoryBundle(input: {
     bio: input.bio,
     story: input.story,
     tone: input.tone,
+    content: input.content,
     personaLabel: input.personaLabel,
     stillFilenames,
   });

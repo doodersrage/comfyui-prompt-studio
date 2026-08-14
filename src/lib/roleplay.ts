@@ -1,4 +1,8 @@
-export type RoleplayTone = 'silly' | 'cinematic' | 'cozy' | 'chaotic' | 'sultry';
+export type RoleplayTone = 'silly' | 'cinematic' | 'cozy' | 'chaotic';
+
+export type RoleplayContentId = 'clean' | 'pg13' | 'suggestive' | 'sultry' | 'explicit' | 'raunchy';
+
+export type RoleplayContentGroup = 'sfw' | 'adult';
 
 export type RoleplayBio = {
   name: string;
@@ -36,8 +40,63 @@ export const ROLEPLAY_TONES: Array<{ id: RoleplayTone; label: string; hint: stri
   { id: 'cinematic', label: 'Cinematic', hint: 'Movie stills, dramatic light' },
   { id: 'cozy', label: 'Cozy', hint: 'Warm, low-stakes, soft lighting' },
   { id: 'chaotic', label: 'Chaotic', hint: 'Too many plots, all of them now' },
-  { id: 'sultry', label: 'Sultry', hint: 'Adult heat, low light, lingering looks' },
 ];
+
+export const ROLEPLAY_CONTENT: Array<{
+  id: RoleplayContentId;
+  label: string;
+  hint: string;
+  group: RoleplayContentGroup;
+}> = [
+  { id: 'clean', label: 'Clean', hint: 'All-ages, no innuendo', group: 'sfw' },
+  { id: 'pg13', label: 'PG-13', hint: 'Weird and fun, keep it mild', group: 'sfw' },
+  { id: 'suggestive', label: 'Suggestive', hint: 'Heat and innuendo, fade to black', group: 'sfw' },
+  {
+    id: 'sultry',
+    label: 'Sultry',
+    hint: 'Adult heat, lingering looks, revealing wardrobe',
+    group: 'adult',
+  },
+  {
+    id: 'explicit',
+    label: 'Explicit',
+    hint: 'NSFW stills, consenting adults only',
+    group: 'adult',
+  },
+  {
+    id: 'raunchy',
+    label: 'Raunchy',
+    hint: 'Adult comedy, crude, not necessarily pornographic',
+    group: 'adult',
+  },
+];
+
+const ROLEPLAY_CONTENT_ALIASES: Record<string, RoleplayContentId> = {
+  clean: 'clean',
+  'all-ages': 'clean',
+  allages: 'clean',
+  wholesome: 'clean',
+  sfw: 'clean',
+  pg13: 'pg13',
+  'pg-13': 'pg13',
+  pg: 'pg13',
+  mild: 'pg13',
+  suggestive: 'suggestive',
+  teasing: 'suggestive',
+  spicy: 'suggestive',
+  sultry: 'sultry',
+  adult: 'sultry',
+  sexy: 'sultry',
+  sensual: 'sultry',
+  explicit: 'explicit',
+  nsfw: 'explicit',
+  xxx: 'explicit',
+  raunchy: 'raunchy',
+  crude: 'raunchy',
+  dirty: 'raunchy',
+};
+
+const LEGACY_ADULT_TONES = new Set(['sultry', 'adult', 'sexy', 'nsfw']);
 
 export const CUSTOM_ROLEPLAY_PERSONA_ID = 'custom';
 
@@ -676,18 +735,45 @@ export function normalizeRoleplayTone(value: string | null | undefined): Rolepla
   const trimmed = String(value ?? '')
     .trim()
     .toLowerCase();
-  if (
-    trimmed === 'cinematic' ||
-    trimmed === 'cozy' ||
-    trimmed === 'chaotic' ||
-    trimmed === 'sultry'
-  ) {
+  if (trimmed === 'cinematic' || trimmed === 'cozy' || trimmed === 'chaotic') {
     return trimmed;
   }
-  if (trimmed === 'adult' || trimmed === 'sexy' || trimmed === 'nsfw') {
-    return 'sultry';
-  }
   return 'silly';
+}
+
+export function normalizeRoleplayContent(value: string | null | undefined): RoleplayContentId {
+  const trimmed = String(value ?? '')
+    .trim()
+    .toLowerCase();
+  return ROLEPLAY_CONTENT_ALIASES[trimmed] ?? 'pg13';
+}
+
+export function isRoleplayAdultContent(content: RoleplayContentId): boolean {
+  return content === 'sultry' || content === 'explicit' || content === 'raunchy';
+}
+
+export function resolveRoleplayToneAndContent(
+  tone?: string | null,
+  content?: string | null
+): { tone: RoleplayTone; content: RoleplayContentId } {
+  const rawTone = String(tone ?? '')
+    .trim()
+    .toLowerCase();
+  const hasContent = String(content ?? '').trim().length > 0;
+  if (!hasContent && LEGACY_ADULT_TONES.has(rawTone)) {
+    return {
+      tone: 'silly',
+      content: normalizeRoleplayContent(rawTone === 'nsfw' ? 'explicit' : 'sultry'),
+    };
+  }
+  return {
+    tone: normalizeRoleplayTone(rawTone),
+    content: normalizeRoleplayContent(content),
+  };
+}
+
+export function parseRoleplayAllowGore(value: unknown): boolean {
+  return value === true || value === 'true' || value === 1;
 }
 
 export function getRoleplayArchetype(id: string | null | undefined): RoleplayArchetype | undefined {
@@ -739,11 +825,13 @@ export function formatRoleplayStoryMarkdown(input: {
   bio?: RoleplayBio | null;
   story: RoleplayStoryBeat[];
   tone?: string;
+  content?: string;
   personaLabel?: string;
   stillFilenames?: Array<string | null | undefined>;
 }): string {
   const name = input.bio?.name.trim() || 'Untitled roleplay';
   const tone = input.tone?.trim();
+  const content = input.content?.trim();
   const persona = input.personaLabel?.trim();
   const lines: string[] = [`# ${name}`, ''];
   if (persona) {
@@ -751,6 +839,9 @@ export function formatRoleplayStoryMarkdown(input: {
   }
   if (tone) {
     lines.push(`Tone: ${tone}`, '');
+  }
+  if (content) {
+    lines.push(`Content: ${content}`, '');
   }
   if (input.bio) {
     lines.push('## Character', '', formatRoleplayBio(input.bio), '');

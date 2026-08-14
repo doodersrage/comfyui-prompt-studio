@@ -7,6 +7,7 @@ import { resolveAvoidanceOptions } from '@/lib/avoidance-options';
 import { normalizeSharedGenerationOptions } from '@/lib/specialized/normalize';
 import { enrichGenerateResult } from '@/lib/generation-diagnostics';
 import {
+  parseRoleplayAllowGore,
   parseRoleplayBio,
   parseRoleplayScenes,
   type RoleplayBio,
@@ -27,6 +28,8 @@ type RoleplayRequestBody = {
   customPersona?: string;
   extraHints?: string;
   tone?: string;
+  content?: string;
+  allowGore?: boolean;
   bio?: RoleplayBio;
   story?: RoleplayStoryBeat[];
   situation?: RoleplayScene;
@@ -89,6 +92,8 @@ export async function POST(request: Request) {
       customPersona: body.customPersona?.trim(),
       extraHints: body.extraHints?.trim(),
       tone: body.tone,
+      content: body.content,
+      allowGore: parseRoleplayAllowGore(body.allowGore),
       bio: body.bio ? parseRoleplayBio(body.bio) : undefined,
       story: parseStory(body.story),
     };
