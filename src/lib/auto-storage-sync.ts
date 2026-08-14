@@ -19,6 +19,7 @@ import {
   applyStudioExtras,
   collectStudioExtras,
   foldLegacyNamespacesIntoExtras,
+  localStudioExtrasLooksEmpty,
   mergeStudioExtras,
   type StudioExtrasPayload,
 } from './studio-extras';
@@ -404,6 +405,16 @@ export async function autoPullStorageIfEmpty(): Promise<AutoSyncResult> {
     saveSettingsCache(applyServerSessionStack(localSettings, serverSettings));
   }
 
+  const localExtras = collectStudioExtras();
+  const serverExtras = await loadStudioExtrasFromServer();
+  if (
+    serverExtras &&
+    localStudioExtrasLooksEmpty(localExtras) &&
+    !localStudioExtrasLooksEmpty(serverExtras)
+  ) {
+    applyStudioExtras(serverExtras);
+  }
+
   const conflicts = await probeStorageConflicts();
   if (conflicts.length === 0) {
     // Still push extras/settings so durable prefs stay backed up even without conflicts.
@@ -419,7 +430,9 @@ export async function autoPullStorageIfEmpty(): Promise<AutoSyncResult> {
   const choices: Partial<Record<StorageNamespace, MergeChoice>> = {};
   for (const conflict of conflicts) {
     if (conflict.namespace === 'studio-extras') {
-      choices[conflict.namespace] = 'local';
+      choices[conflict.namespace] = localStudioExtrasLooksEmpty(collectStudioExtras())
+        ? 'server'
+        : 'local';
     } else if (conflict.namespace === 'settings-cache') {
       choices[conflict.namespace] = 'merge';
     } else {

@@ -57,6 +57,7 @@ import {
   saveGalleryLookFromEntry,
 } from '@/lib/gallery-stack-restore';
 import { applyGalleryFaceToSession, galleryEntryCanLockFace } from '@/lib/gallery-identity-lock';
+import { galleryToolHref, galleryToolLabel } from '@/lib/gallery-tool-href';
 import { MAX_GALLERY_ENTRIES } from '@/lib/comfyui-gallery-storage-meta';
 import { applyGalleryUrlState, parseGalleryUrlState } from '@/lib/gallery-url-state';
 import { useGalleryReview } from '@/hooks/useGalleryReview';
@@ -827,22 +828,22 @@ export default function ComfyUiGalleryPanel({
       onUseStack: galleryEntryHasRestorableStack(entry)
         ? () => {
             applyGalleryStackToSession(entry);
-            router.push('/');
+            router.push(galleryToolHref(entry.tool));
           }
         : undefined,
       onUsePromptStack:
         galleryEntryHasRestorableStack(entry) && entry.prompt?.trim()
           ? () => {
               applyGalleryPromptAndStackToSession(entry);
-              router.push('/');
+              router.push(galleryToolHref(entry.tool));
             }
           : undefined,
       onUseFace: galleryEntryCanLockFace(entry)
         ? () => {
-            setRequeueStatus('Locking face on Generate…');
+            setRequeueStatus(`Locking face on ${galleryToolLabel(entry.tool)}…`);
             void applyGalleryFaceToSession(entry).then(result => {
               if (result.ok) {
-                router.push('/');
+                router.push(galleryToolHref(entry.tool));
                 return;
               }
               setRequeueStatus(result.error ?? 'Face lock failed.');

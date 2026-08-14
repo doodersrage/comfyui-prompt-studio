@@ -15,6 +15,7 @@ import { orderGalleryBySimilarity, orderGalleryByVisualSimilarity } from './gall
 import { clusterGalleryDuplicates, duplicateEntryIds } from './gallery-duplicate-clusters';
 import type { ComfyGalleryEntry } from './comfyui-gallery-entry';
 import type { ComfyGalleryJobStatus } from './comfyui-gallery-types';
+import { durableGalleryThumbUrl } from './gallery-media-client';
 import {
   getGalleryCache,
   notifyGalleryUpdated,
@@ -681,6 +682,7 @@ export function updateComfyGalleryEntryById(
       | 'workflowJson'
       | 'hasStoredWorkflow'
       | 'workflowJsonOmitted'
+      | 'durableThumbPath'
     >
   >
 ): ComfyGalleryEntry | null {
@@ -988,7 +990,7 @@ function galleryEntryUrlCacheKey(entry: ComfyGalleryEntry): string {
   const images = entry.images
     .map(image => `${image.filename}:${image.subfolder}:${image.type}`)
     .join(',');
-  return `${entry.id}|${entry.engineId ?? ''}|${entry.comfyUrl ?? ''}|${images}`;
+  return `${entry.id}|${entry.engineId ?? ''}|${entry.comfyUrl ?? ''}|${images}|${entry.durableThumbPath ?? ''}`;
 }
 
 function _evictUrlCacheIfNeeded(key: string): void {
@@ -1051,8 +1053,10 @@ export function galleryEntryThumbUrls(entry: ComfyGalleryEntry): string[] {
   let cached = _entryUrlCache.get(key)?.thumb;
   if (cached) return cached;
 
-  cached = entry.images.map(image =>
-    galleryEntryBuildViewPath(entry, image, { width: GALLERY_THUMB_WIDTH })
+  cached = entry.images.map((image, index) =>
+    index === 0 && entry.durableThumbPath
+      ? durableGalleryThumbUrl(entry.id)
+      : galleryEntryBuildViewPath(entry, image, { width: GALLERY_THUMB_WIDTH })
   );
 
   const mediaKind = cached.length > 0 ? resolveComfyOutputMediaKind(entry.images[0]) : 'image';
@@ -1071,10 +1075,12 @@ export function galleryEntryStripThumbUrls(entry: ComfyGalleryEntry): string[] {
   const entryCache = _entryUrlCache.get(key);
   if (entryCache?.stripThumb) return entryCache.stripThumb;
 
-  const urls = entry.images.map(image =>
-    galleryEntryBuildViewPath(entry, image, {
-      width: GALLERY_STRIP_THUMB_WIDTH,
-    })
+  const urls = entry.images.map((image, index) =>
+    index === 0 && entry.durableThumbPath
+      ? durableGalleryThumbUrl(entry.id)
+      : galleryEntryBuildViewPath(entry, image, {
+          width: GALLERY_STRIP_THUMB_WIDTH,
+        })
   );
 
   _updateUrlCache(key, { stripThumb: urls });
@@ -1116,6 +1122,9 @@ export function galleryEntryPrimaryThumbSrcSet(entry: ComfyGalleryEntry): string
   if (!image) {
     return null;
   }
+  if (entry.durableThumbPath) {
+    return `${durableGalleryThumbUrl(entry.id)} ${GALLERY_THUMB_WIDTH}w`;
+  }
   if (entry.engineId === 'diffusers') {
     return GALLERY_THUMB_SRCSET_WIDTHS.map(
       width => `${galleryEntryBuildViewPath(entry, image, { width })} ${width}w`
@@ -1156,7 +1165,9 @@ export function galleryEntryPrimaryLqipUrl(entry: ComfyGalleryEntry): string | n
     return null;
   }
 
-  const url = galleryEntryBuildViewPath(entry, image, { width: GALLERY_LQIP_WIDTH });
+  const url = entry.durableThumbPath
+    ? durableGalleryThumbUrl(entry.id)
+    : galleryEntryBuildViewPath(entry, image, { width: GALLERY_LQIP_WIDTH });
   _updateUrlCache(key, { lqip: url });
   return url;
 }

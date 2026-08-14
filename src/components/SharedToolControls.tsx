@@ -1382,9 +1382,9 @@ export default function SharedToolControls({
 
         const advancedSections = (
           <>
-            {toolId === 'generate' && lastLookRecipe ? (
+            {lastLookRecipe ? (
               <div className="space-y-1.5">
-                <FieldLabel hint="Newest saved Generate look from a 4–5★ still.">
+                <FieldLabel hint="Newest saved look from a 4–5★ still. Applies the same session stack on every image tool.">
                   Last look
                 </FieldLabel>
                 <ChipButton

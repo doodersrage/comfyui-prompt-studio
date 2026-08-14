@@ -1601,7 +1601,7 @@ export default function ImageLightbox({
         {slideChrome?.showUseStack !== false && slideChrome?.onUseStack
           ? renderIconAction(compact, {
               label: 'Stack',
-              title: 'Use this stack on Generate (U)',
+              title: 'Use this stack (U)',
               onClick: () => slideChrome.onUseStack?.(),
               testId: 'lightbox-action-use-stack',
             })
@@ -1609,7 +1609,7 @@ export default function ImageLightbox({
         {slideChrome?.showUsePromptStack !== false && slideChrome?.onUsePromptStack
           ? renderIconAction(compact, {
               label: 'Prompt+',
-              title: 'Prompt + stack on Generate',
+              title: 'Prompt + stack',
               onClick: () => slideChrome.onUsePromptStack?.(),
               testId: 'lightbox-action-use-prompt-stack',
             })
@@ -1617,7 +1617,7 @@ export default function ImageLightbox({
         {slideChrome?.showUseFace !== false && slideChrome?.onUseFace
           ? renderIconAction(compact, {
               label: 'Lock',
-              title: 'Lock this face on Generate (L)',
+              title: 'Lock this face (L)',
               onClick: () => slideChrome.onUseFace?.(),
               testId: 'lightbox-action-use-face',
             })

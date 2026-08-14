@@ -31,6 +31,8 @@ import BrandMark from '@/components/BrandMark';
 import BrandStudioIllustration from '@/components/BrandStudioIllustration';
 import KeyboardShortcutsHelp from '@/components/KeyboardShortcutsHelp';
 import { markOnboardingDiscoverPalette } from '@/lib/onboarding-hooks';
+import type { SessionRecipe } from '@/lib/session-recipes';
+import type { ComfyGalleryEntry } from '@/lib/comfyui-gallery-entry';
 
 type CommandItem = {
   id: string;
@@ -194,6 +196,8 @@ export default function CommandPalette() {
   const [recent, setRecent] = useState<RecentDestination[]>([]);
   const [lastRoute, setLastRoute] = useState<string | null>(null);
   const [lastDraft, setLastDraft] = useState<ToolDraftSummary | null>(null);
+  const [lastLook, setLastLook] = useState<SessionRecipe | null>(null);
+  const [keeperStack, setKeeperStack] = useState<ComfyGalleryEntry | null>(null);
   const [globalMatches, setGlobalMatches] = useState<CommandItem[]>([]);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [pluginNavItems, setPluginNavItems] = useState<CommandItem[]>([]);
@@ -250,6 +254,13 @@ export default function CommandPalette() {
       setRecent(loadRecentDestinations());
       setLastRoute(loadLastToolRoute());
       setLastDraft(loadLastToolDraft());
+    });
+    void import('@/lib/session-recipes').then(({ latestGenerateLookRecipe }) => {
+      setLastLook(latestGenerateLookRecipe());
+    });
+    void import('@/lib/gallery-stack-restore').then(async ({ pickKeeperStackEntry }) => {
+      const { loadComfyGallery } = await import('@/lib/comfyui-gallery');
+      setKeeperStack(pickKeeperStackEntry(loadComfyGallery()));
     });
     void import('@/lib/plugin-nav-links').then(({ resolveAllPluginNavLinks }) => {
       setPluginNavItems(
@@ -312,6 +323,48 @@ export default function CommandPalette() {
         subtitle: lastRoute,
         href: lastRoute,
         group: 'Continue',
+      });
+    }
+    if (lastLook) {
+      continueItems.push({
+        id: 'apply-last-look',
+        label: `Apply last look · ${lastLook.label}`,
+        subtitle: 'Model, LoRAs, embeddings, identity, quality',
+        group: 'Continue',
+        action: () => {
+          void import('@/lib/session-recipes').then(async m => {
+            const { loadSettingsCache, saveSharedSettings } = await import('@/lib/settings-cache');
+            const recipe = m.latestGenerateLookRecipe();
+            if (!recipe) {
+              return;
+            }
+            saveSharedSettings(m.applySessionRecipeShared(loadSettingsCache().shared, recipe), {
+              notify: true,
+            });
+            const { galleryToolHref } = await import('@/lib/gallery-tool-href');
+            router.push(galleryToolHref(recipe.toolId));
+          });
+        },
+      });
+    }
+    if (keeperStack) {
+      continueItems.push({
+        id: 'restore-keeper-stack',
+        label: `Restore keeper stack · ${keeperStack.model ?? 'session'}`,
+        subtitle: keeperStack.reviewRating
+          ? `${keeperStack.reviewRating}★ · ${keeperStack.tool ?? 'generate'}`
+          : (keeperStack.tool ?? 'generate'),
+        group: 'Continue',
+        action: () => {
+          const entry = keeperStack;
+          void import('@/lib/gallery-stack-restore').then(
+            async ({ applyGalleryStackToSession }) => {
+              applyGalleryStackToSession(entry);
+              const { galleryToolHref } = await import('@/lib/gallery-tool-href');
+              router.push(galleryToolHref(entry.tool));
+            }
+          );
+        },
       });
     }
     if (lastDraft || lastRoute) {
@@ -382,10 +435,13 @@ export default function CommandPalette() {
     globalMatches,
     guestShell,
     items,
+    keeperStack,
     lastDraft,
+    lastLook,
     lastRoute,
     query,
     recent,
+    router,
   ]);
 
   useEffect(() => {

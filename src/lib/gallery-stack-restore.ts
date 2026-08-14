@@ -16,6 +16,8 @@ import { loadSettingsCache, saveSharedSettings, type SharedToolSettings } from '
 import { buildSessionRecipeFromShared, pushSessionRecipe } from './session-recipes';
 import { embeddingStem } from './textual-inversion';
 import { saveGenerateHandoff } from './generate-handoff';
+import { isGalleryCapKeeper } from './gallery-cap';
+import { galleryToolHref, galleryToolLabel } from './gallery-tool-href';
 
 export function parseEmbeddingTokensFromPrompt(prompt?: string): string[] {
   if (!prompt?.trim()) {
@@ -270,7 +272,19 @@ export function applyGalleryStackToShared<T extends SharedToolSettings>(
   return next;
 }
 
-/** Persist the still's stack onto Generate session settings and toast. */
+/** Newest 4–5★ / favorite completed still that can restore a session stack. */
+export function pickKeeperStackEntry(entries: ComfyGalleryEntry[]): ComfyGalleryEntry | null {
+  const keepers = entries.filter(
+    entry =>
+      entry.status === 'completed' &&
+      isGalleryCapKeeper(entry) &&
+      galleryEntryHasRestorableStack(entry)
+  );
+  keepers.sort((a, b) => (b.completedAt ?? b.queuedAt ?? 0) - (a.completedAt ?? a.queuedAt ?? 0));
+  return keepers[0] ?? null;
+}
+
+/** Persist the still's stack onto shared session settings and toast. */
 export function applyGalleryStackToSession(
   entry: ComfyGalleryEntry,
   options?: { toast?: boolean; notify?: boolean }
@@ -284,11 +298,13 @@ export function applyGalleryStackToSession(
   const next = applyGalleryStackToShared(loadSettingsCache().shared, entry);
   saveSharedSettings(next, { notify: options?.notify !== false });
   const summary = formatGalleryStackRestoreSummary(entry);
+  const href = galleryToolHref(entry.tool);
+  const toolLabel = galleryToolLabel(entry.tool);
   if (options?.toast !== false) {
     void import('./app-toast').then(({ pushAppToast }) => {
       pushAppToast({
-        text: summary ? `Stack on Generate · ${summary}` : 'Stack restored on Generate',
-        href: '/',
+        text: summary ? `Stack on ${toolLabel} · ${summary}` : `Stack restored on ${toolLabel}`,
+        href,
       });
     });
   }

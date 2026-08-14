@@ -8,6 +8,8 @@ import {
 } from './compose-identity-lock';
 import type { ComfyGalleryEntry } from './comfyui-gallery-entry';
 import { resolveComfyOutputMediaKind } from './comfyui-outputs';
+import { persistIdentityImage, IDENTITY_MEDIA_URL } from './gallery-media-client';
+import { galleryToolHref, galleryToolLabel } from './gallery-tool-href';
 import { resolveQueueInputImage } from './queue-input-image';
 import { loadSettingsCache, saveSharedSettings } from './settings-cache';
 
@@ -55,13 +57,21 @@ export async function applyGalleryFaceToSession(
     if (!filename) {
       return { ok: false, error: 'Upload did not return a filename.' };
     }
+    const still = entry.images[0];
+    const durableUrl = await persistIdentityImage({
+      galleryEntryId: entry.id,
+      comfyUrl: entry.comfyUrl,
+      imageFilename: still?.filename,
+      subfolder: still?.subfolder,
+      type: still?.type,
+    });
     const shared = loadSettingsCache().shared;
     saveSharedSettings(
       {
         ...shared,
         ipAdapterImageFilename: filename,
         ipAdapterImageFilenames: [filename],
-        ipAdapterImageUrl: viewUrl,
+        ipAdapterImageUrl: durableUrl || viewUrl,
         ipAdapterComfyUrl: uploaded.comfyUrl,
         ipAdapterStrength: normalizeComposeIdentityLockStrength(
           shared.ipAdapterStrength ?? DEFAULT_COMPOSE_IDENTITY_LOCK_STRENGTH
@@ -75,8 +85,8 @@ export async function applyGalleryFaceToSession(
     if (options?.toast !== false) {
       void import('./app-toast').then(({ pushAppToast }) => {
         pushAppToast({
-          text: `Face locked on Generate · ${filename}`,
-          href: '/',
+          text: `Face locked on ${galleryToolLabel(entry.tool)} · ${filename}`,
+          href: galleryToolHref(entry.tool),
         });
       });
     }
@@ -102,9 +112,10 @@ export async function relocateIdentityLockToLiveHost(input?: {
     return { ok: false, error: 'Browser only.' };
   }
   const shared = loadSettingsCache().shared;
-  const imageUrl = shared.ipAdapterImageUrl?.trim();
   const currentName = shared.ipAdapterImageFilename?.trim();
-  if (!imageUrl || !currentName) {
+  const storedUrl = shared.ipAdapterImageUrl?.trim();
+  const imageUrl = storedUrl && !storedUrl.startsWith('blob:') ? storedUrl : IDENTITY_MEDIA_URL;
+  if (!currentName) {
     return { ok: false, error: 'No identity preview to re-upload.' };
   }
 

@@ -9,6 +9,7 @@ import {
   type ComposeIdentityKind,
 } from '@/lib/compose-identity-lock';
 import { uploadComfyInputImage } from '@/lib/comfyui-image-upload';
+import { persistIdentityImage } from '@/lib/gallery-media-client';
 import type { SharedToolSettings } from '@/lib/settings-cache';
 
 const IDENTITY_KINDS: Array<{ id: ComposeIdentityKind; label: string }> = [
@@ -102,15 +103,19 @@ export default function IdentityLockSessionControl({
           setUploading(true);
           setStatus(null);
           void uploadComfyInputImage({ file, model })
-            .then(uploaded => {
+            .then(async uploaded => {
+              const durableUrl = await persistIdentityImage({ file, filename: uploaded.name });
               persist({
                 ipAdapterImageFilename: uploaded.name,
                 ipAdapterImageFilenames: [uploaded.name],
-                ipAdapterImageUrl: previewUrl,
+                ipAdapterImageUrl: durableUrl || previewUrl,
                 ipAdapterComfyUrl: uploaded.comfyUrl,
                 ipAdapterStrength: weight,
                 identityKind: kind,
               });
+              if (durableUrl && previewUrl.startsWith('blob:')) {
+                URL.revokeObjectURL(previewUrl);
+              }
               setStatus(`Uploaded as ${uploaded.name}`);
             })
             .catch(error => {

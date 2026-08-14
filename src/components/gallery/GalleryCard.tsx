@@ -51,6 +51,7 @@ import {
   saveGalleryLookFromEntry,
 } from '@/lib/gallery-stack-restore';
 import { applyGalleryFaceToSession, galleryEntryCanLockFace } from '@/lib/gallery-identity-lock';
+import { galleryToolHref, galleryToolLabel } from '@/lib/gallery-tool-href';
 
 type GalleryCardProps = {
   entry: ComfyGalleryEntry;
@@ -509,7 +510,7 @@ export default function GalleryCard({
                         data-testid="gallery-use-stack"
                         onClick={() => {
                           applyGalleryStackToSession(entry);
-                          router.push('/');
+                          router.push(galleryToolHref(entry.tool));
                         }}
                         className={`shrink-0 whitespace-nowrap rounded-lg border px-2 py-0.5 text-[10px] backdrop-blur transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98] ${
                           (entry.reviewRating ?? 0) >= 4
@@ -526,7 +527,7 @@ export default function GalleryCard({
                         data-testid="gallery-use-prompt-stack"
                         onClick={() => {
                           applyGalleryPromptAndStackToSession(entry);
-                          router.push('/');
+                          router.push(galleryToolHref(entry.tool));
                         }}
                         className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)]/70 px-2 py-0.5 text-[10px] text-[var(--text-secondary)] backdrop-blur transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
                       >
@@ -540,7 +541,7 @@ export default function GalleryCard({
                         onClick={() => {
                           void applyGalleryFaceToSession(entry).then(result => {
                             if (result.ok) {
-                              router.push('/');
+                              router.push(galleryToolHref(entry.tool));
                             }
                           });
                         }}
@@ -1330,34 +1331,34 @@ export default function GalleryCard({
                   ) : null}
                   {galleryEntryHasRestorableStack(entry) ? (
                     <GalleryMenuButton
-                      label="Use this stack on Generate"
+                      label={`Use this stack on ${galleryToolLabel(entry.tool)}`}
                       data-testid="gallery-use-stack-menu"
                       onClick={() => {
                         applyGalleryStackToSession(entry);
-                        router.push('/');
+                        router.push(galleryToolHref(entry.tool));
                         setMenuOpen(false);
                       }}
                     />
                   ) : null}
                   {galleryEntryHasRestorableStack(entry) && entry.prompt?.trim() ? (
                     <GalleryMenuButton
-                      label="Prompt + stack on Generate"
+                      label={`Prompt + stack on ${galleryToolLabel(entry.tool)}`}
                       data-testid="gallery-use-prompt-stack-menu"
                       onClick={() => {
                         applyGalleryPromptAndStackToSession(entry);
-                        router.push('/');
+                        router.push(galleryToolHref(entry.tool));
                         setMenuOpen(false);
                       }}
                     />
                   ) : null}
                   {galleryEntryCanLockFace(entry) ? (
                     <GalleryMenuButton
-                      label="Lock this face on Generate"
+                      label={`Lock this face on ${galleryToolLabel(entry.tool)}`}
                       data-testid="gallery-lock-face-menu"
                       onClick={() => {
                         void applyGalleryFaceToSession(entry).then(result => {
                           if (result.ok) {
-                            router.push('/');
+                            router.push(galleryToolHref(entry.tool));
                           }
                         });
                         setMenuOpen(false);

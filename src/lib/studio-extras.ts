@@ -448,13 +448,39 @@ export function foldLegacyNamespacesIntoExtras(
   return next;
 }
 
-/** Prefer the newer extras snapshot; ties keep local. */
+/** True when this browser has no looks, recipes, or workflow library yet. */
+export function localStudioExtrasLooksEmpty(extras?: StudioExtrasPayload | null): boolean {
+  if (!extras) {
+    return true;
+  }
+  if (extras.sessionRecipes && extras.sessionRecipes.length > 0) {
+    return false;
+  }
+  if (extras.comfyWorkflowFiles && extras.comfyWorkflowFiles.length > 0) {
+    return false;
+  }
+  if (extras.comfyWorkflowPresets && extras.comfyWorkflowPresets.length > 0) {
+    return false;
+  }
+  if (extras.promptRecipes && extras.promptRecipes.length > 0) {
+    return false;
+  }
+  if (extras.userTemplates && extras.userTemplates.length > 0) {
+    return false;
+  }
+  return true;
+}
+
+/** Prefer the newer extras snapshot; empty local never overwrites a populated server copy. */
 export function mergeStudioExtras(
   local: StudioExtrasPayload,
   server: StudioExtrasPayload
 ): StudioExtrasPayload {
   const localAt = local.updatedAt ?? 0;
   const serverAt = server.updatedAt ?? 0;
+  if (localStudioExtrasLooksEmpty(local) && !localStudioExtrasLooksEmpty(server)) {
+    return { ...local, ...server, updatedAt: Math.max(localAt, serverAt) };
+  }
   if (serverAt > localAt) {
     return { ...local, ...server, updatedAt: Math.max(localAt, serverAt) };
   }

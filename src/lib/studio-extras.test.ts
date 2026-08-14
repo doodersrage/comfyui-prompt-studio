@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   foldLegacyNamespacesIntoExtras,
+  localStudioExtrasLooksEmpty,
   mergeStudioExtras,
   type StudioExtrasPayload,
 } from './studio-extras';
@@ -59,5 +60,23 @@ describe('studio-extras merge', () => {
       },
     };
     assert.equal(mergeStudioExtras(older, newer).galleryElo?.g1?.winnerId, 'w1');
+  });
+
+  it('does not let an empty new browser overwrite server looks', () => {
+    const local: StudioExtrasPayload = {
+      updatedAt: 9_999,
+      sessionRecipes: [],
+      comfyWorkflowFiles: [],
+    };
+    const server: StudioExtrasPayload = {
+      updatedAt: 1,
+      sessionRecipes: [{ id: 'look-1', label: 'Look · qwen', savedAt: 1, shared: {} }] as never,
+      comfyWorkflowFiles: [{ id: 'wf', name: 'portrait.json' }] as never,
+    };
+    assert.equal(localStudioExtrasLooksEmpty(local), true);
+    assert.equal(localStudioExtrasLooksEmpty(server), false);
+    const merged = mergeStudioExtras(local, server);
+    assert.equal(merged.sessionRecipes?.length, 1);
+    assert.equal(merged.comfyWorkflowFiles?.length, 1);
   });
 });

@@ -8,6 +8,7 @@ import {
   galleryEntryHasRestorableStack,
   normalizeSessionEmbeddingTokens,
   parseEmbeddingTokensFromPrompt,
+  pickKeeperStackEntry,
 } from './gallery-stack-restore';
 
 function sharedSlice(
@@ -201,5 +202,48 @@ describe('formatGalleryStackRestoreSummary', () => {
       }),
       '2 embeddings'
     );
+  });
+});
+
+describe('pickKeeperStackEntry', () => {
+  it('picks the newest 4–5★ completed still with a restorable stack', () => {
+    const picked = pickKeeperStackEntry([
+      {
+        id: 'old',
+        promptId: 'p1',
+        prompt: 'a',
+        comfyUrl: 'http://127.0.0.1:8188',
+        status: 'completed',
+        queuedAt: 1,
+        completedAt: 10,
+        reviewRating: 5,
+        model: 'sdxl',
+        images: [],
+      },
+      {
+        id: 'new',
+        promptId: 'p2',
+        prompt: 'b',
+        comfyUrl: 'http://127.0.0.1:8188',
+        status: 'completed',
+        queuedAt: 2,
+        completedAt: 20,
+        reviewRating: 4,
+        model: 'qwen-image-2512',
+        images: [],
+      },
+      {
+        id: 'unrated',
+        promptId: 'p3',
+        prompt: 'c',
+        comfyUrl: 'http://127.0.0.1:8188',
+        status: 'completed',
+        queuedAt: 3,
+        completedAt: 30,
+        model: 'sdxl',
+        images: [],
+      },
+    ]);
+    assert.equal(picked?.id, 'new');
   });
 });

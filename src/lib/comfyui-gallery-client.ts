@@ -4,6 +4,7 @@ import {
   loadComfyGallery,
   saveComfyGallery,
   updateComfyGalleryByPromptId,
+  updateComfyGalleryEntryById,
   type ComfyGalleryEntry,
   type ComfyGalleryJobStatus,
 } from './comfyui-gallery';
@@ -655,6 +656,16 @@ function applyComfyJobStatus(
       void freeComfyUiMemory(entry.engineId === 'diffusers' ? undefined : entry.comfyUrl);
     }
     void autoTagGalleryEntry(entry);
+    void import('./gallery-media-client').then(({ persistGalleryThumb }) => {
+      void persistGalleryThumb(entry).then(url => {
+        if (!url) {
+          return;
+        }
+        updateComfyGalleryEntryById(entry.id, {
+          durableThumbPath: `gallery-media/${entry.id}/thumb.webp`,
+        });
+      });
+    });
     noteScheduledBatchJobComplete(entry.tool);
     void dispatchWebhook({
       event: 'comfyui.job.completed',
