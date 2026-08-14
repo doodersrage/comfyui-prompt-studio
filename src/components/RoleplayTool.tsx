@@ -185,6 +185,7 @@ export default function RoleplayTool() {
         tool: TOOL_ID,
         model: shared.model,
         prompt: prompt.slice(0, 500),
+        completedAt: Date.now(),
       });
       let promptId: string | undefined;
       let stillStatus: RoleplayStoryBeat['stillStatus'];

@@ -586,139 +586,119 @@ export default function EnhancedPromptResult({
               </CollapsibleSection>
             )}
 
-            {(onRunPipeline ||
-              onCompact ||
-              onReformat ||
-              onLockSeed ||
-              onFixPrompt ||
-              onSaveHistory ||
-              onPreviewWorkflow ||
-              onImprove ||
-              onRefine ||
-              onEditPrompt ||
-              onExportSidecar ||
-              panelProps.onCopy ||
-              onCopyPair) && (
-              <CollapsibleSection
-                title="More actions"
-                summary={
-                  compactActions
-                    ? 'Copy, save, compact, reformat, fix, export, and edit tools.'
-                    : 'Prepare, compact, reformat, lock seed, fix, history, preview, improve, and export.'
-                }
-                defaultOpen={false}
-                persistKey={compactActions ? 'result-more-actions-compact' : 'result-more-actions'}
-              >
-                <ToolActionRow>
-                  {panelProps.onCopy ? (
-                    <Button
-                      variant="secondary"
-                      onClick={panelProps.onCopy}
-                      data-action="copy-prompt"
-                    >
-                      {panelProps.copied ? 'Copied!' : 'Copy for ComfyUI'}
-                    </Button>
-                  ) : null}
-                  {onSaveHistory ? (
-                    <Button variant="secondary" onClick={onSaveHistory}>
-                      {historySaved ? 'Saved to history' : 'Save to history'}
-                    </Button>
-                  ) : null}
-                  {!compactActions && onRunPipeline && (
-                    <Button variant="info" onClick={onRunPipeline}>
-                      Prepare for ComfyUI
-                    </Button>
-                  )}
-                  {onCompact && (
-                    <Button variant="danger" onClick={onCompact}>
-                      {panelProps.limits && panelProps.output.length > panelProps.limits.maxChars
-                        ? 'Compact to limit'
-                        : 'Compact prompt'}
-                    </Button>
-                  )}
-                  {onReformat && reformatTargetLabel && (
-                    <Button variant="secondary" onClick={onReformat}>
-                      Reformat for {reformatTargetLabel}
-                    </Button>
-                  )}
-                  {onLockSeed && variationSeed && (
-                    <Button variant="accent-outline" onClick={onLockSeed}>
-                      {seedLocked ? 'Seed locked' : 'Lock variation seed'}
-                    </Button>
-                  )}
-                  {onFixPrompt && (
-                    <Button variant="secondary" onClick={onFixPrompt}>
-                      Fix prompt (rules)
-                    </Button>
-                  )}
-                  {onCopyPair && (
-                    <Button variant="secondary" onClick={onCopyPair} data-action="copy-pair">
-                      {pairCopied ? 'Pair copied!' : 'Copy prompt pair'}
-                    </Button>
-                  )}
-                  {onPreviewWorkflow && (
-                    <Button variant="info" onClick={onPreviewWorkflow}>
-                      Preview workflow
-                    </Button>
-                  )}
-                  {onImprove && (
-                    <Button variant="secondary" onClick={onImprove}>
-                      Improve output
-                    </Button>
-                  )}
-                  {onRefine && (
-                    <Button variant="secondary" onClick={onRefine}>
-                      Open in Refine
-                    </Button>
-                  )}
-                  {onEditPrompt && (
-                    <Button variant="secondary" onClick={onEditPrompt}>
-                      Edit in Prompt Editor
-                    </Button>
-                  )}
-                  {onContinueInpaint && (
-                    <Button variant="secondary" onClick={onContinueInpaint}>
-                      Continue in Inpaint
-                    </Button>
-                  )}
-                  {onContinueOutpaint && (
-                    <Button variant="secondary" onClick={onContinueOutpaint}>
-                      Continue in Outpaint
-                    </Button>
-                  )}
-                  {onContinueCompose && (
-                    <Button variant="secondary" onClick={onContinueCompose}>
-                      Continue in Compose
-                    </Button>
-                  )}
-                  {onContinueVideo && (
-                    <Button variant="secondary" onClick={onContinueVideo}>
-                      Continue in Video
-                    </Button>
-                  )}
-                  {onContinueControlNet && (
-                    <Button variant="secondary" onClick={onContinueControlNet}>
-                      Continue in ControlNet
-                    </Button>
-                  )}
-                  {onQueueSeedBatch && (
-                    <Button variant="secondary" onClick={onQueueSeedBatch}>
-                      {seedBatchLabel ?? 'Queue 3 seed variants'}
-                    </Button>
-                  )}
-                  {onExportSidecar && (
-                    <Button variant="secondary" onClick={onExportSidecar}>
-                      Export sidecar JSON
-                    </Button>
-                  )}
-                  {compactActions && onRunPipeline && (
-                    <Button variant="info" onClick={onRunPipeline}>
-                      Prepare for ComfyUI
-                    </Button>
-                  )}
-                </ToolActionRow>
-              </CollapsibleSection>
-            )}
+            <CollapsibleSection
+              title="More actions"
+              summary={
+                compactActions
+                  ? 'Copy, save, compact, reformat, fix, export, and edit tools.'
+                  : 'Prepare, compact, reformat, lock seed, fix, history, preview, improve, and export.'
+              }
+              defaultOpen={false}
+              persistKey={compactActions ? 'result-more-actions-compact' : 'result-more-actions'}
+            >
+              <ToolActionRow>
+                <Button variant="secondary" onClick={panelProps.onCopy} data-action="copy-prompt">
+                  {panelProps.copied ? 'Copied!' : 'Copy for ComfyUI'}
+                </Button>
+                {onSaveHistory ? (
+                  <Button variant="secondary" onClick={onSaveHistory}>
+                    {historySaved ? 'Saved to history' : 'Save to history'}
+                  </Button>
+                ) : null}
+                {!compactActions && onRunPipeline && (
+                  <Button variant="info" onClick={onRunPipeline}>
+                    Prepare for ComfyUI
+                  </Button>
+                )}
+                {onCompact && (
+                  <Button variant="danger" onClick={onCompact}>
+                    {panelProps.limits && panelProps.output.length > panelProps.limits.maxChars
+                      ? 'Compact to limit'
+                      : 'Compact prompt'}
+                  </Button>
+                )}
+                {onReformat && reformatTargetLabel && (
+                  <Button variant="secondary" onClick={onReformat}>
+                    Reformat for {reformatTargetLabel}
+                  </Button>
+                )}
+                {onLockSeed && variationSeed && (
+                  <Button variant="accent-outline" onClick={onLockSeed}>
+                    {seedLocked ? 'Seed locked' : 'Lock variation seed'}
+                  </Button>
+                )}
+                {onFixPrompt && (
+                  <Button variant="secondary" onClick={onFixPrompt}>
+                    Fix prompt (rules)
+                  </Button>
+                )}
+                {onCopyPair && (
+                  <Button variant="secondary" onClick={onCopyPair} data-action="copy-pair">
+                    {pairCopied ? 'Pair copied!' : 'Copy prompt pair'}
+                  </Button>
+                )}
+                {onPreviewWorkflow && (
+                  <Button variant="info" onClick={onPreviewWorkflow}>
+                    Preview workflow
+                  </Button>
+                )}
+                {onImprove && (
+                  <Button variant="secondary" onClick={onImprove}>
+                    Improve output
+                  </Button>
+                )}
+                {onRefine && (
+                  <Button variant="secondary" onClick={onRefine}>
+                    Open in Refine
+                  </Button>
+                )}
+                {onEditPrompt && (
+                  <Button variant="secondary" onClick={onEditPrompt}>
+                    Edit in Prompt Editor
+                  </Button>
+                )}
+                {onContinueInpaint && (
+                  <Button variant="secondary" onClick={onContinueInpaint}>
+                    Continue in Inpaint
+                  </Button>
+                )}
+                {onContinueOutpaint && (
+                  <Button variant="secondary" onClick={onContinueOutpaint}>
+                    Continue in Outpaint
+                  </Button>
+                )}
+                {onContinueCompose && (
+                  <Button variant="secondary" onClick={onContinueCompose}>
+                    Continue in Compose
+                  </Button>
+                )}
+                {onContinueVideo && (
+                  <Button variant="secondary" onClick={onContinueVideo}>
+                    Continue in Video
+                  </Button>
+                )}
+                {onContinueControlNet && (
+                  <Button variant="secondary" onClick={onContinueControlNet}>
+                    Continue in ControlNet
+                  </Button>
+                )}
+                {onQueueSeedBatch && (
+                  <Button variant="secondary" onClick={onQueueSeedBatch}>
+                    {seedBatchLabel ?? 'Queue 3 seed variants'}
+                  </Button>
+                )}
+                {onExportSidecar && (
+                  <Button variant="secondary" onClick={onExportSidecar}>
+                    Export sidecar JSON
+                  </Button>
+                )}
+                {compactActions && onRunPipeline && (
+                  <Button variant="info" onClick={onRunPipeline}>
+                    Prepare for ComfyUI
+                  </Button>
+                )}
+              </ToolActionRow>
+            </CollapsibleSection>
           </ToolSection>
         )}
 

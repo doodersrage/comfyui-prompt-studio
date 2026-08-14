@@ -402,7 +402,7 @@ export function formatQueuePipelineStatusNotes(input: {
 }
 
 /**
- * One-line size/quality path for sidebar preflight (EmptySD3 · 1328×1328 · Final · Lanczos 1.05× → ~1394).
+ * One-line size/quality path for sidebar preflight (EmptySD3 · 1328×1328 · Good · Lanczos 1.05× → ~1394).
  */
 export function formatQueueSizeQualityExplain(input: {
   model?: string;
