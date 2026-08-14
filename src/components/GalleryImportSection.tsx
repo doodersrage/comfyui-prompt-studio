@@ -12,7 +12,7 @@ export default function GalleryImportSection() {
   return (
     <CollapsibleSection
       title="Import & queue tools"
-      summary="Sidecar, PNG, ComfyUI history"
+      summary="Stills, sidecar, PNG, ComfyUI history"
       defaultOpen={false}
       persistKey="gallery-import"
     >

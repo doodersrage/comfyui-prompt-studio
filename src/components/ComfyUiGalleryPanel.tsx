@@ -31,6 +31,10 @@ import GalleryVisionReviewButton from '@/components/gallery/GalleryVisionReviewB
 import GalleryCardItem from '@/components/gallery/GalleryCardItem';
 import GalleryDisplayGrid from '@/components/gallery/GalleryDisplayGrid';
 import GalleryEmptyPanel from '@/components/gallery/GalleryEmptyPanel';
+import {
+  GALLERY_UPLOAD_ACCEPT,
+  runGalleryImageImport,
+} from '@/components/gallery/GalleryUploadButton';
 import GalleryFiltersBar from '@/components/gallery/GalleryFiltersBar';
 import GalleryFailedRecoveryBanner from '@/components/gallery/GalleryFailedRecoveryBanner';
 import GalleryReviewBanner from '@/components/gallery/GalleryReviewBanner';
@@ -228,6 +232,8 @@ export default function ComfyUiGalleryPanel({
   const [projects] = useState(() => loadPromptProjects());
   const [density, setDensity] = useState<GalleryDensity>('comfortable');
   const [galleryUrlReady, setGalleryUrlReady] = useState(false);
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const entriesRef = useRef(entries);
   const visibleEntriesRef = useRef<ComfyGalleryEntry[]>([]);
   const entryIdsWithDerivatives = useMemo(() => {
@@ -252,6 +258,37 @@ export default function ComfyUiGalleryPanel({
     setSort('queued-desc');
     setPage(1);
   }, [setFilter]);
+
+  const importDroppedImages = useCallback(async (files: File[]) => {
+    if (files.length === 0) {
+      return;
+    }
+    setUploadingImages(true);
+    try {
+      const result = await runGalleryImageImport(files);
+      if (result.failed > 0 && result.imported === 0) {
+        setRequeueStatus(result.errors[0] ?? 'Could not import those images.');
+      }
+    } finally {
+      setUploadingImages(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (searchParams.get('upload') !== '1') {
+      return;
+    }
+    uploadInputRef.current?.click();
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('upload')) {
+      url.searchParams.delete('upload');
+      window.history.replaceState(
+        window.history.state,
+        '',
+        `${url.pathname}${url.search}${url.hash}`
+      );
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     setFilter(previous => ({
@@ -1168,7 +1205,34 @@ export default function ComfyUiGalleryPanel({
   }
 
   return (
-    <section className="space-y-6">
+    <section
+      className="space-y-6"
+      onDragOver={event => {
+        if (event.dataTransfer.types.includes('Files')) {
+          event.preventDefault();
+        }
+      }}
+      onDrop={event => {
+        const files = [...event.dataTransfer.files];
+        if (files.length === 0) {
+          return;
+        }
+        event.preventDefault();
+        void importDroppedImages(files);
+      }}
+    >
+      <input
+        ref={uploadInputRef}
+        type="file"
+        accept={GALLERY_UPLOAD_ACCEPT}
+        multiple
+        className="hidden"
+        onChange={event => {
+          const files = [...(event.target.files ?? [])];
+          event.target.value = '';
+          void importDroppedImages(files);
+        }}
+      />
       <ImageLightbox
         state={resolvedLightbox}
         onClose={closeLightbox}
@@ -1212,6 +1276,8 @@ export default function ComfyUiGalleryPanel({
           limit={limit}
           onRefreshPending={() => void refreshPending()}
           onClearAll={clearAll}
+          onUpload={() => uploadInputRef.current?.click()}
+          uploading={uploadingImages}
         />
       ) : null}
 
@@ -1548,7 +1614,11 @@ export default function ComfyUiGalleryPanel({
       ) : null}
 
       {visibleEntries.length === 0 ? (
-        <GalleryEmptyPanel filtered={entries.length > 0} onClearFilters={clearGalleryFilters} />
+        <GalleryEmptyPanel
+          filtered={entries.length > 0}
+          onClearFilters={clearGalleryFilters}
+          onUpload={() => uploadInputRef.current?.click()}
+        />
       ) : (
         <GalleryDisplayGrid
           visibleEntries={visibleEntries}

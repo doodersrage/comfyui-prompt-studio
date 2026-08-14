@@ -2,8 +2,11 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   cacheBustIdentityMediaUrl,
+  durableGalleryOriginalUrl,
   IDENTITY_MEDIA_URL,
+  isDurableGalleryMediaUrl,
   isIdentityMediaUrl,
+  resolveDurableGalleryStillUrl,
 } from './gallery-media-client';
 
 describe('cacheBustIdentityMediaUrl', () => {
@@ -28,5 +31,39 @@ describe('cacheBustIdentityMediaUrl', () => {
     assert.equal(isIdentityMediaUrl(IDENTITY_MEDIA_URL), true);
     assert.equal(isIdentityMediaUrl(`${IDENTITY_MEDIA_URL}?v=9`), true);
     assert.equal(isIdentityMediaUrl('/api/gallery/media/abc'), false);
+  });
+});
+
+describe('resolveDurableGalleryStillUrl', () => {
+  it('uses the durable original when a Studio upload path is present', () => {
+    assert.equal(
+      resolveDurableGalleryStillUrl({
+        id: 'upload-1',
+        durableOriginalPath: 'gallery/upload-1/original.jpg',
+        sourceImageUrl: '/api/comfyui/view?filename=772904885_n.jpg',
+      }),
+      durableGalleryOriginalUrl('upload-1')
+    );
+  });
+
+  it('accepts an existing durable media source URL', () => {
+    assert.equal(
+      resolveDurableGalleryStillUrl({
+        sourceImageUrl: '/api/gallery/media/upload-1?variant=original',
+      }),
+      '/api/gallery/media/upload-1?variant=original'
+    );
+    assert.equal(isDurableGalleryMediaUrl('/api/gallery/media/upload-1?variant=original'), true);
+    assert.equal(isDurableGalleryMediaUrl(IDENTITY_MEDIA_URL), false);
+  });
+
+  it('ignores Comfy /view URLs so generated stills stay on the host', () => {
+    assert.equal(
+      resolveDurableGalleryStillUrl({
+        id: 'job-1',
+        sourceImageUrl: '/api/comfyui/view?filename=out.png&type=output',
+      }),
+      undefined
+    );
   });
 });

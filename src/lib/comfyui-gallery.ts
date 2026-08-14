@@ -16,7 +16,7 @@ import { orderGalleryBySimilarity, orderGalleryByVisualSimilarity } from './gall
 import { clusterGalleryDuplicates, duplicateEntryIds } from './gallery-duplicate-clusters';
 import type { ComfyGalleryEntry } from './comfyui-gallery-entry';
 import type { ComfyGalleryJobStatus } from './comfyui-gallery-types';
-import { durableGalleryThumbUrl } from './gallery-media-client';
+import { durableGalleryOriginalUrl, durableGalleryThumbUrl } from './gallery-media-client';
 import {
   getGalleryCache,
   notifyGalleryUpdated,
@@ -611,17 +611,18 @@ export function uniqueGalleryUserTags(entries: ComfyGalleryEntry[]): string[] {
 
 export function addComfyGalleryEntry(
   input: Omit<ComfyGalleryEntry, 'id' | 'queuedAt' | 'images' | 'status'> & {
+    id?: string;
     status?: ComfyGalleryJobStatus;
     images?: ComfyOutputImage[];
   }
 ): ComfyGalleryEntry {
   const userId = getActiveUserId();
   const entry: ComfyGalleryEntry = {
-    id: crypto.randomUUID(),
     queuedAt: Date.now(),
     status: input.status ?? 'pending',
     images: input.images ?? [],
     ...input,
+    id: input.id?.trim() || crypto.randomUUID(),
     userId: input.userId ?? userId ?? undefined,
   };
 
@@ -640,6 +641,7 @@ function applyGalleryEntryPatch<T extends Partial<ComfyGalleryEntry>>(
   const updated: ComfyGalleryEntry = { ...entry, ...patch };
   // Drop stale semantic corpus when corpus-affecting fields change.
   if (
+    patch.prompt !== undefined ||
     patch.negativePrompt !== undefined ||
     patch.statusMessage !== undefined ||
     patch.promptId !== undefined ||
@@ -671,6 +673,7 @@ export function updateComfyGalleryEntryById(
       | 'comfyUrl'
       | 'favorite'
       | 'historyId'
+      | 'prompt'
       | 'negativePrompt'
       | 'queueParams'
       | 'reviewRating'
@@ -684,6 +687,8 @@ export function updateComfyGalleryEntryById(
       | 'hasStoredWorkflow'
       | 'workflowJsonOmitted'
       | 'durableThumbPath'
+      | 'durableOriginalPath'
+      | 'sourceImageUrl'
     >
   >
 ): ComfyGalleryEntry | null {
@@ -966,6 +971,9 @@ function galleryEntryBuildViewPath(
   image: ComfyGalleryEntry['images'][number],
   options?: { width?: number }
 ): string {
+  if (entry.durableOriginalPath) {
+    return durableGalleryOriginalUrl(entry.id);
+  }
   return buildEngineViewPath(entry.engineId, entry.comfyUrl, image, options);
 }
 
@@ -991,7 +999,7 @@ function galleryEntryUrlCacheKey(entry: ComfyGalleryEntry): string {
   const images = entry.images
     .map(image => `${image.filename}:${image.subfolder}:${image.type}`)
     .join(',');
-  return `${entry.id}|${entry.engineId ?? ''}|${entry.comfyUrl ?? ''}|${images}|${entry.durableThumbPath ?? ''}`;
+  return `${entry.id}|${entry.engineId ?? ''}|${entry.comfyUrl ?? ''}|${images}|${entry.durableThumbPath ?? ''}|${entry.durableOriginalPath ?? ''}`;
 }
 
 function _evictUrlCacheIfNeeded(key: string): void {

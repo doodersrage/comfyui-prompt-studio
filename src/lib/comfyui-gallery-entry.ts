@@ -74,6 +74,8 @@ export type ComfyGalleryEntry = {
   completedAt?: number;
   /** Durable thumb under PROMPT_DATA_DIR (`gallery-media/{owner}/{id}/thumb.webp`). */
   durableThumbPath?: string;
+  /** Durable original still for user uploads (`gallery-media/{owner}/{id}/original`). */
+  durableOriginalPath?: string;
   /**
    * Workflow execution duration in ms (ComfyUI execution_start → success/error
    * when available; otherwise may be filled from queuedAt→completedAt wall clock).

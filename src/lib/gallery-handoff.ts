@@ -1,5 +1,6 @@
 import type { ComfyGalleryEntry } from './comfyui-gallery';
 import { buildComfyViewPath } from './comfyui-outputs';
+import { resolveDurableGalleryStillUrl } from './gallery-media-client';
 import type { WorkflowParamValues } from './comfyui-config';
 import type { QueueQualityProfile } from './queue-quality-profile';
 import { setLineageParent } from './prompt-lineage-session';
@@ -114,7 +115,11 @@ export function buildGalleryHandoff(
     model: entry.model,
     tool: entry.tool,
     historyId: entry.historyId,
-    imageUrl: image ? buildComfyViewPath(entry.comfyUrl, image) : undefined,
+    imageUrl:
+      resolveDurableGalleryStillUrl(entry) ??
+      (image ? buildComfyViewPath(entry.comfyUrl, image) : undefined) ??
+      entry.sourceImageUrl?.trim() ??
+      undefined,
     imageFilename: image?.filename,
     ...(controlImageUrls?.length ? { controlImageUrls } : {}),
     // Re-edit restores sampler/size/LoRA stack; ControlNet also needs mode/strengths.

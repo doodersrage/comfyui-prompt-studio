@@ -11,7 +11,7 @@ test.beforeEach(async ({ page }) => {
 test("gallery layout toggles and review mode shows banner", async ({ page }) => {
   await seedGalleryFixture(page);
   await gotoStable(page, "/gallery");
-  await expect(page.getByRole("heading", { name: /ComfyUI Gallery/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^Gallery$/i, level: 1 })).toBeVisible();
   await dismissBlockingOverlays(page);
 
   const denseLayout = page.getByTestId("gallery-layout-dense");

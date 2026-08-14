@@ -27,10 +27,41 @@ export function durableGalleryThumbUrl(entryId: string): string {
   return `/api/gallery/media/${encodeURIComponent(entryId)}`;
 }
 
+export function durableGalleryOriginalUrl(entryId: string): string {
+  return `/api/gallery/media/${encodeURIComponent(entryId)}?variant=original`;
+}
+
+export function isDurableGalleryMediaUrl(url: string): boolean {
+  const path = url.trim().split('?')[0] ?? '';
+  if (isIdentityMediaUrl(path)) {
+    return false;
+  }
+  return /\/api\/gallery\/media\/[^/]+$/.test(path);
+}
+
+/** Uploaded stills live in Studio storage, not Comfy `/view`. */
+export function resolveDurableGalleryStillUrl(entry: {
+  id?: string;
+  durableOriginalPath?: string;
+  sourceImageUrl?: string;
+}): string | undefined {
+  const id = entry.id?.trim();
+  if (entry.durableOriginalPath?.trim() && id) {
+    return durableGalleryOriginalUrl(id);
+  }
+  const source = entry.sourceImageUrl?.trim();
+  if (source && isDurableGalleryMediaUrl(source)) {
+    return source;
+  }
+  return undefined;
+}
+
 type PersistResponse = {
   skipped?: boolean;
   url?: string;
+  originalUrl?: string;
   path?: string;
+  originalPath?: string;
   error?: string;
 };
 
@@ -79,6 +110,55 @@ export async function persistGalleryThumb(
       return null;
     }
     return data.url;
+  } catch {
+    return null;
+  }
+}
+
+/** Persist a user-picked still as the durable original + thumb for a gallery id. */
+export async function persistGalleryOriginal(
+  entryId: string,
+  file: File
+): Promise<{
+  skipped?: boolean;
+  thumbUrl?: string;
+  originalUrl?: string;
+  thumbPath?: string;
+  originalPath?: string;
+} | null> {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  const id = entryId.trim();
+  if (!id || file.size === 0) {
+    return null;
+  }
+  try {
+    const form = new FormData();
+    form.append('kind', 'original');
+    form.append('galleryEntryId', id);
+    form.append('file', file, file.name || 'upload.png');
+    const response = await fetch('/api/gallery/media/persist', {
+      method: 'POST',
+      credentials: 'same-origin',
+      body: form,
+    });
+    const data = await readPersistResponse(response);
+    if (!data) {
+      return null;
+    }
+    if (data.skipped) {
+      return { skipped: true };
+    }
+    if (!data.url) {
+      return null;
+    }
+    return {
+      thumbUrl: durableGalleryThumbUrl(id),
+      originalUrl: data.originalUrl || durableGalleryOriginalUrl(id),
+      thumbPath: data.path,
+      originalPath: data.originalPath,
+    };
   } catch {
     return null;
   }

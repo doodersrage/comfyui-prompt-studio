@@ -30,7 +30,7 @@ const TOOL_HREF: Record<string, string> = {
   mesh: '/mesh',
   'prompt-editor': '/prompt',
   'nsfw-generator': '/plugins/nsfw-generator',
-  studio: '/studio',
+  upload: '/gallery',
   portfolio: '/studio?tab=portfolio',
 };
 
@@ -61,6 +61,7 @@ const TOOL_LABEL: Record<string, string> = {
   mesh: '3D Mesh',
   'prompt-editor': 'Prompt Editor',
   'nsfw-generator': 'Adult generator',
+  upload: 'Upload',
   studio: 'Studio',
   portfolio: 'Studio',
 };

@@ -95,6 +95,13 @@ const ACTION_ITEMS: CommandItem[] = [
     group: 'Actions',
   },
   {
+    id: 'upload-gallery',
+    label: 'Upload images to gallery',
+    subtitle: 'Add stills from disk',
+    href: '/gallery?upload=1',
+    group: 'Actions',
+  },
+  {
     id: 'report-bug',
     label: 'Report a bug',
     subtitle: 'Open a GitHub issue',

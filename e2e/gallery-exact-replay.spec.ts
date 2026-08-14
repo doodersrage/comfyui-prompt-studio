@@ -87,7 +87,7 @@ test('gallery replay exact graph queues via mocked Comfy API', async ({ page }) 
   await page.reload();
   await dismissBlockingOverlays(page);
 
-  await expect(page.getByRole('heading', { name: /ComfyUI Gallery/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^Gallery$/i, level: 1 })).toBeVisible();
   await expect(page.getByText(/Exact graph|Graph pruned/i).first()).toBeVisible({
     timeout: 15_000,
   });

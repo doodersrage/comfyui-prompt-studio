@@ -1972,7 +1972,8 @@ export default function SettingsComfyUiTab({
                   onChange={event => updateSettings({ autoVisionTags: event.target.checked })}
                   className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-[var(--accent)]"
                 />
-                Auto-tag completed gallery images with vision LLM tags (also on LLM tab)
+                Auto-tag completed and uploaded gallery images with vision LLM tags (also on LLM
+                tab)
               </label>
             </CollapsibleSection>
           </>

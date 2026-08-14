@@ -6,6 +6,7 @@ import {
   type ComfyGalleryEntry,
 } from './comfyui-gallery';
 import { loadComfyUiSettings } from './comfyui-settings';
+import { galleryUploadPromptLooksGeneric } from './gallery-local-import';
 
 type VisionReviewResult = {
   suggestedRating: 1 | 2 | 3 | 4 | 5;
@@ -43,13 +44,30 @@ export async function autoTagGalleryEntry(entry: ComfyGalleryEntry): Promise<voi
     }
     const blob = await response.blob();
     const dataUrl = await blobToDataUrl(blob);
+    let prompt = entry.prompt.trim() || 'Uploaded still';
+
+    if (galleryUploadPromptLooksGeneric(entry)) {
+      const captionResponse = await fetch('/api/gallery/caption', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageDataUrl: dataUrl }),
+      });
+      if (captionResponse.ok) {
+        const captioned = (await captionResponse.json()) as { caption?: string };
+        const caption = captioned.caption?.trim();
+        if (caption) {
+          prompt = caption;
+          updateComfyGalleryEntryById(entry.id, { prompt });
+        }
+      }
+    }
 
     const reviewResponse = await fetch('/api/gallery/vision-review', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         imageDataUrl: dataUrl,
-        prompt: entry.prompt,
+        prompt,
       }),
     });
     if (!reviewResponse.ok) {
@@ -62,4 +80,16 @@ export async function autoTagGalleryEntry(entry: ComfyGalleryEntry): Promise<voi
   } catch {
     // optional enrichment
   }
+}
+
+/** Sequential so a batch of uploads does not stampede the vision LLM. */
+export function queueGalleryVisionScans(entries: ComfyGalleryEntry[]): void {
+  if (entries.length === 0) {
+    return;
+  }
+  void (async () => {
+    for (const entry of entries) {
+      await autoTagGalleryEntry(entry);
+    }
+  })();
 }

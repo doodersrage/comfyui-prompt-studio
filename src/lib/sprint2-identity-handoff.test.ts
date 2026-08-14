@@ -171,6 +171,19 @@ describe("gallery re-edit handoff", () => {
     assert.match(payload.controlImageUrls?.[0] ?? "", /pose\.png/);
   });
 
+  it("uses durable Studio originals for uploaded stills instead of Comfy /view", () => {
+    const payload = buildGalleryHandoff(
+      fakeEntry({
+        tool: "upload",
+        durableOriginalPath: "gallery/g1/original.jpg",
+        sourceImageUrl: "/api/gallery/media/g1?variant=original",
+        images: [{ filename: "772904885_n.jpg", subfolder: "", type: "output" }],
+      }),
+      "refine",
+    );
+    assert.equal(payload.imageUrl, "/api/gallery/media/g1?variant=original");
+  });
+
   it("controlnet handoff restores mode and strengths from queueParams", () => {
     const payload = buildGalleryHandoff(
       fakeEntry({

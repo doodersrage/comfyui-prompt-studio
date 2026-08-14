@@ -244,4 +244,21 @@ describe("gallery-output-upscale", () => {
     });
     assert.equal(url, "http://127.0.0.1:8188/view?filename=sidecar.png");
   });
+
+  it("prefers durable Studio originals over Comfy /view for uploads", () => {
+    const url = resolveGalleryOutputImageUrl({
+      id: "upload-1",
+      comfyUrl: "http://127.0.0.1:8188",
+      images: [
+        {
+          filename: "772904885_n.jpg",
+          subfolder: "",
+          type: "output",
+        },
+      ],
+      durableOriginalPath: "gallery/upload-1/original.jpg",
+      sourceImageUrl: "/api/gallery/media/upload-1?variant=original",
+    });
+    assert.equal(url, "/api/gallery/media/upload-1?variant=original");
+  });
 });

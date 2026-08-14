@@ -26,7 +26,7 @@ export default function GalleryTool() {
       accent={ACCENT}
       width="wide"
       badge={<ToolBadge accent={ACCENT}>Gallery</ToolBadge>}
-      title="ComfyUI Gallery"
+      title="Gallery"
       description={description}
     >
       <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.gallery} />

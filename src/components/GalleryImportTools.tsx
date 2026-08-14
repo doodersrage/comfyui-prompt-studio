@@ -18,6 +18,7 @@ import {
 import { resolveComfyUiRuntime } from '@/lib/comfyui-runtime';
 import { toastHeldMax } from '@/lib/app-toast';
 import { Button } from '@/components/ui/Button';
+import GalleryUploadButton from '@/components/gallery/GalleryUploadButton';
 import QueueOrchestrationPanel from '@/components/QueueOrchestrationPanel';
 
 export default function GalleryImportTools() {
@@ -30,7 +31,8 @@ export default function GalleryImportTools() {
   return (
     <>
       <p className="type-caption">
-        Backfill outputs generated outside this app, or inspect the ComfyUI queue.
+        Backfill outputs generated outside this app, upload stills from disk, or inspect the ComfyUI
+        queue.
       </p>
       <div className="flex flex-wrap items-center gap-3">
         <SidecarImportButton
@@ -39,6 +41,18 @@ export default function GalleryImportTools() {
             setImportStatus(`Loaded sidecar from ${sidecar.tool ?? 'unknown tool'}.`);
           }}
           onError={setImportStatus}
+        />
+        <GalleryUploadButton
+          className="cursor-pointer rounded-lg border border-[var(--border-default)] px-4 py-2 text-sm text-[var(--text-primary)] hover:border-[var(--border-default)]"
+          onImported={result => {
+            setImportStatus(
+              result.imported > 0
+                ? `Imported ${result.imported} image${result.imported === 1 ? '' : 's'} into the gallery${
+                    result.failed > 0 ? ` · ${result.failed} skipped` : ''
+                  }.`
+                : (result.errors[0] ?? 'Could not import those images.')
+            );
+          }}
         />
         <PngMetadataImportButton
           onImport={sidecar => {

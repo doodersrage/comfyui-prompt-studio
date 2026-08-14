@@ -41,6 +41,68 @@ export function durableThumbRelativePath(owner: string, entryId: string): string
   return `gallery-media/${owner}/${entryId}/thumb.webp`;
 }
 
+export function persistGalleryOriginalFile(input: {
+  userId?: string | null;
+  entryId: string;
+  buffer: Buffer;
+  contentType?: string;
+  filename?: string;
+}): { relativePath: string } {
+  if (!isServerStorageEnabled()) {
+    throw new Error('Server storage is disabled.');
+  }
+  const owner = mediaOwner(input.userId);
+  const entryId = assertSafeId(input.entryId, 'gallery id');
+  const dir = thumbDir(owner, entryId);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'original'), input.buffer);
+  fs.writeFileSync(
+    path.join(dir, 'original.meta.json'),
+    JSON.stringify({
+      contentType: input.contentType?.trim() || 'application/octet-stream',
+      filename: input.filename?.trim() || 'upload.png',
+    })
+  );
+  return { relativePath: `gallery-media/${owner}/${entryId}/original` };
+}
+
+export function readGalleryOriginalFile(input: {
+  userId?: string | null;
+  entryId: string;
+}): (DurableMediaFile & { filename?: string }) | null {
+  if (!isServerStorageEnabled()) {
+    return null;
+  }
+  const owner = mediaOwner(input.userId);
+  const entryId = assertSafeId(input.entryId, 'gallery id');
+  const filePath = path.join(thumbDir(owner, entryId), 'original');
+  if (!fs.existsSync(filePath)) {
+    return null;
+  }
+  let contentType = 'application/octet-stream';
+  let filename: string | undefined;
+  try {
+    const metaRaw = fs.readFileSync(
+      path.join(thumbDir(owner, entryId), 'original.meta.json'),
+      'utf8'
+    );
+    const meta = JSON.parse(metaRaw) as { contentType?: string; filename?: string };
+    if (typeof meta.contentType === 'string' && meta.contentType.trim()) {
+      contentType = meta.contentType.trim();
+    }
+    if (typeof meta.filename === 'string' && meta.filename.trim()) {
+      filename = meta.filename.trim();
+    }
+  } catch {
+    // Missing meta is fine — serve as octet-stream.
+  }
+  return {
+    buffer: fs.readFileSync(filePath),
+    contentType,
+    filename,
+  };
+}
+
 export function persistGalleryThumbFile(input: {
   userId?: string | null;
   entryId: string;

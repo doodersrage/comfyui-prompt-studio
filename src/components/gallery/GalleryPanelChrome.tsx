@@ -16,6 +16,8 @@ export function GalleryPanelHeader({
   limit,
   onRefreshPending,
   onClearAll,
+  onUpload,
+  uploading = false,
 }: {
   leanGallery: boolean;
   activeJobs: number;
@@ -24,6 +26,8 @@ export function GalleryPanelHeader({
   limit?: number;
   onRefreshPending: () => void;
   onClearAll: () => void;
+  onUpload?: () => void;
+  uploading?: boolean;
 }) {
   return (
     <div className="flex flex-wrap items-end justify-between gap-4">
@@ -31,11 +35,21 @@ export function GalleryPanelHeader({
         <h2 className="type-heading text-[var(--text-primary)]">Gallery</h2>
         <p className="mt-1 text-sm text-[var(--text-muted)]">
           {leanGallery
-            ? 'Browse ComfyUI outputs and rate results.'
-            : 'Browse ComfyUI outputs, rate results, compare variants, and queue follow-up experiments.'}
+            ? 'Browse ComfyUI outputs, upload stills, and rate results.'
+            : 'Browse ComfyUI outputs, upload stills, rate results, compare variants, and queue follow-up experiments.'}
         </p>
       </div>
       <div className="flex flex-wrap gap-2">
+        {onUpload ? (
+          <button
+            type="button"
+            onClick={onUpload}
+            disabled={uploading}
+            className="ui-btn-ghost ui-btn-sm text-xs"
+          >
+            {uploading ? 'Uploading…' : 'Upload images'}
+          </button>
+        ) : null}
         <button type="button" onClick={onRefreshPending} className="ui-btn-ghost ui-btn-sm text-xs">
           Refresh jobs
         </button>

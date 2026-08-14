@@ -29,6 +29,18 @@ describe("assignWorkflowToInferredModels", () => {
 });
 
 describe("resolveRequeueImageUrlsFromEntry", () => {
+  it("uses durable Studio originals for uploaded stills", () => {
+    const urls = resolveRequeueImageUrlsFromEntry({
+      id: "upload-1",
+      comfyUrl: "http://127.0.0.1:8188",
+      tool: "upload",
+      images: [{ filename: "772904885_n.jpg", subfolder: "", type: "output" }],
+      durableOriginalPath: "gallery/upload-1/original.jpg",
+      sourceImageUrl: "/api/comfyui/view?filename=772904885_n.jpg&type=output",
+    });
+    assert.equal(urls.sourceImageUrl, "/api/gallery/media/upload-1?variant=original");
+  });
+
   it("prefers stored source and mask urls", () => {
     const urls = resolveRequeueImageUrlsFromEntry({
       comfyUrl: "http://127.0.0.1:8188",

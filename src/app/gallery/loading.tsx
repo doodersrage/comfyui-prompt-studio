@@ -9,7 +9,7 @@ export default function GalleryLoading() {
         accent="neutral"
         width="wide"
         badge={<ToolBadge accent="neutral">Gallery</ToolBadge>}
-        title="ComfyUI Gallery"
+        title="Gallery"
         description="Browse outputs, review and compare variants, run experiments, and queue follow-up work from one place."
       >
         <GalleryPanelSkeleton showFilters />

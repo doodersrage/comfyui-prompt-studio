@@ -3,6 +3,7 @@
 import type { WorkflowParamValues } from './comfyui-config';
 import type { ComfyGalleryEntry } from './comfyui-gallery';
 import { buildComfyViewPath } from './comfyui-outputs';
+import { resolveDurableGalleryStillUrl } from './gallery-media-client';
 import { isEditCapableModel, isInpaintModel } from './model-denoise-defaults';
 import {
   DEFAULT_RESOLUTION_ORIENTATION,
@@ -43,7 +44,8 @@ export function resolveRequeueImageUrlsFromEntry(
     | 'sourceImageUrl'
     | 'maskImageUrl'
     | 'controlImageUrls'
-  >
+  > &
+    Partial<Pick<ComfyGalleryEntry, 'id' | 'durableOriginalPath'>>
 ): { sourceImageUrl?: string; maskImageUrl?: string; controlImageUrls?: string[] } {
   const fromParams = buildGalleryImageUrlsFromQueueParams({
     comfyUrl: entry.comfyUrl ?? '',
@@ -53,10 +55,11 @@ export function resolveRequeueImageUrlsFromEntry(
   });
   const controlImageUrls =
     entry.controlImageUrls?.map(url => url.trim()).filter(Boolean) ?? fromParams.controlImageUrls;
+  const durableStill = resolveDurableGalleryStillUrl(entry);
 
-  if (entry.sourceImageUrl?.trim()) {
+  if (durableStill || entry.sourceImageUrl?.trim()) {
     return {
-      sourceImageUrl: entry.sourceImageUrl.trim(),
+      sourceImageUrl: durableStill || entry.sourceImageUrl?.trim(),
       maskImageUrl: entry.maskImageUrl?.trim() || undefined,
       ...(controlImageUrls?.length ? { controlImageUrls } : {}),
     };

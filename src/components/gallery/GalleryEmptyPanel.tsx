@@ -9,9 +9,14 @@ import { resolveGenerateEmptyCta } from '@/lib/empty-cta';
 type GalleryEmptyPanelProps = {
   filtered: boolean;
   onClearFilters: () => void;
+  onUpload?: () => void;
 };
 
-export default function GalleryEmptyPanel({ filtered, onClearFilters }: GalleryEmptyPanelProps) {
+export default function GalleryEmptyPanel({
+  filtered,
+  onClearFilters,
+  onUpload,
+}: GalleryEmptyPanelProps) {
   if (filtered) {
     return (
       <EmptyState
@@ -37,7 +42,7 @@ export default function GalleryEmptyPanel({ filtered, onClearFilters }: GalleryE
         branded
         icon="inbox"
         title="No gallery outputs yet"
-        description="Queue prompts from any tool with Send to ComfyUI, or import sidecars and ComfyUI history below."
+        description="Queue prompts from any tool with Send to ComfyUI, upload your own stills, or import sidecars and ComfyUI history below."
         action={generateCta}
       />
       <div className="ui-panel-accent relative px-4 py-4">
@@ -52,6 +57,10 @@ export default function GalleryEmptyPanel({ filtered, onClearFilters }: GalleryE
             <strong className="font-medium text-[var(--text-secondary)]">Send to ComfyUI</strong>.
           </li>
           <li>
+            Use <strong className="font-medium text-[var(--text-secondary)]">Upload images</strong>{' '}
+            to add stills from disk — they stay in the gallery for Play, Compose, and identity lock.
+          </li>
+          <li>
             Use <strong className="font-medium text-[var(--text-secondary)]">Review mode</strong> to
             rate outputs with keyboard <kbd className="ui-kbd">1–5</kbd> and build avoided-token
             feedback.
@@ -62,6 +71,11 @@ export default function GalleryEmptyPanel({ filtered, onClearFilters }: GalleryE
           </li>
         </ul>
         <div className="mt-4 flex flex-wrap gap-2">
+          {onUpload ? (
+            <button type="button" className="ui-btn-secondary ui-btn-sm" onClick={onUpload}>
+              Upload images
+            </button>
+          ) : null}
           <ButtonLink href={generateCta.href} size="sm">
             {generateCta.label}
           </ButtonLink>

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { apiError, apiMethodNotAllowed } from '@/lib/api/response';
 import { resolveRequestUser } from '@/lib/auth/access';
 import { isAuthEnabled } from '@/lib/auth/store';
-import { readGalleryThumbFile } from '@/lib/gallery-media-store';
+import { readGalleryOriginalFile, readGalleryThumbFile } from '@/lib/gallery-media-store';
 import { isServerStorageEnabled } from '@/lib/server-storage';
 
 export const runtime = 'nodejs';
@@ -27,7 +27,22 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     return apiError('Sign in required.', 401);
   }
   const { id } = await context.params;
+  const variant = new URL(request.url).searchParams.get('variant')?.trim() || 'thumb';
   try {
+    if (variant === 'original') {
+      const original = readGalleryOriginalFile({ userId, entryId: id });
+      if (original) {
+        const filename = original.filename?.replace(/[\r\n"]+/g, '') || 'original';
+        return new NextResponse(new Uint8Array(original.buffer), {
+          status: 200,
+          headers: {
+            'Content-Type': original.contentType,
+            'Content-Disposition': `inline; filename="${filename}"`,
+            'Cache-Control': 'private, max-age=86400, stale-while-revalidate=604800',
+          },
+        });
+      }
+    }
     const file = readGalleryThumbFile({ userId, entryId: id });
     if (!file) {
       return apiError('Durable thumb not found.', 404);

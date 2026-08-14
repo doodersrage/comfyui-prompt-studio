@@ -3,7 +3,11 @@ import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
 import { resolveRequestUser } from '@/lib/auth/access';
 import { isAuthEnabled } from '@/lib/auth/store';
 import { GALLERY_THUMB_WIDTH } from '@/lib/comfyui-outputs';
-import { persistGalleryThumbFile, persistIdentityFile } from '@/lib/gallery-media-store';
+import {
+  persistGalleryThumbFile,
+  persistIdentityFile,
+  persistGalleryOriginalFile,
+} from '@/lib/gallery-media-store';
 import { isServerStorageEnabled } from '@/lib/server-storage';
 import { getComfyUiBaseUrl } from '@/lib/comfyui-client';
 import { stripEmptyComfyUiRuntime } from '@/lib/comfyui-config';
@@ -81,6 +85,49 @@ type PersistJsonBody = {
   engineId?: string;
 };
 
+const MAX_GALLERY_UPLOAD_BYTES = 25 * 1024 * 1024;
+
+async function persistUploadedOriginal(request: Request, form: FormData): Promise<NextResponse> {
+  const userId = resolveMediaUserId(request);
+  if (isAuthEnabled() && !userId) {
+    return apiError('Sign in required.', 401);
+  }
+  const entryId = String(form.get('galleryEntryId') ?? '').trim();
+  if (!entryId) {
+    return apiError('galleryEntryId is required.', 400);
+  }
+  const file = form.get('file');
+  if (!(file instanceof Blob) || file.size === 0) {
+    return apiError('Image file is required.', 400);
+  }
+  if (file.size > MAX_GALLERY_UPLOAD_BYTES) {
+    return apiError('Image is too large (max 25MB).', 413);
+  }
+  const filename =
+    (typeof form.get('filename') === 'string' && form.get('filename')?.toString().trim()) ||
+    (file instanceof File ? file.name : 'upload.png');
+  const contentType = file.type || 'application/octet-stream';
+  if (!contentType.startsWith('image/') && !/\.(jpe?g|png|webp|gif)$/i.test(filename)) {
+    return apiError('Only image files can be added to the gallery.', 400);
+  }
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const original = persistGalleryOriginalFile({
+    userId,
+    entryId,
+    buffer,
+    contentType,
+    filename,
+  });
+  const thumb = await encodeThumbWebp(buffer);
+  const storedThumb = persistGalleryThumbFile({ userId, entryId, buffer: thumb });
+  return apiJson({
+    url: `/api/gallery/media/${encodeURIComponent(entryId)}`,
+    originalUrl: `/api/gallery/media/${encodeURIComponent(entryId)}?variant=original`,
+    path: storedThumb.relativePath,
+    originalPath: original.relativePath,
+  });
+}
+
 async function persistFromViewParams(
   request: Request,
   kind: 'thumb' | 'identity',
@@ -140,8 +187,11 @@ export async function POST(request: Request) {
       }
       const form = await request.formData();
       const kind = String(form.get('kind') ?? 'identity');
+      if (kind === 'original') {
+        return await persistUploadedOriginal(request, form);
+      }
       if (kind !== 'identity') {
-        return apiError('Multipart persist only supports identity.', 400);
+        return apiError('Multipart persist only supports identity or original.', 400);
       }
       const file = form.get('file');
       if (!(file instanceof Blob) || file.size === 0) {

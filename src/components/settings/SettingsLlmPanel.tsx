@@ -884,7 +884,8 @@ export default function SettingsLlmPanel({
               Auto-tag completed gallery images
             </span>
             <span className="block text-xs text-[var(--text-muted)]">
-              After ComfyUI jobs finish, run a light vision pass for searchable tags. Requires a
+              After ComfyUI jobs finish or you upload stills, run a light vision pass for searchable
+              tags. Uploads with only a filename as the prompt also get a caption. Requires a
               vision-capable model.
             </span>
           </span>

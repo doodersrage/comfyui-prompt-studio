@@ -101,7 +101,7 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 
 ## Gallery {#gallery}
 
-- **ComfyUI gallery** — `/gallery` stores queued jobs in IndexedDB (Dexie) and displays output images when ComfyUI finishes; previews appear inline on result panels
+- **Gallery** — `/gallery` stores queued jobs in IndexedDB (Dexie) and displays output images when ComfyUI finishes; previews appear inline on result panels
 - **Import completed host jobs** — Gallery import prefers Comfy `GET /api/jobs` and falls back to `/history`; walks every pool host; imported rows keep the workflow graph when present
 - **Failed-job node install** — missing `class_type` errors offer Install missing nodes (Manager + restart + retry) on Queue, Gallery, and workflow preview
 - **Gallery stats bar** — at-a-glance totals (completed, in queue, favorites, unreviewed, avg rating) with one-click filter chips

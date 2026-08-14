@@ -1,5 +1,6 @@
 import type { ComfyGalleryEntry } from './comfyui-gallery';
 import { buildComfyViewPath } from './comfyui-outputs';
+import { resolveDurableGalleryStillUrl } from './gallery-media-client';
 import { isFluxFineTuneCheckpointModel } from './model-checkpoint-map';
 import { isQwenLightningModel } from './model-sampling-patch';
 import {
@@ -51,16 +52,19 @@ export class GalleryUpscaleBuildError extends Error {
   }
 }
 
-export function resolveGalleryOutputImageUrl(
-  entry: Pick<ComfyGalleryEntry, 'comfyUrl' | 'images' | 'sourceImageUrl'>
-): string | undefined {
+type GalleryOutputImageEntry = Pick<ComfyGalleryEntry, 'comfyUrl' | 'images' | 'sourceImageUrl'> &
+  Partial<Pick<ComfyGalleryEntry, 'id' | 'durableOriginalPath'>>;
+
+export function resolveGalleryOutputImageUrl(entry: GalleryOutputImageEntry): string | undefined {
   return resolveGalleryOutputImageUrls(entry)[0];
 }
 
 /** All output view URLs for a gallery entry (batch-aware). */
-export function resolveGalleryOutputImageUrls(
-  entry: Pick<ComfyGalleryEntry, 'comfyUrl' | 'images' | 'sourceImageUrl'>
-): string[] {
+export function resolveGalleryOutputImageUrls(entry: GalleryOutputImageEntry): string[] {
+  const durable = resolveDurableGalleryStillUrl(entry);
+  if (durable) {
+    return [durable];
+  }
   const comfyUrl = entry.comfyUrl?.replace(/\/+$/, '') ?? '';
   const fromImages =
     comfyUrl && entry.images.length > 0

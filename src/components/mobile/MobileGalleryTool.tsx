@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import GalleryUploadButton from '@/components/gallery/GalleryUploadButton';
 import { useComfyUiGallery } from '@/hooks/useComfyUiGallery';
 import { recordCatalogBiasFromPrompt } from '@/lib/catalog-rating-bias';
 import {
@@ -76,13 +77,14 @@ export default function MobileGalleryTool() {
       <div className="space-y-1">
         <h1 className="type-display text-2xl tracking-tight">Gallery</h1>
         <p className="text-sm text-[var(--text-secondary)]">
-          Rate stills. Open one in Play or Compose.
+          Rate stills. Upload your own. Open one in Play or Compose.
         </p>
+        <GalleryUploadButton className="ui-btn-secondary mt-2 px-3 py-2 text-xs" />
       </div>
 
       {entries.length === 0 ? (
         <p className="rounded-2xl border border-[var(--border-subtle)] px-4 py-10 text-center text-sm text-[var(--text-muted)]">
-          No completed stills yet.
+          No completed stills yet. Upload a photo to start.
         </p>
       ) : (
         <div className="grid grid-cols-2 gap-2">
