@@ -35,10 +35,10 @@ function suggestClosestFilename(filename: string, list: string[]): string | unde
 }
 
 export function suggestLoaderMapRepairs(input: {
-  checkpointMap: Record<string, string>;
-  vaeMap: Record<string, string>;
-  upscaleMap: Record<string, string>;
-  controlNetMap?: Record<string, string>;
+  checkpointMap: Record<string, string | undefined>;
+  vaeMap: Record<string, string | undefined>;
+  upscaleMap: Record<string, string | undefined>;
+  controlNetMap?: Record<string, string | undefined>;
   models: ComfyUiModelLists;
 }): LoaderMapRepairSuggestion[] {
   const suggestions: LoaderMapRepairSuggestion[] = [];
@@ -122,10 +122,10 @@ export function suggestLoaderMapRepairs(input: {
 
 export function applyLoaderMapRepairs(
   maps: {
-    checkpointMap: Record<string, string>;
-    vaeMap: Record<string, string>;
-    upscaleMap: Record<string, string>;
-    controlNetMap?: Record<string, string>;
+    checkpointMap: Record<string, string | undefined>;
+    vaeMap: Record<string, string | undefined>;
+    upscaleMap: Record<string, string | undefined>;
+    controlNetMap?: Record<string, string | undefined>;
   },
   repairs: LoaderMapRepairSuggestion[]
 ): {
@@ -135,10 +135,30 @@ export function applyLoaderMapRepairs(
   controlNetMap: Record<string, string>;
   applied: number;
 } {
-  const checkpointMap = { ...maps.checkpointMap };
-  const vaeMap = { ...maps.vaeMap };
-  const upscaleMap = { ...maps.upscaleMap };
-  const controlNetMap = { ...(maps.controlNetMap ?? {}) };
+  const checkpointMap: Record<string, string> = {};
+  for (const [key, value] of Object.entries(maps.checkpointMap)) {
+    if (typeof value === 'string') {
+      checkpointMap[key] = value;
+    }
+  }
+  const vaeMap: Record<string, string> = {};
+  for (const [key, value] of Object.entries(maps.vaeMap)) {
+    if (typeof value === 'string') {
+      vaeMap[key] = value;
+    }
+  }
+  const upscaleMap: Record<string, string> = {};
+  for (const [key, value] of Object.entries(maps.upscaleMap)) {
+    if (typeof value === 'string') {
+      upscaleMap[key] = value;
+    }
+  }
+  const controlNetMap: Record<string, string> = {};
+  for (const [key, value] of Object.entries(maps.controlNetMap ?? {})) {
+    if (typeof value === 'string') {
+      controlNetMap[key] = value;
+    }
+  }
   let applied = 0;
 
   for (const repair of repairs) {

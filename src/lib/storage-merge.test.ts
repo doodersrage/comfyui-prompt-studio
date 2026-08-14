@@ -102,7 +102,9 @@ describe("applyServerSessionStack", () => {
     const local = {
       shared: {
         model: "qwen-image-2512",
-        sessionActiveLoraIds: [],
+        sessionActiveLoraIds: [] as string[],
+        sessionEmbeddingTokens: [] as string[],
+        identityKind: "",
         detail: "balanced",
       },
       tools: { generate: { prompt: "drafting" } },

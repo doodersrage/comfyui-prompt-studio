@@ -34,13 +34,12 @@ export type GalleryMergeResult<T extends MergeableGalleryEntry> = {
  * id and preferring whichever side is newer by completedAt (falling back to
  * queuedAt). Tombstoned ids are never re-added from the server.
  */
-export function mergeGalleryWithServer<T extends MergeableGalleryEntry>(
-  local: T[],
-  server: T[],
-  deletedIds: Iterable<string> = []
-): GalleryMergeResult<T> {
+export function mergeGalleryWithServer<
+  L extends MergeableGalleryEntry,
+  S extends MergeableGalleryEntry = L,
+>(local: L[], server: S[], deletedIds: Iterable<string> = []): GalleryMergeResult<L | S> {
   const blocked = new Set([...deletedIds].map(id => id.trim()).filter(Boolean));
-  const byId = new Map<string, T>(
+  const byId = new Map<string, L | S>(
     local.filter(entry => !blocked.has(entry.id)).map(entry => [entry.id, entry])
   );
   let addedFromServer = 0;

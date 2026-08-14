@@ -33,7 +33,7 @@ export function parseEmbeddingTokensFromPrompt(prompt?: string): string[] {
 }
 
 function resolveEntryEmbeddingTokens(
-  entry: Pick<ComfyGalleryEntry, 'sessionEmbeddingTokens' | 'prompt'>
+  entry: Partial<Pick<ComfyGalleryEntry, 'sessionEmbeddingTokens' | 'prompt'>>
 ): string[] | undefined {
   const stored =
     entry.sessionEmbeddingTokens !== undefined
@@ -70,8 +70,8 @@ export function normalizeSessionEmbeddingTokens(value: unknown): string[] {
   return tokens;
 }
 
-export function galleryEntryHasRestorableStack(
-  entry: Pick<
+export type GalleryStackRestoreFields = Partial<
+  Pick<
     ComfyGalleryEntry,
     | 'model'
     | 'sessionActiveLoraIds'
@@ -81,7 +81,9 @@ export function galleryEntryHasRestorableStack(
     | 'queueParams'
     | 'prompt'
   >
-): boolean {
+> & { comfyUrl?: string };
+
+export function galleryEntryHasRestorableStack(entry: GalleryStackRestoreFields): boolean {
   if (entry.model?.trim()) {
     return true;
   }
@@ -110,17 +112,7 @@ export function galleryEntryHasRestorableStack(
   return Object.keys(pickModelSamplerOverrideFields(params)).length > 0;
 }
 
-export function formatGalleryStackRestoreSummary(
-  entry: Pick<
-    ComfyGalleryEntry,
-    | 'model'
-    | 'sessionActiveLoraIds'
-    | 'sessionEmbeddingTokens'
-    | 'queueQualityProfile'
-    | 'queueParams'
-    | 'prompt'
-  >
-): string {
+export function formatGalleryStackRestoreSummary(entry: GalleryStackRestoreFields): string {
   const parts: string[] = [];
   if (entry.model?.trim()) {
     parts.push(entry.model.trim());
@@ -161,16 +153,7 @@ function parseQueueDim(value: unknown): number | undefined {
 /** Merge a still's Generate stack onto shared settings. Does not touch workflowJson. */
 export function applyGalleryStackToShared<T extends SharedToolSettings>(
   shared: T,
-  entry: Pick<
-    ComfyGalleryEntry,
-    | 'model'
-    | 'sessionActiveLoraIds'
-    | 'sessionLoraStrengthOverrides'
-    | 'sessionEmbeddingTokens'
-    | 'queueQualityProfile'
-    | 'queueParams'
-    | 'prompt'
-  > & { comfyUrl?: string }
+  entry: GalleryStackRestoreFields
 ): T {
   const model = entry.model?.trim();
   let next: T = { ...shared };

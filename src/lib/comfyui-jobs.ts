@@ -58,10 +58,13 @@ export function mapComfyJobStatusString(
 
 export function parseComfyJobListItem(raw: unknown): ComfyJobListItem | null {
   const record = asRecord(raw);
+  if (!record) {
+    return null;
+  }
   const id =
-    typeof record?.id === 'string'
+    typeof record.id === 'string'
       ? record.id.trim()
-      : typeof record?.prompt_id === 'string'
+      : typeof record.prompt_id === 'string'
         ? record.prompt_id.trim()
         : '';
   if (!id) {
@@ -126,7 +129,7 @@ export function interpretComfyJobDetail(
   if (!status) {
     return null;
   }
-  const images = extractImagesFromOutputs(record.outputs);
+  const images = extractImagesFromOutputs(asRecord(record.outputs) ?? undefined);
   const errorMessage = executionErrorMessage(record);
   const started =
     typeof record.execution_start_time === 'number' && Number.isFinite(record.execution_start_time)

@@ -151,7 +151,9 @@ describe("session recipes", () => {
     assert.equal(normalized?.shared.ipAdapterImageFilename, "face.png");
     assert.equal(normalized?.shared.identityKind, "instantid");
     const applied = applySessionRecipeShared(
-      { model: "qwen-image-2512" },
+      {
+        model: "qwen-image-2512",
+      } as import('./session-recipes').SessionRecipeShared,
       normalized!,
     );
     assert.deepEqual(applied.sessionEmbeddingTokens, ["EasyNegative"]);

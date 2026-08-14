@@ -53,7 +53,10 @@ export async function applyGalleryFaceToSession(
       filename: entry.images[0]?.filename?.trim() || `gallery-face-${Date.now()}.png`,
       model: entry.model,
     });
-    const filename = uploaded?.filename?.trim();
+    if (!uploaded) {
+      return { ok: false, error: 'Upload did not return a filename.' };
+    }
+    const filename = uploaded.filename.trim();
     if (!filename) {
       return { ok: false, error: 'Upload did not return a filename.' };
     }
@@ -134,7 +137,10 @@ export async function relocateIdentityLockToLiveHost(input?: {
       comfyUrl: targetUrl,
       ...(targetUrl ? { model: input?.model ?? shared.model } : {}),
     });
-    const filename = uploaded?.filename?.trim();
+    if (!uploaded) {
+      return { ok: false, error: 'Identity re-upload did not return a filename.' };
+    }
+    const filename = uploaded.filename.trim();
     if (!filename) {
       return { ok: false, error: 'Identity re-upload did not return a filename.' };
     }

@@ -16,7 +16,7 @@ import {
   type RenderRealismMode,
 } from './render-realism';
 import { loadRenderRealismMode } from './render-realism-settings';
-import type { AthleticSport } from './athletic-sport-profiles';
+import { inferAthleticSport, type AthleticSport } from './athletic-sport-profiles';
 import { resolveQueueNegativePromptRaw } from './queue-negative';
 import { isQwenLightningModel, isWanLightningModel } from './model-sampling-patch';
 import { isQwenRapidAioModel, isWanRapidAioModel } from './model-denoise-defaults';

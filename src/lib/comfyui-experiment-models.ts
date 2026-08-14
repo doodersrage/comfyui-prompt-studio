@@ -18,7 +18,10 @@ export function parseComfyExperimentModelFiles(raw: unknown): ComfyExperimentMod
   const files: ComfyExperimentModelFile[] = [];
   for (const item of raw) {
     const record = asRecord(item);
-    const name = typeof record?.name === 'string' ? record.name.trim() : '';
+    if (!record) {
+      continue;
+    }
+    const name = typeof record.name === 'string' ? record.name.trim() : '';
     if (!name) {
       continue;
     }

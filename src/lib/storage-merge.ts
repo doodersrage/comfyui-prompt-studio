@@ -232,7 +232,7 @@ export function localSessionStackLooksEmpty(shared?: Record<string, unknown>): b
 /** Copy server Generate-session stack fields onto local shared settings. */
 export function applyServerSessionStack<T extends { shared?: Record<string, unknown> }>(
   local: T,
-  server: T
+  server: { shared?: Record<string, unknown> }
 ): T {
   const serverShared = server.shared ?? {};
   const localShared = local.shared ?? {};
