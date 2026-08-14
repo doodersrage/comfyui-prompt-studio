@@ -30,6 +30,7 @@ import {
 import { embeddingStem } from './textual-inversion';
 
 export const SESSION_RECIPES_KEY = 'comfy-prompt-session-recipes-v1';
+export const SESSION_RECIPES_UPDATED_EVENT = 'session-recipes-updated';
 export const MAX_SESSION_RECIPES = 20;
 
 export type SessionRecipeShared = {
@@ -215,6 +216,9 @@ export function saveSessionRecipes(recipes: SessionRecipe[]): void {
       .sort((a, b) => b.savedAt - a.savedAt)
       .slice(0, MAX_SESSION_RECIPES)
   );
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(SESSION_RECIPES_UPDATED_EVENT));
+  }
 }
 
 export function buildSessionRecipeFromShared(input: {

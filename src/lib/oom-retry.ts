@@ -353,6 +353,17 @@ export async function attemptDeadHostAutoRetry(
     if (entry.comfyUrl) {
       markComfyUiPoolEndpointUnhealthy(entry.comfyUrl);
     }
+    if (
+      entry.queueParams?.ipAdapterImageFilename?.trim() ||
+      shared.ipAdapterImageFilename?.trim()
+    ) {
+      const { relocateIdentityLockToLiveHost } = await import('./gallery-identity-lock');
+      await relocateIdentityLockToLiveHost({
+        deadComfyUrl: entry.comfyUrl,
+        targetComfyUrl: decision.nextComfyUrl,
+        model: entry.model,
+      });
+    }
     const { requeueComfyJobFromEntry } = await import('./comfyui-requeue');
     const result = await requeueComfyJobFromEntry(entry, {
       comfyUrlOverride: decision.nextComfyUrl,

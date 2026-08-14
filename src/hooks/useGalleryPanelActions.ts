@@ -20,9 +20,8 @@ import { loadActiveProjectId } from '@/lib/prompt-projects';
 import {
   galleryTopicsPath,
   galleryVariationsPath,
-  saveGalleryTopicsHandoff,
-  saveGalleryVariationsHandoff,
-  buildGalleryVariationsHandoff,
+  prepareGalleryTopicsFromEntry,
+  prepareGalleryVariationsFromEntry,
 } from '@/lib/gallery-variations-handoff';
 import {
   exportGalleryCsv,
@@ -756,13 +755,13 @@ export function useGalleryPanelActions({
       onVariations: () => {
         const entry = selectedEntries[0];
         if (!entry) return;
-        saveGalleryVariationsHandoff(buildGalleryVariationsHandoff(entry));
+        prepareGalleryVariationsFromEntry(entry);
         router.push(galleryVariationsPath());
       },
       onTopics: () => {
         const entry = selectedEntries[0];
         if (!entry) return;
-        saveGalleryTopicsHandoff(entry);
+        prepareGalleryTopicsFromEntry(entry);
         router.push(galleryTopicsPath());
       },
       onNegativeAb: () => {

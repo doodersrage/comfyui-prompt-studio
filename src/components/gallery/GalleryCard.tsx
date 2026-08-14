@@ -26,9 +26,8 @@ import {
   startOutpaintFromGalleryEntry,
 } from '@/lib/improve-output';
 import {
-  buildGalleryVariationsHandoff,
   galleryVariationsPath,
-  saveGalleryVariationsHandoff,
+  prepareGalleryVariationsFromEntry,
 } from '@/lib/gallery-variations-handoff';
 import { scoreGalleryEntryHeuristic, type AestheticScoreResult } from '@/lib/aesthetic-score';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
@@ -1221,7 +1220,7 @@ export default function GalleryCard({
                         <GalleryMenuButton
                           label="Open in Variations"
                           onClick={() => {
-                            saveGalleryVariationsHandoff(buildGalleryVariationsHandoff(entry));
+                            prepareGalleryVariationsFromEntry(entry);
                             router.push(galleryVariationsPath());
                             setMenuOpen(false);
                           }}

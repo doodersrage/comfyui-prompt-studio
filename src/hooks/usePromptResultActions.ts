@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePromptHistory } from '@/hooks/usePromptHistory';
 import type { GenerationDiagnostics } from '@/lib/generation-diagnostics';
 import { formatPromptPair, modelUsesNegativePrompt } from '@/lib/prompt-pair';
@@ -85,6 +85,15 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
   const [previewStatus, setPreviewStatus] = useState<string | null>(null);
   /** Bumped on each queue so stale gallery polls cannot overwrite a newer job preview. */
   const previewGenerationRef = useRef(0);
+  const identityRelocateAttemptRef = useRef(false);
+  const sendComfyUiRef = useRef<
+    (
+      prompt: string,
+      sport?: AthleticSport | null,
+      historyId?: string,
+      options?: object
+    ) => Promise<void>
+  >(async () => {});
 
   const resetStatuses = useCallback(() => {
     setHistorySaved(false);
@@ -1022,6 +1031,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           });
           queued.releaseLiveSocket();
           markOnboardingFirstQueue();
+          identityRelocateAttemptRef.current = false;
           void dispatchWebhook({
             event: 'comfyui.job.queued',
             promptId: queued.promptId,
@@ -1039,6 +1049,28 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'ComfyUI failed.';
+        const sharedIdentity = loadSettingsCache().shared;
+        if (
+          !identityRelocateAttemptRef.current &&
+          sharedIdentity.ipAdapterImageFilename?.trim() &&
+          sharedIdentity.ipAdapterImageUrl?.trim()
+        ) {
+          const { shouldRelocateIdentityLock } = await import('@/lib/identity-lock-host');
+          if (shouldRelocateIdentityLock(message)) {
+            identityRelocateAttemptRef.current = true;
+            setComfyUiStatus('Re-uploading identity to a live host…');
+            const { relocateIdentityLockToLiveHost } = await import('@/lib/gallery-identity-lock');
+            const relocated = await relocateIdentityLockToLiveHost({
+              deadComfyUrl: sharedIdentity.ipAdapterComfyUrl,
+              model: config.model,
+            });
+            if (relocated.ok) {
+              await sendComfyUiRef.current(prompt, sport, historyId, options);
+              return;
+            }
+          }
+        }
+        identityRelocateAttemptRef.current = false;
         const hrefFromError =
           err instanceof Error ? (err as Error & { href?: string }).href : undefined;
         setComfyUiStatus(message);
@@ -1076,6 +1108,9 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
       historySaved,
     ]
   );
+  useEffect(() => {
+    sendComfyUiRef.current = sendComfyUi;
+  }, [sendComfyUi]);
 
   const previewWorkflow = useCallback(
     async (prompt: string, sport?: AthleticSport | null) => {

@@ -25,7 +25,10 @@ export function galleryEntryCanLockFace(
 }
 
 /** Upload this still into Comfy input and lock it as the Generate identity ref. */
-export async function applyGalleryFaceToSession(entry: ComfyGalleryEntry): Promise<{
+export async function applyGalleryFaceToSession(
+  entry: ComfyGalleryEntry,
+  options?: { toast?: boolean }
+): Promise<{
   ok: boolean;
   filename?: string;
   error?: string;
@@ -69,18 +72,75 @@ export async function applyGalleryFaceToSession(entry: ComfyGalleryEntry): Promi
       },
       { notify: true }
     );
-    void import('./app-toast').then(({ pushAppToast }) => {
-      pushAppToast({
-        text: `Face locked on Generate · ${filename}`,
-        href: '/',
+    if (options?.toast !== false) {
+      void import('./app-toast').then(({ pushAppToast }) => {
+        pushAppToast({
+          text: `Face locked on Generate · ${filename}`,
+          href: '/',
+        });
       });
-    });
+    }
     return { ok: true, filename };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Face lock upload failed.';
-    void import('./app-toast').then(({ pushAppToast }) => {
-      pushAppToast({ text: message, tone: 'warning' });
+    if (options?.toast !== false) {
+      void import('./app-toast').then(({ pushAppToast }) => {
+        pushAppToast({ text: message, tone: 'warning' });
+      });
+    }
+    return { ok: false, error: message };
+  }
+}
+
+/** Re-upload the locked face to a live host and update the pin. */
+export async function relocateIdentityLockToLiveHost(input?: {
+  deadComfyUrl?: string;
+  targetComfyUrl?: string;
+  model?: string;
+}): Promise<{ ok: boolean; filename?: string; comfyUrl?: string; error?: string }> {
+  if (typeof window === 'undefined') {
+    return { ok: false, error: 'Browser only.' };
+  }
+  const shared = loadSettingsCache().shared;
+  const imageUrl = shared.ipAdapterImageUrl?.trim();
+  const currentName = shared.ipAdapterImageFilename?.trim();
+  if (!imageUrl || !currentName) {
+    return { ok: false, error: 'No identity preview to re-upload.' };
+  }
+
+  const deadUrl = input?.deadComfyUrl?.trim() || shared.ipAdapterComfyUrl?.trim() || undefined;
+  let targetUrl = input?.targetComfyUrl?.trim() || undefined;
+  if (!targetUrl) {
+    const { fetchComfyUiPoolUrlsForRetry, pickAlternateComfyUrl } = await import('./oom-retry');
+    const poolUrls = await fetchComfyUiPoolUrlsForRetry();
+    targetUrl = pickAlternateComfyUrl(poolUrls, deadUrl);
+  }
+
+  try {
+    const uploaded = await resolveQueueInputImage({
+      imageUrl,
+      filename: currentName,
+      comfyUrl: targetUrl,
+      ...(targetUrl ? { model: input?.model ?? shared.model } : {}),
     });
+    const filename = uploaded?.filename?.trim();
+    if (!filename) {
+      return { ok: false, error: 'Identity re-upload did not return a filename.' };
+    }
+    const nextHost = uploaded.comfyUrl?.trim() || targetUrl || '';
+    saveSharedSettings(
+      {
+        ...loadSettingsCache().shared,
+        ipAdapterImageFilename: filename,
+        ipAdapterImageFilenames: [filename],
+        ipAdapterImageUrl: imageUrl,
+        ...(nextHost ? { ipAdapterComfyUrl: nextHost } : {}),
+      },
+      { notify: true }
+    );
+    return { ok: true, filename, comfyUrl: nextHost || undefined };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Identity re-upload failed.';
     return { ok: false, error: message };
   }
 }

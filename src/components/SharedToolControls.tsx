@@ -60,6 +60,7 @@ import {
 import {
   applySessionRecipeShared,
   latestGenerateLookRecipe,
+  SESSION_RECIPES_UPDATED_EVENT,
   type SessionRecipe,
 } from '@/lib/session-recipes';
 import {
@@ -290,7 +291,11 @@ export default function SharedToolControls({
     const refresh = () => setLastLookRecipe(latestGenerateLookRecipe());
     refresh();
     window.addEventListener(SETTINGS_CACHE_UPDATED_EVENT, refresh);
-    return () => window.removeEventListener(SETTINGS_CACHE_UPDATED_EVENT, refresh);
+    window.addEventListener(SESSION_RECIPES_UPDATED_EVENT, refresh);
+    return () => {
+      window.removeEventListener(SETTINGS_CACHE_UPDATED_EVENT, refresh);
+      window.removeEventListener(SESSION_RECIPES_UPDATED_EVENT, refresh);
+    };
   }, []);
   const [oomRetryDowngrade, setOomRetryDowngrade] = useState(
     () => shared.oomRetryDowngrade !== false

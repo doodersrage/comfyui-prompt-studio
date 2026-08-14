@@ -5,6 +5,7 @@ import {
   saveTopicsVariationsHandoff,
   variationsPathFromTopics,
 } from './topics-variations-handoff';
+import { applyGalleryStackToSession } from './gallery-stack-restore';
 
 export const GALLERY_VARIATIONS_HANDOFF_KEY = 'gallery-variations-handoff-v1';
 
@@ -77,6 +78,18 @@ export function saveGalleryTopicsHandoff(entry: ComfyGalleryEntry): void {
 
 export function galleryTopicsPath(): string {
   return '/topics?from=gallery';
+}
+
+/** Persist the still's Generate stack, then hand the prompt to Variations. */
+export function prepareGalleryVariationsFromEntry(entry: ComfyGalleryEntry): void {
+  applyGalleryStackToSession(entry, { toast: false });
+  saveGalleryVariationsHandoff(buildGalleryVariationsHandoff(entry));
+}
+
+/** Persist the still's Generate stack, then hand the prompt to Topics. */
+export function prepareGalleryTopicsFromEntry(entry: ComfyGalleryEntry): void {
+  applyGalleryStackToSession(entry, { toast: false });
+  saveGalleryTopicsHandoff(entry);
 }
 
 export { variationsPathFromTopics };

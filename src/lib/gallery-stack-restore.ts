@@ -292,6 +292,16 @@ export function applyGalleryStackToSession(
       });
     });
   }
+  if (entry.queueParams?.ipAdapterImageFilename?.trim()) {
+    void import('./gallery-identity-lock').then(
+      ({ applyGalleryFaceToSession, galleryEntryCanLockFace }) => {
+        if (!galleryEntryCanLockFace(entry)) {
+          return;
+        }
+        void applyGalleryFaceToSession(entry, { toast: false });
+      }
+    );
+  }
   return { applied: true, summary };
 }
 

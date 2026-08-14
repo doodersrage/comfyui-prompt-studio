@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { applySceneStarterWorkflowHints } from '@/lib/scene-starter-workflow-hints';
 import ScenePromptResultPanel from '@/components/scene-tool/ScenePromptResultPanel';
@@ -71,6 +71,7 @@ import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { markComfyQueueIntent } from '@/lib/comfy-setup-intent';
 import { consumeGenerateHandoff } from '@/lib/generate-handoff';
+import { modelUsesNegativePrompt } from '@/lib/prompt-pair';
 import { Button, PrimaryButton } from '@/components/ui/Button';
 
 const SceneStarterPresetChips = dynamic(() => import('@/components/SceneStarterPresetChips'), {
@@ -138,7 +139,8 @@ export default function PromptGenerator() {
   const { getBlocklist } = useLocationBlocklist();
   const [mode, setMode] = useState<PromptMode>(DEFAULT_GENERATE_TOOL_CACHE.mode ?? 'positive');
   const [output, setOutput] = useState('');
-  const generateHandoffNegativeRef = useRef('');
+  const [handoffNegative, setHandoffNegative] = useState('');
+  const [showHandoffNegative, setShowHandoffNegative] = useState(false);
   const [provider, setProvider] = useState<'llm' | 'template' | null>(null);
   const [randomResult, setRandomResult] = useState<EnrichedToolGenerateResult | null>(null);
   const [randomSeed, setRandomSeed] = useState<string | null>(null);
@@ -204,9 +206,9 @@ export default function PromptGenerator() {
 
   const queueGenerate = useCallback(() => {
     markComfyQueueIntent();
-    const explicitNegative = generateHandoffNegativeRef.current.trim() || undefined;
+    const explicitNegative = handoffNegative.trim() || undefined;
     void actions.sendComfyUi(output, undefined, undefined, { explicitNegative });
-  }, [actions, output]);
+  }, [actions, handoffNegative, output]);
 
   const variationSeed = readVariationSeedFromResult(
     randomResult ?? { metadata: undefined, seed: undefined }
@@ -297,9 +299,11 @@ export default function PromptGenerator() {
     if (!handoff) {
       return;
     }
-    generateHandoffNegativeRef.current = handoff.negativePrompt?.trim() || '';
     scheduleAfterCommit(() => {
       setOutput(handoff.prompt);
+      const negative = handoff.negativePrompt?.trim() || '';
+      setHandoffNegative(negative);
+      setShowHandoffNegative(Boolean(negative));
       updateToolSettings({ hintSource: 'manual', generateSource: 'keywords' });
     });
   }, [updateToolSettings]);
@@ -917,6 +921,21 @@ export default function PromptGenerator() {
           }}
         />
       )}
+
+      {showHandoffNegative && modelUsesNegativePrompt(queueModel) ? (
+        <ToolPrimarySection title="Negative (from still)">
+          <FieldLabel hint="Queued with Prompt+ from the gallery still. Edit or clear before send.">
+            Negative prompt
+          </FieldLabel>
+          <TextArea
+            data-testid="generate-handoff-negative"
+            value={handoffNegative}
+            onChange={event => setHandoffNegative(event.target.value)}
+            rows={3}
+            className={`font-mono text-sm ${accentFocusClass(ACCENT)}`}
+          />
+        </ToolPrimarySection>
+      ) : null}
 
       {output && mode === 'negative' && (
         <ToolPrimarySection title="Generated preserve / negative prompt">
