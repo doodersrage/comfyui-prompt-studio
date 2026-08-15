@@ -10,6 +10,7 @@ import {
   roleplaySessionHasProgress,
   roleplaySessionTitle,
   saveRoleplayLibrary,
+  archiveAndStartNewRoleplaySession,
   startNewRoleplaySession,
   upsertRoleplayLibrarySession,
 } from './roleplay-library';
@@ -154,11 +155,34 @@ describe('roleplay library', () => {
       assert.ok(saved);
       const blank = startNewRoleplaySession(saved.cache);
       assert.equal(blank.bio, undefined);
+      assert.deepEqual(blank.story, []);
       assert.equal(blank.activeSessionId, undefined);
       assert.equal(blank.tone, saved.cache.tone);
       assert.equal(blank.characterName, 'Alex Quill');
       assert.equal(blank.referenceImageUrl, '/api/gallery/media/1?variant=original');
       assert.equal(loadRoleplayLibrary().length, 1);
+    });
+  });
+
+  it('shelves the open session then returns a blank draft', () => {
+    withMockLocalStorage(() => {
+      const current = sampleCache({
+        activeSessionId: undefined,
+        referenceImageUrl: '/api/gallery/media/1?variant=original',
+      });
+      const { archived, next } = archiveAndStartNewRoleplaySession(current);
+      assert.ok(archived);
+      assert.equal(archived.title, 'Alex Quill');
+      assert.equal(archived.beatCount, 1);
+      assert.equal(next.bio, undefined);
+      assert.deepEqual(next.story, []);
+      assert.equal(next.activeSessionId, undefined);
+      assert.equal(next.tone, 'noir');
+      assert.equal(next.referenceImageUrl, '/api/gallery/media/1?variant=original');
+      const library = loadRoleplayLibrary();
+      assert.equal(library.length, 1);
+      assert.equal(library[0]?.id, archived.id);
+      assert.equal(library[0]?.snapshot.bio?.name, 'Alex Quill');
     });
   });
 

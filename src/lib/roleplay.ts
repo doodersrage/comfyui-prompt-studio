@@ -1032,6 +1032,60 @@ export function resolveRoleplayPersonaPrompt(
   );
 }
 
+export function isRoleplayBioComplete(bio: Partial<RoleplayBio> | null | undefined): boolean {
+  return Boolean(bio?.name?.trim() && bio.look?.trim() && bio.personality?.trim());
+}
+
+export function parseRoleplayBioFromText(
+  text: string,
+  fallbackName?: string | null
+): RoleplayBio | null {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const labeled = (label: string): string => {
+    const match = trimmed.match(new RegExp(`^${label}\\s*:\\s*(.+)$`, 'im'));
+    return match?.[1]?.trim() ?? '';
+  };
+  let name = labeled('name') || labeled('character');
+  let look = labeled('look') || labeled('appearance');
+  let personality = labeled('personality') || labeled('bio');
+  const catchphrase = labeled('catchphrase') || labeled('phrase');
+  if (!name || !look || !personality) {
+    const lines = trimmed
+      .split(/\n+/)
+      .map(line =>
+        line.replace(/^(name|look|appearance|personality|bio|catchphrase)\s*:\s*/i, '').trim()
+      )
+      .filter(Boolean);
+    if (!name) {
+      name = lines[0] ?? '';
+    }
+    if (!look) {
+      look = lines[1] ?? '';
+    }
+    if (!personality) {
+      personality = lines
+        .slice(name && look ? 2 : 1)
+        .join(' ')
+        .trim();
+    }
+  }
+  name = normalizeRoleplayCharacterName(name || fallbackName);
+  look = look.trim();
+  personality = personality.trim();
+  if (!name || !look || !personality) {
+    return null;
+  }
+  return {
+    name,
+    look: look.slice(0, 800),
+    personality: personality.slice(0, 800),
+    ...(catchphrase ? { catchphrase: catchphrase.slice(0, 160) } : {}),
+  };
+}
+
 export function formatRoleplayBio(bio: RoleplayBio): string {
   const catchphrase = bio.catchphrase?.trim();
   return [

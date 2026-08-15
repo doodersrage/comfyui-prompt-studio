@@ -92,8 +92,8 @@ function normalizeBio(value: unknown): RoleplayBio | undefined {
   }
   const record = value as Record<string, unknown>;
   const name = readString(record.name, 80);
-  const look = readString(record.look, 400) || readString(record.appearance, 400);
-  const personality = readString(record.personality, 400) || readString(record.bio, 400);
+  const look = readString(record.look, 800) || readString(record.appearance, 800);
+  const personality = readString(record.personality, 800) || readString(record.bio, 800);
   if (!name || !look || !personality) {
     return undefined;
   }
@@ -316,6 +316,18 @@ export function startNewRoleplaySession(current: RoleplayToolCache): RoleplayToo
     referenceIsolated: current.referenceIsolated,
     autoQueue: current.autoQueue,
     allowGore: current.allowGore,
+    // Explicit clears — updateToolSettings shallow-merges, so omitted keys keep the old story.
+    bio: undefined,
+    story: [],
     activeSessionId: undefined,
   };
+}
+
+/** Shelve the current session, then return a blank draft that will get a new library id. */
+export function archiveAndStartNewRoleplaySession(current: RoleplayToolCache): {
+  archived: RoleplayLibrarySession | null;
+  next: RoleplayToolCache;
+} {
+  const archived = persistRoleplayLibraryFromCache(current)?.session ?? null;
+  return { archived, next: startNewRoleplaySession(current) };
 }

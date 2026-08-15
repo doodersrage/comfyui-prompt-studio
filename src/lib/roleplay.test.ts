@@ -16,6 +16,8 @@ import {
   MAX_ROLEPLAY_CHARACTER_NAME,
   normalizeRoleplayCharacterName,
   parseRoleplayBio,
+  parseRoleplayBioFromText,
+  isRoleplayBioComplete,
   parseRoleplayScenes,
   patchRoleplayStoryBeat,
   resolveRoleplayPersonaPrompt,
@@ -85,6 +87,30 @@ describe('roleplay parsers', () => {
     assert.equal(parsed.name, 'Alex Quill');
     assert.equal(templateRoleplayBio('raccoon-pirate', undefined, 'Mara').name, 'Mara');
     assert.equal(applyRoleplayCharacterName(named, '').name, 'Alex Quill');
+  });
+
+  it('parses a labeled or unlabeled character bible', () => {
+    const labeled = parseRoleplayBioFromText(
+      'Name: Mara Quill\nLook: ink-stained coat, gold-rim glasses\nPersonality: dry, loyal, always late\nCatchphrase: notes first'
+    );
+    assert.ok(labeled);
+    assert.equal(labeled.name, 'Mara Quill');
+    assert.equal(labeled.look, 'ink-stained coat, gold-rim glasses');
+    assert.equal(labeled.personality, 'dry, loyal, always late');
+    assert.equal(labeled.catchphrase, 'notes first');
+    assert.equal(isRoleplayBioComplete(labeled), true);
+
+    const paragraphs = parseRoleplayBioFromText(
+      'Alex Quill\na raccoon in a rain coat\ndry and loyal, keeps the receipts',
+      'Ignored'
+    );
+    assert.ok(paragraphs);
+    assert.equal(paragraphs.name, 'Alex Quill');
+    assert.equal(paragraphs.look, 'a raccoon in a rain coat');
+    assert.match(paragraphs.personality, /dry and loyal/);
+
+    assert.equal(parseRoleplayBioFromText('just a name'), null);
+    assert.equal(isRoleplayBioComplete({ name: 'Mara', look: 'a coat' }), false);
   });
 
   it('reads scene arrays from a wrapper object', () => {

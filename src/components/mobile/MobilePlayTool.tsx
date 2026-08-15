@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import RoleplayBibleEditor from '@/components/RoleplayBibleEditor';
 import RoleplayLibraryPanel from '@/components/RoleplayLibraryPanel';
 import RoleplayStoryReel from '@/components/RoleplayStoryReel';
-import { PrimaryButton } from '@/components/ui/Button';
+import { Button, PrimaryButton } from '@/components/ui/Button';
 import { FieldError, TextInput } from '@/components/ui/Field';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { usePromptResultActions } from '@/hooks/usePromptResultActions';
@@ -37,6 +38,7 @@ import {
   beginRoleplayStillRetryPatch,
   canRetryRoleplayStill,
   formatRoleplayBio,
+  lastRoleplayPlotBeat,
   MAX_ROLEPLAY_CHARACTER_NAME,
   mergeRoleplayStoryStills,
   normalizeRoleplayIsolateSubject,
@@ -54,8 +56,8 @@ import {
 } from '@/lib/roleplay';
 import {
   applyRoleplayLibrarySession,
+  archiveAndStartNewRoleplaySession,
   persistRoleplayLibraryFromCache,
-  startNewRoleplaySession,
   type RoleplayLibrarySession,
 } from '@/lib/roleplay-library';
 import {
@@ -101,6 +103,7 @@ export default function MobilePlayTool() {
   const [bioLoading, setBioLoading] = useState(false);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [isolating, setIsolating] = useState(false);
+  const [ownBibleOpen, setOwnBibleOpen] = useState(false);
   const autoIsolateAttemptedRef = useRef(false);
 
   const personaId = toolSettings.personaId ?? 'raccoon-pirate';
@@ -384,6 +387,60 @@ export default function MobilePlayTool() {
     [actions, autoQueue, queueStillOptions, shared.model, updateToolSettings]
   );
 
+  const beginStoryFromBio = useCallback(
+    async (nextBio: RoleplayBio) => {
+      const intro = roleplayIntroScene(nextBio);
+      const writingStory = appendRoleplayStoryBeat([], intro, { stillStatus: 'writing' });
+      const introBeat = writingStory[writingStory.length - 1];
+      updateToolSettings({
+        playAs: 'photo',
+        bio: nextBio,
+        characterName: nextBio.name,
+        story: writingStory,
+      });
+      if (!introBeat) {
+        return;
+      }
+      try {
+        const [stillResponse, scenesResponse] = await Promise.all([
+          fetch('/api/roleplay', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ...requestBody('prompt', intro),
+              bio: nextBio,
+              story: [],
+            }),
+          }),
+          fetch('/api/roleplay', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ...requestBody('scenes'),
+              bio: nextBio,
+              story: writingStory,
+            }),
+          }).catch(() => null),
+        ]);
+        const stillData = (await stillResponse.json()) as RoleplayApiPayload;
+        if (!stillResponse.ok || !stillData.prompt?.trim()) {
+          throw new Error(stillData.error ?? 'Bio saved, but the first still failed.');
+        }
+        await commitStill(stillData, introBeat, nextBio, writingStory);
+        if (scenesResponse) {
+          const scenesData = (await scenesResponse.json()) as RoleplayApiPayload;
+          setScenes(scenesResponse.ok && Array.isArray(scenesData.scenes) ? scenesData.scenes : []);
+        }
+      } catch (err) {
+        updateToolSettings({
+          story: patchRoleplayStoryBeat(writingStory, introBeat, { stillStatus: 'error' }),
+        });
+        throw err;
+      }
+    },
+    [commitStill, requestBody, updateToolSettings]
+  );
+
   const writeBio = useCallback(async () => {
     if (!hasReferenceImage) {
       setError('Capture a plate first.');
@@ -391,8 +448,6 @@ export default function MobilePlayTool() {
     }
     setBioLoading(true);
     setError(null);
-    let introBeat: RoleplayStoryBeat | undefined;
-    let writingStory: RoleplayStoryBeat[] = [];
     try {
       const response = await fetch('/api/roleplay', {
         method: 'POST',
@@ -403,51 +458,39 @@ export default function MobilePlayTool() {
       if (!response.ok || !data.bio) {
         throw new Error(data.error ?? 'Could not write a bio.');
       }
-      const nextBio = data.bio;
-      const intro = roleplayIntroScene(nextBio);
-      writingStory = appendRoleplayStoryBeat([], intro, { stillStatus: 'writing' });
-      introBeat = writingStory[writingStory.length - 1];
-      updateToolSettings({ playAs: 'photo', bio: nextBio, story: writingStory });
-      const [stillResponse, scenesResponse] = await Promise.all([
-        fetch('/api/roleplay', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ...requestBody('prompt', intro),
-            bio: nextBio,
-            story: [],
-          }),
-        }),
-        fetch('/api/roleplay', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ...requestBody('scenes'),
-            bio: nextBio,
-            story: writingStory,
-          }),
-        }).catch(() => null),
-      ]);
-      const stillData = (await stillResponse.json()) as RoleplayApiPayload;
-      if (!stillResponse.ok || !stillData.prompt?.trim() || !introBeat) {
-        throw new Error(stillData.error ?? 'Bio written, but the first still failed.');
-      }
-      await commitStill(stillData, introBeat, nextBio, writingStory);
-      if (scenesResponse) {
-        const scenesData = (await scenesResponse.json()) as RoleplayApiPayload;
-        setScenes(scenesResponse.ok && Array.isArray(scenesData.scenes) ? scenesData.scenes : []);
-      }
+      await beginStoryFromBio(data.bio);
     } catch (err) {
-      if (introBeat) {
-        updateToolSettings({
-          story: patchRoleplayStoryBeat(writingStory, introBeat, { stillStatus: 'error' }),
-        });
-      }
       setError(err instanceof Error ? err.message : 'Could not write a bio.');
     } finally {
       setBioLoading(false);
     }
-  }, [commitStill, hasReferenceImage, requestBody, updateToolSettings]);
+  }, [beginStoryFromBio, hasReferenceImage, requestBody]);
+
+  const applyOwnBible = useCallback(
+    async (nextBio: RoleplayBio) => {
+      if (!hasReferenceImage) {
+        setError('Capture a plate first.');
+        return;
+      }
+      setError(null);
+      const hasPlot = Boolean(lastRoleplayPlotBeat(storyRef.current));
+      if (hasPlot || storyRef.current.length > 0) {
+        updateToolSettings({ bio: nextBio, characterName: nextBio.name });
+        setOwnBibleOpen(false);
+        return;
+      }
+      setBioLoading(true);
+      try {
+        await beginStoryFromBio(nextBio);
+        setOwnBibleOpen(false);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Could not start from this bible.');
+      } finally {
+        setBioLoading(false);
+      }
+    },
+    [beginStoryFromBio, hasReferenceImage, updateToolSettings]
+  );
 
   const playScene = useCallback(
     async (scene: RoleplayScene) => {
@@ -581,14 +624,16 @@ export default function MobilePlayTool() {
       persistRoleplayLibraryFromCache(toolSettings);
       updateToolSettings(applyRoleplayLibrarySession(session));
       setScenes([]);
+      setOwnBibleOpen(false);
     },
     [toolSettings, updateToolSettings]
   );
 
   const startLibrarySession = useCallback(() => {
-    persistRoleplayLibraryFromCache(toolSettings);
-    updateToolSettings(startNewRoleplaySession(toolSettings));
+    const { next } = archiveAndStartNewRoleplaySession(toolSettings);
+    updateToolSettings(next);
     setScenes([]);
+    setOwnBibleOpen(false);
   }, [toolSettings, updateToolSettings]);
 
   if (!mounted) {
@@ -698,8 +743,29 @@ export default function MobilePlayTool() {
       >
         {bio ? 'Rewrite bio + first look' : 'Write my bio'}
       </PrimaryButton>
+      <Button
+        variant="secondary"
+        disabled={bioLoading || isolating}
+        onClick={() => setOwnBibleOpen(open => !open)}
+        className="w-full justify-center"
+      >
+        {bio ? 'Edit bible' : 'Use my own bible'}
+      </Button>
 
-      {bio ? (
+      {ownBibleOpen ? (
+        <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-muted)]/30 p-3">
+          <RoleplayBibleEditor
+            key={bio ? `${bio.name}-${bio.look}` : 'new-bible'}
+            initial={bio}
+            characterName={toolSettings.characterName}
+            disabled={bioLoading || isolating}
+            applyLabel={bio ? 'Update bible' : 'Use this bible'}
+            onApply={nextBio => void applyOwnBible(nextBio)}
+          />
+        </div>
+      ) : null}
+
+      {bio && !ownBibleOpen ? (
         <pre className="whitespace-pre-wrap rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-muted)]/30 p-3 text-xs leading-relaxed text-[var(--text-secondary)]">
           {formatRoleplayBio(bio)}
         </pre>

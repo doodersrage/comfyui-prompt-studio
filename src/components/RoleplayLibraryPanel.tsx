@@ -62,11 +62,12 @@ export default function RoleplayLibraryPanel({
     return (
       <div className="space-y-3">
         <p className="text-sm text-[var(--text-muted)]">
-          Sessions with a bio or story are archived here automatically. Continue one later, or start
-          a new cast.
+          The open session saves as you play. Use{' '}
+          <span className="font-medium">Save & start new</span> to shelf it here, then continue or
+          delete it later.
         </p>
         <Button variant="secondary" size="sm" disabled={busy} onClick={onNew}>
-          New session
+          Save & start new
         </Button>
       </div>
     );
@@ -76,11 +77,11 @@ export default function RoleplayLibraryPanel({
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-[var(--text-muted)]">
-          {sessions.length} saved {sessions.length === 1 ? 'session' : 'sessions'}. Continue one or
-          delete it.
+          {sessions.length} saved {sessions.length === 1 ? 'session' : 'sessions'}. The open one
+          updates as you play. Save & start new shelves it and begins a blank story.
         </p>
         <Button variant="secondary" size="sm" disabled={busy} onClick={onNew}>
-          New session
+          Save & start new
         </Button>
       </div>
       <ul className="space-y-2">
