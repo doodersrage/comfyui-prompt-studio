@@ -4,6 +4,7 @@ import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import SharedToolControls from '@/components/SharedToolControls';
+import RoleplayLibraryPanel from '@/components/RoleplayLibraryPanel';
 import RoleplayStoryReel from '@/components/RoleplayStoryReel';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
@@ -70,6 +71,12 @@ import {
   type RoleplayStoryBeat,
 } from '@/lib/roleplay';
 import { downloadRoleplayStoryBundle } from '@/lib/roleplay-export';
+import {
+  applyRoleplayLibrarySession,
+  persistRoleplayLibraryFromCache,
+  startNewRoleplaySession,
+  type RoleplayLibrarySession,
+} from '@/lib/roleplay-library';
 import type { EnrichedToolGenerateResult } from '@/lib/specialized/types';
 import { ChipButton, FieldError, TextArea, TextInput } from '@/components/ui/Field';
 import { Button, ButtonLink } from '@/components/ui/Button';
@@ -121,6 +128,23 @@ export default function RoleplayTool() {
   useEffect(() => {
     storyRef.current = toolSettings.story ?? [];
   }, [toolSettings.story]);
+
+  useEffect(() => {
+    if (!mounted) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      const persisted = persistRoleplayLibraryFromCache(toolSettings);
+      if (
+        persisted &&
+        persisted.cache.activeSessionId &&
+        persisted.cache.activeSessionId !== toolSettings.activeSessionId
+      ) {
+        updateToolSettings({ activeSessionId: persisted.cache.activeSessionId });
+      }
+    }, 900);
+    return () => window.clearTimeout(timer);
+  }, [mounted, toolSettings, updateToolSettings]);
 
   const referenceImageUrl = toolSettings.referenceImageUrl?.trim() || '';
   const referenceImageFilename = toolSettings.referenceImageFilename?.trim() || '';
@@ -826,15 +850,30 @@ export default function RoleplayTool() {
   }, [bio, content, personaId, tone, toolSettings.customPersona]);
 
   const surpriseCast = useCallback(() => {
+    persistRoleplayLibraryFromCache(toolSettings);
     const pick = ROLEPLAY_ARCHETYPES[Math.floor(Math.random() * ROLEPLAY_ARCHETYPES.length)];
     updateToolSettings({
+      ...startNewRoleplaySession(toolSettings),
       personaId: pick.id,
       customPersona: undefined,
-      bio: undefined,
-      story: [],
     });
     setScenes([]);
-  }, [updateToolSettings]);
+  }, [toolSettings, updateToolSettings]);
+
+  const continueLibrarySession = useCallback(
+    (session: RoleplayLibrarySession) => {
+      persistRoleplayLibraryFromCache(toolSettings);
+      updateToolSettings(applyRoleplayLibrarySession(session));
+      setScenes([]);
+    },
+    [toolSettings, updateToolSettings]
+  );
+
+  const startLibrarySession = useCallback(() => {
+    persistRoleplayLibraryFromCache(toolSettings);
+    updateToolSettings(startNewRoleplaySession(toolSettings));
+    setScenes([]);
+  }, [toolSettings, updateToolSettings]);
 
   if (!mounted) {
     return null;
@@ -878,13 +917,15 @@ export default function RoleplayTool() {
               key={entry.id}
               active={personaId === entry.id}
               disabled={busy}
-              onClick={() =>
+              onClick={() => {
+                persistRoleplayLibraryFromCache(toolSettings);
                 updateToolSettings({
+                  ...startNewRoleplaySession(toolSettings),
                   personaId: entry.id,
-                  bio: undefined,
-                  story: [],
-                })
-              }
+                  customPersona: undefined,
+                });
+                setScenes([]);
+              }}
             >
               {entry.label}
             </ChipButton>
@@ -892,13 +933,14 @@ export default function RoleplayTool() {
           <ChipButton
             active={personaId === CUSTOM_ROLEPLAY_PERSONA_ID}
             disabled={busy}
-            onClick={() =>
+            onClick={() => {
+              persistRoleplayLibraryFromCache(toolSettings);
               updateToolSettings({
+                ...startNewRoleplaySession(toolSettings),
                 personaId: CUSTOM_ROLEPLAY_PERSONA_ID,
-                bio: undefined,
-                story: [],
-              })
-            }
+              });
+              setScenes([]);
+            }}
           >
             Custom…
           </ChipButton>
@@ -1208,7 +1250,8 @@ export default function RoleplayTool() {
               variant="ghost"
               disabled={busy}
               onClick={() => {
-                updateToolSettings({ bio: undefined, story: [] });
+                persistRoleplayLibraryFromCache(toolSettings);
+                updateToolSettings({ bio: undefined, story: [], activeSessionId: undefined });
                 setScenes([]);
               }}
             >
@@ -1228,6 +1271,20 @@ export default function RoleplayTool() {
             </Button>
           ) : null}
         </div>
+      </ToolSection>
+
+      <ToolSection title="Library">
+        <RoleplayLibraryPanel
+          activeSessionId={toolSettings.activeSessionId}
+          busy={busy}
+          onContinue={continueLibrarySession}
+          onNew={startLibrarySession}
+          onDeleted={id => {
+            if (id === toolSettings.activeSessionId) {
+              updateToolSettings({ activeSessionId: undefined });
+            }
+          }}
+        />
       </ToolSection>
 
       {bio ? (

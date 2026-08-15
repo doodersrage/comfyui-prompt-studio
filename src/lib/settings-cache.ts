@@ -909,6 +909,7 @@ export type RoleplayToolCache = {
   story?: import('./roleplay').RoleplayStoryBeat[];
   autoQueue?: boolean;
   allowGore?: boolean;
+  activeSessionId?: string;
 };
 
 export type ImagePromptToolCache = {

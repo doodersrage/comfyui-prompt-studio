@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import RoleplayLibraryPanel from '@/components/RoleplayLibraryPanel';
 import RoleplayStoryReel from '@/components/RoleplayStoryReel';
 import { PrimaryButton } from '@/components/ui/Button';
 import { FieldError, TextInput } from '@/components/ui/Field';
@@ -51,6 +52,12 @@ import {
   type RoleplayScene,
   type RoleplayStoryBeat,
 } from '@/lib/roleplay';
+import {
+  applyRoleplayLibrarySession,
+  persistRoleplayLibraryFromCache,
+  startNewRoleplaySession,
+  type RoleplayLibrarySession,
+} from '@/lib/roleplay-library';
 import {
   DEFAULT_MOBILE_STUDIO_TOOL_CACHE,
   DEFAULT_ROLEPLAY_TOOL_CACHE,
@@ -107,6 +114,23 @@ export default function MobilePlayTool() {
   useEffect(() => {
     storyRef.current = story;
   }, [story]);
+
+  useEffect(() => {
+    if (!mounted) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      const persisted = persistRoleplayLibraryFromCache(toolSettings);
+      if (
+        persisted &&
+        persisted.cache.activeSessionId &&
+        persisted.cache.activeSessionId !== toolSettings.activeSessionId
+      ) {
+        updateToolSettings({ activeSessionId: persisted.cache.activeSessionId });
+      }
+    }, 900);
+    return () => window.clearTimeout(timer);
+  }, [mounted, toolSettings, updateToolSettings]);
 
   const referenceImageUrl = toolSettings.referenceImageUrl?.trim() || '';
   const referenceImageFilename = toolSettings.referenceImageFilename?.trim() || '';
@@ -552,6 +576,21 @@ export default function MobilePlayTool() {
     [updateToolSettings]
   );
 
+  const continueLibrarySession = useCallback(
+    (session: RoleplayLibrarySession) => {
+      persistRoleplayLibraryFromCache(toolSettings);
+      updateToolSettings(applyRoleplayLibrarySession(session));
+      setScenes([]);
+    },
+    [toolSettings, updateToolSettings]
+  );
+
+  const startLibrarySession = useCallback(() => {
+    persistRoleplayLibraryFromCache(toolSettings);
+    updateToolSettings(startNewRoleplaySession(toolSettings));
+    setScenes([]);
+  }, [toolSettings, updateToolSettings]);
+
   if (!mounted) {
     return <p className="type-caption text-[var(--text-muted)]">Loading play…</p>;
   }
@@ -665,6 +704,21 @@ export default function MobilePlayTool() {
           {formatRoleplayBio(bio)}
         </pre>
       ) : null}
+
+      <div className="space-y-2">
+        <p className="type-caption text-[var(--text-muted)]">Library</p>
+        <RoleplayLibraryPanel
+          activeSessionId={toolSettings.activeSessionId}
+          busy={bioLoading || playingId !== null}
+          onContinue={continueLibrarySession}
+          onNew={startLibrarySession}
+          onDeleted={id => {
+            if (id === toolSettings.activeSessionId) {
+              updateToolSettings({ activeSessionId: undefined });
+            }
+          }}
+        />
+      </div>
 
       {scenes.length > 0 ? (
         <div className="space-y-2">
