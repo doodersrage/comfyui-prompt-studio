@@ -158,7 +158,7 @@ describe('roleplay library', () => {
       assert.deepEqual(blank.story, []);
       assert.equal(blank.activeSessionId, undefined);
       assert.equal(blank.tone, saved.cache.tone);
-      assert.equal(blank.characterName, 'Alex Quill');
+      assert.equal(blank.characterName, '');
       assert.equal(blank.referenceImageUrl, '/api/gallery/media/1?variant=original');
       assert.equal(loadRoleplayLibrary().length, 1);
     });
@@ -178,6 +178,7 @@ describe('roleplay library', () => {
       assert.deepEqual(next.story, []);
       assert.equal(next.activeSessionId, undefined);
       assert.equal(next.tone, 'noir');
+      assert.equal(next.characterName, '');
       assert.equal(next.referenceImageUrl, '/api/gallery/media/1?variant=original');
       const library = loadRoleplayLibrary();
       assert.equal(library.length, 1);

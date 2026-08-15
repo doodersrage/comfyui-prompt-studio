@@ -57,6 +57,8 @@ import {
   MAX_ROLEPLAY_CHARACTER_NAME,
   lastRoleplayPlotBeat,
   lastRoleplayStillImage,
+  normalizeAvoidedRoleplayNames,
+  resolveRoleplayLockedCharacterName,
   mergeRoleplayStoryStills,
   normalizeRoleplayPlayAs,
   normalizeRoleplayIsolateSubject,
@@ -444,29 +446,35 @@ export default function RoleplayTool() {
   const lastPrompt = [...story].reverse().find(beat => beat.prompt?.trim())?.prompt;
 
   const requestBody = useCallback(
-    (action: 'bio' | 'scenes' | 'prompt', situation?: RoleplayScene) => ({
-      action,
-      model: shared.model,
-      detail: shared.detail,
-      personaId,
-      customPersona: toolSettings.customPersona,
-      characterName: toolSettings.characterName,
-      extraHints: toolSettings.extraHints,
-      setting: toolSettings.setting,
-      lockedLocation: shared.lockedLocation,
-      isolatedSubject:
-        playAs === 'photo' && hasReferenceImage && toolSettings.referenceIsolated === true,
-      tone,
-      content,
-      allowGore: toolSettings.allowGore === true,
-      hasReferenceImage: playAs === 'photo' && hasReferenceImage,
-      bio,
-      story: toolSettings.story,
-      rejectedScenes: action === 'scenes' ? scenes : undefined,
-      situation,
-      ...avoidedTokensRequestBody(),
-      ...sharedLlmRequestBody(shared),
-    }),
+    (action: 'bio' | 'scenes' | 'prompt', situation?: RoleplayScene) => {
+      const nameLock = resolveRoleplayLockedCharacterName(toolSettings.characterName);
+      const writingBio = action === 'bio';
+      return {
+        action,
+        model: shared.model,
+        detail: shared.detail,
+        personaId,
+        customPersona: toolSettings.customPersona,
+        characterName: nameLock,
+        avoidCharacterNames:
+          writingBio && !nameLock ? normalizeAvoidedRoleplayNames([bio?.name]) : [],
+        extraHints: toolSettings.extraHints,
+        setting: toolSettings.setting,
+        lockedLocation: shared.lockedLocation,
+        isolatedSubject:
+          playAs === 'photo' && hasReferenceImage && toolSettings.referenceIsolated === true,
+        tone,
+        content,
+        allowGore: toolSettings.allowGore === true,
+        hasReferenceImage: playAs === 'photo' && hasReferenceImage,
+        bio: writingBio ? undefined : bio,
+        story: writingBio ? [] : toolSettings.story,
+        rejectedScenes: action === 'scenes' ? scenes : undefined,
+        situation,
+        ...avoidedTokensRequestBody(),
+        ...sharedLlmRequestBody(shared),
+      };
+    },
     [
       bio,
       personaId,
@@ -593,7 +601,6 @@ export default function RoleplayTool() {
       const introBeat = writingStory[writingStory.length - 1];
       updateToolSettings({
         bio: nextBio,
-        characterName: nextBio.name,
         story: writingStory,
       });
       rememberDraftFields({
@@ -681,7 +688,7 @@ export default function RoleplayTool() {
       setError(null);
       const hasPlot = Boolean(lastRoleplayPlotBeat(storyRef.current));
       if (hasPlot || storyRef.current.length > 0) {
-        updateToolSettings({ bio: nextBio, characterName: nextBio.name });
+        updateToolSettings({ bio: nextBio });
         setOwnBibleOpen(false);
         return;
       }
@@ -1018,6 +1025,10 @@ export default function RoleplayTool() {
         <label className="block space-y-1.5 text-sm">
           <span className="type-caption text-[var(--text-muted)]">Character name</span>
           <TextInput
+            name="roleplay-character-lock"
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
             value={toolSettings.characterName ?? ''}
             disabled={busy}
             maxLength={MAX_ROLEPLAY_CHARACTER_NAME}

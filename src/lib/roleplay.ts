@@ -1205,6 +1205,53 @@ export function normalizeRoleplayCharacterName(value: string | null | undefined)
     .slice(0, MAX_ROLEPLAY_CHARACTER_NAME);
 }
 
+/** Only the Character name field locks a name. An existing bible must not. */
+export function resolveRoleplayLockedCharacterName(
+  characterName?: string | null
+): string | undefined {
+  return normalizeRoleplayCharacterName(characterName) || undefined;
+}
+
+const FRESH_ROLEPLAY_NAMES = [
+  'Ivy Finch',
+  'Rook Vale',
+  'Sable Quinn',
+  'Juniper Moss',
+  'Theo Lark',
+  'Nico Bramble',
+  'Wren Hollow',
+  'Pax Meridian',
+  'Lumen Crowe',
+  'Harlow Vetch',
+];
+
+export function normalizeAvoidedRoleplayNames(values: Array<string | null | undefined>): string[] {
+  const seen = new Set<string>();
+  const names: string[] = [];
+  for (const value of values) {
+    const name = normalizeRoleplayCharacterName(value);
+    const key = name.toLowerCase();
+    if (!name || seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    names.push(name);
+  }
+  return names;
+}
+
+export function pickFreshRoleplayName(
+  avoid: Array<string | null | undefined> = [],
+  pick: (max: number) => number = max => Math.floor(Math.random() * max)
+): string {
+  const blocked = new Set(normalizeAvoidedRoleplayNames(avoid).map(name => name.toLowerCase()));
+  const pool = FRESH_ROLEPLAY_NAMES.filter(name => !blocked.has(name.toLowerCase()));
+  const choices = pool.length > 0 ? pool : FRESH_ROLEPLAY_NAMES;
+  return (
+    choices[Math.max(0, Math.min(choices.length - 1, pick(choices.length)))] ?? 'The Unexpected'
+  );
+}
+
 export function applyRoleplayCharacterName(
   bio: RoleplayBio,
   characterName?: string | null
@@ -1272,7 +1319,8 @@ export function parseRoleplayScenes(payload: unknown): RoleplayScene[] {
 export function templateRoleplayBio(
   personaId: string | null | undefined,
   customPersona?: string,
-  characterName?: string | null
+  characterName?: string | null,
+  options?: { fresh?: boolean; avoidNames?: Array<string | null | undefined> }
 ): RoleplayBio {
   const archetype = getRoleplayArchetype(personaId);
   const base = archetype
@@ -1283,7 +1331,17 @@ export function templateRoleplayBio(
         personality: 'Here for a good time and a slightly confusing plot.',
         catchphrase: 'Okay but what if we made it weirder.',
       };
-  return applyRoleplayCharacterName(base, characterName);
+  const locked = resolveRoleplayLockedCharacterName(characterName);
+  if (locked) {
+    return applyRoleplayCharacterName(base, locked);
+  }
+  if (options?.fresh) {
+    return {
+      ...base,
+      name: pickFreshRoleplayName([base.name, ...(options.avoidNames ?? [])]),
+    };
+  }
+  return base;
 }
 
 export const ROLEPLAY_INTRO_SCENE_ID = 'intro-first-look';

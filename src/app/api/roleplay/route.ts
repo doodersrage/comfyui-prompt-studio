@@ -7,9 +7,11 @@ import { resolveAvoidanceOptions } from '@/lib/avoidance-options';
 import { normalizeSharedGenerationOptions } from '@/lib/specialized/normalize';
 import { enrichGenerateResult } from '@/lib/generation-diagnostics';
 import {
+  normalizeAvoidedRoleplayNames,
   parseRoleplayAllowGore,
   parseRoleplayBio,
   parseRoleplayScenes,
+  resolveRoleplayLockedCharacterName,
   type RoleplayBio,
   type RoleplayScene,
   type RoleplayStoryBeat,
@@ -27,6 +29,7 @@ type RoleplayRequestBody = {
   personaId?: string;
   customPersona?: string;
   characterName?: string;
+  avoidCharacterNames?: string[];
   extraHints?: string;
   setting?: string;
   lockedLocation?: string;
@@ -96,7 +99,8 @@ export async function POST(request: Request) {
       ...avoidance,
       personaId: body.personaId?.trim(),
       customPersona: body.customPersona?.trim(),
-      characterName: body.characterName?.trim(),
+      characterName: resolveRoleplayLockedCharacterName(body.characterName),
+      avoidCharacterNames: normalizeAvoidedRoleplayNames(body.avoidCharacterNames ?? []),
       extraHints: body.extraHints?.trim(),
       setting: body.setting?.trim() || body.lockedLocation?.trim(),
       lockedLocation: body.lockedLocation?.trim(),

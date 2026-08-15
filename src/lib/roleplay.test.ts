@@ -18,6 +18,9 @@ import {
   parseRoleplayBio,
   parseRoleplayBioFromText,
   isRoleplayBioComplete,
+  normalizeAvoidedRoleplayNames,
+  pickFreshRoleplayName,
+  resolveRoleplayLockedCharacterName,
   parseRoleplayScenes,
   patchRoleplayStoryBeat,
   resolveRoleplayPersonaPrompt,
@@ -87,6 +90,21 @@ describe('roleplay parsers', () => {
     assert.equal(parsed.name, 'Alex Quill');
     assert.equal(templateRoleplayBio('raccoon-pirate', undefined, 'Mara').name, 'Mara');
     assert.equal(applyRoleplayCharacterName(named, '').name, 'Alex Quill');
+    assert.equal(resolveRoleplayLockedCharacterName(''), undefined);
+    assert.equal(resolveRoleplayLockedCharacterName('   '), undefined);
+    assert.equal(resolveRoleplayLockedCharacterName('Alex Quill'), 'Alex Quill');
+    assert.deepEqual(normalizeAvoidedRoleplayNames(['Alex Quill', 'alex quill', '', 'Mara']), [
+      'Alex Quill',
+      'Mara',
+    ]);
+    assert.equal(pickFreshRoleplayName(['Ivy Finch', 'Rook Vale'], () => 0), 'Sable Quinn');
+    assert.equal(
+      templateRoleplayBio('raccoon-pirate', undefined, undefined, {
+        fresh: true,
+        avoidNames: ['Captain Nib'],
+      }).name !== 'Captain Nib',
+      true
+    );
   });
 
   it('parses a labeled or unlabeled character bible', () => {

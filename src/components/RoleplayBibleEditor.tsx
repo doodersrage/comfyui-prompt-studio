@@ -69,6 +69,10 @@ export default function RoleplayBibleEditor({
         <label className="block space-y-1.5 text-sm sm:col-span-2">
           <span className="type-caption text-[var(--text-muted)]">Name</span>
           <TextInput
+            name="roleplay-bible-name"
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
             value={name}
             disabled={disabled}
             maxLength={40}

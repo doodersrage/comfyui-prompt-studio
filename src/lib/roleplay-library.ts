@@ -302,7 +302,8 @@ export function startNewRoleplaySession(current: RoleplayToolCache): RoleplayToo
     ...DEFAULT_ROLEPLAY_TOOL_CACHE,
     personaId: current.personaId,
     customPersona: current.customPersona,
-    characterName: current.characterName,
+    // Name lock is per draft — keep it blank so the writer can invent a new one.
+    characterName: '',
     extraHints: current.extraHints,
     setting: current.setting,
     tone: current.tone,

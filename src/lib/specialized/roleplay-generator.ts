@@ -17,8 +17,10 @@ import {
   isRoleplayAdultContent,
   lastRoleplayPlotBeat,
   mergeRoleplaySceneOptions,
-  normalizeRoleplayCharacterName,
+  normalizeAvoidedRoleplayNames,
   parseRoleplayBio,
+  pickFreshRoleplayName,
+  resolveRoleplayLockedCharacterName,
   parseRoleplayScenes,
   resolveRoleplayPersonaPrompt,
   resolveRoleplaySetting,
@@ -40,6 +42,7 @@ export type RoleplaySharedOptions = SharedGenerationOptions & {
   personaId?: string;
   customPersona?: string;
   characterName?: string;
+  avoidCharacterNames?: string[];
   extraHints?: string;
   setting?: string;
   lockedLocation?: string;
@@ -245,8 +248,14 @@ export async function generateRoleplayBio(
   const isolatedSubject = hasReferenceImage && Boolean(options.isolatedSubject);
   const setting = resolveRoleplaySetting(options.setting, options.lockedLocation);
   const persona = resolveRoleplayPersonaPrompt(options.personaId, options.customPersona);
-  const characterName = normalizeRoleplayCharacterName(options.characterName);
-  const fallback = templateRoleplayBio(options.personaId, options.customPersona, characterName);
+  const characterName = resolveRoleplayLockedCharacterName(options.characterName);
+  const avoidNames = characterName
+    ? []
+    : normalizeAvoidedRoleplayNames([...(options.avoidCharacterNames ?? []), options.bio?.name]);
+  const fallback = templateRoleplayBio(options.personaId, options.customPersona, characterName, {
+    fresh: !characterName,
+    avoidNames,
+  });
   const settingCue = formatRoleplaySettingCue({
     setting,
     hasReferenceImage,
@@ -268,7 +277,15 @@ ${referenceLine(hasReferenceImage, isolatedSubject)}
 ${settingCue}
 ${wardrobeCue}
 Return ONLY JSON: {"name":"","look":"","personality":"","catchphrase":""}
-- name: ${characterName ? `use this exact name: "${characterName}". Do not invent a nickname or rename them.` : 'invent a short memorable name.'}
+- name: ${
+      characterName
+        ? `use this exact name: "${characterName}". Do not invent a nickname or rename them.`
+        : `invent a short memorable name that is not ${
+            avoidNames.length > 0
+              ? avoidNames.map(name => `"${name}"`).join(' or ')
+              : 'a reused name'
+          }.`
+    }
 - look: one visual sentence (species/body, clothes, colors, distinctive props).${adultLookHint(content)}${
       hasReferenceImage
         ? ' Face, hair, and body from the reference; clothes from the part — not the photo location or the photo outfit.'
@@ -279,6 +296,9 @@ Return ONLY JSON: {"name":"","look":"","personality":"","catchphrase":""}
     user: [
       `Play as: ${persona}`,
       characterName ? `Character name (required): ${characterName}` : '',
+      !characterName && avoidNames.length > 0
+        ? `Do not reuse these names: ${avoidNames.join(', ')}.`
+        : '',
       options.extraHints?.trim() ? `Extra notes: ${options.extraHints.trim()}` : '',
       setting ? `Setting: ${setting}` : '',
       options.avoidedTokensInstruction ?? '',
@@ -290,8 +310,15 @@ Return ONLY JSON: {"name":"","look":"","personality":"","catchphrase":""}
   if (!raw) {
     return { bio: fallback, provider: 'template' };
   }
+  let bio = parseRoleplayBio(extractJsonValue(raw), fallback, characterName);
+  if (
+    !characterName &&
+    avoidNames.some(name => name.toLowerCase() === bio.name.trim().toLowerCase())
+  ) {
+    bio = { ...bio, name: pickFreshRoleplayName([...avoidNames, bio.name]) };
+  }
   return {
-    bio: parseRoleplayBio(extractJsonValue(raw), fallback, characterName),
+    bio,
     provider: 'llm',
   };
 }
