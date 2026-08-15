@@ -35,8 +35,7 @@ export const metadata: Metadata = {
     default: 'Prompt Studio',
     template: '%s · Prompt Studio',
   },
-  description:
-    'Prompt, queue, and gallery studio for ComfyUI — image, video, audio, and 3D workflows.',
+  description: 'Prompt, queue, and gallery studio for image, video, audio, and 3D workflows.',
   applicationName: 'Prompt Studio',
   manifest: '/manifest.json',
   icons: {
@@ -46,16 +45,14 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'Prompt Studio',
-    description:
-      'Prompt, queue, and gallery studio for ComfyUI — image, video, audio, and 3D workflows.',
+    description: 'Prompt, queue, and gallery studio for image, video, audio, and 3D workflows.',
     siteName: 'Prompt Studio',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Prompt Studio',
-    description:
-      'Prompt, queue, and gallery studio for ComfyUI — image, video, audio, and 3D workflows.',
+    description: 'Prompt, queue, and gallery studio for image, video, audio, and 3D workflows.',
   },
 };
 

@@ -39,7 +39,7 @@ function formatDiscordPayload(payload: WebhookJobPayload): Record<string, unknow
         description: payload.prompt?.slice(0, 1800) || payload.message || 'Prompt Studio event',
         color: payload.event.includes('error') ? 0xef4444 : 0x8b5cf6,
         fields,
-        footer: { text: 'ComfyUI Prompt Studio' },
+        footer: { text: 'Prompt Studio' },
         timestamp: new Date(payload.completedAt).toISOString(),
       },
     ],

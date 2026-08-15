@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Performance Testing Script for ComfyUI Prompt Studio
+ * Performance Testing Script for Prompt Studio
  * This script runs various performance tests to ensure application efficiency
  */
 

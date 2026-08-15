@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Performance Monitoring Script for ComfyUI Prompt Studio
+ * Performance Monitoring Script for Prompt Studio
  * This script collects various performance metrics and reports them
  */
 
@@ -102,7 +102,7 @@ async function checkPerformanceMetrics() {
 
 // Main function
 async function main() {
-  console.log('🚀 Starting Performance Monitoring for ComfyUI Prompt Studio');
+  console.log('🚀 Starting Performance Monitoring for Prompt Studio');
   console.log('==============================================================\n');
 
   try {

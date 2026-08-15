@@ -144,7 +144,10 @@ export function normalizeRoleplayLibrarySnapshot(value: unknown): RoleplayToolCa
   return {
     personaId: readString(record.personaId, 80) || DEFAULT_ROLEPLAY_TOOL_CACHE.personaId,
     customPersona: readString(record.customPersona, 400) || undefined,
-    characterName: normalizeRoleplayCharacterName(record.characterName) || undefined,
+    characterName:
+      normalizeRoleplayCharacterName(
+        typeof record.characterName === 'string' ? record.characterName : undefined
+      ) || undefined,
     extraHints: readString(record.extraHints, 800) || undefined,
     setting: readString(record.setting, 200) || undefined,
     tone: normalizeRoleplayTone(typeof record.tone === 'string' ? record.tone : undefined),

@@ -1,7 +1,7 @@
 {
   "name": "Prompt Studio",
   "short_name": "Prompt Studio",
-  "description": "Prompt, queue, and gallery studio for ComfyUI image, video, audio, and 3D workflows.",
+  "description": "Prompt, queue, and gallery studio for image, video, audio, and 3D workflows.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0c0c10",

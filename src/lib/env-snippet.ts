@@ -2,7 +2,7 @@ import type { ServerEnvGroup } from './server-env-summary';
 
 export function buildEnvSnippet(groups: ServerEnvGroup[]): string {
   const lines = [
-    '# ComfyUI Prompt Studio — copy to .env.local and fill in secrets',
+    '# Prompt Studio — copy to .env.local and fill in secrets',
     '# Restart the dev server or container after changes.',
     '',
   ];

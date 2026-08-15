@@ -398,7 +398,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           />
         </Link>
         <p className="type-caption mt-1.5 px-3 text-[var(--text-tertiary)]">
-          Studio for ComfyUI
+          Prompt · queue · gallery
           <span className="mx-1.5 text-[var(--border-strong)]">·</span>
           <kbd className="ui-kbd">⌘K</kbd>
         </p>
