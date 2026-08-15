@@ -26,6 +26,7 @@ type RoleplayRequestBody = {
   detail?: string;
   personaId?: string;
   customPersona?: string;
+  characterName?: string;
   extraHints?: string;
   setting?: string;
   lockedLocation?: string;
@@ -36,6 +37,7 @@ type RoleplayRequestBody = {
   isolatedSubject?: boolean;
   bio?: RoleplayBio;
   story?: RoleplayStoryBeat[];
+  rejectedScenes?: RoleplayScene[];
   situation?: RoleplayScene;
   avoidedTokens?: string[];
   avoidedTokensInstruction?: string;
@@ -94,6 +96,7 @@ export async function POST(request: Request) {
       ...avoidance,
       personaId: body.personaId?.trim(),
       customPersona: body.customPersona?.trim(),
+      characterName: body.characterName?.trim(),
       extraHints: body.extraHints?.trim(),
       setting: body.setting?.trim() || body.lockedLocation?.trim(),
       lockedLocation: body.lockedLocation?.trim(),
@@ -104,6 +107,7 @@ export async function POST(request: Request) {
       isolatedSubject: body.hasReferenceImage === true && body.isolatedSubject === true,
       bio: body.bio ? parseRoleplayBio(body.bio) : undefined,
       story: parseStory(body.story),
+      rejectedScenes: parseRoleplayScenes(body.rejectedScenes),
     };
 
     if (action === 'bio') {

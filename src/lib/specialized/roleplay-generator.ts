@@ -8,6 +8,8 @@ import {
 import { stripPromptArtifacts } from '../prompt-cleanup';
 import {
   extractJsonValue,
+  applyRoleplayCharacterName,
+  formatRoleplayAvoidedScenes,
   formatRoleplayBio,
   formatRoleplaySettingCue,
   formatRoleplayStoryDigest,
@@ -15,6 +17,7 @@ import {
   isRoleplayAdultContent,
   lastRoleplayPlotBeat,
   mergeRoleplaySceneOptions,
+  normalizeRoleplayCharacterName,
   parseRoleplayBio,
   parseRoleplayScenes,
   resolveRoleplayPersonaPrompt,
@@ -36,6 +39,7 @@ import type { SharedGenerationOptions, ToolGenerateResult } from './types';
 export type RoleplaySharedOptions = SharedGenerationOptions & {
   personaId?: string;
   customPersona?: string;
+  characterName?: string;
   extraHints?: string;
   setting?: string;
   lockedLocation?: string;
@@ -44,6 +48,7 @@ export type RoleplaySharedOptions = SharedGenerationOptions & {
   allowGore?: boolean;
   bio?: RoleplayBio;
   story?: RoleplayStoryBeat[];
+  rejectedScenes?: RoleplayScene[];
   situation?: RoleplayScene;
   hasReferenceImage?: boolean;
   isolatedSubject?: boolean;
@@ -106,7 +111,7 @@ function sceneGuard(content: RoleplayContentId, allowGore: boolean): string {
     rating =
       'Every option should be a crude sexual visual gag, not a clean joke with a dirty title.';
   }
-  return `Do not repeat earlier story titles. ${rating} ${gore} No sexual content involving minors.`;
+  return `Do not repeat earlier story titles or near-duplicate blurbs. ${rating} ${gore} No sexual content involving minors.`;
 }
 
 function promptStyleLine(content: RoleplayContentId, allowGore: boolean): string {
@@ -240,7 +245,8 @@ export async function generateRoleplayBio(
   const isolatedSubject = hasReferenceImage && Boolean(options.isolatedSubject);
   const setting = resolveRoleplaySetting(options.setting, options.lockedLocation);
   const persona = resolveRoleplayPersonaPrompt(options.personaId, options.customPersona);
-  const fallback = templateRoleplayBio(options.personaId, options.customPersona);
+  const characterName = normalizeRoleplayCharacterName(options.characterName);
+  const fallback = templateRoleplayBio(options.personaId, options.customPersona, characterName);
   const settingCue = formatRoleplaySettingCue({
     setting,
     hasReferenceImage,
@@ -262,6 +268,7 @@ ${referenceLine(hasReferenceImage, isolatedSubject)}
 ${settingCue}
 ${wardrobeCue}
 Return ONLY JSON: {"name":"","look":"","personality":"","catchphrase":""}
+- name: ${characterName ? `use this exact name: "${characterName}". Do not invent a nickname or rename them.` : 'invent a short memorable name.'}
 - look: one visual sentence (species/body, clothes, colors, distinctive props).${adultLookHint(content)}${
       hasReferenceImage
         ? ' Face, hair, and body from the reference; clothes from the part — not the photo location or the photo outfit.'
@@ -271,6 +278,7 @@ Return ONLY JSON: {"name":"","look":"","personality":"","catchphrase":""}
 - ${contentLine(content, allowGore)}`,
     user: [
       `Play as: ${persona}`,
+      characterName ? `Character name (required): ${characterName}` : '',
       options.extraHints?.trim() ? `Extra notes: ${options.extraHints.trim()}` : '',
       setting ? `Setting: ${setting}` : '',
       options.avoidedTokensInstruction ?? '',
@@ -282,7 +290,10 @@ Return ONLY JSON: {"name":"","look":"","personality":"","catchphrase":""}
   if (!raw) {
     return { bio: fallback, provider: 'template' };
   }
-  return { bio: parseRoleplayBio(extractJsonValue(raw), fallback), provider: 'llm' };
+  return {
+    bio: parseRoleplayBio(extractJsonValue(raw), fallback, characterName),
+    provider: 'llm',
+  };
 }
 
 export async function generateRoleplayScenes(
@@ -293,13 +304,18 @@ export async function generateRoleplayScenes(
   const hasReferenceImage = Boolean(options.hasReferenceImage);
   const isolatedSubject = hasReferenceImage && Boolean(options.isolatedSubject);
   const setting = resolveRoleplaySetting(options.setting, options.lockedLocation);
-  const bio = options.bio ?? templateRoleplayBio(options.personaId, options.customPersona);
+  const bio = applyRoleplayCharacterName(
+    options.bio ?? templateRoleplayBio(options.personaId, options.customPersona),
+    options.characterName
+  );
   const continuing = hasRoleplayPlot(options.story);
+  const rejectedScenes = options.rejectedScenes ?? [];
   const fallback = templateRoleplayScenes(
     options.personaId,
     options.customPersona,
     options.story,
-    bio.name
+    bio.name,
+    rejectedScenes
   );
   const settingCue = formatRoleplaySettingCue({
     setting,
@@ -315,7 +331,7 @@ export async function generateRoleplayScenes(
   const raw = await llmJson({
     llm: options.llm,
     maxTokens: 700,
-    temperature: continuing ? 0.86 : 1.05,
+    temperature: continuing ? 0.98 : 1.08,
     system: `You write choose-your-own-adventure forks for an image roleplay.
 ${toneLine(tone)}
 ${uncensoredAdultLine(content)}
@@ -324,20 +340,23 @@ ${wardrobeCue}
 Return ONLY JSON: {"scenes":[{"title":"","blurb":""}]}
 - Exactly 4 scenes. Titles 2–6 words. Blurbs one sentence, visual, actionable.
 - Each option is a different way THIS character's story continues from the last chosen beat.
-- Keep the same props and relationships unless a branch is clearly leaving that moment.
+- The four stills must not look alike: vary action, place or time of day, wardrobe or who else is in frame, and pose.
+- At least two options must change location, time of day, or wardrobe. Do not offer four angles on the same room and pose.
+- Do not start every title with the last beat's words. Do not paraphrase an earlier blurb.
 ${
   setting
-    ? '- Name the seeded setting in each blurb so the still can show it.'
-    : '- Keep the same setting unless a branch is clearly leaving that moment.\n- Do not jump to an unrelated location or a new plot that ignores what just happened.'
+    ? '- Name the seeded setting, but vary the room, weather, crowd, or hour so the stills do not look identical.'
+    : '- Keep the character and plot continuous. Continuity is not the same room and pose.'
 }
 - Each beat should make a distinct still image of THIS character.
 - ${sceneGuard(content, allowGore)}`,
     user: [
       formatRoleplayBio(bio),
       formatRoleplayStoryDigest(options.story),
+      formatRoleplayAvoidedScenes(rejectedScenes),
       continuing
-        ? 'The player just picked the last beat. Write four mutually exclusive next moments that follow from it.'
-        : 'No plot yet. Write four opening options for this character.',
+        ? 'The player just picked the last beat. Write four mutually exclusive next moments that follow from it — four different photographs, not four captions for the same one.'
+        : 'No plot yet. Write four opening options for this character that would look like four different photographs.',
       options.extraHints?.trim() ? `Player notes: ${options.extraHints.trim()}` : '',
       setting ? `Setting: ${setting}` : '',
       options.avoidedTokensInstruction ?? '',
@@ -350,7 +369,7 @@ ${
     return { scenes: fallback, provider: 'template' };
   }
   const parsed = parseRoleplayScenes(extractJsonValue(raw));
-  const scenes = mergeRoleplaySceneOptions(parsed, fallback, options.story);
+  const scenes = mergeRoleplaySceneOptions(parsed, fallback, options.story, 4, rejectedScenes);
   return {
     scenes: scenes.length > 0 ? scenes : fallback,
     provider: parsed.length > 0 ? 'llm' : 'template',
@@ -362,7 +381,10 @@ export async function generateRoleplayPrompt(
 ): Promise<ToolGenerateResult> {
   const { tone, content } = resolveRoleplayToneAndContent(options.tone, options.content);
   const allowGore = Boolean(options.allowGore);
-  const bio = options.bio ?? templateRoleplayBio(options.personaId, options.customPersona);
+  const bio = applyRoleplayCharacterName(
+    options.bio ?? templateRoleplayBio(options.personaId, options.customPersona),
+    options.characterName
+  );
   const situation = options.situation;
   if (!situation?.title?.trim()) {
     throw new Error('Pick a scene before generating a still.');

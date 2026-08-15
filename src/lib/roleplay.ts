@@ -225,10 +225,10 @@ export function formatRoleplaySettingCue(input: {
 
   if (input.phase === 'scenes') {
     if (setting && input.continuing) {
-      return `Seeded setting: ${setting}. Stay here unless a branch clearly leaves this place.`;
+      return `Seeded setting: ${setting}. Stay in this place or its immediate surroundings, but vary the room, weather, crowd, or hour so the four stills do not look identical.`;
     }
     if (setting) {
-      return `Seeded setting: ${setting}. All four opening options happen in or around this place.`;
+      return `Seeded setting: ${setting}. All four opening options happen in or around this place, in different rooms, hours, or weather.`;
     }
     if (photo) {
       return `Do not reuse the reference photo's location. Invent a fitting place for this character.`;
@@ -1142,7 +1142,31 @@ export function extractJsonValue(text: string): unknown {
   }
 }
 
-export function parseRoleplayBio(payload: unknown, fallback?: RoleplayBio): RoleplayBio {
+export const MAX_ROLEPLAY_CHARACTER_NAME = 40;
+
+export function normalizeRoleplayCharacterName(value: string | null | undefined): string {
+  return String(value ?? '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, MAX_ROLEPLAY_CHARACTER_NAME);
+}
+
+export function applyRoleplayCharacterName(
+  bio: RoleplayBio,
+  characterName?: string | null
+): RoleplayBio {
+  const name = normalizeRoleplayCharacterName(characterName);
+  if (!name || bio.name === name) {
+    return bio;
+  }
+  return { ...bio, name };
+}
+
+export function parseRoleplayBio(
+  payload: unknown,
+  fallback?: RoleplayBio,
+  characterName?: string | null
+): RoleplayBio {
   const record =
     payload && typeof payload === 'object' && !Array.isArray(payload)
       ? (payload as Record<string, unknown>)
@@ -1152,12 +1176,15 @@ export function parseRoleplayBio(payload: unknown, fallback?: RoleplayBio): Role
   const personality = readString(record?.personality) || readString(record?.bio);
   const catchphrase = readString(record?.catchphrase) || undefined;
   if (name && look && personality) {
-    return { name, look, personality, ...(catchphrase ? { catchphrase } : {}) };
+    return applyRoleplayCharacterName(
+      { name, look, personality, ...(catchphrase ? { catchphrase } : {}) },
+      characterName
+    );
   }
   if (fallback) {
-    return fallback;
+    return applyRoleplayCharacterName(fallback, characterName);
   }
-  return ROLEPLAY_ARCHETYPES[0].templateBio;
+  return applyRoleplayCharacterName(ROLEPLAY_ARCHETYPES[0].templateBio, characterName);
 }
 
 export function parseRoleplayScenes(payload: unknown): RoleplayScene[] {
@@ -1190,19 +1217,19 @@ export function parseRoleplayScenes(payload: unknown): RoleplayScene[] {
 
 export function templateRoleplayBio(
   personaId: string | null | undefined,
-  customPersona?: string
+  customPersona?: string,
+  characterName?: string | null
 ): RoleplayBio {
   const archetype = getRoleplayArchetype(personaId);
-  if (archetype) {
-    return archetype.templateBio;
-  }
-  const prompt = resolveRoleplayPersonaPrompt(personaId, customPersona);
-  return {
-    name: 'The Unexpected',
-    look: prompt,
-    personality: 'Here for a good time and a slightly confusing plot.',
-    catchphrase: 'Okay but what if we made it weirder.',
-  };
+  const base = archetype
+    ? archetype.templateBio
+    : {
+        name: 'The Unexpected',
+        look: resolveRoleplayPersonaPrompt(personaId, customPersona),
+        personality: 'Here for a good time and a slightly confusing plot.',
+        catchphrase: 'Okay but what if we made it weirder.',
+      };
+  return applyRoleplayCharacterName(base, characterName);
 }
 
 export const ROLEPLAY_INTRO_SCENE_ID = 'intro-first-look';
@@ -1219,8 +1246,155 @@ export function roleplaySceneTitleKey(title: string): string {
   return title.trim().toLowerCase();
 }
 
-export function usedRoleplaySceneTitles(story: RoleplayStoryBeat[] | undefined): Set<string> {
-  return new Set((story ?? []).map(beat => roleplaySceneTitleKey(beat.title)).filter(Boolean));
+const ROLEPLAY_SCENE_STOPWORDS = new Set([
+  'the',
+  'a',
+  'an',
+  'and',
+  'or',
+  'to',
+  'of',
+  'in',
+  'on',
+  'at',
+  'for',
+  'with',
+  'from',
+  'into',
+  'after',
+  'during',
+  'still',
+  'you',
+  'your',
+  'they',
+  'their',
+  'this',
+  'that',
+  'than',
+  'just',
+  'what',
+  'them',
+  'then',
+  'when',
+  'who',
+  'are',
+  'was',
+  'were',
+  'has',
+  'had',
+  'have',
+  'but',
+  'not',
+  'out',
+  'off',
+  'over',
+  'under',
+  'again',
+  'next',
+  'now',
+  'too',
+  'only',
+  'same',
+  'place',
+  'moment',
+  'beat',
+  'scene',
+]);
+
+const ROLEPLAY_TITLE_DECOR = [
+  'right after',
+  'fallout from',
+  'worse than',
+  'double down on',
+  'caught during',
+  'bargain after',
+  'escape from',
+  'reveal during',
+  'next room',
+  'hours later',
+  'uninvited guest',
+  'wardrobe change',
+  'night shift',
+  'opposite play',
+  'in public',
+  'setpiece stunt',
+];
+
+export function roleplaySceneContentTokens(text: string): Set<string> {
+  return new Set(
+    text
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]+/g, ' ')
+      .split(/\s+/)
+      .filter(word => word.length >= 3 && !ROLEPLAY_SCENE_STOPWORDS.has(word))
+  );
+}
+
+export function roleplaySceneTokenOverlap(left: Set<string>, right: Set<string>): number {
+  if (left.size === 0 || right.size === 0) {
+    return 0;
+  }
+  let shared = 0;
+  for (const token of left) {
+    if (right.has(token)) {
+      shared += 1;
+    }
+  }
+  return shared / Math.min(left.size, right.size);
+}
+
+export function roleplaySceneCoreTitle(title: string): string {
+  let next = title
+    .trim()
+    .toLowerCase()
+    .replace(/[:—–|/]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  for (const prefix of ROLEPLAY_TITLE_DECOR) {
+    if (next === prefix || next.startsWith(`${prefix} `)) {
+      next = next.slice(prefix.length).trim();
+      break;
+    }
+  }
+  return next;
+}
+
+export function roleplayScenesTooSimilar(
+  left: { title: string; blurb?: string },
+  right: { title: string; blurb?: string }
+): boolean {
+  const leftBlurb = left.blurb?.trim().toLowerCase() ?? '';
+  const rightBlurb = right.blurb?.trim().toLowerCase() ?? '';
+  if (leftBlurb && leftBlurb === rightBlurb) {
+    return true;
+  }
+  const leftCore = roleplaySceneCoreTitle(left.title);
+  const rightCore = roleplaySceneCoreTitle(right.title);
+  if (leftCore && leftCore === rightCore) {
+    return true;
+  }
+  const leftTitle = roleplaySceneContentTokens(leftCore || left.title);
+  const rightTitle = roleplaySceneContentTokens(rightCore || right.title);
+  if (
+    leftTitle.size >= 2 &&
+    rightTitle.size >= 2 &&
+    roleplaySceneTokenOverlap(leftTitle, rightTitle) >= 0.67
+  ) {
+    return true;
+  }
+  const leftAll = roleplaySceneContentTokens(`${left.title} ${left.blurb ?? ''}`);
+  const rightAll = roleplaySceneContentTokens(`${right.title} ${right.blurb ?? ''}`);
+  return (
+    leftAll.size >= 5 && rightAll.size >= 5 && roleplaySceneTokenOverlap(leftAll, rightAll) >= 0.78
+  );
+}
+
+export function usedRoleplaySceneTitles(story: Array<{ title: string }> | undefined): Set<string> {
+  return new Set(
+    (story ?? [])
+      .flatMap(beat => [roleplaySceneTitleKey(beat.title), roleplaySceneCoreTitle(beat.title)])
+      .filter(Boolean)
+  );
 }
 
 export function lastRoleplayPlotBeat(
@@ -1229,24 +1403,58 @@ export function lastRoleplayPlotBeat(
   return (story ?? []).filter(beat => beat.id !== ROLEPLAY_INTRO_SCENE_ID).at(-1);
 }
 
+export function formatRoleplayAvoidedScenes(
+  scenes: Array<{ title: string; blurb?: string }> | undefined
+): string {
+  const lines = (scenes ?? [])
+    .map(scene => {
+      const title = scene.title.trim();
+      if (!title) {
+        return '';
+      }
+      const blurb = scene.blurb?.trim();
+      return blurb ? `- ${title} — ${blurb}` : `- ${title}`;
+    })
+    .filter(Boolean);
+  if (lines.length === 0) {
+    return '';
+  }
+  return `Already offered or played (do not repeat or paraphrase):\n${lines.join('\n')}`;
+}
+
 export function formatRoleplayStoryDigest(story: RoleplayStoryBeat[] | undefined): string {
   const recent = (story ?? []).slice(-8);
+  const variety =
+    'Four options must look like four different photographs: change the action, the place or time of day, and the pose. Do not offer the same tableau with a new verb.';
   if (recent.length === 0) {
-    return 'Story so far: nothing yet — this is the opening beat. Write four opening options.';
+    return [
+      'Story so far: nothing yet — this is the opening beat. Write four opening options.',
+      variety,
+    ].join('\n');
   }
   const lines = recent.map((beat, index) => `${index + 1}. ${beat.title} — ${beat.blurb}`);
   const lastPlot = lastRoleplayPlotBeat(recent);
+  const played = formatRoleplayAvoidedScenes(
+    (story ?? []).filter(beat => beat.id !== ROLEPLAY_INTRO_SCENE_ID)
+  );
   if (!lastPlot) {
     return [
       `Story so far:\n${lines.join('\n')}`,
       'Write four opening plot options — first things that can happen to this character.',
-    ].join('\n');
+      variety,
+    ]
+      .filter(Boolean)
+      .join('\n');
   }
   return [
     `Story so far:\n${lines.join('\n')}`,
     `Last chosen beat (continue from here): ${lastPlot.title} — ${lastPlot.blurb}`,
-    'Every option must be a next moment after that pick, not a random new vignette.',
-  ].join('\n');
+    played,
+    'Follow from that pick, but move the story: new room, later hour, new arrival, wardrobe change, or opposite tactic. Not four angles on the same still.',
+    variety,
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
 type RoleplayContinuationFork = {
@@ -1256,52 +1464,46 @@ type RoleplayContinuationFork = {
 
 const ROLEPLAY_CONTINUATION_FORKS: RoleplayContinuationFork[] = [
   {
-    titlePrefix: 'Right after',
+    titlePrefix: 'Next room',
     blurb: (name, last) =>
-      `${name} is still inside "${last.title}": ${last.blurb} The next second happens in the same place.`,
+      `${name} leaves "${last.title}" for an adjoining space, still carrying the problem: ${clipRoleplayWords(last.blurb, 14)}`,
   },
   {
-    titlePrefix: 'Fallout from',
+    titlePrefix: 'Hours later',
     blurb: (name, last) =>
-      `Consequences land from ${last.title.toLowerCase()}. ${name} has to deal with what they just did.`,
+      `Later the same day, ${name} is somewhere else dealing with the fallout of ${last.title.toLowerCase()}.`,
   },
   {
-    titlePrefix: 'Worse than',
+    titlePrefix: 'Uninvited guest',
     blurb: (name, last) =>
-      `${last.title} was only the setup. It gets messier for ${name} without leaving that situation.`,
+      `A new person walks in on ${name} after ${last.title.toLowerCase()} and changes the power dynamic.`,
   },
   {
-    titlePrefix: 'Double down on',
+    titlePrefix: 'Wardrobe change',
     blurb: (name, last) =>
-      `${name} refuses to walk away from ${last.title.toLowerCase()} and leans harder into it.`,
+      `${name} changes clothes or gear after ${last.title.toLowerCase()} — new silhouette, same trouble.`,
   },
   {
-    titlePrefix: 'Caught during',
+    titlePrefix: 'Night shift',
     blurb: (name, last) =>
-      `Someone interrupts ${last.title.toLowerCase()}. ${name} is still holding the pose.`,
+      `Light and weather flip. ${name} is still living with ${last.title.toLowerCase()}, but the still looks like a different movie.`,
   },
   {
-    titlePrefix: 'Bargain after',
+    titlePrefix: 'Opposite play',
     blurb: (name, last) =>
-      `${name} tries to talk their way out of the mess left by ${last.title.toLowerCase()}.`,
+      `${name} tries the opposite tactic of ${last.title.toLowerCase()} and it immediately complicates.`,
   },
   {
-    titlePrefix: 'Escape from',
+    titlePrefix: 'In public',
     blurb: (name, last) =>
-      `${name} attempts a getaway that still starts from ${last.title.toLowerCase()}.`,
+      `The private mess of ${last.title.toLowerCase()} spills into a crowded or exposed place.`,
   },
   {
-    titlePrefix: 'Reveal during',
+    titlePrefix: 'Setpiece stunt',
     blurb: (name, last) =>
-      `A hidden detail from ${last.title.toLowerCase()} comes into view and ${name} has to react.`,
+      `${name} attempts a big physical bit that only makes sense because of ${last.title.toLowerCase()}.`,
   },
 ];
-
-function forkTitleFromLast(prefix: string, lastTitle: string): string {
-  const prefixWords = prefix.trim().split(/\s+/).filter(Boolean).length;
-  const room = Math.max(1, 6 - prefixWords);
-  return clipRoleplayTitle(`${prefix} ${clipRoleplayWords(lastTitle, room)}`);
-}
 
 function uniqueRoleplayTitle(title: string, used: Set<string>): string {
   const base = clipRoleplayTitle(title);
@@ -1321,11 +1523,12 @@ function uniqueRoleplayTitle(title: string, used: Set<string>): string {
 export function continueRoleplayScenes(
   last: RoleplayStoryBeat,
   story?: RoleplayStoryBeat[],
-  characterName?: string
+  characterName?: string,
+  avoid?: Array<{ title: string; blurb?: string }>
 ): RoleplayScene[] {
   const name = characterName?.trim() || 'You';
-  const used = usedRoleplaySceneTitles(story);
-  const start = (story?.length ?? 0) % ROLEPLAY_CONTINUATION_FORKS.length;
+  const used = usedRoleplaySceneTitles([...(story ?? []), ...(avoid ?? [])]);
+  const start = ((story?.length ?? 0) + (avoid?.length ?? 0)) % ROLEPLAY_CONTINUATION_FORKS.length;
   const rotated = [
     ...ROLEPLAY_CONTINUATION_FORKS.slice(start),
     ...ROLEPLAY_CONTINUATION_FORKS.slice(0, start),
@@ -1335,30 +1538,48 @@ export function continueRoleplayScenes(
     if (scenes.length >= 4) {
       break;
     }
-    const title = uniqueRoleplayTitle(forkTitleFromLast(fork.titlePrefix, last.title), used);
-    used.add(roleplaySceneTitleKey(title));
-    scenes.push({
+    const title = uniqueRoleplayTitle(fork.titlePrefix, used);
+    const scene = {
       id: slugId(title, scenes.length),
       title,
       blurb: fork.blurb(name, last),
-    });
+    };
+    if (
+      [...(story ?? []), ...(avoid ?? []), ...scenes].some(prior =>
+        roleplayScenesTooSimilar(scene, prior)
+      )
+    ) {
+      continue;
+    }
+    used.add(roleplaySceneTitleKey(title));
+    used.add(roleplaySceneCoreTitle(title));
+    scenes.push(scene);
   }
   return scenes;
 }
 
 export function filterFreshRoleplayScenes(
   scenes: RoleplayScene[],
-  story?: RoleplayStoryBeat[]
+  story?: RoleplayStoryBeat[],
+  avoid?: Array<{ title: string; blurb?: string }>
 ): RoleplayScene[] {
-  const used = usedRoleplaySceneTitles(story);
+  const priors = [...(story ?? []), ...(avoid ?? [])];
+  const used = usedRoleplaySceneTitles(priors);
   const seen = new Set<string>();
   const fresh: RoleplayScene[] = [];
   for (const scene of scenes) {
     const key = roleplaySceneTitleKey(scene.title);
-    if (!key || used.has(key) || seen.has(key)) {
+    const core = roleplaySceneCoreTitle(scene.title);
+    if (!key || used.has(key) || used.has(core) || seen.has(key) || seen.has(core)) {
+      continue;
+    }
+    if ([...priors, ...fresh].some(prior => roleplayScenesTooSimilar(scene, prior))) {
       continue;
     }
     seen.add(key);
+    if (core) {
+      seen.add(core);
+    }
     fresh.push(scene);
   }
   return fresh;
@@ -1368,12 +1589,14 @@ export function mergeRoleplaySceneOptions(
   preferred: RoleplayScene[],
   fallback: RoleplayScene[],
   story?: RoleplayStoryBeat[],
-  limit = 4
+  limit = 4,
+  avoid?: Array<{ title: string; blurb?: string }>
 ): RoleplayScene[] {
-  const freshPreferred = filterFreshRoleplayScenes(preferred, story);
+  const freshPreferred = filterFreshRoleplayScenes(preferred, story, avoid);
   const used = new Set([
-    ...usedRoleplaySceneTitles(story),
+    ...usedRoleplaySceneTitles([...(story ?? []), ...(avoid ?? [])]),
     ...freshPreferred.map(scene => roleplaySceneTitleKey(scene.title)),
+    ...freshPreferred.map(scene => roleplaySceneCoreTitle(scene.title)),
   ]);
   const merged = [...freshPreferred];
   for (const extra of fallback) {
@@ -1381,10 +1604,21 @@ export function mergeRoleplaySceneOptions(
       break;
     }
     const key = roleplaySceneTitleKey(extra.title);
-    if (!key || used.has(key)) {
+    const core = roleplaySceneCoreTitle(extra.title);
+    if (!key || used.has(key) || used.has(core)) {
+      continue;
+    }
+    if (
+      [...(story ?? []), ...(avoid ?? []), ...merged].some(prior =>
+        roleplayScenesTooSimilar(extra, prior)
+      )
+    ) {
       continue;
     }
     used.add(key);
+    if (core) {
+      used.add(core);
+    }
     merged.push(extra);
   }
   return merged.slice(0, limit);
@@ -1394,11 +1628,12 @@ export function templateRoleplayScenes(
   personaId: string | null | undefined,
   customPersona?: string,
   story?: RoleplayStoryBeat[],
-  characterName?: string
+  characterName?: string,
+  avoid?: Array<{ title: string; blurb?: string }>
 ): RoleplayScene[] {
   const lastPlot = lastRoleplayPlotBeat(story);
   if (lastPlot) {
-    return continueRoleplayScenes(lastPlot, story, characterName);
+    return continueRoleplayScenes(lastPlot, story, characterName, avoid);
   }
   const archetype = getRoleplayArchetype(personaId);
   const rows = archetype?.templateScenes ?? [
@@ -1419,7 +1654,8 @@ export function templateRoleplayScenes(
       title: row.title,
       blurb: row.blurb,
     })),
-    story
+    story,
+    avoid
   );
 }
 

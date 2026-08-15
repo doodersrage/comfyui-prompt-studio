@@ -893,6 +893,7 @@ export type MobileStudioToolCache = {
 export type RoleplayToolCache = {
   personaId?: string;
   customPersona?: string;
+  characterName?: string;
   extraHints?: string;
   setting?: string;
   tone?: import('./roleplay').RoleplayTone;
@@ -1259,6 +1260,7 @@ export const DEFAULT_NSFW_GENERATOR_TOOL_CACHE: NsfwGeneratorToolCache = {
 export const DEFAULT_ROLEPLAY_TOOL_CACHE: RoleplayToolCache = {
   personaId: 'raccoon-pirate',
   customPersona: '',
+  characterName: '',
   extraHints: '',
   setting: '',
   tone: 'silly',

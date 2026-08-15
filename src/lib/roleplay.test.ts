@@ -5,18 +5,23 @@ import {
   continueRoleplayScenes,
   extractJsonValue,
   filterFreshRoleplayScenes,
+  formatRoleplayAvoidedScenes,
   formatRoleplayStoryDigest,
   mergeRoleplaySceneOptions,
   mergeRoleplayStoryStills,
   normalizeRoleplayTone,
   normalizeRoleplayContent,
   parseRoleplayAllowGore,
+  applyRoleplayCharacterName,
+  MAX_ROLEPLAY_CHARACTER_NAME,
+  normalizeRoleplayCharacterName,
   parseRoleplayBio,
   parseRoleplayScenes,
   patchRoleplayStoryBeat,
   resolveRoleplayPersonaPrompt,
   resolveRoleplayToneAndContent,
   ROLEPLAY_TONES,
+  roleplayScenesTooSimilar,
   roleplayToneLine,
   roleplayToneTemperature,
   isRoleplayAdultContent,
@@ -64,6 +69,22 @@ describe('roleplay parsers', () => {
     const fallback = templateRoleplayBio('sentient-toaster');
     const parsed = parseRoleplayBio(extractJsonValue('not json'), fallback);
     assert.equal(parsed.name, fallback.name);
+  });
+
+  it('locks a player-assigned character name on bios', () => {
+    assert.equal(normalizeRoleplayCharacterName('  Alex   Quill  '), 'Alex Quill');
+    assert.equal(normalizeRoleplayCharacterName('x'.repeat(80)).length, MAX_ROLEPLAY_CHARACTER_NAME);
+    const named = applyRoleplayCharacterName(templateRoleplayBio('raccoon-pirate'), 'Alex Quill');
+    assert.equal(named.name, 'Alex Quill');
+    assert.equal(named.look, templateRoleplayBio('raccoon-pirate').look);
+    const parsed = parseRoleplayBio(
+      { name: 'Captain Nib', look: 'a raccoon in a hat', personality: 'bold' },
+      undefined,
+      'Alex Quill'
+    );
+    assert.equal(parsed.name, 'Alex Quill');
+    assert.equal(templateRoleplayBio('raccoon-pirate', undefined, 'Mara').name, 'Mara');
+    assert.equal(applyRoleplayCharacterName(named, '').name, 'Alex Quill');
   });
 
   it('reads scene arrays from a wrapper object', () => {
@@ -255,13 +276,19 @@ describe('roleplay parsers', () => {
     assert.equal(next.length, 4);
     assert.ok(next.every(scene => scene.title !== 'Mutiny at brunch'));
     assert.ok(next.every(scene => scene.title !== 'Foggy dock heist'));
+    assert.equal(new Set(next.map(scene => scene.title)).size, 4);
     assert.ok(next.some(scene => /mutiny|brunch/i.test(`${scene.title} ${scene.blurb}`)));
     assert.ok(next.every(scene => /Captain Nib|brunch|mutiny|pancakes|syrup|map/i.test(scene.blurb)));
+    assert.ok(
+      next.some(scene => /room|later|guest|wardrobe|night|opposite|public|stunt/i.test(scene.title))
+    );
 
     const digest = formatRoleplayStoryDigest(story);
     assert.match(digest, /Last chosen beat/);
     assert.match(digest, /Mutiny at brunch/);
     assert.match(digest, /continue from here/i);
+    assert.match(digest, /different photographs/i);
+    assert.match(digest, /Already offered or played/);
 
     const openingDigest = formatRoleplayStoryDigest([{ ...intro, at: 1 }]);
     assert.match(openingDigest, /opening plot options/i);
@@ -294,6 +321,53 @@ describe('roleplay parsers', () => {
     );
     assert.equal(merged.length, 4);
     assert.ok(merged.every(scene => scene.title.toLowerCase() !== 'mutiny at brunch'));
+  });
+
+  it('drops near-duplicate titles and rejected reroll options', () => {
+    assert.equal(
+      roleplayScenesTooSimilar(
+        { title: 'Mutiny at brunch', blurb: 'The syrup is a hostage.' },
+        { title: 'Right after Mutiny at brunch', blurb: 'Same syrup, same table.' }
+      ),
+      true
+    );
+    assert.equal(
+      roleplayScenesTooSimilar(
+        { title: 'Syrup tribunal', blurb: 'The crew holds court.' },
+        { title: 'Night shift', blurb: 'Light flips after mutiny at brunch.' }
+      ),
+      false
+    );
+
+    const story = [
+      {
+        id: 'mutiny-at-brunch-1',
+        title: 'Mutiny at brunch',
+        blurb: 'The syrup is a hostage.',
+        at: 1,
+      },
+    ];
+    const fresh = filterFreshRoleplayScenes(
+      [
+        { id: 'echo', title: 'Right after Mutiny at brunch', blurb: 'Still at the table.' },
+        { id: 'dup-blurb', title: 'Pancake standoff', blurb: 'The syrup is a hostage.' },
+        { id: 'new', title: 'Syrup tribunal', blurb: 'The crew holds court on the roof.' },
+      ],
+      story
+    );
+    assert.equal(fresh.some(scene => scene.title === 'Syrup tribunal'), true);
+    assert.equal(fresh.some(scene => /mutiny at brunch/i.test(scene.title)), false);
+
+    const rejected = [{ id: 'old', title: 'Syrup tribunal', blurb: 'The crew holds court on the roof.' }];
+    const reroll = mergeRoleplaySceneOptions(
+      [{ id: 'again', title: 'Syrup tribunal', blurb: 'Court, but louder.' }],
+      continueRoleplayScenes(story[0]!, story, 'Captain Nib', rejected),
+      story,
+      4,
+      rejected
+    );
+    assert.ok(reroll.every(scene => scene.title.toLowerCase() !== 'syrup tribunal'));
+    assert.match(formatRoleplayAvoidedScenes(rejected), /Syrup tribunal/);
   });
 
   it('patches a beat and hydrates stills from gallery jobs', () => {

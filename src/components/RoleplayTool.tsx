@@ -49,8 +49,10 @@ import {
   appendRoleplayStoryBeat,
   beginRoleplayStillRetryPatch,
   canRetryRoleplayStill,
+  applyRoleplayCharacterName,
   formatRoleplayBio,
   getRoleplayArchetype,
+  MAX_ROLEPLAY_CHARACTER_NAME,
   lastRoleplayStillImage,
   mergeRoleplayStoryStills,
   normalizeRoleplayPlayAs,
@@ -421,6 +423,7 @@ export default function RoleplayTool() {
       detail: shared.detail,
       personaId,
       customPersona: toolSettings.customPersona,
+      characterName: toolSettings.characterName,
       extraHints: toolSettings.extraHints,
       setting: toolSettings.setting,
       lockedLocation: shared.lockedLocation,
@@ -432,6 +435,7 @@ export default function RoleplayTool() {
       hasReferenceImage: playAs === 'photo' && hasReferenceImage,
       bio,
       story: toolSettings.story,
+      rejectedScenes: action === 'scenes' ? scenes : undefined,
       situation,
       ...avoidedTokensRequestBody(),
       ...sharedLlmRequestBody(shared),
@@ -445,11 +449,13 @@ export default function RoleplayTool() {
       playAs,
       hasReferenceImage,
       toolSettings.customPersona,
+      toolSettings.characterName,
       toolSettings.extraHints,
       toolSettings.setting,
       toolSettings.referenceIsolated,
       toolSettings.allowGore,
       toolSettings.story,
+      scenes,
     ]
   );
 
@@ -907,6 +913,23 @@ export default function RoleplayTool() {
             rows={2}
           />
         ) : null}
+        <label className="block space-y-1.5 text-sm">
+          <span className="type-caption text-[var(--text-muted)]">Character name</span>
+          <TextInput
+            value={toolSettings.characterName ?? ''}
+            disabled={busy}
+            maxLength={MAX_ROLEPLAY_CHARACTER_NAME}
+            placeholder="Leave blank to let the writer name them"
+            onChange={event => {
+              const characterName = event.target.value;
+              updateToolSettings({
+                characterName,
+                bio: bio ? applyRoleplayCharacterName(bio, characterName) : bio,
+              });
+            }}
+            className={accentFocusClass(ACCENT)}
+          />
+        </label>
         <div className="space-y-2">
           <p className="type-caption text-[var(--text-muted)]">Play as</p>
           <div className="flex flex-wrap gap-1.5">

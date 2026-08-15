@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import RoleplayStoryReel from '@/components/RoleplayStoryReel';
 import { PrimaryButton } from '@/components/ui/Button';
-import { FieldError } from '@/components/ui/Field';
+import { FieldError, TextInput } from '@/components/ui/Field';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { usePromptResultActions } from '@/hooks/usePromptResultActions';
 import { avoidedTokensRequestBody } from '@/lib/avoided-tokens';
@@ -32,9 +32,11 @@ import { resolveQueueInputImage } from '@/lib/queue-input-image';
 import { getReformatTargetModel } from '@/lib/reformat-target';
 import {
   appendRoleplayStoryBeat,
+  applyRoleplayCharacterName,
   beginRoleplayStillRetryPatch,
   canRetryRoleplayStill,
   formatRoleplayBio,
+  MAX_ROLEPLAY_CHARACTER_NAME,
   mergeRoleplayStoryStills,
   normalizeRoleplayIsolateSubject,
   normalizeRoleplayPlayAs,
@@ -227,6 +229,7 @@ export default function MobilePlayTool() {
       detail: shared.detail,
       personaId,
       customPersona: toolSettings.customPersona,
+      characterName: toolSettings.characterName,
       extraHints: toolSettings.extraHints,
       setting: toolSettings.setting,
       lockedLocation: shared.lockedLocation,
@@ -238,6 +241,7 @@ export default function MobilePlayTool() {
       hasReferenceImage,
       bio,
       story: toolSettings.story,
+      rejectedScenes: action === 'scenes' ? scenes : undefined,
       situation,
       ...avoidedTokensRequestBody(),
       ...sharedLlmRequestBody(shared),
@@ -252,10 +256,12 @@ export default function MobilePlayTool() {
       tone,
       toolSettings.allowGore,
       toolSettings.customPersona,
+      toolSettings.characterName,
       toolSettings.extraHints,
       toolSettings.referenceIsolated,
       toolSettings.setting,
       toolSettings.story,
+      scenes,
     ]
   );
 
@@ -627,6 +633,23 @@ export default function MobilePlayTool() {
           ))}
         </div>
       ) : null}
+
+      <label className="block space-y-1.5 text-sm">
+        <span className="type-caption text-[var(--text-muted)]">Character name</span>
+        <TextInput
+          value={toolSettings.characterName ?? ''}
+          disabled={bioLoading}
+          maxLength={MAX_ROLEPLAY_CHARACTER_NAME}
+          placeholder="Optional — leave blank to invent one"
+          onChange={event => {
+            const characterName = event.target.value;
+            updateToolSettings({
+              characterName,
+              bio: bio ? applyRoleplayCharacterName(bio, characterName) : bio,
+            });
+          }}
+        />
+      </label>
 
       <PrimaryButton
         disabled={!hasReferenceImage || bioLoading || isolating}
