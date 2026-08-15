@@ -30,6 +30,7 @@ import {
   roleplayToneLine,
   roleplayToneTemperature,
   isRoleplayAdultContent,
+  clampRoleplayContentForAdultGate,
   lastRoleplayPlotBeat,
   lastRoleplayStillImage,
   lastCompletedRoleplayStillUrl,
@@ -173,6 +174,17 @@ describe('roleplay parsers', () => {
     assert.equal(normalizeRoleplayPlayAs(''), 'text');
     assert.equal(isRoleplayAdultContent('sultry'), true);
     assert.equal(isRoleplayAdultContent('pg13'), false);
+    assert.equal(clampRoleplayContentForAdultGate('explicit', false), 'pg13');
+    assert.equal(clampRoleplayContentForAdultGate('explicit', true), 'explicit');
+    assert.equal(clampRoleplayContentForAdultGate('suggestive', false), 'suggestive');
+    assert.deepEqual(resolveRoleplayToneAndContent('cinematic', 'raunchy', { adultEnabled: false }), {
+      tone: 'cinematic',
+      content: 'pg13',
+    });
+    assert.deepEqual(resolveRoleplayToneAndContent('sultry', undefined, { adultEnabled: false }), {
+      tone: 'silly',
+      content: 'pg13',
+    });
     assert.equal(parseRoleplayAllowGore(true), true);
     assert.equal(parseRoleplayAllowGore('true'), true);
     assert.equal(parseRoleplayAllowGore(false), false);

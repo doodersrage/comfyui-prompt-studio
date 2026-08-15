@@ -313,10 +313,10 @@ export function getServerEnvSummary(): ServerEnvSummary {
       fields: [
         {
           key: NSFW_GENERATOR_ENV_SERVER,
-          label: 'Adult generator plugin',
+          label: 'Adult content',
           value: isNsfwGeneratorEnabledServer() ? 'true' : 'false',
           configured: true,
-          hint: 'Also set NEXT_PUBLIC_PROMPT_NSFW_GENERATOR_ENABLED=true at build time for nav/UI.',
+          hint: 'Adult generator plugin and Roleplay Sultry / Explicit / Raunchy. Also set NEXT_PUBLIC_PROMPT_NSFW_GENERATOR_ENABLED=true at build time for nav/UI.',
         },
         {
           key: 'PROMPT_API_TOKEN',

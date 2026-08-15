@@ -1,0 +1,11 @@
+{
+  "name": "prompt-studio-desktop",
+  "private": true,
+  "description": "Tauri shell for Prompt Studio",
+  "scripts": {
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.8.5"
+  }
+}

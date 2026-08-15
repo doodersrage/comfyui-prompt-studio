@@ -24,7 +24,7 @@ Open [http://localhost:47832](http://localhost:47832).
 
 **Day-2 ops** (second GPU, move to a new machine, invite users): [Operator guide](docs/operator.md).
 
-See [Configuration & deployment](docs/configuration.md) for auth, production checklist, Docker, and the full env var table.
+See [Configuration & deployment](docs/configuration.md) for auth, production checklist, Docker, and the full env var table. Desktop installers (macOS / Windows / Linux): [docs/desktop.md](docs/desktop.md).
 
 ## Workspace modes
 

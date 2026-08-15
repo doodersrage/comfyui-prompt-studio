@@ -12,11 +12,13 @@ import {
   parseRoleplayBio,
   parseRoleplayScenes,
   resolveRoleplayLockedCharacterName,
+  resolveRoleplayToneAndContent,
   type RoleplayBio,
   type RoleplayScene,
   type RoleplayStoryBeat,
 } from '@/lib/roleplay';
 import { apiError, apiJson, apiMethodNotAllowed, apiOptions } from '@/lib/api/response';
+import { isNsfwGeneratorEnabledServer } from '@/lib/nsfw-generator-env';
 
 export const runtime = 'nodejs';
 
@@ -94,6 +96,10 @@ export async function POST(request: Request) {
     const action = parseAction(body.action);
     const shared = normalizeSharedGenerationOptions(body);
     const avoidance = resolveAvoidanceOptions(body);
+    const adultEnabled = isNsfwGeneratorEnabledServer();
+    const { tone, content } = resolveRoleplayToneAndContent(body.tone, body.content, {
+      adultEnabled,
+    });
     const common = {
       ...shared,
       ...avoidance,
@@ -104,8 +110,8 @@ export async function POST(request: Request) {
       extraHints: body.extraHints?.trim(),
       setting: body.setting?.trim() || body.lockedLocation?.trim(),
       lockedLocation: body.lockedLocation?.trim(),
-      tone: body.tone,
-      content: body.content,
+      tone,
+      content,
       allowGore: parseRoleplayAllowGore(body.allowGore),
       hasReferenceImage: body.hasReferenceImage === true,
       isolatedSubject: body.hasReferenceImage === true && body.isolatedSubject === true,

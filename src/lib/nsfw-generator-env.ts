@@ -1,4 +1,4 @@
-/** Env-gated adult/NSFW generator — hidden unless explicitly enabled at deploy time. */
+/** Env-gated adult content — Adult generator plugin and Roleplay Sultry / Explicit / Raunchy. */
 
 export const NSFW_GENERATOR_ENV_SERVER = 'PROMPT_NSFW_GENERATOR_ENABLED';
 export const NSFW_GENERATOR_ENV_CLIENT = 'NEXT_PUBLIC_PROMPT_NSFW_GENERATOR_ENABLED';

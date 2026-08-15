@@ -74,6 +74,7 @@ import {
   type RoleplayScene,
   type RoleplayStoryBeat,
 } from '@/lib/roleplay';
+import { isNsfwGeneratorEnabledClient } from '@/lib/nsfw-generator-env';
 import { downloadRoleplayStoryBundle } from '@/lib/roleplay-export';
 import {
   applyRoleplayLibrarySession,
@@ -122,7 +123,10 @@ export default function RoleplayTool() {
   const [ownBibleOpen, setOwnBibleOpen] = useState(false);
 
   const personaId = toolSettings.personaId ?? ROLEPLAY_ARCHETYPES[0].id;
-  const { tone, content } = resolveRoleplayToneAndContent(toolSettings.tone, toolSettings.content);
+  const adultEnabled = isNsfwGeneratorEnabledClient();
+  const { tone, content } = resolveRoleplayToneAndContent(toolSettings.tone, toolSettings.content, {
+    adultEnabled,
+  });
   const playAs = normalizeRoleplayPlayAs(toolSettings.playAs);
   const bio = toolSettings.bio;
   const story = toolSettings.story ?? [];
@@ -1208,20 +1212,22 @@ export default function RoleplayTool() {
               </ChipButton>
             ))}
           </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="type-caption w-12 shrink-0 text-[var(--text-muted)]">Adult</span>
-            {ROLEPLAY_CONTENT.filter(entry => entry.group === 'adult').map(entry => (
-              <ChipButton
-                key={entry.id}
-                active={content === entry.id}
-                disabled={busy}
-                title={entry.hint}
-                onClick={() => updateToolSettings({ content: entry.id, tone })}
-              >
-                {entry.label}
-              </ChipButton>
-            ))}
-          </div>
+          {adultEnabled ? (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="type-caption w-12 shrink-0 text-[var(--text-muted)]">Adult</span>
+              {ROLEPLAY_CONTENT.filter(entry => entry.group === 'adult').map(entry => (
+                <ChipButton
+                  key={entry.id}
+                  active={content === entry.id}
+                  disabled={busy}
+                  title={entry.hint}
+                  onClick={() => updateToolSettings({ content: entry.id, tone })}
+                >
+                  {entry.label}
+                </ChipButton>
+              ))}
+            </div>
+          ) : null}
           <ChipButton
             active={toolSettings.allowGore === true}
             disabled={busy}

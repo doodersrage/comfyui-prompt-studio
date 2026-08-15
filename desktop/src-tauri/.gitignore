@@ -1,0 +1,5 @@
+/target/
+/gen/
+/resources/server/*
+!/resources/server/.gitkeep
+/binaries/node-*

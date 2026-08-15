@@ -1,6 +1,6 @@
 # Releases
 
-Prompt Studio ships from **GitHub Releases** on `vX.Y.Z` tags. Each release also publishes a container image to [GHCR](https://github.com/doodersrage/comfyui-prompt-studio/pkgs/container/comfyui-prompt-studio).
+Prompt Studio ships from **GitHub Releases** on `vX.Y.Z` tags. Each release publishes a container image to [GHCR](https://github.com/doodersrage/comfyui-prompt-studio/pkgs/container/comfyui-prompt-studio) and desktop installers (`.dmg`, `.exe`, `.AppImage`, `.deb`). See [Desktop app](desktop.md).
 
 The first tagged GitHub Release was [`Initial-Release`](https://github.com/doodersrage/comfyui-prompt-studio/releases/tag/Initial-Release) (July 2026). Later cuts use semver tags (`v0.2.0`, …) so notes and images stay comparable.
 
@@ -14,6 +14,7 @@ The first tagged GitHub Release was [`Initial-Release`](https://github.com/doode
    - bumps `package.json` / `package-lock.json` and pushes `Release vX.Y.Z` plus tag `vX.Y.Z`
    - creates the GitHub Release with generated notes
    - builds and pushes `ghcr.io/doodersrage/comfyui-prompt-studio:vX.Y.Z` and `:latest`
+   - builds desktop installers and attaches them to the GitHub Release
 
 Use **dry run** to print the next version without tagging.
 

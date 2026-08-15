@@ -18,6 +18,7 @@ Until step 1 is done, the Docs workflow only verifies that `mkdocs build` succee
 | [Main README](../README.md) | What it is, quick start, tools table, supported models |
 | [Operator guide](operator.md) | Heal & ready, second GPU, new-machine backup, invite + SMTP |
 | [Configuration & deployment](configuration.md) | `.env.local`, LLM, auth, security, production checklist, Docker |
+| [Desktop app](desktop.md) | Tauri installers (macOS / Windows / Linux) |
 | [ComfyUI custom nodes](../comfyui/comfyui_image_prompt_tools/README.md) | Install `PromptTools*` nodes into ComfyUI |
 
 ## Using the app

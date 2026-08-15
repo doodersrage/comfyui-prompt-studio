@@ -956,6 +956,17 @@ export function isRoleplayAdultContent(content: RoleplayContentId): boolean {
   return content === 'sultry' || content === 'explicit' || content === 'raunchy';
 }
 
+/** When the NSFW env lockout is off, adult ratings fall back to PG-13. */
+export function clampRoleplayContentForAdultGate(
+  content: RoleplayContentId,
+  adultEnabled: boolean
+): RoleplayContentId {
+  if (!adultEnabled && isRoleplayAdultContent(content)) {
+    return 'pg13';
+  }
+  return content;
+}
+
 export function normalizeRoleplayPlayAs(value: string | null | undefined): RoleplayPlayAs {
   const trimmed = String(value ?? '')
     .trim()
@@ -991,22 +1002,30 @@ export function lastRoleplayStillImage(
 
 export function resolveRoleplayToneAndContent(
   tone?: string | null,
-  content?: string | null
+  content?: string | null,
+  options?: { adultEnabled?: boolean }
 ): { tone: RoleplayTone; content: RoleplayContentId } {
   const rawTone = String(tone ?? '')
     .trim()
     .toLowerCase();
   const hasContent = String(content ?? '').trim().length > 0;
-  if (!hasContent && LEGACY_ADULT_TONES.has(rawTone)) {
+  const resolved =
+    !hasContent && LEGACY_ADULT_TONES.has(rawTone)
+      ? {
+          tone: 'silly' as const,
+          content: normalizeRoleplayContent(rawTone === 'nsfw' ? 'explicit' : 'sultry'),
+        }
+      : {
+          tone: normalizeRoleplayTone(rawTone),
+          content: normalizeRoleplayContent(content),
+        };
+  if (options?.adultEnabled === false) {
     return {
-      tone: 'silly',
-      content: normalizeRoleplayContent(rawTone === 'nsfw' ? 'explicit' : 'sultry'),
+      tone: resolved.tone,
+      content: clampRoleplayContentForAdultGate(resolved.content, false),
     };
   }
-  return {
-    tone: normalizeRoleplayTone(rawTone),
-    content: normalizeRoleplayContent(content),
-  };
+  return resolved;
 }
 
 export function parseRoleplayAllowGore(value: unknown): boolean {

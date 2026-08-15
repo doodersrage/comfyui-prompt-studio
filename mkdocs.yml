@@ -42,6 +42,7 @@ nav:
   - Getting started:
       - Operator guide: operator.md
       - Configuration: configuration.md
+      - Desktop app: desktop.md
       - Prompt limits: prompt-limits.md
       - Prompt examples: prompt-examples.md
   - Using the app:
