@@ -52,7 +52,7 @@ describe('engine capabilities', () => {
     assert.equal(engineDisplayName('grok'), 'Grok');
   });
 
-  it('keeps OpenAI, Gemini, and Grok engines as stills', () => {
+  it('keeps OpenAI, Gemini, and Grok still presets image-only', () => {
     const ids = [...OPENAI_MODEL_PRESETS, ...GEMINI_MODEL_PRESETS, ...GROK_MODEL_PRESETS].map(
       preset => preset.id
     );

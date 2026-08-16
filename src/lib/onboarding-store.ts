@@ -38,12 +38,12 @@ export const ONBOARDING_STEPS: Omit<OnboardingStep, 'done'>[] = [
   },
   {
     id: 'first-queue',
-    label: 'Queue a prompt to ComfyUI',
+    label: 'Queue a prompt',
     href: '/queue',
   },
   {
     id: 'first-queue-success',
-    label: 'Land your first completed render (Simple mode)',
+    label: 'Land your first completed render',
     href: '/gallery',
   },
   {

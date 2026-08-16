@@ -25,6 +25,7 @@ import {
   resolveReplicateVideoModel,
   type VideoClipMode,
 } from './video-clip-mode';
+import { DEFAULT_GEMINI_VIDEO_MODEL, DEFAULT_GROK_VIDEO_MODEL } from './cloud-video-models';
 
 export type EngineSettings = {
   engine: EngineId;
@@ -239,6 +240,12 @@ export function resolveCloudQueueModel(
   tool?: string,
   extras?: { hasInputImage?: boolean; clipMode?: VideoClipMode }
 ): string {
+  if (tool === 'video' && engine === 'grok') {
+    return DEFAULT_GROK_VIDEO_MODEL;
+  }
+  if (tool === 'video' && engine === 'gemini') {
+    return DEFAULT_GEMINI_VIDEO_MODEL;
+  }
   if ((engine === 'fal' || engine === 'replicate') && tool === 'video') {
     const settings = loadEngineSettings();
     const clipMode = inferVideoClipMode({

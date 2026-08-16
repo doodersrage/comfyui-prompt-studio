@@ -16,6 +16,12 @@ export function e2eCredentials(): { username: string; password: string } {
   };
 }
 
+/** Playwright APIRequestContext is not same-origin; send the studio token when set. */
+export function e2eApiHeaders(): Record<string, string> {
+  const token = process.env.PROMPT_API_TOKEN?.trim();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export async function ensureAuthenticated(page: Page): Promise<void> {
   await ensureStudioWorkspace(page);
   await gotoStable(page, '/');
@@ -40,6 +46,7 @@ export async function ensureAuthenticated(page: Page): Promise<void> {
 async function loginThroughApi(page: Page): Promise<void> {
   const { username, password } = e2eCredentials();
   const response = await page.request.post('/api/auth/login', {
+    headers: e2eApiHeaders(),
     data: { username, password },
   });
   if (!response.ok()) {

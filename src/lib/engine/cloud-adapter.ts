@@ -54,6 +54,11 @@ export function createCloudEngineAdapter(id: CloudEngineId): EngineAdapter {
         img2imgModel: settings[option.img2imgField],
         [option.tokenBodyKey]: token,
         clientId,
+        tool: typeof body.tool === 'string' ? body.tool : undefined,
+        clipMode:
+          body.clipMode === 't2v' || body.clipMode === 'i2v' || body.clipMode === 'extend'
+            ? body.clipMode
+            : undefined,
         hasInputImage: body.hasInputImage === true,
         inputImageFilename:
           (typeof body.inputImageFilename === 'string' && body.inputImageFilename.trim()) ||
@@ -66,6 +71,8 @@ export function createCloudEngineAdapter(id: CloudEngineId): EngineAdapter {
           steps: params.steps,
           cfg: params.cfg,
           denoise: params.denoise,
+          videoFrames: params.videoFrames,
+          videoFps: params.videoFps,
         },
       };
 

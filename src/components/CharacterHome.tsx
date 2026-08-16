@@ -27,6 +27,7 @@ import {
   looksOf,
   forgetCharacterRecord,
   removeLook,
+  roleplayLibraryIdFromCharacter,
   subscribeCharacters,
   toggleLookKeeper,
 } from '@/lib/character-os';
@@ -44,8 +45,14 @@ import { unstampForeignCharacterGalleryEntries } from '@/lib/gallery-character-s
 import { buildGalleryHandoff, galleryHandoffPath, saveGalleryHandoff } from '@/lib/gallery-handoff';
 import { isGalleryClipEntry } from '@/lib/roleplay-film';
 import { selectCharacterKeepers } from '@/lib/gallery-lora-dataset-export';
-import { deleteRoleplayLibrarySession } from '@/lib/roleplay-library';
-import { loadSettingsCache, saveSharedSettings } from '@/lib/settings-cache';
+import {
+  applyRoleplayLibrarySession,
+  deleteRoleplayLibrarySession,
+  getRoleplayLibrarySession,
+} from '@/lib/roleplay-library';
+import { loadSettingsCache, saveSharedSettings, saveToolSettings } from '@/lib/settings-cache';
+import { continueClipActionLabel } from '@/lib/video-clip-mode';
+import { loadEngineSettings } from '@/lib/engine-settings';
 
 type MediaTab = 'all' | 'stills' | 'clips' | 'keepers';
 
@@ -296,7 +303,7 @@ export default function CharacterHome({ characterId }: CharacterHomeProps) {
         title="Media"
         description={
           mediaTab === 'clips'
-            ? 'Playable reel. Continue queues I2V from the last frame.'
+            ? 'Playable reel. Continue extends a Fal clip or queues last-frame I2V.'
             : 'Jobs stamped with this character.'
         }
       >
@@ -328,9 +335,26 @@ export default function CharacterHome({ characterId }: CharacterHomeProps) {
                 router.push(galleryHandoffPath('video'));
               }}
             >
-              Continue reel
+              {continueClipActionLabel({
+                parentUrl: galleryEntryPrimaryViewUrl(lastClip),
+                engine: loadEngineSettings().engine,
+              }) === 'Extend clip'
+                ? 'Extend reel'
+                : 'Continue reel'}
             </Button>
-            <Button size="sm" variant="secondary" onClick={() => go('/roleplay')}>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                persistApply();
+                const sessionId = roleplayLibraryIdFromCharacter(character.id);
+                const session = sessionId ? getRoleplayLibrarySession(sessionId) : null;
+                if (session) {
+                  saveToolSettings('roleplay', applyRoleplayLibrarySession(session));
+                }
+                go('/roleplay');
+              }}
+            >
               Continue in Roleplay
             </Button>
           </ToolActionRow>

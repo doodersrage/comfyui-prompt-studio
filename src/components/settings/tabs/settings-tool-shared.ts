@@ -31,7 +31,7 @@ export const PLAYBOOK_SECTION_CHECKLISTS: Partial<Record<ComfyUiSettingsSectionI
   connection:
     'Checklist: verify ComfyUI URL/port → Test connection → Heal & ready (system workflows + maps) → Open Generate.',
   'inference-engine':
-    'Checklist: confirm Diffusers host is running → or switch engine back to ComfyUI.',
+    'Checklist: pick ComfyUI, Diffusers, or a cloud engine → add the matching API key (or rely on server env) → Open Generate.',
   'vram-guard': 'Checklist: lower queue quality / enable OOM downgrade → free VRAM → re-queue.',
 };
 

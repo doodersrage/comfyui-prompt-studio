@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { defineConfig } from '@playwright/test';
+import { e2eApiHeaders } from './e2e/helpers/auth';
 
 function loadEnvLocal(): void {
   const path = resolve(__dirname, '.env.local');
@@ -44,6 +45,7 @@ export default defineConfig({
   globalSetup: './e2e/global-setup.ts',
   use: {
     baseURL,
+    extraHTTPHeaders: e2eApiHeaders(),
     trace: 'off',
     storageState: existsSync(authStorage) ? authStorage : undefined,
   },

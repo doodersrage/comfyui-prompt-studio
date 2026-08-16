@@ -776,9 +776,14 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         const parentVideoUrl = options?.videoUrl?.trim() || '';
 
         if (cloudEngine && effectiveTool === 'video') {
-          if (engineAdapter.id !== 'fal' && engineAdapter.id !== 'replicate') {
+          if (
+            engineAdapter.id !== 'fal' &&
+            engineAdapter.id !== 'replicate' &&
+            engineAdapter.id !== 'grok' &&
+            engineAdapter.id !== 'gemini'
+          ) {
             throw new Error(
-              `${engineDisplayName(engineAdapter.id)} cannot queue clips. Switch the inference engine to Fal, Replicate, or local WAN.`
+              `${engineDisplayName(engineAdapter.id)} cannot queue clips. Switch the inference engine to Fal, Replicate, Grok, Gemini, or local WAN.`
             );
           }
           if (falVideoRequiresParentClip(clipMode ?? 't2v') && !parentVideoUrl) {

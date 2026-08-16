@@ -1651,6 +1651,7 @@ export default function SharedToolControls({
                   imageUrl={shared.ipAdapterImageUrl}
                   strength={shared.ipAdapterStrength}
                   identityKind={shared.identityKind}
+                  cloud
                   onChange={patch => {
                     if (onSharedSettingsChange) {
                       onSharedSettingsChange(patch);

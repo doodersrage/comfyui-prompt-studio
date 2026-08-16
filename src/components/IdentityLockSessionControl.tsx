@@ -25,6 +25,7 @@ export default function IdentityLockSessionControl({
   imageUrl,
   strength,
   identityKind,
+  cloud,
   onChange,
 }: {
   model?: string;
@@ -32,6 +33,7 @@ export default function IdentityLockSessionControl({
   imageUrl?: string;
   strength?: number;
   identityKind?: ComposeIdentityKind;
+  cloud?: boolean;
   onChange: (patch: Partial<SharedToolSettings>) => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -63,8 +65,9 @@ export default function IdentityLockSessionControl({
   return (
     <div className="space-y-2" data-testid="identity-lock-session">
       <p className="type-caption text-[var(--text-muted)]">
-        Lock a face or style reference for this session. Queues IP-Adapter, or InstantID / PuLID
-        when those nodes are installed.
+        {cloud
+          ? 'Lock a face or style reference for this session. Cloud engines have no IP-Adapter nodes — this uploads as the img2img reference.'
+          : 'Lock a face or style reference for this session. Queues IP-Adapter, or InstantID / PuLID when those nodes are installed.'}
       </p>
       <label className="flex cursor-pointer items-start gap-3">
         <input
@@ -81,10 +84,14 @@ export default function IdentityLockSessionControl({
         />
         <span className="min-w-0 space-y-0.5">
           <span className="block text-sm font-medium text-[var(--text-primary)]">
-            Lock this face
+            {cloud ? 'Use as reference' : 'Lock this face'}
           </span>
           <span className="block text-xs text-[var(--text-muted)]">
-            {locked ? filename : 'Upload a reference — same host that will queue the job.'}
+            {locked
+              ? filename
+              : cloud
+                ? 'Upload a still — sent as the cloud img2img reference, not an IP-Adapter node.'
+                : 'Upload a reference — same host that will queue the job.'}
           </span>
         </span>
       </label>
@@ -135,22 +142,24 @@ export default function IdentityLockSessionControl({
               className="h-14 w-14 rounded-lg border border-[var(--border-subtle)] object-cover"
             />
           ) : null}
-          <label className="min-w-[10rem] flex-1 space-y-1">
-            <span className="type-caption text-[var(--accent-text)]">Kind</span>
-            <select
-              value={kind}
-              onChange={event =>
-                persist({ identityKind: normalizeComposeIdentityKind(event.target.value) })
-              }
-              className="block w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-muted)]/70 px-2.5 py-1.5 text-sm text-[var(--text-primary)] transition hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
-            >
-              {IDENTITY_KINDS.map(entry => (
-                <option key={entry.id} value={entry.id}>
-                  {entry.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          {cloud ? null : (
+            <label className="min-w-[10rem] flex-1 space-y-1">
+              <span className="type-caption text-[var(--accent-text)]">Kind</span>
+              <select
+                value={kind}
+                onChange={event =>
+                  persist({ identityKind: normalizeComposeIdentityKind(event.target.value) })
+                }
+                className="block w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-muted)]/70 px-2.5 py-1.5 text-sm text-[var(--text-primary)] transition hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+              >
+                {IDENTITY_KINDS.map(entry => (
+                  <option key={entry.id} value={entry.id}>
+                    {entry.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <label className="min-w-[12rem] flex-1 space-y-1">
             <span className="type-caption text-[var(--accent-text)]">
               Strength — {weight.toFixed(2)}

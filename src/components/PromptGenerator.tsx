@@ -24,6 +24,7 @@ import type { DetailLevel } from '@/lib/detail-level';
 import { getDetailLimits } from '@/lib/detail-level';
 import { getComfyModelDefinition, type ComfyImageModel } from '@/lib/comfy-models/client';
 import { DEFAULT_GENERATE_TOOL_CACHE } from '@/lib/settings-cache';
+import { engineDisplayName, isCloudEngine } from '@/lib/engine/capabilities';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
 import type { EnrichedToolGenerateResult } from '@/lib/specialized/types';
@@ -549,7 +550,13 @@ export default function PromptGenerator() {
   return (
     <ToolLayout
       accent={ACCENT}
-      badge={<ToolBadge accent={ACCENT}>ComfyUI · {selectedModel.comfyNode}</ToolBadge>}
+      badge={
+        <ToolBadge accent={ACCENT}>
+          {isCloudEngine(shared.inferenceEngine)
+            ? engineDisplayName(shared.inferenceEngine)
+            : `ComfyUI · ${selectedModel.comfyNode}`}
+        </ToolBadge>
+      }
       title="Generate"
       description={description}
       sidebar={

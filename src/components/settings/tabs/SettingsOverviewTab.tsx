@@ -89,7 +89,8 @@ export default function SettingsOverviewTab({
               <p className="type-caption text-[var(--text-secondary)]">
                 One click for new installs: enable system workflows, merge suggested loader maps,
                 adapt from ComfyUI inventory, install missing Manager packs on each pool host, wait
-                for restart, and refresh health.
+                for restart, and refresh health. Cloud engines skip this — add the API key under
+                Settings → Inference engine instead.
               </p>
             </div>
             <Button

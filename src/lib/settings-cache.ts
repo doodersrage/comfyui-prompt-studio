@@ -792,8 +792,10 @@ export type VideoToolCache = {
   model?: import('./comfy-models/client').ComfyImageModel;
   /** Optional I2V reference frame — a ComfyUI-uploaded filename or a fetchable URL. */
   initImageUrl?: string;
-  /** Explicit T2V vs I2V. Gallery stills force i2v; empty frame is t2v. */
+  /** Explicit T2V vs I2V vs extend. Gallery stills force i2v; empty frame is t2v. */
   clipMode?: import('./video-clip-mode').VideoClipMode;
+  /** Parent clip URL for Fal extend-video (public Fal URL or local view URL). */
+  parentVideoUrl?: string;
   /** Frame count / length fed to {{VIDEO_FRAMES}} at queue time. */
   frames?: number;
   /** Output frame rate fed to {{VIDEO_FPS}} at queue time. */

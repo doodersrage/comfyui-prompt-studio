@@ -8,6 +8,7 @@ import BrandMark from '@/components/BrandMark';
 import { runHealAndReady } from '@/lib/first-run-setup';
 import { COMFY_QUEUE_INTENT_EVENT, hasComfyQueueIntent } from '@/lib/comfy-setup-intent';
 import { loadSettingsCache, SETTINGS_CACHE_UPDATED_EVENT } from '@/lib/settings-cache';
+import { isCloudEngine, normalizeEngineId } from '@/lib/engine/capabilities';
 import {
   whenBrowserStorageReady,
   readBrowserValue,
@@ -84,6 +85,9 @@ export default function FirstQueueSetupModal() {
         return;
       }
       const shared = loadSettingsCache().shared;
+      if (isCloudEngine(normalizeEngineId(shared.inferenceEngine))) {
+        return;
+      }
       if (shared.useSystemWorkflows === true) {
         return;
       }

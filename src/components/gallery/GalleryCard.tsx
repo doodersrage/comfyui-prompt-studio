@@ -52,6 +52,9 @@ import {
 } from '@/lib/gallery-stack-restore';
 import { applyGalleryFaceToSession, galleryEntryCanLockFace } from '@/lib/gallery-identity-lock';
 import { galleryToolHref, galleryToolLabel } from '@/lib/gallery-tool-href';
+import { continueClipActionLabel } from '@/lib/video-clip-mode';
+import { loadEngineSettings } from '@/lib/engine-settings';
+import { isCloudEngine } from '@/lib/engine/capabilities';
 
 type GalleryCardProps = {
   entry: ComfyGalleryEntry;
@@ -1336,7 +1339,10 @@ export default function GalleryCard({
                         entry.derivedKind !== 'film' &&
                         entry.status === 'completed' ? (
                           <GalleryMenuButton
-                            label="Continue from last frame"
+                            label={continueClipActionLabel({
+                              parentUrl: previewUrl,
+                              engine: loadEngineSettings().engine,
+                            })}
                             onClick={() => {
                               saveGalleryHandoff(buildGalleryHandoff(entry, 'video'));
                               router.push(galleryHandoffPath('video'));
@@ -1394,7 +1400,11 @@ export default function GalleryCard({
                   ) : null}
                   {galleryEntryCanLockFace(entry) ? (
                     <GalleryMenuButton
-                      label={`Lock this face on ${galleryToolLabel(entry.tool)}`}
+                      label={`${
+                        isCloudEngine(loadEngineSettings().engine)
+                          ? 'Use as reference on'
+                          : 'Lock this face on'
+                      } ${galleryToolLabel(entry.tool)}`}
                       data-testid="gallery-lock-face-menu"
                       onClick={() => {
                         void applyGalleryFaceToSession(entry).then(result => {

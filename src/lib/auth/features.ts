@@ -13,7 +13,7 @@ export const APP_FEATURES = [
   {
     id: 'roleplay',
     label: 'Roleplay',
-    description: 'Cast a character, pick story beats, queue stills',
+    description: 'Cast a character, pick story beats, queue stills or clips',
   },
   {
     id: 'nsfw-generator',
@@ -23,7 +23,7 @@ export const APP_FEATURES = [
   { id: 'image-prompt', label: 'Image → Prompt', description: 'Vision upload to prompt' },
   { id: 'refine', label: 'Refine', description: 'Image refinement pipeline' },
   { id: 'controlnet', label: 'ControlNet', description: 'ControlNet prompt builder' },
-  { id: 'video', label: 'Video', description: 'Video motion prompts' },
+  { id: 'video', label: 'Video', description: 'Video motion prompts — T2V, I2V, extend' },
   { id: 'audio', label: 'Audio', description: 'Audio / music prompts' },
   { id: 'mesh', label: '3D Mesh', description: 'Mesh / 3D prompts' },
   { id: 'outpaint', label: 'Outpaint', description: 'Canvas expansion' },

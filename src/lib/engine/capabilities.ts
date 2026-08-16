@@ -37,6 +37,7 @@ export const FAL_MODEL_PRESETS = [
 export const FAL_I2V_MODEL_PRESETS = [
   { id: 'fal-ai/kling-video/v2.1/standard/image-to-video', label: 'Kling 2.1 image-to-video' },
   { id: 'fal-ai/kling-video/v3/standard/image-to-video', label: 'Kling 3.0 image-to-video' },
+  { id: 'fal-ai/kling-video/o3/standard/image-to-video', label: 'Kling O3 image-to-video' },
   { id: 'fal-ai/wan/v2.2-a14b/image-to-video', label: 'WAN 2.2 image-to-video' },
   { id: 'fal-ai/wan/v2.7/image-to-video', label: 'WAN 2.7 image-to-video' },
   { id: 'fal-ai/ltx-2.3/image-to-video', label: 'LTX 2.3 image-to-video' },
@@ -47,6 +48,7 @@ export const FAL_I2V_MODEL_PRESETS = [
 export const FAL_T2V_MODEL_PRESETS = [
   { id: 'fal-ai/kling-video/v2.1/standard/text-to-video', label: 'Kling 2.1 text-to-video' },
   { id: 'fal-ai/kling-video/v3/standard/text-to-video', label: 'Kling 3.0 text-to-video' },
+  { id: 'fal-ai/kling-video/o3/standard/text-to-video', label: 'Kling O3 text-to-video' },
   { id: 'fal-ai/wan/v2.2-a14b/text-to-video', label: 'WAN 2.2 text-to-video' },
   { id: 'fal-ai/wan/v2.7/text-to-video', label: 'WAN 2.7 text-to-video' },
   { id: 'fal-ai/ltx-2.3/text-to-video', label: 'LTX 2.3 text-to-video' },
@@ -139,7 +141,7 @@ export type CloudEngineOption = {
 export const CLOUD_ENGINE_OPTIONS: CloudEngineOption[] = [
   {
     id: 'fal',
-    label: 'Fal (cloud txt2img)',
+    label: 'Fal (cloud stills + clips)',
     shortLabel: 'Fal',
     host: FAL_QUEUE_HOST,
     tokenLabel: 'Fal API key',
@@ -156,7 +158,7 @@ export const CLOUD_ENGINE_OPTIONS: CloudEngineOption[] = [
   },
   {
     id: 'replicate',
-    label: 'Replicate (cloud txt2img)',
+    label: 'Replicate (cloud stills + clips)',
     shortLabel: 'Replicate',
     host: REPLICATE_API_HOST,
     tokenLabel: 'Replicate API token',
@@ -190,7 +192,7 @@ export const CLOUD_ENGINE_OPTIONS: CloudEngineOption[] = [
   },
   {
     id: 'gemini',
-    label: 'Google Gemini (Nano Banana)',
+    label: 'Google Gemini (stills + Veo)',
     shortLabel: 'Gemini',
     host: GEMINI_API_HOST,
     tokenLabel: 'Gemini API key',
@@ -207,7 +209,7 @@ export const CLOUD_ENGINE_OPTIONS: CloudEngineOption[] = [
   },
   {
     id: 'grok',
-    label: 'Grok (xAI Imagine)',
+    label: 'Grok (xAI Imagine + video)',
     shortLabel: 'Grok',
     host: GROK_API_HOST,
     tokenLabel: 'xAI API key',

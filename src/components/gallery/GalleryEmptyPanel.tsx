@@ -42,7 +42,7 @@ export default function GalleryEmptyPanel({
         branded
         icon="inbox"
         title="No gallery outputs yet"
-        description="Queue prompts from any tool with Send to ComfyUI, upload your own stills, or import sidecars and ComfyUI history below."
+        description="Queue from Generate (ComfyUI or a cloud engine), upload your own stills, or import sidecars and ComfyUI history below."
         action={generateCta}
       />
       <div className="ui-panel-accent relative px-4 py-4">
@@ -53,8 +53,7 @@ export default function GalleryEmptyPanel({
         <ul className="mt-2 space-y-1.5 text-[12px] leading-relaxed text-[var(--text-muted)]">
           <li>
             Open <strong className="font-medium text-[var(--text-secondary)]">Generate</strong>,
-            create a prompt, and click{' '}
-            <strong className="font-medium text-[var(--text-secondary)]">Send to ComfyUI</strong>.
+            create a prompt, and queue it on ComfyUI or the cloud engine in Settings.
           </li>
           <li>
             Use <strong className="font-medium text-[var(--text-secondary)]">Upload images</strong>{' '}

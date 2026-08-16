@@ -16,6 +16,13 @@ import {
   storeLlmEngineUpload,
   type LlmImageEngineId,
 } from '@/lib/llm-image-client';
+import {
+  DEFAULT_GEMINI_VIDEO_MODEL,
+  DEFAULT_GROK_VIDEO_MODEL,
+  fetchCloudVideoJobStatus,
+  isCloudVideoModelId,
+  queueCloudVideo,
+} from '@/lib/cloud-video-client';
 import { sanitizeComfyViewFilename, sanitizeComfyViewSubfolder } from '@/lib/url-safety';
 
 type QueueBody = {
@@ -29,10 +36,14 @@ type QueueBody = {
   clientId?: string;
   hasInputImage?: boolean;
   inputImageFilename?: string;
+  tool?: string;
+  clipMode?: 't2v' | 'i2v' | 'extend';
   params?: {
     seed?: string | number;
     width?: string | number;
     height?: string | number;
+    videoFrames?: string | number;
+    videoFps?: string | number;
   };
 };
 
@@ -99,16 +110,40 @@ export function llmImageQueueHandlers(engineId: LlmImageEngineId) {
         const params = body.params ?? {};
         const imageFilename =
           body.hasInputImage === true ? body.inputImageFilename?.trim() : undefined;
-        const result = await queueLlmImage(engineId, {
-          prompt,
-          negativePrompt: body.negativePrompt?.trim() || undefined,
-          model: body.model?.trim() || defaultCloudTxt2ImgModel(engineId),
-          img2imgModel: body.img2imgModel?.trim() || defaultCloudImg2ImgModel(engineId),
-          apiToken: tokenFromBody(engineId, body),
-          width: toNumber(params.width, 1024),
-          height: toNumber(params.height, 1024),
-          imageFilename,
-        });
+        const isVideo = body.tool?.trim() === 'video';
+        if (isVideo && engineId === 'openai') {
+          return apiError(
+            'ChatGPT cannot queue clips. Sora is deprecated. Switch to Fal, Replicate, Grok, Gemini, or local WAN.',
+            400
+          );
+        }
+        const frames = toNumber(params.videoFrames);
+        const fps = toNumber(params.videoFps, 16);
+        const durationSec = frames && fps ? Math.max(1, Math.round(frames / Math.max(1, fps))) : 8;
+        const result = isVideo
+          ? await queueCloudVideo(engineId, {
+              prompt,
+              model: isCloudVideoModelId(body.model)
+                ? body.model?.trim()
+                : engineId === 'gemini'
+                  ? DEFAULT_GEMINI_VIDEO_MODEL
+                  : DEFAULT_GROK_VIDEO_MODEL,
+              apiToken: tokenFromBody(engineId, body),
+              imageFilename,
+              width: toNumber(params.width, 1024),
+              height: toNumber(params.height, 1024),
+              durationSec,
+            })
+          : await queueLlmImage(engineId, {
+              prompt,
+              negativePrompt: body.negativePrompt?.trim() || undefined,
+              model: body.model?.trim() || defaultCloudTxt2ImgModel(engineId),
+              img2imgModel: body.img2imgModel?.trim() || defaultCloudImg2ImgModel(engineId),
+              apiToken: tokenFromBody(engineId, body),
+              width: toNumber(params.width, 1024),
+              height: toNumber(params.height, 1024),
+              imageFilename,
+            });
         if (!result.ok || !result.promptId) {
           const missingKey = /api key is required/i.test(result.error ?? '');
           return apiError(
@@ -154,7 +189,8 @@ export function llmImageStatusHandlers(engineId: LlmImageEngineId) {
       if (!promptId) {
         return apiError('promptId query parameter is required.', 400);
       }
-      const status = await fetchLlmImageJobStatus(engineId, promptId);
+      const videoStatus = await fetchCloudVideoJobStatus(engineId, promptId);
+      const status = videoStatus ?? (await fetchLlmImageJobStatus(engineId, promptId));
       return apiJson({
         promptId: status.promptId,
         status: status.status,
@@ -198,7 +234,7 @@ export function llmImageViewHandlers(engineId: LlmImageEngineId) {
           return apiError(`${option.shortLabel} image is not available yet.`, 404);
         }
         const thumbWidth = parseThumbWidth(searchParams.get('w'));
-        if (thumbWidth) {
+        if (thumbWidth && !file.mimeType.startsWith('video/')) {
           const sharp = (await import('sharp')).default;
           const resized = await sharp(file.bytes)
             .rotate()

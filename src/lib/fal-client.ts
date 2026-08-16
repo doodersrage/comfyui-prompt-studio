@@ -40,6 +40,8 @@ export {
 export type { FalJobStatusName } from './fal-protocol';
 
 const MAX_UPLOAD_BYTES = 12 * 1024 * 1024;
+const MAX_FAL_CDN_BYTES = 90 * 1024 * 1024;
+const FAL_STORAGE_HOST = 'https://rest.alpha.fal.ai';
 const MAX_CACHED_UPLOADS = 24;
 const MAX_CACHED_OUTPUTS = 48;
 const UPLOAD_TTL_MS = 30 * 60 * 1000;
@@ -155,6 +157,70 @@ export function storeFalUpload(input: { filename?: string; bytes: Buffer; mimeTy
     createdAt: Date.now(),
   });
   return { name, subfolder: '', type: 'input' };
+}
+
+/** Documented Fal storage: initiate + PUT, then pass file_url as video_url. */
+export async function uploadFalCdnFile(input: {
+  bytes: Buffer;
+  fileName: string;
+  contentType: string;
+  apiKey?: string;
+}): Promise<{ ok: boolean; status: number; fileUrl?: string; error?: string }> {
+  if (input.bytes.length === 0) {
+    return { ok: false, status: 400, error: 'Clip file is empty.' };
+  }
+  if (input.bytes.length > MAX_FAL_CDN_BYTES) {
+    return { ok: false, status: 400, error: 'Clip must be 90MB or smaller to upload to Fal.' };
+  }
+  let apiKey: string;
+  try {
+    apiKey = resolveFalApiKey(input.apiKey);
+  } catch (error) {
+    return {
+      ok: false,
+      status: 400,
+      error: error instanceof Error ? error.message : 'Fal API key is required.',
+    };
+  }
+  const initiated = await falFetchJson(`${FAL_STORAGE_HOST}/storage/upload/initiate`, apiKey, {
+    method: 'POST',
+    body: JSON.stringify({
+      content_type: input.contentType || 'video/mp4',
+      file_name: input.fileName || 'clip.mp4',
+    }),
+  });
+  const uploadUrl =
+    (typeof initiated.raw.upload_url === 'string' && initiated.raw.upload_url.trim()) || '';
+  const fileUrl =
+    (typeof initiated.raw.file_url === 'string' && initiated.raw.file_url.trim()) || '';
+  if (!initiated.ok || !uploadUrl || !fileUrl) {
+    return {
+      ok: false,
+      status: initiated.status || 502,
+      error: falErrorMessage(initiated.raw, 'Fal storage did not issue an upload URL.'),
+    };
+  }
+  const put = await fetch(uploadUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': input.contentType || 'application/octet-stream' },
+    body: new Uint8Array(input.bytes),
+    signal: AbortSignal.timeout(120_000),
+  });
+  if (!put.ok) {
+    return {
+      ok: false,
+      status: put.status || 502,
+      error: `Fal storage PUT failed (HTTP ${put.status}).`,
+    };
+  }
+  if (!isAllowedFalMediaUrl(fileUrl)) {
+    return {
+      ok: false,
+      status: 502,
+      error: 'Fal storage returned a URL that is not a Fal media host.',
+    };
+  }
+  return { ok: true, status: 200, fileUrl };
 }
 
 function uploadToDataUrl(name: string): string {

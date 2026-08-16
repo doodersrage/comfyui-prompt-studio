@@ -13,6 +13,12 @@ import { loadOnboardingState } from '@/lib/onboarding-store';
 import { enableSystemWorkflowsAndHeal } from '@/lib/first-run-setup';
 import { settingsTabHref } from '@/lib/settings-nav';
 import { settingsComfyUiSectionHref } from '@/lib/settings-comfyui-nav';
+import {
+  cloudEngineOption,
+  engineDisplayName,
+  isCloudEngine,
+  normalizeEngineId,
+} from '@/lib/engine/capabilities';
 import { Button } from '@/components/ui/Button';
 import { COMFY_QUEUE_INTENT_EVENT, hasComfyQueueIntent } from '@/lib/comfy-setup-intent';
 import {
@@ -116,7 +122,49 @@ export default function SetupReadinessBanner({
     };
   }, [refreshSystemWorkflows]);
 
-  if (dismissed || !readiness || (deferUntilQueueIntent && !queueIntent)) {
+  if (dismissed || (deferUntilQueueIntent && !queueIntent)) {
+    return null;
+  }
+
+  const engine = normalizeEngineId(loadSettingsCache().shared.inferenceEngine);
+  if (isCloudEngine(engine)) {
+    const option = cloudEngineOption(engine);
+    return (
+      <div className="ui-setup-banner mb-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 space-y-1">
+            <p className="text-sm font-medium text-[var(--accent-text)]">
+              {engineDisplayName(engine)} key for {toolLabel}
+            </p>
+            <p className="type-caption text-[var(--text-secondary)]">
+              This engine queues on the cloud — add a {option?.tokenLabel ?? 'API key'} in{' '}
+              <Link
+                href={settingsComfyUiSectionHref('inference-engine')}
+                className="text-[var(--accent-text)] transition hover:text-[var(--text-primary)]"
+              >
+                Settings → Inference engine
+              </Link>
+              {option?.envTokenName ? ` if the server ${option.envTokenName} is empty` : ''}.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                writeBrowserValue(DISMISS_KEY, true);
+                setDismissed(true);
+              }}
+            >
+              Dismiss
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!readiness) {
     return null;
   }
 

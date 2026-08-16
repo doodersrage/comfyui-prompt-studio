@@ -1,5 +1,5 @@
 import { chromium, type FullConfig } from '@playwright/test';
-import { e2eCredentials } from './helpers/auth';
+import { e2eApiHeaders, e2eCredentials } from './helpers/auth';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
@@ -22,6 +22,7 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
   if (needsLogin) {
     const { username, password } = e2eCredentials();
     const response = await page.request.post('/api/auth/login', {
+      headers: e2eApiHeaders(),
       data: { username, password },
     });
     if (!response.ok()) {

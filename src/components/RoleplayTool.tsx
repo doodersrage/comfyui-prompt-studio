@@ -95,6 +95,7 @@ import {
 } from '@/lib/roleplay-film';
 import { extractVideoLastFrame } from '@/lib/video-last-frame';
 import { canFalExtendFromParentUrl } from '@/lib/video-clip-mode';
+import { resolveFalExtendParentUrl } from '@/lib/fal-extend-upload';
 import { loadEngineSettings } from '@/lib/engine-settings';
 import { isNsfwGeneratorEnabledClient } from '@/lib/nsfw-generator-env';
 import { downloadRoleplayStoryBundle } from '@/lib/roleplay-export';
@@ -140,8 +141,8 @@ type RoleplayApiPayload = EnrichedToolGenerateResult & {
 
 export default function RoleplayTool() {
   const description = useToolPageDescription(
-    'Cast yourself as someone (or something). Clip mode turns each beat into motion — still, then I2V, then continue from the last frame.',
-    'Pick a character, write a bio, tap a scene — clips continue from the last frame.'
+    'Cast yourself as someone (or something). Clip mode turns each beat into motion — still, then I2V, then Fal extend-video or last-frame I2V.',
+    'Pick a character, write a bio, tap a scene — clips extend on Fal or continue from the last frame.'
   );
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
     'roleplay',
@@ -155,6 +156,7 @@ export default function RoleplayTool() {
   const [exporting, setExporting] = useState(false);
   const [assemblingFilm, setAssemblingFilm] = useState(false);
   const [filmStatus, setFilmStatus] = useState<string | null>(null);
+  const [filmNeedsCast, setFilmNeedsCast] = useState(false);
   const assembledFilmRef = useRef<{ filename: string; data: Uint8Array } | null>(null);
   const [referencePreviewUrl, setReferencePreviewUrl] = useState<string | null>(null);
   const [referenceUploading, setReferenceUploading] = useState(false);
@@ -1003,7 +1005,16 @@ export default function RoleplayTool() {
 
       const engine = loadEngineSettings().engine;
       const parentClipUrl = source?.fromClip ? source.imageUrl : '';
-      const useFalExtend = engine === 'fal' && canFalExtendFromParentUrl(parentClipUrl);
+      let extendUrl =
+        engine === 'fal' && canFalExtendFromParentUrl(parentClipUrl) ? parentClipUrl : '';
+      if (engine === 'fal' && !extendUrl && parentClipUrl && looksLikeVideoUrl(parentClipUrl)) {
+        extendUrl =
+          (await resolveFalExtendParentUrl({
+            parentUrl: parentClipUrl,
+            falApiKey: loadSettingsCache().shared.sessionFalApiKey,
+          })) || '';
+      }
+      const useFalExtend = Boolean(extendUrl);
 
       let inputImage: File | undefined;
       let inputImageUrl: string | undefined = useFalExtend ? undefined : source?.imageUrl;
@@ -1066,7 +1077,7 @@ export default function RoleplayTool() {
               ? nextRoleplayMotionKind(parentEntry)
               : 't2v',
           clipMode: useFalExtend ? 'extend' : hasInit ? 'i2v' : 't2v',
-          videoUrl: useFalExtend ? parentClipUrl : undefined,
+          videoUrl: useFalExtend ? extendUrl : undefined,
           qualityProfile: 'final',
           queueParamsBase: { videoFrames: 64, videoFps: 16 },
           ...roleplayCharacterQueueFields(),
@@ -1183,7 +1194,8 @@ export default function RoleplayTool() {
       });
     setAssemblingFilm(true);
     setError(null);
-    setFilmStatus('Recording the cut…');
+    setFilmNeedsCast(false);
+    setFilmStatus('Checking shots…');
     try {
       const result = await assembleAndStampFilm({
         shots,
@@ -1197,15 +1209,15 @@ export default function RoleplayTool() {
         filename: result.filename,
         data: new Uint8Array(await result.blob.arrayBuffer()),
       };
-      if (character) {
-        setFilmStatus(
-          result.persisted
-            ? `Saved ${result.filename} to ${character.name} and started the download.`
-            : `Downloaded ${result.filename}. Studio storage could not keep a copy.`
-        );
+      if (character && result.persisted) {
+        setFilmNeedsCast(false);
+        setFilmStatus(`Saved ${result.filename} to ${character.name} and started the download.`);
       } else {
+        setFilmNeedsCast(true);
         setFilmStatus(
-          `Downloaded ${result.filename} unstamped. Save to Cast to attach this film to a character.`
+          character
+            ? `Downloaded ${result.filename}. Save to Cast to stamp a studio copy.`
+            : `Downloaded ${result.filename} unstamped. Save to Cast to attach this film to a character.`
         );
       }
     } catch (err) {
@@ -1233,6 +1245,7 @@ export default function RoleplayTool() {
     });
     const film = assembledFilmRef.current;
     if (!film) {
+      setFilmNeedsCast(false);
       setFilmStatus(`Saved ${created.name} to Cast.`);
       return;
     }
@@ -1244,6 +1257,7 @@ export default function RoleplayTool() {
         characterName: created.name,
         lookId: created.activeLookId,
       });
+      setFilmNeedsCast(false);
       setFilmStatus(
         stamped.persisted
           ? `Saved ${created.name} to Cast and stamped ${film.filename}.`
@@ -1775,7 +1789,7 @@ export default function RoleplayTool() {
           >
             Cut film
           </Button>
-          {filmStatus?.includes('unstamped') ? (
+          {filmNeedsCast ? (
             <Button variant="ghost" disabled={busy} onClick={saveFilmToCast}>
               Save to Cast
             </Button>

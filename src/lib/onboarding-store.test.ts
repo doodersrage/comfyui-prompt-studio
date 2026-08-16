@@ -26,6 +26,13 @@ describe("onboarding-store", () => {
       assert.ok(step.href, `${step.id} should have an href`);
     }
     assert.equal(
+      ONBOARDING_STEPS.find((step) => step.id === "first-queue-success")?.label,
+      "Land your first completed render",
+    );
+    assert.ok(
+      !ONBOARDING_STEPS.some((step) => /Simple mode/i.test(step.label)),
+    );
+    assert.equal(
       ONBOARDING_STEPS.find((step) => step.id === "system-workflows")?.href,
       "/settings?tab=comfyui&section=connection",
     );

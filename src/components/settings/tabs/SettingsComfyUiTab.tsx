@@ -242,7 +242,7 @@ export default function SettingsComfyUiTab({
       <ToolSection
         id="settings-comfyui-inference-engine"
         title="Inference engine"
-        description="ComfyUI is the default generate path (Qwen Lightning bf16, Final/Max enrich, specialty graphs). Diffusers is optional local txt2img. Cloud engines (Fal, Replicate, ChatGPT, Gemini, Grok) are prompt + optional reference image — no workflows, LoRAs, or live latents."
+        description="ComfyUI is the default generate path (Qwen Lightning bf16, Final/Max enrich, specialty graphs). Diffusers is optional local txt2img. Fal and Replicate queue stills and clips. Grok and Gemini queue stills plus native video. ChatGPT stays stills. Cloud engines have no workflows, LoRAs, or live latents."
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1">
@@ -575,10 +575,11 @@ export default function SettingsComfyUiTab({
           <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
             prompt + optional Image 1
           </code>
-          . Clips queue on Fal (Kling, WAN, LTX 2.3, Grok Imagine, Veo), Replicate (Kling, WAN, LTX
-          2.3), or local WAN/LTX. Fal can extend a public Fal clip with LTX 2.3 extend-video —
-          otherwise continue is last-frame I2V. OpenAI, Gemini, and Grok engines stay stills — Veo
-          and Grok Imagine video are Fal presets, not those engines. Stills go through{' '}
+          . Clips queue on Fal (Kling including O3, WAN, LTX 2.3, Grok Imagine, Veo), Replicate
+          (Kling, WAN, LTX 2.3), Grok native video, Gemini Veo, or local WAN/LTX. Fal can extend a
+          public Fal clip with LTX 2.3 extend-video, or upload a local clip to Fal CDN — otherwise
+          continue is last-frame I2V. ChatGPT stays stills (Sora is deprecated). Runway stays out of
+          Settings (own API, not Fal/Replicate-hosted). Stills go through{' '}
           <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
             /api/fal
           </code>

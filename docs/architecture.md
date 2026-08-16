@@ -88,7 +88,7 @@ Thin browser seam for **queue / status / view / upload / progress** so backends 
 | Diffusers implementation | `src/lib/engine/diffusers-adapter.ts`                                             |
 | Fal implementation       | `src/lib/engine/fal-adapter.ts`                                                   |
 | Replicate implementation | `src/lib/engine/replicate-adapter.ts`                                             |
-| ChatGPT / Gemini / Grok  | `src/lib/engine/cloud-adapter.ts` + `src/lib/llm-image-client.ts`                 |
+| ChatGPT / Gemini / Grok  | `src/lib/engine/cloud-adapter.ts` + `src/lib/llm-image-client.ts` + `src/lib/cloud-video-client.ts` |
 | Cloud registry           | `src/lib/engine/capabilities.ts` (`CLOUD_ENGINE_OPTIONS`)                         |
 | Selection                | `getEngineAdapter()` / `getEngineAdapterById()` in `src/lib/engine/index.ts`      |
 | Settings                 | `inferenceEngine` + Diffusers URL + cloud key/model (Settings → Inference engine) |
@@ -100,11 +100,12 @@ Backends today:
 
 - **`comfyui`** (default) — primary generate path via `/api/comfyui/*` (Qwen Lightning bf16 + Dynamic VRAM, Final/Max enrich, ControlNet, FaceDetailer, edit, video, custom graphs).
 - **`diffusers`** (optional) — experimental txt2img via `/api/diffusers/*` → local FastAPI (`DIFFUSERS_API_URL`, default `http://127.0.0.1:8190`). Opt in from Settings or `PROMPT_ENGINE=diffusers`. On 24GB, Qwen Lightning quality/speed remains Comfy’s strength; Diffusers is not pursued for Dynamic VRAM / bf16 parity.
-- **`fal`** (optional) — cloud txt2img / img2img via `/api/fal/*` → [Fal queue](https://fal.ai). Prompt + optional Image 1 only. Key: `FAL_KEY` or Settings.
-- **`replicate`** (optional) — same cloud contract via `/api/replicate/*` → [Replicate predictions](https://replicate.com). Token: `REPLICATE_API_TOKEN` or Settings.
-- **`openai`** (optional) — ChatGPT Images via `/api/openai/*` → `POST /v1/images/generations` (default `gpt-image-2`). Key: `OPENAI_API_KEY` or Settings.
-- **`gemini`** (optional) — Gemini native image (Nano Banana) via `/api/gemini/*` → `generateContent` (default `gemini-3.1-flash-image`). Key: `GEMINI_API_KEY` or Settings.
-- **`grok`** (optional) — xAI Imagine via `/api/grok/*` → `POST /v1/images/generations` (default `grok-imagine-image-2.0`). Key: `XAI_API_KEY` or Settings.
+- **`fal`** (optional) — cloud stills + clips via `/api/fal/*` → [Fal queue](https://fal.ai). Prompt + optional Image 1; Video uses Kling / WAN / LTX / Grok Imagine / Veo presets. Local clips can upload to Fal CDN then call LTX extend-video. Key: `FAL_KEY` or Settings.
+- **`replicate`** (optional) — same cloud contract via `/api/replicate/*` → [Replicate predictions](https://replicate.com). Stills + Kling / WAN / LTX clips. No extend API (continue is last-frame I2V). Token: `REPLICATE_API_TOKEN` or Settings.
+- **`openai`** (optional) — ChatGPT Images via `/api/openai/*` → `POST /v1/images/generations` (default `gpt-image-2`). Stills only — Sora is deprecated. Key: `OPENAI_API_KEY` or Settings.
+- **`gemini`** (optional) — Gemini native image via `/api/gemini/*` → `generateContent` (default `gemini-3.1-flash-image`). Video tool uses documented Veo `generate_videos` / `predictLongRunning` (`veo-3.1-generate-preview`). Key: `GEMINI_API_KEY` or Settings.
+- **`grok`** (optional) — xAI Imagine stills via `/api/grok/*` → `POST /v1/images/generations` (default `grok-imagine-image-2.0`). Video tool uses `POST /v1/videos/generations` (`grok-imagine-video-1.5`). Key: `XAI_API_KEY` or Settings.
+- **Runway** — not an engine. Own API, not Fal/Replicate-hosted; stays out of Settings.
 
 Add another provider by extending `CLOUD_ENGINE_OPTIONS` plus an adapter and `/api/<id>` proxy.
 

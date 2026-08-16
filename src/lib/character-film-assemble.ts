@@ -156,6 +156,25 @@ export async function assembleFilmBlob(
     throw new Error('Include at least one shot in the cut.');
   }
 
+  options?.onProgress?.({ ratio: 0.02, label: 'Checking shots…' });
+  for (const shot of shots) {
+    try {
+      if (shot.kind === 'clip') {
+        const video = await loadVideo(shot.url);
+        video.removeAttribute('src');
+        video.load();
+      } else {
+        await loadImage(shot.url);
+      }
+    } catch {
+      throw new Error(
+        shot.kind === 'clip'
+          ? 'Could not load that clip (CORS or a missing file). Same-origin / proxied URLs work; remote hosts must allow canvas.'
+          : 'Could not load that still (CORS or a missing file).'
+      );
+    }
+  }
+
   const { width, height } = await probeSize(shots);
   const canvas = document.createElement('canvas');
   canvas.width = width;

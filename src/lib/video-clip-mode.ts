@@ -78,6 +78,19 @@ export function canFalExtendFromParentUrl(url: string | undefined | null): boole
   return Boolean(trimmed) && isAllowedFalMediaUrl(trimmed);
 }
 
+export function continueClipActionLabel(input: {
+  parentUrl?: string | null;
+  engine?: string | null;
+}): 'Extend clip' | 'Continue from last frame' {
+  return input.engine === 'fal' && canFalExtendFromParentUrl(input.parentUrl)
+    ? 'Extend clip'
+    : 'Continue from last frame';
+}
+
+export function engineCanQueueClips(engine: string | undefined | null): boolean {
+  return engine === 'fal' || engine === 'replicate' || engine === 'grok' || engine === 'gemini';
+}
+
 /** Fal Kling / WAN video endpoints only accept 5s or 10s. */
 export const FAL_VIDEO_DURATION_SECONDS = [5, 10] as const;
 export type FalVideoDurationSec = (typeof FAL_VIDEO_DURATION_SECONDS)[number];

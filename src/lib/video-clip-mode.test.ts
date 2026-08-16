@@ -14,6 +14,8 @@ import {
 } from './engine/capabilities';
 import {
   canFalExtendFromParentUrl,
+  continueClipActionLabel,
+  engineCanQueueClips,
   falExtendQueueFields,
   falVideoDurationPayload,
   falVideoRequiresFirstFrame,
@@ -119,6 +121,8 @@ describe('video clip mode', () => {
     assert.ok(t2v.includes('fal-ai/ltx-2.3/text-to-video'));
     assert.ok(i2v.includes('xai/grok-imagine-video/v1.5/image-to-video'));
     assert.ok(t2v.includes('xai/grok-imagine-video/v1.5/text-to-video'));
+    assert.ok(i2v.includes('fal-ai/kling-video/o3/standard/image-to-video'));
+    assert.ok(t2v.includes('fal-ai/kling-video/o3/standard/text-to-video'));
     assert.ok(i2v.includes('fal-ai/veo3.1/image-to-video'));
     assert.ok(t2v.includes('fal-ai/veo3.1'));
     assert.ok(FAL_EXTEND_MODEL_PRESETS.some(preset => preset.id === DEFAULT_FAL_EXTEND_MODEL));
@@ -143,5 +147,39 @@ describe('video clip mode', () => {
       resolveReplicateVideoModel({ clipMode: 'extend' }),
       DEFAULT_REPLICATE_I2V_MODEL
     );
+  });
+
+  it('labels Gallery continue as Fal extend vs last-frame I2V', () => {
+    assert.equal(
+      continueClipActionLabel({
+        engine: 'fal',
+        parentUrl: 'https://v3b.fal.media/files/clip.mp4',
+      }),
+      'Extend clip'
+    );
+    assert.equal(
+      continueClipActionLabel({
+        engine: 'fal',
+        parentUrl: '/api/comfyui/view?filename=clip.mp4',
+      }),
+      'Continue from last frame'
+    );
+    assert.equal(
+      continueClipActionLabel({
+        engine: 'replicate',
+        parentUrl: 'https://v3b.fal.media/files/clip.mp4',
+      }),
+      'Continue from last frame'
+    );
+  });
+
+  it('allows only engines that actually queue clips', () => {
+    assert.equal(engineCanQueueClips('fal'), true);
+    assert.equal(engineCanQueueClips('replicate'), true);
+    assert.equal(engineCanQueueClips('grok'), true);
+    assert.equal(engineCanQueueClips('gemini'), true);
+    assert.equal(engineCanQueueClips('openai'), false);
+    assert.equal(engineCanQueueClips('runway'), false);
+    assert.equal(engineCanQueueClips('comfyui'), false);
   });
 });

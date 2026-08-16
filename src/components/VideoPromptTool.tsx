@@ -44,12 +44,16 @@ import {
 import { ChipButton, FieldLabel, TextArea } from '@/components/ui/Field';
 import {
   FAL_VIDEO_DURATION_SECONDS,
+  canFalExtendFromParentUrl,
+  engineCanQueueClips,
   inferVideoClipMode,
   snapFalVideoDurationSec,
   type VideoClipMode,
 } from '@/lib/video-clip-mode';
-import { saveEngineSettings } from '@/lib/engine-settings';
+import { loadEngineSettings, saveEngineSettings } from '@/lib/engine-settings';
 import { preferCloudForVideoStillHandoff } from '@/lib/video-still-handoff';
+import { resolveFalExtendParentUrl } from '@/lib/fal-extend-upload';
+import { engineDisplayName } from '@/lib/engine/capabilities';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { Button, ButtonLink, PrimaryButton } from '@/components/ui/Button';
 
@@ -63,8 +67,8 @@ function isFetchableImageRef(value: string): boolean {
 
 export default function VideoPromptTool() {
   const description = useToolPageDescription(
-    'Motion and camera prompts for WAN / Hunyuan, or Fal cloud T2V / I2V. Pick a mode, then queue.',
-    'Video motion prompts — T2V from text, or I2V from a first frame.'
+    'Motion and camera prompts for WAN / Hunyuan, or Fal / Replicate / Grok cloud T2V / I2V / extend. Pick a mode, then queue.',
+    'Video motion prompts — T2V, I2V from a first frame, or extend a parent clip.'
   );
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
     'video',
@@ -76,12 +80,19 @@ export default function VideoPromptTool() {
   const style = toolSettings.style ?? '';
   const durationSec = toolSettings.durationSec ?? 4;
   const initImageUrl = toolSettings.initImageUrl ?? '';
+  const parentVideoUrl = toolSettings.parentVideoUrl ?? '';
   const frames = toolSettings.frames;
   const fps = toolSettings.fps;
+  const inferenceEngine = shared.inferenceEngine || loadEngineSettings().engine;
 
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [parentGalleryEntryId, setParentGalleryEntryId] = useState<string | undefined>();
+  const [workflowStatus, setWorkflowStatus] = useState<string | null>(null);
+  const [output, setOutput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const clipMode = inferVideoClipMode({
     clipMode: toolSettings.clipMode,
     hasInitImage: Boolean(
@@ -146,6 +157,10 @@ export default function VideoPromptTool() {
     (value: string) => updateToolSettings({ initImageUrl: value }),
     [updateToolSettings]
   );
+  const setParentVideoUrl = useCallback(
+    (value: string) => updateToolSettings({ parentVideoUrl: value }),
+    [updateToolSettings]
+  );
 
   const revokePreviewIfBlob = useCallback((url: string | null | undefined) => {
     if (url?.startsWith('blob:')) {
@@ -160,7 +175,8 @@ export default function VideoPromptTool() {
       return null;
     });
     setInitImageUrl('');
-  }, [revokePreviewIfBlob, setInitImageUrl]);
+    setParentVideoUrl('');
+  }, [revokePreviewIfBlob, setInitImageUrl, setParentVideoUrl]);
 
   const onInitFileChange = useCallback(
     (nextFile: File | null) => {
@@ -194,8 +210,18 @@ export default function VideoPromptTool() {
         handoff.previewUrl?.trim() ||
         (handoff.file ? LOCAL_INIT_IMAGE_MARKER : '');
 
+      const rawUrl = handoff.payload.imageUrl?.trim() || handoff.previewUrl?.trim() || '';
+      const parentIsVideo = Boolean(rawUrl && looksLikeVideoUrl(rawUrl));
+      const engine = loadEngineSettings().engine;
+      const useFalExtend = parentIsVideo && engine === 'fal' && canFalExtendFromParentUrl(rawUrl);
+
       updateToolSettings({
-        ...(imageRef ? { initImageUrl: imageRef, clipMode: 'i2v' } : { clipMode: 'i2v' }),
+        ...(parentIsVideo ? { parentVideoUrl: rawUrl } : { parentVideoUrl: '' }),
+        ...(useFalExtend
+          ? { clipMode: 'extend' as const, initImageUrl: '' }
+          : imageRef
+            ? { initImageUrl: imageRef, clipMode: 'i2v' as const }
+            : { clipMode: 'i2v' as const }),
         ...(handoff.prompt?.trim() ? { subject: handoff.prompt.trim().slice(0, 400) } : {}),
         ...(Number.isFinite(framesFromHandoff) && framesFromHandoff > 0
           ? { frames: Math.floor(framesFromHandoff) }
@@ -225,8 +251,16 @@ export default function VideoPromptTool() {
 
       setParentGalleryEntryId(handoff.payload.galleryEntryId?.trim() || undefined);
 
-      const rawUrl = handoff.payload.imageUrl?.trim() || handoff.previewUrl?.trim() || '';
-      if (rawUrl && looksLikeVideoUrl(rawUrl)) {
+      if (useFalExtend) {
+        setFile(null);
+        setPreviewUrl(current => {
+          revokePreviewIfBlob(current);
+          return rawUrl;
+        });
+        return;
+      }
+
+      if (parentIsVideo) {
         void extractVideoLastFrame(rawUrl)
           .then(blob => {
             const nextFile = new File([blob], 'last-frame.jpg', {
@@ -240,6 +274,7 @@ export default function VideoPromptTool() {
             setInitImageUrl(LOCAL_INIT_IMAGE_MARKER);
           })
           .catch(() => {
+            setError('Could not read the last frame.');
             setPreviewUrl(current => {
               revokePreviewIfBlob(current);
               return handoff.previewUrl;
@@ -255,7 +290,7 @@ export default function VideoPromptTool() {
       });
       setFile(handoff.file);
     },
-    [revokePreviewIfBlob, setInitImageUrl, updateShared, updateToolSettings]
+    [revokePreviewIfBlob, setError, setInitImageUrl, updateShared, updateToolSettings]
   );
 
   useGalleryHandoff('video', applyGalleryHandoff);
@@ -320,12 +355,6 @@ export default function VideoPromptTool() {
     updateShared,
     updateToolSettings,
   ]);
-
-  const [workflowStatus, setWorkflowStatus] = useState<string | null>(null);
-  const [output, setOutput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
 
   // Create + assign a video scaffold when none is mapped yet.
   // Apply the sharedPatch (workflow/checkpoint maps) without clobbering the
@@ -429,16 +458,30 @@ export default function VideoPromptTool() {
         videoFps: resolvedFps,
       },
       parentGalleryEntryId,
-      derivedKind: parentGalleryEntryId
-        ? nextRoleplayMotionKind(
-            loadComfyGallery().find(entry => entry.id === parentGalleryEntryId)
-          )
-        : clipMode === 'i2v'
-          ? ('i2v' as const)
-          : ('t2v' as const),
+      derivedKind:
+        clipMode === 'extend'
+          ? ('extend' as const)
+          : parentGalleryEntryId
+            ? nextRoleplayMotionKind(
+                loadComfyGallery().find(entry => entry.id === parentGalleryEntryId)
+              )
+            : clipMode === 'i2v'
+              ? ('i2v' as const)
+              : ('t2v' as const),
       clipMode,
+      videoUrl: clipMode === 'extend' ? parentVideoUrl.trim() || undefined : undefined,
     };
-  }, [clipMode, durationSec, file, frames, fps, initImageUrl, parentGalleryEntryId, previewUrl]);
+  }, [
+    clipMode,
+    durationSec,
+    file,
+    frames,
+    fps,
+    initImageUrl,
+    parentGalleryEntryId,
+    parentVideoUrl,
+    previewUrl,
+  ]);
 
   const pastedInitValue = initImageUrl === LOCAL_INIT_IMAGE_MARKER ? '' : initImageUrl;
   const hasInitImage = Boolean(file || previewUrl || pastedInitValue.trim());
@@ -447,12 +490,56 @@ export default function VideoPromptTool() {
     if (!output.trim()) {
       return;
     }
+    if (
+      !engineCanQueueClips(inferenceEngine) &&
+      inferenceEngine !== 'comfyui' &&
+      inferenceEngine !== 'diffusers'
+    ) {
+      setError(
+        `${engineDisplayName(inferenceEngine)} cannot queue clips. Switch the inference engine to Fal, Replicate, Grok, Gemini, or local WAN.`
+      );
+      return;
+    }
     if (clipMode === 'i2v' && !hasInitImage) {
       setError('Image-to-video needs a first frame.');
       return;
     }
-    void actions.sendComfyUi(output, null, undefined, buildVideoQueueOptions());
-  }, [actions, buildVideoQueueOptions, clipMode, hasInitImage, output]);
+    if (clipMode === 'extend' && !parentVideoUrl.trim()) {
+      setError('Extend needs a parent clip. Continue from Gallery or paste a clip URL.');
+      return;
+    }
+    void (async () => {
+      const options = buildVideoQueueOptions();
+      if (
+        clipMode === 'extend' &&
+        inferenceEngine === 'fal' &&
+        !canFalExtendFromParentUrl(parentVideoUrl)
+      ) {
+        const uploaded = await resolveFalExtendParentUrl({
+          parentUrl: parentVideoUrl,
+          falApiKey: shared.sessionFalApiKey,
+        });
+        if (!uploaded) {
+          setError(
+            'Could not upload that local clip to Fal. Continue from last frame instead, or use a Fal-hosted clip.'
+          );
+          return;
+        }
+        options.videoUrl = uploaded;
+      }
+      void actions.sendComfyUi(output, null, undefined, options);
+    })();
+  }, [
+    actions,
+    buildVideoQueueOptions,
+    clipMode,
+    hasInitImage,
+    inferenceEngine,
+    output,
+    parentVideoUrl,
+    setError,
+    shared.sessionFalApiKey,
+  ]);
 
   const generate = useCallback(async () => {
     if (!subject.trim()) {
@@ -500,7 +587,7 @@ export default function VideoPromptTool() {
     } finally {
       setLoading(false);
     }
-  }, [actions, camera, durationSec, motion, shared.model, style, subject]);
+  }, [actions, camera, durationSec, motion, setError, shared.model, style, subject]);
 
   const copyOutput = useCallback(async () => {
     if (!output) return;
@@ -511,7 +598,7 @@ export default function VideoPromptTool() {
     } catch {
       setError('Could not copy to clipboard.');
     }
-  }, [output]);
+  }, [output, setError]);
 
   // Avoid first-paint crashes when shared.model is still audio/mesh/image
   // from another tool — effects sync storage, but controls need a video model now.
@@ -699,21 +786,65 @@ export default function VideoPromptTool() {
               >
                 Image to video
               </ChipButton>
+              <ChipButton
+                active={clipMode === 'extend'}
+                title="Extend a parent clip — Fal LTX extend-video when the URL is public, otherwise last-frame I2V"
+                onClick={() => setClipMode('extend')}
+              >
+                Extend clip
+              </ChipButton>
             </div>
           </div>
           <p className="text-xs leading-relaxed text-[var(--text-muted)]">
-            {clipMode === 'i2v'
-              ? 'Needs a first frame. Local WAN / Hunyuan / LTX wire I2V nodes; Fal uses the I2V model in Settings.'
-              : 'No still required. Local graphs stay T2V; Fal uses the T2V model in Settings.'}
+            {clipMode === 'extend'
+              ? 'Needs a parent clip. Fal calls LTX extend-video when the parent is already a Fal URL (or after a documented CDN upload). Otherwise continue is last-frame I2V. Replicate has no extend API.'
+              : clipMode === 'i2v'
+                ? 'Needs a first frame. Local WAN / Hunyuan / LTX wire I2V nodes; Fal uses the I2V model in Settings.'
+                : 'No still required. Local graphs stay T2V; Fal uses the T2V model in Settings.'}
           </p>
+          {!engineCanQueueClips(inferenceEngine) &&
+          inferenceEngine !== 'comfyui' &&
+          inferenceEngine !== 'diffusers' ? (
+            <p className="text-xs text-[var(--tint-warning-text)]">
+              {engineDisplayName(inferenceEngine)} cannot queue clips. Switch Settings → Inference
+              engine to Fal, Replicate, or local WAN.
+            </p>
+          ) : null}
         </div>
+
+        {clipMode === 'extend' ? (
+          <div className="mb-4 space-y-2">
+            <FieldLabel
+              htmlFor="video-parent-clip"
+              hint="Public Fal clip URL, or a local / Gallery view URL (uploaded to Fal CDN when you queue)."
+            >
+              Parent clip (required, extend)
+            </FieldLabel>
+            <input
+              id="video-parent-clip"
+              value={parentVideoUrl}
+              onChange={event => setParentVideoUrl(event.target.value)}
+              placeholder="https://v3.fal.media/… or /api/comfyui/view?…"
+              className="ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
+            />
+            <p className="type-caption text-[var(--text-muted)]">
+              {canFalExtendFromParentUrl(parentVideoUrl)
+                ? 'Fal can extend this URL directly.'
+                : parentVideoUrl.trim()
+                  ? 'Local or non-Fal URL — queue uploads to Fal when the engine is Fal, otherwise last-frame I2V.'
+                  : 'Continue from Gallery to fill this, or paste a clip URL.'}
+            </p>
+          </div>
+        ) : null}
 
         <FieldLabel
           htmlFor="video-init-image"
           hint={
-            clipMode === 'i2v'
-              ? 'Required for I2V. Queue wires WanImageToVideo, HunyuanImageToVideo, or LTXVImgToVideo when the graph supports it.'
-              : 'Ignored in T2V mode. Switch to Image to video to use a first frame.'
+            clipMode === 'extend'
+              ? 'Optional last-frame fallback when Fal extend is not available.'
+              : clipMode === 'i2v'
+                ? 'Required for I2V. Queue wires WanImageToVideo, HunyuanImageToVideo, or LTXVImgToVideo when the graph supports it.'
+                : 'Ignored in T2V mode. Switch to Image to video to use a first frame.'
           }
         >
           {clipMode === 'i2v' ? 'First frame (required, I2V)' : 'First frame (I2V only)'}
