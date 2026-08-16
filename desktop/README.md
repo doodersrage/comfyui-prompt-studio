@@ -2,7 +2,7 @@
 
 Tauri 2 shell that starts the Next.js standalone server with a bundled Node 22 runtime, then opens `http://127.0.0.1:47832`.
 
-ComfyUI is not bundled. Point Settings → ComfyUI at a local or LAN install after launch.
+ComfyUI is not bundled. The first launch opens Settings → ComfyUI connection (`http://127.0.0.1:8188` by default).
 
 ## Prerequisites
 
@@ -29,4 +29,4 @@ Installers land in `desktop/src-tauri/target/release/bundle/`.
 
 ## Data
 
-The app sets `PROMPT_DATA_DIR` to the OS app-data folder (Application Support / AppData / `~/.local/share/app.promptstudio.desktop`).
+The app sets `PROMPT_DATA_DIR` to the OS app-data folder (Application Support / AppData / `~/.local/share/app.promptstudio.desktop`). Server stdout/stderr go to `server.log` in that folder. Desktop builds enable adult Roleplay ratings at compile time.

@@ -60,6 +60,7 @@ import {
   SETTINGS_TOOL_ACCENT,
   formatModelWorkflowMap,
   parseModelWorkflowMap,
+  serverEnvFieldValue,
   type HealthResponse,
 } from '@/components/settings/tabs/settings-tool-shared';
 import {
@@ -72,6 +73,7 @@ import { EmptyState } from '@/components/ui/ViewState';
 import { FieldError, FieldLabel, TextArea } from '@/components/ui/Field';
 import { Button, PrimaryButton } from '@/components/ui/Button';
 import { restartComfyUi } from '@/lib/comfyui-queue-control';
+import { isDesktopShellClient } from '@/lib/desktop-shell';
 
 const ComfyWorkflowLibraryPanel = dynamic(() => import('@/components/ComfyWorkflowLibraryPanel'), {
   ssr: false,
@@ -1434,6 +1436,22 @@ export default function SettingsComfyUiTab({
       ) : null}
 
       <ToolSection id="settings-comfyui-connection" title="ComfyUI connection & injection">
+        {isDesktopShellClient() ||
+        serverEnvFieldValue(health?.serverEnv, 'PROMPT_DESKTOP') === 'true' ? (
+          <div className="mb-4 rounded-[var(--radius-xl)] border border-[var(--border-subtle)] bg-[color-mix(in_oklab,var(--surface)_90%,transparent)] px-4 py-3">
+            <p className="text-sm font-medium text-[var(--text-primary)]">Desktop app</p>
+            <p className="mt-1 text-sm leading-relaxed text-[var(--text-secondary)]">
+              ComfyUI is not bundled. Leave <strong>Use server defaults</strong> on if ComfyUI is at{' '}
+              <code className="ui-inline-code">http://127.0.0.1:8188</code>, or uncheck it and set
+              the API URL below. Gallery, settings, and{' '}
+              <code className="ui-inline-code">server.log</code> live in{' '}
+              <code className="ui-inline-code">
+                {serverEnvFieldValue(health?.serverEnv, 'PROMPT_DATA_DIR') || 'the app data folder'}
+              </code>
+              .
+            </p>
+          </div>
+        ) : null}
         <p className="text-sm text-[var(--text-secondary)]">
           Override the server&apos;s <code className="ui-inline-code">COMFYUI_*</code> env vars for
           this browser: API URL, placeholder tokens, queue params, and an optional fallback workflow

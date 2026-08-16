@@ -10,6 +10,7 @@ const baseConfig: NextConfig = {
       process.env.NEXT_PUBLIC_PROMPT_NSFW_GENERATOR_ENABLED ??
       process.env.PROMPT_NSFW_GENERATOR_ENABLED ??
       '',
+    NEXT_PUBLIC_PROMPT_DESKTOP: process.env.NEXT_PUBLIC_PROMPT_DESKTOP ?? '',
   },
 
   // Keep local Python engine envs and dynamic filesystem ops out of NFT / Turbopack traces.

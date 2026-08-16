@@ -20,11 +20,14 @@
         display: grid;
         place-items: center;
         text-align: center;
+        padding: 2rem;
       }
       p {
         margin: 0.4rem 0 0;
         color: #9aa0ae;
         font-size: 0.9rem;
+        max-width: 36rem;
+        line-height: 1.45;
       }
       h1 {
         margin: 0;
@@ -37,7 +40,7 @@
     <main>
       <div>
         <h1>Prompt Studio</h1>
-        <p>Starting the local server…</p>
+        <p id="status">Starting the local server…</p>
       </div>
     </main>
   </body>

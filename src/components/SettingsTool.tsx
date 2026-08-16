@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
+import { useSearchParams } from 'next/navigation';
 import { STUDIO_BACKUP_LAST_EXPORT_KEY } from '@/lib/studio-backup-meta';
 import {
   readBrowserString,
@@ -72,6 +73,7 @@ import {
   settingsTabHref,
   settingsTabsForWorkspaceMode,
   isSimpleSettingsTab,
+  settingsViewFromSearchParams,
   type SettingsTab,
 } from '@/lib/settings-nav';
 import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
@@ -125,10 +127,17 @@ const ACCENT = 'neutral' as const;
 export default function SettingsTool() {
   const { mounted, settings, updateSettings } = useComfyUiSettings();
   const workspaceMode = useWorkspaceMode();
-  // Start in essentials view for every workspace mode — full Settings is a click away.
-  const [showAllSettings, setShowAllSettings] = useState(false);
-  const [tab, setTab] = useState<SettingsTab>('overview');
-  const [comfyUiSection, setComfyUiSection] = useState<ComfyUiSettingsSectionId | null>(null);
+  const searchParams = useSearchParams();
+  const initialView = settingsViewFromSearchParams(
+    searchParams.get('tab'),
+    searchParams.get('section')
+  );
+  // Essentials by default — expand immediately when the URL targets a hidden tab/section.
+  const [showAllSettings, setShowAllSettings] = useState(initialView.showAll);
+  const [tab, setTab] = useState<SettingsTab>(initialView.tab);
+  const [comfyUiSection, setComfyUiSection] = useState<ComfyUiSettingsSectionId | null>(
+    initialView.section
+  );
   const [sharedSettings, setSharedSettings] = useState<SharedToolSettings>(DEFAULT_SHARED_SETTINGS);
   const [sharedMounted, setSharedMounted] = useState(false);
   const [modelWorkflowMapText, setModelWorkflowMapText] = useState('');

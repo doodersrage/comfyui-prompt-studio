@@ -4,6 +4,7 @@ import { isQueueArtifactExportEnabled } from './queue-artifacts';
 import { isServerStorageEnabled } from './server-storage';
 import { getEmailConfig, isEmailConfigured } from './email/config';
 import { isAuthExplicitlyEnabled } from './auth/config';
+import { DESKTOP_SHELL_ENV, isDesktopShellServer } from './desktop-shell';
 import { isNsfwGeneratorEnabledServer, NSFW_GENERATOR_ENV_SERVER } from './nsfw-generator-env';
 
 export type ServerEnvField = {
@@ -373,6 +374,13 @@ export function getServerEnvSummary(): ServerEnvSummary {
           configured: isServerStorageEnabled(),
           uiOverride: 'Settings → Data → storage sync (when enabled)',
           hint: 'Enables browser ↔ server SQLite backup of settings, history, and gallery (studio.sqlite).',
+        },
+        {
+          key: DESKTOP_SHELL_ENV,
+          label: 'Desktop shell',
+          value: isDesktopShellServer() ? 'true' : 'false',
+          configured: isDesktopShellServer(),
+          hint: 'Set by the Tauri app. First launch opens Settings → ComfyUI connection.',
         },
       ],
     },

@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import PageCanvas from '@/components/ui/PageCanvas';
 import { ToolPageSkeleton } from '@/components/ui/ViewState';
@@ -9,7 +10,9 @@ const SettingsTool = dynamic(() => import('@/components/SettingsTool'), {
 export default function SettingsPage() {
   return (
     <PageCanvas accent="neutral">
-      <SettingsTool />
+      <Suspense fallback={<ToolPageSkeleton label="Loading settings" />}>
+        <SettingsTool />
+      </Suspense>
     </PageCanvas>
   );
 }

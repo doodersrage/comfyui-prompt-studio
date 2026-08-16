@@ -12,7 +12,18 @@ GitHub Releases on `vX.Y.Z` tags attach:
 | Windows | `.exe` (NSIS) |
 | Linux | `.AppImage` and `.deb` |
 
-Open the app, then set **Settings → ComfyUI** to your existing ComfyUI URL (`http://127.0.0.1:8188` by default).
+Linux installers use the name `PromptStudio` (no space) so AppImage bundling works. The window title stays **Prompt Studio**.
+
+## First launch
+
+1. Open the app. The first launch goes to **Settings → ComfyUI → Connection**.
+2. ComfyUI is expected at `http://127.0.0.1:8188`. Leave **Use server defaults** on if that is your URL; otherwise uncheck it and set **ComfyUI API URL**.
+3. Gallery, settings, and `server.log` live in the OS app-data folder (`PROMPT_DATA_DIR`).
+4. Later launches open the home page.
+
+Adult Roleplay ratings and the Adult generator plugin are **on** in desktop builds (`PROMPT_NSFW_GENERATOR_ENABLED` and `NEXT_PUBLIC_PROMPT_NSFW_GENERATOR_ENABLED`). Rebuild with those flags unset to ship a locked build. Web/Docker stays env-gated. See [configuration](configuration.md).
+
+If the window stays on “Starting the local server…”, the splash shows the error. Check `server.log` in the app-data folder.
 
 ## Local build
 
@@ -28,8 +39,6 @@ npm run desktop:build
 
 1. The shell looks for a server already on `127.0.0.1:47832`.
 2. If none, it starts the bundled `server.js` with the bundled Node sidecar.
-3. `PROMPT_DATA_DIR` is the OS app-data directory.
-4. The window navigates to `http://127.0.0.1:47832`.
+3. `PROMPT_DATA_DIR` is the OS app-data directory. `PROMPT_DESKTOP=1` and auth-off are set for the child process.
+4. The window navigates to the local server (connection settings on first launch).
 5. Quitting the app stops the child server.
-
-Adult Roleplay ratings and the Adult generator plugin still need `PROMPT_NSFW_GENERATOR_ENABLED` / `NEXT_PUBLIC_PROMPT_NSFW_GENERATOR_ENABLED` at **build** time (see [configuration](configuration.md)).

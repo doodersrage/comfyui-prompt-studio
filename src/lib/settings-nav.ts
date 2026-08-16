@@ -1,3 +1,8 @@
+import {
+  comfyUiSectionRequiresFullSettings,
+  normalizeComfyUiSettingsSection,
+  type ComfyUiSettingsSectionId,
+} from './settings-comfyui-nav';
 import type { WorkspaceMode } from './workspace-mode';
 
 export type SettingsTab =
@@ -73,4 +78,22 @@ export function settingsTabsForWorkspaceMode(
 
 export function isSimpleSettingsTab(tab: SettingsTab): boolean {
   return SIMPLE_SETTINGS_TAB_IDS.includes(tab);
+}
+
+/** Resolve Settings tab/section and whether essentials-only must expand. */
+export function settingsViewFromSearchParams(
+  tabParam: string | null | undefined,
+  sectionParam: string | null | undefined
+): {
+  tab: SettingsTab;
+  section: ComfyUiSettingsSectionId | null;
+  showAll: boolean;
+} {
+  const tab = normalizeSettingsTab(tabParam);
+  const section = tab === 'comfyui' ? normalizeComfyUiSettingsSection(sectionParam) : null;
+  return {
+    tab,
+    section,
+    showAll: !isSimpleSettingsTab(tab) || comfyUiSectionRequiresFullSettings(section),
+  };
 }
