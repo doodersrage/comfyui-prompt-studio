@@ -31,6 +31,7 @@ import { getCharacter } from './character-os';
 import { attemptGalleryHostFailover } from './oom-retry';
 import { resolveGalleryRenderDurationMs } from './comfyui-render-duration';
 import { forgetPendingGalleryPoll } from './gallery-pending-polls';
+import { resolveGalleryCharacterStamp } from './gallery-character-stamp';
 
 /** Cap stored workflow graphs so gallery IndexedDB stays bounded. */
 export const MAX_GALLERY_WORKFLOW_CHARS = 400_000;
@@ -125,18 +126,22 @@ function resolveComfyUrlForJob(promptId: string, comfyUrl?: string): string | un
 }
 
 function resolveGalleryCharacterId(input: RegisterComfyGalleryJobInput): string | undefined {
-  const explicit = input.characterId?.trim();
-  if (explicit) {
-    return explicit;
-  }
   const parentId = input.parentGalleryEntryId?.trim();
   const parent = parentId ? loadComfyGallery().find(entry => entry.id === parentId) : undefined;
-  return (
-    parent?.characterId?.trim() || loadSettingsCache().shared.activeCharacterId?.trim() || undefined
-  );
+  return resolveGalleryCharacterStamp({
+    characterId: input.characterId,
+    parentCharacterId: parent?.characterId,
+    activeCharacterId: loadSettingsCache().shared.activeCharacterId,
+    tool: input.tool,
+    derivedKind: input.derivedKind,
+  });
 }
 
 function resolveGalleryLookId(input: RegisterComfyGalleryJobInput): string | undefined {
+  const characterId = resolveGalleryCharacterId(input);
+  if (!characterId) {
+    return undefined;
+  }
   const explicit = input.lookId?.trim();
   if (explicit) {
     return explicit;
@@ -147,7 +152,6 @@ function resolveGalleryLookId(input: RegisterComfyGalleryJobInput): string | und
     return parent.lookId.trim();
   }
   const shared = loadSettingsCache().shared;
-  const characterId = resolveGalleryCharacterId(input);
   return (
     shared.activeLookId?.trim() || getCharacter(characterId)?.activeLookId?.trim() || undefined
   );

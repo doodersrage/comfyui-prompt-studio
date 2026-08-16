@@ -226,6 +226,31 @@ describe("selectCharacterKeepers", () => {
       ["rin"],
     );
   });
+
+  it("uses explicit look keepers and skips clips", () => {
+    const entries = [
+      makeEntry({ id: "fav", characterId: "char-rin", favorite: true }),
+      makeEntry({ id: "picked", characterId: "char-rin" }),
+      makeEntry({
+        id: "clip",
+        characterId: "char-rin",
+        favorite: true,
+        derivedKind: "i2v",
+        tool: "video",
+        images: [{ filename: "clip.mp4", subfolder: "", type: "output" }],
+      }),
+    ];
+    assert.deepEqual(
+      selectCharacterKeepers(entries, "char-rin").map((entry) => entry.id),
+      ["fav"],
+    );
+    assert.deepEqual(
+      selectCharacterKeepers(entries, "char-rin", { keeperIds: ["picked"] }).map(
+        (entry) => entry.id,
+      ),
+      ["picked"],
+    );
+  });
 });
 
 describe("buildLoraDatasetManifest", () => {

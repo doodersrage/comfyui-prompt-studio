@@ -7,6 +7,7 @@ import {
   characterFromBundle,
   characterFromRoleplaySession,
   characterFromShared,
+  activeLook,
   lookFromAppearance,
   looksOf,
   mergeMigratedCharacters,
@@ -40,6 +41,22 @@ describe('character-os', () => {
     assert.equal(back.name, 'Rin');
     assert.equal(back.ipAdapterImageFilename, 'rin-lock.png');
     assert.equal(back.loraTriggerPhrases?.[0], 'rinstyle');
+  });
+
+  it('keeps look keepers on the character record', () => {
+    const character = normalizeCharacterRecord({
+      ...characterFromBundle(bundle, 'char-rin'),
+      looks: [
+        {
+          id: 'look-1',
+          name: 'Default',
+          createdAt: 1,
+          keeperEntryIds: ['g1', 'g2'],
+        },
+      ],
+      activeLookId: 'look-1',
+    });
+    assert.deepEqual(activeLook(character).keeperEntryIds, ['g1', 'g2']);
   });
 
   it('keeps a film cut on the character record', () => {

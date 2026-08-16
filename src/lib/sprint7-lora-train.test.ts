@@ -25,12 +25,16 @@ describe("normalizeTrainJob", () => {
       outputPath: " a.safetensors ",
       commandOrUrl: " manual ",
       createdAt: "2026-01-01T00:00:00.000Z",
+      characterId: " char-rin ",
+      lookId: " look-1 ",
     });
     assert.equal(job?.id, "train-1");
     assert.equal(job?.status, "pending");
     assert.equal(job?.progress, 1);
     assert.equal(job?.trigger, "ohwx");
     assert.equal(job?.outputPath, "a.safetensors");
+    assert.equal(job?.characterId, "char-rin");
+    assert.equal(job?.lookId, "look-1");
   });
 
   it("forces progress to 1 when completed", () => {

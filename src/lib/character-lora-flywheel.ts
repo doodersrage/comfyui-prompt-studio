@@ -1,0 +1,285 @@
+/**
+ * Character LoRA flywheel — train / register / prove from Cast, not Settings.
+ */
+
+import {
+  applyCharacterRecord,
+  loraTriggerFromCharacter,
+  pinLoraOnCharacter,
+  setCharacterTrigger,
+  type CharacterRecord,
+} from './character-os';
+import { loadComfyUiSettings, saveComfyUiSettings } from './comfyui-settings';
+import {
+  buildLoraTrainValidationPrompt,
+  createTrainJob,
+  normalizeLoraTrainTrainerPrefs,
+  normalizeTrainJobs,
+  registerTrainJobLora,
+  upsertTrainJob,
+  type TrainJob,
+} from './lora-train-job';
+import { loadSettingsCache, saveSharedSettings } from './settings-cache';
+
+export function mergeTrainJobs(local: TrainJob[], remote: TrainJob[]): TrainJob[] {
+  let next = normalizeTrainJobs(local);
+  for (const job of remote) {
+    next = upsertTrainJob(next, job);
+  }
+  return next;
+}
+
+export function persistTrainJobs(jobs: TrainJob[]): TrainJob[] {
+  const next = normalizeTrainJobs(jobs);
+  saveSharedSettings({
+    ...loadSettingsCache().shared,
+    loraTrainJobs: next,
+  });
+  return next;
+}
+
+export function trainJobsForCharacter(jobs: TrainJob[], characterId: string): TrainJob[] {
+  const id = characterId.trim();
+  if (!id) {
+    return [];
+  }
+  return normalizeTrainJobs(jobs).filter(job => job.characterId === id);
+}
+
+export function suggestedLoraOutputPath(character: CharacterRecord, lookName?: string): string {
+  const who =
+    character.name
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 32) || 'character';
+  const look =
+    lookName
+      ?.trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 24) || 'look';
+  return `${who}-${look}-v1.safetensors`;
+}
+
+export async function startCharacterLookTrain(input: {
+  character: CharacterRecord;
+  lookId?: string;
+  lookName?: string;
+  trigger: string;
+}): Promise<{ job: TrainJob; jobs: TrainJob[]; message: string }> {
+  const trigger = input.trigger.trim() || loraTriggerFromCharacter(input.character) || '';
+  if (!trigger) {
+    throw new Error('Save a trigger word before training this look.');
+  }
+  const prefs = normalizeLoraTrainTrainerPrefs(loadSettingsCache().shared.loraTrainTrainerPrefs);
+  const outputPath =
+    prefs.outputDir?.trim() || suggestedLoraOutputPath(input.character, input.lookName);
+
+  const response = await fetch('/api/lora-train', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'start',
+      trigger,
+      outputPath,
+      baseModel: prefs.baseModel?.trim() || undefined,
+      trainerUrl: prefs.trainerUrl?.trim() || undefined,
+      trainerCommand: prefs.trainerCommand?.trim() || undefined,
+      characterId: input.character.id,
+      lookId: input.lookId,
+    }),
+  });
+  const data = (await response.json()) as {
+    error?: string;
+    job?: TrainJob;
+    jobs?: TrainJob[];
+  };
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to start train job.');
+  }
+
+  const job =
+    data.job ??
+    createTrainJob({
+      trigger,
+      outputPath,
+      status: 'manual',
+      characterId: input.character.id,
+      lookId: input.lookId,
+    });
+  const local = normalizeTrainJobs(loadSettingsCache().shared.loraTrainJobs);
+  const jobs = persistTrainJobs(mergeTrainJobs(local, data.jobs ?? [job]));
+  const message =
+    job.status === 'manual'
+      ? `Manual train job recorded for ${input.character.name}. Register when the weight is ready.`
+      : `Train job ${job.id} started (${job.status}).`;
+  return { job, jobs, message };
+}
+
+export async function registerCharacterLookLora(input: {
+  job: TrainJob;
+  characterId: string;
+  trigger?: string;
+  outputPath?: string;
+}): Promise<{ job: TrainJob; jobs: TrainJob[]; message: string }> {
+  const settings = loadComfyUiSettings();
+  const shared = loadSettingsCache().shared;
+  const prefs = normalizeLoraTrainTrainerPrefs(shared.loraTrainTrainerPrefs);
+  const outputPath =
+    input.job.outputPath.trim() || input.outputPath?.trim() || prefs.outputDir?.trim() || '';
+  const trigger = input.job.trigger.trim() || input.trigger?.trim() || '';
+  if (!outputPath) {
+    throw new Error('Set an output path (LoRA filename) before registering.');
+  }
+
+  const response = await fetch('/api/lora-train', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'complete',
+      jobId: input.job.id,
+      outputPath,
+      trigger,
+      library: settings.loraLibrary,
+      sessionActiveLoraIds: shared.sessionActiveLoraIds,
+      activateInSession: prefs.activateOnRegister !== false,
+      label: trigger || undefined,
+      characterId: input.characterId,
+    }),
+  });
+  const data = (await response.json()) as {
+    error?: string;
+    job?: TrainJob;
+    registered?: boolean;
+    entry?: { id: string; label: string; triggerPhrase: string };
+    library?: typeof settings.loraLibrary;
+    sessionActiveLoraIds?: string[];
+  };
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to register LoRA.');
+  }
+
+  let nextJob = data.job ?? { ...input.job, outputPath, trigger, status: 'completed' as const };
+  if (data.registered && data.library) {
+    saveComfyUiSettings({
+      ...settings,
+      loraLibrary: data.library,
+    });
+    if (prefs.activateOnRegister !== false && data.sessionActiveLoraIds) {
+      saveSharedSettings({
+        ...loadSettingsCache().shared,
+        sessionActiveLoraIds: data.sessionActiveLoraIds,
+      });
+    }
+  } else {
+    const registered = registerTrainJobLora(
+      settings.loraLibrary,
+      { ...input.job, outputPath, trigger },
+      {
+        activateInSession: prefs.activateOnRegister !== false,
+        sessionActiveLoraIds: shared.sessionActiveLoraIds,
+        label: trigger || undefined,
+      }
+    );
+    saveComfyUiSettings({
+      ...settings,
+      loraLibrary: registered.library,
+    });
+    if (prefs.activateOnRegister !== false && registered.sessionActiveLoraIds) {
+      saveSharedSettings({
+        ...loadSettingsCache().shared,
+        sessionActiveLoraIds: registered.sessionActiveLoraIds,
+      });
+    }
+    nextJob = registered.job;
+  }
+
+  nextJob = {
+    ...nextJob,
+    characterId: nextJob.characterId || input.characterId,
+  };
+  const jobs = persistTrainJobs(
+    upsertTrainJob(normalizeTrainJobs(loadSettingsCache().shared.loraTrainJobs), nextJob)
+  );
+
+  if (nextJob.loraLibraryId) {
+    pinLoraOnCharacter(input.characterId, nextJob.loraLibraryId);
+  }
+  if (nextJob.trigger.trim()) {
+    setCharacterTrigger(input.characterId, nextJob.trigger);
+  }
+
+  return {
+    job: nextJob,
+    jobs,
+    message: data.entry
+      ? `Pinned “${data.entry.label || data.entry.id}” on this character with trigger “${data.entry.triggerPhrase || nextJob.trigger}”.`
+      : `Train job ${nextJob.id} marked complete.`,
+  };
+}
+
+export async function queueCharacterLookValidation(input: {
+  character: CharacterRecord;
+  trigger?: string;
+}): Promise<{ prompt: string; queued: boolean }> {
+  const trigger = input.trigger?.trim() || loraTriggerFromCharacter(input.character) || 'subject';
+  const prompt = buildLoraTrainValidationPrompt(trigger);
+  saveSharedSettings({
+    ...loadSettingsCache().shared,
+    ...applyCharacterRecord(input.character),
+  });
+
+  const { postComfyUiPrompt } = await import('./comfyui-queue-request');
+  const { resolveQueueNegativePrompt } = await import('./queue-negative');
+  const { resolveQueueParams } = await import('./queue-params-settings');
+  const { resolveRuntimeForQueue } = await import('./comfyui-runtime-for-model');
+  const { registerComfyGalleryJob } = await import('./comfyui-gallery-client');
+  const { scheduleComfyGalleryPoll } = await import('./comfyui-gallery-poller');
+
+  const shared = loadSettingsCache().shared;
+  const negativePrompt = await resolveQueueNegativePrompt({
+    model: shared.model,
+    tool: 'generate',
+  });
+  const runtime = resolveRuntimeForQueue(shared.model, 'generate');
+  const params = resolveQueueParams({
+    model: shared.model,
+    tool: 'generate',
+  });
+  const queued = await postComfyUiPrompt({
+    prompts: [prompt],
+    negativePrompt,
+    paramsPerPrompt: [params],
+    ...(runtime ? { comfy: runtime } : {}),
+  });
+  const data = queued.raw as {
+    results?: Array<{ promptId?: string; comfyUrl?: string }>;
+    comfyUrl?: string;
+  };
+  const result = data.results?.[0];
+  const ok = queued.status < 400 && Boolean(result?.promptId);
+  if (ok && result?.promptId) {
+    registerComfyGalleryJob({
+      promptId: result.promptId,
+      prompt,
+      negativePrompt,
+      tool: 'lora-validation',
+      model: shared.model,
+      comfyUrl: result.comfyUrl ?? data.comfyUrl ?? queued.comfyUrl ?? 'http://127.0.0.1:8188',
+      clientId: queued.clientId,
+      queueParams: params,
+      characterId: input.character.id,
+      lookId: input.character.activeLookId,
+      sessionActiveLoraIds: shared.sessionActiveLoraIds,
+    });
+    void scheduleComfyGalleryPoll(result.promptId, {
+      comfyUrl: result.comfyUrl ?? data.comfyUrl ?? queued.comfyUrl ?? 'http://127.0.0.1:8188',
+      clientId: queued.clientId,
+    });
+  }
+  queued.releaseLiveSocket();
+  return { prompt, queued: ok };
+}

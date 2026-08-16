@@ -13,6 +13,8 @@ export type TrainJob = {
   createdAt: string;
   error?: string;
   loraLibraryId?: string;
+  characterId?: string;
+  lookId?: string;
 };
 
 export type LoraTrainTrainerPrefs = {
@@ -78,6 +80,12 @@ export function normalizeTrainJob(raw: unknown): TrainJob | null {
     typeof record.loraLibraryId === 'string' && record.loraLibraryId.trim()
       ? record.loraLibraryId.trim()
       : undefined;
+  const characterId =
+    typeof record.characterId === 'string' && record.characterId.trim()
+      ? record.characterId.trim()
+      : undefined;
+  const lookId =
+    typeof record.lookId === 'string' && record.lookId.trim() ? record.lookId.trim() : undefined;
 
   return {
     id,
@@ -89,6 +97,8 @@ export function normalizeTrainJob(raw: unknown): TrainJob | null {
     createdAt,
     ...(error ? { error } : {}),
     ...(loraLibraryId ? { loraLibraryId } : {}),
+    ...(characterId ? { characterId } : {}),
+    ...(lookId ? { lookId } : {}),
   };
 }
 
@@ -115,6 +125,8 @@ export function createTrainJob(input: {
   commandOrUrl?: string;
   createdAt?: string;
   error?: string;
+  characterId?: string;
+  lookId?: string;
 }): TrainJob {
   const id =
     input.id?.trim() ||
@@ -128,6 +140,8 @@ export function createTrainJob(input: {
     commandOrUrl: input.commandOrUrl ?? '',
     createdAt: input.createdAt ?? new Date().toISOString(),
     error: input.error,
+    characterId: input.characterId,
+    lookId: input.lookId,
   })!;
 }
 

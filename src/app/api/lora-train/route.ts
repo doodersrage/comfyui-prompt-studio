@@ -22,6 +22,8 @@ type StartBody = {
   trainerUrl?: string;
   /** From Settings UI; env TRAINER_COMMAND wins when set. */
   trainerCommand?: string;
+  characterId?: string;
+  lookId?: string;
 };
 
 type CompleteBody = {
@@ -177,6 +179,8 @@ async function handleStart(body: StartBody) {
     commandOrUrl,
     status: 'pending',
     progress: 0,
+    characterId: body.characterId,
+    lookId: body.lookId,
   });
 
   if (url) {

@@ -1,6 +1,8 @@
 import type { ComfyGalleryEntry } from './comfyui-gallery-entry';
 import { buildComfyViewPath, type ComfyOutputImage } from './comfyui-outputs';
 import { buildZipBlob, type ZipFileEntry } from './gallery-zip-export';
+import { isAssembledFilmEntry } from './character-film';
+import { isVideoLikeEntry } from './roleplay-film';
 
 /**
  * Gallery → LoRA training dataset export. Pulls selected/favorited/high-rated
@@ -42,16 +44,40 @@ export function selectLoraDatasetEntries(
   );
 }
 
-/** Keepers (favorite or 4★+) for one Character OS record. */
+export function isLoraDatasetStill(
+  entry: Pick<ComfyGalleryEntry, 'status' | 'images' | 'prompt' | 'derivedKind' | 'tool'>
+): boolean {
+  if (entry.status !== 'completed' || !entry.images.length || !entry.prompt?.trim()) {
+    return false;
+  }
+  if (isAssembledFilmEntry(entry) || isVideoLikeEntry(entry)) {
+    return false;
+  }
+  const filename = entry.images[0]?.filename ?? '';
+  return !/\.(mp4|webm|mov|mkv)(\?|#|$)/i.test(filename);
+}
+
+/** Keepers for one Character OS record — explicit look ids, else favorite / 4★+ stills. */
 export function selectCharacterKeepers(
   entries: ComfyGalleryEntry[],
-  characterId: string
+  characterId: string,
+  options?: { keeperIds?: string[] }
 ): ComfyGalleryEntry[] {
   const id = characterId.trim();
   if (!id) {
     return [];
   }
-  return selectLoraDatasetEntries(entries.filter(entry => entry.characterId === id));
+  const stamped = entries.filter(entry => entry.characterId === id && isLoraDatasetStill(entry));
+  const explicit = [
+    ...new Set((options?.keeperIds ?? []).map(item => item.trim()).filter(Boolean)),
+  ];
+  if (options && 'keeperIds' in options) {
+    const order = new Map(explicit.map((entryId, index) => [entryId, index]));
+    return stamped
+      .filter(entry => order.has(entry.id))
+      .sort((left, right) => (order.get(left.id) ?? 0) - (order.get(right.id) ?? 0));
+  }
+  return selectLoraDatasetEntries(stamped);
 }
 
 const WEIGHT_SYNTAX_RE = /\(([^()]+?):\s*-?[\d.]+\)/g;

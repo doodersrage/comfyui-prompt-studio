@@ -695,6 +695,8 @@ export function updateComfyGalleryEntryById(
       | 'durableThumbPath'
       | 'durableOriginalPath'
       | 'sourceImageUrl'
+      | 'characterId'
+      | 'lookId'
     >
   >
 ): ComfyGalleryEntry | null {
@@ -902,6 +904,29 @@ export function setComfyGalleryProjectIds(ids: string[], projectId: string | und
       idSet.has(entry.id) ? { ...entry, projectId: projectId || undefined } : entry
     )
   );
+}
+
+/** Drop character/look stamps so the still leaves Cast without deleting the file. */
+export function clearGalleryCharacterStamp(ids: string[]): number {
+  const idSet = new Set(ids.map(id => id.trim()).filter(Boolean));
+  if (idSet.size === 0) {
+    return 0;
+  }
+  let cleared = 0;
+  const next = loadComfyGallery().map(entry => {
+    if (!idSet.has(entry.id) || !entry.characterId) {
+      return entry;
+    }
+    cleared += 1;
+    const copy = { ...entry };
+    delete copy.characterId;
+    delete copy.lookId;
+    return copy;
+  });
+  if (cleared > 0) {
+    saveComfyGallery(next);
+  }
+  return cleared;
 }
 
 export function setComfyGalleryFavorites(ids: string[], favorite: boolean): void {

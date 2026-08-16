@@ -312,7 +312,8 @@ export default function LoraTrainPanel({ onStatus }: LoraTrainPanelProps) {
         );
         persistJobs(nextJobs);
 
-        const characterId = loadSettingsCache().shared.activeCharacterId?.trim();
+        const characterId =
+          nextJob.characterId?.trim() || loadSettingsCache().shared.activeCharacterId?.trim();
         if (characterId && nextJob.loraLibraryId) {
           pinLoraOnCharacter(characterId, nextJob.loraLibraryId);
           if (nextJob.trigger.trim()) {

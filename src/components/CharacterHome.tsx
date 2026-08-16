@@ -1,11 +1,11 @@
 'use client';
 
-import { useMemo, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import CharacterFilmStudio from '@/components/CharacterFilmStudio';
+import CharacterLoraFlywheel from '@/components/CharacterLoraFlywheel';
 import { Button, ButtonLink } from '@/components/ui/Button';
-import { FieldLabel } from '@/components/ui/Field';
 import { EmptyState } from '@/components/ui/ViewState';
 import {
   SegmentedControl,
@@ -18,21 +18,21 @@ import { BROWSER_STORAGE_HEALTH_EVENT } from '@/lib/browser-storage';
 import { isAssembledFilmEntry } from '@/lib/character-film';
 import {
   activateLook,
+  activeLook,
   addLookFromShared,
   applyCharacterRecord,
   getCharacter,
   getCharactersSnapshot,
   getServerCharactersSnapshot,
   looksOf,
-  loraTriggerFromCharacter,
   forgetCharacterRecord,
-  pinLoraOnCharacter,
   removeLook,
-  setCharacterTrigger,
   subscribeCharacters,
+  toggleLookKeeper,
 } from '@/lib/character-os';
 import {
   COMFYUI_GALLERY_UPDATED_EVENT,
+  clearGalleryCharacterStamp,
   filterComfyGalleryEntries,
   galleryEntryPrimaryMediaKind,
   galleryEntryPrimaryThumbUrl,
@@ -40,10 +40,10 @@ import {
   getGalleryCache,
   type ComfyGalleryEntry,
 } from '@/lib/comfyui-gallery';
+import { unstampForeignCharacterGalleryEntries } from '@/lib/gallery-character-stamp';
 import { buildGalleryHandoff, galleryHandoffPath, saveGalleryHandoff } from '@/lib/gallery-handoff';
 import { isGalleryClipEntry } from '@/lib/roleplay-film';
-import { loadComfyUiSettings } from '@/lib/comfyui-settings';
-import { downloadLoraDatasetZip, selectCharacterKeepers } from '@/lib/gallery-lora-dataset-export';
+import { selectCharacterKeepers } from '@/lib/gallery-lora-dataset-export';
 import { deleteRoleplayLibrarySession } from '@/lib/roleplay-library';
 import { loadSettingsCache, saveSharedSettings } from '@/lib/settings-cache';
 
@@ -76,26 +76,27 @@ export default function CharacterHome({ characterId }: CharacterHomeProps) {
   );
   const gallery = useSyncExternalStore(subscribeGallery, getGalleryCache, () => EMPTY_GALLERY);
   const [lookName, setLookName] = useState('');
-  const [triggerDraft, setTriggerDraft] = useState<string | null>(null);
-  const [pinLoraId, setPinLoraId] = useState('');
   const [mediaTab, setMediaTab] = useState<MediaTab>('all');
-  const [exportStatus, setExportStatus] = useState<string | null>(null);
-  const [library] = useState(() =>
-    typeof window === 'undefined' ? [] : (loadComfyUiSettings().loraLibrary ?? [])
-  );
 
   const character = characters.find(entry => entry.id === characterId) ?? getCharacter(characterId);
-  const trigger = triggerDraft ?? loraTriggerFromCharacter(character) ?? '';
+
+  useEffect(() => {
+    unstampForeignCharacterGalleryEntries();
+  }, []);
 
   const looks = character ? looksOf(character) : [];
+  const currentLook = character ? activeLook(character) : undefined;
   const entries = useMemo(
     () => filterComfyGalleryEntries(gallery, { characterId }),
     [gallery, characterId]
   );
-  const keepers = useMemo(
-    () => selectCharacterKeepers(gallery, characterId),
-    [gallery, characterId]
+  const lookKeeperIds = currentLook?.keeperEntryIds;
+  const keepers = selectCharacterKeepers(
+    gallery,
+    characterId,
+    lookKeeperIds !== undefined ? { keeperIds: lookKeeperIds } : undefined
   );
+  const fallbackKeeperIds = selectCharacterKeepers(gallery, characterId).map(entry => entry.id);
   const lastClip = useMemo(
     () =>
       [...entries]
@@ -107,21 +108,19 @@ export default function CharacterHome({ characterId }: CharacterHomeProps) {
         ),
     [entries]
   );
-  const visible = useMemo(() => {
-    if (mediaTab === 'keepers') {
-      return keepers;
-    }
-    return entries.filter(entry => {
-      const kind = galleryEntryPrimaryMediaKind(entry);
-      if (mediaTab === 'stills') {
-        return !isGalleryClipEntry({ ...entry, mediaKind: kind });
-      }
-      if (mediaTab === 'clips') {
-        return isGalleryClipEntry({ ...entry, mediaKind: kind });
-      }
-      return true;
-    });
-  }, [entries, keepers, mediaTab]);
+  const visible =
+    mediaTab === 'keepers'
+      ? keepers
+      : entries.filter(entry => {
+          const kind = galleryEntryPrimaryMediaKind(entry);
+          if (mediaTab === 'stills') {
+            return !isGalleryClipEntry({ ...entry, mediaKind: kind });
+          }
+          if (mediaTab === 'clips') {
+            return isGalleryClipEntry({ ...entry, mediaKind: kind });
+          }
+          return true;
+        });
 
   const persistApply = (next = character) => {
     if (!next) {
@@ -276,97 +275,14 @@ export default function CharacterHome({ characterId }: CharacterHomeProps) {
         </div>
       </ToolSection>
 
-      <ToolSection
-        title="LoRA flywheel"
-        description="Keepers of this character become the dataset. Pin the trained weight so the next run uses it."
-      >
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-2">
-            <FieldLabel>Trigger</FieldLabel>
-            <div className="flex flex-wrap gap-2">
-              <input
-                value={trigger}
-                onChange={event => setTriggerDraft(event.target.value)}
-                placeholder="rinstyle"
-                className="ui-input min-w-[8rem] flex-1 px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
-                aria-label="LoRA trigger"
-              />
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => {
-                  persistApply(setCharacterTrigger(character.id, trigger));
-                }}
-              >
-                Save trigger
-              </Button>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <FieldLabel>Pin library LoRA</FieldLabel>
-            <div className="flex flex-wrap gap-2">
-              <select
-                className="ui-input min-w-[10rem] flex-1 px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
-                value={pinLoraId}
-                onChange={event => setPinLoraId(event.target.value)}
-                aria-label="LoRA to pin"
-              >
-                <option value="">Select from library</option>
-                {library.map(entry => (
-                  <option key={entry.id} value={entry.id}>
-                    {entry.label || entry.tokenValue || entry.id}
-                  </option>
-                ))}
-              </select>
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={!pinLoraId}
-                onClick={() => {
-                  const next = pinLoraOnCharacter(character.id, pinLoraId);
-                  persistApply(next);
-                  setPinLoraId('');
-                }}
-              >
-                Pin
-              </Button>
-            </div>
-          </div>
-        </div>
-        <p className="type-caption text-[var(--text-muted)]">
-          {keepers.length} keeper{keepers.length === 1 ? '' : 's'} ready
-          {character.loraLibraryIds?.length
-            ? ` · ${character.loraLibraryIds.length} pinned LoRA`
-            : ''}
-        </p>
-        <ToolActionRow>
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled={keepers.length === 0}
-            onClick={() => {
-              setExportStatus('Exporting…');
-              void downloadLoraDatasetZip(keepers, {
-                triggerWord: trigger.trim() || loraTriggerFromCharacter(character),
-              })
-                .then(result => {
-                  setExportStatus(`Exported ${result.count} images.`);
-                })
-                .catch(error => {
-                  setExportStatus(
-                    error instanceof Error ? error.message : 'Could not export dataset.'
-                  );
-                });
-            }}
-          >
-            Export keepers as dataset
-          </Button>
-          <ButtonLink href="/settings?tab=comfyui&section=lora-train" size="sm" variant="ghost">
-            Train / register
-          </ButtonLink>
-        </ToolActionRow>
-        {exportStatus ? <p className="type-caption">{exportStatus}</p> : null}
-      </ToolSection>
+      {currentLook ? (
+        <CharacterLoraFlywheel
+          character={character}
+          look={currentLook}
+          keepers={keepers}
+          onApplied={persistApply}
+        />
+      ) : null}
 
       <CharacterFilmStudio
         characterId={character.id}
@@ -430,7 +346,33 @@ export default function CharacterHome({ characterId }: CharacterHomeProps) {
         ) : (
           <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
             {visible.map(entry => (
-              <CharacterMediaTile key={entry.id} entry={entry} characterId={character.id} />
+              <CharacterMediaTile
+                key={entry.id}
+                entry={entry}
+                characterId={character.id}
+                kept={keepers.some(keeper => keeper.id === entry.id)}
+                onToggleKeeper={
+                  currentLook
+                    ? () => {
+                        persistApply(
+                          toggleLookKeeper(character.id, currentLook.id, entry.id, {
+                            fallbackIds: fallbackKeeperIds,
+                          })
+                        );
+                      }
+                    : undefined
+                }
+                onRemoveFromCharacter={() => {
+                  if (currentLook && keepers.some(keeper => keeper.id === entry.id)) {
+                    persistApply(
+                      toggleLookKeeper(character.id, currentLook.id, entry.id, {
+                        fallbackIds: fallbackKeeperIds,
+                      })
+                    );
+                  }
+                  clearGalleryCharacterStamp([entry.id]);
+                }}
+              />
             ))}
           </ul>
         )}
@@ -442,9 +384,15 @@ export default function CharacterHome({ characterId }: CharacterHomeProps) {
 function CharacterMediaTile({
   entry,
   characterId,
+  kept,
+  onToggleKeeper,
+  onRemoveFromCharacter,
 }: {
   entry: ComfyGalleryEntry;
   characterId: string;
+  kept?: boolean;
+  onToggleKeeper?: () => void;
+  onRemoveFromCharacter?: () => void;
 }) {
   const thumb = galleryEntryPrimaryThumbUrl(entry);
   const viewUrl = galleryEntryPrimaryViewUrl(entry);
@@ -479,6 +427,7 @@ function CharacterMediaTile({
         )}
         <p className="type-caption truncate px-2 py-1 text-[var(--text-muted)]">
           {isAssembledFilmEntry(entry) ? 'Film' : clip ? 'Clip' : 'Still'}
+          {kept ? ' · keeper' : ''}
           {entry.reviewRating ? ` · ${entry.reviewRating}★` : ''}
           {entry.favorite ? ' · fav' : ''}
           {clip ? (
@@ -487,6 +436,30 @@ function CharacterMediaTile({
               <Link href={href} className="underline-offset-2 hover:underline">
                 Open
               </Link>
+            </>
+          ) : null}
+          {!clip && onToggleKeeper ? (
+            <>
+              {' · '}
+              <button
+                type="button"
+                className="underline-offset-2 hover:underline"
+                onClick={onToggleKeeper}
+              >
+                {kept ? 'Drop keeper' : 'Keep'}
+              </button>
+            </>
+          ) : null}
+          {onRemoveFromCharacter ? (
+            <>
+              {' · '}
+              <button
+                type="button"
+                className="underline-offset-2 hover:underline"
+                onClick={onRemoveFromCharacter}
+              >
+                Remove
+              </button>
             </>
           ) : null}
         </p>

@@ -89,6 +89,8 @@ export type CharacterLook = {
   model?: string;
   detail?: SharedToolSettings['detail'];
   negativeProfileId?: string;
+  /** Gallery still ids marked as LoRA keepers for this era. Undefined = fall back to favorites. */
+  keeperEntryIds?: string[];
 };
 
 type CharacterStore = {
@@ -182,7 +184,9 @@ export function lookFromAppearance(
     | 'model'
     | 'detail'
     | 'negativeProfileId'
-  >,
+  > & {
+    keeperEntryIds?: string[];
+  },
   name: string,
   id?: string,
   createdAt?: number
@@ -202,6 +206,7 @@ export function lookFromAppearance(
     model: source.model,
     detail: source.detail,
     negativeProfileId: source.negativeProfileId,
+    keeperEntryIds: uniqueIds(source.keeperEntryIds),
   };
 }
 
@@ -584,7 +589,10 @@ function mergeCharacterUpdate(prev: CharacterRecord, incoming: CharacterRecord):
 
   const looks = looksOf(prev);
   const current = looks.find(look => look.id === prev.activeLookId) ?? looks[0]!;
-  const nextLook = lookFromAppearance(incoming, current.name, current.id, current.createdAt);
+  const nextLook = {
+    ...lookFromAppearance(incoming, current.name, current.id, current.createdAt),
+    keeperEntryIds: current.keeperEntryIds,
+  };
   const nextLooks = looks.some(look => look.id === nextLook.id)
     ? looks.map(look => (look.id === nextLook.id ? nextLook : look))
     : [nextLook, ...looks].slice(0, MAX_LOOKS);
@@ -705,6 +713,55 @@ export function removeLook(characterId: string, lookId: string): CharacterRecord
     )
   );
   return getCharacter(characterId);
+}
+
+export function setLookKeepers(
+  characterId: string,
+  lookId: string,
+  keeperEntryIds: string[]
+): CharacterRecord | undefined {
+  const character = getCharacter(characterId);
+  if (!character) {
+    return undefined;
+  }
+  const looks = looksOf(character);
+  const target = looks.find(look => look.id === lookId) ?? looks[0];
+  if (!target) {
+    return character;
+  }
+  const nextLook = {
+    ...target,
+    keeperEntryIds: uniqueIds(keeperEntryIds),
+  };
+  upsertCharacter({
+    ...character,
+    looks: looks.map(look => (look.id === nextLook.id ? nextLook : look)),
+    updatedAt: Date.now(),
+  });
+  return getCharacter(characterId);
+}
+
+export function toggleLookKeeper(
+  characterId: string,
+  lookId: string,
+  entryId: string,
+  options?: { fallbackIds?: string[] }
+): CharacterRecord | undefined {
+  const character = getCharacter(characterId);
+  const id = entryId.trim();
+  if (!character || !id) {
+    return character;
+  }
+  const looks = looksOf(character);
+  const target = looks.find(look => look.id === lookId) ?? looks[0];
+  if (!target) {
+    return character;
+  }
+  const current = target.keeperEntryIds
+    ? [...target.keeperEntryIds]
+    : [...(options?.fallbackIds ?? [])];
+  const next = current.includes(id) ? current.filter(item => item !== id) : [...current, id];
+  return setLookKeepers(characterId, target.id, next);
 }
 
 export function pinLoraOnCharacter(
