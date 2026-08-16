@@ -1,6 +1,7 @@
 site_name: Prompt Studio
 site_description: Documentation for Prompt Studio
-repo_url: https://github.com/doodersrage/comfyui-prompt-studio
+site_url: https://doodersrage.github.io/llm-prompt-studio/
+repo_url: https://github.com/doodersrage/llm-prompt-studio
 edit_uri: edit/main/docs/
 
 docs_dir: docs
@@ -56,11 +57,11 @@ nav:
       - Plugin iframe host: plugin-iframe-host.md
       - Performance & scripts: performance/guide.md
   - External:
-      - Main README (GitHub): https://github.com/doodersrage/comfyui-prompt-studio/blob/main/README.md
-      - ComfyUI nodes: https://github.com/doodersrage/comfyui-prompt-studio/blob/main/comfyui/comfyui_image_prompt_tools/README.md
-      - Diffusers engine: https://github.com/doodersrage/comfyui-prompt-studio/blob/main/services/diffusers-engine/README.md
+      - Main README (GitHub): https://github.com/doodersrage/llm-prompt-studio/blob/main/README.md
+      - ComfyUI nodes: https://github.com/doodersrage/llm-prompt-studio/blob/main/comfyui/comfyui_image_prompt_tools/README.md
+      - Diffusers engine: https://github.com/doodersrage/llm-prompt-studio/blob/main/services/diffusers-engine/README.md
 
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/doodersrage/comfyui-prompt-studio
+      link: https://github.com/doodersrage/llm-prompt-studio
