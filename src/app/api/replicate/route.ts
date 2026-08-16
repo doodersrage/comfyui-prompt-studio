@@ -21,7 +21,7 @@ type ReplicateRequestBody = {
   i2vModel?: string;
   t2vModel?: string;
   tool?: string;
-  clipMode?: 't2v' | 'i2v';
+  clipMode?: 't2v' | 'i2v' | 'extend';
   replicateApiToken?: string;
   clientId?: string;
   hasInputImage?: boolean;

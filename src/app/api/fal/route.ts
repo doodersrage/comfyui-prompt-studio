@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
 import { queueFalImage } from '@/lib/fal-client';
 import {
+  DEFAULT_FAL_EXTEND_MODEL,
   DEFAULT_FAL_I2V_MODEL,
   DEFAULT_FAL_IMG2IMG_MODEL,
   DEFAULT_FAL_T2V_MODEL,
@@ -19,8 +20,10 @@ type FalRequestBody = {
   img2imgModel?: string;
   i2vModel?: string;
   t2vModel?: string;
+  extendModel?: string;
   tool?: string;
-  clipMode?: 't2v' | 'i2v';
+  clipMode?: 't2v' | 'i2v' | 'extend';
+  videoUrl?: string;
   falApiKey?: string;
   clientId?: string;
   hasInputImage?: boolean;
@@ -94,8 +97,10 @@ export async function POST(request: Request) {
       img2imgModel: body.img2imgModel?.trim() || DEFAULT_FAL_IMG2IMG_MODEL,
       i2vModel: body.i2vModel?.trim() || DEFAULT_FAL_I2V_MODEL,
       t2vModel: body.t2vModel?.trim() || DEFAULT_FAL_T2V_MODEL,
+      extendModel: body.extendModel?.trim() || DEFAULT_FAL_EXTEND_MODEL,
       tool: body.tool?.trim() || undefined,
       clipMode,
+      videoUrl: body.videoUrl?.trim() || undefined,
       durationSec,
       apiKey: body.falApiKey,
       width: toNumber(params.width, 1024),

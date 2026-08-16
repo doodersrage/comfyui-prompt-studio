@@ -94,12 +94,20 @@ import {
   shouldAutoQueueRoleplayClip,
 } from '@/lib/roleplay-film';
 import { extractVideoLastFrame } from '@/lib/video-last-frame';
+import { canFalExtendFromParentUrl } from '@/lib/video-clip-mode';
+import { loadEngineSettings } from '@/lib/engine-settings';
 import { isNsfwGeneratorEnabledClient } from '@/lib/nsfw-generator-env';
 import { downloadRoleplayStoryBundle } from '@/lib/roleplay-export';
 import { roleplayWatchPlaylist } from '@/lib/character-film';
-import { assembleAndStampFilm, downloadFilmBlob } from '@/lib/character-film-assemble';
+import {
+  assembleAndStampFilm,
+  downloadFilmBlob,
+  stampAssembledFilm,
+} from '@/lib/character-film-assemble';
 import {
   applyCharacterRecord,
+  characterFromRoleplaySession,
+  getCharacter,
   loadCharacters,
   upsertCharacterFromRoleplaySession,
 } from '@/lib/character-os';
@@ -979,9 +987,10 @@ export default function RoleplayTool() {
               parentPromptId: latest.promptId?.trim(),
               fromClip: false,
             }
-          : playAs === 'photo' && referenceImageUrl
-            ? { imageUrl: referenceImageUrl, fromClip: false }
-            : null);
+          : (lastRoleplayMotionSource(storyRef.current) ??
+            (playAs === 'photo' && referenceImageUrl
+              ? { imageUrl: referenceImageUrl, fromClip: false }
+              : null)));
       const hasInit = Boolean(source?.imageUrl);
       if (!hasInit && !latest.prompt?.trim() && !latest.blurb?.trim()) {
         setError('Write a beat prompt, or add a still, before queueing a clip.');
@@ -992,9 +1001,13 @@ export default function RoleplayTool() {
         story: patchRoleplayStoryBeat(storyRef.current, latest, { clipStatus: 'writing' }),
       });
 
+      const engine = loadEngineSettings().engine;
+      const parentClipUrl = source?.fromClip ? source.imageUrl : '';
+      const useFalExtend = engine === 'fal' && canFalExtendFromParentUrl(parentClipUrl);
+
       let inputImage: File | undefined;
-      let inputImageUrl: string | undefined = source?.imageUrl;
-      if (source?.imageUrl && looksLikeVideoUrl(source.imageUrl)) {
+      let inputImageUrl: string | undefined = useFalExtend ? undefined : source?.imageUrl;
+      if (!useFalExtend && source?.imageUrl && looksLikeVideoUrl(source.imageUrl)) {
         try {
           const blob = await extractVideoLastFrame(source.imageUrl);
           inputImage = new File([blob], 'roleplay-last-frame.jpg', {
@@ -1047,8 +1060,13 @@ export default function RoleplayTool() {
           inputImage: hasInit ? inputImage : undefined,
           inputImageUrl: hasInit ? inputImageUrl : undefined,
           parentGalleryEntryId: parentEntry?.id,
-          derivedKind: hasInit ? nextRoleplayMotionKind(parentEntry) : 't2v',
-          clipMode: hasInit ? 'i2v' : 't2v',
+          derivedKind: useFalExtend
+            ? 'extend'
+            : hasInit
+              ? nextRoleplayMotionKind(parentEntry)
+              : 't2v',
+          clipMode: useFalExtend ? 'extend' : hasInit ? 'i2v' : 't2v',
+          videoUrl: useFalExtend ? parentClipUrl : undefined,
           qualityProfile: 'final',
           queueParamsBase: { videoFrames: 64, videoFps: 16 },
           ...roleplayCharacterQueueFields(),
@@ -1155,10 +1173,14 @@ export default function RoleplayTool() {
       return;
     }
     const name = toolSettings.characterName?.trim() || bio?.name.trim() || 'roleplay';
-    const character = loadCharacters().find(entry => {
-      const labels = [entry.name, entry.characterName].map(value => value?.trim().toLowerCase());
-      return labels.includes(name.toLowerCase());
-    });
+    const session = snapshotRoleplaySession(toolSettings);
+    const fromSession = session ? characterFromRoleplaySession(session) : null;
+    const character =
+      (fromSession ? getCharacter(fromSession.id) : undefined) ||
+      loadCharacters().find(entry => {
+        const labels = [entry.name, entry.characterName].map(value => value?.trim().toLowerCase());
+        return labels.includes(name.toLowerCase());
+      });
     setAssemblingFilm(true);
     setError(null);
     setFilmStatus('Recording the cut…');
@@ -1192,7 +1214,7 @@ export default function RoleplayTool() {
     } finally {
       setAssemblingFilm(false);
     }
-  }, [bio?.name, toolSettings.characterName]);
+  }, [bio?.name, toolSettings]);
 
   const saveFilmToCast = useCallback(() => {
     const session = snapshotRoleplaySession(toolSettings);
@@ -1205,7 +1227,29 @@ export default function RoleplayTool() {
       setError('Name the character before saving to Cast.');
       return;
     }
-    setFilmStatus(`Saved ${created.name} to Cast. Cut the film again to stamp it.`);
+    saveSharedSettings({
+      ...loadSettingsCache().shared,
+      ...applyCharacterRecord(created),
+    });
+    const film = assembledFilmRef.current;
+    if (!film) {
+      setFilmStatus(`Saved ${created.name} to Cast.`);
+      return;
+    }
+    void (async () => {
+      const stamped = await stampAssembledFilm({
+        blob: new Blob([film.data.slice()]),
+        filename: film.filename,
+        characterId: created.id,
+        characterName: created.name,
+        lookId: created.activeLookId,
+      });
+      setFilmStatus(
+        stamped.persisted
+          ? `Saved ${created.name} to Cast and stamped ${film.filename}.`
+          : `Saved ${created.name} to Cast. Studio storage could not keep the film.`
+      );
+    })();
   }, [toolSettings]);
 
   const shelfAndStartNew = useCallback(
@@ -1792,7 +1836,7 @@ export default function RoleplayTool() {
             Queue a {beatOutput === 'clip' ? 'clip' : 'still'} when I write a bio or pick a scene
             <span className="mt-0.5 block text-xs text-[var(--text-muted)]">
               {beatOutput === 'clip'
-                ? 'A still becomes I2V. A text-only beat is T2V. Later beats continue from the last frame (I2V). Local WAN, Fal, or Replicate.'
+                ? 'A still becomes I2V. A text-only beat is T2V. Later beats continue from the last clip — Fal extend-video when the parent is a public Fal URL, otherwise last-frame I2V. Local WAN, Fal, or Replicate.'
                 : 'Uses the model and Fast/Good/Best from the sidebar. Turn off to write the prompt first.'}
             </span>
           </span>

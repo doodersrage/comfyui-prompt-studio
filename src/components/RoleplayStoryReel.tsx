@@ -7,6 +7,8 @@ import type { ImageLightboxState } from '@/components/ui/ImageLightbox';
 import UiIcon from '@/components/ui/UiIcon';
 import FilmWatchPlayer from '@/components/FilmWatchPlayer';
 import { roleplayWatchPlaylist } from '@/lib/character-film';
+import { canFalExtendFromParentUrl } from '@/lib/video-clip-mode';
+import { loadEngineSettings } from '@/lib/engine-settings';
 import { downloadRoleplayUrl } from '@/lib/roleplay-export';
 import {
   COMFY_LIVE_PREVIEW_UPDATED_EVENT,
@@ -466,7 +468,10 @@ export default function RoleplayStoryReel({
                         disabled={busy}
                         onClick={() => onExtend?.(beat)}
                       >
-                        Continue from last frame
+                        {canFalExtendFromParentUrl(beat.clipUrl) &&
+                        loadEngineSettings().engine === 'fal'
+                          ? 'Extend clip'
+                          : 'Continue from last frame'}
                       </Button>
                     ) : null}
                     {canCopy ? (

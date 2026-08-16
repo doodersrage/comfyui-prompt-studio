@@ -1,6 +1,7 @@
 import 'server-only';
 
 import {
+  DEFAULT_FAL_EXTEND_MODEL,
   DEFAULT_FAL_I2V_MODEL,
   DEFAULT_FAL_IMG2IMG_MODEL,
   DEFAULT_FAL_T2V_MODEL,
@@ -9,6 +10,8 @@ import {
 } from './engine/capabilities';
 import { extraCloudComposeFilenames, isFalMultiRefEditModel } from './cloud-compose-refs';
 import {
+  canFalExtendFromParentUrl,
+  falExtendQueueFields,
   falVideoDurationPayload,
   inferVideoClipMode,
   resolveFalVideoModel,
@@ -249,9 +252,11 @@ export async function queueFalImage(input: {
   img2imgModel?: string;
   i2vModel?: string;
   t2vModel?: string;
-  clipMode?: 't2v' | 'i2v';
+  extendModel?: string;
+  clipMode?: 't2v' | 'i2v' | 'extend';
   tool?: string;
   durationSec?: number;
+  videoUrl?: string;
   apiKey?: string;
   width?: number;
   height?: number;
@@ -281,6 +286,16 @@ export async function queueFalImage(input: {
     : undefined;
   const isI2v = clipMode === 'i2v';
   const isT2v = clipMode === 't2v';
+  const isExtend = clipMode === 'extend';
+  const parentVideoUrl = input.videoUrl?.trim() || '';
+  if (isExtend && !canFalExtendFromParentUrl(parentVideoUrl)) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'Cloud extend needs a public Fal clip URL.',
+      raw: {},
+    };
+  }
   if (isI2v && !hasImage) {
     return {
       ok: false,
@@ -296,21 +311,29 @@ export async function queueFalImage(input: {
           clipMode: clipMode ?? 't2v',
           i2vModel: input.i2vModel,
           t2vModel: input.t2vModel,
+          extendModel: input.extendModel,
         })
       : undefined;
     modelId = sanitizeFalModelId(
       isVideo
-        ? videoModel || (isI2v ? DEFAULT_FAL_I2V_MODEL : DEFAULT_FAL_T2V_MODEL)
+        ? videoModel ||
+            (isExtend
+              ? DEFAULT_FAL_EXTEND_MODEL
+              : isI2v
+                ? DEFAULT_FAL_I2V_MODEL
+                : DEFAULT_FAL_T2V_MODEL)
         : hasImage
           ? input.img2imgModel || DEFAULT_FAL_IMG2IMG_MODEL
           : input.model || DEFAULT_FAL_TXT2IMG_MODEL,
-      isI2v
-        ? DEFAULT_FAL_I2V_MODEL
-        : isT2v
-          ? DEFAULT_FAL_T2V_MODEL
-          : hasImage
-            ? DEFAULT_FAL_IMG2IMG_MODEL
-            : DEFAULT_FAL_TXT2IMG_MODEL
+      isExtend
+        ? DEFAULT_FAL_EXTEND_MODEL
+        : isI2v
+          ? DEFAULT_FAL_I2V_MODEL
+          : isT2v
+            ? DEFAULT_FAL_T2V_MODEL
+            : hasImage
+              ? DEFAULT_FAL_IMG2IMG_MODEL
+              : DEFAULT_FAL_TXT2IMG_MODEL
     );
   } catch (error) {
     return {
@@ -328,11 +351,17 @@ export async function queueFalImage(input: {
     enable_safety_checker: false,
     sync_mode: false,
   };
-  if (!isI2v && !isT2v) {
+  if (!isI2v && !isT2v && !isExtend) {
     body.image_size = { width, height };
     body.num_images = 1;
   }
-  if (typeof input.steps === 'number' && Number.isFinite(input.steps) && !isI2v && !isT2v) {
+  if (
+    typeof input.steps === 'number' &&
+    Number.isFinite(input.steps) &&
+    !isI2v &&
+    !isT2v &&
+    !isExtend
+  ) {
     body.num_inference_steps = Math.max(1, Math.min(50, Math.trunc(input.steps)));
   }
   if (typeof input.cfg === 'number' && Number.isFinite(input.cfg) && input.cfg > 0) {
@@ -344,7 +373,10 @@ export async function queueFalImage(input: {
   if (input.negativePrompt?.trim() && !/schnell/i.test(modelId)) {
     body.negative_prompt = input.negativePrompt.trim();
   }
-  if (hasImage && !isT2v) {
+  if (isExtend) {
+    Object.assign(body, falExtendQueueFields(parentVideoUrl, input.durationSec));
+  }
+  if (hasImage && !isT2v && !isExtend) {
     try {
       const positional = input.imageFilenames?.length
         ? input.imageFilenames

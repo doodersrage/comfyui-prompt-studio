@@ -1,18 +1,26 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  DEFAULT_FAL_EXTEND_MODEL,
   DEFAULT_FAL_I2V_MODEL,
   DEFAULT_FAL_T2V_MODEL,
   DEFAULT_REPLICATE_I2V_MODEL,
   DEFAULT_REPLICATE_T2V_MODEL,
+  FAL_EXTEND_MODEL_PRESETS,
   FAL_I2V_MODEL_PRESETS,
   FAL_T2V_MODEL_PRESETS,
+  REPLICATE_I2V_MODEL_PRESETS,
+  REPLICATE_T2V_MODEL_PRESETS,
 } from './engine/capabilities';
 import {
+  canFalExtendFromParentUrl,
+  falExtendQueueFields,
   falVideoDurationPayload,
   falVideoRequiresFirstFrame,
+  falVideoRequiresParentClip,
   inferVideoClipMode,
   normalizeVideoClipMode,
+  replicateVideoDurationPayload,
   resolveFalVideoModel,
   resolveReplicateVideoModel,
   snapFalVideoDurationSec,
@@ -22,7 +30,7 @@ describe('video clip mode', () => {
   it('normalizes aliases and defaults to T2V', () => {
     assert.equal(normalizeVideoClipMode('I2V'), 'i2v');
     assert.equal(normalizeVideoClipMode('image-to-video'), 'i2v');
-    assert.equal(normalizeVideoClipMode('extend'), 'i2v');
+    assert.equal(normalizeVideoClipMode('extend'), 'extend');
     assert.equal(normalizeVideoClipMode('continue'), 'i2v');
     assert.equal(normalizeVideoClipMode('t2v'), 't2v');
     assert.equal(normalizeVideoClipMode(''), 't2v');
@@ -32,6 +40,7 @@ describe('video clip mode', () => {
     assert.equal(inferVideoClipMode({ hasInitImage: true }), 'i2v');
     assert.equal(inferVideoClipMode({ hasInitImage: false }), 't2v');
     assert.equal(inferVideoClipMode({ clipMode: 't2v', hasInitImage: true }), 't2v');
+    assert.equal(inferVideoClipMode({ clipMode: 'extend', hasInitImage: false }), 'extend');
   });
 
   it('picks Fal T2V vs I2V model ids', () => {
@@ -52,6 +61,17 @@ describe('video clip mode', () => {
     );
     assert.equal(falVideoRequiresFirstFrame('i2v'), true);
     assert.equal(falVideoRequiresFirstFrame('t2v'), false);
+    assert.equal(falVideoRequiresFirstFrame('extend'), false);
+    assert.equal(falVideoRequiresParentClip('extend'), true);
+    assert.equal(
+      resolveFalVideoModel({ clipMode: 'extend' }),
+      DEFAULT_FAL_EXTEND_MODEL
+    );
+    assert.equal(
+      canFalExtendFromParentUrl('https://v3b.fal.media/files/clip.mp4'),
+      true
+    );
+    assert.equal(canFalExtendFromParentUrl('/api/comfyui/view?filename=clip.mp4'), false);
   });
 
   it('picks Replicate T2V vs I2V model ids', () => {
@@ -88,6 +108,8 @@ describe('video clip mode', () => {
     assert.equal(falVideoDurationPayload('xai/grok-imagine-video/v1.5/image-to-video', 5), 6);
     assert.equal(falVideoDurationPayload('fal-ai/veo3.1/image-to-video', 5), '6s');
     assert.equal(falVideoDurationPayload('fal-ai/veo3.1', 10), '8s');
+    assert.equal(falVideoDurationPayload('fal-ai/ltx-2.3/extend-video', 5), 5);
+    assert.equal(falVideoDurationPayload('fal-ai/ltx-2.3/extend-video', 10), 10);
   });
 
   it('lists documented Fal LTX, Grok Imagine, and Veo clip presets', () => {
@@ -99,5 +121,27 @@ describe('video clip mode', () => {
     assert.ok(t2v.includes('xai/grok-imagine-video/v1.5/text-to-video'));
     assert.ok(i2v.includes('fal-ai/veo3.1/image-to-video'));
     assert.ok(t2v.includes('fal-ai/veo3.1'));
+    assert.ok(FAL_EXTEND_MODEL_PRESETS.some(preset => preset.id === DEFAULT_FAL_EXTEND_MODEL));
+    assert.ok(REPLICATE_I2V_MODEL_PRESETS.some(preset => preset.id === 'lightricks/ltx-2.3-fast'));
+    assert.ok(REPLICATE_T2V_MODEL_PRESETS.some(preset => preset.id === 'lightricks/ltx-2.3-fast'));
+  });
+
+  it('builds the documented Fal LTX extend-video payload', () => {
+    assert.deepEqual(falExtendQueueFields('https://v3b.fal.media/files/clip.mp4', 5), {
+      video_url: 'https://v3b.fal.media/files/clip.mp4',
+      mode: 'end',
+      duration: 5,
+    });
+    assert.equal(falExtendQueueFields('https://v3b.fal.media/files/clip.mp4', 10).duration, 10);
+  });
+
+  it('shapes Replicate LTX duration and maps extend to I2V', () => {
+    assert.equal(replicateVideoDurationPayload('lightricks/ltx-2.3-fast', 5), 6);
+    assert.equal(replicateVideoDurationPayload('lightricks/ltx-2.3-fast', 10), 10);
+    assert.equal(replicateVideoDurationPayload('kwaivgi/kling-v3-video', 5), 5);
+    assert.equal(
+      resolveReplicateVideoModel({ clipMode: 'extend' }),
+      DEFAULT_REPLICATE_I2V_MODEL
+    );
   });
 });

@@ -57,10 +57,12 @@ import { fetchWorkflowPreview } from '@/lib/comfyui-requeue';
 import type { ComfyUiSettingsSectionId } from '@/lib/settings-comfyui-nav';
 import {
   CLOUD_ENGINE_OPTIONS,
+  DEFAULT_FAL_EXTEND_MODEL,
   DEFAULT_FAL_I2V_MODEL,
   DEFAULT_FAL_T2V_MODEL,
   DEFAULT_REPLICATE_I2V_MODEL,
   DEFAULT_REPLICATE_T2V_MODEL,
+  FAL_EXTEND_MODEL_PRESETS,
   FAL_I2V_MODEL_PRESETS,
   FAL_T2V_MODEL_PRESETS,
   REPLICATE_I2V_MODEL_PRESETS,
@@ -469,6 +471,36 @@ export default function SettingsComfyUiTab({
                     </datalist>
                   </div>
                 ) : null}
+                {option.id === 'fal' ? (
+                  <div className="space-y-1 sm:col-span-2">
+                    <label
+                      htmlFor="fal-extend-model"
+                      className="text-xs text-[var(--text-secondary)]"
+                    >
+                      Fal extend-video model
+                    </label>
+                    <input
+                      id="fal-extend-model"
+                      list="fal-extend-model-presets"
+                      value={sharedSettings.falExtendModel ?? ''}
+                      onChange={event =>
+                        updateSharedSettings({
+                          falExtendModel: event.target.value,
+                        })
+                      }
+                      placeholder={DEFAULT_FAL_EXTEND_MODEL}
+                      disabled={!active}
+                      className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 text-sm text-[var(--text-primary)] shadow-inner transition focus-visible:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                    <datalist id="fal-extend-model-presets">
+                      {FAL_EXTEND_MODEL_PRESETS.map(preset => (
+                        <option key={preset.id} value={preset.id}>
+                          {preset.label}
+                        </option>
+                      ))}
+                    </datalist>
+                  </div>
+                ) : null}
                 {option.id === 'replicate' ? (
                   <div className="space-y-1 sm:col-span-2">
                     <label
@@ -543,8 +575,10 @@ export default function SettingsComfyUiTab({
           <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
             prompt + optional Image 1
           </code>
-          . Clips queue on Fal (Kling, WAN, LTX 2.3, Grok Imagine, Veo), Replicate, or local WAN/LTX
-          — OpenAI, Gemini, and Grok engines stay stills. Stills go through{' '}
+          . Clips queue on Fal (Kling, WAN, LTX 2.3, Grok Imagine, Veo), Replicate (Kling, WAN, LTX
+          2.3), or local WAN/LTX. Fal can extend a public Fal clip with LTX 2.3 extend-video —
+          otherwise continue is last-frame I2V. OpenAI, Gemini, and Grok engines stay stills — Veo
+          and Grok Imagine video are Fal presets, not those engines. Stills go through{' '}
           <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
             /api/fal
           </code>

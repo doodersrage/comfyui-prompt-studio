@@ -10,6 +10,7 @@ export const DEFAULT_FAL_TXT2IMG_MODEL = 'fal-ai/flux/schnell';
 export const DEFAULT_FAL_IMG2IMG_MODEL = 'fal-ai/flux/dev/image-to-image';
 export const DEFAULT_FAL_I2V_MODEL = 'fal-ai/kling-video/v2.1/standard/image-to-video';
 export const DEFAULT_FAL_T2V_MODEL = 'fal-ai/kling-video/v2.1/standard/text-to-video';
+export const DEFAULT_FAL_EXTEND_MODEL = 'fal-ai/ltx-2.3/extend-video';
 export const DEFAULT_REPLICATE_TXT2IMG_MODEL = 'black-forest-labs/flux-schnell';
 export const DEFAULT_REPLICATE_IMG2IMG_MODEL = 'black-forest-labs/flux-dev';
 export const DEFAULT_REPLICATE_I2V_MODEL = 'kwaivgi/kling-v3-video';
@@ -53,6 +54,10 @@ export const FAL_T2V_MODEL_PRESETS = [
   { id: 'fal-ai/veo3.1', label: 'Veo 3.1 text-to-video' },
 ] as const;
 
+export const FAL_EXTEND_MODEL_PRESETS = [
+  { id: 'fal-ai/ltx-2.3/extend-video', label: 'LTX 2.3 extend video' },
+] as const;
+
 export const REPLICATE_MODEL_PRESETS = [
   { id: 'black-forest-labs/flux-schnell', label: 'FLUX Schnell (fast txt2img)' },
   { id: 'black-forest-labs/flux-dev', label: 'FLUX Dev (txt2img / img2img)' },
@@ -65,12 +70,14 @@ export const REPLICATE_I2V_MODEL_PRESETS = [
   { id: 'wan-video/wan-2.2-i2v-fast', label: 'WAN 2.2 image-to-video (fast)' },
   { id: 'wan-video/wan-2.2-i2v-a14b', label: 'WAN 2.2 image-to-video A14B' },
   { id: 'wan-video/wan-2.5-i2v-fast', label: 'WAN 2.5 image-to-video (fast)' },
+  { id: 'lightricks/ltx-2.3-fast', label: 'LTX 2.3 image-to-video (fast)' },
 ] as const;
 
 export const REPLICATE_T2V_MODEL_PRESETS = [
   { id: 'kwaivgi/kling-v3-video', label: 'Kling 3.0 (T2V / I2V)' },
   { id: 'wan-video/wan-2.2-t2v-fast', label: 'WAN 2.2 text-to-video (fast)' },
   { id: 'wan-video/wan-2.5-t2v-fast', label: 'WAN 2.5 text-to-video (fast)' },
+  { id: 'lightricks/ltx-2.3-fast', label: 'LTX 2.3 text-to-video (fast)' },
 ] as const;
 
 export const OPENAI_MODEL_PRESETS = [

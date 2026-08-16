@@ -498,8 +498,10 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         /** Override the hook tool for this queue (Roleplay → video I2V). */
         queueTool?: string;
         queueModel?: import('@/lib/comfy-models/client').ComfyImageModel;
-        /** Video T2V vs I2V — Fal T2V does not need a first frame. */
+        /** Video T2V vs I2V vs documented Fal extend. */
         clipMode?: import('@/lib/video-clip-mode').VideoClipMode;
+        /** Public Fal clip URL for clipMode extend. */
+        videoUrl?: string;
       }
     ) => {
       if (!prompt) {
@@ -762,7 +764,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           inputImageFilename = inputImageFilenames[0];
         }
 
-        const { inferVideoClipMode, falVideoRequiresFirstFrame } =
+        const { inferVideoClipMode, falVideoRequiresFirstFrame, falVideoRequiresParentClip } =
           await import('@/lib/video-clip-mode');
         const clipMode =
           effectiveTool === 'video'
@@ -771,12 +773,16 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
                 hasInitImage: Boolean(inputImageFilename),
               })
             : undefined;
+        const parentVideoUrl = options?.videoUrl?.trim() || '';
 
         if (cloudEngine && effectiveTool === 'video') {
           if (engineAdapter.id !== 'fal' && engineAdapter.id !== 'replicate') {
             throw new Error(
               `${engineDisplayName(engineAdapter.id)} cannot queue clips. Switch the inference engine to Fal, Replicate, or local WAN.`
             );
+          }
+          if (falVideoRequiresParentClip(clipMode ?? 't2v') && !parentVideoUrl) {
+            throw new Error('Cloud extend needs a public Fal clip URL.');
           }
           if (falVideoRequiresFirstFrame(clipMode ?? 't2v') && !inputImageFilename) {
             throw new Error('Cloud image-to-video needs a first frame.');
@@ -1026,7 +1032,8 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           negativePrompt,
           model: cloudEngine
             ? resolveCloudQueueModel(engineAdapter.id, effectiveTool, {
-                hasInputImage: Boolean(inputImageFilename) && clipMode !== 't2v',
+                hasInputImage:
+                  Boolean(inputImageFilename) && clipMode !== 't2v' && clipMode !== 'extend',
                 clipMode,
               })
             : queueModel,
@@ -1035,11 +1042,15 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           ...(cloudEngine
             ? {
                 ...resolveCloudQueueExtras(engineAdapter.id, {
-                  hasInputImage: Boolean(inputImageFilename) && clipMode !== 't2v',
-                  inputImageFilename: clipMode === 't2v' ? undefined : inputImageFilename,
-                  inputImageFilenames: clipMode === 't2v' ? undefined : inputImageFilenames,
+                  hasInputImage:
+                    Boolean(inputImageFilename) && clipMode !== 't2v' && clipMode !== 'extend',
+                  inputImageFilename:
+                    clipMode === 't2v' || clipMode === 'extend' ? undefined : inputImageFilename,
+                  inputImageFilenames:
+                    clipMode === 't2v' || clipMode === 'extend' ? undefined : inputImageFilenames,
                   tool: effectiveTool,
                   clipMode,
+                  videoUrl: clipMode === 'extend' ? parentVideoUrl : undefined,
                 }),
                 qualityProfile: effectiveQualityProfile,
               }
@@ -1139,7 +1150,8 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             queueQualityProfile: runtime?.queueQualityProfile ?? effectiveQualityProfile,
             model: cloudEngine
               ? resolveCloudQueueModel(engineAdapter.id, effectiveTool, {
-                  hasInputImage: Boolean(inputImageFilename) && clipMode !== 't2v',
+                  hasInputImage:
+                    Boolean(inputImageFilename) && clipMode !== 't2v' && clipMode !== 'extend',
                   clipMode,
                 })
               : queueModel,

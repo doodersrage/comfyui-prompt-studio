@@ -433,6 +433,8 @@ export type SharedToolSettings = {
   falI2vModel?: string;
   /** Fal text-to-video model when Video queues a clip without a first frame. */
   falT2vModel?: string;
+  /** Fal extend-video model when Roleplay continues an https Fal clip. */
+  falExtendModel?: string;
   /** Session Fal API key. Stored in this browser only; server `FAL_KEY` is the fallback. */
   sessionFalApiKey?: string;
   /** Replicate txt2img model id (e.g. black-forest-labs/flux-schnell). */

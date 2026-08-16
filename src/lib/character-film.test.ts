@@ -2,12 +2,14 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   addStillToFilmCut,
+  canStampAssembledFilm,
   clampStillHoldSec,
   defaultFilmCut,
   filmDownloadFilename,
   isAssembledFilmEntry,
   isFilmSourceClip,
   isFilmSourceStill,
+  MAX_GALLERY_FILM_BYTES,
   moveFilmCutItem,
   normalizeFilmCut,
   resolveFilmPlaylist,
@@ -149,5 +151,12 @@ describe('character-film', () => {
     assert.equal(playlist[0]?.url, 'http://local/clip.mp4');
     assert.equal(playlist[1]?.kind, 'still');
     assert.equal(playlist[1]?.holdSec, 3);
+  });
+
+  it('stamps an already-cut film blob without requiring a new assemble', () => {
+    assert.equal(canStampAssembledFilm(1), true);
+    assert.equal(canStampAssembledFilm(MAX_GALLERY_FILM_BYTES), true);
+    assert.equal(canStampAssembledFilm(0), false);
+    assert.equal(canStampAssembledFilm(MAX_GALLERY_FILM_BYTES + 1), false);
   });
 });

@@ -9,8 +9,8 @@ import {
 } from './engine/capabilities';
 import {
   inferVideoClipMode,
+  replicateVideoDurationPayload,
   resolveReplicateVideoModel,
-  snapFalVideoDurationSec,
 } from './video-clip-mode';
 import {
   aspectRatioFromSize,
@@ -238,7 +238,7 @@ export async function queueReplicateImage(input: {
   img2imgModel?: string;
   i2vModel?: string;
   t2vModel?: string;
-  clipMode?: 't2v' | 'i2v';
+  clipMode?: 't2v' | 'i2v' | 'extend';
   tool?: string;
   durationSec?: number;
   apiToken?: string;
@@ -333,9 +333,8 @@ export async function queueReplicateImage(input: {
     replicateInput.negative_prompt = input.negativePrompt.trim();
   }
   if (isI2v || isT2v) {
-    const seconds = snapFalVideoDurationSec(input.durationSec);
-    if (/kling/i.test(modelId)) {
-      replicateInput.duration = seconds;
+    if (/kling/i.test(modelId) || /ltx/i.test(modelId)) {
+      replicateInput.duration = replicateVideoDurationPayload(modelId, input.durationSec);
     }
   }
   if (hasImage && !isT2v) {

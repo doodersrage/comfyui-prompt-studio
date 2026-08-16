@@ -3,8 +3,11 @@ import { describe, it } from 'node:test';
 import {
   engineDisplayName,
   engineUsesComfyGraph,
+  GEMINI_MODEL_PRESETS,
+  GROK_MODEL_PRESETS,
   isCloudEngine,
   normalizeEngineId,
+  OPENAI_MODEL_PRESETS,
   parseEngineId,
 } from './engine/capabilities';
 import {
@@ -47,6 +50,16 @@ describe('engine capabilities', () => {
     assert.equal(engineDisplayName('openai'), 'ChatGPT');
     assert.equal(engineDisplayName('gemini'), 'Gemini');
     assert.equal(engineDisplayName('grok'), 'Grok');
+  });
+
+  it('keeps OpenAI, Gemini, and Grok engines as stills', () => {
+    const ids = [...OPENAI_MODEL_PRESETS, ...GEMINI_MODEL_PRESETS, ...GROK_MODEL_PRESETS].map(
+      preset => preset.id
+    );
+    assert.equal(
+      ids.some(id => /video|veo|sora|imagine-video/i.test(id)),
+      false
+    );
   });
 });
 

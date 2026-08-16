@@ -5,8 +5,8 @@
 import { addComfyGalleryEntry } from './comfyui-gallery';
 import { loadComfyUiSettings } from './comfyui-settings';
 import {
+  canStampAssembledFilm,
   filmDownloadFilename,
-  MAX_GALLERY_FILM_BYTES,
   type FilmPlaylistShot,
 } from './character-film';
 import { persistGalleryOriginal } from './gallery-media-client';
@@ -284,30 +284,25 @@ export function downloadFilmBlob(blob: Blob, filename: string): void {
   triggerDownload(blob, filename);
 }
 
-export async function assembleAndStampFilm(input: {
-  shots: FilmPlaylistShot[];
+export async function stampAssembledFilm(input: {
+  blob: Blob;
+  filename: string;
   characterId: string;
   characterName: string;
   lookId?: string;
+  mimeType?: string;
   onProgress?: (progress: AssembleFilmProgress) => void;
-}): Promise<{
-  filename: string;
-  blob: Blob;
-  persisted: boolean;
-  entryId?: string;
-}> {
-  const assembled = await assembleFilmBlob(input.shots, { onProgress: input.onProgress });
-  const filename = filmDownloadFilename(input.characterName, assembled.extension);
-  if (assembled.blob.size > MAX_GALLERY_FILM_BYTES) {
-    return { filename, blob: assembled.blob, persisted: false };
+}): Promise<{ persisted: boolean; entryId?: string }> {
+  if (!canStampAssembledFilm(input.blob.size)) {
+    return { persisted: false };
   }
-
   const id = crypto.randomUUID();
-  const file = new File([assembled.blob], filename, { type: assembled.mimeType });
+  const mimeType = input.mimeType || input.blob.type || 'video/webm';
+  const file = new File([input.blob], input.filename, { type: mimeType });
   input.onProgress?.({ ratio: 1, label: 'Saving film to gallery' });
   const persisted = await persistGalleryOriginal(id, file);
   if (!persisted || persisted.skipped || !persisted.originalPath || !persisted.originalUrl) {
-    return { filename, blob: assembled.blob, persisted: false };
+    return { persisted: false };
   }
 
   const settings = loadComfyUiSettings();
@@ -324,10 +319,10 @@ export async function assembleAndStampFilm(input: {
     completedAt: Date.now(),
     images: [
       {
-        filename,
+        filename: input.filename,
         subfolder: '',
         type: 'output',
-        format: assembled.mimeType,
+        format: mimeType,
       },
     ],
     durableOriginalPath: persisted.originalPath,
@@ -336,5 +331,31 @@ export async function assembleAndStampFilm(input: {
     userTags: ['film'],
   });
 
-  return { filename, blob: assembled.blob, persisted: true, entryId: id };
+  return { persisted: true, entryId: id };
+}
+
+export async function assembleAndStampFilm(input: {
+  shots: FilmPlaylistShot[];
+  characterId: string;
+  characterName: string;
+  lookId?: string;
+  onProgress?: (progress: AssembleFilmProgress) => void;
+}): Promise<{
+  filename: string;
+  blob: Blob;
+  persisted: boolean;
+  entryId?: string;
+}> {
+  const assembled = await assembleFilmBlob(input.shots, { onProgress: input.onProgress });
+  const filename = filmDownloadFilename(input.characterName, assembled.extension);
+  const stamped = await stampAssembledFilm({
+    blob: assembled.blob,
+    filename,
+    characterId: input.characterId,
+    characterName: input.characterName,
+    lookId: input.lookId,
+    mimeType: assembled.mimeType,
+    onProgress: input.onProgress,
+  });
+  return { filename, blob: assembled.blob, ...stamped };
 }

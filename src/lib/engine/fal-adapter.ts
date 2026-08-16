@@ -47,8 +47,18 @@ export const falEngineAdapter: EngineAdapter = {
       img2imgModel: settings.falImg2ImgModel,
       i2vModel: (typeof body.i2vModel === 'string' && body.i2vModel.trim()) || settings.falI2vModel,
       t2vModel: (typeof body.t2vModel === 'string' && body.t2vModel.trim()) || settings.falT2vModel,
+      extendModel:
+        (typeof body.extendModel === 'string' && body.extendModel.trim()) ||
+        settings.falExtendModel,
       tool: typeof body.tool === 'string' ? body.tool : undefined,
-      clipMode: body.clipMode === 't2v' || body.clipMode === 'i2v' ? body.clipMode : undefined,
+      clipMode:
+        body.clipMode === 't2v' || body.clipMode === 'i2v' || body.clipMode === 'extend'
+          ? body.clipMode
+          : undefined,
+      videoUrl:
+        typeof body.videoUrl === 'string' && body.videoUrl.trim()
+          ? body.videoUrl.trim()
+          : undefined,
       falApiKey,
       clientId,
       hasInputImage: body.hasInputImage === true,

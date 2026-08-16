@@ -51,7 +51,10 @@ export const replicateEngineAdapter: EngineAdapter = {
       t2vModel:
         (typeof body.t2vModel === 'string' && body.t2vModel.trim()) || settings.replicateT2vModel,
       tool: typeof body.tool === 'string' ? body.tool : undefined,
-      clipMode: body.clipMode === 't2v' || body.clipMode === 'i2v' ? body.clipMode : undefined,
+      clipMode:
+        body.clipMode === 't2v' || body.clipMode === 'i2v' || body.clipMode === 'extend'
+          ? body.clipMode
+          : undefined,
       replicateApiToken,
       clientId,
       hasInputImage: body.hasInputImage === true,

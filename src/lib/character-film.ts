@@ -12,6 +12,11 @@ export const MIN_STILL_HOLD_SEC = 0.5;
 export const MAX_STILL_HOLD_SEC = 12;
 export const MAX_GALLERY_FILM_BYTES = 80 * 1024 * 1024;
 
+/** Save-to-Cast can stamp an already-cut blob; it must not re-encode the timeline. */
+export function canStampAssembledFilm(size: number): boolean {
+  return Number.isFinite(size) && size > 0 && size <= MAX_GALLERY_FILM_BYTES;
+}
+
 export type CharacterFilmCutItem = {
   entryId: string;
   included: boolean;

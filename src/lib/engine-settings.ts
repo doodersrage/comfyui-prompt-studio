@@ -5,6 +5,7 @@ import type { EngineId } from './engine/types';
 import {
   CLOUD_ENGINE_IDS,
   CLOUD_ENGINE_OPTIONS,
+  DEFAULT_FAL_EXTEND_MODEL,
   DEFAULT_FAL_I2V_MODEL,
   DEFAULT_FAL_T2V_MODEL,
   DEFAULT_REPLICATE_I2V_MODEL,
@@ -34,6 +35,7 @@ export type EngineSettings = {
   falImg2ImgModel: string;
   falI2vModel: string;
   falT2vModel: string;
+  falExtendModel: string;
   replicateModel: string;
   replicateImg2ImgModel: string;
   replicateI2vModel: string;
@@ -102,6 +104,7 @@ function cloudModelsFromEnv(): Pick<
   | 'falImg2ImgModel'
   | 'falI2vModel'
   | 'falT2vModel'
+  | 'falExtendModel'
   | 'replicateModel'
   | 'replicateImg2ImgModel'
   | 'replicateI2vModel'
@@ -118,6 +121,10 @@ function cloudModelsFromEnv(): Pick<
     falImg2ImgModel: envCloudImg2Img('fal'),
     falI2vModel: envOr(['NEXT_PUBLIC_FAL_I2V_MODEL', 'FAL_I2V_MODEL'], DEFAULT_FAL_I2V_MODEL),
     falT2vModel: envOr(['NEXT_PUBLIC_FAL_T2V_MODEL', 'FAL_T2V_MODEL'], DEFAULT_FAL_T2V_MODEL),
+    falExtendModel: envOr(
+      ['NEXT_PUBLIC_FAL_EXTEND_MODEL', 'FAL_EXTEND_MODEL'],
+      DEFAULT_FAL_EXTEND_MODEL
+    ),
     replicateModel: envCloudTxt2Img('replicate'),
     replicateImg2ImgModel: envCloudImg2Img('replicate'),
     replicateI2vModel: envOr(
@@ -144,6 +151,7 @@ function cloudModelsFromShared(shared: SharedToolSettings): ReturnType<typeof cl
     falImg2ImgModel: shared.falImg2ImgModel?.trim() || fromEnv.falImg2ImgModel,
     falI2vModel: shared.falI2vModel?.trim() || fromEnv.falI2vModel,
     falT2vModel: shared.falT2vModel?.trim() || fromEnv.falT2vModel,
+    falExtendModel: shared.falExtendModel?.trim() || fromEnv.falExtendModel,
     replicateModel: shared.replicateModel?.trim() || fromEnv.replicateModel,
     replicateImg2ImgModel: shared.replicateImg2ImgModel?.trim() || fromEnv.replicateImg2ImgModel,
     replicateI2vModel: shared.replicateI2vModel?.trim() || fromEnv.replicateI2vModel,
@@ -201,6 +209,7 @@ export function saveEngineSettings(patch: Partial<EngineSettings>): EngineSettin
     falImg2ImgModel: next.falImg2ImgModel,
     falI2vModel: next.falI2vModel,
     falT2vModel: next.falT2vModel,
+    falExtendModel: next.falExtendModel,
     replicateModel: next.replicateModel,
     replicateImg2ImgModel: next.replicateImg2ImgModel,
     replicateI2vModel: next.replicateI2vModel,
@@ -247,6 +256,7 @@ export function resolveCloudQueueModel(
       clipMode,
       i2vModel: settings.falI2vModel,
       t2vModel: settings.falT2vModel,
+      extendModel: settings.falExtendModel,
     });
   }
   return resolveCloudTxt2ImgModel(engine);
@@ -260,6 +270,7 @@ export function resolveCloudQueueExtras(
     inputImageFilenames?: string[];
     tool?: string;
     clipMode?: VideoClipMode;
+    videoUrl?: string;
   }
 ): Record<string, unknown> {
   const shared = loadSettingsCache().shared;
@@ -280,6 +291,7 @@ export function resolveCloudQueueExtras(
       : {}),
     tool: input?.tool,
     ...(clipMode ? { clipMode } : {}),
+    ...(input?.videoUrl?.trim() ? { videoUrl: input.videoUrl.trim() } : {}),
   };
   if (!option) {
     return common;
@@ -292,6 +304,7 @@ export function resolveCloudQueueExtras(
       ? {
           i2vModel: settings.falI2vModel || DEFAULT_FAL_I2V_MODEL,
           t2vModel: settings.falT2vModel || DEFAULT_FAL_T2V_MODEL,
+          extendModel: settings.falExtendModel || DEFAULT_FAL_EXTEND_MODEL,
         }
       : {}),
     ...(engine === 'replicate'
