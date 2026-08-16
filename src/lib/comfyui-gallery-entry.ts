@@ -27,7 +27,8 @@ export type ComfyGalleryEntry = {
     | 'face-detail'
     | 'controlnet'
     | 'i2v'
-    | 'extend';
+    | 'extend'
+    | 'film';
   /** Resolved queue params (seed, width, cfg, etc.). */
   queueParams?: WorkflowParamValues;
   /**

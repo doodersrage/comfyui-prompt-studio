@@ -86,6 +86,7 @@ type PersistJsonBody = {
 };
 
 const MAX_GALLERY_UPLOAD_BYTES = 25 * 1024 * 1024;
+const MAX_GALLERY_FILM_BYTES = 80 * 1024 * 1024;
 
 async function persistUploadedOriginal(request: Request, form: FormData): Promise<NextResponse> {
   const userId = resolveMediaUserId(request);
@@ -98,17 +99,25 @@ async function persistUploadedOriginal(request: Request, form: FormData): Promis
   }
   const file = form.get('file');
   if (!(file instanceof Blob) || file.size === 0) {
-    return apiError('Image file is required.', 400);
-  }
-  if (file.size > MAX_GALLERY_UPLOAD_BYTES) {
-    return apiError('Image is too large (max 25MB).', 413);
+    return apiError('File is required.', 400);
   }
   const filename =
     (typeof form.get('filename') === 'string' && form.get('filename')?.toString().trim()) ||
     (file instanceof File ? file.name : 'upload.png');
   const contentType = file.type || 'application/octet-stream';
-  if (!contentType.startsWith('image/') && !/\.(jpe?g|png|webp|gif)$/i.test(filename)) {
-    return apiError('Only image files can be added to the gallery.', 400);
+  const isVideo = contentType.startsWith('video/') || /\.(mp4|webm|mov)$/i.test(filename);
+  const isImage =
+    (contentType.startsWith('image/') && contentType !== 'image/svg+xml') ||
+    /\.(jpe?g|png|webp|gif)$/i.test(filename);
+  if (!isVideo && !isImage) {
+    return apiError('Only image or video files can be added to the gallery.', 400);
+  }
+  const maxBytes = isVideo ? MAX_GALLERY_FILM_BYTES : MAX_GALLERY_UPLOAD_BYTES;
+  if (file.size > maxBytes) {
+    return apiError(
+      isVideo ? 'Film is too large (max 80MB).' : 'Image is too large (max 25MB).',
+      413
+    );
   }
   const buffer = Buffer.from(await file.arrayBuffer());
   const original = persistGalleryOriginalFile({
@@ -118,6 +127,13 @@ async function persistUploadedOriginal(request: Request, form: FormData): Promis
     contentType,
     filename,
   });
+  if (isVideo) {
+    return apiJson({
+      url: `/api/gallery/media/${encodeURIComponent(entryId)}?variant=original`,
+      originalUrl: `/api/gallery/media/${encodeURIComponent(entryId)}?variant=original`,
+      originalPath: original.relativePath,
+    });
+  }
   const thumb = await encodeThumbWebp(buffer);
   const storedThumb = persistGalleryThumbFile({ userId, entryId, buffer: thumb });
   return apiJson({

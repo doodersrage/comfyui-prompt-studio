@@ -125,7 +125,8 @@ export function parseGalleryUrlState(params: URLSearchParams): GalleryUrlState {
     derivedKind === 'face-detail' ||
     derivedKind === 'controlnet' ||
     derivedKind === 'i2v' ||
-    derivedKind === 'extend'
+    derivedKind === 'extend' ||
+    derivedKind === 'film'
   ) {
     filter.derivedKind = derivedKind;
   }

@@ -5,6 +5,8 @@ import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'reac
 import { Button, Spinner } from '@/components/ui/Button';
 import type { ImageLightboxState } from '@/components/ui/ImageLightbox';
 import UiIcon from '@/components/ui/UiIcon';
+import FilmWatchPlayer from '@/components/FilmWatchPlayer';
+import { roleplayWatchPlaylist } from '@/lib/character-film';
 import { downloadRoleplayUrl } from '@/lib/roleplay-export';
 import {
   COMFY_LIVE_PREVIEW_UPDATED_EVENT,
@@ -267,6 +269,8 @@ export default function RoleplayStoryReel({
     return () => window.removeEventListener(COMFY_LIVE_PREVIEW_UPDATED_EVENT, refresh);
   }, [promptKey]);
 
+  const watchPlaylist = useMemo(() => roleplayWatchPlaylist(story), [story]);
+
   const playlist = useMemo(() => {
     return story.flatMap(beat => {
       const liveUrl = beat.promptId ? (liveUrls[beat.promptId] ?? null) : null;
@@ -365,6 +369,14 @@ export default function RoleplayStoryReel({
             : null
         }
       />
+      {watchPlaylist.length > 0 ? (
+        <div className="space-y-2">
+          <p className="type-caption text-[var(--text-muted)]">
+            Watch plays completed clips in beat order. Stills hold when a clip is not ready.
+          </p>
+          <FilmWatchPlayer shots={watchPlaylist} />
+        </div>
+      ) : null}
       <ol className="grid gap-4 sm:grid-cols-2">
         {story.map((beat, index) => {
           const liveUrl = beat.promptId ? (liveUrls[beat.promptId] ?? null) : null;

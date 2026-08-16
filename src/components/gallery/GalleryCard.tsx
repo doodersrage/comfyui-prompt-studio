@@ -1315,9 +1315,25 @@ export default function GalleryCard({
                             }}
                           />
                         ) : null}
+                        {entry.derivedKind === 'film' &&
+                        entry.characterId &&
+                        entry.status === 'completed' ? (
+                          <GalleryMenuButton
+                            label="Open film on character"
+                            onClick={() => {
+                              const characterId = entry.characterId?.trim();
+                              if (!characterId) {
+                                return;
+                              }
+                              router.push(`/characters/${encodeURIComponent(characterId)}`);
+                              setMenuOpen(false);
+                            }}
+                          />
+                        ) : null}
                         {(isVideoHero ||
                           entry.derivedKind === 'i2v' ||
                           entry.derivedKind === 'extend') &&
+                        entry.derivedKind !== 'film' &&
                         entry.status === 'completed' ? (
                           <GalleryMenuButton
                             label="Extend this clip"

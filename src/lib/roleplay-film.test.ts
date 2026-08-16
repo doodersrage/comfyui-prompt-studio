@@ -72,6 +72,7 @@ describe('roleplay-film', () => {
     assert.equal(looksLikeVideoUrl('http://local/clip.mp4'), true);
     assert.equal(looksLikeVideoUrl('http://local/still.png'), false);
     assert.equal(isGalleryClipEntry({ derivedKind: 'extend', tool: 'video' }), true);
+    assert.equal(isGalleryClipEntry({ derivedKind: 'film', tool: 'roleplay' }), true);
     assert.equal(isGalleryClipEntry({ tool: 'character', mediaKind: 'image' }), false);
   });
 });

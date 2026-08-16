@@ -8,6 +8,7 @@ import {
   readBrowserValue,
   writeBrowserValue,
 } from './browser-storage';
+import type { CharacterFilmCut } from './character-film';
 import type { CharacterIdentityBundle } from './character-identity-bundle';
 import {
   applyCharacterIdentityBundle,
@@ -69,6 +70,8 @@ export type CharacterRecord = {
   content?: RoleplayContentId;
   playAs?: RoleplayPlayAs;
   notes?: string;
+  /** Watch/cut list for assembling a film from this character's clips and stills. */
+  filmCut?: CharacterFilmCut;
 };
 
 export type CharacterLook = {
@@ -543,6 +546,7 @@ export function upsertCharacterFromRoleplaySession(
       looks: looksOf(prev),
       loraLibraryIds: prev.loraLibraryIds,
       loraTriggerPhrases: prev.loraTriggerPhrases,
+      filmCut: prev.filmCut,
     });
     return getCharacter(prev.id);
   }
@@ -574,6 +578,7 @@ function mergeCharacterUpdate(prev: CharacterRecord, incoming: CharacterRecord):
       looks: incoming.looks,
       loraLibraryIds: incoming.loraLibraryIds ?? prev.loraLibraryIds,
       loraTriggerPhrases: incoming.loraTriggerPhrases ?? prev.loraTriggerPhrases,
+      filmCut: incoming.filmCut ?? prev.filmCut,
     });
   }
 
@@ -590,6 +595,7 @@ function mergeCharacterUpdate(prev: CharacterRecord, incoming: CharacterRecord):
     activeLookId: nextLook.id,
     loraLibraryIds: incoming.loraLibraryIds ?? prev.loraLibraryIds,
     loraTriggerPhrases: incoming.loraTriggerPhrases ?? prev.loraTriggerPhrases,
+    filmCut: incoming.filmCut ?? prev.filmCut,
   });
 }
 
@@ -714,6 +720,26 @@ export function pinLoraOnCharacter(
     ...character,
     looks: looksOf(character),
     loraLibraryIds: uniqueIds([...(character.loraLibraryIds ?? []), id]),
+    updatedAt: Date.now(),
+  });
+  return getCharacter(characterId);
+}
+
+export function saveCharacterFilmCut(
+  characterId: string,
+  filmCut: CharacterFilmCut
+): CharacterRecord | undefined {
+  const character = getCharacter(characterId);
+  if (!character) {
+    return undefined;
+  }
+  upsertCharacter({
+    ...character,
+    looks: looksOf(character),
+    filmCut: {
+      ...filmCut,
+      updatedAt: Date.now(),
+    },
     updatedAt: Date.now(),
   });
   return getCharacter(characterId);

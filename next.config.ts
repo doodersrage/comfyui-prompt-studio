@@ -47,7 +47,7 @@ const baseConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ['@tanstack/react-virtual', '@xyflow/react'],
     serverActions: {
-      bodySizeLimit: '32mb',
+      bodySizeLimit: '80mb',
     },
     optimizeCss: true,
   },

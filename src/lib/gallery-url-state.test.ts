@@ -39,7 +39,7 @@ describe('gallery-url-state', () => {
         duplicatesOnly: true,
         needsVisionReview: true,
         userTag: 'keeper',
-        derivedKind: 'upscale',
+        derivedKind: 'film',
         characterId: 'char-rin',
         visionTagsOnly: true,
       },
@@ -53,7 +53,7 @@ describe('gallery-url-state', () => {
     assert.equal(parsed.filter.duplicatesOnly, true);
     assert.equal(parsed.filter.needsVisionReview, true);
     assert.equal(parsed.filter.userTag, 'keeper');
-    assert.equal(parsed.filter.derivedKind, 'upscale');
+    assert.equal(parsed.filter.derivedKind, 'film');
     assert.equal(parsed.filter.characterId, 'char-rin');
     assert.equal(parsed.filter.visionTagsOnly, true);
     assert.equal(parsed.sort, 'eviction-risk-desc');

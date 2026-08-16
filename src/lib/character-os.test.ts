@@ -42,6 +42,19 @@ describe('character-os', () => {
     assert.equal(back.loraTriggerPhrases?.[0], 'rinstyle');
   });
 
+  it('keeps a film cut on the character record', () => {
+    const character = normalizeCharacterRecord({
+      ...characterFromBundle(bundle, 'char-rin'),
+      filmCut: {
+        items: [{ entryId: 'g1', included: true }],
+        stillHoldSec: 3,
+        updatedAt: 1,
+      },
+    });
+    assert.equal(character.filmCut?.items[0]?.entryId, 'g1');
+    assert.equal(character.filmCut?.stillHoldSec, 3);
+  });
+
   it('applies a character onto shared session fields including activeCharacterId', () => {
     const patch = applyCharacterRecord(characterFromBundle(bundle, 'char-rin'));
     assert.equal(patch.activeCharacterId, 'char-rin');

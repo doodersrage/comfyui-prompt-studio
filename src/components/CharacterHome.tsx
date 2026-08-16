@@ -3,6 +3,7 @@
 import { useMemo, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import CharacterFilmStudio from '@/components/CharacterFilmStudio';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { FieldLabel } from '@/components/ui/Field';
 import { EmptyState } from '@/components/ui/ViewState';
@@ -14,6 +15,7 @@ import {
   ToolSection,
 } from '@/components/ui/ToolPageShell';
 import { BROWSER_STORAGE_HEALTH_EVENT } from '@/lib/browser-storage';
+import { isAssembledFilmEntry } from '@/lib/character-film';
 import {
   activateLook,
   addLookFromShared,
@@ -159,7 +161,7 @@ export default function CharacterHome({ characterId }: CharacterHomeProps) {
       title={character.name}
       description={
         character.descriptor?.trim() ||
-        'Looks, stills, clips, and the LoRA flywheel for this character.'
+        'Looks, stills, clips, the film cut, and the LoRA flywheel for this character.'
       }
     >
       <ToolActionRow>
@@ -366,6 +368,14 @@ export default function CharacterHome({ characterId }: CharacterHomeProps) {
         {exportStatus ? <p className="type-caption">{exportStatus}</p> : null}
       </ToolSection>
 
+      <CharacterFilmStudio
+        characterId={character.id}
+        characterName={character.name}
+        lookId={character.activeLookId}
+        filmCut={character.filmCut}
+        entries={entries}
+      />
+
       <ToolSection
         title="Media"
         description={
@@ -468,7 +478,7 @@ function CharacterMediaTile({
           </Link>
         )}
         <p className="type-caption truncate px-2 py-1 text-[var(--text-muted)]">
-          {clip ? 'Clip' : 'Still'}
+          {isAssembledFilmEntry(entry) ? 'Film' : clip ? 'Clip' : 'Still'}
           {entry.reviewRating ? ` · ${entry.reviewRating}★` : ''}
           {entry.favorite ? ' · fav' : ''}
           {clip ? (

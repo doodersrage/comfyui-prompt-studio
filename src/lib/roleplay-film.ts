@@ -24,7 +24,7 @@ export function isVideoLikeEntry(
 export function isGalleryClipEntry(
   entry: Pick<ComfyGalleryEntry, 'derivedKind' | 'tool'> & { mediaKind?: string }
 ): boolean {
-  return isVideoLikeEntry(entry) || entry.mediaKind === 'video';
+  return entry.derivedKind === 'film' || isVideoLikeEntry(entry) || entry.mediaKind === 'video';
 }
 
 export function nextRoleplayMotionKind(

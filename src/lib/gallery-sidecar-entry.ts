@@ -58,7 +58,8 @@ export function galleryEntryFromSidecar(sidecar: PromptSidecar): ComfyGalleryEnt
       sidecar.metadata?.derivedKind === 'variation' ||
       sidecar.metadata?.derivedKind === 'controlnet' ||
       sidecar.metadata?.derivedKind === 'i2v' ||
-      sidecar.metadata?.derivedKind === 'extend'
+      sidecar.metadata?.derivedKind === 'extend' ||
+      sidecar.metadata?.derivedKind === 'film'
         ? sidecar.metadata.derivedKind
         : undefined,
     comfyUrl,
