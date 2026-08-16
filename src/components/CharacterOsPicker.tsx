@@ -22,7 +22,7 @@ import {
   upsertCharacter,
 } from '@/lib/character-os';
 import { listSavedIdentityBundles, type SharedToolSettings } from '@/lib/settings-cache';
-import { loadRoleplayLibrary } from '@/lib/roleplay-library';
+import { roleplaySessionsForCharacterSync } from '@/lib/roleplay-library';
 
 type CharacterOsPickerProps = {
   shared: SharedToolSettings;
@@ -46,7 +46,7 @@ export default function CharacterOsPicker({ shared, hints, onApply }: CharacterO
       }
       migrateCharactersFromLegacy({
         bundles: listSavedIdentityBundles(),
-        roleplaySessions: loadRoleplayLibrary(),
+        roleplaySessions: roleplaySessionsForCharacterSync(),
       });
     });
     return () => {

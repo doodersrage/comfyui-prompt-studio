@@ -22,7 +22,9 @@ import { dispatchWebhook } from '@/lib/webhook-settings';
 import {
   DEFAULT_ROLEPLAY_TOOL_CACHE,
   DEFAULT_VIDEO_TOOL_CACHE,
+  loadSettingsCache,
   loadToolSettings,
+  saveSharedSettings,
 } from '@/lib/settings-cache';
 import {
   isSceneGenerationModel,
@@ -94,10 +96,12 @@ import {
 import { extractVideoLastFrame } from '@/lib/video-last-frame';
 import { isNsfwGeneratorEnabledClient } from '@/lib/nsfw-generator-env';
 import { downloadRoleplayStoryBundle } from '@/lib/roleplay-export';
+import { applyCharacterRecord, upsertCharacterFromRoleplaySession } from '@/lib/character-os';
 import {
   applyRoleplayLibrarySession,
   archiveAndStartNewRoleplaySession,
   persistRoleplayLibraryFromCache,
+  snapshotRoleplaySession,
   type RoleplayLibrarySession,
 } from '@/lib/roleplay-library';
 import type { EnrichedToolGenerateResult } from '@/lib/specialized/types';
@@ -170,8 +174,17 @@ export default function RoleplayTool() {
     }
     const timer = window.setTimeout(() => {
       const persisted = persistRoleplayLibraryFromCache(toolSettings);
+      if (!persisted) {
+        return;
+      }
+      const character = upsertCharacterFromRoleplaySession(persisted.session);
+      if (character) {
+        saveSharedSettings({
+          ...loadSettingsCache().shared,
+          ...applyCharacterRecord(character),
+        });
+      }
       if (
-        persisted &&
         persisted.cache.activeSessionId &&
         persisted.cache.activeSessionId !== toolSettings.activeSessionId
       ) {
@@ -524,6 +537,43 @@ export default function RoleplayTool() {
     ]
   );
 
+  const stampRoleplayCharacter = useCallback(
+    (cache?: Partial<typeof toolSettings>) => {
+      const session = snapshotRoleplaySession({
+        ...toolSettings,
+        ...cache,
+        story: cache?.story ?? storyRef.current,
+        bio: cache?.bio ?? toolSettings.bio,
+      });
+      if (!session) {
+        return undefined;
+      }
+      const character = upsertCharacterFromRoleplaySession(session);
+      if (character) {
+        saveSharedSettings({
+          ...loadSettingsCache().shared,
+          ...applyCharacterRecord(character),
+        });
+      }
+      return character;
+    },
+    [toolSettings]
+  );
+
+  const roleplayCharacterQueueFields = useCallback(
+    (cache?: Partial<typeof toolSettings>) => {
+      const character = stampRoleplayCharacter(cache);
+      if (!character) {
+        return {};
+      }
+      return {
+        characterId: character.id,
+        lookId: character.activeLookId,
+      };
+    },
+    [stampRoleplayCharacter]
+  );
+
   const queueStillOptions = useCallback(() => {
     if (playAs !== 'photo') {
       return undefined;
@@ -606,12 +656,10 @@ export default function RoleplayTool() {
       });
       let stillPatch: Partial<RoleplayStoryBeat> = { prompt };
       if (autoQueue) {
-        const promptId = await actions.sendComfyUi(
-          prompt,
-          undefined,
-          undefined,
-          queueStillOptions()
-        );
+        const promptId = await actions.sendComfyUi(prompt, undefined, undefined, {
+          ...(queueStillOptions() ?? {}),
+          ...roleplayCharacterQueueFields({ bio: nextBio, story: currentStory }),
+        });
         stillPatch = {
           prompt,
           ...roleplayStillQueueResultPatch({ ...beat, prompt }, promptId),
@@ -621,7 +669,14 @@ export default function RoleplayTool() {
       updateToolSettings({ bio: nextBio, story: nextStory });
       return nextStory;
     },
-    [actions, autoQueue, queueStillOptions, shared.model, updateToolSettings]
+    [
+      actions,
+      autoQueue,
+      queueStillOptions,
+      roleplayCharacterQueueFields,
+      shared.model,
+      updateToolSettings,
+    ]
   );
 
   const beginStoryFromBio = useCallback(
@@ -869,6 +924,7 @@ export default function RoleplayTool() {
       try {
         promptId = await actions.sendComfyUi(prompt, undefined, undefined, {
           ...(queueStillOptions() ?? {}),
+          ...roleplayCharacterQueueFields(),
           ...(retry
             ? {
                 derivedKind: 'variation' as const,
@@ -893,7 +949,7 @@ export default function RoleplayTool() {
         ),
       });
     },
-    [actions, queueStillOptions, updateToolSettings]
+    [actions, queueStillOptions, roleplayCharacterQueueFields, updateToolSettings]
   );
 
   const queueBeatMotion = useCallback(
@@ -984,6 +1040,7 @@ export default function RoleplayTool() {
           derivedKind: nextRoleplayMotionKind(parentEntry),
           qualityProfile: 'final',
           queueParamsBase: { videoFrames: 64, videoFps: 16 },
+          ...roleplayCharacterQueueFields(),
         });
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Could not queue that clip.');
@@ -996,7 +1053,14 @@ export default function RoleplayTool() {
         ),
       });
     },
-    [actions, playAs, referenceImageUrl, shared.model, updateToolSettings]
+    [
+      actions,
+      playAs,
+      referenceImageUrl,
+      roleplayCharacterQueueFields,
+      shared.model,
+      updateToolSettings,
+    ]
   );
 
   useEffect(() => {
@@ -1091,10 +1155,11 @@ export default function RoleplayTool() {
     (session: RoleplayLibrarySession) => {
       persistRoleplayLibraryFromCache(toolSettings);
       updateToolSettings(applyRoleplayLibrarySession(session));
+      stampRoleplayCharacter(applyRoleplayLibrarySession(session));
       setScenes([]);
       setOwnBibleOpen(false);
     },
-    [toolSettings, updateToolSettings]
+    [stampRoleplayCharacter, toolSettings, updateToolSettings]
   );
 
   const startLibrarySession = useCallback(() => {

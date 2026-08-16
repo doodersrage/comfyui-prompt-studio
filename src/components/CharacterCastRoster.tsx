@@ -14,6 +14,7 @@ import {
   getServerCharactersSnapshot,
   looksOf,
   loraTriggerFromCharacter,
+  forgetCharacterRecord,
   migrateCharactersFromLegacy,
   subscribeCharacters,
 } from '@/lib/character-os';
@@ -22,7 +23,10 @@ import {
   loadSettingsCache,
   saveSharedSettings,
 } from '@/lib/settings-cache';
-import { loadRoleplayLibrary } from '@/lib/roleplay-library';
+import {
+  deleteRoleplayLibrarySession,
+  roleplaySessionsForCharacterSync,
+} from '@/lib/roleplay-library';
 
 export default function CharacterCastRoster() {
   const router = useRouter();
@@ -40,13 +44,29 @@ export default function CharacterCastRoster() {
       }
       migrateCharactersFromLegacy({
         bundles: listSavedIdentityBundles(),
-        roleplaySessions: loadRoleplayLibrary(),
+        roleplaySessions: roleplaySessionsForCharacterSync(),
       });
     });
     return () => {
       cancelled = true;
     };
   }, []);
+
+  const forgetCharacter = (id: string) => {
+    const character = characters.find(entry => entry.id === id);
+    const name = character?.name?.trim() || 'this character';
+    if (
+      !window.confirm(
+        `Remove ${name} from the cast? Looks on this record go with it. Gallery stills stay in the gallery.`
+      )
+    ) {
+      return;
+    }
+    const { roleplaySessionId } = forgetCharacterRecord(id);
+    if (roleplaySessionId) {
+      deleteRoleplayLibrarySession(roleplaySessionId);
+    }
+  };
 
   const applyAndOpen = (id: string) => {
     const character = characters.find(entry => entry.id === id);
@@ -109,6 +129,9 @@ export default function CharacterCastRoster() {
                     >
                       Details
                     </Link>
+                    <Button size="sm" variant="ghost" onClick={() => forgetCharacter(character.id)}>
+                      Remove
+                    </Button>
                   </div>
                 </li>
               );

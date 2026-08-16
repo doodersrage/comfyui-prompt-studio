@@ -1,5 +1,10 @@
 import { readBrowserValue, writeBrowserValue } from './browser-storage';
-import { DEFAULT_ROLEPLAY_TOOL_CACHE, type RoleplayToolCache } from './settings-cache';
+import { upsertCharacterFromRoleplaySession } from './character-os';
+import {
+  DEFAULT_ROLEPLAY_TOOL_CACHE,
+  loadToolSettings,
+  type RoleplayToolCache,
+} from './settings-cache';
 import {
   CUSTOM_ROLEPLAY_PERSONA_ID,
   getRoleplayArchetype,
@@ -269,6 +274,7 @@ export function persistRoleplayLibraryFromCache(
     return null;
   }
   const saved = upsertRoleplayLibrarySession(session);
+  upsertCharacterFromRoleplaySession(saved);
   return {
     session: saved,
     cache: { ...cache, ...saved.snapshot, activeSessionId: saved.id },
@@ -325,6 +331,16 @@ export function startNewRoleplaySession(current: RoleplayToolCache): RoleplayToo
     story: [],
     activeSessionId: undefined,
   };
+}
+
+/** Library plus the live Roleplay draft so Cast sees a bio that has not flushed yet. */
+export function roleplaySessionsForCharacterSync(): RoleplayLibrarySession[] {
+  const library = loadRoleplayLibrary();
+  const live = snapshotRoleplaySession(loadToolSettings('roleplay', DEFAULT_ROLEPLAY_TOOL_CACHE));
+  if (!live) {
+    return library;
+  }
+  return [live, ...library.filter(entry => entry.id !== live.id)];
 }
 
 /** Shelve the current session, then return a blank draft that will get a new library id. */

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   applyCharacterRecord,
+  applyRemovedCharacterIds,
   bundleFromCharacter,
   characterFromBundle,
   characterFromRoleplaySession,
@@ -10,6 +11,7 @@ import {
   looksOf,
   mergeMigratedCharacters,
   normalizeCharacterRecord,
+  roleplayLibraryIdFromCharacter,
   slugCharacterName,
 } from './character-os';
 import type { CharacterIdentityBundle } from './character-identity-bundle';
@@ -87,6 +89,61 @@ describe('character-os', () => {
     assert.equal(slugCharacterName(merged[0]!.name), 'rin');
   });
 
+  it('keeps two Roleplay sessions even when they share a display name', () => {
+    const first = characterFromRoleplaySession({
+      id: 'rp-kai-1',
+      createdAt: 1,
+      updatedAt: 2,
+      title: 'Kai',
+      beatCount: 1,
+      snapshot: {
+        characterName: 'Kai',
+        bio: { name: 'Kai', look: 'silver hair', personality: 'quiet' },
+      },
+    } as RoleplayLibrarySession);
+    const second = {
+      id: 'rp-kai-2',
+      createdAt: 3,
+      updatedAt: 4,
+      title: 'Kai',
+      beatCount: 1,
+      snapshot: {
+        characterName: 'Kai',
+        bio: { name: 'Kai', look: 'red coat', personality: 'loud' },
+      },
+    } as RoleplayLibrarySession;
+    assert.ok(first);
+    const merged = mergeMigratedCharacters({
+      existing: [first!],
+      roleplaySessions: [second],
+    });
+    assert.equal(merged.length, 2);
+    assert.ok(merged.some(entry => entry.id === 'char-rp-rp-kai-1'));
+    assert.ok(merged.some(entry => entry.id === 'char-rp-rp-kai-2'));
+  });
+
+  it('imports a later roleplay session when the roster already has someone', () => {
+    const existing = [characterFromBundle(bundle, 'char-rin')];
+    const session = {
+      id: 'rp-kai',
+      createdAt: 1,
+      updatedAt: 4,
+      title: 'Kai',
+      beatCount: 1,
+      snapshot: {
+        characterName: 'Kai',
+        bio: { name: 'Kai', look: 'silver hair', personality: 'quiet' },
+      },
+    } as RoleplayLibrarySession;
+    const merged = mergeMigratedCharacters({
+      existing,
+      roleplaySessions: [session],
+    });
+    assert.equal(merged.length, 2);
+    assert.ok(merged.some(entry => slugCharacterName(entry.name) === 'kai'));
+    assert.ok(merged.some(entry => slugCharacterName(entry.name) === 'rin'));
+  });
+
   it('converts a roleplay library session into a character with reference plate', () => {
     const converted = characterFromRoleplaySession({
       id: 'sess-9',
@@ -137,6 +194,26 @@ describe('character-os', () => {
       activeLookId: original.id,
     });
     assert.equal(restored.lockedWardrobeId, 'jacket-01');
+  });
+
+  it('drops removed ids from a migrated roster', () => {
+    const rin = characterFromBundle(bundle, 'char-rin');
+    const kai = characterFromRoleplaySession({
+      id: 'rp-kai',
+      createdAt: 1,
+      updatedAt: 2,
+      title: 'Kai',
+      beatCount: 1,
+      snapshot: { characterName: 'Kai', bio: { name: 'Kai', look: 'silver', personality: 'quiet' } },
+    } as RoleplayLibrarySession);
+    assert.ok(kai);
+    const kept = applyRemovedCharacterIds([rin, kai!], [kai!.id]);
+    assert.deepEqual(
+      kept.map(entry => entry.id),
+      ['char-rin']
+    );
+    assert.equal(roleplayLibraryIdFromCharacter(kai!.id), 'rp-kai');
+    assert.equal(roleplayLibraryIdFromCharacter('char-rin'), undefined);
   });
 
   it('applies pinned LoRA ids onto the session', () => {

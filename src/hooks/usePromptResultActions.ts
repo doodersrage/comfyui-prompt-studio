@@ -127,6 +127,8 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         queueParams?: WorkflowParamValues;
         workflowJson?: string;
         parentGalleryEntryId?: string;
+        characterId?: string;
+        lookId?: string;
         derivedKind?: import('@/lib/comfyui-gallery-entry').ComfyGalleryEntry['derivedKind'];
         sourceImageUrl?: string;
         maskImageUrl?: string;
@@ -154,6 +156,8 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         queueParams: input.queueParams,
         workflowJson: input.workflowJson,
         parentGalleryEntryId: input.parentGalleryEntryId,
+        characterId: input.characterId,
+        lookId: input.lookId,
         derivedKind: input.derivedKind,
         sourceImageUrl: input.sourceImageUrl,
         maskImageUrl: input.maskImageUrl,
@@ -487,6 +491,8 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         identityKind?: import('@/lib/compose-identity-lock').ComposeIdentityKind;
         /** Gallery lineage when queueing a derived job (e.g. ControlNet from gallery). */
         parentGalleryEntryId?: string;
+        characterId?: string;
+        lookId?: string;
         derivedKind?: import('@/lib/comfyui-gallery-entry').ComfyGalleryEntry['derivedKind'];
         sourceImageUrl?: string;
         /** Override the hook tool for this queue (Roleplay → video I2V). */
@@ -1097,6 +1103,8 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             queueParams,
             workflowJson: runtime?.workflowJson,
             parentGalleryEntryId: options?.parentGalleryEntryId,
+            characterId: options?.characterId,
+            lookId: options?.lookId,
             derivedKind: options?.derivedKind,
             sourceImageUrl:
               options?.sourceImageUrl ||

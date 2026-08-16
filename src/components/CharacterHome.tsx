@@ -23,6 +23,7 @@ import {
   getServerCharactersSnapshot,
   looksOf,
   loraTriggerFromCharacter,
+  forgetCharacterRecord,
   pinLoraOnCharacter,
   removeLook,
   setCharacterTrigger,
@@ -41,6 +42,7 @@ import { buildGalleryHandoff, galleryHandoffPath, saveGalleryHandoff } from '@/l
 import { isGalleryClipEntry } from '@/lib/roleplay-film';
 import { loadComfyUiSettings } from '@/lib/comfyui-settings';
 import { downloadLoraDatasetZip, selectCharacterKeepers } from '@/lib/gallery-lora-dataset-export';
+import { deleteRoleplayLibrarySession } from '@/lib/roleplay-library';
 import { loadSettingsCache, saveSharedSettings } from '@/lib/settings-cache';
 
 type MediaTab = 'all' | 'stills' | 'clips' | 'keepers';
@@ -176,6 +178,26 @@ export default function CharacterHome({ characterId }: CharacterHomeProps) {
         <ButtonLink href="/characters" size="sm" variant="ghost">
           All characters
         </ButtonLink>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => {
+            if (
+              !window.confirm(
+                `Remove ${character.name} from the cast? Looks on this record go with it. Gallery stills stay in the gallery.`
+              )
+            ) {
+              return;
+            }
+            const { roleplaySessionId } = forgetCharacterRecord(character.id);
+            if (roleplaySessionId) {
+              deleteRoleplayLibrarySession(roleplaySessionId);
+            }
+            router.push('/characters');
+          }}
+        >
+          Remove from cast
+        </Button>
       </ToolActionRow>
 
       <ToolSection

@@ -16,7 +16,7 @@ import {
 import { normalizeComposeIdentityKind } from './compose-identity-lock';
 import type { RoleplayLibrarySession } from './roleplay-library';
 import type { RoleplayBio, RoleplayContentId, RoleplayPlayAs, RoleplayTone } from './roleplay';
-import type { SharedToolSettings } from './settings-cache';
+import { loadSettingsCache, saveSharedSettings, type SharedToolSettings } from './settings-cache';
 
 export const CHARACTERS_KEY = 'comfy-prompt-characters-v1';
 export const CHARACTERS_UPDATED_EVENT = 'prompt-studio-characters-updated';
@@ -92,6 +92,8 @@ type CharacterStore = {
   version: 1;
   migratedFromBundles: boolean;
   characters: CharacterRecord[];
+  /** Ids dropped from Cast — migrate must not resurrect them from Roleplay archives. */
+  removedIds?: string[];
 };
 
 const EMPTY_CHARACTERS: CharacterRecord[] = [];
@@ -399,42 +401,64 @@ export function mergeMigratedCharacters(input: {
   bundles?: CharacterIdentityBundle[];
   roleplaySessions?: RoleplayLibrarySession[];
 }): CharacterRecord[] {
-  const byName = new Map<string, CharacterRecord>();
+  const merged = new Map<string, CharacterRecord>();
   for (const character of input.existing) {
-    const key = slugCharacterName(character.name);
-    if (!key) {
-      continue;
+    if (character.id) {
+      merged.set(character.id, character);
     }
-    byName.set(key, character);
   }
+
+  const nameOwner = (name: string) =>
+    [...merged.values()].find(entry => slugCharacterName(entry.name) === slugCharacterName(name));
 
   for (const bundle of input.bundles ?? []) {
     const key = slugCharacterName(bundle.name);
-    if (!key || byName.has(key)) {
+    if (!key || nameOwner(bundle.name)) {
       continue;
     }
-    byName.set(key, characterFromBundle(bundle));
+    const record = characterFromBundle(bundle);
+    merged.set(record.id, record);
   }
 
   for (const session of input.roleplaySessions ?? []) {
     const converted = characterFromRoleplaySession(session);
-    if (!converted) {
+    if (!converted || merged.has(converted.id)) {
       continue;
     }
-    const key = slugCharacterName(converted.name);
-    if (!key || byName.has(key)) {
+    const clash = nameOwner(converted.name);
+    if (clash && !clash.id.startsWith('char-rp-')) {
       continue;
     }
-    byName.set(key, converted);
+    merged.set(converted.id, converted);
   }
 
-  return [...byName.values()]
+  return [...merged.values()]
     .sort((left, right) => right.updatedAt - left.updatedAt)
     .slice(0, MAX_CHARACTERS);
 }
 
 function emptyStore(): CharacterStore {
-  return { version: 1, migratedFromBundles: false, characters: [] };
+  return { version: 1, migratedFromBundles: false, characters: [], removedIds: [] };
+}
+
+export function roleplayLibraryIdFromCharacter(id: string): string | undefined {
+  const key = id.trim();
+  if (!key.startsWith('char-rp-')) {
+    return undefined;
+  }
+  const sessionId = key.slice('char-rp-'.length).trim();
+  return sessionId || undefined;
+}
+
+export function applyRemovedCharacterIds(
+  characters: CharacterRecord[],
+  removedIds: string[] | undefined
+): CharacterRecord[] {
+  const removed = new Set((removedIds ?? []).map(entry => entry.trim()).filter(Boolean));
+  if (removed.size === 0) {
+    return characters;
+  }
+  return characters.filter(entry => !removed.has(entry.id));
 }
 
 function readStore(): CharacterStore {
@@ -448,6 +472,11 @@ function readStore(): CharacterStore {
     characters: raw.characters
       .filter(entry => entry && readName(entry.name) && entry.id)
       .map(normalizeCharacterRecord),
+    removedIds: uniqueIds(
+      Array.isArray(raw.removedIds)
+        ? raw.removedIds.filter((id): id is string => typeof id === 'string')
+        : []
+    ),
   };
 }
 
@@ -456,6 +485,7 @@ function writeStore(store: CharacterStore): void {
     version: 1,
     migratedFromBundles: store.migratedFromBundles,
     characters: store.characters.slice(0, MAX_CHARACTERS),
+    removedIds: uniqueIds(store.removedIds) ?? [],
   });
   notifyCharactersUpdated();
 }
@@ -473,16 +503,51 @@ export function migrateCharactersFromLegacy(input: {
   roleplaySessions?: RoleplayLibrarySession[];
 }): CharacterRecord[] {
   const store = readStore();
-  if (store.migratedFromBundles) {
+  const firstImport = !store.migratedFromBundles;
+  const characters = applyRemovedCharacterIds(
+    mergeMigratedCharacters({
+      existing: store.characters,
+      bundles: firstImport ? input.bundles : [],
+      roleplaySessions: input.roleplaySessions,
+    }),
+    store.removedIds
+  );
+  const existingIds = new Set(store.characters.map(entry => entry.id));
+  const importedNew = characters.some(entry => !existingIds.has(entry.id));
+  if (!firstImport && !importedNew) {
     return store.characters;
   }
-  const characters = mergeMigratedCharacters({
-    existing: store.characters,
-    bundles: input.bundles,
-    roleplaySessions: input.roleplaySessions,
+  writeStore({
+    version: 1,
+    migratedFromBundles: true,
+    characters,
+    removedIds: store.removedIds,
   });
-  writeStore({ version: 1, migratedFromBundles: true, characters });
   return characters;
+}
+
+/** Create or refresh a Cast record from a Roleplay library session without clobbering looks. */
+export function upsertCharacterFromRoleplaySession(
+  session: RoleplayLibrarySession
+): CharacterRecord | undefined {
+  const converted = characterFromRoleplaySession(session);
+  if (!converted) {
+    return undefined;
+  }
+  const existing = loadCharacters();
+  const prev = existing.find(entry => entry.id === converted.id);
+  if (prev) {
+    upsertCharacter({
+      ...converted,
+      id: prev.id,
+      looks: looksOf(prev),
+      loraLibraryIds: prev.loraLibraryIds,
+      loraTriggerPhrases: prev.loraTriggerPhrases,
+    });
+    return getCharacter(prev.id);
+  }
+  upsertCharacter(converted);
+  return getCharacter(converted.id);
 }
 
 export function saveCharacters(characters: CharacterRecord[]): CharacterRecord[] {
@@ -492,7 +557,12 @@ export function saveCharacters(characters: CharacterRecord[]): CharacterRecord[]
     .map(normalizeCharacterRecord)
     .sort((left, right) => right.updatedAt - left.updatedAt)
     .slice(0, MAX_CHARACTERS);
-  writeStore({ ...store, characters: next });
+  const kept = new Set(next.map(entry => entry.id));
+  writeStore({
+    ...store,
+    characters: next,
+    removedIds: (store.removedIds ?? []).filter(id => !kept.has(id)),
+  });
   return next;
 }
 
@@ -539,9 +609,20 @@ export function upsertCharacter(record: CharacterRecord): CharacterRecord[] {
     updatedAt: Date.now(),
   };
   const nextRecord = prev ? mergeCharacterUpdate(prev, drafted) : normalizeCharacterRecord(drafted);
-  const without = existing.filter(
-    entry => entry.id !== nextRecord.id && slugCharacterName(entry.name) !== slugCharacterName(name)
-  );
+  const incomingIsRoleplay = nextRecord.id.startsWith('char-rp-');
+  const without = existing.filter(entry => {
+    if (entry.id === nextRecord.id) {
+      return false;
+    }
+    if (slugCharacterName(entry.name) !== slugCharacterName(name)) {
+      return true;
+    }
+    // Distinct Roleplay sessions can share a display name without eating each other.
+    if (incomingIsRoleplay && entry.id.startsWith('char-rp-')) {
+      return true;
+    }
+    return false;
+  });
   return saveCharacters([nextRecord, ...without]);
 }
 
@@ -658,7 +739,38 @@ export function setCharacterTrigger(
 
 export function removeCharacter(id: string): CharacterRecord[] {
   const key = id.trim();
-  return saveCharacters(loadCharacters().filter(entry => entry.id !== key));
+  if (!key) {
+    return loadCharacters();
+  }
+  const store = readStore();
+  writeStore({
+    ...store,
+    characters: store.characters.filter(entry => entry.id !== key),
+    removedIds: uniqueIds([...(store.removedIds ?? []), key]) ?? [key],
+  });
+  return loadCharacters();
+}
+
+/** Drop a Cast record, remember the id so Roleplay migrate does not bring it back, and clear the session lock. */
+export function forgetCharacterRecord(id: string): {
+  roleplaySessionId?: string;
+  wasActive: boolean;
+} {
+  const key = id.trim();
+  const wasActive = loadSettingsCache().shared.activeCharacterId?.trim() === key;
+  removeCharacter(key);
+  if (wasActive) {
+    const shared = loadSettingsCache().shared;
+    saveSharedSettings({
+      ...shared,
+      activeCharacterId: undefined,
+      activeLookId: undefined,
+    });
+  }
+  return {
+    roleplaySessionId: roleplayLibraryIdFromCharacter(key),
+    wasActive,
+  };
 }
 
 export function getCharacter(id: string | undefined): CharacterRecord | undefined {
