@@ -54,12 +54,14 @@ export function pickVideoCheckpointFromInventory(
   if (inventory.length === 0) {
     return undefined;
   }
+  // Same family only — a Hunyuan UNET is not a WAN Rapid AIO stand-in, and
+  // CheckpointLoaderSimple cannot load diffusion_models files.
   const preferredPatterns =
     model === 'hunyuan-video'
-      ? [/hunyuan/i, /hy[-_]?video/i, /wan/i, /ltx/i]
+      ? [/hunyuan/i, /hy[-_]?video/i]
       : model === 'ltx-video'
-        ? [/ltx/i, /wan/i, /hunyuan/i]
-        : [/wan/i, /hunyuan/i, /hy[-_]?video/i, /ltx/i];
+        ? [/ltx/i]
+        : [/wan/i];
 
   const matched = inventory.filter(name => preferredPatterns.some(pattern => pattern.test(name)));
   if (matched.length > 0) {

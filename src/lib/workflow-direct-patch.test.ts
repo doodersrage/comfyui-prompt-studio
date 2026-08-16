@@ -152,6 +152,26 @@ describe("workflow direct patch", () => {
     assert.equal(result.patched.checkpoint, 1);
   });
 
+  it("does not clobber an installed UNET Rapid AIO with a stale mapped checkpoint", () => {
+    const workflow = {
+      "1": {
+        class_type: "CheckpointLoaderSimple",
+        inputs: { ckpt_name: "wan2.2-i2v-rapid-aio-v10.safetensors" },
+      },
+    };
+    const result = patchLoaderNodesInWorkflow(
+      workflow,
+      { checkpoint: "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors" },
+      {
+        availableCheckpoints: ["DreamShaper_8_pruned.safetensors"],
+        availableUnets: ["wan2.2-i2v-rapid-aio-v10.safetensors"],
+      },
+    );
+    const node = result.workflow["1"] as { inputs?: { ckpt_name?: string } };
+    assert.equal(node.inputs?.ckpt_name, "wan2.2-i2v-rapid-aio-v10.safetensors");
+    assert.equal(result.patched.checkpoint, undefined);
+  });
+
   it("patches EmptyLatentImage width and height", () => {
     const workflow = {
       "5": {
@@ -866,7 +886,7 @@ describe("video I2V auto-wiring (patchVideoImageToVideoWiringInWorkflow)", () =>
     assert.equal(result.patched.videoImageToVideoWired, undefined);
   });
 
-  it("hard-fails when a video model has an init image but the graph cannot be I2V-wired", () => {
+  it("reports when a graph cannot be I2V-wired so queue can fall back to the built-in scaffold", () => {
     const workflow = {
       "1": { class_type: "CheckpointLoaderSimple", inputs: { ckpt_name: "wan.safetensors" } },
       // Missing LoadImage + latent video + VAEDecode chain
@@ -903,6 +923,234 @@ describe("video I2V auto-wiring (patchVideoImageToVideoWiringInWorkflow)", () =>
     assert.equal(result.patched.videoImageToVideoWired, undefined);
     const nodeIds = Object.keys(result.workflow);
     assert.equal(nodeIds.length, 3);
+  });
+
+  it("falls back to the built-in video scaffold when the selected graph cannot I2V-wire", () => {
+    const stillGraph = {
+      "1": { class_type: "CheckpointLoaderSimple", inputs: { ckpt_name: "qwen.safetensors" } },
+      "2": { class_type: "CLIPTextEncode", inputs: { text: "pos", clip: ["1", 1] } },
+      "3": { class_type: "CLIPTextEncode", inputs: { text: "neg", clip: ["1", 1] } },
+      "4": { class_type: "EmptyLatentImage", inputs: { width: 1024, height: 1024, batch_size: 1 } },
+      "5": {
+        class_type: "KSampler",
+        inputs: { positive: ["2", 0], negative: ["3", 0], latent_image: ["4", 0] },
+      },
+      "6": { class_type: "VAEDecode", inputs: { samples: ["5", 0], vae: ["1", 2] } },
+      "7": { class_type: "SaveImage", inputs: { images: ["6", 0], filename_prefix: "PromptStudio" } },
+      "900": {
+        class_type: "LoadImage",
+        inputs: { image: "last-frame.jpg" },
+        _meta: { title: "Init Image" },
+      },
+    };
+
+    const result = patchWorkflowDirectParams(stillGraph, {
+      model: "wan-video",
+      params: {
+        inputImageFilename: "last-frame.jpg",
+        width: 832,
+        height: 480,
+        videoFrames: 81,
+      },
+    });
+
+    assert.equal(result.error, undefined);
+    assert.equal(result.patched.videoScaffoldFallback, 1);
+    assert.equal(result.patched.videoImageToVideoWired, 1);
+    assert.equal(
+      Object.values(result.workflow).some(
+        (node) => (node as AnyNode).class_type === "EmptyHunyuanLatentVideo",
+      ),
+      true,
+    );
+    assert.equal(
+      Object.values(result.workflow).some(
+        (node) => (node as AnyNode).class_type === "WanImageToVideo",
+      ),
+      true,
+    );
+    const loadImage = Object.values(result.workflow).find(
+      (node) => (node as AnyNode).class_type === "LoadImage",
+    ) as AnyNode;
+    assert.equal(loadImage.inputs?.image, "last-frame.jpg");
+  });
+
+  it("stamps an installed WAN weight when the mapped Rapid AIO file is missing", () => {
+    const stillGraph = {
+      "1": { class_type: "CheckpointLoaderSimple", inputs: { ckpt_name: "qwen.safetensors" } },
+      "2": { class_type: "CLIPTextEncode", inputs: { text: "{{POSITIVE}}", clip: ["1", 1] } },
+      "5": {
+        class_type: "KSampler",
+        inputs: { positive: ["2", 0], negative: ["2", 0], latent_image: ["2", 0] },
+      },
+    };
+
+    const result = patchWorkflowDirectParams(stillGraph, {
+      model: "wan-video",
+      loaders: { checkpoint: "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors" },
+      availableCheckpoints: ["qwen_image_2512.safetensors"],
+      availableUnets: ["wan2.2-i2v-rapid-aio-v10.safetensors"],
+      params: {
+        inputImageFilename: "last-frame.jpg",
+        width: 832,
+        height: 480,
+        videoFrames: 81,
+      },
+    });
+
+    assert.equal(result.error, undefined);
+    const loader = Object.values(result.workflow).find(
+      (node) => (node as AnyNode).class_type === "CheckpointLoaderSimple",
+    ) as AnyNode;
+    assert.equal(loader.inputs?.ckpt_name, "wan2.2-i2v-rapid-aio-v10.safetensors");
+  });
+
+  it("converts Hunyuan I2V UNET off CheckpointLoaderSimple onto DualCLIP + VAE", () => {
+    const stillGraph = {
+      "1": { class_type: "CheckpointLoaderSimple", inputs: { ckpt_name: "qwen.safetensors" } },
+      "2": { class_type: "CLIPTextEncode", inputs: { text: "{{POSITIVE}}", clip: ["1", 1] } },
+      "3": { class_type: "CLIPTextEncode", inputs: { text: "{{NEGATIVE}}", clip: ["1", 1] } },
+      "5": {
+        class_type: "KSampler",
+        inputs: { positive: ["2", 0], negative: ["3", 0], latent_image: ["2", 0] },
+      },
+    };
+
+    const result = patchWorkflowDirectParams(stillGraph, {
+      model: "hunyuan-video",
+      loaders: { checkpoint: "hunyuan_video_image_to_video_720p_bf16.safetensors" },
+      availableCheckpoints: ["DreamShaper_8_pruned.safetensors"],
+      availableUnets: ["hunyuan_video_image_to_video_720p_bf16.safetensors"],
+      availableVaes: ["hunyuan_video_vae_bf16.safetensors"],
+      availableClips: ["clip_l.safetensors", "llava_llama3_fp8_scaled.safetensors"],
+      params: {
+        inputImageFilename: "last-frame.jpg",
+        width: 720,
+        height: 720,
+        videoFrames: 53,
+      },
+    });
+
+    assert.equal(result.error, undefined);
+    assert.equal(result.patched.videoSplitLoaders, 1);
+    const classTypes = Object.values(result.workflow).map(
+      (node) => (node as AnyNode).class_type,
+    );
+    assert.equal(classTypes.includes("CheckpointLoaderSimple"), false);
+    assert.equal(classTypes.includes("UNETLoader"), true);
+    assert.equal(classTypes.includes("DualCLIPLoader"), true);
+    assert.equal(classTypes.includes("VAELoader"), true);
+    const unet = Object.values(result.workflow).find(
+      (node) => (node as AnyNode).class_type === "UNETLoader",
+    ) as AnyNode;
+    assert.equal(
+      unet.inputs?.unet_name,
+      "hunyuan_video_image_to_video_720p_bf16.safetensors",
+    );
+  });
+
+  it("rewrites both high/low WAN loaders when the mapped Rapid AIO file is missing", () => {
+    const wiredGraph = {
+      "1": {
+        class_type: "CheckpointLoaderSimple",
+        inputs: { ckpt_name: "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors" },
+      },
+      "8": {
+        class_type: "CheckpointLoaderSimple",
+        inputs: { ckpt_name: "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors" },
+      },
+      "2": { class_type: "CLIPTextEncode", inputs: { text: "pos", clip: ["1", 1] } },
+      "3": { class_type: "CLIPTextEncode", inputs: { text: "neg", clip: ["1", 1] } },
+      "900": { class_type: "LoadImage", inputs: { image: "last-frame.jpg" } },
+      "4": {
+        class_type: "WanImageToVideo",
+        inputs: {
+          positive: ["2", 0],
+          negative: ["3", 0],
+          vae: ["1", 2],
+          start_image: ["900", 0],
+          width: 832,
+          height: 480,
+          length: 81,
+          batch_size: 1,
+        },
+      },
+      "5": {
+        class_type: "KSampler",
+        inputs: { positive: ["4", 0], negative: ["4", 1], latent_image: ["4", 2] },
+      },
+    };
+
+    const result = patchWorkflowDirectParams(wiredGraph, {
+      model: "wan-video",
+      loaders: { checkpoint: "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors" },
+      availableCheckpoints: ["qwen_image_2512.safetensors"],
+      availableUnets: ["wan2.2-i2v-rapid-aio-v10.safetensors"],
+      params: {
+        inputImageFilename: "last-frame.jpg",
+        width: 832,
+        height: 480,
+        videoFrames: 81,
+      },
+    });
+
+    assert.equal(result.error, undefined);
+    assert.equal(result.patched.videoScaffoldFallback, undefined);
+    const names = Object.values(result.workflow)
+      .filter((node) => (node as AnyNode).class_type === "CheckpointLoaderSimple")
+      .map((node) => (node as AnyNode).inputs?.ckpt_name);
+    assert.deepEqual(names, [
+      "wan2.2-i2v-rapid-aio-v10.safetensors",
+      "wan2.2-i2v-rapid-aio-v10.safetensors",
+    ]);
+  });
+
+  it("rebinds prompts and denoise after falling back to the built-in video scaffold", async () => {
+    const { injectPromptsWithFallbacks, resolvePlaceholderTokens } = await import(
+      "./comfyui-config"
+    );
+    const stillGraph = {
+      "1": { class_type: "CheckpointLoaderSimple", inputs: { ckpt_name: "qwen.safetensors" } },
+      "2": { class_type: "CLIPTextEncode", inputs: { text: "old", clip: ["1", 1] } },
+      "3": { class_type: "CLIPTextEncode", inputs: { text: "neg", clip: ["1", 1] } },
+      "4": { class_type: "EmptyLatentImage", inputs: { width: 1024, height: 1024, batch_size: 1 } },
+      "5": {
+        class_type: "KSampler",
+        inputs: { positive: ["2", 0], negative: ["3", 0], latent_image: ["4", 0] },
+      },
+    };
+
+    const result = injectPromptsWithFallbacks(
+      stillGraph,
+      {
+        positive: "a cyclist in fog",
+        negative: "blur",
+        params: {
+          inputImageFilename: "last-frame.jpg",
+          width: 832,
+          height: 480,
+          videoFrames: 81,
+          seed: 42,
+          steps: 8,
+          cfg: 1,
+        },
+      },
+      resolvePlaceholderTokens(),
+      {
+        model: "wan-video",
+        availableCheckpoints: ["wan2.2-i2v-rapid-aio-v10.safetensors"],
+      },
+    );
+
+    const raw = JSON.stringify(result.workflow);
+    assert.equal(raw.includes("{{DENOISE}}"), false);
+    assert.equal(raw.includes("{{POSITIVE}}"), false);
+    assert.match(raw, /a cyclist in fog/);
+    const sampler = Object.values(result.workflow).find(
+      (node) => (node as AnyNode).class_type === "KSampler",
+    ) as AnyNode;
+    assert.equal(sampler.inputs?.denoise, 1);
+    assert.equal(sampler.inputs?.seed, 42);
   });
 
   it("wires I2V end-to-end through patchWorkflowDirectParams when queueing an init image", () => {

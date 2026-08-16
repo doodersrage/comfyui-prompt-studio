@@ -257,7 +257,9 @@ function injectPromptsIntoWorkflow(
   enrichInventory?: {
     availableUpscaleModels?: string[] | null;
     availableCheckpoints?: string[] | null;
+    availableUnets?: string[] | null;
     availableVaes?: string[] | null;
+    availableClips?: string[] | null;
     availableLoras?: string[] | null;
     supportsNeuralUpscaleTileSize?: boolean;
     availableNodeTypes?: Iterable<string> | null;
@@ -270,6 +272,7 @@ function injectPromptsIntoWorkflow(
     model: runtime?.queueTargetModel ?? request.model,
     workflow,
     availableCheckpoints: enrichInventory?.availableCheckpoints,
+    availableUnets: enrichInventory?.availableUnets,
     availableVaes: enrichInventory?.availableVaes,
     availableUpscaleModels: enrichInventory?.availableUpscaleModels,
   });
@@ -370,6 +373,9 @@ function injectPromptsIntoWorkflow(
       loaders,
       model: runtime?.queueTargetModel ?? request.model,
       availableCheckpoints: enrichInventory?.availableCheckpoints,
+      availableUnets: enrichInventory?.availableUnets,
+      availableVaes: enrichInventory?.availableVaes,
+      availableClips: enrichInventory?.availableClips,
       availableLoras: enrichInventory?.availableLoras,
       qualityProfile: runtime?.queueQualityProfile,
       loraLibrary: runtime?.loraLibrary,
@@ -456,7 +462,9 @@ export async function queuePromptToComfyUi(
           const injected = injectPromptsIntoWorkflow(config.workflow, request, config, runtime, {
             availableUpscaleModels: objectInfo?.models.upscaleModels,
             availableCheckpoints: objectInfo?.models.checkpoints,
+            availableUnets: objectInfo?.models.unets,
             availableVaes: objectInfo?.models.vaes,
+            availableClips: objectInfo?.models.clips,
             availableLoras: objectInfo?.models.loras,
             supportsNeuralUpscaleTileSize: objectInfo?.supportsNeuralUpscaleTileSize,
             availableNodeTypes: objectInfo?.nodeTypes,

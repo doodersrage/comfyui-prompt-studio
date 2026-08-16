@@ -87,6 +87,16 @@ describe("WAN video workflow scaffold", () => {
     );
   });
 
+  it("does not pick a Hunyuan UNET as a WAN stand-in", () => {
+    assert.equal(
+      pickVideoCheckpointFromInventory("wan-video", [
+        "DreamShaper_8_pruned.safetensors",
+        "hunyuan_video_image_to_video_720p_bf16.safetensors",
+      ]),
+      undefined,
+    );
+  });
+
   it("does not invent a WAN filename when inventory has only image checkpoints", () => {
     assert.equal(
       pickVideoCheckpointFromInventory("wan-video", [

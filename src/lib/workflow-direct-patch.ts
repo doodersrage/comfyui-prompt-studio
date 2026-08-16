@@ -48,6 +48,14 @@ import {
   type KleinEnhancerIdentityPreset,
 } from './klein-enhancer-workflow-patch';
 import { ensureFluxGuidanceInWorkflow } from './flux-guidance-patch';
+import { isVideoCheckpointMapKey } from './video-checkpoint-pick';
+import {
+  buildBuiltInVideoI2vWorkflow,
+  resolveInstalledVideoWeight,
+  resolveVideoSplitCompanions,
+  rewriteCheckpointLoadersToVideoSplit,
+  videoWeightIsUnetOnly,
+} from './video-i2v-scaffold';
 
 export const IMAGE_SCALE_BY_NODE_TYPE = 'ImageScaleBy';
 
@@ -139,6 +147,10 @@ export type WorkflowDirectPatchCounts = {
   regionalNodes?: number;
   /** WAN/Hunyuan Video I2V node spliced in to wire an uploaded init image into the sampler chain. */
   videoImageToVideoWired?: number;
+  /** Selected graph could not I2V-wire; replaced with the built-in WAN/Hunyuan/LTX scaffold. */
+  videoScaffoldFallback?: number;
+  /** CheckpointLoaderSimple rewritten to UNET + CLIP + VAE for diffusion_models video weights. */
+  videoSplitLoaders?: number;
   /** Klein ReferenceLatent instruction-edit wiring when figures are queued. */
   img2imgLatentWired?: number;
   referenceLatentWired?: number;
@@ -149,7 +161,7 @@ export type WorkflowDirectPatchCounts = {
 };
 
 const VIDEO_I2V_WIRE_ERROR =
-  'Init image was set for a video model, but I2V could not be wired. Import a WAN/Hunyuan workflow with WanImageToVideo or HunyuanImageToVideo (or a scaffold with LoadImage + Empty*LatentVideo + VAEDecode/Checkpoint VAE + KSampler), or clear the init image for text-to-video.';
+  'Init image was set for a video model, but I2V could not be wired even with the built-in WAN/Hunyuan/LTX scaffold. Import a pack with WanImageToVideo, HunyuanImageToVideo, or LTXVImgToVideo, or clear the init image for text-to-video.';
 
 function videoI2vWireError(detail: string): string {
   return `${VIDEO_I2V_WIRE_ERROR} (${detail})`;
@@ -445,6 +457,10 @@ export function patchLoaderNodesInWorkflow(
   const alignClipPrecision = options?.alignClipPrecision !== false;
   const checkpointInventory = options?.availableCheckpoints;
   const unetInventory = options?.availableUnets;
+  const checkpointOrUnetInventory =
+    checkpointInventory || unetInventory
+      ? [...new Set([...(checkpointInventory ?? []), ...(unetInventory ?? [])])]
+      : undefined;
   const next = structuredClone(workflow);
   const patched: WorkflowDirectPatchCounts = {};
 
@@ -471,7 +487,7 @@ export function patchLoaderNodesInWorkflow(
         inputs.ckpt_name,
         loaders.checkpoint,
         syncLoadersToModel,
-        checkpointInventory
+        checkpointOrUnetInventory
       ) ||
         shouldAlignLoaderPrecision(inputs.ckpt_name, loaders.checkpoint))
     ) {
@@ -1577,6 +1593,44 @@ function regionalSegmentsFromCustomTokens(
   return segments;
 }
 
+function parseBuiltInVideoScaffold(model: string): Record<string, unknown> | null {
+  try {
+    return buildBuiltInVideoI2vWorkflow(model);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * When a video model is queued with an init frame but the selected graph cannot
+ * accept I2V (typical: a still-image workflow), swap in the built-in WAN /
+ * Hunyuan / LTX scaffold so last-frame continue still queues.
+ */
+function resolveWorkflowForVideoI2v(input: {
+  workflow: Record<string, unknown>;
+  model?: string;
+  inputImageFilename?: string;
+  params?: Pick<WorkflowParamValues, 'width' | 'height' | 'videoFrames'>;
+}): { workflow: Record<string, unknown>; usedScaffold: boolean } {
+  const probe = patchVideoImageToVideoWiringInWorkflow(input.workflow, {
+    model: input.model,
+    inputImageFilename: input.inputImageFilename,
+    params: input.params,
+  });
+  if (!probe.error) {
+    return { workflow: input.workflow, usedScaffold: false };
+  }
+  const model = input.model?.trim();
+  if (!model) {
+    return { workflow: input.workflow, usedScaffold: false };
+  }
+  const scaffold = parseBuiltInVideoScaffold(model);
+  if (!scaffold) {
+    return { workflow: input.workflow, usedScaffold: false };
+  }
+  return { workflow: scaffold, usedScaffold: true };
+}
+
 export function patchWorkflowDirectParams(
   workflow: Record<string, unknown>,
   input: {
@@ -1598,6 +1652,8 @@ export function patchWorkflowDirectParams(
     model?: string;
     availableCheckpoints?: string[] | null;
     availableUnets?: string[] | null;
+    availableVaes?: string[] | null;
+    availableClips?: string[] | null;
     /** Active LoRA stack — strengths patched onto LoraLoader nodes, extras chained in. */
     loraLibrary?: LoraLibraryEntry[];
     /** Positive prompt — kept for call-site compat; keyword LoRA matching removed. */
@@ -1616,9 +1672,57 @@ export function patchWorkflowDirectParams(
   patched: WorkflowDirectPatchCounts;
   error?: string;
 } {
-  const latentType = normalizeEmptyLatentForModel(workflow, input.model);
+  const videoI2vGraph = resolveWorkflowForVideoI2v({
+    workflow,
+    model: input.model,
+    inputImageFilename: input.params?.inputImageFilename,
+    params: input.params,
+  });
+  const videoWeightPool = [...(input.availableCheckpoints ?? []), ...(input.availableUnets ?? [])];
+  const resolvedVideoWeight =
+    input.model && isVideoCheckpointMapKey(input.model) && videoWeightPool.length > 0
+      ? resolveInstalledVideoWeight(
+          input.model,
+          input.loaders?.checkpoint?.trim() || input.loaders?.unet?.trim(),
+          videoWeightPool
+        )
+      : undefined;
+  const unetOnly = videoWeightIsUnetOnly(
+    resolvedVideoWeight,
+    input.availableCheckpoints,
+    input.availableUnets
+  );
+  const loaders = {
+    ...(input.loaders ?? {}),
+    ...(resolvedVideoWeight && !unetOnly ? { checkpoint: resolvedVideoWeight } : {}),
+    ...(resolvedVideoWeight && unetOnly ? { unet: resolvedVideoWeight } : {}),
+  };
+  const latentType = normalizeEmptyLatentForModel(videoI2vGraph.workflow, input.model);
   const latentPatch = patchLatentSizeInWorkflow(latentType.workflow, input.params ?? {});
-  const loaderPatch = patchLoaderNodesInWorkflow(latentPatch.workflow, input.loaders ?? {}, {
+  let videoGraph = latentPatch.workflow;
+  let videoSplitConverted = 0;
+  if (unetOnly && resolvedVideoWeight) {
+    const split = resolveVideoSplitCompanions({
+      model: input.model,
+      unet: resolvedVideoWeight,
+      availableClips: input.availableClips,
+      availableVaes: input.availableVaes,
+    });
+    if (split.error || !split.companions) {
+      return {
+        workflow: videoGraph,
+        patched: {},
+        error: split.error,
+      };
+    }
+    const rewritten = rewriteCheckpointLoadersToVideoSplit(videoGraph, split.companions);
+    videoGraph = rewritten.workflow;
+    videoSplitConverted = rewritten.converted;
+    if (split.companions.vae) {
+      loaders.vae = split.companions.vae;
+    }
+  }
+  const loaderPatch = patchLoaderNodesInWorkflow(videoGraph, loaders, {
     syncLoadersToModel: input.syncWorkflowLoadersToModel,
     // LightX2V official keeps fp8_scaled CLIP with bf16 UNET — don't "upgrade" CLIP.
     alignClipPrecision: !isQwenLightningModel(input.model),
@@ -1754,6 +1858,8 @@ export function patchWorkflowDirectParams(
       ...(regionalEdit.patchedTokens > 0 ? { regionalTokens: regionalEdit.patchedTokens } : {}),
       ...(regionalEdit.patchedNodes > 0 ? { regionalNodes: regionalEdit.patchedNodes } : {}),
       ...videoWirePatch.patched,
+      ...(videoI2vGraph.usedScaffold ? { videoScaffoldFallback: 1 } : {}),
+      ...(videoSplitConverted > 0 ? { videoSplitLoaders: videoSplitConverted } : {}),
       ...(kleinRefWire.wired
         ? {
             referenceLatentWired: kleinRefWire.insertedNodeIds.length || 1,

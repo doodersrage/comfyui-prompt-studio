@@ -843,7 +843,7 @@ export default function VideoPromptTool() {
             clipMode === 'extend'
               ? 'Optional last-frame fallback when Fal extend is not available.'
               : clipMode === 'i2v'
-                ? 'Required for I2V. Queue wires WanImageToVideo, HunyuanImageToVideo, or LTXVImgToVideo when the graph supports it.'
+                ? 'Required for I2V. Queue wires WanImageToVideo, HunyuanImageToVideo, or LTXVImgToVideo — or swaps in the built-in video scaffold when the selected graph is stills-only.'
                 : 'Ignored in T2V mode. Switch to Image to video to use a first frame.'
           }
         >

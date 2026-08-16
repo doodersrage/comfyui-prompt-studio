@@ -94,7 +94,6 @@ export function auditLoaderFilenamesInWorkflow(input: {
         label: 'Checkpoint',
         filename: inputs.ckpt_name,
         list: input.models.checkpoints,
-        fallbackList: input.models.unets,
       });
     }
 

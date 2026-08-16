@@ -1378,6 +1378,9 @@ export function injectPromptsWithFallbacks(
     loaders?: ModelLoaderFilenames;
     model?: string;
     availableCheckpoints?: string[] | null;
+    availableUnets?: string[] | null;
+    availableVaes?: string[] | null;
+    availableClips?: string[] | null;
     availableLoras?: string[] | null;
     qualityProfile?: QueueQualityProfile;
     samplerPresetTier?: ModelSamplerPresetTier;
@@ -1541,6 +1544,9 @@ export function injectPromptsWithFallbacks(
       syncWorkflowLoadersToModel: options?.syncWorkflowLoadersToModel,
       model: options?.model,
       availableCheckpoints: options?.availableCheckpoints,
+      availableUnets: options?.availableUnets,
+      availableVaes: options?.availableVaes,
+      availableClips: options?.availableClips,
       loraLibrary: options?.loraLibrary,
       prompt: input.positive,
       regionalSlots: options?.regionalSlots,
@@ -1555,6 +1561,25 @@ export function injectPromptsWithFallbacks(
     }
     nextWorkflow = directPatch.workflow;
     directPatchCounts = directPatch.patched;
+    if (directPatch.patched.videoScaffoldFallback) {
+      const rebound = injectWorkflowPlaceholders(
+        nextWorkflow,
+        {
+          positive: promptInput.positive,
+          negative: promptInput.negative,
+          params: input.params,
+          customTokens: mergedCustomTokens,
+        },
+        tokens
+      );
+      nextWorkflow = rebound.workflow;
+      nextWorkflow = patchSamplerParamsInWorkflow(
+        nextWorkflow,
+        input.params ?? {},
+        options?.model,
+        { mutateInPlace: true }
+      ).workflow;
+    }
   } else if (loaders.checkpoint || loaders.unet || loaders.vae) {
     const loaderPatch = patchLoaderNodesInWorkflow(nextWorkflow, loaders, {
       availableCheckpoints: options?.availableCheckpoints,
