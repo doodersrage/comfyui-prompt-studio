@@ -29,4 +29,4 @@ Installers land in `desktop/src-tauri/target/release/bundle/`.
 
 ## Data
 
-The app sets `PROMPT_DATA_DIR` to the OS app-data folder (Application Support / AppData / `~/.local/share/app.promptstudio.desktop`). Server stdout/stderr go to `server.log` in that folder. Desktop builds enable adult Roleplay ratings at compile time.
+The app sets `PROMPT_DATA_DIR` to the OS app-data folder (Application Support / AppData / `~/.local/share/app.promptstudio.desktop`). Startup writes `desktop.log`; the Node child writes `server.log`. Desktop builds enable adult Roleplay ratings at compile time.

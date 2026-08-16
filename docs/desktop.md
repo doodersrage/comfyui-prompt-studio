@@ -23,7 +23,7 @@ Linux installers use the name `PromptStudio` (no space) so AppImage bundling wor
 
 Adult Roleplay ratings and the Adult generator plugin are **on** in desktop builds (`PROMPT_NSFW_GENERATOR_ENABLED` and `NEXT_PUBLIC_PROMPT_NSFW_GENERATOR_ENABLED`). Rebuild with those flags unset to ship a locked build. Web/Docker stays env-gated. See [configuration](configuration.md).
 
-If the window stays on “Starting the local server…”, the splash shows the error. Check `server.log` in the app-data folder.
+If the window stays on “Starting the local server…”, the splash shows the error. Check `desktop.log` and `server.log` in the app-data folder (macOS: `~/Library/Application Support/app.promptstudio.desktop`). The bundled Node binary is named `node-<target-triple>` (for example `node-aarch64-apple-darwin`); the server files live under `Contents/Resources/resources/server`.
 
 ## Local build
 

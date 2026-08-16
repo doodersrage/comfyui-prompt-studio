@@ -1,6 +1,6 @@
 [package]
 name = "prompt-studio"
-version = "0.3.2"
+version = "0.3.3"
 description = "Prompt Studio desktop shell"
 authors = ["Prompt Studio"]
 edition = "2021"
