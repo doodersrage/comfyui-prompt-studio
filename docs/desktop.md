@@ -10,9 +10,9 @@ GitHub Releases on `vX.Y.Z` tags attach:
 | --- | --- |
 | macOS | `.dmg` |
 | Windows | `.exe` (NSIS) |
-| Linux | `.AppImage` and `.deb` |
+| Linux | `.deb` (and `.AppImage` when the bundler succeeds) |
 
-Linux installers use the name `PromptStudio` (no space) so AppImage bundling works. The window title stays **Prompt Studio**.
+Linux installers use the name `PromptStudio` (no space). The window title stays **Prompt Studio**. Prefer the `.deb` if both are attached.
 
 ## First launch
 
