@@ -18,7 +18,12 @@ export function isVideoLikeEntry(
   if (!entry) {
     return false;
   }
-  return entry.derivedKind === 'i2v' || entry.derivedKind === 'extend' || entry.tool === 'video';
+  return (
+    entry.derivedKind === 'i2v' ||
+    entry.derivedKind === 't2v' ||
+    entry.derivedKind === 'extend' ||
+    entry.tool === 'video'
+  );
 }
 
 export function isGalleryClipEntry(
@@ -29,7 +34,10 @@ export function isGalleryClipEntry(
 
 export function nextRoleplayMotionKind(
   parent: Pick<ComfyGalleryEntry, 'derivedKind' | 'tool'> | undefined
-): 'i2v' | 'extend' {
+): 't2v' | 'i2v' | 'extend' {
+  if (!parent) {
+    return 't2v';
+  }
   return isVideoLikeEntry(parent) ? 'extend' : 'i2v';
 }
 
@@ -79,16 +87,23 @@ export function lastRoleplayMotionSource(
 }
 
 export function shouldAutoQueueRoleplayClip(beat: RoleplayStoryBeat): boolean {
-  if (beat.stillStatus !== 'completed' || !beat.imageUrl?.trim()) {
-    return false;
-  }
   if (beat.clipPromptId?.trim()) {
     return false;
   }
   const status = beat.clipStatus;
-  return (
-    status !== 'writing' && status !== 'queued' && status !== 'running' && status !== 'completed'
-  );
+  if (
+    status === 'writing' ||
+    status === 'queued' ||
+    status === 'running' ||
+    status === 'completed'
+  ) {
+    return false;
+  }
+  if (beat.stillStatus === 'completed' && beat.imageUrl?.trim()) {
+    return true;
+  }
+  // Text-only beat: queue T2V once the prompt exists.
+  return Boolean(beat.prompt?.trim()) && !beat.imageUrl?.trim() && beat.stillStatus !== 'writing';
 }
 
 export function looksLikeVideoUrl(url: string): boolean {

@@ -7,6 +7,7 @@ import {
   DEFAULT_FAL_TXT2IMG_MODEL,
   FAL_QUEUE_HOST,
 } from './engine/capabilities';
+import { extraCloudComposeFilenames, isFalMultiRefEditModel } from './cloud-compose-refs';
 import { inferVideoClipMode, resolveFalVideoModel } from './video-clip-mode';
 import {
   encodeFalPromptId,
@@ -255,6 +256,7 @@ export async function queueFalImage(input: {
   seed?: number | null;
   strength?: number;
   imageFilename?: string;
+  imageFilenames?: string[];
 }): Promise<FalQueueResult> {
   let apiKey: string;
   try {
@@ -340,7 +342,17 @@ export async function queueFalImage(input: {
   }
   if (hasImage && !isT2v) {
     try {
-      body.image_url = uploadToDataUrl(input.imageFilename!.trim());
+      const positional = input.imageFilenames?.length
+        ? input.imageFilenames
+        : [input.imageFilename ?? ''];
+      const extraNames = extraCloudComposeFilenames(positional, 'fal', modelId);
+      if (isFalMultiRefEditModel(modelId)) {
+        body.image_urls = [input.imageFilename!.trim(), ...extraNames].map(name =>
+          uploadToDataUrl(name)
+        );
+      } else {
+        body.image_url = uploadToDataUrl(input.imageFilename!.trim());
+      }
     } catch (error) {
       return {
         ok: false,

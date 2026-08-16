@@ -59,6 +59,14 @@ import {
   ISOLATE_QUEUE_BLOCKED_MESSAGE,
   normalizeIsolateSubject,
 } from '@/lib/isolate-subject';
+import {
+  CLOUD_COMPOSE_SINGLE_REF_WARNING,
+  CLOUD_COMPOSE_TRANSFER_BLOCKED,
+  cloudComposeBlocksTransfer,
+  cloudComposeSendsOnlyImage1,
+} from '@/lib/cloud-compose-refs';
+import { isCloudEngine } from '@/lib/engine/capabilities';
+import { loadEngineSettings } from '@/lib/engine-settings';
 import { DEFAULT_IMAGE_COMPOSE_TOOL_CACHE } from '@/lib/settings-cache';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
@@ -203,6 +211,24 @@ export default function ComposeTool() {
     () => slots.filter(slot => slot.file || slot.previewUrl).length,
     [slots]
   );
+  const extraFilledCount = useMemo(
+    () => slots.slice(1).filter(slot => slot.file || slot.previewUrl).length,
+    [slots]
+  );
+  const cloudComposeModelId = useMemo(() => {
+    const engine = shared.inferenceEngine;
+    if (engine === 'fal') {
+      return shared.falImg2ImgModel || loadEngineSettings().falImg2ImgModel;
+    }
+    if (engine === 'replicate') {
+      return shared.replicateImg2ImgModel || loadEngineSettings().replicateImg2ImgModel;
+    }
+    return undefined;
+  }, [shared.falImg2ImgModel, shared.inferenceEngine, shared.replicateImg2ImgModel]);
+  const cloudComposeSingleRef =
+    isCloudEngine(shared.inferenceEngine) &&
+    extraFilledCount > 0 &&
+    cloudComposeSendsOnlyImage1(shared.inferenceEngine, cloudComposeModelId);
 
   useEffect(() => {
     if (filledCount > 0) {
@@ -566,13 +592,35 @@ export default function ComposeTool() {
       setError('Transfer mode needs at least Image 1 and Image 2.');
       return false;
     }
+    if (
+      cloudComposeBlocksTransfer({
+        engine: shared.inferenceEngine,
+        modelId: cloudComposeModelId,
+        mode,
+        extraFilled: extraFilledCount > 0,
+      })
+    ) {
+      setError(CLOUD_COMPOSE_TRANSFER_BLOCKED);
+      return false;
+    }
     if (!output.trim()) {
       setError('Add an edit instruction before queueing.');
       return false;
     }
     setError(null);
     return true;
-  }, [assignFigure, filledCount, isolateSubject, isolating, mode, output, slots]);
+  }, [
+    assignFigure,
+    cloudComposeModelId,
+    extraFilledCount,
+    filledCount,
+    isolateSubject,
+    isolating,
+    mode,
+    output,
+    shared.inferenceEngine,
+    slots,
+  ]);
 
   const applyTemplate = useCallback(
     (text: string) => {
@@ -872,6 +920,12 @@ export default function ComposeTool() {
           value={normalizeTurboEditStrength(shared.turboEditStrength)}
           onChange={turboEditStrength => updateShared({ turboEditStrength })}
         />
+        {cloudComposeSingleRef ? (
+          <p className="mb-4 text-xs leading-relaxed text-[var(--text-muted)]">
+            {CLOUD_COMPOSE_SINGLE_REF_WARNING} Use Fal Kontext multi as the image-to-image model to
+            attach Image 2–4, or queue on local Comfy.
+          </p>
+        ) : null}
 
         {!zImageModel ? (
           <div className="ui-recipe-shell space-y-2">

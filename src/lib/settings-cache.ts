@@ -439,6 +439,10 @@ export type SharedToolSettings = {
   replicateModel?: string;
   /** Replicate image-to-image model when a reference photo is queued. */
   replicateImg2ImgModel?: string;
+  /** Replicate image-to-video model when Roleplay/Video queues a clip on Replicate. */
+  replicateI2vModel?: string;
+  /** Replicate text-to-video model when Video queues a clip without a first frame. */
+  replicateT2vModel?: string;
   /** Session Replicate token. Stored in this browser only; server `REPLICATE_API_TOKEN` is the fallback. */
   sessionReplicateApiToken?: string;
   openaiModel?: string;

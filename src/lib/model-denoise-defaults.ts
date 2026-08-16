@@ -35,6 +35,26 @@ export const DEFAULT_Z_IMAGE_TURBO_COMPOSE_DENOISE = DEFAULT_Z_IMAGE_TURBO_IMG2I
 export const DEFAULT_INPAINT_DENOISE = 0.75;
 
 /**
+ * Masked inpaint — bands sit around the 0.75 default so Gentle / Strong
+ * actually look different without blowing the unmasked frame.
+ */
+export const INPAINT_STRENGTH_DENOISE: Record<ZImageTurboImg2imgStrength, number> = {
+  gentle: 0.55,
+  balanced: 0.75,
+  strong: 0.9,
+};
+
+/**
+ * Outpaint / expand — bands sit around the 0.85 default. Strong can fill
+ * a larger border; Gentle keeps more of the original canvas.
+ */
+export const OUTPAINT_STRENGTH_DENOISE: Record<ZImageTurboImg2imgStrength, number> = {
+  gentle: 0.65,
+  balanced: 0.85,
+  strong: 0.95,
+};
+
+/**
  * FLUX.2 Klein instruction edit uses ReferenceLatent + EmptyFlux2Latent at
  * denoise 1 (official Comfy path). Soft img2img denoise is the wrong mechanism.
  */
@@ -369,10 +389,7 @@ export function resolveDenoiseForModel(
     return 1;
   }
 
-  if (isQwenRapidAioModel(model)) {
-    if (options?.hasMaskImage || isInpaintModel(model)) {
-      return DEFAULT_INPAINT_DENOISE;
-    }
+  if (isQwenRapidAioModel(model) && !isMaskedPaintStrengthContext(model, options)) {
     return 1;
   }
 
@@ -403,19 +420,9 @@ export function resolveDenoiseForModel(
     return 1;
   }
 
-  // Soft img2img — ignore Settings 0.65; strength chips pick the band.
+  // Soft img2img / inpaint / outpaint — ignore Settings 0.65; chips pick the band.
   if (isSoftImg2imgStrengthContext(model, options)) {
-    const strength = options?.turboEditStrength;
-    if (isZImageTurboModel(model)) {
-      if (strength && strength in Z_IMAGE_TURBO_IMG2IMG_DENOISE) {
-        return Z_IMAGE_TURBO_IMG2IMG_DENOISE[strength];
-      }
-      return DEFAULT_Z_IMAGE_TURBO_IMG2IMG_DENOISE;
-    }
-    if (strength && strength in SOFT_IMG2IMG_STRENGTH_DENOISE) {
-      return SOFT_IMG2IMG_STRENGTH_DENOISE[strength];
-    }
-    return SOFT_IMG2IMG_STRENGTH_DENOISE.balanced;
+    return resolveSoftStrengthDenoise(model, options);
   }
 
   if (options?.override != null && options.override.toString().trim() !== '') {
@@ -469,7 +476,7 @@ export function isSoftImg2imgStrengthContext(
   if (isQwenLightningModel(model) || isWanLightningModel(model) || isWanRapidAioModel(model)) {
     return false;
   }
-  if (isQwenRapidAioModel(model)) {
+  if (isQwenRapidAioModel(model) && !isMaskedPaintStrengthContext(model, options)) {
     return false;
   }
   if (options?.tool === 'video' || isVideoCategoryModel(model)) {
@@ -478,13 +485,69 @@ export function isSoftImg2imgStrengthContext(
   if (options?.tool === 'generate' && !options?.hasMaskImage && !isInpaintModel(model)) {
     return false;
   }
-  if (options?.hasMaskImage || isInpaintModel(model) || options?.tool === 'outpaint') {
-    return false;
+  if (isMaskedPaintStrengthContext(model, options)) {
+    return true;
   }
   if (isZImageImg2imgQueueTool(options?.tool)) {
     return true;
   }
   return Boolean(options?.hasInputImage) && isEditQueueTool(options?.tool);
+}
+
+export function isMaskedPaintStrengthContext(
+  model?: ComfyImageModel | string | null,
+  options?: {
+    tool?: string;
+    hasInputImage?: boolean;
+    hasMaskImage?: boolean;
+  }
+): boolean {
+  const tool = normalizeEditQueueToolId(options?.tool);
+  if (tool === 'outpaint') {
+    return true;
+  }
+  if (tool === 'inpaint' || options?.hasMaskImage) {
+    return true;
+  }
+  return Boolean(model && isInpaintModel(model));
+}
+
+function resolveSoftStrengthDenoise(
+  model: ComfyImageModel | string,
+  options?: {
+    tool?: string;
+    hasInputImage?: boolean;
+    hasMaskImage?: boolean;
+    turboEditStrength?: ZImageTurboImg2imgStrength;
+  }
+): number {
+  const strength = options?.turboEditStrength;
+  if (isOutpaintStrengthTool(options?.tool)) {
+    if (strength && strength in OUTPAINT_STRENGTH_DENOISE) {
+      return OUTPAINT_STRENGTH_DENOISE[strength];
+    }
+    return OUTPAINT_STRENGTH_DENOISE.balanced;
+  }
+  if (isMaskedPaintStrengthContext(model, options)) {
+    if (strength && strength in INPAINT_STRENGTH_DENOISE) {
+      return INPAINT_STRENGTH_DENOISE[strength];
+    }
+    return INPAINT_STRENGTH_DENOISE.balanced;
+  }
+  if (isZImageTurboModel(model)) {
+    if (strength && strength in Z_IMAGE_TURBO_IMG2IMG_DENOISE) {
+      return Z_IMAGE_TURBO_IMG2IMG_DENOISE[strength];
+    }
+    return DEFAULT_Z_IMAGE_TURBO_IMG2IMG_DENOISE;
+  }
+  if (strength && strength in SOFT_IMG2IMG_STRENGTH_DENOISE) {
+    return SOFT_IMG2IMG_STRENGTH_DENOISE[strength];
+  }
+  return SOFT_IMG2IMG_STRENGTH_DENOISE.balanced;
+}
+
+function isOutpaintStrengthTool(tool?: string): boolean {
+  return normalizeEditQueueToolId(tool) === 'outpaint';
 }
 
 /**

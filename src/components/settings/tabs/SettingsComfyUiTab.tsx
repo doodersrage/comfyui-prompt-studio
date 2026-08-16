@@ -59,8 +59,12 @@ import {
   CLOUD_ENGINE_OPTIONS,
   DEFAULT_FAL_I2V_MODEL,
   DEFAULT_FAL_T2V_MODEL,
+  DEFAULT_REPLICATE_I2V_MODEL,
+  DEFAULT_REPLICATE_T2V_MODEL,
   FAL_I2V_MODEL_PRESETS,
   FAL_T2V_MODEL_PRESETS,
+  REPLICATE_I2V_MODEL_PRESETS,
+  REPLICATE_T2V_MODEL_PRESETS,
   normalizeEngineId,
   parseEngineId,
 } from '@/lib/engine/capabilities';
@@ -458,6 +462,66 @@ export default function SettingsComfyUiTab({
                     />
                     <datalist id="fal-t2v-model-presets">
                       {FAL_T2V_MODEL_PRESETS.map(preset => (
+                        <option key={preset.id} value={preset.id}>
+                          {preset.label}
+                        </option>
+                      ))}
+                    </datalist>
+                  </div>
+                ) : null}
+                {option.id === 'replicate' ? (
+                  <div className="space-y-1 sm:col-span-2">
+                    <label
+                      htmlFor="replicate-i2v-model"
+                      className="text-xs text-[var(--text-secondary)]"
+                    >
+                      Replicate image-to-video model
+                    </label>
+                    <input
+                      id="replicate-i2v-model"
+                      list="replicate-i2v-model-presets"
+                      value={sharedSettings.replicateI2vModel ?? ''}
+                      onChange={event =>
+                        updateSharedSettings({
+                          replicateI2vModel: event.target.value,
+                        })
+                      }
+                      placeholder={DEFAULT_REPLICATE_I2V_MODEL}
+                      disabled={!active}
+                      className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 text-sm text-[var(--text-primary)] shadow-inner transition focus-visible:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                    <datalist id="replicate-i2v-model-presets">
+                      {REPLICATE_I2V_MODEL_PRESETS.map(preset => (
+                        <option key={preset.id} value={preset.id}>
+                          {preset.label}
+                        </option>
+                      ))}
+                    </datalist>
+                  </div>
+                ) : null}
+                {option.id === 'replicate' ? (
+                  <div className="space-y-1 sm:col-span-2">
+                    <label
+                      htmlFor="replicate-t2v-model"
+                      className="text-xs text-[var(--text-secondary)]"
+                    >
+                      Replicate text-to-video model
+                    </label>
+                    <input
+                      id="replicate-t2v-model"
+                      list="replicate-t2v-model-presets"
+                      value={sharedSettings.replicateT2vModel ?? ''}
+                      onChange={event =>
+                        updateSharedSettings({
+                          replicateT2vModel: event.target.value,
+                        })
+                      }
+                      placeholder={DEFAULT_REPLICATE_T2V_MODEL}
+                      disabled={!active}
+                      className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 text-sm text-[var(--text-primary)] shadow-inner transition focus-visible:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                    <datalist id="replicate-t2v-model-presets">
+                      {REPLICATE_T2V_MODEL_PRESETS.map(preset => (
                         <option key={preset.id} value={preset.id}>
                           {preset.label}
                         </option>

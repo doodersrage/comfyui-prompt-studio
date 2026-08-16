@@ -2,10 +2,13 @@ import { NextResponse } from 'next/server';
 import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
 import { queueReplicateImage } from '@/lib/replicate-client';
 import {
+  DEFAULT_REPLICATE_I2V_MODEL,
   DEFAULT_REPLICATE_IMG2IMG_MODEL,
+  DEFAULT_REPLICATE_T2V_MODEL,
   DEFAULT_REPLICATE_TXT2IMG_MODEL,
   cloudSettingsHref,
 } from '@/lib/engine/capabilities';
+import { inferVideoClipMode } from '@/lib/video-clip-mode';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -15,6 +18,10 @@ type ReplicateRequestBody = {
   negativePrompt?: string;
   model?: string;
   img2imgModel?: string;
+  i2vModel?: string;
+  t2vModel?: string;
+  tool?: string;
+  clipMode?: 't2v' | 'i2v';
   replicateApiToken?: string;
   clientId?: string;
   hasInputImage?: boolean;
@@ -26,6 +33,8 @@ type ReplicateRequestBody = {
     steps?: string | number;
     cfg?: string | number;
     denoise?: string | number;
+    videoFrames?: string | number;
+    videoFps?: string | number;
   };
 };
 
@@ -61,12 +70,31 @@ export async function POST(request: Request) {
         ? null
         : Math.trunc(toNumber(seedRaw, 0) ?? 0);
 
-    const imageFilename = body.hasInputImage === true ? body.inputImageFilename?.trim() : undefined;
+    const clipMode =
+      body.tool?.trim() === 'video'
+        ? inferVideoClipMode({
+            clipMode: body.clipMode,
+            hasInitImage: body.hasInputImage === true && Boolean(body.inputImageFilename?.trim()),
+          })
+        : undefined;
+    const imageFilename =
+      body.hasInputImage === true && clipMode !== 't2v'
+        ? body.inputImageFilename?.trim()
+        : undefined;
+    const frames = toNumber(params.videoFrames);
+    const fps = toNumber(params.videoFps, 16);
+    const durationSec =
+      frames && fps && fps > 0 ? Math.max(1, Math.round(frames / fps)) : undefined;
     const result = await queueReplicateImage({
       prompt,
       negativePrompt: body.negativePrompt?.trim() || undefined,
       model: body.model?.trim() || DEFAULT_REPLICATE_TXT2IMG_MODEL,
       img2imgModel: body.img2imgModel?.trim() || DEFAULT_REPLICATE_IMG2IMG_MODEL,
+      i2vModel: body.i2vModel?.trim() || DEFAULT_REPLICATE_I2V_MODEL,
+      t2vModel: body.t2vModel?.trim() || DEFAULT_REPLICATE_T2V_MODEL,
+      tool: body.tool?.trim() || undefined,
+      clipMode,
+      durationSec,
       apiToken: body.replicateApiToken,
       width: toNumber(params.width, 1024),
       height: toNumber(params.height, 1024),

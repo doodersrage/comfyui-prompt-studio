@@ -1,10 +1,17 @@
 import 'server-only';
 
 import {
+  DEFAULT_REPLICATE_I2V_MODEL,
   DEFAULT_REPLICATE_IMG2IMG_MODEL,
+  DEFAULT_REPLICATE_T2V_MODEL,
   DEFAULT_REPLICATE_TXT2IMG_MODEL,
   REPLICATE_API_HOST,
 } from './engine/capabilities';
+import {
+  inferVideoClipMode,
+  resolveReplicateVideoModel,
+  snapFalVideoDurationSec,
+} from './video-clip-mode';
 import {
   aspectRatioFromSize,
   encodeReplicatePromptId,
@@ -176,6 +183,12 @@ function extractImageUrls(raw: Record<string, unknown>): string[] {
     }
   }
   pushUrl(raw.image);
+  pushUrl(raw.video);
+  if (Array.isArray(raw.videos)) {
+    for (const item of raw.videos) {
+      pushUrl(item);
+    }
+  }
   return [...new Set(urls)];
 }
 
@@ -223,6 +236,11 @@ export async function queueReplicateImage(input: {
   negativePrompt?: string;
   model?: string;
   img2imgModel?: string;
+  i2vModel?: string;
+  t2vModel?: string;
+  clipMode?: 't2v' | 'i2v';
+  tool?: string;
+  durationSec?: number;
   apiToken?: string;
   width?: number;
   height?: number;
@@ -245,13 +263,42 @@ export async function queueReplicateImage(input: {
   }
 
   const hasImage = Boolean(input.imageFilename?.trim());
+  const isVideo = input.tool === 'video';
+  const clipMode = isVideo
+    ? inferVideoClipMode({ clipMode: input.clipMode, hasInitImage: hasImage })
+    : undefined;
+  const isI2v = clipMode === 'i2v';
+  const isT2v = clipMode === 't2v';
+  if (isI2v && !hasImage) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'Cloud image-to-video needs a first frame.',
+      raw: {},
+    };
+  }
   let modelId: string;
   try {
+    const videoModel = isVideo
+      ? resolveReplicateVideoModel({
+          clipMode: clipMode ?? 't2v',
+          i2vModel: input.i2vModel,
+          t2vModel: input.t2vModel,
+        })
+      : undefined;
     modelId = sanitizeReplicateModelId(
-      hasImage
-        ? input.img2imgModel || DEFAULT_REPLICATE_IMG2IMG_MODEL
-        : input.model || DEFAULT_REPLICATE_TXT2IMG_MODEL,
-      hasImage ? DEFAULT_REPLICATE_IMG2IMG_MODEL : DEFAULT_REPLICATE_TXT2IMG_MODEL
+      isVideo
+        ? videoModel || (isI2v ? DEFAULT_REPLICATE_I2V_MODEL : DEFAULT_REPLICATE_T2V_MODEL)
+        : hasImage
+          ? input.img2imgModel || DEFAULT_REPLICATE_IMG2IMG_MODEL
+          : input.model || DEFAULT_REPLICATE_TXT2IMG_MODEL,
+      isI2v
+        ? DEFAULT_REPLICATE_I2V_MODEL
+        : isT2v
+          ? DEFAULT_REPLICATE_T2V_MODEL
+          : hasImage
+            ? DEFAULT_REPLICATE_IMG2IMG_MODEL
+            : DEFAULT_REPLICATE_TXT2IMG_MODEL
     );
   } catch (error) {
     return {
@@ -267,10 +314,12 @@ export async function queueReplicateImage(input: {
   const replicateInput: Record<string, unknown> = {
     prompt: input.prompt.trim(),
     aspect_ratio: aspectRatioFromSize(width, height),
-    output_format: 'png',
-    num_outputs: 1,
   };
-  if (typeof input.steps === 'number' && Number.isFinite(input.steps)) {
+  if (!isI2v && !isT2v) {
+    replicateInput.output_format = 'png';
+    replicateInput.num_outputs = 1;
+  }
+  if (typeof input.steps === 'number' && Number.isFinite(input.steps) && !isI2v && !isT2v) {
     replicateInput.num_inference_steps = Math.max(1, Math.min(50, Math.trunc(input.steps)));
   }
   if (typeof input.cfg === 'number' && Number.isFinite(input.cfg) && input.cfg > 0) {
@@ -283,11 +332,21 @@ export async function queueReplicateImage(input: {
   if (input.negativePrompt?.trim() && !/schnell/i.test(modelId)) {
     replicateInput.negative_prompt = input.negativePrompt.trim();
   }
-  if (hasImage) {
+  if (isI2v || isT2v) {
+    const seconds = snapFalVideoDurationSec(input.durationSec);
+    if (/kling/i.test(modelId)) {
+      replicateInput.duration = seconds;
+    }
+  }
+  if (hasImage && !isT2v) {
     try {
       const dataUrl = uploadToDataUrl(input.imageFilename!.trim());
-      replicateInput.image = dataUrl;
-      replicateInput.input_image = dataUrl;
+      if (isI2v && /kling/i.test(modelId)) {
+        replicateInput.start_image = dataUrl;
+      } else {
+        replicateInput.image = dataUrl;
+        replicateInput.input_image = dataUrl;
+      }
     } catch (error) {
       return {
         ok: false,
@@ -296,7 +355,7 @@ export async function queueReplicateImage(input: {
         raw: {},
       };
     }
-    if (typeof input.strength === 'number' && Number.isFinite(input.strength)) {
+    if (!isI2v && typeof input.strength === 'number' && Number.isFinite(input.strength)) {
       const strength = Math.min(1, Math.max(0.05, input.strength));
       replicateInput.prompt_strength = strength;
       replicateInput.strength = strength;
@@ -438,7 +497,7 @@ export async function fetchReplicateJobStatus(
       return {
         promptId,
         status: 'error',
-        statusMessage: 'Replicate completed without an image URL.',
+        statusMessage: 'Replicate completed without an image or video URL.',
         engineUrl: REPLICATE_API_HOST,
       };
     }
@@ -447,13 +506,24 @@ export async function fetchReplicateJobStatus(
     const images: ReplicateOutputImage[] = [];
     for (const [index, url] of urls.entries()) {
       const downloaded = await downloadReplicateImage(url);
-      const ext = downloaded.mimeType.includes('jpeg')
-        ? 'jpg'
-        : downloaded.mimeType.includes('webp')
-          ? 'webp'
-          : 'png';
+      const isVideo =
+        downloaded.mimeType.startsWith('video/') || /\.(mp4|webm|mov)(\?|#|$)/i.test(url);
+      const ext = isVideo
+        ? downloaded.mimeType.includes('webm')
+          ? 'webm'
+          : 'mp4'
+        : downloaded.mimeType.includes('jpeg')
+          ? 'jpg'
+          : downloaded.mimeType.includes('webp')
+            ? 'webp'
+            : 'png';
+      const mimeType = isVideo
+        ? downloaded.mimeType.startsWith('video/')
+          ? downloaded.mimeType
+          : 'video/mp4'
+        : downloaded.mimeType;
       const filename = `${parsed.predictionId}${index === 0 ? '' : `-${index}`}.${ext}`;
-      putReplicateOutput(subfolder, filename, downloaded.bytes, downloaded.mimeType);
+      putReplicateOutput(subfolder, filename, downloaded.bytes, mimeType);
       images.push({ filename, subfolder, type: 'output' });
     }
 

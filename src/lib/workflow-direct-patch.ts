@@ -37,6 +37,7 @@ import {
 import { applyRegionalEditToWorkflow } from './workflow-regional-patch';
 import { normalizeRegionalPromptSlots, type RegionalPromptSlot } from './regional-prompt-slots';
 import {
+  countFigureLoadImageSlots,
   inferLoadImageBinding,
   normalizeInputImageFilenames,
 } from './workflow-load-image-bindings';
@@ -932,8 +933,12 @@ export function patchLoadImageNodesInWorkflow(
     return { workflow: structuredClone(workflow), patched: {} };
   }
 
-  // Single-image path: keep legacy blanket patch (placeholder / overwrite).
-  if (filenames.length === 1) {
+  // Single-image path: keep legacy blanket patch only when the graph has one
+  // figure LoadImage. Multi-slot Edit packs must not stamp Figure 1 onto 2–4.
+  const figureSlotCount = countFigureLoadImageSlots(
+    workflow as Record<string, { class_type?: string; _meta?: { title?: string } }>
+  );
+  if (filenames.length === 1 && figureSlotCount <= 1) {
     return patchImageLoaderNodesInWorkflow(workflow, INPUT_IMAGE_TYPES, filenames[0], 'inputImage');
   }
 

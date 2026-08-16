@@ -18,7 +18,9 @@ describe('roleplay-film', () => {
 
   it('extends when the parent is already a clip', () => {
     assert.equal(nextRoleplayMotionKind({ derivedKind: 'i2v', tool: 'video' }), 'extend');
+    assert.equal(nextRoleplayMotionKind({ derivedKind: 't2v', tool: 'video' }), 'extend');
     assert.equal(nextRoleplayMotionKind({ tool: 'character' }), 'i2v');
+    assert.equal(nextRoleplayMotionKind(undefined), 't2v');
   });
 
   it('prefers a completed clip over the still for the next init frame', () => {
@@ -65,6 +67,16 @@ describe('roleplay-film', () => {
         clipPromptId: 'clip-1',
       }),
       false
+    );
+    assert.equal(
+      shouldAutoQueueRoleplayClip({
+        id: 'b',
+        title: 'Dock',
+        blurb: 'Arrives',
+        at: 1,
+        prompt: 'walks onto the pier',
+      }),
+      true
     );
   });
 

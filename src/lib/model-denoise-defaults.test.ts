@@ -222,6 +222,58 @@ describe("model denoise defaults", () => {
     );
   });
 
+  it("uses inpaint and outpaint strength bands around the tool defaults", () => {
+    assert.equal(
+      resolveDenoiseForModel("flux-inpaint", {
+        tool: "inpaint",
+        hasMaskImage: true,
+        turboEditStrength: "gentle",
+      }),
+      0.55,
+    );
+    assert.equal(
+      resolveDenoiseForModel("qwen-image-2512", {
+        tool: "inpaint",
+        hasMaskImage: true,
+        turboEditStrength: "strong",
+      }),
+      0.9,
+    );
+    assert.equal(
+      resolveDenoiseForModel("qwen-image-2512", {
+        tool: "outpaint",
+        hasInputImage: true,
+        turboEditStrength: "gentle",
+      }),
+      0.65,
+    );
+    assert.equal(
+      resolveDenoiseForModel("qwen-image-2512", {
+        tool: "outpaint",
+        hasInputImage: true,
+        turboEditStrength: "strong",
+      }),
+      0.95,
+    );
+    assert.equal(
+      resolveQueueDenoise("qwen-image-2512", {
+        tool: "inpaint",
+        hasMaskImage: true,
+        turboEditStrength: "balanced",
+        editDenoiseStrength: 0.65,
+      }),
+      0.75,
+    );
+    assert.equal(
+      resolveDenoiseForModel("qwen-image-edit-2511-lightning-8", {
+        tool: "inpaint",
+        hasMaskImage: true,
+        turboEditStrength: "strong",
+      }),
+      1,
+    );
+  });
+
   it("uses full denoise for plain T2I queue", () => {
     assert.equal(resolveDenoiseForModel("qwen-image-2512", { tool: "generate" }), 1);
   });

@@ -111,6 +111,29 @@ export function countLoadImageNodes(parsed: Record<string, { class_type?: string
   }).length;
 }
 
+/** Figure / input LoadImages only — control and mask titles do not count. */
+export function countFigureLoadImageSlots(
+  parsed: Record<string, { class_type?: string; _meta?: { title?: string } }>
+): number {
+  const entries = Object.values(parsed).filter(node => {
+    const classType = node.class_type ?? '';
+    return classType === 'LoadImage' || classType === 'LoadImageOutput';
+  });
+  let figureCount = 0;
+  let loadImageIndex = 0;
+  for (const node of entries) {
+    const kind = inferLoadImageBinding(node.class_type ?? '', node._meta?.title ?? '', {
+      loadImageIndex,
+      loadImageCount: entries.length,
+    });
+    loadImageIndex += 1;
+    if (isInputImageBindingKind(kind)) {
+      figureCount += 1;
+    }
+  }
+  return figureCount;
+}
+
 export const MAX_INPUT_IMAGE_FILENAMES = 4;
 
 /** Normalize figure filenames: prefer array; fall back to single primary. */

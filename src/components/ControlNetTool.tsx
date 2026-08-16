@@ -61,7 +61,9 @@ import {
   accentButtonClass,
   accentFocusClass,
 } from '@/components/ui/ToolPageShell';
+import TurboEditStrengthControls from '@/components/TurboEditStrengthControls';
 import { FieldLabel } from '@/components/ui/Field';
+import { normalizeTurboEditStrength } from '@/lib/turbo-edit-strength';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { Button, ButtonLink, PrimaryButton } from '@/components/ui/Button';
 
@@ -473,6 +475,12 @@ export default function ControlNetTool() {
         toolId="controlnet"
         shared={shared}
         onApplied={next => updateShared(next)}
+      />
+      <TurboEditStrengthControls
+        model={shared.model}
+        tool="controlnet"
+        value={normalizeTurboEditStrength(shared.turboEditStrength)}
+        onChange={turboEditStrength => updateShared({ turboEditStrength })}
       />
       <HistoryHintSeedPanel
         tool="controlnet"

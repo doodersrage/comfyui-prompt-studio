@@ -41,6 +41,9 @@ describe("turbo edit strength", () => {
     assert.equal(usesTurboEditStrengthUi("flux-2-klein-9b", "refine"), true);
     assert.equal(usesTurboEditStrengthUi("wan-video", "refine"), false);
     assert.equal(usesTurboEditStrengthUi("wan-video", "video"), false);
+    assert.equal(usesTurboEditStrengthUi("flux-inpaint", "inpaint"), true);
+    assert.equal(usesTurboEditStrengthUi("qwen-image-2512", "outpaint"), true);
+    assert.equal(usesTurboEditStrengthUi("flux-dev", "controlnet"), true);
   });
 
   it("skips T2I photo steering on turbo edit paths", () => {
@@ -126,5 +129,7 @@ describe("turbo edit strength", () => {
       formatTurboEditStrengthHint("qwen-image-edit-2511", "strong", "compose") ?? "",
       /denoise 1/,
     );
+    assert.match(formatTurboEditStrengthHint("flux-inpaint", "gentle", "inpaint") ?? "", /0\.55/);
+    assert.match(formatTurboEditStrengthHint("qwen-image-2512", "strong", "outpaint") ?? "", /0\.95/);
   });
 });

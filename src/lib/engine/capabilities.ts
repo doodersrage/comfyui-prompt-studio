@@ -12,6 +12,8 @@ export const DEFAULT_FAL_I2V_MODEL = 'fal-ai/kling-video/v2.1/standard/image-to-
 export const DEFAULT_FAL_T2V_MODEL = 'fal-ai/kling-video/v2.1/standard/text-to-video';
 export const DEFAULT_REPLICATE_TXT2IMG_MODEL = 'black-forest-labs/flux-schnell';
 export const DEFAULT_REPLICATE_IMG2IMG_MODEL = 'black-forest-labs/flux-dev';
+export const DEFAULT_REPLICATE_I2V_MODEL = 'kwaivgi/kling-v3-video';
+export const DEFAULT_REPLICATE_T2V_MODEL = 'kwaivgi/kling-v3-video';
 export const DEFAULT_OPENAI_TXT2IMG_MODEL = 'gpt-image-2';
 export const DEFAULT_OPENAI_IMG2IMG_MODEL = 'gpt-image-2';
 export const DEFAULT_GEMINI_TXT2IMG_MODEL = 'gemini-3.1-flash-image';
@@ -27,6 +29,8 @@ export const FAL_MODEL_PRESETS = [
   { id: 'fal-ai/flux/dev', label: 'FLUX Dev (quality txt2img)' },
   { id: 'fal-ai/flux-pro/v1.1', label: 'FLUX Pro 1.1' },
   { id: 'fal-ai/flux/dev/image-to-image', label: 'FLUX Dev image-to-image' },
+  { id: 'fal-ai/flux-pro/kontext/multi', label: 'FLUX Kontext multi-ref edit' },
+  { id: 'fal-ai/flux-pro/kontext/max/multi', label: 'FLUX Kontext Max multi-ref edit' },
 ] as const;
 
 export const FAL_I2V_MODEL_PRESETS = [
@@ -48,6 +52,19 @@ export const REPLICATE_MODEL_PRESETS = [
   { id: 'black-forest-labs/flux-dev', label: 'FLUX Dev (txt2img / img2img)' },
   { id: 'black-forest-labs/flux-1.1-pro', label: 'FLUX 1.1 Pro' },
   { id: 'stability-ai/sdxl', label: 'Stable Diffusion XL' },
+] as const;
+
+export const REPLICATE_I2V_MODEL_PRESETS = [
+  { id: 'kwaivgi/kling-v3-video', label: 'Kling 3.0 (T2V / I2V)' },
+  { id: 'wan-video/wan-2.2-i2v-fast', label: 'WAN 2.2 image-to-video (fast)' },
+  { id: 'wan-video/wan-2.2-i2v-a14b', label: 'WAN 2.2 image-to-video A14B' },
+  { id: 'wan-video/wan-2.5-i2v-fast', label: 'WAN 2.5 image-to-video (fast)' },
+] as const;
+
+export const REPLICATE_T2V_MODEL_PRESETS = [
+  { id: 'kwaivgi/kling-v3-video', label: 'Kling 3.0 (T2V / I2V)' },
+  { id: 'wan-video/wan-2.2-t2v-fast', label: 'WAN 2.2 text-to-video (fast)' },
+  { id: 'wan-video/wan-2.5-t2v-fast', label: 'WAN 2.5 text-to-video (fast)' },
 ] as const;
 
 export const OPENAI_MODEL_PRESETS = [

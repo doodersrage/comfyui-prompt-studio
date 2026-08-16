@@ -46,6 +46,12 @@ export const replicateEngineAdapter: EngineAdapter = {
       negativePrompt: body.negativePrompt,
       model: typeof body.model === 'string' ? body.model : settings.replicateModel,
       img2imgModel: settings.replicateImg2ImgModel,
+      i2vModel:
+        (typeof body.i2vModel === 'string' && body.i2vModel.trim()) || settings.replicateI2vModel,
+      t2vModel:
+        (typeof body.t2vModel === 'string' && body.t2vModel.trim()) || settings.replicateT2vModel,
+      tool: typeof body.tool === 'string' ? body.tool : undefined,
+      clipMode: body.clipMode === 't2v' || body.clipMode === 'i2v' ? body.clipMode : undefined,
       replicateApiToken,
       clientId,
       hasInputImage: body.hasInputImage === true,
@@ -60,6 +66,8 @@ export const replicateEngineAdapter: EngineAdapter = {
         steps: params.steps,
         cfg: params.cfg,
         denoise: params.denoise,
+        videoFrames: params.videoFrames,
+        videoFps: params.videoFps,
       },
     };
 

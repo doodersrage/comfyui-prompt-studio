@@ -52,7 +52,7 @@ export default function TurboEditStrengthControls({
               onClick={() => onChange(option.id)}
             >
               {showDenoise
-                ? `${option.label} ${resolveEditStrengthDenoise(model, option.id).toFixed(2)}`
+                ? `${option.label} ${resolveEditStrengthDenoise(model, option.id, tool).toFixed(2)}`
                 : option.label}
             </ChipButton>
           ))}

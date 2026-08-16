@@ -7,6 +7,8 @@ import {
   CLOUD_ENGINE_OPTIONS,
   DEFAULT_FAL_I2V_MODEL,
   DEFAULT_FAL_T2V_MODEL,
+  DEFAULT_REPLICATE_I2V_MODEL,
+  DEFAULT_REPLICATE_T2V_MODEL,
   cloudEngineHost,
   cloudEngineOption,
   defaultCloudImg2ImgModel,
@@ -16,7 +18,12 @@ import {
   type CloudEngineId,
 } from './engine/capabilities';
 import { DEFAULT_DIFFUSERS_API_URL } from './diffusers-client';
-import { inferVideoClipMode, resolveFalVideoModel, type VideoClipMode } from './video-clip-mode';
+import {
+  inferVideoClipMode,
+  resolveFalVideoModel,
+  resolveReplicateVideoModel,
+  type VideoClipMode,
+} from './video-clip-mode';
 
 export type EngineSettings = {
   engine: EngineId;
@@ -29,6 +36,8 @@ export type EngineSettings = {
   falT2vModel: string;
   replicateModel: string;
   replicateImg2ImgModel: string;
+  replicateI2vModel: string;
+  replicateT2vModel: string;
   openaiModel: string;
   openaiImg2ImgModel: string;
   geminiModel: string;
@@ -95,6 +104,8 @@ function cloudModelsFromEnv(): Pick<
   | 'falT2vModel'
   | 'replicateModel'
   | 'replicateImg2ImgModel'
+  | 'replicateI2vModel'
+  | 'replicateT2vModel'
   | 'openaiModel'
   | 'openaiImg2ImgModel'
   | 'geminiModel'
@@ -109,6 +120,14 @@ function cloudModelsFromEnv(): Pick<
     falT2vModel: envOr(['NEXT_PUBLIC_FAL_T2V_MODEL', 'FAL_T2V_MODEL'], DEFAULT_FAL_T2V_MODEL),
     replicateModel: envCloudTxt2Img('replicate'),
     replicateImg2ImgModel: envCloudImg2Img('replicate'),
+    replicateI2vModel: envOr(
+      ['NEXT_PUBLIC_REPLICATE_I2V_MODEL', 'REPLICATE_I2V_MODEL'],
+      DEFAULT_REPLICATE_I2V_MODEL
+    ),
+    replicateT2vModel: envOr(
+      ['NEXT_PUBLIC_REPLICATE_T2V_MODEL', 'REPLICATE_T2V_MODEL'],
+      DEFAULT_REPLICATE_T2V_MODEL
+    ),
     openaiModel: envCloudTxt2Img('openai'),
     openaiImg2ImgModel: envCloudImg2Img('openai'),
     geminiModel: envCloudTxt2Img('gemini'),
@@ -127,6 +146,8 @@ function cloudModelsFromShared(shared: SharedToolSettings): ReturnType<typeof cl
     falT2vModel: shared.falT2vModel?.trim() || fromEnv.falT2vModel,
     replicateModel: shared.replicateModel?.trim() || fromEnv.replicateModel,
     replicateImg2ImgModel: shared.replicateImg2ImgModel?.trim() || fromEnv.replicateImg2ImgModel,
+    replicateI2vModel: shared.replicateI2vModel?.trim() || fromEnv.replicateI2vModel,
+    replicateT2vModel: shared.replicateT2vModel?.trim() || fromEnv.replicateT2vModel,
     openaiModel: shared.openaiModel?.trim() || fromEnv.openaiModel,
     openaiImg2ImgModel: shared.openaiImg2ImgModel?.trim() || fromEnv.openaiImg2ImgModel,
     geminiModel: shared.geminiModel?.trim() || fromEnv.geminiModel,
@@ -182,6 +203,8 @@ export function saveEngineSettings(patch: Partial<EngineSettings>): EngineSettin
     falT2vModel: next.falT2vModel,
     replicateModel: next.replicateModel,
     replicateImg2ImgModel: next.replicateImg2ImgModel,
+    replicateI2vModel: next.replicateI2vModel,
+    replicateT2vModel: next.replicateT2vModel,
     openaiModel: next.openaiModel,
     openaiImg2ImgModel: next.openaiImg2ImgModel,
     geminiModel: next.geminiModel,
@@ -207,12 +230,19 @@ export function resolveCloudQueueModel(
   tool?: string,
   extras?: { hasInputImage?: boolean; clipMode?: VideoClipMode }
 ): string {
-  if (engine === 'fal' && tool === 'video') {
+  if ((engine === 'fal' || engine === 'replicate') && tool === 'video') {
     const settings = loadEngineSettings();
     const clipMode = inferVideoClipMode({
       clipMode: extras?.clipMode,
       hasInitImage: extras?.hasInputImage,
     });
+    if (engine === 'replicate') {
+      return resolveReplicateVideoModel({
+        clipMode,
+        i2vModel: settings.replicateI2vModel,
+        t2vModel: settings.replicateT2vModel,
+      });
+    }
     return resolveFalVideoModel({
       clipMode,
       i2vModel: settings.falI2vModel,
@@ -227,6 +257,7 @@ export function resolveCloudQueueExtras(
   input?: {
     hasInputImage?: boolean;
     inputImageFilename?: string;
+    inputImageFilenames?: string[];
     tool?: string;
     clipMode?: VideoClipMode;
   }
@@ -235,7 +266,7 @@ export function resolveCloudQueueExtras(
   const settings = loadEngineSettings();
   const option = cloudEngineOption(engine);
   const clipMode =
-    engine === 'fal' && input?.tool === 'video'
+    (engine === 'fal' || engine === 'replicate') && input?.tool === 'video'
       ? inferVideoClipMode({
           clipMode: input.clipMode,
           hasInitImage: input.hasInputImage,
@@ -244,6 +275,9 @@ export function resolveCloudQueueExtras(
   const common = {
     hasInputImage: input?.hasInputImage === true,
     inputImageFilename: input?.inputImageFilename,
+    ...(input?.inputImageFilenames?.some(name => name?.trim())
+      ? { inputImageFilenames: input.inputImageFilenames }
+      : {}),
     tool: input?.tool,
     ...(clipMode ? { clipMode } : {}),
   };
@@ -258,6 +292,12 @@ export function resolveCloudQueueExtras(
       ? {
           i2vModel: settings.falI2vModel || DEFAULT_FAL_I2V_MODEL,
           t2vModel: settings.falT2vModel || DEFAULT_FAL_T2V_MODEL,
+        }
+      : {}),
+    ...(engine === 'replicate'
+      ? {
+          i2vModel: settings.replicateI2vModel || DEFAULT_REPLICATE_I2V_MODEL,
+          t2vModel: settings.replicateT2vModel || DEFAULT_REPLICATE_T2V_MODEL,
         }
       : {}),
   };

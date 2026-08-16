@@ -40,7 +40,9 @@ import {
   accentButtonClass,
   accentFocusClass,
 } from '@/components/ui/ToolPageShell';
+import TurboEditStrengthControls from '@/components/TurboEditStrengthControls';
 import { FieldError, FieldLabel, TextArea } from '@/components/ui/Field';
+import { normalizeTurboEditStrength } from '@/lib/turbo-edit-strength';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { ButtonLink, PrimaryButton } from '@/components/ui/Button';
 
@@ -295,6 +297,12 @@ export default function InpaintTool() {
         toolId="inpaint"
         shared={shared}
         onApplied={next => updateShared(next)}
+      />
+      <TurboEditStrengthControls
+        model={shared.model}
+        tool="inpaint"
+        value={normalizeTurboEditStrength(shared.turboEditStrength)}
+        onChange={turboEditStrength => updateShared({ turboEditStrength })}
       />
       <HistoryHintSeedPanel
         tool="inpaint"

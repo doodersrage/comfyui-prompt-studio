@@ -731,16 +731,15 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         }
 
         for (let i = 1; i < 4; i += 1) {
-          if (cloudEngine) {
-            break;
-          }
           const file = options?.inputImages?.[i];
           const imageUrl = options?.inputImageUrls?.[i];
           const existing = uploadedFilenames[i]?.trim();
           if (!file && !imageUrl?.trim()) {
             continue;
           }
-          setComfyUiStatus(`Uploading Figure ${i + 1} to ComfyUI…`);
+          setComfyUiStatus(
+            cloudEngine ? `Uploading Figure ${i + 1}…` : `Uploading Figure ${i + 1} to ComfyUI…`
+          );
           const uploaded = await resolveQueueInputImageFilename({
             file: file ?? undefined,
             filename: existing || undefined,
@@ -774,9 +773,9 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             : undefined;
 
         if (cloudEngine && effectiveTool === 'video') {
-          if (engineAdapter.id !== 'fal') {
+          if (engineAdapter.id !== 'fal' && engineAdapter.id !== 'replicate') {
             throw new Error(
-              `${engineDisplayName(engineAdapter.id)} cannot queue clips. Switch the inference engine to Fal or local WAN.`
+              `${engineDisplayName(engineAdapter.id)} cannot queue clips. Switch the inference engine to Fal, Replicate, or local WAN.`
             );
           }
           if (falVideoRequiresFirstFrame(clipMode ?? 't2v') && !inputImageFilename) {
@@ -1038,6 +1037,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
                 ...resolveCloudQueueExtras(engineAdapter.id, {
                   hasInputImage: Boolean(inputImageFilename) && clipMode !== 't2v',
                   inputImageFilename: clipMode === 't2v' ? undefined : inputImageFilename,
+                  inputImageFilenames: clipMode === 't2v' ? undefined : inputImageFilenames,
                   tool: effectiveTool,
                   clipMode,
                 }),

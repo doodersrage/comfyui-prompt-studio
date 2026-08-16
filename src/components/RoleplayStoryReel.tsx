@@ -396,12 +396,25 @@ export default function RoleplayStoryReel({
           );
           const canCopy = Boolean(beat.prompt && onCopy);
           const canOpen = Boolean(beatPreviewUrl(beat, liveUrl));
-          const canAnimate = Boolean(
+          const clipBusy =
+            beat.clipStatus === 'writing' ||
+            beat.clipStatus === 'queued' ||
+            beat.clipStatus === 'running';
+          const canAnimateStill = Boolean(
             onAnimate &&
             beatDisplayUrl(beat, liveUrl) &&
             beat.stillStatus === 'completed' &&
-            beat.clipStatus !== 'completed'
+            beat.clipStatus !== 'completed' &&
+            !clipBusy
           );
+          const canAnimateT2v = Boolean(
+            onAnimate &&
+            beat.prompt?.trim() &&
+            !canAnimateStill &&
+            beat.clipStatus !== 'completed' &&
+            !clipBusy
+          );
+          const canAnimate = canAnimateStill || canAnimateT2v;
           const canExtend = Boolean(
             onExtend && beat.clipStatus === 'completed' && beat.clipUrl?.trim()
           );
@@ -443,7 +456,7 @@ export default function RoleplayStoryReel({
                         disabled={busy}
                         onClick={() => onAnimate?.(beat)}
                       >
-                        Animate still
+                        {canAnimateStill ? 'Animate still' : 'Text to video'}
                       </Button>
                     ) : null}
                     {canExtend ? (

@@ -10,7 +10,9 @@ import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
 import { HistoryHintSeedPanel } from '@/components/scene-tool/HistoryHintSeedPanel';
 import { Button, ButtonLink, PrimaryButton } from '@/components/ui/Button';
+import TurboEditStrengthControls from '@/components/TurboEditStrengthControls';
 import { FieldError, FieldLabel, TextInput, TextArea } from '@/components/ui/Field';
+import { normalizeTurboEditStrength } from '@/lib/turbo-edit-strength';
 import {
   ToolBadge,
   ToolLayout,
@@ -279,6 +281,12 @@ export default function OutpaintTool() {
         toolId="outpaint"
         shared={shared}
         onApplied={next => updateShared(next)}
+      />
+      <TurboEditStrengthControls
+        model={shared.model}
+        tool="outpaint"
+        value={normalizeTurboEditStrength(shared.turboEditStrength)}
+        onChange={turboEditStrength => updateShared({ turboEditStrength })}
       />
       <HistoryHintSeedPanel
         tool="outpaint"

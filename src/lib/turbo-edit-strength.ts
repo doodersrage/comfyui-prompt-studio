@@ -1,12 +1,15 @@
 import {
+  INPAINT_STRENGTH_DENOISE,
   isBooguEditModel,
   isBooguEditTurboModel,
   isEditQueueTool,
   isFluxKleinModel,
+  isMaskedPaintStrengthContext,
   isQwenEditModel,
   isQwenRapidAioModel,
   isSoftImg2imgStrengthContext,
   isZImageTurboModel,
+  OUTPAINT_STRENGTH_DENOISE,
   SOFT_IMG2IMG_STRENGTH_DENOISE,
   Z_IMAGE_TURBO_IMG2IMG_DENOISE,
   type ZImageTurboImg2imgStrength,
@@ -164,8 +167,18 @@ export function resolveZImageTurboImg2imgDenoise(strength?: unknown): number {
   return Z_IMAGE_TURBO_IMG2IMG_DENOISE[normalizeTurboEditStrength(strength)];
 }
 
-export function resolveEditStrengthDenoise(model?: string | null, strength?: unknown): number {
+export function resolveEditStrengthDenoise(
+  model?: string | null,
+  strength?: unknown,
+  tool?: string
+): number {
   const normalized = normalizeTurboEditStrength(strength);
+  if (tool === 'outpaint') {
+    return OUTPAINT_STRENGTH_DENOISE[normalized];
+  }
+  if (isMaskedPaintStrengthContext(model, { tool, hasMaskImage: tool === 'inpaint' })) {
+    return INPAINT_STRENGTH_DENOISE[normalized];
+  }
   if (isZImageTurboModel(model)) {
     return Z_IMAGE_TURBO_IMG2IMG_DENOISE[normalized];
   }
@@ -179,7 +192,13 @@ export function formatTurboEditStrengthHint(
 ): string | null {
   const normalized = normalizeTurboEditStrength(strength);
   if (editStrengthUsesDenoiseBands(model, tool ?? 'refine')) {
-    const denoise = resolveEditStrengthDenoise(model, normalized);
+    const denoise = resolveEditStrengthDenoise(model, normalized, tool);
+    if (tool === 'outpaint') {
+      return `${normalized} outpaint denoise ${denoise.toFixed(2)}. The Settings edit-denoise slider does not apply — use Gentle / Balanced / Strong, or a sidebar KSampler denoise override.`;
+    }
+    if (isMaskedPaintStrengthContext(model, { tool, hasMaskImage: tool === 'inpaint' })) {
+      return `${normalized} inpaint denoise ${denoise.toFixed(2)} on the masked region. The Settings edit-denoise slider does not apply — use Gentle / Balanced / Strong, or a sidebar KSampler denoise override.`;
+    }
     if (isZImageTurboModel(model)) {
       return `Z-Image Turbo img2img uses ${normalized} denoise ${denoise.toFixed(2)} (8-step CFG 1). The Settings edit-denoise slider does not apply — use Gentle / Balanced / Strong, or a sidebar KSampler denoise override.`;
     }

@@ -409,6 +409,33 @@ describe("workflow direct patch", () => {
     assert.equal(result.patched.inputImage, 1);
   });
 
+  it("does not stamp Figure 1 onto Figure 2–3 when only one filename is queued", () => {
+    const workflow = {
+      "10": {
+        class_type: "LoadImage",
+        inputs: { image: "{{INPUT_IMAGE}}" },
+        _meta: { title: "Figure 1" },
+      },
+      "11": {
+        class_type: "LoadImage",
+        inputs: { image: "{{INPUT_IMAGE_2}}" },
+        _meta: { title: "Figure 2" },
+      },
+      "12": {
+        class_type: "LoadImage",
+        inputs: { image: "{{INPUT_IMAGE_3}}" },
+        _meta: { title: "Figure 3" },
+      },
+    };
+    const result = patchLoadImageNodesInWorkflow(workflow, "fig1.png");
+    const fig1 = result.workflow["10"] as { inputs?: { image?: string } };
+    const fig2 = result.workflow["11"] as { inputs?: { image?: string } };
+    const fig3 = result.workflow["12"] as { inputs?: { image?: string } };
+    assert.equal(fig1.inputs?.image, "fig1.png");
+    assert.equal(fig2.inputs?.image, "{{INPUT_IMAGE_2}}");
+    assert.equal(fig3.inputs?.image, "{{INPUT_IMAGE_3}}");
+  });
+
   it("patches LoadImageMask nodes separately from LoadImage", () => {
     const workflow = {
       "10": {

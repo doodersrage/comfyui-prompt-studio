@@ -973,8 +973,9 @@ export default function RoleplayTool() {
           : playAs === 'photo' && referenceImageUrl
             ? { imageUrl: referenceImageUrl, fromClip: false }
             : null);
-      if (!source?.imageUrl) {
-        setError('Need a still or clip to start motion.');
+      const hasInit = Boolean(source?.imageUrl);
+      if (!hasInit && !latest.prompt?.trim() && !latest.blurb?.trim()) {
+        setError('Write a beat prompt, or add a still, before queueing a clip.');
         return;
       }
 
@@ -983,8 +984,8 @@ export default function RoleplayTool() {
       });
 
       let inputImage: File | undefined;
-      let inputImageUrl: string | undefined = source.imageUrl;
-      if (looksLikeVideoUrl(source.imageUrl)) {
+      let inputImageUrl: string | undefined = source?.imageUrl;
+      if (source?.imageUrl && looksLikeVideoUrl(source.imageUrl)) {
         try {
           const blob = await extractVideoLastFrame(source.imageUrl);
           inputImage = new File([blob], 'roleplay-last-frame.jpg', {
@@ -1000,7 +1001,7 @@ export default function RoleplayTool() {
         }
       }
 
-      const parentEntry = source.parentPromptId
+      const parentEntry = source?.parentPromptId
         ? loadComfyGallery().find(entry => entry.promptId === source.parentPromptId)
         : latest.promptId
           ? loadComfyGallery().find(entry => entry.promptId === latest.promptId)
@@ -1034,10 +1035,11 @@ export default function RoleplayTool() {
         promptId = await actions.sendComfyUi(prompt, undefined, undefined, {
           queueTool: 'video',
           queueModel: videoModel,
-          inputImage,
-          inputImageUrl,
+          inputImage: hasInit ? inputImage : undefined,
+          inputImageUrl: hasInit ? inputImageUrl : undefined,
           parentGalleryEntryId: parentEntry?.id,
-          derivedKind: nextRoleplayMotionKind(parentEntry),
+          derivedKind: hasInit ? nextRoleplayMotionKind(parentEntry) : 't2v',
+          clipMode: hasInit ? 'i2v' : 't2v',
           qualityProfile: 'final',
           queueParamsBase: { videoFrames: 64, videoFps: 16 },
           ...roleplayCharacterQueueFields(),
@@ -1629,7 +1631,7 @@ export default function RoleplayTool() {
             : 'Stills land here as they render'}
           {autoQueue
             ? beatOutput === 'clip'
-              ? ' — first still, then motion; later beats extend the last clip'
+              ? ' — still then I2V when a frame exists; otherwise T2V from the beat prompt'
               : ' — queued automatically from the bio and each pick'
             : ''}
           .
@@ -1697,7 +1699,7 @@ export default function RoleplayTool() {
             Queue a {beatOutput === 'clip' ? 'clip' : 'still'} when I write a bio or pick a scene
             <span className="mt-0.5 block text-xs text-[var(--text-muted)]">
               {beatOutput === 'clip'
-                ? 'First beat stills, then I2V. Later beats extend from the last clip. Local WAN or Fal Kling.'
+                ? 'A still becomes I2V. A text-only beat is T2V. Later beats extend the last clip. Local WAN, Fal, or Replicate.'
                 : 'Uses the model and Fast/Good/Best from the sidebar. Turn off to write the prompt first.'}
             </span>
           </span>

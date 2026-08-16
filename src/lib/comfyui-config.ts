@@ -1510,10 +1510,14 @@ export function injectPromptsWithFallbacks(
       input.params?.inputImageFilename,
       input.params?.inputImageFilenames
     );
-    // Single figure: patch LoadImage early. Multi-figure Compose refs are owned
-    // by prepareLightning → ensure (LoadImage create/title + encode wiring).
-    if (figureFilenames.length <= 1) {
-      nextWorkflow = patchLoadImageNodesInWorkflow(nextWorkflow, figureFilenames[0]).workflow;
+    // Bind Figure 1–N by title/index. A single filename must not blanket-stamp
+    // every LoadImage on a multi-slot Edit pack.
+    if (figureFilenames.some(Boolean)) {
+      nextWorkflow = patchLoadImageNodesInWorkflow(
+        nextWorkflow,
+        figureFilenames[0],
+        figureFilenames
+      ).workflow;
     }
     nextWorkflow = patchLoadImageMaskNodesInWorkflow(
       nextWorkflow,

@@ -42,7 +42,12 @@ import {
   accentFocusClass,
 } from '@/components/ui/ToolPageShell';
 import { ChipButton, FieldLabel, TextArea } from '@/components/ui/Field';
-import { inferVideoClipMode, type VideoClipMode } from '@/lib/video-clip-mode';
+import {
+  FAL_VIDEO_DURATION_SECONDS,
+  inferVideoClipMode,
+  snapFalVideoDurationSec,
+  type VideoClipMode,
+} from '@/lib/video-clip-mode';
 import { saveEngineSettings } from '@/lib/engine-settings';
 import { preferFalForVideoStillHandoff } from '@/lib/video-still-handoff';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
@@ -640,16 +645,30 @@ export default function VideoPromptTool() {
           </div>
           <div>
             <FieldLabel htmlFor="video-duration">Duration (seconds)</FieldLabel>
-            <input
-              id="video-duration"
-              type="number"
-              min={1}
-              max={16}
-              value={durationSec}
-              onChange={event => setDurationSec(Number(event.target.value) || 4)}
-              placeholder="e.g. 4"
-              className="ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
-            />
+            {shared.inferenceEngine === 'fal' || shared.inferenceEngine === 'replicate' ? (
+              <div className="flex flex-wrap gap-1.5">
+                {FAL_VIDEO_DURATION_SECONDS.map(seconds => (
+                  <ChipButton
+                    key={seconds}
+                    active={snapFalVideoDurationSec(durationSec) === seconds}
+                    onClick={() => setDurationSec(seconds)}
+                  >
+                    {seconds}s
+                  </ChipButton>
+                ))}
+              </div>
+            ) : (
+              <input
+                id="video-duration"
+                type="number"
+                min={1}
+                max={16}
+                value={durationSec}
+                onChange={event => setDurationSec(Number(event.target.value) || 4)}
+                placeholder="e.g. 4"
+                className="ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
+              />
+            )}
           </div>
         </div>
 
