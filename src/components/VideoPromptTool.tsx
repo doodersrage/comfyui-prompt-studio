@@ -18,6 +18,9 @@ import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
 import { continueEditResultProps } from '@/lib/continue-edit-result-props';
 import { getReformatTargetLabel } from '@/lib/reformat-target';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
+import { loadComfyGallery } from '@/lib/comfyui-gallery';
+import { nextRoleplayMotionKind, looksLikeVideoUrl } from '@/lib/roleplay-film';
+import { extractVideoLastFrame } from '@/lib/video-last-frame';
 import { DEFAULT_VIDEO_TOOL_CACHE, loadSettingsCache } from '@/lib/settings-cache';
 import { normalizeHistorySeedScope, normalizeSceneHintSource } from '@/lib/scene-hint-source';
 import { isVideoModel, resolvePreferredVideoModel } from '@/lib/queue-tool-model';
@@ -194,13 +197,37 @@ export default function VideoPromptTool() {
 
       setParentGalleryEntryId(handoff.payload.galleryEntryId?.trim() || undefined);
 
+      const rawUrl = handoff.payload.imageUrl?.trim() || handoff.previewUrl?.trim() || '';
+      if (rawUrl && looksLikeVideoUrl(rawUrl)) {
+        void extractVideoLastFrame(rawUrl)
+          .then(blob => {
+            const nextFile = new File([blob], 'last-frame.jpg', {
+              type: blob.type || 'image/jpeg',
+            });
+            setFile(nextFile);
+            setPreviewUrl(current => {
+              revokePreviewIfBlob(current);
+              return URL.createObjectURL(nextFile);
+            });
+            setInitImageUrl(LOCAL_INIT_IMAGE_MARKER);
+          })
+          .catch(() => {
+            setPreviewUrl(current => {
+              revokePreviewIfBlob(current);
+              return handoff.previewUrl;
+            });
+            setFile(handoff.file);
+          });
+        return;
+      }
+
       setPreviewUrl(current => {
         revokePreviewIfBlob(current);
         return handoff.previewUrl;
       });
       setFile(handoff.file);
     },
-    [revokePreviewIfBlob, updateShared, updateToolSettings]
+    [revokePreviewIfBlob, setInitImageUrl, updateShared, updateToolSettings]
   );
 
   useGalleryHandoff('video', applyGalleryHandoff);
@@ -370,7 +397,11 @@ export default function VideoPromptTool() {
         videoFps: resolvedFps,
       },
       parentGalleryEntryId,
-      derivedKind: parentGalleryEntryId ? ('i2v' as const) : undefined,
+      derivedKind: parentGalleryEntryId
+        ? nextRoleplayMotionKind(
+            loadComfyGallery().find(entry => entry.id === parentGalleryEntryId)
+          )
+        : undefined,
     };
   }, [durationSec, file, frames, fps, initImageUrl, parentGalleryEntryId, previewUrl]);
 

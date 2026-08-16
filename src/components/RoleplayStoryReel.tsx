@@ -26,6 +26,25 @@ const ImageLightbox = dynamic(() => import('@/components/ui/ImageLightbox'), {
   loading: () => null,
 });
 
+function clipLabel(beat: RoleplayStoryBeat): string | null {
+  if (beat.clipStatus === 'completed' && beat.clipUrl?.trim()) {
+    return null;
+  }
+  if (beat.clipStatus === 'error') {
+    return 'Clip failed';
+  }
+  if (beat.clipStatus === 'running') {
+    return 'Animating…';
+  }
+  if (beat.clipStatus === 'queued') {
+    return 'Clip queued…';
+  }
+  if (beat.clipStatus === 'writing') {
+    return 'Writing motion…';
+  }
+  return null;
+}
+
 function stillLabel(beat: RoleplayStoryBeat, liveUrl: string | null): string {
   if (beat.stillStatus === 'completed' && beat.imageUrl) {
     return beat.title;
@@ -85,11 +104,14 @@ function RoleplayStillFrame({
   const takes = roleplayStillTakes(beat);
   const takeIndex = roleplayStillTakeIndex(beat);
   const completedUrl = beat.stillStatus === 'completed' ? beat.imageUrl : undefined;
+  const clipUrl = beat.clipStatus === 'completed' ? beat.clipUrl?.trim() : '';
   const openableUrl = beatPreviewUrl(beat, liveUrl);
   const displayUrl = beatDisplayUrl(beat, liveUrl);
   const ghost = Boolean(displayUrl && !openableUrl);
-  const busy = isBusyStatus(beat.stillStatus) || Boolean(liveUrl && !completedUrl);
-  const label = stillLabel(beat, liveUrl);
+  const clipBusy = isBusyStatus(beat.clipStatus);
+  const busy = isBusyStatus(beat.stillStatus) || clipBusy || Boolean(liveUrl && !completedUrl);
+  const motionLabel = clipLabel(beat);
+  const label = motionLabel || stillLabel(beat, liveUrl);
   const clickable = Boolean(openableUrl && onOpen);
   const canRetry = Boolean(onRetry && canRetryRoleplayStill(beat));
   const canPage = Boolean(onSelectTake && takes.length > 1);
@@ -104,7 +126,17 @@ function RoleplayStillFrame({
 
   return (
     <div className={frameClass} role="status" aria-live="polite" aria-busy={busy || undefined}>
-      {displayUrl ? (
+      {clipUrl ? (
+        <video
+          src={clipUrl}
+          className="h-full w-full object-cover"
+          controls
+          playsInline
+          muted
+          loop
+          poster={displayUrl ?? undefined}
+        />
+      ) : displayUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={displayUrl}
@@ -113,7 +145,7 @@ function RoleplayStillFrame({
         />
       ) : null}
 
-      {clickable ? (
+      {clickable && !clipUrl ? (
         <button
           type="button"
           onClick={onOpen}
@@ -205,6 +237,7 @@ export default function RoleplayStoryReel({
   onCopy,
   onRetry,
   onAnimate,
+  onExtend,
   onSelectTake,
 }: {
   story: RoleplayStoryBeat[];
@@ -213,6 +246,7 @@ export default function RoleplayStoryReel({
   onCopy?: (beat: RoleplayStoryBeat) => void;
   onRetry?: (beat: RoleplayStoryBeat) => void;
   onAnimate?: (beat: RoleplayStoryBeat) => void;
+  onExtend?: (beat: RoleplayStoryBeat) => void;
   onSelectTake?: (beat: RoleplayStoryBeat, index: number) => void;
 }) {
   const promptIds = useMemo(() => roleplayStoryPromptIds(story), [story]);
@@ -351,7 +385,13 @@ export default function RoleplayStoryReel({
           const canCopy = Boolean(beat.prompt && onCopy);
           const canOpen = Boolean(beatPreviewUrl(beat, liveUrl));
           const canAnimate = Boolean(
-            onAnimate && beatDisplayUrl(beat, liveUrl) && beat.stillStatus === 'completed'
+            onAnimate &&
+            beatDisplayUrl(beat, liveUrl) &&
+            beat.stillStatus === 'completed' &&
+            beat.clipStatus !== 'completed'
+          );
+          const canExtend = Boolean(
+            onExtend && beat.clipStatus === 'completed' && beat.clipUrl?.trim()
           );
           return (
             <li key={`${beat.id}-${beat.at}`}>
@@ -372,7 +412,7 @@ export default function RoleplayStoryReel({
                   </p>
                   <p className="type-caption text-[var(--text-muted)]">{beat.blurb}</p>
                 </div>
-                {canQueue || canCopy || canAnimate ? (
+                {canQueue || canCopy || canAnimate || canExtend ? (
                   <div className="flex flex-wrap gap-2">
                     {canQueue ? (
                       <Button
@@ -392,6 +432,16 @@ export default function RoleplayStoryReel({
                         onClick={() => onAnimate?.(beat)}
                       >
                         Animate still
+                      </Button>
+                    ) : null}
+                    {canExtend ? (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={busy}
+                        onClick={() => onExtend?.(beat)}
+                      >
+                        Extend clip
                       </Button>
                     ) : null}
                     {canCopy ? (

@@ -9,6 +9,7 @@ export const GALLERY_DERIVED_KIND_FILTERS = [
   'face-detail',
   'controlnet',
   'i2v',
+  'extend',
 ] as const satisfies ReadonlyArray<NonNullable<ComfyGalleryEntry['derivedKind']>>;
 
 export type GalleryDerivedKindFilter = (typeof GALLERY_DERIVED_KIND_FILTERS)[number];
@@ -33,6 +34,8 @@ export function galleryDerivedKindLabel(
       return 'ControlNet from prior';
     case 'i2v':
       return 'animated from still';
+    case 'extend':
+      return 'extended from clip';
     default:
       return undefined;
   }
@@ -56,6 +59,8 @@ export function galleryDerivedKindChipLabel(kind: GalleryDerivedKindFilter): str
       return 'ControlNet';
     case 'i2v':
       return 'I2V';
+    case 'extend':
+      return 'Extend';
     default:
       return kind;
   }

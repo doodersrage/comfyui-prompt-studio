@@ -5,7 +5,7 @@ import { registerComfyGalleryJob, inheritGallerySessionFields } from './comfyui-
 import { scheduleComfyGalleryPoll } from './comfyui-gallery-poller';
 import { getEngineAdapter, getEngineAdapterById } from './engine';
 import { cloudEngineHost, engineDisplayName, isCloudEngine } from './engine/capabilities';
-import { resolveCloudQueueExtras, resolveCloudTxt2ImgModel } from './engine-settings';
+import { resolveCloudQueueExtras, resolveCloudQueueModel } from './engine-settings';
 import { scheduleRefineAfterUpscaleComplete } from './gallery-pending-actions';
 import {
   resolveWorkflowGraphEnrichOptions,
@@ -1110,7 +1110,7 @@ async function requeueCloudJobFromEntry(
   options?.onStatus?.(`Queueing ${label}…`);
   const adapter = getEngineAdapterById(engineId);
   const host = cloudEngineHost(engineId);
-  const model = resolveCloudTxt2ImgModel(engineId);
+  const model = resolveCloudQueueModel(engineId, entry.tool);
   const seed =
     options?.seedOverride != null
       ? String(options.seedOverride)
@@ -1131,6 +1131,7 @@ async function requeueCloudJobFromEntry(
       ),
       inputImageFilename:
         entry.queueParams?.inputImageFilename || loadSettingsCache().shared.ipAdapterImageFilename,
+      tool: entry.tool,
     }),
   });
   if (!queued.ok || !queued.promptId) {

@@ -1,6 +1,7 @@
 import 'server-only';
 
 import {
+  DEFAULT_FAL_I2V_MODEL,
   DEFAULT_FAL_IMG2IMG_MODEL,
   DEFAULT_FAL_TXT2IMG_MODEL,
   FAL_QUEUE_HOST,
@@ -188,6 +189,12 @@ function extractImageUrls(raw: Record<string, unknown>): string[] {
     }
   }
   pushUrl(raw.image);
+  pushUrl(raw.video);
+  if (Array.isArray(raw.videos)) {
+    for (const item of raw.videos) {
+      pushUrl(item);
+    }
+  }
   if (Array.isArray(raw.output)) {
     for (const item of raw.output) {
       pushUrl(item);
@@ -233,6 +240,9 @@ export async function queueFalImage(input: {
   negativePrompt?: string;
   model?: string;
   img2imgModel?: string;
+  i2vModel?: string;
+  tool?: string;
+  durationSec?: number;
   apiKey?: string;
   width?: number;
   height?: number;
@@ -255,13 +265,20 @@ export async function queueFalImage(input: {
   }
 
   const hasImage = Boolean(input.imageFilename?.trim());
+  const isI2v = input.tool === 'video' && hasImage;
   let modelId: string;
   try {
     modelId = sanitizeFalModelId(
-      hasImage
-        ? input.img2imgModel || DEFAULT_FAL_IMG2IMG_MODEL
-        : input.model || DEFAULT_FAL_TXT2IMG_MODEL,
-      hasImage ? DEFAULT_FAL_IMG2IMG_MODEL : DEFAULT_FAL_TXT2IMG_MODEL
+      isI2v
+        ? input.i2vModel || DEFAULT_FAL_I2V_MODEL
+        : hasImage
+          ? input.img2imgModel || DEFAULT_FAL_IMG2IMG_MODEL
+          : input.model || DEFAULT_FAL_TXT2IMG_MODEL,
+      isI2v
+        ? DEFAULT_FAL_I2V_MODEL
+        : hasImage
+          ? DEFAULT_FAL_IMG2IMG_MODEL
+          : DEFAULT_FAL_TXT2IMG_MODEL
     );
   } catch (error) {
     return {
@@ -276,12 +293,14 @@ export async function queueFalImage(input: {
   const height = Math.max(256, Math.min(2048, Math.round((input.height ?? 1024) / 32) * 32));
   const body: Record<string, unknown> = {
     prompt: input.prompt.trim(),
-    image_size: { width, height },
-    num_images: 1,
     enable_safety_checker: false,
     sync_mode: false,
   };
-  if (typeof input.steps === 'number' && Number.isFinite(input.steps)) {
+  if (!isI2v) {
+    body.image_size = { width, height };
+    body.num_images = 1;
+  }
+  if (typeof input.steps === 'number' && Number.isFinite(input.steps) && !isI2v) {
     body.num_inference_steps = Math.max(1, Math.min(50, Math.trunc(input.steps)));
   }
   if (typeof input.cfg === 'number' && Number.isFinite(input.cfg) && input.cfg > 0) {
@@ -304,9 +323,16 @@ export async function queueFalImage(input: {
         raw: {},
       };
     }
-    if (typeof input.strength === 'number' && Number.isFinite(input.strength)) {
+    if (!isI2v && typeof input.strength === 'number' && Number.isFinite(input.strength)) {
       body.strength = Math.min(1, Math.max(0.05, input.strength));
     }
+  }
+  if (isI2v) {
+    const seconds =
+      typeof input.durationSec === 'number' && Number.isFinite(input.durationSec)
+        ? input.durationSec
+        : 5;
+    body.duration = seconds >= 8 ? '10' : '5';
   }
 
   try {
@@ -455,7 +481,7 @@ export async function fetchFalJobStatus(
       return {
         promptId,
         status: 'error',
-        statusMessage: 'Fal completed without an image URL.',
+        statusMessage: 'Fal completed without an image or video URL.',
         engineUrl: FAL_QUEUE_HOST,
       };
     }
@@ -464,13 +490,24 @@ export async function fetchFalJobStatus(
     const images: FalOutputImage[] = [];
     for (const [index, url] of urls.entries()) {
       const downloaded = await downloadFalImage(url);
-      const ext = downloaded.mimeType.includes('jpeg')
-        ? 'jpg'
-        : downloaded.mimeType.includes('webp')
-          ? 'webp'
-          : 'png';
+      const isVideo =
+        downloaded.mimeType.startsWith('video/') || /\.(mp4|webm|mov)(\?|#|$)/i.test(url);
+      const ext = isVideo
+        ? downloaded.mimeType.includes('webm')
+          ? 'webm'
+          : 'mp4'
+        : downloaded.mimeType.includes('jpeg')
+          ? 'jpg'
+          : downloaded.mimeType.includes('webp')
+            ? 'webp'
+            : 'png';
+      const mimeType = isVideo
+        ? downloaded.mimeType.startsWith('video/')
+          ? downloaded.mimeType
+          : 'video/mp4'
+        : downloaded.mimeType;
       const filename = `${parsed.requestId}${index === 0 ? '' : `-${index}`}.${ext}`;
-      putFalOutput(subfolder, filename, downloaded.bytes, downloaded.mimeType);
+      putFalOutput(subfolder, filename, downloaded.bytes, mimeType);
       images.push({ filename, subfolder, type: 'output' });
     }
 

@@ -26,7 +26,8 @@ export type ComfyGalleryEntry = {
     | 'moire-clean'
     | 'face-detail'
     | 'controlnet'
-    | 'i2v';
+    | 'i2v'
+    | 'extend';
   /** Resolved queue params (seed, width, cfg, etc.). */
   queueParams?: WorkflowParamValues;
   /**

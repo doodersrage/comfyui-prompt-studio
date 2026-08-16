@@ -1315,6 +1315,19 @@ export default function GalleryCard({
                             }}
                           />
                         ) : null}
+                        {(isVideoHero ||
+                          entry.derivedKind === 'i2v' ||
+                          entry.derivedKind === 'extend') &&
+                        entry.status === 'completed' ? (
+                          <GalleryMenuButton
+                            label="Extend this clip"
+                            onClick={() => {
+                              saveGalleryHandoff(buildGalleryHandoff(entry, 'video'));
+                              router.push(galleryHandoffPath('video'));
+                              setMenuOpen(false);
+                            }}
+                          />
+                        ) : null}
                         {entry.status === 'completed' ? (
                           <GalleryMenuButton
                             label="Re-edit · Video (same stack)"

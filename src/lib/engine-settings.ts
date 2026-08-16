@@ -5,6 +5,7 @@ import type { EngineId } from './engine/types';
 import {
   CLOUD_ENGINE_IDS,
   CLOUD_ENGINE_OPTIONS,
+  DEFAULT_FAL_I2V_MODEL,
   cloudEngineHost,
   cloudEngineOption,
   defaultCloudImg2ImgModel,
@@ -22,6 +23,7 @@ export type EngineSettings = {
   diffusersAutoStart: boolean;
   falModel: string;
   falImg2ImgModel: string;
+  falI2vModel: string;
   replicateModel: string;
   replicateImg2ImgModel: string;
   openaiModel: string;
@@ -86,6 +88,7 @@ function cloudModelsFromEnv(): Pick<
   EngineSettings,
   | 'falModel'
   | 'falImg2ImgModel'
+  | 'falI2vModel'
   | 'replicateModel'
   | 'replicateImg2ImgModel'
   | 'openaiModel'
@@ -98,6 +101,7 @@ function cloudModelsFromEnv(): Pick<
   return {
     falModel: envCloudTxt2Img('fal'),
     falImg2ImgModel: envCloudImg2Img('fal'),
+    falI2vModel: envOr(['NEXT_PUBLIC_FAL_I2V_MODEL', 'FAL_I2V_MODEL'], DEFAULT_FAL_I2V_MODEL),
     replicateModel: envCloudTxt2Img('replicate'),
     replicateImg2ImgModel: envCloudImg2Img('replicate'),
     openaiModel: envCloudTxt2Img('openai'),
@@ -114,6 +118,7 @@ function cloudModelsFromShared(shared: SharedToolSettings): ReturnType<typeof cl
   return {
     falModel: shared.falModel?.trim() || fromEnv.falModel,
     falImg2ImgModel: shared.falImg2ImgModel?.trim() || fromEnv.falImg2ImgModel,
+    falI2vModel: shared.falI2vModel?.trim() || fromEnv.falI2vModel,
     replicateModel: shared.replicateModel?.trim() || fromEnv.replicateModel,
     replicateImg2ImgModel: shared.replicateImg2ImgModel?.trim() || fromEnv.replicateImg2ImgModel,
     openaiModel: shared.openaiModel?.trim() || fromEnv.openaiModel,
@@ -167,6 +172,7 @@ export function saveEngineSettings(patch: Partial<EngineSettings>): EngineSettin
     diffusersAutoStart: next.diffusersAutoStart,
     falModel: next.falModel,
     falImg2ImgModel: next.falImg2ImgModel,
+    falI2vModel: next.falI2vModel,
     replicateModel: next.replicateModel,
     replicateImg2ImgModel: next.replicateImg2ImgModel,
     openaiModel: next.openaiModel,
@@ -189,9 +195,16 @@ export function resolveCloudTxt2ImgModel(engine: EngineId = loadEngineSettings()
   return settings[option.modelField] || option.defaultTxt2Img;
 }
 
+export function resolveCloudQueueModel(engine: EngineId, tool?: string): string {
+  if (engine === 'fal' && tool === 'video') {
+    return loadEngineSettings().falI2vModel || DEFAULT_FAL_I2V_MODEL;
+  }
+  return resolveCloudTxt2ImgModel(engine);
+}
+
 export function resolveCloudQueueExtras(
   engine: EngineId,
-  input?: { hasInputImage?: boolean; inputImageFilename?: string }
+  input?: { hasInputImage?: boolean; inputImageFilename?: string; tool?: string }
 ): Record<string, unknown> {
   const shared = loadSettingsCache().shared;
   const settings = loadEngineSettings();
@@ -199,6 +212,7 @@ export function resolveCloudQueueExtras(
   const common = {
     hasInputImage: input?.hasInputImage === true,
     inputImageFilename: input?.inputImageFilename,
+    tool: input?.tool,
   };
   if (!option) {
     return common;
@@ -207,6 +221,7 @@ export function resolveCloudQueueExtras(
     ...common,
     [option.tokenBodyKey]: shared[option.sessionTokenField],
     img2imgModel: settings[option.img2imgField] || defaultCloudImg2ImgModel(engine),
+    ...(engine === 'fal' ? { i2vModel: settings.falI2vModel || DEFAULT_FAL_I2V_MODEL } : {}),
   };
 }
 

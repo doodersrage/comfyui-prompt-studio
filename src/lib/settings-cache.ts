@@ -429,6 +429,8 @@ export type SharedToolSettings = {
   falModel?: string;
   /** Fal image-to-image model when a reference photo is queued. */
   falImg2ImgModel?: string;
+  /** Fal image-to-video model when Roleplay/Video queues a clip on the Fal engine. */
+  falI2vModel?: string;
   /** Session Fal API key. Stored in this browser only; server `FAL_KEY` is the fallback. */
   sessionFalApiKey?: string;
   /** Replicate txt2img model id (e.g. black-forest-labs/flux-schnell). */
@@ -912,6 +914,8 @@ export type RoleplayToolCache = {
   bio?: import('./roleplay').RoleplayBio;
   story?: import('./roleplay').RoleplayStoryBeat[];
   autoQueue?: boolean;
+  /** Still frames only, or still-then-clip / clip-to-clip film loop. Default clip. */
+  beatOutput?: 'still' | 'clip';
   allowGore?: boolean;
   activeSessionId?: string;
 };
@@ -1273,6 +1277,7 @@ export const DEFAULT_ROLEPLAY_TOOL_CACHE: RoleplayToolCache = {
   playAs: 'text',
   isolateSubject: true,
   autoQueue: true,
+  beatOutput: 'clip',
 };
 
 export const DEFAULT_MOBILE_STUDIO_TOOL_CACHE: MobileStudioToolCache = {

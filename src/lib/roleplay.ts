@@ -48,6 +48,10 @@ export type RoleplayStoryBeat = RoleplayScene & {
   /** All still takes for this beat; `promptId` / `imageUrl` / `stillStatus` mirror the shown take. */
   stillTakes?: RoleplayStillTake[];
   stillTakeIndex?: number;
+  /** I2V / extend clip queued from this beat. */
+  clipPromptId?: string;
+  clipUrl?: string;
+  clipStatus?: RoleplayStillStatus;
 };
 
 export const MAX_ROLEPLAY_STILL_TAKES = 8;
@@ -1944,6 +1948,10 @@ export function roleplayBeatPromptIds(beat: RoleplayStoryBeat): string[] {
   if (current && !seen.has(current)) {
     ids.push(current);
   }
+  const clipId = beat.clipPromptId?.trim();
+  if (clipId && !seen.has(clipId)) {
+    ids.push(clipId);
+  }
   return ids;
 }
 
@@ -2014,6 +2022,19 @@ export function beginRoleplayStillRetryPatch(beat: RoleplayStoryBeat): Partial<R
   };
 }
 
+export function roleplayClipQueueResultPatch(
+  promptId: string | undefined
+): Partial<RoleplayStoryBeat> {
+  if (!promptId) {
+    return { clipStatus: 'error' };
+  }
+  return {
+    clipPromptId: promptId,
+    clipStatus: 'queued',
+    clipUrl: undefined,
+  };
+}
+
 export function roleplayStillQueueResultPatch(
   beat: RoleplayStoryBeat,
   promptId: string | undefined
@@ -2053,9 +2074,6 @@ export function mergeRoleplayStoryStills(
   let changed = false;
   const next = (story ?? []).map(beat => {
     const takes = roleplayStillTakes(beat);
-    if (takes.length === 0) {
-      return beat;
-    }
     let takeChanged = false;
     const updatedTakes = takes.map(take => {
       const id = take.promptId?.trim();
@@ -2074,7 +2092,15 @@ export function mergeRoleplayStoryStills(
       takeChanged = true;
       return { ...take, imageUrl, stillStatus };
     });
-    if (!takeChanged) {
+    const clipId = beat.clipPromptId?.trim();
+    const clipMatch = clipId ? byPromptId.get(clipId) : undefined;
+    const clipUrl = clipMatch?.imageUrl?.trim() || beat.clipUrl;
+    const clipStatus = clipMatch ? stillStatusFromGallery(clipMatch.status) : beat.clipStatus;
+    const clipChanged = Boolean(
+      clipMatch && (clipUrl !== beat.clipUrl || clipStatus !== beat.clipStatus)
+    );
+
+    if (!takeChanged && !clipChanged) {
       return beat;
     }
     changed = true;
@@ -2083,9 +2109,14 @@ export function mergeRoleplayStoryStills(
     const shown = updatedTakes[index];
     return {
       ...beat,
-      stillTakes: updatedTakes,
-      stillTakeIndex: index,
-      ...activeFieldsFromTake(shown),
+      ...(updatedTakes.length > 0
+        ? {
+            stillTakes: updatedTakes,
+            stillTakeIndex: index,
+            ...activeFieldsFromTake(shown),
+          }
+        : {}),
+      ...(clipChanged ? { clipUrl, clipStatus } : {}),
     };
   });
   return { story: next, changed };

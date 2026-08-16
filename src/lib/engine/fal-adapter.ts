@@ -45,6 +45,8 @@ export const falEngineAdapter: EngineAdapter = {
       negativePrompt: body.negativePrompt,
       model: typeof body.model === 'string' ? body.model : settings.falModel,
       img2imgModel: settings.falImg2ImgModel,
+      i2vModel: (typeof body.i2vModel === 'string' && body.i2vModel.trim()) || settings.falI2vModel,
+      tool: typeof body.tool === 'string' ? body.tool : undefined,
       falApiKey,
       clientId,
       hasInputImage: body.hasInputImage === true,
@@ -59,6 +61,8 @@ export const falEngineAdapter: EngineAdapter = {
         steps: params.steps,
         cfg: params.cfg,
         denoise: params.denoise,
+        videoFrames: params.videoFrames,
+        videoFps: params.videoFps,
       },
     };
 

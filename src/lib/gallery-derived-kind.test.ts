@@ -17,7 +17,10 @@ describe('gallery-derived-kind', () => {
     assert.ok(GALLERY_DERIVED_KIND_FILTERS.includes('controlnet'));
     assert.ok(GALLERY_DERIVED_KIND_FILTERS.includes('face-detail'));
     assert.ok(GALLERY_DERIVED_KIND_FILTERS.includes('i2v'));
+    assert.ok(GALLERY_DERIVED_KIND_FILTERS.includes('extend'));
     assert.match(galleryDerivedKindLabel('i2v') ?? '', /animated/i);
+    assert.match(galleryDerivedKindLabel('extend') ?? '', /extended/i);
     assert.equal(galleryDerivedKindChipLabel('i2v'), 'I2V');
+    assert.equal(galleryDerivedKindChipLabel('extend'), 'Extend');
   });
 });

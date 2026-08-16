@@ -55,7 +55,13 @@ import type { SharedToolSettings } from '@/lib/settings-cache';
 import { markOnboardingSystemWorkflowsEnabled } from '@/lib/onboarding-hooks';
 import { fetchWorkflowPreview } from '@/lib/comfyui-requeue';
 import type { ComfyUiSettingsSectionId } from '@/lib/settings-comfyui-nav';
-import { CLOUD_ENGINE_OPTIONS, normalizeEngineId, parseEngineId } from '@/lib/engine/capabilities';
+import {
+  CLOUD_ENGINE_OPTIONS,
+  DEFAULT_FAL_I2V_MODEL,
+  FAL_I2V_MODEL_PRESETS,
+  normalizeEngineId,
+  parseEngineId,
+} from '@/lib/engine/capabilities';
 import {
   SETTINGS_TOOL_ACCENT,
   formatModelWorkflowMap,
@@ -403,6 +409,33 @@ export default function SettingsComfyUiTab({
                     className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 text-sm text-[var(--text-primary)] shadow-inner transition focus-visible:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:cursor-not-allowed disabled:opacity-50"
                   />
                 </div>
+                {option.id === 'fal' ? (
+                  <div className="space-y-1 sm:col-span-2">
+                    <label htmlFor="fal-i2v-model" className="text-xs text-[var(--text-secondary)]">
+                      Fal image-to-video model
+                    </label>
+                    <input
+                      id="fal-i2v-model"
+                      list="fal-i2v-model-presets"
+                      value={sharedSettings.falI2vModel ?? ''}
+                      onChange={event =>
+                        updateSharedSettings({
+                          falI2vModel: event.target.value,
+                        })
+                      }
+                      placeholder={DEFAULT_FAL_I2V_MODEL}
+                      disabled={!active}
+                      className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 text-sm text-[var(--text-primary)] shadow-inner transition focus-visible:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                    <datalist id="fal-i2v-model-presets">
+                      {FAL_I2V_MODEL_PRESETS.map(preset => (
+                        <option key={preset.id} value={preset.id}>
+                          {preset.label}
+                        </option>
+                      ))}
+                    </datalist>
+                  </div>
+                ) : null}
               </Fragment>
             );
           })}

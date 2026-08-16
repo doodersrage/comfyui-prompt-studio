@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
 import { queueFalImage } from '@/lib/fal-client';
-import { DEFAULT_FAL_IMG2IMG_MODEL, DEFAULT_FAL_TXT2IMG_MODEL } from '@/lib/engine/capabilities';
+import {
+  DEFAULT_FAL_I2V_MODEL,
+  DEFAULT_FAL_IMG2IMG_MODEL,
+  DEFAULT_FAL_TXT2IMG_MODEL,
+} from '@/lib/engine/capabilities';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -11,6 +15,8 @@ type FalRequestBody = {
   negativePrompt?: string;
   model?: string;
   img2imgModel?: string;
+  i2vModel?: string;
+  tool?: string;
   falApiKey?: string;
   clientId?: string;
   hasInputImage?: boolean;
@@ -22,6 +28,8 @@ type FalRequestBody = {
     steps?: string | number;
     cfg?: string | number;
     denoise?: string | number;
+    videoFrames?: string | number;
+    videoFps?: string | number;
   };
 };
 
@@ -59,12 +67,19 @@ export async function POST(request: Request) {
 
     const imageFilename = body.hasInputImage === true ? body.inputImageFilename?.trim() : undefined;
     const denoise = toNumber(params.denoise);
+    const frames = toNumber(params.videoFrames);
+    const fps = toNumber(params.videoFps, 16);
+    const durationSec =
+      frames && fps && fps > 0 ? Math.max(1, Math.round(frames / fps)) : undefined;
 
     const result = await queueFalImage({
       prompt,
       negativePrompt: body.negativePrompt?.trim() || undefined,
       model: body.model?.trim() || DEFAULT_FAL_TXT2IMG_MODEL,
       img2imgModel: body.img2imgModel?.trim() || DEFAULT_FAL_IMG2IMG_MODEL,
+      i2vModel: body.i2vModel?.trim() || DEFAULT_FAL_I2V_MODEL,
+      tool: body.tool?.trim() || undefined,
+      durationSec,
       apiKey: body.falApiKey,
       width: toNumber(params.width, 1024),
       height: toNumber(params.height, 1024),

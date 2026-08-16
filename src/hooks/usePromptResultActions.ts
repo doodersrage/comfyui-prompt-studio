@@ -43,7 +43,7 @@ import {
   loadEngineSettings,
   resolveCloudEngineHost,
   resolveCloudQueueExtras,
-  resolveCloudTxt2ImgModel,
+  resolveCloudQueueModel,
 } from '@/lib/engine-settings';
 import { workshopCropToApi } from '@/lib/diffusers-defaults';
 import { computePromptContentHash, nextPromptVersionFields } from '@/lib/prompt-versioning';
@@ -748,6 +748,17 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           inputImageFilename = inputImageFilenames[0];
         }
 
+        if (cloudEngine && effectiveTool === 'video') {
+          if (engineAdapter.id !== 'fal') {
+            throw new Error(
+              `${engineDisplayName(engineAdapter.id)} cannot queue clips. Switch the inference engine to Fal or local WAN.`
+            );
+          }
+          if (!inputImageFilename) {
+            throw new Error('Cloud clips need a first frame.');
+          }
+        }
+
         if (cloudEngine && !inputImageFilename) {
           const { resolveCloudIdentityFallback } = await import('@/lib/cloud-identity-fallback');
           const identity = loadSettingsCache().shared;
@@ -989,7 +1000,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         const queued = await engineAdapter.postPrompt({
           prompt: preparedPrompt,
           negativePrompt,
-          model: cloudEngine ? resolveCloudTxt2ImgModel(engineAdapter.id) : queueModel,
+          model: cloudEngine ? resolveCloudQueueModel(engineAdapter.id, effectiveTool) : queueModel,
           params: queueParams,
           front: true,
           ...(cloudEngine
@@ -997,6 +1008,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
                 ...resolveCloudQueueExtras(engineAdapter.id, {
                   hasInputImage: Boolean(inputImageFilename),
                   inputImageFilename,
+                  tool: effectiveTool,
                 }),
                 qualityProfile: effectiveQualityProfile,
               }
@@ -1092,7 +1104,9 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
               options?.inputImageUrl ||
               undefined,
             queueQualityProfile: runtime?.queueQualityProfile ?? effectiveQualityProfile,
-            model: cloudEngine ? resolveCloudTxt2ImgModel(engineAdapter.id) : queueModel,
+            model: cloudEngine
+              ? resolveCloudQueueModel(engineAdapter.id, effectiveTool)
+              : queueModel,
             sessionActiveLoraIds: resolveSharedEffectiveSessionLoraIds(queueModel),
             sessionLoraStrengthOverrides:
               resolveSharedEffectiveSessionLoraStrengthOverrides(queueModel),

@@ -33,9 +33,12 @@ import {
   filterComfyGalleryEntries,
   galleryEntryPrimaryMediaKind,
   galleryEntryPrimaryThumbUrl,
+  galleryEntryPrimaryViewUrl,
   getGalleryCache,
   type ComfyGalleryEntry,
 } from '@/lib/comfyui-gallery';
+import { buildGalleryHandoff, galleryHandoffPath, saveGalleryHandoff } from '@/lib/gallery-handoff';
+import { isGalleryClipEntry } from '@/lib/roleplay-film';
 import { loadComfyUiSettings } from '@/lib/comfyui-settings';
 import { downloadLoraDatasetZip, selectCharacterKeepers } from '@/lib/gallery-lora-dataset-export';
 import { loadSettingsCache, saveSharedSettings } from '@/lib/settings-cache';
@@ -89,6 +92,17 @@ export default function CharacterHome({ characterId }: CharacterHomeProps) {
     () => selectCharacterKeepers(gallery, characterId),
     [gallery, characterId]
   );
+  const lastClip = useMemo(
+    () =>
+      [...entries]
+        .reverse()
+        .find(
+          entry =>
+            entry.status === 'completed' &&
+            isGalleryClipEntry({ ...entry, mediaKind: galleryEntryPrimaryMediaKind(entry) })
+        ),
+    [entries]
+  );
   const visible = useMemo(() => {
     if (mediaTab === 'keepers') {
       return keepers;
@@ -96,10 +110,10 @@ export default function CharacterHome({ characterId }: CharacterHomeProps) {
     return entries.filter(entry => {
       const kind = galleryEntryPrimaryMediaKind(entry);
       if (mediaTab === 'stills') {
-        return kind !== 'video' && entry.derivedKind !== 'i2v';
+        return !isGalleryClipEntry({ ...entry, mediaKind: kind });
       }
       if (mediaTab === 'clips') {
-        return kind === 'video' || entry.derivedKind === 'i2v';
+        return isGalleryClipEntry({ ...entry, mediaKind: kind });
       }
       return true;
     });
@@ -330,7 +344,14 @@ export default function CharacterHome({ characterId }: CharacterHomeProps) {
         {exportStatus ? <p className="type-caption">{exportStatus}</p> : null}
       </ToolSection>
 
-      <ToolSection title="Media" description="Jobs stamped with this character.">
+      <ToolSection
+        title="Media"
+        description={
+          mediaTab === 'clips'
+            ? 'Playable reel. Continue extends the last clip.'
+            : 'Jobs stamped with this character.'
+        }
+      >
         <SegmentedControl
           aria-label="Character media"
           value={mediaTab}
@@ -339,15 +360,33 @@ export default function CharacterHome({ characterId }: CharacterHomeProps) {
             { value: 'all', label: `All (${entries.length})` },
             {
               value: 'stills',
-              label: `Stills (${entries.filter(entry => galleryEntryPrimaryMediaKind(entry) !== 'video' && entry.derivedKind !== 'i2v').length})`,
+              label: `Stills (${entries.filter(entry => !isGalleryClipEntry({ ...entry, mediaKind: galleryEntryPrimaryMediaKind(entry) })).length})`,
             },
             {
               value: 'clips',
-              label: `Clips (${entries.filter(entry => galleryEntryPrimaryMediaKind(entry) === 'video' || entry.derivedKind === 'i2v').length})`,
+              label: `Clips (${entries.filter(entry => isGalleryClipEntry({ ...entry, mediaKind: galleryEntryPrimaryMediaKind(entry) })).length})`,
             },
             { value: 'keepers', label: `Keepers (${keepers.length})` },
           ]}
         />
+        {mediaTab === 'clips' && lastClip ? (
+          <ToolActionRow>
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={() => {
+                persistApply();
+                saveGalleryHandoff(buildGalleryHandoff(lastClip, 'video'));
+                router.push(galleryHandoffPath('video'));
+              }}
+            >
+              Continue reel
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => go('/roleplay')}>
+              Continue in Roleplay
+            </Button>
+          </ToolActionRow>
+        ) : null}
         {visible.length === 0 ? (
           <EmptyState
             compact
@@ -376,28 +415,50 @@ function CharacterMediaTile({
   characterId: string;
 }) {
   const thumb = galleryEntryPrimaryThumbUrl(entry);
-  const clip = galleryEntryPrimaryMediaKind(entry) === 'video' || entry.derivedKind === 'i2v';
+  const viewUrl = galleryEntryPrimaryViewUrl(entry);
+  const clip = isGalleryClipEntry({
+    ...entry,
+    mediaKind: galleryEntryPrimaryMediaKind(entry),
+  });
   const href = `/gallery?character=${encodeURIComponent(characterId)}&focus=${encodeURIComponent(entry.id)}`;
   return (
     <li>
-      <Link
-        href={href}
-        className="block overflow-hidden rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-muted)]"
-      >
-        {thumb ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={thumb} alt="" className="aspect-square w-full object-cover" />
+      <div className="overflow-hidden rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-muted)]">
+        {clip && viewUrl ? (
+          <video
+            src={viewUrl}
+            poster={thumb ?? undefined}
+            className="aspect-square w-full object-cover"
+            controls
+            playsInline
+            muted
+          />
         ) : (
-          <div className="flex aspect-square items-center justify-center type-caption text-[var(--text-muted)]">
-            {entry.status}
-          </div>
+          <Link href={href} className="block">
+            {thumb ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={thumb} alt="" className="aspect-square w-full object-cover" />
+            ) : (
+              <div className="flex aspect-square items-center justify-center type-caption text-[var(--text-muted)]">
+                {entry.status}
+              </div>
+            )}
+          </Link>
         )}
         <p className="type-caption truncate px-2 py-1 text-[var(--text-muted)]">
           {clip ? 'Clip' : 'Still'}
           {entry.reviewRating ? ` · ${entry.reviewRating}★` : ''}
           {entry.favorite ? ' · fav' : ''}
+          {clip ? (
+            <>
+              {' · '}
+              <Link href={href} className="underline-offset-2 hover:underline">
+                Open
+              </Link>
+            </>
+          ) : null}
         </p>
-      </Link>
+      </div>
     </li>
   );
 }

@@ -48,6 +48,7 @@ import {
   roleplayStoryPromptIds,
   beginRoleplayStillRetryPatch,
   canRetryRoleplayStill,
+  roleplayClipQueueResultPatch,
   roleplayStillQueueResultPatch,
   selectRoleplayStillTakePatch,
   ROLEPLAY_ARCHETYPES,
@@ -526,6 +527,27 @@ describe('roleplay parsers', () => {
     assert.equal(retrying.stillTakes?.length, MAX_ROLEPLAY_STILL_TAKES);
     assert.equal(retrying.stillTakes?.[0]?.promptId, 'job-1');
     assert.equal(retrying.stillTakes?.at(-1)?.stillStatus, 'writing');
+  });
+
+  it('hydrates clip jobs on a beat that has no still takes', () => {
+    const beat = {
+      id: 'dock',
+      title: 'Dock',
+      blurb: 'Arrives',
+      at: 1,
+      prompt: 'walks the pier',
+      clipPromptId: 'clip-1',
+      clipStatus: 'queued' as const,
+    };
+    assert.deepEqual(roleplayStoryPromptIds([beat]), ['clip-1']);
+    const queued = { ...beat, ...roleplayClipQueueResultPatch('clip-1') };
+    assert.equal(queued.clipStatus, 'queued');
+    const done = mergeRoleplayStoryStills([queued], [
+      { promptId: 'clip-1', status: 'completed', imageUrl: '/view/clip.mp4' },
+    ]);
+    assert.equal(done.changed, true);
+    assert.equal(done.story[0]?.clipUrl, '/view/clip.mp4');
+    assert.equal(done.story[0]?.clipStatus, 'completed');
   });
 
   it('keeps unique starter parts and includes the new cast', () => {

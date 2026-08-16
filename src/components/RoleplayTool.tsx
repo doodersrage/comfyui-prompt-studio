@@ -63,6 +63,7 @@ import {
   formatRoleplayBio,
   getRoleplayArchetype,
   MAX_ROLEPLAY_CHARACTER_NAME,
+  lastCompletedRoleplayStillUrl,
   lastRoleplayPlotBeat,
   lastRoleplayStillImage,
   normalizeAvoidedRoleplayNames,
@@ -73,6 +74,7 @@ import {
   patchRoleplayStoryBeat,
   resolveRoleplayToneAndContent,
   roleplayIntroScene,
+  roleplayClipQueueResultPatch,
   roleplayStillQueueResultPatch,
   roleplayStillTakes,
   roleplayStoryPromptIds,
@@ -82,6 +84,14 @@ import {
   type RoleplayScene,
   type RoleplayStoryBeat,
 } from '@/lib/roleplay';
+import {
+  lastRoleplayMotionSource,
+  looksLikeVideoUrl,
+  nextRoleplayMotionKind,
+  normalizeRoleplayBeatOutput,
+  shouldAutoQueueRoleplayClip,
+} from '@/lib/roleplay-film';
+import { extractVideoLastFrame } from '@/lib/video-last-frame';
 import { isNsfwGeneratorEnabledClient } from '@/lib/nsfw-generator-env';
 import { downloadRoleplayStoryBundle } from '@/lib/roleplay-export';
 import {
@@ -112,8 +122,8 @@ type RoleplayApiPayload = EnrichedToolGenerateResult & {
 
 export default function RoleplayTool() {
   const description = useToolPageDescription(
-    'Cast yourself as someone (or something). Upload a photo to play as yourself, or pick a generated still.',
-    'Pick a character, write a bio, tap a scene — stills show up in the story as they render.'
+    'Cast yourself as someone (or something). Clip mode turns each beat into motion — still, then I2V, then extend.',
+    'Pick a character, write a bio, tap a scene — clips continue from the last frame.'
   );
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
     'roleplay',
@@ -139,7 +149,15 @@ export default function RoleplayTool() {
   const bio = toolSettings.bio;
   const story = toolSettings.story ?? [];
   const autoQueue = toolSettings.autoQueue !== false;
+  const beatOutput = normalizeRoleplayBeatOutput(toolSettings.beatOutput);
   const storyRef = useRef(toolSettings.story ?? []);
+  const autoClipQueuedRef = useRef(new Set<string>());
+  const queueBeatMotionRef = useRef<
+    (
+      beat: RoleplayStoryBeat,
+      options?: { source?: { imageUrl: string; parentPromptId?: string; fromClip: boolean } }
+    ) => Promise<void>
+  >(async () => undefined);
   const isolateGenRef = useRef(0);
   const autoIsolateAttemptedRef = useRef(false);
   useEffect(() => {
@@ -754,8 +772,10 @@ export default function RoleplayTool() {
       }
       setPlayingId(scene.id);
       setError(null);
+      const prior = lastRoleplayMotionSource(storyRef.current);
+      const skipStill = beatOutput === 'clip' && autoQueue && Boolean(prior);
       const writingStory = appendRoleplayStoryBeat(storyRef.current, scene, {
-        stillStatus: 'writing',
+        stillStatus: skipStill ? undefined : 'writing',
       });
       const beat = writingStory[writingStory.length - 1];
       if (!beat) {
@@ -773,7 +793,19 @@ export default function RoleplayTool() {
         if (!response.ok || !data.prompt?.trim()) {
           throw new Error(data.error ?? 'Could not write a still.');
         }
-        const nextStory = await commitStill(data, beat, bio, writingStory);
+        let nextStory: RoleplayStoryBeat[];
+        if (skipStill && prior) {
+          const prompt = await actions.finalizePrompt(data.prompt, beat.title);
+          nextStory = patchRoleplayStoryBeat(writingStory, beat, { prompt });
+          updateToolSettings({ bio, story: nextStory });
+          const motionBeat = nextStory.find(entry => entry.id === beat.id && entry.at === beat.at);
+          if (motionBeat) {
+            await queueBeatMotionRef.current(motionBeat, { source: prior });
+            nextStory = storyRef.current;
+          }
+        } else {
+          nextStory = await commitStill(data, beat, bio, writingStory);
+        }
         const nextScenes = await fetch('/api/roleplay', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -795,7 +827,17 @@ export default function RoleplayTool() {
         setPlayingId(null);
       }
     },
-    [bio, commitStill, hasReferenceImage, playAs, requestBody, updateToolSettings]
+    [
+      actions,
+      autoQueue,
+      beatOutput,
+      bio,
+      commitStill,
+      hasReferenceImage,
+      playAs,
+      requestBody,
+      updateToolSettings,
+    ]
   );
 
   const queueBeat = useCallback(
@@ -854,20 +896,59 @@ export default function RoleplayTool() {
     [actions, queueStillOptions, updateToolSettings]
   );
 
-  const queueBeatAsVideo = useCallback(
-    async (beat: RoleplayStoryBeat) => {
+  const queueBeatMotion = useCallback(
+    async (
+      beat: RoleplayStoryBeat,
+      options?: {
+        source?: { imageUrl: string; parentPromptId?: string; fromClip: boolean };
+      }
+    ) => {
       const latest =
         storyRef.current.find(entry => entry.id === beat.id && entry.at === beat.at) ?? beat;
-      const imageUrl =
-        latest.imageUrl?.trim() ||
-        latest.stillTakes?.find(take => take.imageUrl?.trim())?.imageUrl?.trim();
-      if (!imageUrl) {
-        setError('Render a still first, then animate it.');
+      const stillUrl = lastCompletedRoleplayStillUrl(latest) || latest.imageUrl?.trim() || '';
+      const source =
+        options?.source ??
+        (stillUrl
+          ? {
+              imageUrl: stillUrl,
+              parentPromptId: latest.promptId?.trim(),
+              fromClip: false,
+            }
+          : playAs === 'photo' && referenceImageUrl
+            ? { imageUrl: referenceImageUrl, fromClip: false }
+            : null);
+      if (!source?.imageUrl) {
+        setError('Need a still or clip to start motion.');
         return;
       }
-      const parentEntry = latest.promptId
-        ? loadComfyGallery().find(entry => entry.promptId === latest.promptId)
-        : undefined;
+
+      updateToolSettings({
+        story: patchRoleplayStoryBeat(storyRef.current, latest, { clipStatus: 'writing' }),
+      });
+
+      let inputImage: File | undefined;
+      let inputImageUrl: string | undefined = source.imageUrl;
+      if (looksLikeVideoUrl(source.imageUrl)) {
+        try {
+          const blob = await extractVideoLastFrame(source.imageUrl);
+          inputImage = new File([blob], 'roleplay-last-frame.jpg', {
+            type: blob.type || 'image/jpeg',
+          });
+          inputImageUrl = undefined;
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Could not read the last frame.');
+          updateToolSettings({
+            story: patchRoleplayStoryBeat(storyRef.current, latest, { clipStatus: 'error' }),
+          });
+          return;
+        }
+      }
+
+      const parentEntry = source.parentPromptId
+        ? loadComfyGallery().find(entry => entry.promptId === source.parentPromptId)
+        : latest.promptId
+          ? loadComfyGallery().find(entry => entry.promptId === latest.promptId)
+          : undefined;
       const videoModel = resolvePreferredVideoModel({
         toolModel: loadToolSettings('video', DEFAULT_VIDEO_TOOL_CACHE).model,
         sharedModel: shared.model,
@@ -892,22 +973,49 @@ export default function RoleplayTool() {
       } catch {
         /* use beat prompt */
       }
+      let promptId: string | undefined;
       try {
-        await actions.sendComfyUi(prompt, undefined, undefined, {
+        promptId = await actions.sendComfyUi(prompt, undefined, undefined, {
           queueTool: 'video',
           queueModel: videoModel,
-          inputImageUrl: imageUrl,
+          inputImage,
+          inputImageUrl,
           parentGalleryEntryId: parentEntry?.id,
-          derivedKind: 'i2v',
+          derivedKind: nextRoleplayMotionKind(parentEntry),
           qualityProfile: 'final',
           queueParamsBase: { videoFrames: 64, videoFps: 16 },
         });
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Could not animate that still.');
+        setError(err instanceof Error ? err.message : 'Could not queue that clip.');
       }
+      updateToolSettings({
+        story: patchRoleplayStoryBeat(
+          storyRef.current,
+          latest,
+          roleplayClipQueueResultPatch(promptId)
+        ),
+      });
     },
-    [actions, shared.model]
+    [actions, playAs, referenceImageUrl, shared.model, updateToolSettings]
   );
+
+  useEffect(() => {
+    queueBeatMotionRef.current = queueBeatMotion;
+  }, [queueBeatMotion]);
+
+  useEffect(() => {
+    if (beatOutput !== 'clip' || !autoQueue) {
+      return;
+    }
+    for (const beat of toolSettings.story ?? []) {
+      const key = `${beat.id}:${beat.at}:${beat.imageUrl ?? ''}`;
+      if (autoClipQueuedRef.current.has(key) || !shouldAutoQueueRoleplayClip(beat)) {
+        continue;
+      }
+      autoClipQueuedRef.current.add(key);
+      void queueBeatMotion(beat);
+    }
+  }, [autoQueue, beatOutput, queueBeatMotion, toolSettings.story]);
 
   const selectStillTake = useCallback(
     (beat: RoleplayStoryBeat, index: number) => {
@@ -1451,8 +1559,15 @@ export default function RoleplayTool() {
 
       <ToolSection title="Story">
         <p className="text-sm text-[var(--text-muted)]">
-          Stills land here as they render
-          {autoQueue ? ' — queued automatically from the bio and each pick' : ''}.
+          {beatOutput === 'clip'
+            ? 'Clips land here as they render'
+            : 'Stills land here as they render'}
+          {autoQueue
+            ? beatOutput === 'clip'
+              ? ' — first still, then motion; later beats extend the last clip'
+              : ' — queued automatically from the bio and each pick'
+            : ''}
+          .
         </p>
         <Button
           variant="secondary"
@@ -1468,7 +1583,18 @@ export default function RoleplayTool() {
           busy={busy}
           onQueue={beat => void queueBeat(beat)}
           onRetry={beat => void queueBeat(beat, { retry: true })}
-          onAnimate={beat => void queueBeatAsVideo(beat)}
+          onAnimate={beat => void queueBeatMotion(beat)}
+          onExtend={beat => {
+            const source =
+              beat.clipStatus === 'completed' && beat.clipUrl?.trim()
+                ? {
+                    imageUrl: beat.clipUrl.trim(),
+                    parentPromptId: beat.clipPromptId?.trim() || beat.promptId?.trim(),
+                    fromClip: true,
+                  }
+                : (lastRoleplayMotionSource(storyRef.current) ?? undefined);
+            void queueBeatMotion(beat, source ? { source } : undefined);
+          }}
           onSelectTake={selectStillTake}
           onCopy={beat => void copyBeatPrompt(beat)}
         />
@@ -1478,6 +1604,22 @@ export default function RoleplayTool() {
         <p className="text-sm text-[var(--text-muted)]">
           Tap a beat to continue the story. The next four options fork from that pick.
         </p>
+        <div className="flex flex-wrap gap-2">
+          <ChipButton
+            active={beatOutput === 'still'}
+            disabled={busy}
+            onClick={() => updateToolSettings({ beatOutput: 'still' })}
+          >
+            Still
+          </ChipButton>
+          <ChipButton
+            active={beatOutput === 'clip'}
+            disabled={busy}
+            onClick={() => updateToolSettings({ beatOutput: 'clip' })}
+          >
+            Clip
+          </ChipButton>
+        </div>
         <label className="flex cursor-pointer items-start gap-3 text-sm text-[var(--text-secondary)]">
           <input
             type="checkbox"
@@ -1487,10 +1629,11 @@ export default function RoleplayTool() {
             className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] ${accentFocusClass(ACCENT)}`}
           />
           <span>
-            Queue a still when I write a bio or pick a scene
+            Queue a {beatOutput === 'clip' ? 'clip' : 'still'} when I write a bio or pick a scene
             <span className="mt-0.5 block text-xs text-[var(--text-muted)]">
-              Uses the model and Fast/Good/Best from the sidebar. Turn off to write the prompt
-              first.
+              {beatOutput === 'clip'
+                ? 'First beat stills, then I2V. Later beats extend from the last clip. Local WAN or Fal Kling.'
+                : 'Uses the model and Fast/Good/Best from the sidebar. Turn off to write the prompt first.'}
             </span>
           </span>
         </label>
@@ -1525,7 +1668,7 @@ export default function RoleplayTool() {
                 </span>
                 {playingId === scene.id ? (
                   <span className="type-caption mt-2 block text-[var(--accent-text)]">
-                    Writing still…
+                    {beatOutput === 'clip' ? 'Writing clip…' : 'Writing still…'}
                   </span>
                 ) : null}
               </button>
