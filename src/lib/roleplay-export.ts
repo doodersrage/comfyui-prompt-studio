@@ -23,7 +23,7 @@ function triggerDownload(blob: Blob, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
-function extFromResponse(contentType: string | null, url: string): string {
+function extFromResponse(contentType: string | null, url: string, fallback: string): string {
   const type = contentType?.toLowerCase() ?? '';
   if (type.includes('jpeg') || type.includes('jpg')) {
     return 'jpg';
@@ -34,6 +34,15 @@ function extFromResponse(contentType: string | null, url: string): string {
   if (type.includes('gif')) {
     return 'gif';
   }
+  if (type.startsWith('video/webm') || /\.webm(\?|#|$)/i.test(url)) {
+    return 'webm';
+  }
+  if (type.startsWith('video/mp4') || type.includes('mp4') || /\.mp4(\?|#|$)/i.test(url)) {
+    return 'mp4';
+  }
+  if (type.startsWith('video/quicktime') || /\.mov(\?|#|$)/i.test(url)) {
+    return 'mov';
+  }
   if (/\.jpe?g(\?|$)/i.test(url)) {
     return 'jpg';
   }
@@ -43,7 +52,7 @@ function extFromResponse(contentType: string | null, url: string): string {
   if (/\.gif(\?|$)/i.test(url)) {
     return 'gif';
   }
-  return 'png';
+  return fallback;
 }
 
 function galleryUrlForPromptId(promptId: string | undefined): string | null {
@@ -58,6 +67,13 @@ function galleryUrlForPromptId(promptId: string | undefined): string | null {
   return (
     galleryEntryLightboxUrls(entry)[0]?.trim() || galleryEntryPrimaryViewUrl(entry)?.trim() || null
   );
+}
+
+function clipUrlForBeat(beat: RoleplayStoryBeat): string | null {
+  if (beat.clipStatus === 'completed' && beat.clipUrl?.trim()) {
+    return beat.clipUrl.trim();
+  }
+  return galleryUrlForPromptId(beat.clipPromptId);
 }
 
 function stillUrlForBeat(beat: RoleplayStoryBeat): string | null {
@@ -92,32 +108,64 @@ export async function downloadRoleplayStoryBundle(input: {
   tone?: string;
   content?: string;
   personaLabel?: string;
-}): Promise<{ files: number; stills: number }> {
+  film?: { filename: string; data: Uint8Array } | null;
+}): Promise<{ files: number; stills: number; clips: number }> {
   const stillFilenames: Array<string | null> = [];
+  const clipFilenames: Array<string | null> = [];
   const files: Array<{ filename: string; data: Uint8Array }> = [];
 
   for (const [index, beat] of input.story.entries()) {
     const url = stillUrlForBeat(beat);
     if (!url) {
       stillFilenames.push(null);
+    } else {
+      try {
+        const response = await fetch(url);
+        if (!response.ok) {
+          stillFilenames.push(null);
+        } else {
+          const ext = extFromResponse(response.headers.get('content-type'), url, 'png');
+          const name = `${roleplayStillBasename(beat.title, index)}.${ext}`;
+          files.push({
+            filename: `stills/${name}`,
+            data: new Uint8Array(await response.arrayBuffer()),
+          });
+          stillFilenames.push(name);
+        }
+      } catch {
+        stillFilenames.push(null);
+      }
+    }
+
+    const clipUrl = clipUrlForBeat(beat);
+    if (!clipUrl) {
+      clipFilenames.push(null);
       continue;
     }
     try {
-      const response = await fetch(url);
+      const response = await fetch(clipUrl);
       if (!response.ok) {
-        stillFilenames.push(null);
+        clipFilenames.push(null);
         continue;
       }
-      const ext = extFromResponse(response.headers.get('content-type'), url);
+      const ext = extFromResponse(response.headers.get('content-type'), clipUrl, 'mp4');
       const name = `${roleplayStillBasename(beat.title, index)}.${ext}`;
       files.push({
-        filename: `stills/${name}`,
+        filename: `clips/${name}`,
         data: new Uint8Array(await response.arrayBuffer()),
       });
-      stillFilenames.push(name);
+      clipFilenames.push(name);
     } catch {
-      stillFilenames.push(null);
+      clipFilenames.push(null);
     }
+  }
+
+  const filmFilename = input.film?.filename?.trim() || null;
+  if (input.film?.data.length) {
+    files.push({
+      filename: input.film.filename.trim(),
+      data: input.film.data,
+    });
   }
 
   const markdown = formatRoleplayStoryMarkdown({
@@ -127,6 +175,8 @@ export async function downloadRoleplayStoryBundle(input: {
     content: input.content,
     personaLabel: input.personaLabel,
     stillFilenames,
+    clipFilenames,
+    filmFilename,
   });
   files.unshift({
     filename: 'story.md',
@@ -137,5 +187,9 @@ export async function downloadRoleplayStoryBundle(input: {
   const who = slugRoleplayExportPart(input.bio?.name || 'story', 'story');
   const day = new Date().toISOString().slice(0, 10);
   triggerDownload(blob, `roleplay-${who}-${day}.zip`);
-  return { files: files.length, stills: stillFilenames.filter(Boolean).length };
+  return {
+    files: files.length,
+    stills: stillFilenames.filter(Boolean).length,
+    clips: clipFilenames.filter(Boolean).length,
+  };
 }

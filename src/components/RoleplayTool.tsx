@@ -96,7 +96,13 @@ import {
 import { extractVideoLastFrame } from '@/lib/video-last-frame';
 import { isNsfwGeneratorEnabledClient } from '@/lib/nsfw-generator-env';
 import { downloadRoleplayStoryBundle } from '@/lib/roleplay-export';
-import { applyCharacterRecord, upsertCharacterFromRoleplaySession } from '@/lib/character-os';
+import { roleplayWatchPlaylist } from '@/lib/character-film';
+import { assembleAndStampFilm, downloadFilmBlob } from '@/lib/character-film-assemble';
+import {
+  applyCharacterRecord,
+  loadCharacters,
+  upsertCharacterFromRoleplaySession,
+} from '@/lib/character-os';
 import {
   applyRoleplayLibrarySession,
   archiveAndStartNewRoleplaySession,
@@ -126,7 +132,7 @@ type RoleplayApiPayload = EnrichedToolGenerateResult & {
 
 export default function RoleplayTool() {
   const description = useToolPageDescription(
-    'Cast yourself as someone (or something). Clip mode turns each beat into motion — still, then I2V, then extend.',
+    'Cast yourself as someone (or something). Clip mode turns each beat into motion — still, then I2V, then continue from the last frame.',
     'Pick a character, write a bio, tap a scene — clips continue from the last frame.'
   );
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
@@ -139,6 +145,9 @@ export default function RoleplayTool() {
   const [scenesLoading, setScenesLoading] = useState(false);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [assemblingFilm, setAssemblingFilm] = useState(false);
+  const [filmStatus, setFilmStatus] = useState<string | null>(null);
+  const assembledFilmRef = useRef<{ filename: string; data: Uint8Array } | null>(null);
   const [referencePreviewUrl, setReferencePreviewUrl] = useState<string | null>(null);
   const [referenceUploading, setReferenceUploading] = useState(false);
   const [isolateStatus, setIsolateStatus] = useState<string | null>(null);
@@ -1130,6 +1139,7 @@ export default function RoleplayTool() {
         tone: toneLabel,
         content: contentLabel,
         personaLabel,
+        film: assembledFilmRef.current,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not download the story.');
@@ -1137,6 +1147,66 @@ export default function RoleplayTool() {
       setExporting(false);
     }
   }, [bio, content, personaId, tone, toolSettings.customPersona]);
+
+  const cutRoleplayFilm = useCallback(async () => {
+    const shots = roleplayWatchPlaylist(storyRef.current);
+    if (shots.length === 0) {
+      setError('Need a completed still or clip before cutting a film.');
+      return;
+    }
+    const name = toolSettings.characterName?.trim() || bio?.name.trim() || 'roleplay';
+    const character = loadCharacters().find(entry => {
+      const labels = [entry.name, entry.characterName].map(value => value?.trim().toLowerCase());
+      return labels.includes(name.toLowerCase());
+    });
+    setAssemblingFilm(true);
+    setError(null);
+    setFilmStatus('Recording the cut…');
+    try {
+      const result = await assembleAndStampFilm({
+        shots,
+        characterId: character?.id ?? '',
+        characterName: name,
+        lookId: character?.activeLookId,
+        onProgress: progress => setFilmStatus(progress.label),
+      });
+      downloadFilmBlob(result.blob, result.filename);
+      assembledFilmRef.current = {
+        filename: result.filename,
+        data: new Uint8Array(await result.blob.arrayBuffer()),
+      };
+      if (character) {
+        setFilmStatus(
+          result.persisted
+            ? `Saved ${result.filename} to ${character.name} and started the download.`
+            : `Downloaded ${result.filename}. Studio storage could not keep a copy.`
+        );
+      } else {
+        setFilmStatus(
+          `Downloaded ${result.filename} unstamped. Save to Cast to attach this film to a character.`
+        );
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not assemble the film.');
+      setFilmStatus(null);
+    } finally {
+      setAssemblingFilm(false);
+    }
+  }, [bio?.name, toolSettings.characterName]);
+
+  const saveFilmToCast = useCallback(() => {
+    const session = snapshotRoleplaySession(toolSettings);
+    if (!session) {
+      setError('Name the character and add a beat before saving to Cast.');
+      return;
+    }
+    const created = upsertCharacterFromRoleplaySession(session);
+    if (!created) {
+      setError('Name the character before saving to Cast.');
+      return;
+    }
+    setFilmStatus(`Saved ${created.name} to Cast. Cut the film again to stamp it.`);
+  }, [toolSettings]);
 
   const shelfAndStartNew = useCallback(
     (patch?: Partial<typeof toolSettings>) => {
@@ -1172,7 +1242,13 @@ export default function RoleplayTool() {
     return null;
   }
 
-  const busy = bioLoading || scenesLoading || Boolean(playingId) || exporting || referenceUploading;
+  const busy =
+    bioLoading ||
+    scenesLoading ||
+    Boolean(playingId) ||
+    exporting ||
+    assemblingFilm ||
+    referenceUploading;
 
   return (
     <ToolLayout
@@ -1636,15 +1712,32 @@ export default function RoleplayTool() {
             : ''}
           .
         </p>
-        <Button
-          variant="secondary"
-          loading={exporting}
-          loadingLabel="Packing story"
-          disabled={(!bio && story.length === 0) || (busy && !exporting)}
-          onClick={() => void downloadStory()}
-        >
-          Download story
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="secondary"
+            loading={exporting}
+            loadingLabel="Packing story"
+            disabled={(!bio && story.length === 0) || (busy && !exporting)}
+            onClick={() => void downloadStory()}
+          >
+            Download story + stills + clips
+          </Button>
+          <Button
+            variant="secondary"
+            loading={assemblingFilm}
+            loadingLabel="Cutting film"
+            disabled={story.length === 0 || (busy && !assemblingFilm)}
+            onClick={() => void cutRoleplayFilm()}
+          >
+            Cut film
+          </Button>
+          {filmStatus?.includes('unstamped') ? (
+            <Button variant="ghost" disabled={busy} onClick={saveFilmToCast}>
+              Save to Cast
+            </Button>
+          ) : null}
+        </div>
+        {filmStatus ? <p className="type-caption text-[var(--text-muted)]">{filmStatus}</p> : null}
         <RoleplayStoryReel
           story={story}
           busy={busy}
@@ -1699,7 +1792,7 @@ export default function RoleplayTool() {
             Queue a {beatOutput === 'clip' ? 'clip' : 'still'} when I write a bio or pick a scene
             <span className="mt-0.5 block text-xs text-[var(--text-muted)]">
               {beatOutput === 'clip'
-                ? 'A still becomes I2V. A text-only beat is T2V. Later beats extend the last clip. Local WAN, Fal, or Replicate.'
+                ? 'A still becomes I2V. A text-only beat is T2V. Later beats continue from the last frame (I2V). Local WAN, Fal, or Replicate.'
                 : 'Uses the model and Fast/Good/Best from the sidebar. Turn off to write the prompt first.'}
             </span>
           </span>

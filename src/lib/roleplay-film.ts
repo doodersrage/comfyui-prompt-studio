@@ -1,5 +1,6 @@
 /**
- * Roleplay-as-film — still vs clip beats, and clip→clip extend lineage.
+ * Roleplay-as-film — still vs clip beats, and clip→clip last-frame I2V lineage.
+ * `derivedKind: 'extend'` means continue from the last frame, not a V2V/extend API.
  */
 
 import type { ComfyGalleryEntry } from './comfyui-gallery-entry';

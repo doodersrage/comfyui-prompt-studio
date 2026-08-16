@@ -21,11 +21,11 @@ describe('gallery-derived-kind', () => {
     assert.ok(GALLERY_DERIVED_KIND_FILTERS.includes('extend'));
     assert.ok(GALLERY_DERIVED_KIND_FILTERS.includes('film'));
     assert.match(galleryDerivedKindLabel('i2v') ?? '', /animated/i);
-    assert.match(galleryDerivedKindLabel('extend') ?? '', /extended/i);
+    assert.match(galleryDerivedKindLabel('extend') ?? '', /last frame/i);
     assert.match(galleryDerivedKindLabel('film') ?? '', /assembled film/i);
     assert.equal(galleryDerivedKindChipLabel('i2v'), 'I2V');
     assert.equal(galleryDerivedKindChipLabel('t2v'), 'T2V');
-    assert.equal(galleryDerivedKindChipLabel('extend'), 'Extend');
+    assert.equal(galleryDerivedKindChipLabel('extend'), 'Last frame');
     assert.equal(galleryDerivedKindChipLabel('film'), 'Film');
   });
 });

@@ -38,6 +38,9 @@ export const FAL_I2V_MODEL_PRESETS = [
   { id: 'fal-ai/kling-video/v3/standard/image-to-video', label: 'Kling 3.0 image-to-video' },
   { id: 'fal-ai/wan/v2.2-a14b/image-to-video', label: 'WAN 2.2 image-to-video' },
   { id: 'fal-ai/wan/v2.7/image-to-video', label: 'WAN 2.7 image-to-video' },
+  { id: 'fal-ai/ltx-2.3/image-to-video', label: 'LTX 2.3 image-to-video' },
+  { id: 'xai/grok-imagine-video/v1.5/image-to-video', label: 'Grok Imagine 1.5 image-to-video' },
+  { id: 'fal-ai/veo3.1/image-to-video', label: 'Veo 3.1 image-to-video' },
 ] as const;
 
 export const FAL_T2V_MODEL_PRESETS = [
@@ -45,6 +48,9 @@ export const FAL_T2V_MODEL_PRESETS = [
   { id: 'fal-ai/kling-video/v3/standard/text-to-video', label: 'Kling 3.0 text-to-video' },
   { id: 'fal-ai/wan/v2.2-a14b/text-to-video', label: 'WAN 2.2 text-to-video' },
   { id: 'fal-ai/wan/v2.7/text-to-video', label: 'WAN 2.7 text-to-video' },
+  { id: 'fal-ai/ltx-2.3/text-to-video', label: 'LTX 2.3 text-to-video' },
+  { id: 'xai/grok-imagine-video/v1.5/text-to-video', label: 'Grok Imagine 1.5 text-to-video' },
+  { id: 'fal-ai/veo3.1', label: 'Veo 3.1 text-to-video' },
 ] as const;
 
 export const REPLICATE_MODEL_PRESETS = [

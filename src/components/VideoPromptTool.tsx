@@ -49,7 +49,7 @@ import {
   type VideoClipMode,
 } from '@/lib/video-clip-mode';
 import { saveEngineSettings } from '@/lib/engine-settings';
-import { preferFalForVideoStillHandoff } from '@/lib/video-still-handoff';
+import { preferCloudForVideoStillHandoff } from '@/lib/video-still-handoff';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { Button, ButtonLink, PrimaryButton } from '@/components/ui/Button';
 
@@ -204,10 +204,10 @@ export default function VideoPromptTool() {
           ? { fps: Math.floor(fpsFromHandoff) }
           : {}),
       });
-      void preferFalForVideoStillHandoff().then(preferFal => {
-        if (preferFal) {
-          saveEngineSettings({ engine: 'fal' });
-          updateShared({ inferenceEngine: 'fal' });
+      void preferCloudForVideoStillHandoff().then(cloudEngine => {
+        if (cloudEngine) {
+          saveEngineSettings({ engine: cloudEngine });
+          updateShared({ inferenceEngine: cloudEngine });
         }
       });
 

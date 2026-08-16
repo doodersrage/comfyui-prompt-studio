@@ -539,11 +539,12 @@ export default function SettingsComfyUiTab({
           <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
             cd services/diffusers-engine && ./run.sh
           </code>{' '}
-          or enable auto-start when that engine is selected. Cloud engines queue{' '}
+          or enable auto-start when that engine is selected. Cloud stills queue{' '}
           <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
             prompt + optional Image 1
-          </code>{' '}
-          through{' '}
+          </code>
+          . Clips queue on Fal (Kling, WAN, LTX 2.3, Grok Imagine, Veo), Replicate, or local WAN/LTX
+          — OpenAI, Gemini, and Grok engines stay stills. Stills go through{' '}
           <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
             /api/fal
           </code>

@@ -5,8 +5,11 @@ import {
   DEFAULT_FAL_T2V_MODEL,
   DEFAULT_REPLICATE_I2V_MODEL,
   DEFAULT_REPLICATE_T2V_MODEL,
+  FAL_I2V_MODEL_PRESETS,
+  FAL_T2V_MODEL_PRESETS,
 } from './engine/capabilities';
 import {
+  falVideoDurationPayload,
   falVideoRequiresFirstFrame,
   inferVideoClipMode,
   normalizeVideoClipMode,
@@ -19,6 +22,8 @@ describe('video clip mode', () => {
   it('normalizes aliases and defaults to T2V', () => {
     assert.equal(normalizeVideoClipMode('I2V'), 'i2v');
     assert.equal(normalizeVideoClipMode('image-to-video'), 'i2v');
+    assert.equal(normalizeVideoClipMode('extend'), 'i2v');
+    assert.equal(normalizeVideoClipMode('continue'), 'i2v');
     assert.equal(normalizeVideoClipMode('t2v'), 't2v');
     assert.equal(normalizeVideoClipMode(''), 't2v');
   });
@@ -73,5 +78,26 @@ describe('video clip mode', () => {
     assert.equal(snapFalVideoDurationSec(7.9), 5);
     assert.equal(snapFalVideoDurationSec(8), 10);
     assert.equal(snapFalVideoDurationSec(16), 10);
+  });
+
+  it('shapes Fal duration for Kling, LTX, Grok, and Veo', () => {
+    assert.equal(falVideoDurationPayload('fal-ai/kling-video/v3/standard/image-to-video', 5), '5');
+    assert.equal(falVideoDurationPayload('fal-ai/kling-video/v3/standard/image-to-video', 10), '10');
+    assert.equal(falVideoDurationPayload('fal-ai/ltx-2.3/image-to-video', 5), 6);
+    assert.equal(falVideoDurationPayload('fal-ai/ltx-2.3/text-to-video', 10), 10);
+    assert.equal(falVideoDurationPayload('xai/grok-imagine-video/v1.5/image-to-video', 5), 6);
+    assert.equal(falVideoDurationPayload('fal-ai/veo3.1/image-to-video', 5), '6s');
+    assert.equal(falVideoDurationPayload('fal-ai/veo3.1', 10), '8s');
+  });
+
+  it('lists documented Fal LTX, Grok Imagine, and Veo clip presets', () => {
+    const i2v = FAL_I2V_MODEL_PRESETS.map(preset => preset.id);
+    const t2v = FAL_T2V_MODEL_PRESETS.map(preset => preset.id);
+    assert.ok(i2v.includes('fal-ai/ltx-2.3/image-to-video'));
+    assert.ok(t2v.includes('fal-ai/ltx-2.3/text-to-video'));
+    assert.ok(i2v.includes('xai/grok-imagine-video/v1.5/image-to-video'));
+    assert.ok(t2v.includes('xai/grok-imagine-video/v1.5/text-to-video'));
+    assert.ok(i2v.includes('fal-ai/veo3.1/image-to-video'));
+    assert.ok(t2v.includes('fal-ai/veo3.1'));
   });
 });

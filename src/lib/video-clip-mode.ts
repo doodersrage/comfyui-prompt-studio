@@ -14,7 +14,13 @@ export function normalizeVideoClipMode(value: unknown): VideoClipMode {
   const id = String(value ?? '')
     .trim()
     .toLowerCase();
-  if (id === 'i2v' || id === 'image-to-video' || id === 'img2vid') {
+  if (
+    id === 'i2v' ||
+    id === 'image-to-video' ||
+    id === 'img2vid' ||
+    id === 'extend' ||
+    id === 'continue'
+  ) {
     return 'i2v';
   }
   if (id === 't2v' || id === 'text-to-video' || id === 'txt2vid') {
@@ -69,4 +75,20 @@ export function snapFalVideoDurationSec(seconds?: number | null): FalVideoDurati
     return 5;
   }
   return value >= 8 ? 10 : 5;
+}
+
+/** Kling/WAN want '5'|'10'; LTX/Grok want a number; Veo wants '4s'|'6s'|'8s'. */
+export function falVideoDurationPayload(
+  modelId: string | undefined,
+  seconds?: number | null
+): string | number {
+  const snapped = snapFalVideoDurationSec(seconds);
+  const id = String(modelId ?? '');
+  if (/veo3/i.test(id)) {
+    return snapped >= 8 ? '8s' : '6s';
+  }
+  if (/ltx/i.test(id) || /grok-imagine-video/i.test(id)) {
+    return snapped >= 8 ? 10 : 6;
+  }
+  return String(snapped);
 }

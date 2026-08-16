@@ -17,6 +17,7 @@ describe('cloud compose refs', () => {
     assert.equal(isFalMultiRefEditModel('fal-ai/flux/dev/image-to-image'), false);
     assert.equal(isCloudMultiRefEditModel('fal', 'fal-ai/flux-pro/kontext/multi'), true);
     assert.equal(isCloudMultiRefEditModel('replicate', 'fal-ai/flux-pro/kontext/multi'), false);
+    assert.equal(isCloudMultiRefEditModel('replicate', 'black-forest-labs/flux-kontext-pro'), false);
     assert.equal(isCloudMultiRefEditModel('openai', 'gpt-image-2'), false);
   });
 

@@ -74,6 +74,10 @@ export function isAggressiveComposeInstruction(instruction: string): boolean {
 
 export const COMPOSE_DEFAULT_MODEL = 'qwen-image-edit-2511-lightning-8' as const;
 
+/** Z-Image has no vision-encode for extras — Image 2–4 stay in the prompt. */
+export const Z_IMAGE_COMPOSE_PROMPT_ONLY_WARNING =
+  'Z-Image sends Image 1 to the sampler. Image 2–4 stay in the prompt.';
+
 export const MAX_COMPOSE_FIGURES = MAX_INPUT_IMAGE_FILENAMES;
 
 export type ComposeMode = 'transfer' | 'modify';

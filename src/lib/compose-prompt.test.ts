@@ -5,6 +5,7 @@ import {
   applyInputImageFilenamesToParams,
   buildComposeInstruction,
   COMPOSE_DEFAULT_MODEL,
+  Z_IMAGE_COMPOSE_PROMPT_ONLY_WARNING,
   multiInputImageCustomTokens,
   normalizeInputImageFilenames,
 } from "./compose-prompt";
@@ -31,6 +32,11 @@ describe("compose tool defaults", () => {
 
   it("defaults Compose to Edit-2511 Lightning 8", () => {
     assert.equal(COMPOSE_DEFAULT_MODEL, "qwen-image-edit-2511-lightning-8");
+  });
+
+  it("warns that Z-Image extras stay prompt-only", () => {
+    assert.match(Z_IMAGE_COMPOSE_PROMPT_ONLY_WARNING, /Image 1 to the sampler/);
+    assert.match(Z_IMAGE_COMPOSE_PROMPT_ONLY_WARNING, /Image 2–4 stay in the prompt/);
   });
 
   it("filters compose picker to compose-capable models (not flux-inpaint)", () => {

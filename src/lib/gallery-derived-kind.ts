@@ -39,7 +39,7 @@ export function galleryDerivedKindLabel(
     case 't2v':
       return 'text-to-video clip';
     case 'extend':
-      return 'extended from clip';
+      return 'continued from last frame (I2V)';
     case 'film':
       return 'assembled film';
     default:
@@ -68,7 +68,7 @@ export function galleryDerivedKindChipLabel(kind: GalleryDerivedKindFilter): str
     case 't2v':
       return 'T2V';
     case 'extend':
-      return 'Extend';
+      return 'Last frame';
     case 'film':
       return 'Film';
     default:

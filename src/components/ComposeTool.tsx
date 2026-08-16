@@ -38,6 +38,7 @@ import {
   COMPOSE_DEFAULT_MODEL,
   COMPOSE_MODIFY_TEMPLATE_GROUPS,
   COMPOSE_TRANSFER_TEMPLATE_GROUPS,
+  Z_IMAGE_COMPOSE_PROMPT_ONLY_WARNING,
   isAggressiveComposeInstruction,
   MAX_COMPOSE_FIGURES,
   type ComposeMode,
@@ -904,9 +905,10 @@ export default function ComposeTool() {
             frame.
           </p>
         ) : zImageModel ? (
-          <p className="text-xs leading-relaxed text-[var(--text-muted)]">
-            Z-Image: Figure 1 drives img2img. Turbo uses a soft denoise so identity holds — pick
-            Gentle / Balanced / Strong. Images 2–4 are prompt references only, not vision-encoded.
+          <p className="mb-4 text-xs leading-relaxed text-[var(--text-muted)]">
+            {Z_IMAGE_COMPOSE_PROMPT_ONLY_WARNING} Figure 1 is VAEEncode img2img. Turbo uses Gentle /
+            Balanced / Strong so identity holds. There is no vision-encode node for extras — do not
+            expect Image 2–4 to be sampled.
           </p>
         ) : isBooguEditModel(shared.model) ? (
           <p className="text-xs leading-relaxed text-[var(--text-muted)]">
@@ -927,7 +929,12 @@ export default function ComposeTool() {
           </p>
         ) : null}
 
-        {!zImageModel ? (
+        {isCloudEngine(shared.inferenceEngine) ? (
+          <p className="mb-4 text-xs leading-relaxed text-[var(--text-muted)]">
+            Identity lock (IP-Adapter / InstantID / PuLID) is local Comfy only. Cloud img2img sends
+            Image 1 to the API.
+          </p>
+        ) : !zImageModel ? (
           <div className="ui-recipe-shell space-y-2">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">

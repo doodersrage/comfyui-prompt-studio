@@ -8,7 +8,11 @@ import {
   FAL_QUEUE_HOST,
 } from './engine/capabilities';
 import { extraCloudComposeFilenames, isFalMultiRefEditModel } from './cloud-compose-refs';
-import { inferVideoClipMode, resolveFalVideoModel } from './video-clip-mode';
+import {
+  falVideoDurationPayload,
+  inferVideoClipMode,
+  resolveFalVideoModel,
+} from './video-clip-mode';
 import {
   encodeFalPromptId,
   falModelToSubfolder,
@@ -370,7 +374,7 @@ export async function queueFalImage(input: {
       typeof input.durationSec === 'number' && Number.isFinite(input.durationSec)
         ? input.durationSec
         : 5;
-    body.duration = seconds >= 8 ? '10' : '5';
+    body.duration = falVideoDurationPayload(modelId, seconds);
   }
 
   try {

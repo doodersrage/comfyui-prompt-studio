@@ -296,7 +296,7 @@ export default function CharacterHome({ characterId }: CharacterHomeProps) {
         title="Media"
         description={
           mediaTab === 'clips'
-            ? 'Playable reel. Continue extends the last clip.'
+            ? 'Playable reel. Continue queues I2V from the last frame.'
             : 'Jobs stamped with this character.'
         }
       >

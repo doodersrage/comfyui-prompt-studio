@@ -576,11 +576,15 @@ describe('roleplay parsers', () => {
         { id: 'intro', title: 'First look', blurb: 'Hello crumbs.', at: 1, prompt: 'a toaster' },
       ],
       stillFilenames: ['01-first-look.png'],
+      clipFilenames: ['01-first-look.mp4'],
+      filmFilename: 'crisp-film-2026-08-16.webm',
     });
     assert.match(markdown, /^# Crisp/m);
     assert.match(markdown, /Part: Sentient toaster/);
     assert.match(markdown, /Content: PG-13/);
     assert.match(markdown, /Still: `stills\/01-first-look.png`/);
+    assert.match(markdown, /Clip: `clips\/01-first-look.mp4`/);
+    assert.match(markdown, /Assembled: `crisp-film-2026-08-16.webm`/);
     assert.match(markdown, /a toaster/);
   });
 });

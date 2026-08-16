@@ -1336,7 +1336,7 @@ export default function GalleryCard({
                         entry.derivedKind !== 'film' &&
                         entry.status === 'completed' ? (
                           <GalleryMenuButton
-                            label="Extend this clip"
+                            label="Continue from last frame"
                             onClick={() => {
                               saveGalleryHandoff(buildGalleryHandoff(entry, 'video'));
                               router.push(galleryHandoffPath('video'));

@@ -466,7 +466,7 @@ export default function RoleplayStoryReel({
                         disabled={busy}
                         onClick={() => onExtend?.(beat)}
                       >
-                        Extend clip
+                        Continue from last frame
                       </Button>
                     ) : null}
                     {canCopy ? (

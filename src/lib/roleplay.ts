@@ -1142,6 +1142,8 @@ export function formatRoleplayStoryMarkdown(input: {
   content?: string;
   personaLabel?: string;
   stillFilenames?: Array<string | null | undefined>;
+  clipFilenames?: Array<string | null | undefined>;
+  filmFilename?: string | null;
 }): string {
   const name = input.bio?.name.trim() || 'Untitled roleplay';
   const tone = input.tone?.trim();
@@ -1178,10 +1180,20 @@ export function formatRoleplayStoryMarkdown(input: {
     } else {
       lines.push('Still: _not captured_', '');
     }
+    const clipName = input.clipFilenames?.[index]?.trim();
+    if (clipName) {
+      lines.push(`Clip: \`clips/${clipName}\``, '');
+    } else if (beat.clipStatus && beat.clipStatus !== 'completed') {
+      lines.push(`Clip: _${beat.clipStatus}_`, '');
+    }
     if (beat.prompt?.trim()) {
       lines.push('Prompt:', '', '```', beat.prompt.trim(), '```', '');
     }
   });
+  const filmName = input.filmFilename?.trim();
+  if (filmName) {
+    lines.push('## Film', '', `Assembled: \`${filmName}\``, '');
+  }
   return lines.join('\n').trim() + '\n';
 }
 
