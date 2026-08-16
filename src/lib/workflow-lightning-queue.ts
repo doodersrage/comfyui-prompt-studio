@@ -1683,12 +1683,18 @@ export function ensureQwenEditReferenceImagesForImg2Img(
     return loadImageId;
   };
 
-  const loaderIds = filenames.map((filename, index) =>
-    findOrCreateFigureLoader(index + 1, filename)
-  );
+  const loaderIds: Array<string | undefined> = [];
+  for (let index = 0; index < filenames.length; index += 1) {
+    const filename = filenames[index]?.trim();
+    if (!filename) {
+      loaderIds[index] = undefined;
+      continue;
+    }
+    loaderIds[index] = findOrCreateFigureLoader(index + 1, filename);
+  }
 
   if (!wireEncodeSlots) {
-    return { workflow: next, wiredNodeIds: loaderIds };
+    return { workflow: next, wiredNodeIds: loaderIds.filter(Boolean) as string[] };
   }
 
   const shouldWireSlot = (current: unknown): boolean => {
@@ -1705,8 +1711,8 @@ export function ensureQwenEditReferenceImagesForImg2Img(
     }
     if (node.class_type === 'TextEncodeQwenImageEdit') {
       const current = node.inputs.image;
-      if (shouldWireSlot(current)) {
-        node.inputs.image = [loaderIds[0]!, 0];
+      if (loaderIds[0] && shouldWireSlot(current)) {
+        node.inputs.image = [loaderIds[0], 0];
         wiredNodeIds.push(nodeId);
       }
       continue;
@@ -1720,21 +1726,15 @@ export function ensureQwenEditReferenceImagesForImg2Img(
           changed = true;
         }
       }
-      for (let i = 0; i < loaderIds.length && i < booguEncodeImageKeys.length; i += 1) {
+      for (let i = 0; i < booguEncodeImageKeys.length; i += 1) {
         const key = booguEncodeImageKeys[i]!;
-        const current = node.inputs[key];
-        if (shouldWireSlot(current)) {
-          node.inputs[key] = [loaderIds[i]!, 0];
+        const loaderId = loaderIds[i];
+        if (loaderId && shouldWireSlot(node.inputs[key])) {
+          node.inputs[key] = [loaderId, 0];
           changed = true;
-        }
-      }
-      if (forceRewire) {
-        for (let i = loaderIds.length; i < booguEncodeImageKeys.length; i += 1) {
-          const key = booguEncodeImageKeys[i]!;
-          if (key in node.inputs) {
-            delete node.inputs[key];
-            changed = true;
-          }
+        } else if (forceRewire && !loaderId && key in node.inputs) {
+          delete node.inputs[key];
+          changed = true;
         }
       }
       if (changed) {
@@ -1744,22 +1744,15 @@ export function ensureQwenEditReferenceImagesForImg2Img(
     }
 
     let changed = false;
-    for (let i = 0; i < loaderIds.length && i < encodeImageKeys.length; i += 1) {
+    for (let i = 0; i < encodeImageKeys.length; i += 1) {
       const key = encodeImageKeys[i]!;
-      const current = node.inputs[key];
-      if (shouldWireSlot(current)) {
-        node.inputs[key] = [loaderIds[i]!, 0];
+      const loaderId = loaderIds[i];
+      if (loaderId && shouldWireSlot(node.inputs[key])) {
+        node.inputs[key] = [loaderId, 0];
         changed = true;
-      }
-    }
-    // Clear leftover higher image slots when queueing fewer figures than the pack had.
-    if (forceRewire) {
-      for (let i = loaderIds.length; i < encodeImageKeys.length; i += 1) {
-        const key = encodeImageKeys[i]!;
-        if (key in node.inputs) {
-          delete node.inputs[key];
-          changed = true;
-        }
+      } else if (forceRewire && !loaderId && key in node.inputs) {
+        delete node.inputs[key];
+        changed = true;
       }
     }
     if (changed) {

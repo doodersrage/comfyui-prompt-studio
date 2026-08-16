@@ -466,6 +466,15 @@ describe("patchSamplerParamsInWorkflow", () => {
     assert.equal(params.samplerName, "dpmpp_2m");
   });
 
+  it("uses Balanced 0.36 denoise for Z-Image Turbo refine", () => {
+    const params = resolveQueueParams({
+      model: "z-image-turbo",
+      tool: "refine",
+      inputImageFilename: "figure.png",
+    });
+    assert.equal(params.denoise, 0.36);
+  });
+
   it("sidebar denoise override wins over automatic edit denoise", () => {
     const params = resolveQueueParams({
       model: "sdxl",

@@ -118,15 +118,23 @@ export function normalizeInputImageFilenames(
   inputImageFilename?: string | null,
   inputImageFilenames?: Array<string | undefined | null> | null
 ): string[] {
-  const fromArray = (inputImageFilenames ?? []).map(entry => entry?.trim() ?? '').filter(Boolean);
-  if (fromArray.length > 0) {
-    const next = fromArray.slice(0, MAX_INPUT_IMAGE_FILENAMES);
-    const primary = inputImageFilename?.trim();
-    if (primary && next[0] !== primary) {
-      next[0] = primary;
+  const fromArray = (inputImageFilenames ?? [])
+    .slice(0, MAX_INPUT_IMAGE_FILENAMES)
+    .map(entry => entry?.trim() ?? '');
+  const primary = inputImageFilename?.trim();
+  if (fromArray.some(Boolean) || primary) {
+    const next = fromArray.slice();
+    if (primary) {
+      if (next.length === 0) {
+        next.push(primary);
+      } else {
+        next[0] = primary;
+      }
+    }
+    while (next.length > 1 && !next[next.length - 1]) {
+      next.pop();
     }
     return next;
   }
-  const primary = inputImageFilename?.trim();
   return primary ? [primary] : [];
 }

@@ -80,6 +80,8 @@ const KLEIN_MODELS = [
 
 const WAN_MODELS = ['wan-video', 'wan-video-rapid-aio', 'wan-video-lightning-4'] as const;
 
+export const NATIVE_VIDEO_MODEL_IDS = [...WAN_MODELS, 'hunyuan-video', 'ltx-video'] as const;
+
 const Z_IMAGE_MODELS = ['z-image', 'z-image-turbo'] as const;
 
 const BOOGU_EDIT_MODELS = ['boogu-image-edit', 'boogu-image-edit-turbo'] as const;
@@ -471,7 +473,8 @@ export const COMFY_ASSET_CATALOG: ComfyCatalogAsset[] = [
     filename: 'clip_l.safetensors',
     url: 'https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors',
     bytes: 246144152,
-    modelIds: ['flux-dev'],
+    modelIds: ['flux-dev', 'hunyuan-video'],
+    notes: 'Also DualCLIP clip_l for Hunyuan Video.',
   },
   {
     id: 'flux-t5xxl-fp8',
@@ -541,13 +544,47 @@ export const COMFY_ASSET_CATALOG: ComfyCatalogAsset[] = [
 
   // ── WAN video ─────────────────────────────────────────────────────
   {
+    id: 'wan-video-rapid-aio',
+    label: 'WAN 2.2 I2V Rapid AIO (Phr00t v10)',
+    kind: 'checkpoint',
+    filename: 'wan2.2-i2v-rapid-aio-v10-nsfw.safetensors',
+    url: 'https://huggingface.co/Phr00t/WAN2.2-14B-Rapid-AllInOne/resolve/main/v10/wan2.2-i2v-rapid-aio-v10-nsfw.safetensors',
+    bytes: 23387046339,
+    modelIds: [...WAN_MODELS],
+    notes:
+      'Preferred Prompt Studio video checkpoint — model + CLIP + VAE in one file. CFG 1, 4–10 steps.',
+  },
+  {
+    id: 'wan-video-lightning-low-noise',
+    label: 'WAN 2.2 Lightning low-noise LoRA',
+    kind: 'lora',
+    filename: 'Wan2.2-Lightning-low_noise_model.safetensors',
+    url: 'https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/loras/wan2.2_t2v_lightx2v_4steps_lora_v1.1_low_noise.safetensors',
+    bytes: 1226977424,
+    modelIds: ['wan-video-lightning-4'],
+    notes:
+      'Comfy-Org LightX2V 4-step low-noise LoRA, saved as the filename WAN Lightning scaffolds look up.',
+  },
+  {
+    id: 'wan-video-lightning-i2v-low-noise',
+    label: 'WAN 2.2 Lightning I2V low-noise LoRA',
+    kind: 'lora',
+    filename: 'wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors',
+    url: 'https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/loras/wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors',
+    bytes: 1226977424,
+    modelIds: ['wan-video-lightning-4'],
+    notes:
+      'Use when Lightning clips start from a still (I2V). Map as {{LORA_LIGHTNING}} if needed.',
+  },
+  {
     id: 'wan-video-14b',
     label: 'WAN 2.2 T2V 14B high-noise',
     kind: 'unet',
     filename: 'wan2.2_t2v_high_noise_14B_fp16.safetensors',
     url: 'https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_repackaged/resolve/main/split_files/diffusion_models/wan2.2_t2v_high_noise_14B_fp16.safetensors',
     bytes: 28577095592,
-    modelIds: [...WAN_MODELS],
+    modelIds: ['wan-video'],
+    notes: 'Official split T2V stack — skip if you are using Rapid AIO.',
   },
   {
     id: 'wan-video-14b-low',
@@ -560,13 +597,34 @@ export const COMFY_ASSET_CATALOG: ComfyCatalogAsset[] = [
     notes: 'Pair with high-noise for dual-noise WAN T2V scaffolds.',
   },
   {
+    id: 'wan-video-i2v-14b',
+    label: 'WAN 2.2 I2V 14B high-noise',
+    kind: 'unet',
+    filename: 'wan2.2_i2v_high_noise_14B_fp16.safetensors',
+    url: 'https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_i2v_high_noise_14B_fp16.safetensors',
+    bytes: 28577914792,
+    modelIds: ['wan-video'],
+    notes: 'Official split I2V stack — skip if you are using Rapid AIO.',
+  },
+  {
+    id: 'wan-video-i2v-14b-low',
+    label: 'WAN 2.2 I2V 14B low-noise',
+    kind: 'unet',
+    filename: 'wan2.2_i2v_low_noise_14B_fp16.safetensors',
+    url: 'https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_i2v_low_noise_14B_fp16.safetensors',
+    bytes: 28577914792,
+    modelIds: ['wan-video'],
+    notes: 'Pair with I2V high-noise for official dual-noise clip generation.',
+  },
+  {
     id: 'wan-video-vae',
     label: 'WAN 2.2 VAE',
     kind: 'vae',
     filename: 'wan2.2_vae.safetensors',
     url: 'https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_repackaged/resolve/main/split_files/vae/wan2.2_vae.safetensors',
     bytes: 1409400960,
-    modelIds: [...WAN_MODELS],
+    modelIds: ['wan-video'],
+    notes: 'Required for official WAN split graphs. Rapid AIO already includes a VAE.',
   },
   {
     id: 'wan-umt5-fp8',
@@ -575,40 +633,70 @@ export const COMFY_ASSET_CATALOG: ComfyCatalogAsset[] = [
     filename: 'umt5_xxl_fp8_e4m3fn_scaled.safetensors',
     url: 'https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors',
     bytes: 6735906897,
-    modelIds: [...WAN_MODELS],
-  },
-  {
-    id: 'wan-video-rapid-aio',
-    label: 'WAN 2.2 I2V Rapid AIO',
-    kind: 'checkpoint',
-    filename: 'wan2.2-i2v-rapid-aio-v10-nsfw.safetensors',
-    modelIds: ['wan-video', 'wan-video-rapid-aio', 'wan-video-lightning-4'],
-    notes:
-      'All-in-one I2V Rapid pack — preferred for Prompt Studio video scaffolds (manual / third-party).',
-  },
-  {
-    id: 'wan-video-lightning-low-noise',
-    label: 'WAN 2.2 Lightning low-noise LoRA',
-    kind: 'lora',
-    filename: 'Wan2.2-Lightning-low_noise_model.safetensors',
-    modelIds: ['wan-video-lightning-4'],
-    notes: '4-step Lightning LoRA for WAN Video Lightning scaffolds.',
+    modelIds: ['wan-video'],
+    notes: 'Required for official WAN split graphs. Rapid AIO already includes CLIP.',
   },
 
-  // ── Other video ───────────────────────────────────────────────────
+  // ── Hunyuan Video ─────────────────────────────────────────────────
   {
     id: 'hunyuan-video',
-    label: 'Hunyuan Video T2V',
+    label: 'Hunyuan Video T2V 720p',
     kind: 'unet',
     filename: 'hunyuan_video_t2v_720p_bf16.safetensors',
+    url: 'https://huggingface.co/Comfy-Org/HunyuanVideo_repackaged/resolve/main/split_files/diffusion_models/hunyuan_video_t2v_720p_bf16.safetensors',
+    bytes: 25642131432,
     modelIds: ['hunyuan-video'],
   },
   {
-    id: 'ltx-video',
-    label: 'LTX Video 2B',
+    id: 'hunyuan-video-i2v',
+    label: 'Hunyuan Video I2V 720p',
     kind: 'unet',
+    filename: 'hunyuan_video_image_to_video_720p_bf16.safetensors',
+    url: 'https://huggingface.co/Comfy-Org/HunyuanVideo_repackaged/resolve/main/split_files/diffusion_models/hunyuan_video_image_to_video_720p_bf16.safetensors',
+    bytes: 25622078672,
+    modelIds: ['hunyuan-video'],
+    notes: 'Use for still → clip. T2V UNET stays the text-only path.',
+  },
+  {
+    id: 'hunyuan-video-vae',
+    label: 'Hunyuan Video VAE',
+    kind: 'vae',
+    filename: 'hunyuan_video_vae_bf16.safetensors',
+    url: 'https://huggingface.co/Comfy-Org/HunyuanVideo_repackaged/resolve/main/split_files/vae/hunyuan_video_vae_bf16.safetensors',
+    bytes: 492984198,
+    modelIds: ['hunyuan-video'],
+  },
+  {
+    id: 'hunyuan-video-llava',
+    label: 'Hunyuan Video LLaVA-Llama3 (fp8)',
+    kind: 'clip',
+    filename: 'llava_llama3_fp8_scaled.safetensors',
+    url: 'https://huggingface.co/Comfy-Org/HunyuanVideo_repackaged/resolve/main/split_files/text_encoders/llava_llama3_fp8_scaled.safetensors',
+    bytes: 9091392483,
+    modelIds: ['hunyuan-video'],
+    notes: 'DualCLIP clip_name2 — pair with clip_l.safetensors.',
+  },
+
+  // ── LTX Video ─────────────────────────────────────────────────────
+  {
+    id: 'ltx-video',
+    label: 'LTX Video 2B v0.9',
+    kind: 'checkpoint',
     filename: 'ltx-video-2b-v0.9.safetensors',
+    url: 'https://huggingface.co/Lightricks/LTX-Video/resolve/main/ltx-video-2b-v0.9.safetensors',
+    bytes: 9370442108,
     modelIds: ['ltx-video'],
+    notes: 'Native ComfyUI checkpoint (VAE baked in). Needs t5xxl_fp16 in text_encoders.',
+  },
+  {
+    id: 'ltx-video-t5xxl',
+    label: 'T5-XXL fp16 (LTX text encoder)',
+    kind: 'clip',
+    filename: 't5xxl_fp16.safetensors',
+    url: 'https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp16.safetensors',
+    bytes: 9787841024,
+    modelIds: ['ltx-video'],
+    notes: 'Official Comfy LTX companion — place under text_encoders.',
   },
 
   // ── ControlNet ────────────────────────────────────────────────────
@@ -660,10 +748,10 @@ export function catalogAssetsForModel(modelId: string): ComfyCatalogAsset[] {
   if (!needle) {
     return [];
   }
+  // Exact id only — prefix match would pull wan-video 14B splits onto
+  // wan-video-rapid-aio / wan-video-lightning-4.
   return COMFY_ASSET_CATALOG.filter(entry =>
-    entry.modelIds.some(
-      id => String(id) === needle || String(id) === 'default' || needle.startsWith(`${String(id)}-`)
-    )
+    entry.modelIds.some(id => String(id) === needle || String(id) === 'default')
   );
 }
 

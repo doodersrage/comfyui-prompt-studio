@@ -24,6 +24,9 @@ import type { ComfyImageModel } from '@/lib/comfy-models/client';
 import type { WorkflowParamValues } from '@/lib/comfyui-config';
 import { getComfyModelDefinition } from '@/lib/comfy-models/client';
 import { isInpaintModel, isBooguEditModel, isZImageModel } from '@/lib/model-denoise-defaults';
+import { isKleinDistilledModel } from '@/lib/model-sampler-defaults';
+import { normalizeTurboEditStrength } from '@/lib/turbo-edit-strength';
+import TurboEditStrengthControls from '@/components/TurboEditStrengthControls';
 import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-target';
 import { diffPromptWords } from '@/lib/prompt-diff';
 import { resolveParentHistoryId } from '@/lib/prompt-lineage-session';
@@ -391,16 +394,27 @@ export default function RefineTool() {
       <ToolSection>
         {isBooguEditModel(shared.model) ? (
           <p className="mb-4 text-xs leading-relaxed text-[var(--text-muted)]">
-            Boogu Edit: TextEncodeBooguEdit vision-encodes your reference at denoise 1 — write
-            direct instruction edits (e.g. &quot;Replace the background with a rainy neon alley.
-            Keep the subject&apos;s pose.&quot;).
+            Boogu Edit: TextEncodeBooguEdit vision-encodes your reference at denoise 1 — write a
+            short instruction (e.g. &quot;Replace the background with a rainy neon alley. Keep the
+            subject&apos;s pose.&quot;). Full scene essays rewrite too much on Turbo.
           </p>
         ) : isZImageModel(shared.model) ? (
           <p className="mb-4 text-xs leading-relaxed text-[var(--text-muted)]">
-            Z-Image: VAEEncode img2img on your reference (soft denoise ~0.65). Describe the edit in
-            text — no vision encode stack like Qwen or Boogu Edit.
+            Z-Image: VAEEncode img2img on your reference. Turbo defaults to a soft denoise so
+            identity holds — use Gentle / Balanced / Strong instead of the Settings 0.65 slider.
+          </p>
+        ) : isKleinDistilledModel(shared.model) ? (
+          <p className="mb-4 text-xs leading-relaxed text-[var(--text-muted)]">
+            Klein Distilled: ReferenceLatent instruction edit at denoise 1 (4-step CFG 1). Write a
+            short command and use Gentle / Balanced / Strong — full scene essays rewrite the frame.
           </p>
         ) : null}
+        <TurboEditStrengthControls
+          model={shared.model}
+          tool="refine"
+          value={normalizeTurboEditStrength(shared.turboEditStrength)}
+          onChange={turboEditStrength => updateShared({ turboEditStrength })}
+        />
         <FieldLabel>Reference image</FieldLabel>
         <div className="flex flex-wrap items-center gap-2">
           <input

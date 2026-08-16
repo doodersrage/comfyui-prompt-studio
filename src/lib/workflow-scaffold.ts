@@ -2868,8 +2868,8 @@ export function buildWorkflowScaffoldForModel(
         ? 'Boogu Edit Compose uses TextEncodeBooguEdit + EmptyLatentImage (denoise 1). Figure 1–4 wire to images.image_1…images.image_4 — vision + reference latents.'
         : useZImageImg2imgScaffold
           ? options?.tool === 'compose'
-            ? 'Z-Image Compose uses Figure 1 img2img (VAEEncode → KSampler, soft denoise ~0.65). Extra figures are prompt-only — no unused LoadImage nodes.'
-            : 'Z-Image Refine uses VAEEncode img2img (soft denoise ~0.65). Upload a reference image — instruction edits in text, not ReferenceLatent.'
+            ? 'Z-Image Compose uses Figure 1 img2img (VAEEncode → KSampler, Turbo denoise from Gentle / Balanced / Strong). Extra figures are prompt-only — no unused LoadImage nodes.'
+            : 'Z-Image Refine uses VAEEncode img2img (Turbo denoise from Gentle / Balanced / Strong). Upload a reference image — instruction edits in text, not ReferenceLatent.'
           : useQwenComposeScaffold
             ? 'Qwen Edit Compose scaffold uses EmptySD3LatentImage + TextEncodeQwenImageEditPlus (no encode VAE). Figure 1–4 attach via ReferenceLatent + external VAEEncode at queue time — denoise 1.'
             : useEditScaffold

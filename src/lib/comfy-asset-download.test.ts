@@ -6,8 +6,10 @@ import path from "node:path";
 import { afterEach, describe, it } from "node:test";
 import {
   assetIsDownloadable,
+  catalogAssetsForModel,
   getCatalogAsset,
   isAllowlistedAssetUrl,
+  NATIVE_VIDEO_MODEL_IDS,
 } from "./comfy-asset-catalog";
 import {
   __resetComfyAssetJobsForTests,
@@ -130,6 +132,40 @@ describe("comfy asset catalog", () => {
     const fluxAe = getCatalogAsset("flux1-ae");
     assert.ok(fluxAe);
     assert.equal(assetIsDownloadable(fluxAe!), false);
+  });
+
+  it("exposes downloadable core files for every native video model", () => {
+    for (const modelId of NATIVE_VIDEO_MODEL_IDS) {
+      const rows = catalogAssetsForModel(modelId).filter(
+        (entry) => entry.kind !== "controlnet",
+      );
+      assert.ok(rows.length > 0, `${modelId} should list curated files`);
+      const downloadable = rows.filter((entry) => assetIsDownloadable(entry));
+      assert.ok(
+        downloadable.length > 0,
+        `${modelId} should have at least one Install URL`,
+      );
+    }
+
+    assert.equal(assetIsDownloadable(getCatalogAsset("wan-video-rapid-aio")!), true);
+    assert.equal(assetIsDownloadable(getCatalogAsset("wan-video-lightning-low-noise")!), true);
+    assert.equal(assetIsDownloadable(getCatalogAsset("hunyuan-video")!), true);
+    assert.equal(assetIsDownloadable(getCatalogAsset("hunyuan-video-vae")!), true);
+    assert.equal(assetIsDownloadable(getCatalogAsset("hunyuan-video-llava")!), true);
+    assert.equal(assetIsDownloadable(getCatalogAsset("ltx-video")!), true);
+    assert.equal(assetIsDownloadable(getCatalogAsset("ltx-video-t5xxl")!), true);
+  });
+
+  it("does not attach official WAN 14B splits to Rapid AIO or Lightning", () => {
+    const rapid = catalogAssetsForModel("wan-video-rapid-aio").map((entry) => entry.id);
+    assert.ok(rapid.includes("wan-video-rapid-aio"));
+    assert.equal(rapid.includes("wan-video-14b"), false);
+    assert.equal(rapid.includes("wan-umt5-fp8"), false);
+
+    const lightning = catalogAssetsForModel("wan-video-lightning-4").map((entry) => entry.id);
+    assert.ok(lightning.includes("wan-video-rapid-aio"));
+    assert.ok(lightning.includes("wan-video-lightning-low-noise"));
+    assert.equal(lightning.includes("wan-video-14b"), false);
   });
 });
 

@@ -27,6 +27,7 @@ export type ComfyGalleryEntry = {
     | 'face-detail'
     | 'controlnet'
     | 'i2v'
+    | 't2v'
     | 'extend'
     | 'film';
   /** Resolved queue params (seed, width, cfg, etc.). */

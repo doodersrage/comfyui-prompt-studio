@@ -21,6 +21,9 @@ import type { ComfyImageModel } from '@/lib/comfy-models/client';
 import type { WorkflowParamValues } from '@/lib/comfyui-config';
 import { getComfyModelDefinition } from '@/lib/comfy-models/client';
 import { isBooguEditModel, isZImageModel } from '@/lib/model-denoise-defaults';
+import { isKleinDistilledModel } from '@/lib/model-sampler-defaults';
+import { normalizeTurboEditStrength } from '@/lib/turbo-edit-strength';
+import TurboEditStrengthControls from '@/components/TurboEditStrengthControls';
 import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-target';
 import { DEFAULT_IMAGE_PROMPT_TOOL_CACHE } from '@/lib/settings-cache';
 import { appendSharedLlmFormData, sharedLlmRequestBody } from '@/lib/llm-request-options';
@@ -393,16 +396,29 @@ export default function ImagePromptTool() {
       <ToolSection>
         {isBooguEditModel(shared.model) ? (
           <p className="mb-4 text-xs leading-relaxed text-[var(--text-muted)]">
-            Boogu Edit queues as instruction TI2I (TextEncodeBooguEdit, denoise 1). Vision caption
-            above is separate from the ComfyUI edit stack — refine the prompt, then queue when
-            ready.
+            Boogu Edit queues as instruction TI2I (TextEncodeBooguEdit, denoise 1). Keep the prompt
+            to a short edit — Turbo rewrites too much from a full scene essay. Vision caption above
+            is separate from the ComfyUI stack.
           </p>
         ) : isZImageModel(shared.model) ? (
           <p className="mb-4 text-xs leading-relaxed text-[var(--text-muted)]">
-            Z-Image queues as VAEEncode img2img (soft denoise ~0.65). Vision caption above is
-            separate from the ComfyUI stack — refine the prompt, then queue when ready.
+            Z-Image queues as VAEEncode img2img. Turbo uses a soft denoise so identity holds — pick
+            Gentle / Balanced / Strong below. Vision caption above is separate from the ComfyUI
+            stack.
+          </p>
+        ) : isKleinDistilledModel(shared.model) ? (
+          <p className="mb-4 text-xs leading-relaxed text-[var(--text-muted)]">
+            Klein Distilled queues as ReferenceLatent instruction edit (denoise 1, 4-step CFG 1).
+            Keep the prompt to a short edit and pick Gentle / Balanced / Strong. Vision caption
+            above is separate from the ComfyUI stack.
           </p>
         ) : null}
+        <TurboEditStrengthControls
+          model={shared.model}
+          tool="imagePrompt"
+          value={normalizeTurboEditStrength(shared.turboEditStrength)}
+          onChange={turboEditStrength => updateShared({ turboEditStrength })}
+        />
         <FieldLabel>Upload images (up to 4)</FieldLabel>
         <div className="flex flex-wrap items-center gap-2">
           <input

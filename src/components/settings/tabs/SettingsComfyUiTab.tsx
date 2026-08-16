@@ -58,7 +58,9 @@ import type { ComfyUiSettingsSectionId } from '@/lib/settings-comfyui-nav';
 import {
   CLOUD_ENGINE_OPTIONS,
   DEFAULT_FAL_I2V_MODEL,
+  DEFAULT_FAL_T2V_MODEL,
   FAL_I2V_MODEL_PRESETS,
+  FAL_T2V_MODEL_PRESETS,
   normalizeEngineId,
   parseEngineId,
 } from '@/lib/engine/capabilities';
@@ -429,6 +431,33 @@ export default function SettingsComfyUiTab({
                     />
                     <datalist id="fal-i2v-model-presets">
                       {FAL_I2V_MODEL_PRESETS.map(preset => (
+                        <option key={preset.id} value={preset.id}>
+                          {preset.label}
+                        </option>
+                      ))}
+                    </datalist>
+                  </div>
+                ) : null}
+                {option.id === 'fal' ? (
+                  <div className="space-y-1 sm:col-span-2">
+                    <label htmlFor="fal-t2v-model" className="text-xs text-[var(--text-secondary)]">
+                      Fal text-to-video model
+                    </label>
+                    <input
+                      id="fal-t2v-model"
+                      list="fal-t2v-model-presets"
+                      value={sharedSettings.falT2vModel ?? ''}
+                      onChange={event =>
+                        updateSharedSettings({
+                          falT2vModel: event.target.value,
+                        })
+                      }
+                      placeholder={DEFAULT_FAL_T2V_MODEL}
+                      disabled={!active}
+                      className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 text-sm text-[var(--text-primary)] shadow-inner transition focus-visible:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                    <datalist id="fal-t2v-model-presets">
+                      {FAL_T2V_MODEL_PRESETS.map(preset => (
                         <option key={preset.id} value={preset.id}>
                           {preset.label}
                         </option>
@@ -1256,7 +1285,8 @@ export default function SettingsComfyUiTab({
               </span>
               <span className="block text-xs text-[var(--text-muted)]">
                 Applied when queueing with an input image or from Refine / Image → Prompt. FLUX
-                Inpaint uses 0.75 by default; other edit flows use this value (0.05–1).
+                Inpaint uses 0.75 by default; other edit flows use this value (0.05–1). Z-Image
+                Turbo img2img and Boogu / Lightning / Klein instruction-edit ignore this slider.
               </span>
               <input
                 type="number"

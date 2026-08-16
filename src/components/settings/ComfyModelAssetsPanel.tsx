@@ -58,6 +58,10 @@ type AssetsResponse = {
 type ComfyModelAssetsPanelProps = {
   onStatus?: (message: string) => void;
   onInstalled?: () => void;
+  /** When set, only show assets for this model and hide the current-model toggle. */
+  modelId?: string;
+  /** Tighter layout for embedding on a tool page. */
+  compact?: boolean;
 };
 
 function statusLabel(status: AssetRow['status']): string {
@@ -94,6 +98,8 @@ function formatBytes(value: number | null | undefined): string {
 export default function ComfyModelAssetsPanel({
   onStatus,
   onInstalled,
+  modelId: forcedModelId,
+  compact = false,
 }: ComfyModelAssetsPanelProps) {
   const [rows, setRows] = useState<AssetRow[]>([]);
   const [jobs, setJobs] = useState<AssetJob[]>([]);
@@ -101,9 +107,9 @@ export default function ComfyModelAssetsPanel({
   const [rootWritable, setRootWritable] = useState(true);
   const [rootPath, setRootPath] = useState<string | null>(null);
   const [rootHint, setRootHint] = useState<string | undefined>();
-  const [filterCurrentModel, setFilterCurrentModel] = useState(false);
+  const [filterCurrentModel, setFilterCurrentModel] = useState(Boolean(forcedModelId));
   const [kindFilter, setKindFilter] = useState<'all' | ComfyAssetKind>('all');
-  const [missingOnly, setMissingOnly] = useState(false);
+  const [missingOnly, setMissingOnly] = useState(compact);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -118,7 +124,9 @@ export default function ComfyModelAssetsPanel({
       setError(null);
       try {
         const settings = loadComfyUiSettings();
-        const modelId = filterCurrentModel ? loadSettingsCache().shared.model : undefined;
+        const modelId =
+          forcedModelId?.trim() ||
+          (filterCurrentModel ? loadSettingsCache().shared.model : undefined);
         const params = new URLSearchParams();
         const apiUrl = settings.apiUrl?.trim() ?? '';
         if (apiUrl) {
@@ -147,7 +155,7 @@ export default function ComfyModelAssetsPanel({
         setLoading(false);
       }
     },
-    [filterCurrentModel]
+    [filterCurrentModel, forcedModelId]
   );
 
   useEffect(() => {
@@ -339,6 +347,9 @@ export default function ComfyModelAssetsPanel({
 
   const visibleRows = useMemo(() => {
     return rows.filter(row => {
+      if (compact && (row.kind === 'controlnet' || row.kind === 'upscale')) {
+        return false;
+      }
       if (kindFilter !== 'all' && row.kind !== kindFilter) {
         return false;
       }
@@ -347,7 +358,7 @@ export default function ComfyModelAssetsPanel({
       }
       return true;
     });
-  }, [rows, kindFilter, missingOnly]);
+  }, [compact, rows, kindFilter, missingOnly]);
 
   const groupedRows = useMemo(() => {
     const groups: Array<{ kind: ComfyAssetKind | string; rows: AssetRow[] }> = [];
@@ -415,13 +426,9 @@ export default function ComfyModelAssetsPanel({
   return (
     <div className="space-y-3">
       <p className="type-caption text-[var(--text-muted)]">
-        Curated same-machine installs for supported workflows — checkpoints, UNETs, VAEs, text
-        encoders / CLIP, LoRAs, upscalers, and ControlNets — into{' '}
-        <code className="ui-inline-code">COMFYUI_ROOT/models/…</code>. Downloads run one at a time,
-        resume from <code className="ui-inline-code">.partial</code> after cancel or stall, and show
-        up in the system tray. Only allowlisted Hugging Face URLs run; gated or third-party rows
-        stay manual. Optional <code className="ui-inline-code">HF_TOKEN</code> helps with gated
-        repos / 403s.
+        {compact
+          ? 'Install this video model and its support files (VAE, text encoder, Lightning LoRA) into COMFYUI_ROOT/models. Downloads run one at a time and resume if cancelled.'
+          : 'Curated same-machine installs for supported workflows — checkpoints, UNETs, VAEs, text encoders / CLIP, LoRAs, upscalers, and ControlNets — into COMFYUI_ROOT/models/…. Downloads run one at a time, resume from .partial after cancel or stall, and show up in the system tray. Only allowlisted Hugging Face URLs run; gated or third-party rows stay manual. Optional HF_TOKEN helps with gated repos / 403s.'}
       </p>
 
       {queueJobs.length > 0 ? (
@@ -503,14 +510,16 @@ export default function ComfyModelAssetsPanel({
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
-        <label className="flex cursor-pointer items-center gap-2 text-xs text-[var(--text-secondary)]">
-          <input
-            type="checkbox"
-            checked={filterCurrentModel}
-            onChange={event => setFilterCurrentModel(event.target.checked)}
-          />
-          Current model only
-        </label>
+        {forcedModelId ? null : (
+          <label className="flex cursor-pointer items-center gap-2 text-xs text-[var(--text-secondary)]">
+            <input
+              type="checkbox"
+              checked={filterCurrentModel}
+              onChange={event => setFilterCurrentModel(event.target.checked)}
+            />
+            Current model only
+          </label>
+        )}
         <label className="flex cursor-pointer items-center gap-2 text-xs text-[var(--text-secondary)]">
           <input
             type="checkbox"
@@ -536,7 +545,7 @@ export default function ComfyModelAssetsPanel({
           onClick={() => void installMissingForModel()}
         >
           Install missing
-          {filterCurrentModel ? ' for model' : ''}
+          {forcedModelId || filterCurrentModel ? ' for model' : ''}
           {downloadableMissing > 0 ? ` (${downloadableMissing})` : ''}
         </Button>
       </div>

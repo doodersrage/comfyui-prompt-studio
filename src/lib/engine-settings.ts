@@ -6,6 +6,7 @@ import {
   CLOUD_ENGINE_IDS,
   CLOUD_ENGINE_OPTIONS,
   DEFAULT_FAL_I2V_MODEL,
+  DEFAULT_FAL_T2V_MODEL,
   cloudEngineHost,
   cloudEngineOption,
   defaultCloudImg2ImgModel,
@@ -15,6 +16,7 @@ import {
   type CloudEngineId,
 } from './engine/capabilities';
 import { DEFAULT_DIFFUSERS_API_URL } from './diffusers-client';
+import { inferVideoClipMode, resolveFalVideoModel, type VideoClipMode } from './video-clip-mode';
 
 export type EngineSettings = {
   engine: EngineId;
@@ -24,6 +26,7 @@ export type EngineSettings = {
   falModel: string;
   falImg2ImgModel: string;
   falI2vModel: string;
+  falT2vModel: string;
   replicateModel: string;
   replicateImg2ImgModel: string;
   openaiModel: string;
@@ -89,6 +92,7 @@ function cloudModelsFromEnv(): Pick<
   | 'falModel'
   | 'falImg2ImgModel'
   | 'falI2vModel'
+  | 'falT2vModel'
   | 'replicateModel'
   | 'replicateImg2ImgModel'
   | 'openaiModel'
@@ -102,6 +106,7 @@ function cloudModelsFromEnv(): Pick<
     falModel: envCloudTxt2Img('fal'),
     falImg2ImgModel: envCloudImg2Img('fal'),
     falI2vModel: envOr(['NEXT_PUBLIC_FAL_I2V_MODEL', 'FAL_I2V_MODEL'], DEFAULT_FAL_I2V_MODEL),
+    falT2vModel: envOr(['NEXT_PUBLIC_FAL_T2V_MODEL', 'FAL_T2V_MODEL'], DEFAULT_FAL_T2V_MODEL),
     replicateModel: envCloudTxt2Img('replicate'),
     replicateImg2ImgModel: envCloudImg2Img('replicate'),
     openaiModel: envCloudTxt2Img('openai'),
@@ -119,6 +124,7 @@ function cloudModelsFromShared(shared: SharedToolSettings): ReturnType<typeof cl
     falModel: shared.falModel?.trim() || fromEnv.falModel,
     falImg2ImgModel: shared.falImg2ImgModel?.trim() || fromEnv.falImg2ImgModel,
     falI2vModel: shared.falI2vModel?.trim() || fromEnv.falI2vModel,
+    falT2vModel: shared.falT2vModel?.trim() || fromEnv.falT2vModel,
     replicateModel: shared.replicateModel?.trim() || fromEnv.replicateModel,
     replicateImg2ImgModel: shared.replicateImg2ImgModel?.trim() || fromEnv.replicateImg2ImgModel,
     openaiModel: shared.openaiModel?.trim() || fromEnv.openaiModel,
@@ -173,6 +179,7 @@ export function saveEngineSettings(patch: Partial<EngineSettings>): EngineSettin
     falModel: next.falModel,
     falImg2ImgModel: next.falImg2ImgModel,
     falI2vModel: next.falI2vModel,
+    falT2vModel: next.falT2vModel,
     replicateModel: next.replicateModel,
     replicateImg2ImgModel: next.replicateImg2ImgModel,
     openaiModel: next.openaiModel,
@@ -195,24 +202,50 @@ export function resolveCloudTxt2ImgModel(engine: EngineId = loadEngineSettings()
   return settings[option.modelField] || option.defaultTxt2Img;
 }
 
-export function resolveCloudQueueModel(engine: EngineId, tool?: string): string {
+export function resolveCloudQueueModel(
+  engine: EngineId,
+  tool?: string,
+  extras?: { hasInputImage?: boolean; clipMode?: VideoClipMode }
+): string {
   if (engine === 'fal' && tool === 'video') {
-    return loadEngineSettings().falI2vModel || DEFAULT_FAL_I2V_MODEL;
+    const settings = loadEngineSettings();
+    const clipMode = inferVideoClipMode({
+      clipMode: extras?.clipMode,
+      hasInitImage: extras?.hasInputImage,
+    });
+    return resolveFalVideoModel({
+      clipMode,
+      i2vModel: settings.falI2vModel,
+      t2vModel: settings.falT2vModel,
+    });
   }
   return resolveCloudTxt2ImgModel(engine);
 }
 
 export function resolveCloudQueueExtras(
   engine: EngineId,
-  input?: { hasInputImage?: boolean; inputImageFilename?: string; tool?: string }
+  input?: {
+    hasInputImage?: boolean;
+    inputImageFilename?: string;
+    tool?: string;
+    clipMode?: VideoClipMode;
+  }
 ): Record<string, unknown> {
   const shared = loadSettingsCache().shared;
   const settings = loadEngineSettings();
   const option = cloudEngineOption(engine);
+  const clipMode =
+    engine === 'fal' && input?.tool === 'video'
+      ? inferVideoClipMode({
+          clipMode: input.clipMode,
+          hasInitImage: input.hasInputImage,
+        })
+      : undefined;
   const common = {
     hasInputImage: input?.hasInputImage === true,
     inputImageFilename: input?.inputImageFilename,
     tool: input?.tool,
+    ...(clipMode ? { clipMode } : {}),
   };
   if (!option) {
     return common;
@@ -221,7 +254,12 @@ export function resolveCloudQueueExtras(
     ...common,
     [option.tokenBodyKey]: shared[option.sessionTokenField],
     img2imgModel: settings[option.img2imgField] || defaultCloudImg2ImgModel(engine),
-    ...(engine === 'fal' ? { i2vModel: settings.falI2vModel || DEFAULT_FAL_I2V_MODEL } : {}),
+    ...(engine === 'fal'
+      ? {
+          i2vModel: settings.falI2vModel || DEFAULT_FAL_I2V_MODEL,
+          t2vModel: settings.falT2vModel || DEFAULT_FAL_T2V_MODEL,
+        }
+      : {}),
   };
 }
 

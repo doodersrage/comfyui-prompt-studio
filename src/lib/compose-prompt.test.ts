@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { isComposeCapableModel, isEditQueueTool } from "./model-denoise-defaults";
 import {
+  applyInputImageFilenamesToParams,
   buildComposeInstruction,
   COMPOSE_DEFAULT_MODEL,
   multiInputImageCustomTokens,
@@ -63,6 +64,19 @@ describe("compose input image filenames + tokens", () => {
       normalizeInputImageFilenames("fig1.png", ["a.png", "b.png", "c.png"]),
       ["fig1.png", "b.png", "c.png"],
     );
+  });
+
+  it("keeps Image 2 empty so Figure 3 does not become Image 2", () => {
+    assert.deepEqual(
+      normalizeInputImageFilenames("fig1.png", ["fig1.png", "", "fig3.png"]),
+      ["fig1.png", "", "fig3.png"],
+    );
+    const params = applyInputImageFilenamesToParams(
+      {},
+      ["fig1.png", "", "fig3.png"],
+    );
+    assert.equal(params.inputImageFilename, "fig1.png");
+    assert.deepEqual(params.inputImageFilenames, ["fig1.png", "", "fig3.png"]);
   });
 
   it("fills INPUT_IMAGE_2..4 custom tokens", () => {
@@ -220,6 +234,33 @@ describe("compose LoadImage bindings", () => {
     );
   });
 
+  it("does not slide Figure 3 into Image 2 when Figure 2 is empty", () => {
+    const workflow = {
+      "4": {
+        class_type: "TextEncodeQwenImageEditPlus",
+        inputs: {
+          prompt: "edit",
+          clip: ["2", 0],
+          image2: ["stale", 0],
+        },
+      },
+    };
+    const { workflow: next } = ensureQwenEditReferenceImagesForImg2Img(workflow, {
+      hasInputImage: true,
+      inputImageFilename: "fig1.png",
+      inputImageFilenames: ["fig1.png", "", "fig3.png"],
+    });
+    const encode = next["4"] as {
+      inputs: Record<string, [string, number] | string>;
+    };
+    assert.equal(encode.inputs.image2, undefined);
+    assert.ok(Array.isArray(encode.inputs.image3));
+    assert.equal(
+      (next[encode.inputs.image3[0]] as { _meta?: { title?: string } })._meta?.title,
+      "Figure 3",
+    );
+  });
+
   it("wires multi LoadImage into TextEncodeBooguEdit image_1…image_4 slots", () => {
     const workflow = {
       "4": {
@@ -290,15 +331,17 @@ describe("compose instruction builder", () => {
     assert.match(built, /Replace with: rainy alley/);
   });
 
-  it("prefixes Klein Modify with preserve-composition guidance", () => {
+  it("prefixes Klein Distilled Modify with turbo edit strength, not a keep-everything line", () => {
     const built = buildComposeInstruction({
       mode: "modify",
       instruction: "warmer golden-hour light",
       figureCount: 1,
       model: "flux-2-klein-9b-distilled",
+      turboEditStrength: "strong",
     });
-    assert.match(built, /Keep the subject/i);
+    assert.match(built, /Carry out this change/i);
     assert.match(built, /warmer golden-hour light/);
+    assert.equal(/Keep the subject/i.test(built), false);
   });
 
   it("prefixes Qwen aggressive Modify with pose-unlock guidance", () => {
@@ -333,18 +376,20 @@ describe("compose instruction builder", () => {
     });
     assert.match(built, /facial identity and likeness only/i);
     assert.match(built, /beast-mode athletics/i);
+    assert.match(built, /Carry out this change/i);
   });
 
-  it("prefixes Z-Image Modify with img2img preserve guidance", () => {
+  it("prefixes Z-Image Turbo Modify with strength wrap instead of a fixed keep-everything line", () => {
     const built = buildComposeInstruction({
       mode: "modify",
       instruction: "warmer golden-hour light",
       figureCount: 1,
       model: "z-image-turbo",
+      turboEditStrength: "gentle",
     });
-    assert.match(built, /Edit Image 1 via img2img/i);
-    assert.match(built, /facial identity, gender presentation, and likeness/i);
+    assert.match(built, /Light img2img on Image 1/i);
     assert.match(built, /warmer golden-hour light/);
+    assert.equal(/gender presentation/i.test(built), false);
   });
 
   it("prefixes Z-Image Transfer with img2img base note", () => {
@@ -399,16 +444,17 @@ describe("compose instruction builder", () => {
     );
   });
 
-  it("adds isolate cue alongside Klein preserve prefix on Modify", () => {
+  it("adds isolate cue alongside Klein Distilled strength wrap on Modify", () => {
     const built = buildComposeInstruction({
       mode: "modify",
       instruction: "warmer golden-hour light",
       figureCount: 1,
       model: "flux-2-klein-9b-distilled",
       isolatedSubject: true,
+      turboEditStrength: "balanced",
     });
     assert.match(built, /isolated on a blank white backdrop/i);
-    assert.match(built, /Keep the subject/i);
+    assert.match(built, /Edit Image 1:/i);
     assert.match(built, /warmer golden-hour light/);
   });
 });

@@ -49,14 +49,30 @@ describe("model denoise defaults", () => {
         tool: "refine",
         hasInputImage: true,
       }),
-      0.65,
+      0.36,
     );
     assert.equal(
       resolveDenoiseForModel("z-image-turbo", {
         tool: "compose",
         hasInputImage: true,
       }),
-      0.42,
+      0.36,
+    );
+    assert.equal(
+      resolveDenoiseForModel("z-image-turbo", {
+        tool: "refine",
+        hasInputImage: true,
+        turboEditStrength: "gentle",
+      }),
+      0.16,
+    );
+    assert.equal(
+      resolveDenoiseForModel("z-image-turbo", {
+        tool: "compose",
+        hasInputImage: true,
+        override: 0.65,
+      }),
+      0.36,
     );
     assert.equal(
       isInstructionEditDenoiseContext("z-image-turbo", {
@@ -112,6 +128,21 @@ describe("model denoise defaults", () => {
     assert.equal(
       resolveDenoiseForModel("qwen-image-2512", { hasInputImage: true }),
       0.65,
+    );
+    assert.equal(
+      resolveDenoiseForModel("qwen-image-2512", {
+        tool: "refine",
+        hasInputImage: true,
+        turboEditStrength: "gentle",
+      }),
+      0.28,
+    );
+    assert.equal(
+      resolveDenoiseForModel("qwen-image-2512", {
+        tool: "refine",
+        hasInputImage: true,
+      }),
+      0.55,
     );
   });
 
@@ -287,14 +318,61 @@ describe("model denoise defaults", () => {
     );
   });
 
-  it("resolveQueueDenoise keeps handoff denoise for classic img2img refine", () => {
+  it("resolveQueueDenoise ignores Settings and handoff on Z-Image Turbo img2img", () => {
+    assert.equal(
+      resolveQueueDenoise("z-image-turbo", {
+        tool: "refine",
+        hasInputImage: true,
+        handoffDenoise: "0.65",
+        editDenoiseStrength: 0.65,
+      }),
+      0.36,
+    );
+    assert.equal(
+      resolveQueueDenoise("z-image-turbo", {
+        tool: "compose",
+        hasInputImage: true,
+        turboEditStrength: "strong",
+        handoffDenoise: "0.65",
+      }),
+      0.58,
+    );
+    assert.equal(
+      resolveQueueDenoise("z-image-turbo", {
+        tool: "refine",
+        hasInputImage: true,
+        userDenoiseOverride: "0.28",
+      }),
+      "0.28",
+    );
+  });
+
+  it("resolveQueueDenoise uses strength chips over handoff on classic img2img refine", () => {
     assert.equal(
       resolveQueueDenoise("qwen-image-2512", {
         tool: "refine",
         hasInputImage: true,
-        handoffDenoise: "0.55",
+        handoffDenoise: "0.65",
+        turboEditStrength: "gentle",
       }),
-      "0.55",
+      0.28,
+    );
+    assert.equal(
+      resolveQueueDenoise("flux-dev", {
+        tool: "refine",
+        hasInputImage: true,
+        turboEditStrength: "strong",
+      }),
+      0.78,
+    );
+    assert.equal(
+      resolveQueueDenoise("qwen-image-2512", {
+        tool: "refine",
+        hasInputImage: true,
+        userDenoiseOverride: "0.42",
+        turboEditStrength: "strong",
+      }),
+      "0.42",
     );
   });
 

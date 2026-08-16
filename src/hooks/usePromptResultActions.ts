@@ -498,6 +498,8 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         /** Override the hook tool for this queue (Roleplay → video I2V). */
         queueTool?: string;
         queueModel?: import('@/lib/comfy-models/client').ComfyImageModel;
+        /** Video T2V vs I2V — Fal T2V does not need a first frame. */
+        clipMode?: import('@/lib/video-clip-mode').VideoClipMode;
       }
     ) => {
       if (!prompt) {
@@ -596,6 +598,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           tool: config.tool,
           explicitNegative: options?.explicitNegative ?? pluginNegative,
           embeddingTokens: loadSettingsCache().shared.sessionEmbeddingTokens,
+          turboEditStrength: loadSettingsCache().shared.turboEditStrength,
         });
         failedQueueSnapshot = {
           prompt: preparedPrompt,
@@ -749,10 +752,26 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           }
         }
 
-        const inputImageFilenames = uploadedFilenames.map(name => name.trim()).filter(Boolean);
+        const inputImageFilenames = uploadedFilenames.map(name => name.trim());
+        while (
+          inputImageFilenames.length > 0 &&
+          !inputImageFilenames[inputImageFilenames.length - 1]
+        ) {
+          inputImageFilenames.pop();
+        }
         if (!inputImageFilename && inputImageFilenames[0]) {
           inputImageFilename = inputImageFilenames[0];
         }
+
+        const { inferVideoClipMode, falVideoRequiresFirstFrame } =
+          await import('@/lib/video-clip-mode');
+        const clipMode =
+          effectiveTool === 'video'
+            ? inferVideoClipMode({
+                clipMode: options?.clipMode,
+                hasInitImage: Boolean(inputImageFilename),
+              })
+            : undefined;
 
         if (cloudEngine && effectiveTool === 'video') {
           if (engineAdapter.id !== 'fal') {
@@ -760,8 +779,8 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
               `${engineDisplayName(engineAdapter.id)} cannot queue clips. Switch the inference engine to Fal or local WAN.`
             );
           }
-          if (!inputImageFilename) {
-            throw new Error('Cloud clips need a first frame.');
+          if (falVideoRequiresFirstFrame(clipMode ?? 't2v') && !inputImageFilename) {
+            throw new Error('Cloud image-to-video needs a first frame.');
           }
         }
 
@@ -859,7 +878,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           base: options?.queueParamsBase,
           workflow,
           inputImageFilename,
-          inputImageFilenames: inputImageFilenames.length > 0 ? inputImageFilenames : undefined,
+          inputImageFilenames: inputImageFilenames.some(Boolean) ? inputImageFilenames : undefined,
           maskImageFilename,
           controlImageFilename,
           controlImageFilenames:
@@ -1006,15 +1025,21 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         const queued = await engineAdapter.postPrompt({
           prompt: preparedPrompt,
           negativePrompt,
-          model: cloudEngine ? resolveCloudQueueModel(engineAdapter.id, effectiveTool) : queueModel,
+          model: cloudEngine
+            ? resolveCloudQueueModel(engineAdapter.id, effectiveTool, {
+                hasInputImage: Boolean(inputImageFilename) && clipMode !== 't2v',
+                clipMode,
+              })
+            : queueModel,
           params: queueParams,
           front: true,
           ...(cloudEngine
             ? {
                 ...resolveCloudQueueExtras(engineAdapter.id, {
-                  hasInputImage: Boolean(inputImageFilename),
-                  inputImageFilename,
+                  hasInputImage: Boolean(inputImageFilename) && clipMode !== 't2v',
+                  inputImageFilename: clipMode === 't2v' ? undefined : inputImageFilename,
                   tool: effectiveTool,
+                  clipMode,
                 }),
                 qualityProfile: effectiveQualityProfile,
               }
@@ -1113,7 +1138,10 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
               undefined,
             queueQualityProfile: runtime?.queueQualityProfile ?? effectiveQualityProfile,
             model: cloudEngine
-              ? resolveCloudQueueModel(engineAdapter.id, effectiveTool)
+              ? resolveCloudQueueModel(engineAdapter.id, effectiveTool, {
+                  hasInputImage: Boolean(inputImageFilename) && clipMode !== 't2v',
+                  clipMode,
+                })
               : queueModel,
             sessionActiveLoraIds: resolveSharedEffectiveSessionLoraIds(queueModel),
             sessionLoraStrengthOverrides:
@@ -1219,6 +1247,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           sport,
           tool: config.tool,
           embeddingTokens: loadSettingsCache().shared.sessionEmbeddingTokens,
+          turboEditStrength: loadSettingsCache().shared.turboEditStrength,
         });
 
         const [{ fetchWorkflowPreview }, { resolveRuntimeForQueueAsync }] = await Promise.all([
@@ -1270,6 +1299,8 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           positive: injectLoraTriggers(filtered[0] ?? ''),
           negative: rawNegative,
           model: queueModel,
+          tool: config.tool,
+          turboEditStrength: loadSettingsCache().shared.turboEditStrength,
         });
         const negativePrompt = steered.negative;
         const prepared = filtered.map(
@@ -1278,6 +1309,8 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
               positive: injectLoraTriggers(entry),
               negative: rawNegative,
               model: queueModel,
+              tool: config.tool,
+              turboEditStrength: loadSettingsCache().shared.turboEditStrength,
             }).positive
         );
 
@@ -1499,6 +1532,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           tool: config.tool,
           explicitNegative,
           embeddingTokens: loadSettingsCache().shared.sessionEmbeddingTokens,
+          turboEditStrength: loadSettingsCache().shared.turboEditStrength,
         });
         const text = formatPromptPair({
           positive,

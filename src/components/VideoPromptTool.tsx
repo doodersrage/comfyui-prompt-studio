@@ -10,6 +10,7 @@ import SharedToolControls from '@/components/SharedToolControls';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import MediaScaffoldReadyPanel from '@/components/MediaScaffoldReadyPanel';
+import ComfyModelAssetsPanel from '@/components/settings/ComfyModelAssetsPanel';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { useGalleryHandoff } from '@/hooks/useGalleryHandoff';
 import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
@@ -40,7 +41,10 @@ import {
   accentButtonClass,
   accentFocusClass,
 } from '@/components/ui/ToolPageShell';
-import { FieldLabel, TextArea } from '@/components/ui/Field';
+import { ChipButton, FieldLabel, TextArea } from '@/components/ui/Field';
+import { inferVideoClipMode, type VideoClipMode } from '@/lib/video-clip-mode';
+import { saveEngineSettings } from '@/lib/engine-settings';
+import { preferFalForVideoStillHandoff } from '@/lib/video-still-handoff';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { Button, ButtonLink, PrimaryButton } from '@/components/ui/Button';
 
@@ -54,8 +58,8 @@ function isFetchableImageRef(value: string): boolean {
 
 export default function VideoPromptTool() {
   const description = useToolPageDescription(
-    'Motion and camera prompts for WAN / Hunyuan Video. Add an init image for image-to-video.',
-    'Video motion prompts — add an init image for image-to-video.'
+    'Motion and camera prompts for WAN / Hunyuan, or Fal cloud T2V / I2V. Pick a mode, then queue.',
+    'Video motion prompts — T2V from text, or I2V from a first frame.'
   );
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
     'video',
@@ -73,6 +77,16 @@ export default function VideoPromptTool() {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [parentGalleryEntryId, setParentGalleryEntryId] = useState<string | undefined>();
+  const clipMode = inferVideoClipMode({
+    clipMode: toolSettings.clipMode,
+    hasInitImage: Boolean(
+      file || previewUrl || (initImageUrl.trim() && initImageUrl.trim() !== LOCAL_INIT_IMAGE_MARKER)
+    ),
+  });
+  const setClipMode = useCallback(
+    (mode: VideoClipMode) => updateToolSettings({ clipMode: mode }),
+    [updateToolSettings]
+  );
 
   const rememberVideoDraft = useCallback(
     (next: { subject?: string; motion?: string; camera?: string; style?: string }) => {
@@ -152,8 +166,11 @@ export default function VideoPromptTool() {
       });
       // Keep Settings/preferI2v in sync — concrete upload happens at queue time.
       setInitImageUrl(nextFile ? LOCAL_INIT_IMAGE_MARKER : '');
+      if (nextFile) {
+        setClipMode('i2v');
+      }
     },
-    [revokePreviewIfBlob, setInitImageUrl]
+    [revokePreviewIfBlob, setClipMode, setInitImageUrl]
   );
 
   const applyGalleryHandoff = useCallback(
@@ -173,7 +190,7 @@ export default function VideoPromptTool() {
         (handoff.file ? LOCAL_INIT_IMAGE_MARKER : '');
 
       updateToolSettings({
-        ...(imageRef ? { initImageUrl: imageRef } : {}),
+        ...(imageRef ? { initImageUrl: imageRef, clipMode: 'i2v' } : { clipMode: 'i2v' }),
         ...(handoff.prompt?.trim() ? { subject: handoff.prompt.trim().slice(0, 400) } : {}),
         ...(Number.isFinite(framesFromHandoff) && framesFromHandoff > 0
           ? { frames: Math.floor(framesFromHandoff) }
@@ -181,6 +198,12 @@ export default function VideoPromptTool() {
         ...(Number.isFinite(fpsFromHandoff) && fpsFromHandoff > 0
           ? { fps: Math.floor(fpsFromHandoff) }
           : {}),
+      });
+      void preferFalForVideoStillHandoff().then(preferFal => {
+        if (preferFal) {
+          saveEngineSettings({ engine: 'fal' });
+          updateShared({ inferenceEngine: 'fal' });
+        }
       });
 
       const sharedPatch = sharedPatchFromGalleryHandoff(handoff.payload);
@@ -375,16 +398,20 @@ export default function VideoPromptTool() {
         ? Math.floor(frames)
         : Math.max(1, Math.round(Math.max(1, Number(durationSec) || 4) * resolvedFps));
 
+    const useInit = clipMode === 'i2v';
     return {
-      inputImage: file,
-      inputImageUrl: file
-        ? undefined
-        : previewIsFetchable
-          ? previewUrl!
-          : initImageIsFetchable
-            ? initImage
-            : undefined,
+      inputImage: useInit ? file : undefined,
+      inputImageUrl: useInit
+        ? file
+          ? undefined
+          : previewIsFetchable
+            ? previewUrl!
+            : initImageIsFetchable
+              ? initImage
+              : undefined
+        : undefined,
       inputImageFilename:
+        useInit &&
         !file &&
         !previewIsFetchable &&
         !initImageIsFetchable &&
@@ -401,16 +428,26 @@ export default function VideoPromptTool() {
         ? nextRoleplayMotionKind(
             loadComfyGallery().find(entry => entry.id === parentGalleryEntryId)
           )
-        : undefined,
+        : clipMode === 'i2v'
+          ? ('i2v' as const)
+          : ('t2v' as const),
+      clipMode,
     };
-  }, [durationSec, file, frames, fps, initImageUrl, parentGalleryEntryId, previewUrl]);
+  }, [clipMode, durationSec, file, frames, fps, initImageUrl, parentGalleryEntryId, previewUrl]);
+
+  const pastedInitValue = initImageUrl === LOCAL_INIT_IMAGE_MARKER ? '' : initImageUrl;
+  const hasInitImage = Boolean(file || previewUrl || pastedInitValue.trim());
 
   const queueVideo = useCallback(() => {
     if (!output.trim()) {
       return;
     }
+    if (clipMode === 'i2v' && !hasInitImage) {
+      setError('Image-to-video needs a first frame.');
+      return;
+    }
     void actions.sendComfyUi(output, null, undefined, buildVideoQueueOptions());
-  }, [actions, buildVideoQueueOptions, output]);
+  }, [actions, buildVideoQueueOptions, clipMode, hasInitImage, output]);
 
   const generate = useCallback(async () => {
     if (!subject.trim()) {
@@ -477,9 +514,6 @@ export default function VideoPromptTool() {
     ? shared
     : { ...shared, model: preferredVideoModel };
 
-  const pastedInitValue = initImageUrl === LOCAL_INIT_IMAGE_MARKER ? '' : initImageUrl;
-  const hasInitImage = Boolean(file || previewUrl || pastedInitValue.trim());
-
   return (
     <ToolLayout
       accent={ACCENT}
@@ -528,7 +562,7 @@ export default function VideoPromptTool() {
             {workflowStatus}
           </p>
         ) : null}
-        <div className="mb-4">
+        <div className="mb-4 space-y-3">
           <MediaScaffoldReadyPanel
             kind="video"
             onImported={(summary, result) => {
@@ -538,6 +572,40 @@ export default function VideoPromptTool() {
               setWorkflowStatus(summary);
             }}
           />
+          {isVideoModel(shared.model) ? (
+            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/40 px-3 py-3">
+              <p className="mb-2 text-xs font-medium text-[var(--text-primary)]">
+                Video model files
+              </p>
+              <ComfyModelAssetsPanel
+                modelId={shared.model}
+                compact
+                onStatus={setWorkflowStatus}
+                onInstalled={() => {
+                  void (async () => {
+                    try {
+                      const { pinVideoWeightsAfterInstall } =
+                        await import('@/lib/pin-video-weights');
+                      const result = await pinVideoWeightsAfterInstall(shared.model);
+                      if (result.sharedPatch) {
+                        updateShared(result.sharedPatch);
+                      }
+                      setWorkflowStatus(
+                        result.note ??
+                          'Video weights installed and mapped — refresh ComfyUI if loaders stay empty.'
+                      );
+                    } catch (error) {
+                      setWorkflowStatus(
+                        error instanceof Error
+                          ? error.message
+                          : 'Video weights installed — refresh ComfyUI if loaders stay empty.'
+                      );
+                    }
+                  })();
+                }}
+              />
+            </div>
+          ) : null}
         </div>
         <FieldLabel htmlFor="video-subject">Subject / action</FieldLabel>
         <TextArea
@@ -594,11 +662,42 @@ export default function VideoPromptTool() {
           className="ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
         />
 
+        <div className="mb-4 space-y-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/50 px-3 py-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs font-medium text-[var(--text-primary)]">Clip mode</p>
+            <div className="flex flex-wrap gap-1.5">
+              <ChipButton
+                active={clipMode === 't2v'}
+                title="Text-to-video — no first frame"
+                onClick={() => setClipMode('t2v')}
+              >
+                Text to video
+              </ChipButton>
+              <ChipButton
+                active={clipMode === 'i2v'}
+                title="Image-to-video — first frame required"
+                onClick={() => setClipMode('i2v')}
+              >
+                Image to video
+              </ChipButton>
+            </div>
+          </div>
+          <p className="text-xs leading-relaxed text-[var(--text-muted)]">
+            {clipMode === 'i2v'
+              ? 'Needs a first frame. Local WAN / Hunyuan / LTX wire I2V nodes; Fal uses the I2V model in Settings.'
+              : 'No still required. Local graphs stay T2V; Fal uses the T2V model in Settings.'}
+          </p>
+        </div>
+
         <FieldLabel
           htmlFor="video-init-image"
-          hint="Optional. With an init image, queue auto-wires WanImageToVideo, HunyuanImageToVideo, or LTXVImgToVideo when the graph supports it. Without an init image, the job is text-to-video."
+          hint={
+            clipMode === 'i2v'
+              ? 'Required for I2V. Queue wires WanImageToVideo, HunyuanImageToVideo, or LTXVImgToVideo when the graph supports it.'
+              : 'Ignored in T2V mode. Switch to Image to video to use a first frame.'
+          }
         >
-          Init image (optional, I2V)
+          {clipMode === 'i2v' ? 'First frame (required, I2V)' : 'First frame (I2V only)'}
         </FieldLabel>
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
@@ -654,9 +753,14 @@ export default function VideoPromptTool() {
               className="ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
             />
           </div>
-          {hasInitImage ? (
+          {clipMode === 'i2v' && hasInitImage ? (
             <p className="type-caption text-[var(--tint-success-text)]">
-              I2V init image ready — queue will upload and wire it into the video graph.
+              I2V first frame ready — queue will upload and wire it into the video graph.
+            </p>
+          ) : null}
+          {clipMode === 'i2v' && !hasInitImage ? (
+            <p className="type-caption text-[var(--tint-warning-text)]">
+              Add a first frame or pick a still from Gallery before queueing I2V.
             </p>
           ) : null}
         </div>

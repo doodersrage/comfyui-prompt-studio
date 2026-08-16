@@ -5,6 +5,7 @@ import { ChipButton, FieldLabel } from '@/components/ui/Field';
 import {
   formatKleinSamplerPeopleHint,
   formatModelSamplerHint,
+  formatTurboEditSamplerHint,
   formatWanVideoSamplerHint,
   getModelSamplerDefaults,
   hasModelSamplerOverrides,
@@ -45,6 +46,7 @@ export default function ModelSamplerHints({
   const activeOption =
     MODEL_SAMPLER_PRESET_OPTIONS.find(option => option.id === preset) ??
     MODEL_SAMPLER_PRESET_OPTIONS[0];
+  const turboEditHint = formatTurboEditSamplerHint(model);
   const peopleHint =
     formatWanVideoSamplerHint(model, preset) ?? formatKleinSamplerPeopleHint(model, preset);
   const samplingHint = formatModelSamplingHint(model, preset);
@@ -107,7 +109,8 @@ export default function ModelSamplerHints({
             <div className="mt-2 space-y-2">
               <p className="type-caption text-[var(--text-muted)]">
                 Leave blank to use preset values. Overrides apply on queue and win over gallery
-                sampler memory. Denoise blank uses tool defaults (1.0 txt2img, ~0.65 edit).
+                sampler memory. Denoise blank uses tool defaults (1.0 txt2img, ~0.65 edit, ~0.36
+                Z-Image Turbo img2img).
               </p>
               <div className="grid grid-cols-2 gap-2">
                 {OVERRIDE_FIELDS.map(({ key, label, placeholder }) => (
@@ -149,6 +152,9 @@ export default function ModelSamplerHints({
       ) : null}
 
       <p className="mt-2 type-caption text-[var(--text-muted)]">{activeOption.description}</p>
+      {turboEditHint ? (
+        <p className="mt-1.5 type-caption text-[var(--tint-warning-text)]">{turboEditHint}</p>
+      ) : null}
       {peopleHint ? (
         <p className="mt-1.5 type-caption text-[var(--tint-warning-text)]">{peopleHint}</p>
       ) : null}

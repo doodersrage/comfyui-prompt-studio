@@ -3,8 +3,34 @@ import { isQwenLightningModel, isWanLightningModel } from './model-sampling-patc
 
 export const DEFAULT_EDIT_DENOISE = 0.65;
 
-/** Z-Image Turbo Compose — Figure 1 VAEEncode img2img; lower denoise reduces identity drift. */
-export const DEFAULT_Z_IMAGE_TURBO_COMPOSE_DENOISE = 0.42;
+/**
+ * Z-Image Turbo is 8-step CFG 1 — generic 0.65 rewrite (~5 of 8 steps) jumps
+ * identity. Strength chips span ~1 / ~3 / ~5 of those steps so Gentle and
+ * Strong actually look different.
+ */
+export type ZImageTurboImg2imgStrength = 'gentle' | 'balanced' | 'strong';
+
+export const Z_IMAGE_TURBO_IMG2IMG_DENOISE: Record<ZImageTurboImg2imgStrength, number> = {
+  gentle: 0.16,
+  balanced: 0.36,
+  strong: 0.58,
+};
+
+/**
+ * Classic VAEEncode img2img (FLUX.1, Qwen T2I, Z-Image Base, SDXL, …).
+ * Longer samplers than Turbo — bands sit around the old 0.65 default so
+ * Gentle / Strong actually look different.
+ */
+export const SOFT_IMG2IMG_STRENGTH_DENOISE: Record<ZImageTurboImg2imgStrength, number> = {
+  gentle: 0.28,
+  balanced: 0.55,
+  strong: 0.78,
+};
+
+export const DEFAULT_Z_IMAGE_TURBO_IMG2IMG_DENOISE = Z_IMAGE_TURBO_IMG2IMG_DENOISE.balanced;
+
+/** @deprecated Use DEFAULT_Z_IMAGE_TURBO_IMG2IMG_DENOISE — compose no longer special-cases 0.42. */
+export const DEFAULT_Z_IMAGE_TURBO_COMPOSE_DENOISE = DEFAULT_Z_IMAGE_TURBO_IMG2IMG_DENOISE;
 
 export const DEFAULT_INPAINT_DENOISE = 0.75;
 
@@ -335,6 +361,7 @@ export function resolveDenoiseForModel(
     hasInputImage?: boolean;
     hasMaskImage?: boolean;
     override?: number;
+    turboEditStrength?: ZImageTurboImg2imgStrength;
   }
 ): number | undefined {
   // Lightning must ignore Settings editDenoiseStrength / soft overrides.
@@ -376,6 +403,21 @@ export function resolveDenoiseForModel(
     return 1;
   }
 
+  // Soft img2img — ignore Settings 0.65; strength chips pick the band.
+  if (isSoftImg2imgStrengthContext(model, options)) {
+    const strength = options?.turboEditStrength;
+    if (isZImageTurboModel(model)) {
+      if (strength && strength in Z_IMAGE_TURBO_IMG2IMG_DENOISE) {
+        return Z_IMAGE_TURBO_IMG2IMG_DENOISE[strength];
+      }
+      return DEFAULT_Z_IMAGE_TURBO_IMG2IMG_DENOISE;
+    }
+    if (strength && strength in SOFT_IMG2IMG_STRENGTH_DENOISE) {
+      return SOFT_IMG2IMG_STRENGTH_DENOISE[strength];
+    }
+    return SOFT_IMG2IMG_STRENGTH_DENOISE.balanced;
+  }
+
   if (options?.override != null && options.override.toString().trim() !== '') {
     return clampDenoise(Number(options.override));
   }
@@ -394,11 +436,55 @@ export function resolveDenoiseForModel(
     return options?.tool === 'outpaint' ? DEFAULT_OUTPAINT_DENOISE : DEFAULT_INPAINT_DENOISE;
   }
 
-  if (isZImageTurboModel(model) && options?.tool === 'compose') {
-    return DEFAULT_Z_IMAGE_TURBO_COMPOSE_DENOISE;
-  }
-
   return DEFAULT_EDIT_DENOISE;
+}
+
+/** Z-Image Turbo Refine / Image → Prompt / Compose — VAEEncode img2img, not instruction-edit. */
+export function isZImageTurboSoftImg2imgContext(
+  model: ComfyImageModel | string,
+  options?: {
+    tool?: string;
+    hasInputImage?: boolean;
+    hasMaskImage?: boolean;
+  }
+): boolean {
+  return isZImageTurboModel(model) && isZImageImg2imgEditContext(model, options);
+}
+
+/**
+ * Classic VAEEncode img2img where Gentle / Balanced / Strong should move denoise.
+ * Instruction-edit stacks (Qwen Edit, Klein, Boogu, Lightning, Rapid) stay at 1.
+ */
+export function isSoftImg2imgStrengthContext(
+  model: ComfyImageModel | string,
+  options?: {
+    tool?: string;
+    hasInputImage?: boolean;
+    hasMaskImage?: boolean;
+  }
+): boolean {
+  if (isInstructionEditDenoiseContext(model, options)) {
+    return false;
+  }
+  if (isQwenLightningModel(model) || isWanLightningModel(model) || isWanRapidAioModel(model)) {
+    return false;
+  }
+  if (isQwenRapidAioModel(model)) {
+    return false;
+  }
+  if (options?.tool === 'video' || isVideoCategoryModel(model)) {
+    return false;
+  }
+  if (options?.tool === 'generate' && !options?.hasMaskImage && !isInpaintModel(model)) {
+    return false;
+  }
+  if (options?.hasMaskImage || isInpaintModel(model) || options?.tool === 'outpaint') {
+    return false;
+  }
+  if (isZImageImg2imgQueueTool(options?.tool)) {
+    return true;
+  }
+  return Boolean(options?.hasInputImage) && isEditQueueTool(options?.tool);
 }
 
 /**
@@ -450,6 +536,7 @@ export function resolveQueueDenoise(
     userDenoiseOverride?: string;
     handoffDenoise?: string | number;
     editDenoiseStrength?: number;
+    turboEditStrength?: ZImageTurboImg2imgStrength;
   }
 ): string | number | undefined {
   const userOverride = options?.userDenoiseOverride?.toString().trim();
@@ -465,6 +552,14 @@ export function resolveQueueDenoise(
 
   if (isInstructionEditDenoiseContext(model, context)) {
     return resolveDenoiseForModel(model, context);
+  }
+
+  // Soft img2img: ignore gallery handoff + Settings 0.65 — chips pick the band.
+  if (isSoftImg2imgStrengthContext(model, context)) {
+    return resolveDenoiseForModel(model, {
+      ...context,
+      turboEditStrength: options?.turboEditStrength,
+    });
   }
 
   const handoff = options?.handoffDenoise?.toString().trim();

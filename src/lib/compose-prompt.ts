@@ -11,7 +11,13 @@ import {
   isQwenEditModel,
   isZImageModel,
 } from './model-denoise-defaults';
+import { isKleinDistilledModel } from './model-sampler-defaults';
 import { buildQwenEditPrompt, parseQwenEditSegments } from './qwen-edit-builder';
+import {
+  applyTurboEditStrengthToPrompt,
+  type TurboEditStrength,
+  usesTurboEditStrengthUi,
+} from './turbo-edit-strength';
 import {
   MAX_INPUT_IMAGE_FILENAMES,
   normalizeInputImageFilenames,
@@ -112,16 +118,19 @@ export function applyInputImageFilenamesToParams(
   filenames: string[]
 ): WorkflowParamValues {
   const next = { ...params };
-  const normalized = filenames
-    .map(entry => entry.trim())
-    .filter(Boolean)
-    .slice(0, MAX_COMPOSE_FIGURES);
-  if (normalized.length === 0) {
+  const normalized = filenames.map(entry => entry.trim()).slice(0, MAX_COMPOSE_FIGURES);
+  while (normalized.length > 1 && !normalized[normalized.length - 1]) {
+    normalized.pop();
+  }
+  if (!normalized.some(Boolean)) {
     delete next.inputImageFilename;
     delete next.inputImageFilenames;
     return next;
   }
-  next.inputImageFilename = normalized[0];
+  next.inputImageFilename = normalized[0] || undefined;
+  if (!next.inputImageFilename) {
+    delete next.inputImageFilename;
+  }
   next.inputImageFilenames = normalized;
   return next;
 }
@@ -1318,6 +1327,8 @@ export function buildComposeInstruction(input: {
   model?: string;
   /** Image 1 is a white-plate cutout; tell the model to replace the void. */
   isolatedSubject?: boolean;
+  /** Gentle / Balanced / Strong — replaces the old keep-everything prefix on turbo stacks. */
+  turboEditStrength?: TurboEditStrength;
 }): string {
   const raw = input.instruction.trim();
   if (!raw) {
@@ -1332,7 +1343,20 @@ export function buildComposeInstruction(input: {
       const built = buildQwenEditPrompt(parseQwenEditSegments(raw));
       text = built || raw;
     }
-    if (isFluxKleinModel(input.model)) {
+    const aggressiveVision =
+      isVisionEncodedComposeModel(input.model) &&
+      isAggressiveComposeInstruction(raw) &&
+      !/\bfacial identity only\b/i.test(text);
+    if (aggressiveVision) {
+      text = `${QWEN_POSE_UNLOCK_MODIFY_PREFIX} ${text}`;
+    }
+    if (usesTurboEditStrengthUi(input.model, 'compose')) {
+      text = applyTurboEditStrengthToPrompt(
+        text,
+        input.model,
+        aggressiveVision ? 'strong' : input.turboEditStrength
+      );
+    } else if (isFluxKleinModel(input.model) && !isKleinDistilledModel(String(input.model))) {
       if (!text.toLowerCase().startsWith('edit the input image')) {
         text = `${KLEIN_MODIFY_PRESERVE_PREFIX} ${text}`;
       }
@@ -1340,12 +1364,6 @@ export function buildComposeInstruction(input: {
       if (!text.toLowerCase().startsWith('edit image 1')) {
         text = `${Z_IMAGE_MODIFY_PRESERVE_PREFIX} ${text}`;
       }
-    } else if (
-      isVisionEncodedComposeModel(input.model) &&
-      isAggressiveComposeInstruction(raw) &&
-      !/\bfacial identity only\b/i.test(text)
-    ) {
-      text = `${QWEN_POSE_UNLOCK_MODIFY_PREFIX} ${text}`;
     }
   } else {
     text = raw;

@@ -6,6 +6,7 @@ import { scheduleComfyGalleryPoll } from './comfyui-gallery-poller';
 import { getEngineAdapter, getEngineAdapterById } from './engine';
 import { cloudEngineHost, engineDisplayName, isCloudEngine } from './engine/capabilities';
 import { resolveCloudQueueExtras, resolveCloudQueueModel } from './engine-settings';
+import { inferVideoClipMode } from './video-clip-mode';
 import { scheduleRefineAfterUpscaleComplete } from './gallery-pending-actions';
 import {
   resolveWorkflowGraphEnrichOptions,
@@ -1110,7 +1111,23 @@ async function requeueCloudJobFromEntry(
   options?.onStatus?.(`Queueing ${label}…`);
   const adapter = getEngineAdapterById(engineId);
   const host = cloudEngineHost(engineId);
-  const model = resolveCloudQueueModel(engineId, entry.tool);
+  const hasInputImage = Boolean(
+    entry.queueParams?.inputImageFilename || loadSettingsCache().shared.ipAdapterImageFilename
+  );
+  const clipMode =
+    entry.tool === 'video'
+      ? inferVideoClipMode({
+          clipMode:
+            entry.derivedKind === 't2v' || entry.derivedKind === 'i2v'
+              ? entry.derivedKind
+              : undefined,
+          hasInitImage: hasInputImage,
+        })
+      : undefined;
+  const model = resolveCloudQueueModel(engineId, entry.tool, {
+    hasInputImage,
+    clipMode,
+  });
   const seed =
     options?.seedOverride != null
       ? String(options.seedOverride)
@@ -1126,12 +1143,11 @@ async function requeueCloudJobFromEntry(
       ...(seed != null ? { seed } : {}),
     },
     ...resolveCloudQueueExtras(engineId, {
-      hasInputImage: Boolean(
-        entry.queueParams?.inputImageFilename || loadSettingsCache().shared.ipAdapterImageFilename
-      ),
+      hasInputImage,
       inputImageFilename:
         entry.queueParams?.inputImageFilename || loadSettingsCache().shared.ipAdapterImageFilename,
       tool: entry.tool,
+      clipMode,
     }),
   });
   if (!queued.ok || !queued.promptId) {

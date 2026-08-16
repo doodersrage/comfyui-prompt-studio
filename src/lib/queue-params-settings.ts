@@ -12,6 +12,7 @@ import {
 } from './model-sampler-defaults';
 import { resolveModelSamplingParams } from './model-sampling-patch';
 import { resolveKleinEditCfg, resolveQueueDenoise } from './model-denoise-defaults';
+import { normalizeTurboEditStrength } from './turbo-edit-strength';
 import {
   DEFAULT_RESOLUTION_ORIENTATION,
   DEFAULT_RESOLUTION_SIZE_TIER,
@@ -448,6 +449,7 @@ export function resolveQueueParams(
       userDenoiseOverride,
       handoffDenoise: base?.denoise,
       editDenoiseStrength: shared.editDenoiseStrength,
+      turboEditStrength: normalizeTurboEditStrength(shared.turboEditStrength),
     });
     if (denoise != null) {
       merged.denoise = denoise;

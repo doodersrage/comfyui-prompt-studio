@@ -648,6 +648,20 @@ export function formatModelSamplerHint(
   return `${presetLabel} · ${defaults.samplerName} · ${defaults.scheduler} · steps ${defaults.steps} · cfg ${defaults.cfg} · ${seedLabel}`;
 }
 
+export function formatTurboEditSamplerHint(model: ComfyImageModel | string): string | null {
+  const id = String(model ?? '').trim();
+  if (id === 'z-image-turbo') {
+    return 'Z-Image Turbo img2img is 8-step CFG 1 — high denoise jumps identity. Use Gentle / Balanced / Strong on Refine, Image → Prompt, or Compose (default Balanced ≈ 0.36). Sidebar denoise override still wins.';
+  }
+  if (id === 'boogu-image-edit-turbo') {
+    return 'Boogu Edit Turbo stays at denoise 1. Write a short instruction and use Gentle / Balanced / Strong — long scene essays rewrite the whole frame on 4 steps.';
+  }
+  if (isKleinDistilledModel(id)) {
+    return 'Klein Distilled edits stay at denoise 1 (ReferenceLatent, 4-step CFG 1). Use Gentle / Balanced / Strong on Refine, Image → Prompt, or Compose — long scene essays and T2I anatomy suffixes rewrite the frame.';
+  }
+  return null;
+}
+
 export function formatKleinSamplerPeopleHint(
   model: ComfyImageModel | string,
   tier: ModelSamplerPresetTier = DEFAULT_MODEL_SAMPLER_PRESET_TIER

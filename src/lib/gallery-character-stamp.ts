@@ -24,6 +24,7 @@ const CHARACTER_DERIVED_KINDS = new Set<NonNullable<ComfyGalleryEntry['derivedKi
   'face-detail',
   'controlnet',
   'i2v',
+  't2v',
   'extend',
   'film',
 ]);

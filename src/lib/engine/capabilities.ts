@@ -9,6 +9,7 @@ export const GROK_API_HOST = 'https://api.x.ai';
 export const DEFAULT_FAL_TXT2IMG_MODEL = 'fal-ai/flux/schnell';
 export const DEFAULT_FAL_IMG2IMG_MODEL = 'fal-ai/flux/dev/image-to-image';
 export const DEFAULT_FAL_I2V_MODEL = 'fal-ai/kling-video/v2.1/standard/image-to-video';
+export const DEFAULT_FAL_T2V_MODEL = 'fal-ai/kling-video/v2.1/standard/text-to-video';
 export const DEFAULT_REPLICATE_TXT2IMG_MODEL = 'black-forest-labs/flux-schnell';
 export const DEFAULT_REPLICATE_IMG2IMG_MODEL = 'black-forest-labs/flux-dev';
 export const DEFAULT_OPENAI_TXT2IMG_MODEL = 'gpt-image-2';
@@ -30,7 +31,16 @@ export const FAL_MODEL_PRESETS = [
 
 export const FAL_I2V_MODEL_PRESETS = [
   { id: 'fal-ai/kling-video/v2.1/standard/image-to-video', label: 'Kling 2.1 image-to-video' },
+  { id: 'fal-ai/kling-video/v3/standard/image-to-video', label: 'Kling 3.0 image-to-video' },
   { id: 'fal-ai/wan/v2.2-a14b/image-to-video', label: 'WAN 2.2 image-to-video' },
+  { id: 'fal-ai/wan/v2.7/image-to-video', label: 'WAN 2.7 image-to-video' },
+] as const;
+
+export const FAL_T2V_MODEL_PRESETS = [
+  { id: 'fal-ai/kling-video/v2.1/standard/text-to-video', label: 'Kling 2.1 text-to-video' },
+  { id: 'fal-ai/kling-video/v3/standard/text-to-video', label: 'Kling 3.0 text-to-video' },
+  { id: 'fal-ai/wan/v2.2-a14b/text-to-video', label: 'WAN 2.2 text-to-video' },
+  { id: 'fal-ai/wan/v2.7/text-to-video', label: 'WAN 2.7 text-to-video' },
 ] as const;
 
 export const REPLICATE_MODEL_PRESETS = [

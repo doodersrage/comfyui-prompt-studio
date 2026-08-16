@@ -179,8 +179,54 @@ describe("queue-prompt-prep Rapid AIO / Lightning", () => {
       explicitNegative: "blurry, bad anatomy",
       realismMode: "realistic",
       anatomyMode: "standard",
+      tool: "refine",
+      turboEditStrength: "gentle",
     });
     assert.equal(result.negative, undefined);
-    assert.match(result.positive ?? "", /natural photograph/i);
+    assert.equal(/natural photograph/i.test(result.positive ?? ""), false);
+    assert.match(result.positive ?? "", /Do not restyle Image 1/i);
+    assert.match(result.positive ?? "", /warm sunset tones/);
+  });
+
+  it("skips T2I anatomy/photo steering on Klein Distilled refine", () => {
+    const result = applyQueuePromptSteering({
+      positive: "warmer golden-hour light",
+      model: "flux-2-klein-9b-distilled",
+      tool: "refine",
+      realismMode: "realistic",
+      anatomyMode: "strict",
+      turboEditStrength: "gentle",
+    });
+    assert.equal(/no extra legs, arms or hands/i.test(result.positive ?? ""), false);
+    assert.equal(/photorealistic|natural lighting/i.test(result.positive ?? ""), false);
+    assert.match(result.positive ?? "", /Do not restyle Image 1/i);
+    assert.match(result.positive ?? "", /warmer golden-hour light/);
+  });
+
+  it("skips T2I photo steering on Z-Image Turbo refine", () => {
+    const result = applyQueuePromptSteering({
+      positive: "warmer golden-hour light",
+      model: "z-image-turbo",
+      tool: "refine",
+      realismMode: "realistic",
+      anatomyMode: "standard",
+      turboEditStrength: "balanced",
+    });
+    assert.equal(/natural photograph/i.test(result.positive ?? ""), false);
+    assert.match(result.positive ?? "", /Edit Image 1 via img2img/i);
+    assert.match(result.positive ?? "", /warmer golden-hour light/);
+  });
+
+  it("wraps classic img2img refine with strength chips", () => {
+    const result = applyQueuePromptSteering({
+      positive: "warmer golden-hour light",
+      model: "qwen-image-2512",
+      tool: "refine",
+      realismMode: "off",
+      anatomyMode: "off",
+      turboEditStrength: "gentle",
+    });
+    assert.match(result.positive ?? "", /Light img2img on Image 1/i);
+    assert.match(result.positive ?? "", /warmer golden-hour light/);
   });
 });

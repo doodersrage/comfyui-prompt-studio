@@ -362,6 +362,18 @@ export default function CharacterHome({ characterId }: CharacterHomeProps) {
                       }
                     : undefined
                 }
+                onAnimateStill={
+                  !isGalleryClipEntry({
+                    ...entry,
+                    mediaKind: galleryEntryPrimaryMediaKind(entry),
+                  }) && entry.status === 'completed'
+                    ? () => {
+                        persistApply();
+                        saveGalleryHandoff(buildGalleryHandoff(entry, 'video'));
+                        router.push(galleryHandoffPath('video'));
+                      }
+                    : undefined
+                }
                 onRemoveFromCharacter={() => {
                   if (currentLook && keepers.some(keeper => keeper.id === entry.id)) {
                     persistApply(
@@ -386,12 +398,14 @@ function CharacterMediaTile({
   characterId,
   kept,
   onToggleKeeper,
+  onAnimateStill,
   onRemoveFromCharacter,
 }: {
   entry: ComfyGalleryEntry;
   characterId: string;
   kept?: boolean;
   onToggleKeeper?: () => void;
+  onAnimateStill?: () => void;
   onRemoveFromCharacter?: () => void;
 }) {
   const thumb = galleryEntryPrimaryThumbUrl(entry);
@@ -436,6 +450,18 @@ function CharacterMediaTile({
               <Link href={href} className="underline-offset-2 hover:underline">
                 Open
               </Link>
+            </>
+          ) : null}
+          {!clip && onAnimateStill ? (
+            <>
+              {' · '}
+              <button
+                type="button"
+                className="underline-offset-2 hover:underline"
+                onClick={onAnimateStill}
+              >
+                Animate
+              </button>
             </>
           ) : null}
           {!clip && onToggleKeeper ? (

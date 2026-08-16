@@ -4,8 +4,10 @@ import { queueFalImage } from '@/lib/fal-client';
 import {
   DEFAULT_FAL_I2V_MODEL,
   DEFAULT_FAL_IMG2IMG_MODEL,
+  DEFAULT_FAL_T2V_MODEL,
   DEFAULT_FAL_TXT2IMG_MODEL,
 } from '@/lib/engine/capabilities';
+import { inferVideoClipMode } from '@/lib/video-clip-mode';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -16,7 +18,9 @@ type FalRequestBody = {
   model?: string;
   img2imgModel?: string;
   i2vModel?: string;
+  t2vModel?: string;
   tool?: string;
+  clipMode?: 't2v' | 'i2v';
   falApiKey?: string;
   clientId?: string;
   hasInputImage?: boolean;
@@ -65,7 +69,17 @@ export async function POST(request: Request) {
         ? null
         : Math.trunc(toNumber(seedRaw, 0) ?? 0);
 
-    const imageFilename = body.hasInputImage === true ? body.inputImageFilename?.trim() : undefined;
+    const clipMode =
+      body.tool?.trim() === 'video'
+        ? inferVideoClipMode({
+            clipMode: body.clipMode,
+            hasInitImage: body.hasInputImage === true && Boolean(body.inputImageFilename?.trim()),
+          })
+        : undefined;
+    const imageFilename =
+      body.hasInputImage === true && clipMode !== 't2v'
+        ? body.inputImageFilename?.trim()
+        : undefined;
     const denoise = toNumber(params.denoise);
     const frames = toNumber(params.videoFrames);
     const fps = toNumber(params.videoFps, 16);
@@ -78,7 +92,9 @@ export async function POST(request: Request) {
       model: body.model?.trim() || DEFAULT_FAL_TXT2IMG_MODEL,
       img2imgModel: body.img2imgModel?.trim() || DEFAULT_FAL_IMG2IMG_MODEL,
       i2vModel: body.i2vModel?.trim() || DEFAULT_FAL_I2V_MODEL,
+      t2vModel: body.t2vModel?.trim() || DEFAULT_FAL_T2V_MODEL,
       tool: body.tool?.trim() || undefined,
+      clipMode,
       durationSec,
       apiKey: body.falApiKey,
       width: toNumber(params.width, 1024),

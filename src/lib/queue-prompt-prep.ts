@@ -20,6 +20,13 @@ import { inferAthleticSport, type AthleticSport } from './athletic-sport-profile
 import { resolveQueueNegativePromptRaw } from './queue-negative';
 import { isQwenLightningModel, isWanLightningModel } from './model-sampling-patch';
 import { isQwenRapidAioModel, isWanRapidAioModel } from './model-denoise-defaults';
+import {
+  applyTurboEditStrengthToPrompt,
+  normalizeTurboEditStrength,
+  skipsCfg1T2iSteeringForTurboEdit,
+  usesTurboEditStrengthUi,
+  type TurboEditStrength,
+} from './turbo-edit-strength';
 import { isFluxFineTuneCheckpointModel } from './model-checkpoint-map';
 import {
   isKleinBaseModel,
@@ -124,10 +131,26 @@ function steeringForCfg1DistilledStillImage(input: {
   model: ComfyImageModel | string;
   realismMode: RenderRealismMode;
   anatomyMode: AnatomyGuardMode;
+  tool?: string;
+  turboEditStrength?: TurboEditStrength;
 }): { positive: string; negative?: string } {
   const explicit = input.negative?.trim();
   const shortExplicit =
     explicit && explicit.length <= LIGHTNING_MAX_EXPLICIT_NEGATIVE_CHARS ? explicit : undefined;
+  if (skipsCfg1T2iSteeringForTurboEdit(String(input.model), input.tool)) {
+    const positive = applyTurboEditStrengthToPrompt(
+      input.positive,
+      String(input.model),
+      input.turboEditStrength
+    );
+    if (isBooguTurboModel(input.model)) {
+      return { positive, negative: undefined };
+    }
+    return {
+      positive,
+      negative: appendUniqueCsv(shortExplicit, CFG1_T2I_ARTIFACT_NEGATIVE),
+    };
+  }
   let positive = input.positive;
   if (input.realismMode === 'realistic' || input.realismMode === 'hyper-realistic') {
     positive = appendUniqueCsv(
@@ -161,9 +184,25 @@ export function applyQueuePromptSteering(input: {
   model: ComfyImageModel | string;
   realismMode?: RenderRealismMode;
   anatomyMode?: AnatomyGuardMode;
+  tool?: string;
+  turboEditStrength?: TurboEditStrength;
 }): { positive: string; negative?: string } {
   const realismMode = input.realismMode ?? loadRenderRealismMode();
   const anatomyMode = input.anatomyMode ?? loadAnatomyGuardMode();
+  const turboEditStrength = normalizeTurboEditStrength(input.turboEditStrength);
+  const finish = (result: { positive: string; negative?: string }) => {
+    if (!usesTurboEditStrengthUi(String(input.model), input.tool)) {
+      return result;
+    }
+    return {
+      ...result,
+      positive: applyTurboEditStrengthToPrompt(
+        result.positive,
+        String(input.model),
+        turboEditStrength
+      ),
+    };
+  };
 
   if (isQwenLightningModel(input.model)) {
     // CFG-1: skip long realism/anatomy suffixes — keep a short photo pack instead.
@@ -171,7 +210,7 @@ export function applyQueuePromptSteering(input: {
     const shortExplicit =
       explicit && explicit.length <= LIGHTNING_MAX_EXPLICIT_NEGATIVE_CHARS ? explicit : undefined;
     if (realismMode === 'realistic' || realismMode === 'hyper-realistic') {
-      return {
+      return finish({
         positive: appendUniqueCsv(
           input.positive,
           realismMode === 'hyper-realistic'
@@ -179,12 +218,12 @@ export function applyQueuePromptSteering(input: {
             : QWEN_LIGHTNING_PHOTO_POSITIVE
         ),
         negative: appendUniqueCsv(shortExplicit, QWEN_LIGHTNING_PHOTO_NEGATIVE),
-      };
+      });
     }
-    return {
+    return finish({
       positive: input.positive,
       negative: shortExplicit,
-    };
+    });
   }
 
   // WAN Lightning / Rapid AIO are CFG-1 distilled — long video-motion + anatomy lists fight them.
@@ -193,10 +232,10 @@ export function applyQueuePromptSteering(input: {
     const explicit = input.negative?.trim();
     const shortExplicit =
       explicit && explicit.length <= LIGHTNING_MAX_EXPLICIT_NEGATIVE_CHARS ? explicit : undefined;
-    return {
+    return finish({
       positive: appendUniqueCsv(input.positive, WAN_LIGHTNING_ARTIFACT_POSITIVE),
       negative: appendUniqueCsv(shortExplicit, WAN_LIGHTNING_ARTIFACT_NEGATIVE),
-    };
+    });
   }
 
   // Rapid AIO is CFG-1 distilled (Lightning baked in) — skip long auto-negatives
@@ -205,27 +244,38 @@ export function applyQueuePromptSteering(input: {
     const explicit = input.negative?.trim();
     const shortExplicit =
       explicit && explicit.length <= LIGHTNING_MAX_EXPLICIT_NEGATIVE_CHARS ? explicit : undefined;
-    return {
+    return finish({
       positive: appendUniqueCsv(input.positive, RAPID_AIO_MOIRE_POSITIVE),
       negative: appendUniqueCsv(shortExplicit, RAPID_AIO_MOIRE_NEGATIVE),
-    };
+    });
   }
 
   if (isCfg1DistilledStillImageModel(input.model)) {
-    return steeringForCfg1DistilledStillImage({
-      positive: input.positive,
-      negative: input.negative,
-      model: input.model,
-      realismMode,
-      anatomyMode,
-    });
+    return finish(
+      steeringForCfg1DistilledStillImage({
+        positive: input.positive,
+        negative: input.negative,
+        model: input.model,
+        realismMode,
+        anatomyMode,
+        tool: input.tool,
+        turboEditStrength,
+      })
+    );
   }
 
   const suffixBudget = maxQueuePositiveSuffixChars(input.model);
   const baseLength = input.positive.trim().length;
 
   // Klein Distilled (CFG-1): anatomy/hand cues first — realism often ate the budget.
+  // Edit tools skip those T2I suffixes — they fight ReferenceLatent and rewrite the frame.
   if (isKleinDistilledModel(input.model)) {
+    if (skipsCfg1T2iSteeringForTurboEdit(String(input.model), input.tool)) {
+      return finish({
+        positive: input.positive,
+        negative: input.negative,
+      });
+    }
     const withAnatomy = applyAnatomyGuardForModel({
       positive: input.positive,
       negative: input.negative,
@@ -234,13 +284,15 @@ export function applyQueuePromptSteering(input: {
       maxPositiveAppendChars: suffixBudget,
     });
     const anatomyGrowth = Math.max(0, withAnatomy.positive.trim().length - baseLength);
-    return applyRenderRealismForModel({
-      positive: withAnatomy.positive,
-      negative: withAnatomy.negative,
-      model: input.model,
-      mode: realismMode,
-      maxPositiveAppendChars: Math.max(0, suffixBudget - anatomyGrowth),
-    });
+    return finish(
+      applyRenderRealismForModel({
+        positive: withAnatomy.positive,
+        negative: withAnatomy.negative,
+        model: input.model,
+        mode: realismMode,
+        maxPositiveAppendChars: Math.max(0, suffixBudget - anatomyGrowth),
+      })
+    );
   }
 
   // UltraReal: anatomy/hand cues first — soft decode + fragile hands need the budget.
@@ -260,10 +312,10 @@ export function applyQueuePromptSteering(input: {
       mode: realismMode,
       maxPositiveAppendChars: Math.max(0, suffixBudget - anatomyGrowth),
     });
-    return {
+    return finish({
       ...withRealism,
       positive: ensureUltraRealAmplifierTriggerInPrompt(withRealism.positive),
-    };
+    });
   }
 
   const withRealism = applyRenderRealismForModel({
@@ -284,13 +336,13 @@ export function applyQueuePromptSteering(input: {
   });
 
   if (isKleinBaseModel(input.model)) {
-    return {
+    return finish({
       ...withAnatomy,
       positive: ensureKleinRealisticDetailTriggerInPrompt(withAnatomy.positive),
-    };
+    });
   }
 
-  return withAnatomy;
+  return finish(withAnatomy);
 }
 
 /**
@@ -330,6 +382,7 @@ export async function prepareQueuePrompts(input: {
   wildcardSeed?: string;
   /** SD/SDXL textual inversion stems; appended as embedding:name. */
   embeddingTokens?: string[];
+  turboEditStrength?: TurboEditStrength;
 }): Promise<{ positive: string; negative?: string }> {
   const wildcardOptions = {
     expandWildcards: input.expandWildcards,
@@ -395,6 +448,8 @@ export async function prepareQueuePrompts(input: {
     model: input.model,
     realismMode: input.realismMode,
     anatomyMode: input.anatomyMode,
+    tool: input.tool,
+    turboEditStrength: input.turboEditStrength,
   });
 }
 

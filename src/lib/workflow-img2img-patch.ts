@@ -317,7 +317,10 @@ export function ensureKleinReferenceLatentWiringInWorkflow(
 
   let currentCond: [string, number] = conditioningRef;
   for (let index = 0; index < figures.length; index += 1) {
-    const filename = figures[index]!;
+    const filename = figures[index]?.trim();
+    if (!filename) {
+      continue;
+    }
     const figureIndex = index + 1;
     let loadId = findLoadImageForFigure(next, figureIndex);
     if (!loadId) {

@@ -431,6 +431,8 @@ export type SharedToolSettings = {
   falImg2ImgModel?: string;
   /** Fal image-to-video model when Roleplay/Video queues a clip on the Fal engine. */
   falI2vModel?: string;
+  /** Fal text-to-video model when Video queues a clip without a first frame. */
+  falT2vModel?: string;
   /** Session Fal API key. Stored in this browser only; server `FAL_KEY` is the fallback. */
   sessionFalApiKey?: string;
   /** Replicate txt2img model id (e.g. black-forest-labs/flux-schnell). */
@@ -596,6 +598,12 @@ export type SharedToolSettings = {
   useLibraryUpscaleWorkflow?: boolean;
   /** img2img / edit denoise strength (0.05–1) applied when queueing with an input image. */
   editDenoiseStrength?: number;
+  /**
+   * Gentle / Balanced / Strong for Z-Image Turbo img2img, Boogu Edit Turbo,
+   * and Klein Distilled. Z-Image maps to denoise; Boogu / Klein wrap the
+   * instruction (denoise stays 1).
+   */
+  turboEditStrength?: import('./turbo-edit-strength').TurboEditStrength;
   /**
    * Default denoise for the gallery "Face detail" requeue action — feeds
    * {{FACE_DETAIL_DENOISE}} (and {{DENOISE}}) on the resolved workflow.
@@ -778,6 +786,8 @@ export type VideoToolCache = {
   model?: import('./comfy-models/client').ComfyImageModel;
   /** Optional I2V reference frame — a ComfyUI-uploaded filename or a fetchable URL. */
   initImageUrl?: string;
+  /** Explicit T2V vs I2V. Gallery stills force i2v; empty frame is t2v. */
+  clipMode?: import('./video-clip-mode').VideoClipMode;
   /** Frame count / length fed to {{VIDEO_FRAMES}} at queue time. */
   frames?: number;
   /** Output frame rate fed to {{VIDEO_FPS}} at queue time. */
@@ -1100,6 +1110,7 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
   // Keep in sync with DEFAULT_FACE_DETAIL_DENOISE in gallery-output-face-detail.ts
   // (not imported here to avoid a module cycle through comfyui-config.ts).
   faceDetailerDenoise: 0.35,
+  turboEditStrength: 'balanced',
   galleryWorkflowRetentionDays: 30,
   galleryWorkflowMaxBytes: 8 * 1024 * 1024,
   promptVersioningEnabled: true,
@@ -1190,6 +1201,7 @@ export const DEFAULT_VIDEO_TOOL_CACHE: VideoToolCache = {
   camera: '',
   style: '',
   durationSec: 4,
+  clipMode: 't2v',
   hintSource: 'manual',
   historySeedScope: 'related',
 };

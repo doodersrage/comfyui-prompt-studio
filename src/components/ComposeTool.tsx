@@ -30,6 +30,8 @@ import {
   isQwenEditModel,
   isZImageModel,
 } from '@/lib/model-denoise-defaults';
+import { normalizeTurboEditStrength } from '@/lib/turbo-edit-strength';
+import TurboEditStrengthControls from '@/components/TurboEditStrengthControls';
 import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-target';
 import {
   buildComposeInstruction,
@@ -216,8 +218,9 @@ export default function ComposeTool() {
         figureCount: Math.max(filledCount, mode === 'transfer' ? 2 : 1),
         model: shared.model,
         isolatedSubject: slots[0]?.isolated === true,
+        turboEditStrength: normalizeTurboEditStrength(shared.turboEditStrength),
       }),
-    [filledCount, instruction, mode, shared.model, slots]
+    [filledCount, instruction, mode, shared.model, shared.turboEditStrength, slots]
   );
 
   useEffect(() => {
@@ -847,21 +850,28 @@ export default function ComposeTool() {
         </div>
         {isFluxKleinModel(shared.model) ? (
           <p className="text-xs leading-relaxed text-[var(--text-muted)]">
-            Klein: instruction edit via ReferenceLatent (official path). Write direct edit commands
-            — e.g. “Replace the background with a rainy neon alley. Keep the subject’s pose and
-            framing.”
+            Klein: instruction edit via ReferenceLatent (denoise 1). Write a short command — e.g.
+            “Replace the background with a rainy neon alley. Keep the subject’s pose and framing.”
+            Distilled is 4-step CFG 1 — use Gentle / Balanced / Strong so it does not rewrite the
+            frame.
           </p>
         ) : zImageModel ? (
           <p className="text-xs leading-relaxed text-[var(--text-muted)]">
-            Z-Image: Figure 1 drives img2img (soft denoise). Images 2–4 are prompt references only —
-            describe what to borrow from them in text; they are not vision-encoded like Qwen Edit.
+            Z-Image: Figure 1 drives img2img. Turbo uses a soft denoise so identity holds — pick
+            Gentle / Balanced / Strong. Images 2–4 are prompt references only, not vision-encoded.
           </p>
         ) : isBooguEditModel(shared.model) ? (
           <p className="text-xs leading-relaxed text-[var(--text-muted)]">
-            Boogu Edit: TextEncodeBooguEdit vision-encodes Image 1–4. Reference images in prompts as
-            Image 1, Image 2, etc. — instruction edits use denoise 1 with reference latents.
+            Boogu Edit: TextEncodeBooguEdit vision-encodes Image 1–4. Write a short instruction and
+            name Image 1, Image 2, etc. Denoise stays 1 — Turbo strength wraps the prompt instead.
           </p>
         ) : null}
+        <TurboEditStrengthControls
+          model={shared.model}
+          tool="compose"
+          value={normalizeTurboEditStrength(shared.turboEditStrength)}
+          onChange={turboEditStrength => updateShared({ turboEditStrength })}
+        />
 
         {!zImageModel ? (
           <div className="ui-recipe-shell space-y-2">
