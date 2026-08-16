@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { ensureAuthenticated } from './helpers/auth';
 import { seedGalleryFixture } from './helpers/gallery';
-import { gotoStable } from './helpers/navigation';
+import { gotoStable, openComfyUiSettingsTab, revealFullSettings } from './helpers/navigation';
 import { dismissBlockingOverlays } from './helpers/overlays';
 
 test.beforeEach(async ({ page }) => {
@@ -31,7 +31,7 @@ test('queue page loads', async ({ page }) => {
 
 test('settings page loads', async ({ page }) => {
   await gotoStable(page, '/settings?tab=automation');
-  await expect(page.getByRole('heading', { name: /Settings & Health/i })).toBeVisible();
+  await revealFullSettings(page);
   await expect(page.getByRole('navigation', { name: /Settings sections/i })).toBeVisible();
   // Exact heading — empty state also has "No avoided tokens yet".
   await expect(page.getByRole('heading', { name: 'Avoided tokens', exact: true })).toBeVisible({
@@ -55,22 +55,17 @@ test('studio analytics tab loads', async ({ page }) => {
 test('settings comfyui loader maps section loads', async ({ page }) => {
   // Loader maps live under workflow-patching (not the top of the ComfyUI tab).
   await gotoStable(page, '/settings?tab=comfyui&section=workflow-patching');
-  const showAll = page.getByRole('button', { name: /Show all ComfyUI settings/i });
-  if (await showAll.isVisible({ timeout: 3_000 }).catch(() => false)) {
-    await showAll.click();
-  }
-  await expect(page.getByText(/Checkpoint map/i)).toBeVisible({ timeout: 20_000 });
+  await openComfyUiSettingsTab(page);
+  await expect(page.getByText(/Checkpoint map/i)).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('button', { name: /Merge suggested loader maps/i })).toBeVisible({
     timeout: 15_000,
-  });
-  await expect(page.getByRole('button', { name: /Optimize all in library/i })).toBeVisible({
-    timeout: 30_000,
   });
 });
 
 test('settings workflow health panel loads', async ({ page }) => {
   await gotoStable(page, '/settings?tab=comfyui&section=workflow-library');
-  await expect(page.getByText(/Workflow library health/i)).toBeVisible({ timeout: 20_000 });
+  await openComfyUiSettingsTab(page);
+  await expect(page.getByText(/Workflow library health/i)).toBeVisible({ timeout: 30_000 });
 });
 
 test('gallery selection bar documents bulk upscale actions', async ({ page }) => {

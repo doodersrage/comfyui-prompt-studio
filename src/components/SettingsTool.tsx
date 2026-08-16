@@ -128,15 +128,16 @@ export default function SettingsTool() {
   const { mounted, settings, updateSettings } = useComfyUiSettings();
   const workspaceMode = useWorkspaceMode();
   const searchParams = useSearchParams();
-  const initialView = settingsViewFromSearchParams(
+  const urlView = settingsViewFromSearchParams(
     searchParams.get('tab'),
     searchParams.get('section')
   );
-  // Essentials by default — expand immediately when the URL targets a hidden tab/section.
-  const [showAllSettings, setShowAllSettings] = useState(initialView.showAll);
-  const [tab, setTab] = useState<SettingsTab>(initialView.tab);
+  // URL deep links expand immediately; the user can still open the rest by hand.
+  const [userShowAllSettings, setUserShowAllSettings] = useState(false);
+  const showAllSettings = urlView.showAll || userShowAllSettings;
+  const [tab, setTab] = useState<SettingsTab>(urlView.tab);
   const [comfyUiSection, setComfyUiSection] = useState<ComfyUiSettingsSectionId | null>(
-    initialView.section
+    urlView.section
   );
   const [sharedSettings, setSharedSettings] = useState<SharedToolSettings>(DEFAULT_SHARED_SETTINGS);
   const [sharedMounted, setSharedMounted] = useState(false);
@@ -249,7 +250,7 @@ export default function SettingsTool() {
         (workspaceMode === 'simple' && !isSimpleSettingsTab(nextTab)) ||
         comfyUiSectionRequiresFullSettings(section)
       ) {
-        setShowAllSettings(true);
+        setUserShowAllSettings(true);
       }
       if (nextTab === 'comfyui' && section) {
         window.setTimeout(() => scrollToComfyUiSection(section), 250);
@@ -295,7 +296,7 @@ export default function SettingsTool() {
   const handleComfyUiSectionJump = useCallback(
     (section: ComfyUiSettingsSectionId) => {
       if (comfyUiSectionRequiresFullSettings(section)) {
-        setShowAllSettings(true);
+        setUserShowAllSettings(true);
       }
       setComfyUiSection(section);
       if (typeof window !== 'undefined') {
@@ -774,7 +775,7 @@ export default function SettingsTool() {
                 variant="ghost"
                 size="sm"
                 className="mt-3 w-full justify-start"
-                onClick={() => setShowAllSettings(true)}
+                onClick={() => setUserShowAllSettings(true)}
               >
                 All settings…
               </Button>
@@ -784,7 +785,7 @@ export default function SettingsTool() {
                 variant="ghost"
                 size="sm"
                 className="mt-3 w-full justify-start"
-                onClick={() => setShowAllSettings(false)}
+                onClick={() => setUserShowAllSettings(false)}
               >
                 Show essentials only
               </Button>
@@ -806,13 +807,13 @@ export default function SettingsTool() {
               slimSettings={slimSettings}
               onOpenComfyUiSection={section => {
                 if (comfyUiSectionRequiresFullSettings(section)) {
-                  setShowAllSettings(true);
+                  setUserShowAllSettings(true);
                 }
                 setTab('comfyui');
                 setComfyUiSection(section);
                 window.setTimeout(() => scrollToComfyUiSection(section), 250);
               }}
-              onShowAllSettings={() => setShowAllSettings(true)}
+              onShowAllSettings={() => setUserShowAllSettings(true)}
               handleImport={handleImport}
               handleExportBackup={handleExportBackup}
             />
@@ -849,7 +850,7 @@ export default function SettingsTool() {
           {tab === 'comfyui' && (
             <SettingsComfyUiTab
               slimSettings={slimSettings}
-              onShowAllSettings={() => setShowAllSettings(true)}
+              onShowAllSettings={() => setUserShowAllSettings(true)}
               comfyUiSection={comfyUiSection}
               handleComfyUiSectionJump={handleComfyUiSectionJump}
               sharedSettings={sharedSettings}

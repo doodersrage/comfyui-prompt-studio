@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import { dismissBlockingOverlays } from './overlays';
 
 /** Navigate with retries for transient next-dev / Fast Refresh aborts. */
@@ -25,4 +25,39 @@ export async function gotoStable(
     }
   }
   throw lastError;
+}
+
+/** Expand Settings essentials so advanced ComfyUI sections are in the DOM. */
+export async function revealFullSettings(page: Page): Promise<void> {
+  await expect(page.getByRole('heading', { name: /Settings & Health/i })).toBeVisible({
+    timeout: 30_000,
+  });
+  // Sidebar control is in the parent Settings shell (available before the ComfyUI tab hydrates).
+  const sidebar = page.getByRole('button', { name: /All settings/i });
+  if (await sidebar.isVisible({ timeout: 3_000 }).catch(() => false)) {
+    await sidebar.click();
+  } else {
+    const comfy = page.getByRole('button', { name: /Show all ComfyUI settings/i });
+    if (await comfy.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      await comfy.click();
+    }
+  }
+}
+
+/** Open the ComfyUI settings tab after essentials may have hidden it. */
+export async function openComfyUiSettingsTab(page: Page): Promise<void> {
+  await revealFullSettings(page);
+  const tab = page
+    .getByRole('navigation', { name: /Settings sections/i })
+    .locator('button.ui-settings-tab')
+    .filter({ hasText: /^ComfyUI/ });
+  if (!(await tab.isVisible({ timeout: 5_000 }).catch(() => false))) {
+    return;
+  }
+  // Clicking an already-active tab rewrites the URL without `section` and can
+  // collapse essentials, hiding Checkpoint map again.
+  if ((await tab.getAttribute('aria-current')) === 'page') {
+    return;
+  }
+  await tab.click();
 }

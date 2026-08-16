@@ -19,7 +19,7 @@ cd desktop && npm install && cd ..
 # Dev: start Next if needed, then the Tauri window
 npm run desktop:dev
 
-# Production installers (dmg / nsis / AppImage+deb depending on the host)
+# Production installers (dmg / nsis / deb depending on the host)
 npm run desktop:build
 ```
 
