@@ -40,6 +40,7 @@ describe('gallery-url-state', () => {
         needsVisionReview: true,
         userTag: 'keeper',
         derivedKind: 'upscale',
+        characterId: 'char-rin',
         visionTagsOnly: true,
       },
       sort: 'eviction-risk-desc',
@@ -53,6 +54,7 @@ describe('gallery-url-state', () => {
     assert.equal(parsed.filter.needsVisionReview, true);
     assert.equal(parsed.filter.userTag, 'keeper');
     assert.equal(parsed.filter.derivedKind, 'upscale');
+    assert.equal(parsed.filter.characterId, 'char-rin');
     assert.equal(parsed.filter.visionTagsOnly, true);
     assert.equal(parsed.sort, 'eviction-risk-desc');
   });

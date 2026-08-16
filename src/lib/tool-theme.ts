@@ -74,6 +74,7 @@ export const ROUTE_ACCENT: Record<string, ToolAccent> = {
   '/lint': 'amber',
   '/topics': 'violet',
   '/character': 'sky',
+  '/characters': 'sky',
   '/background': 'teal',
   '/pet': 'rose',
   '/fantasy': 'violet',
@@ -95,7 +96,13 @@ export const ROUTE_ACCENT: Record<string, ToolAccent> = {
 };
 
 export function accentForPath(pathname: string): ToolAccent {
-  return ROUTE_ACCENT[pathname] ?? 'violet';
+  if (ROUTE_ACCENT[pathname]) {
+    return ROUTE_ACCENT[pathname];
+  }
+  if (pathname.startsWith('/characters/')) {
+    return 'sky';
+  }
+  return 'violet';
 }
 
 /** Primary action button — always brand accent */

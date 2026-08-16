@@ -15,6 +15,7 @@ import {
   type LoraTrainTrainerPrefs,
   type TrainJob,
 } from '@/lib/lora-train-job';
+import { pinLoraOnCharacter, setCharacterTrigger } from '@/lib/character-os';
 import { loadSettingsCache, saveSharedSettings } from '@/lib/settings-cache';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import { useAuth } from '@/hooks/useAuth';
@@ -310,6 +311,14 @@ export default function LoraTrainPanel({ onStatus }: LoraTrainPanelProps) {
           nextJob
         );
         persistJobs(nextJobs);
+
+        const characterId = loadSettingsCache().shared.activeCharacterId?.trim();
+        if (characterId && nextJob.loraLibraryId) {
+          pinLoraOnCharacter(characterId, nextJob.loraLibraryId);
+          if (nextJob.trigger.trim()) {
+            setCharacterTrigger(characterId, nextJob.trigger);
+          }
+        }
 
         const prompt = buildLoraTrainValidationPrompt(nextJob.trigger || trigger);
         setValidationPrompt(prompt);

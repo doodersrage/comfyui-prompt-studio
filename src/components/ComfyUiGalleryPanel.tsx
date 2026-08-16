@@ -1524,6 +1524,18 @@ export default function ComfyUiGalleryPanel({
       ) : null}
 
       {downloadError && <p className="text-xs ui-status-danger">{downloadError}</p>}
+      {filter.characterId ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--accent-border)] bg-[var(--accent-muted)] px-3 py-2 text-xs text-[var(--accent-text)]">
+          <span>Character filter: this cast member only</span>
+          <button
+            type="button"
+            onClick={() => setFilter(previous => ({ ...previous, characterId: undefined }))}
+            className="rounded-lg border border-[var(--accent-border)] px-2 py-0.5 text-[11px] transition hover:border-[var(--accent-border)] hover:text-[var(--accent-text)]"
+          >
+            Clear
+          </button>
+        </div>
+      ) : null}
       {filter.derivativeOfEntryId || filter.focusEntryId || filter.derivedKind ? (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--accent-border)] bg-[var(--accent-muted)] px-3 py-2 text-xs text-[var(--accent-text)]">
           <span>

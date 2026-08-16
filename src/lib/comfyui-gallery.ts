@@ -47,7 +47,7 @@ export {
   MAX_GALLERY_ENTRIES,
 } from './comfyui-gallery-storage-meta';
 export { initAppDb, initGalleryStore, isAppDbReady, isGalleryStoreReady } from './app-db-init';
-export { getGalleryEntryById } from './gallery-db-store';
+export { getGalleryCache, getGalleryEntryById } from './gallery-db-store';
 
 export type ComfyGalleryFilter = {
   status?: ComfyGalleryJobStatus | 'all';
@@ -84,6 +84,8 @@ export type ComfyGalleryFilter = {
   needsVisionReview?: boolean;
   /** Exact user tag match. */
   userTag?: string;
+  /** Character OS record this job was queued as. */
+  characterId?: string;
 };
 
 export type ComfyGallerySort =
@@ -438,6 +440,10 @@ export function filterComfyGalleryEntries(
       continue;
     }
     if (filter.derivedKind && entry.derivedKind !== filter.derivedKind) {
+      idx += 1;
+      continue;
+    }
+    if (filter.characterId?.trim() && entry.characterId !== filter.characterId.trim()) {
       idx += 1;
       continue;
     }

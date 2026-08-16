@@ -11,6 +11,7 @@ export const TOOL_SETUP_LABELS = {
   generate: 'Generate',
   format: 'Format',
   character: 'Character',
+  characters: 'Cast',
   background: 'Background',
   pet: 'Pet',
   fantasy: 'Fantasy',

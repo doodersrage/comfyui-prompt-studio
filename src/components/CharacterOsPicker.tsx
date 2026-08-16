@@ -1,15 +1,20 @@
 'use client';
 
 import { useEffect, useState, useSyncExternalStore } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { FieldLabel } from '@/components/ui/Field';
 import { whenBrowserStorageReady } from '@/lib/browser-storage';
 import {
+  activateLook,
+  addLookFromShared,
   applyCharacterRecord,
   characterFromShared,
+  characterHomeHref,
   getCharacter,
   getCharactersSnapshot,
   getServerCharactersSnapshot,
+  looksOf,
   loraTriggerFromCharacter,
   migrateCharactersFromLegacy,
   removeCharacter,
@@ -51,14 +56,26 @@ export default function CharacterOsPicker({ shared, hints, onApply }: CharacterO
 
   const activeId = shared.activeCharacterId?.trim();
   const active = getCharacter(activeId) ?? characters.find(entry => entry.id === activeId);
+  const looks = active ? looksOf(active) : [];
+  const activeLookId = shared.activeLookId ?? active?.activeLookId;
 
   const applyId = (id: string) => {
     const character = characters.find(entry => entry.id === id);
     if (!character) {
-      onApply({ activeCharacterId: undefined });
+      onApply({ activeCharacterId: undefined, activeLookId: undefined });
       return;
     }
     onApply(applyCharacterRecord(character));
+  };
+
+  const applyLookId = (lookId: string) => {
+    if (!activeId) {
+      return;
+    }
+    const next = activateLook(activeId, lookId);
+    if (next) {
+      onApply(applyCharacterRecord(next));
+    }
   };
 
   const saveCurrent = () => {
@@ -72,7 +89,20 @@ export default function CharacterOsPicker({ shared, hints, onApply }: CharacterO
       record.id = activeId;
     }
     upsertCharacter(record);
-    onApply({ activeCharacterId: record.id });
+    const saved = getCharacter(record.id);
+    onApply(saved ? applyCharacterRecord(saved) : { activeCharacterId: record.id });
+    setName('');
+  };
+
+  const saveLook = () => {
+    if (!activeId) {
+      saveCurrent();
+      return;
+    }
+    const next = addLookFromShared(activeId, shared, name.trim() || 'New look');
+    if (next) {
+      onApply(applyCharacterRecord(next));
+    }
     setName('');
   };
 
@@ -102,29 +132,59 @@ export default function CharacterOsPicker({ shared, hints, onApply }: CharacterO
             variant="ghost"
             onClick={() => {
               removeCharacter(activeId);
-              onApply({ activeCharacterId: undefined });
+              onApply({ activeCharacterId: undefined, activeLookId: undefined });
             }}
           >
             Forget
           </Button>
         ) : null}
       </div>
+      {active && looks.length > 0 ? (
+        <select
+          className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+          value={activeLookId ?? ''}
+          onChange={event => applyLookId(event.target.value)}
+          aria-label="Active look"
+        >
+          {looks.map(look => (
+            <option key={look.id} value={look.id}>
+              {look.name}
+            </option>
+          ))}
+        </select>
+      ) : null}
       <div className="flex flex-wrap gap-2">
         <input
           value={name}
           onChange={event => setName(event.target.value)}
-          placeholder={active?.name || 'Name this look'}
+          placeholder={active ? 'Name this look' : 'Name this character'}
           className="ui-input min-w-[10rem] flex-1 px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
-          aria-label="Character name"
+          aria-label={active ? 'Look name' : 'Character name'}
         />
         <Button size="sm" variant="secondary" onClick={saveCurrent}>
-          Save character
+          {activeId ? 'Update look' : 'Save character'}
         </Button>
+        {activeId ? (
+          <Button size="sm" variant="ghost" onClick={saveLook}>
+            Save as new look
+          </Button>
+        ) : null}
       </div>
-      <p className="type-caption text-[var(--text-muted)]">
-        One record for face lock, wardrobe, descriptor, and LoRA trigger. Generate, Roleplay, Video,
-        and LoRA export all read the active character.
-      </p>
+      {activeId ? (
+        <p className="type-caption">
+          <Link
+            href={characterHomeHref(activeId)}
+            className="text-[var(--accent-text)] underline-offset-2 hover:underline"
+          >
+            Open character home
+          </Link>
+        </p>
+      ) : (
+        <p className="type-caption text-[var(--text-muted)]">
+          One record for face lock, wardrobe, looks, and LoRA. Generate, Roleplay, Video, and
+          gallery all stamp the active character.
+        </p>
+      )}
     </div>
   );
 }

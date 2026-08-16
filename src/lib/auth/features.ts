@@ -54,6 +54,7 @@ const PAGE_FEATURE_MAP: Array<{ prefix: string; feature: AppFeatureId }> = [
   { prefix: '/prompt', feature: 'prompt' },
   { prefix: '/lint', feature: 'lint' },
   { prefix: '/topics', feature: 'topics' },
+  { prefix: '/characters', feature: 'character' },
   { prefix: '/character', feature: 'character' },
   { prefix: '/background', feature: 'background' },
   { prefix: '/pet', feature: 'pet' },

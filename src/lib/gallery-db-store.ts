@@ -53,6 +53,8 @@ function galleryEntryFingerprint(entry: ComfyGalleryEntry): string {
     entry.negativePrompt?.length ?? 0,
     entry.derivedKind ?? '',
     entry.parentGalleryEntryId ?? '',
+    entry.characterId ?? '',
+    entry.lookId ?? '',
     workflowSig,
   ].join('|');
 }

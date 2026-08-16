@@ -37,6 +37,8 @@ export function buildGallerySidecar(
       controlImageUrls: exportEntry.controlImageUrls,
       queueQualityProfile: exportEntry.queueQualityProfile,
       parentGalleryEntryId: exportEntry.parentGalleryEntryId,
+      characterId: exportEntry.characterId,
+      lookId: exportEntry.lookId,
       derivedKind: exportEntry.derivedKind,
       hasStoredWorkflow: exportEntry.hasStoredWorkflow,
       workflowJsonOmitted: exportEntry.workflowJsonOmitted,

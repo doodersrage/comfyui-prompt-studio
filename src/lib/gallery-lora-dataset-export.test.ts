@@ -7,6 +7,7 @@ import {
   cleanLoraCaptionText,
   loraDatasetImageExtension,
   sanitizeLoraDatasetSlug,
+  selectCharacterKeepers,
   selectLoraDatasetEntries,
 } from "./gallery-lora-dataset-export";
 import type { ComfyGalleryEntry } from "./comfyui-gallery-entry";
@@ -210,6 +211,20 @@ describe("selectLoraDatasetEntries", () => {
     const entries = [makeEntry({ id: "favorite", favorite: true })];
     const result = selectLoraDatasetEntries(entries, { selectedIds: [] });
     assert.deepEqual(result.map((entry) => entry.id), ["favorite"]);
+  });
+});
+
+describe("selectCharacterKeepers", () => {
+  it("returns favorites for one character only", () => {
+    const entries = [
+      makeEntry({ id: "rin", characterId: "char-rin", favorite: true }),
+      makeEntry({ id: "kai", characterId: "char-kai", favorite: true }),
+      makeEntry({ id: "untagged", favorite: true }),
+    ];
+    assert.deepEqual(
+      selectCharacterKeepers(entries, "char-rin").map((entry) => entry.id),
+      ["rin"],
+    );
   });
 });
 

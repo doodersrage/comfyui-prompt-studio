@@ -21,12 +21,18 @@ import type { SharedToolSettings } from './settings-cache';
 export const CHARACTERS_KEY = 'comfy-prompt-characters-v1';
 export const CHARACTERS_UPDATED_EVENT = 'prompt-studio-characters-updated';
 export const MAX_CHARACTERS = 48;
+export const MAX_LOOKS = 24;
 
 export type CharacterRecord = {
   id: string;
   name: string;
   version: 1;
   updatedAt: number;
+  /** Active look id — switching looks must not destroy prior ones. */
+  activeLookId?: string;
+  looks?: CharacterLook[];
+  /** LoRA library ids pinned to this character (session stack on apply). */
+  loraLibraryIds?: string[];
   descriptor?: string;
   hints?: string;
   bio?: RoleplayBio;
@@ -63,6 +69,23 @@ export type CharacterRecord = {
   content?: RoleplayContentId;
   playAs?: RoleplayPlayAs;
   notes?: string;
+};
+
+export type CharacterLook = {
+  id: string;
+  name: string;
+  createdAt: number;
+  descriptor?: string;
+  hints?: string;
+  ipAdapter?: CharacterRecord['ipAdapter'];
+  reference?: CharacterRecord['reference'];
+  lockedWardrobeId?: string;
+  lockedLocation?: string;
+  lockedVariationSeed?: string;
+  alwaysIncludeClothing?: boolean;
+  model?: string;
+  detail?: SharedToolSettings['detail'];
+  negativeProfileId?: string;
 };
 
 type CharacterStore = {
@@ -122,6 +145,106 @@ function newCharacterId(): string {
     return `char-${crypto.randomUUID()}`;
   }
   return `char-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function newLookId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `look-${crypto.randomUUID()}`;
+  }
+  return `look-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+export function characterHomeHref(id: string): string {
+  return `/characters/${encodeURIComponent(id.trim())}`;
+}
+
+function uniqueIds(ids: string[] | undefined): string[] | undefined {
+  const next = [...new Set((ids ?? []).map(id => id.trim()).filter(Boolean))];
+  return next.length > 0 ? next : undefined;
+}
+
+export function lookFromAppearance(
+  source: Pick<
+    CharacterRecord,
+    | 'descriptor'
+    | 'hints'
+    | 'ipAdapter'
+    | 'reference'
+    | 'lockedWardrobeId'
+    | 'lockedLocation'
+    | 'lockedVariationSeed'
+    | 'alwaysIncludeClothing'
+    | 'model'
+    | 'detail'
+    | 'negativeProfileId'
+  >,
+  name: string,
+  id?: string,
+  createdAt?: number
+): CharacterLook {
+  return {
+    id: id?.trim() || newLookId(),
+    name: readName(name) || 'Default',
+    createdAt: createdAt ?? Date.now(),
+    descriptor: source.descriptor,
+    hints: source.hints,
+    ipAdapter: source.ipAdapter,
+    reference: source.reference,
+    lockedWardrobeId: source.lockedWardrobeId,
+    lockedLocation: source.lockedLocation,
+    lockedVariationSeed: source.lockedVariationSeed,
+    alwaysIncludeClothing: source.alwaysIncludeClothing,
+    model: source.model,
+    detail: source.detail,
+    negativeProfileId: source.negativeProfileId,
+  };
+}
+
+function applyLookFields(character: CharacterRecord, look: CharacterLook): CharacterRecord {
+  return {
+    ...character,
+    activeLookId: look.id,
+    descriptor: look.descriptor,
+    hints: look.hints,
+    ipAdapter: look.ipAdapter,
+    reference: look.reference,
+    lockedWardrobeId: look.lockedWardrobeId,
+    lockedLocation: look.lockedLocation,
+    lockedVariationSeed: look.lockedVariationSeed,
+    alwaysIncludeClothing: look.alwaysIncludeClothing,
+    model: look.model,
+    detail: look.detail,
+    negativeProfileId: look.negativeProfileId,
+  };
+}
+
+export function looksOf(character: CharacterRecord): CharacterLook[] {
+  if (character.looks?.length) {
+    return character.looks
+      .filter(look => look && look.id && readName(look.name))
+      .sort((left, right) => right.createdAt - left.createdAt)
+      .slice(0, MAX_LOOKS);
+  }
+  return [lookFromAppearance(character, 'Default')];
+}
+
+export function activeLook(character: CharacterRecord): CharacterLook {
+  const looks = looksOf(character);
+  return looks.find(look => look.id === character.activeLookId) ?? looks[0]!;
+}
+
+export function normalizeCharacterRecord(character: CharacterRecord): CharacterRecord {
+  const looks = looksOf(character);
+  const current = looks.find(look => look.id === character.activeLookId) ?? looks[0]!;
+  return applyLookFields(
+    {
+      ...character,
+      loraLibraryIds: uniqueIds(character.loraLibraryIds),
+      looks,
+      activeLookId: current.id,
+    },
+    current
+  );
 }
 
 function readName(value: unknown): string {
@@ -213,16 +336,21 @@ export function characterFromShared(
 }
 
 export function applyCharacterRecord(character: CharacterRecord): Partial<SharedToolSettings> {
-  const bundlePatch = applyCharacterIdentityBundle(bundleFromCharacter(character));
+  const normalized = normalizeCharacterRecord(character);
+  const bundlePatch = applyCharacterIdentityBundle(bundleFromCharacter(normalized));
   return {
     ...bundlePatch,
-    activeCharacterId: character.id,
-    ipAdapterImageFilenames: character.ipAdapter?.imageFilenames,
-    ipAdapterImageUrl: character.ipAdapter?.imageUrl,
-    ipAdapterComfyUrl: character.ipAdapter?.comfyUrl,
-    identityKind: character.ipAdapter?.kind
-      ? normalizeComposeIdentityKind(character.ipAdapter.kind)
+    activeCharacterId: normalized.id,
+    activeLookId: normalized.activeLookId,
+    ipAdapterImageFilenames: normalized.ipAdapter?.imageFilenames,
+    ipAdapterImageUrl: normalized.ipAdapter?.imageUrl,
+    ipAdapterComfyUrl: normalized.ipAdapter?.comfyUrl,
+    identityKind: normalized.ipAdapter?.kind
+      ? normalizeComposeIdentityKind(normalized.ipAdapter.kind)
       : undefined,
+    ...(normalized.loraLibraryIds?.length
+      ? { sessionActiveLoraIds: [...normalized.loraLibraryIds] }
+      : {}),
   };
 }
 
@@ -317,7 +445,9 @@ function readStore(): CharacterStore {
   return {
     version: 1,
     migratedFromBundles: raw.migratedFromBundles === true,
-    characters: raw.characters.filter(entry => entry && readName(entry.name) && entry.id),
+    characters: raw.characters
+      .filter(entry => entry && readName(entry.name) && entry.id)
+      .map(normalizeCharacterRecord),
   };
 }
 
@@ -359,10 +489,38 @@ export function saveCharacters(characters: CharacterRecord[]): CharacterRecord[]
   const store = readStore();
   const next = characters
     .filter(entry => readName(entry.name) && entry.id)
+    .map(normalizeCharacterRecord)
     .sort((left, right) => right.updatedAt - left.updatedAt)
     .slice(0, MAX_CHARACTERS);
   writeStore({ ...store, characters: next });
   return next;
+}
+
+function mergeCharacterUpdate(prev: CharacterRecord, incoming: CharacterRecord): CharacterRecord {
+  if (Array.isArray(incoming.looks)) {
+    return normalizeCharacterRecord({
+      ...prev,
+      ...incoming,
+      looks: incoming.looks,
+      loraLibraryIds: incoming.loraLibraryIds ?? prev.loraLibraryIds,
+      loraTriggerPhrases: incoming.loraTriggerPhrases ?? prev.loraTriggerPhrases,
+    });
+  }
+
+  const looks = looksOf(prev);
+  const current = looks.find(look => look.id === prev.activeLookId) ?? looks[0]!;
+  const nextLook = lookFromAppearance(incoming, current.name, current.id, current.createdAt);
+  const nextLooks = looks.some(look => look.id === nextLook.id)
+    ? looks.map(look => (look.id === nextLook.id ? nextLook : look))
+    : [nextLook, ...looks].slice(0, MAX_LOOKS);
+  return normalizeCharacterRecord({
+    ...prev,
+    ...incoming,
+    looks: nextLooks,
+    activeLookId: nextLook.id,
+    loraLibraryIds: incoming.loraLibraryIds ?? prev.loraLibraryIds,
+    loraTriggerPhrases: incoming.loraTriggerPhrases ?? prev.loraTriggerPhrases,
+  });
 }
 
 export function upsertCharacter(record: CharacterRecord): CharacterRecord[] {
@@ -370,18 +528,132 @@ export function upsertCharacter(record: CharacterRecord): CharacterRecord[] {
   if (!name) {
     return loadCharacters();
   }
-  const nextRecord: CharacterRecord = {
+  const id = record.id?.trim() || newCharacterId();
+  const existing = loadCharacters();
+  const prev = existing.find(entry => entry.id === id);
+  const drafted: CharacterRecord = {
     ...record,
     name,
     version: 1,
-    id: record.id?.trim() || newCharacterId(),
+    id,
     updatedAt: Date.now(),
   };
-  const existing = loadCharacters();
+  const nextRecord = prev ? mergeCharacterUpdate(prev, drafted) : normalizeCharacterRecord(drafted);
   const without = existing.filter(
     entry => entry.id !== nextRecord.id && slugCharacterName(entry.name) !== slugCharacterName(name)
   );
   return saveCharacters([nextRecord, ...without]);
+}
+
+export function addLookFromShared(
+  characterId: string,
+  shared: SharedToolSettings,
+  lookName: string
+): CharacterRecord | undefined {
+  const character = getCharacter(characterId);
+  if (!character) {
+    return undefined;
+  }
+  const look = lookFromAppearance(
+    characterFromShared(shared, { name: character.name, hints: shared.activeCharacterDescriptor }),
+    lookName || `Look ${looksOf(character).length + 1}`
+  );
+  const looks = [look, ...looksOf(character).filter(entry => entry.id !== look.id)].slice(
+    0,
+    MAX_LOOKS
+  );
+  upsertCharacter(
+    applyLookFields(
+      {
+        ...character,
+        looks,
+        updatedAt: Date.now(),
+      },
+      look
+    )
+  );
+  return getCharacter(characterId);
+}
+
+export function activateLook(characterId: string, lookId: string): CharacterRecord | undefined {
+  const character = getCharacter(characterId);
+  if (!character) {
+    return undefined;
+  }
+  const look = looksOf(character).find(entry => entry.id === lookId);
+  if (!look) {
+    return character;
+  }
+  upsertCharacter(
+    applyLookFields(
+      {
+        ...character,
+        looks: looksOf(character),
+        updatedAt: Date.now(),
+      },
+      look
+    )
+  );
+  return getCharacter(characterId);
+}
+
+export function removeLook(characterId: string, lookId: string): CharacterRecord | undefined {
+  const character = getCharacter(characterId);
+  if (!character) {
+    return undefined;
+  }
+  const remaining = looksOf(character).filter(look => look.id !== lookId);
+  if (remaining.length === 0) {
+    return character;
+  }
+  const nextActive = remaining.find(look => look.id === character.activeLookId) ?? remaining[0]!;
+  upsertCharacter(
+    applyLookFields(
+      {
+        ...character,
+        looks: remaining,
+        updatedAt: Date.now(),
+      },
+      nextActive
+    )
+  );
+  return getCharacter(characterId);
+}
+
+export function pinLoraOnCharacter(
+  characterId: string,
+  loraLibraryId: string
+): CharacterRecord | undefined {
+  const character = getCharacter(characterId);
+  const id = loraLibraryId.trim();
+  if (!character || !id) {
+    return character;
+  }
+  upsertCharacter({
+    ...character,
+    looks: looksOf(character),
+    loraLibraryIds: uniqueIds([...(character.loraLibraryIds ?? []), id]),
+    updatedAt: Date.now(),
+  });
+  return getCharacter(characterId);
+}
+
+export function setCharacterTrigger(
+  characterId: string,
+  trigger: string
+): CharacterRecord | undefined {
+  const character = getCharacter(characterId);
+  if (!character) {
+    return undefined;
+  }
+  const phrase = trigger.trim();
+  upsertCharacter({
+    ...character,
+    looks: looksOf(character),
+    loraTriggerPhrases: phrase ? [phrase] : undefined,
+    updatedAt: Date.now(),
+  });
+  return getCharacter(characterId);
 }
 
 export function removeCharacter(id: string): CharacterRecord[] {

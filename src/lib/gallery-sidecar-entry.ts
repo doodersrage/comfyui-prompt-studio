@@ -45,6 +45,12 @@ export function galleryEntryFromSidecar(sidecar: PromptSidecar): ComfyGalleryEnt
       typeof sidecar.metadata?.parentGalleryEntryId === 'string'
         ? sidecar.metadata.parentGalleryEntryId.trim()
         : undefined,
+    characterId:
+      typeof sidecar.metadata?.characterId === 'string'
+        ? sidecar.metadata.characterId.trim()
+        : undefined,
+    lookId:
+      typeof sidecar.metadata?.lookId === 'string' ? sidecar.metadata.lookId.trim() : undefined,
     derivedKind:
       sidecar.metadata?.derivedKind === 'upscale' ||
       sidecar.metadata?.derivedKind === 'refine' ||

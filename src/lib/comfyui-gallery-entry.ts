@@ -13,6 +13,10 @@ export type ComfyGalleryEntry = {
   historyId?: string;
   /** Gallery entry this job was derived from (upscale, refine, variation). */
   parentGalleryEntryId?: string;
+  /** Character OS record this job was queued as. */
+  characterId?: string;
+  /** Character look id active at queue time. */
+  lookId?: string;
   /** How this entry was derived from parentGalleryEntryId. */
   derivedKind?:
     | 'upscale'

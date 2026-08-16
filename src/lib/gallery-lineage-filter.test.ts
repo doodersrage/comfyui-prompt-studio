@@ -41,4 +41,14 @@ describe("gallery lineage filters", () => {
 
     assert.deepEqual(filtered.map((entry) => entry.id), ["parent"]);
   });
+
+  it("filters by character OS id", () => {
+    const entries = [
+      baseEntry({ id: "rin-1", characterId: "char-rin" }),
+      baseEntry({ id: "kai-1", characterId: "char-kai" }),
+      baseEntry({ id: "none" }),
+    ];
+    const filtered = filterComfyGalleryEntries(entries, { characterId: "char-rin" });
+    assert.deepEqual(filtered.map((entry) => entry.id), ["rin-1"]);
+  });
 });

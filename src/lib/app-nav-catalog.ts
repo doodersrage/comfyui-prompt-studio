@@ -38,6 +38,11 @@ export const APP_NAV_GROUPS: AppNavGroup[] = [
     label: 'Scene',
     links: [
       {
+        href: '/characters',
+        label: 'Cast',
+        description: 'Character home — looks, stills, clips, and LoRA',
+      },
+      {
         href: '/character',
         label: 'Character',
         description: 'Person, pet, fantasy, or environment — switch on the page',

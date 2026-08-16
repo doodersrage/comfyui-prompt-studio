@@ -111,6 +111,10 @@ export function parseGalleryUrlState(params: URLSearchParams): GalleryUrlState {
   if (userTag) {
     filter.userTag = userTag;
   }
+  const characterId = params.get('character')?.trim();
+  if (characterId) {
+    filter.characterId = characterId;
+  }
   const derivedKind = params.get('derivedKind')?.trim();
   if (
     derivedKind === 'upscale' ||
@@ -169,6 +173,7 @@ export function applyGalleryUrlState(
   setOrDelete('visionInbox', filter.needsVisionReview ? '1' : undefined);
   setOrDelete('userTag', filter.userTag?.trim() || undefined);
   setOrDelete('derivedKind', filter.derivedKind || undefined);
+  setOrDelete('character', filter.characterId?.trim() || undefined);
   setOrDelete('sort', sort !== 'queued-desc' ? sort : undefined);
   setOrDelete('project', projectFilterId.trim() || undefined);
 }

@@ -40,6 +40,7 @@ export const SIMPLE_NAV_HREFS = [
   '/dashboard',
   '/m',
   '/',
+  '/characters',
   '/character',
   '/video',
   '/refine',

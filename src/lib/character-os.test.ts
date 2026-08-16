@@ -6,7 +6,10 @@ import {
   characterFromBundle,
   characterFromRoleplaySession,
   characterFromShared,
+  lookFromAppearance,
+  looksOf,
   mergeMigratedCharacters,
+  normalizeCharacterRecord,
   slugCharacterName,
 } from './character-os';
 import type { CharacterIdentityBundle } from './character-identity-bundle';
@@ -103,5 +106,46 @@ describe('character-os', () => {
     assert.equal(converted?.name, 'Kai');
     assert.equal(converted?.reference?.isolatedFilename, 'kai.png');
     assert.equal(converted?.playAs, 'photo');
+  });
+
+  it('keeps prior looks when activating a new era', () => {
+    const first = normalizeCharacterRecord(
+      characterFromShared(
+        {
+          model: 'qwen-image-2512',
+          activeCharacterDescriptor: 'black bob',
+          lockedWardrobeId: 'jacket-01',
+        } as SharedToolSettings,
+        { name: 'Rin' }
+      )
+    );
+    assert.equal(looksOf(first).length, 1);
+    const winter = lookFromAppearance(
+      { descriptor: 'long hair', lockedWardrobeId: 'coat-02' },
+      'Winter'
+    );
+    const withTwo = normalizeCharacterRecord({
+      ...first,
+      looks: [winter, ...looksOf(first)],
+      activeLookId: winter.id,
+    });
+    assert.equal(looksOf(withTwo).length, 2);
+    assert.equal(withTwo.lockedWardrobeId, 'coat-02');
+    const original = looksOf(withTwo).find(look => look.id !== winter.id)!;
+    const restored = normalizeCharacterRecord({
+      ...withTwo,
+      activeLookId: original.id,
+    });
+    assert.equal(restored.lockedWardrobeId, 'jacket-01');
+  });
+
+  it('applies pinned LoRA ids onto the session', () => {
+    const record = normalizeCharacterRecord({
+      ...characterFromBundle(bundle, 'char-lora'),
+      loraLibraryIds: ['lora-rin'],
+    });
+    const patch = applyCharacterRecord(record);
+    assert.ok(patch.sessionActiveLoraIds?.includes('lora-rin'));
+    assert.equal(patch.activeLookId, record.activeLookId);
   });
 });

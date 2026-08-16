@@ -21,6 +21,8 @@ describe("auth features", () => {
     assert.equal(featureForPath("/api/gemini/status"), "comfyui-api");
     assert.equal(featureForPath("/api/grok"), "comfyui-api");
     assert.equal(featureForPath("/roleplay"), "roleplay");
+    assert.equal(featureForPath("/characters"), "character");
+    assert.equal(featureForPath("/characters/char-rin"), "character");
     assert.equal(featureForPath("/api/roleplay"), "llm-api");
     assert.equal(featureForPath("/m"), "gallery");
     assert.equal(featureForPath("/m/capture"), "gallery");

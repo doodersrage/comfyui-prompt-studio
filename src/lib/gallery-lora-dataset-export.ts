@@ -42,6 +42,18 @@ export function selectLoraDatasetEntries(
   );
 }
 
+/** Keepers (favorite or 4★+) for one Character OS record. */
+export function selectCharacterKeepers(
+  entries: ComfyGalleryEntry[],
+  characterId: string
+): ComfyGalleryEntry[] {
+  const id = characterId.trim();
+  if (!id) {
+    return [];
+  }
+  return selectLoraDatasetEntries(entries.filter(entry => entry.characterId === id));
+}
+
 const WEIGHT_SYNTAX_RE = /\(([^()]+?):\s*-?[\d.]+\)/g;
 const TOKEN_PLACEHOLDER_RE = /\{\{[A-Z0-9_]+\}\}/g;
 

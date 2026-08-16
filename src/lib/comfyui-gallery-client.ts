@@ -27,6 +27,7 @@ import { buildGalleryImageUrlsFromQueueParams } from './queue-requeue-images';
 import { freeComfyUiMemory } from './comfyui-queue-control';
 import { normalizeQueueQualityProfile } from './queue-quality-profile';
 import { loadSettingsCache } from './settings-cache';
+import { getCharacter } from './character-os';
 import { attemptGalleryHostFailover } from './oom-retry';
 import { resolveGalleryRenderDurationMs } from './comfyui-render-duration';
 import { forgetPendingGalleryPoll } from './gallery-pending-polls';
@@ -64,6 +65,8 @@ export type RegisterComfyGalleryJobInput = {
   model?: string;
   historyId?: string;
   parentGalleryEntryId?: string;
+  characterId?: string;
+  lookId?: string;
   derivedKind?: ComfyGalleryEntry['derivedKind'];
   queueParams?: WorkflowParamValues;
   /** Exact workflow JSON used at queue time (capped). */
@@ -121,6 +124,35 @@ function resolveComfyUrlForJob(promptId: string, comfyUrl?: string): string | un
   );
 }
 
+function resolveGalleryCharacterId(input: RegisterComfyGalleryJobInput): string | undefined {
+  const explicit = input.characterId?.trim();
+  if (explicit) {
+    return explicit;
+  }
+  const parentId = input.parentGalleryEntryId?.trim();
+  const parent = parentId ? loadComfyGallery().find(entry => entry.id === parentId) : undefined;
+  return (
+    parent?.characterId?.trim() || loadSettingsCache().shared.activeCharacterId?.trim() || undefined
+  );
+}
+
+function resolveGalleryLookId(input: RegisterComfyGalleryJobInput): string | undefined {
+  const explicit = input.lookId?.trim();
+  if (explicit) {
+    return explicit;
+  }
+  const parentId = input.parentGalleryEntryId?.trim();
+  const parent = parentId ? loadComfyGallery().find(entry => entry.id === parentId) : undefined;
+  if (parent?.lookId?.trim()) {
+    return parent.lookId.trim();
+  }
+  const shared = loadSettingsCache().shared;
+  const characterId = resolveGalleryCharacterId(input);
+  return (
+    shared.activeLookId?.trim() || getCharacter(characterId)?.activeLookId?.trim() || undefined
+  );
+}
+
 export function inheritGallerySessionFields(
   entry: Pick<
     ComfyGalleryEntry,
@@ -171,6 +203,8 @@ export function registerComfyGalleryJob(input: RegisterComfyGalleryJobInput): Co
     model: input.model,
     historyId: input.historyId,
     parentGalleryEntryId: input.parentGalleryEntryId,
+    characterId: resolveGalleryCharacterId(input),
+    lookId: resolveGalleryLookId(input),
     derivedKind: input.derivedKind,
     queueParams: input.queueParams,
     ...(clamped.workflowJson

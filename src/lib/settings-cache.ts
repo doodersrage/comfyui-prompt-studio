@@ -473,6 +473,8 @@ export type SharedToolSettings = {
   activeCharacterDescriptor?: string;
   /** Active Character OS record id (`comfy-prompt-characters-v1`). */
   activeCharacterId?: string;
+  /** Active look on that character (haircut / wardrobe era). */
+  activeLookId?: string;
   /** KSampler preset tier applied when queueing (base, optimized, max compatible, or max quality). */
   modelSamplerPreset?: ModelSamplerPresetTier;
   /** Optional sidebar overrides for KSampler fields; blank = use preset defaults. */
