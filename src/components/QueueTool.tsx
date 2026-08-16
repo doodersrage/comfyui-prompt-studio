@@ -1,9 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { loadComfyGallery, type ComfyGalleryEntry } from '@/lib/comfyui-gallery';
-import { galleryEntryThumbUrls } from '@/lib/comfyui-gallery';
-import { Button } from '@/components/ui/Button';
+import {
+  loadComfyGallery,
+  galleryEntryThumbUrls,
+  type ComfyGalleryEntry,
+} from '@/lib/comfyui-gallery';
+import { Button, ButtonLink } from '@/components/ui/Button';
 import { EmptyState, ErrorState } from '@/components/ui/ViewState';
 import {
   CollapsibleSection,
@@ -13,6 +16,7 @@ import {
 } from '@/components/ui/ToolPageShell';
 import { toastBulkQueueSummary, toastQueueOutcome } from '@/lib/app-toast';
 import { resolveGenerateEmptyCta } from '@/lib/empty-cta';
+import { buildGalleryFocusUrl } from '@/lib/use-as-hints-url';
 import { requeueComfyJobFromEntry, requeueComfyJobs } from '@/lib/comfyui-requeue';
 import { resolveRequeueImageUrlsFromEntry } from '@/lib/queue-requeue-images';
 import { markOnboardingFirstQueue } from '@/lib/onboarding-hooks';
@@ -54,6 +58,34 @@ type PoolHealthEndpoint = {
   queueRunning?: number;
   queuePending?: number;
 };
+
+function QueueCompletedRow({ entry }: { entry: ComfyGalleryEntry }) {
+  const url = galleryEntryThumbUrls(entry)[0];
+  const galleryHref = buildGalleryFocusUrl(entry.id);
+  return (
+    <li className="ui-list-row items-center gap-3">
+      {url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={url}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          className="h-12 w-12 rounded object-cover"
+        />
+      ) : null}
+      <div className="ui-list-primary min-w-0">
+        <p className="truncate text-sm text-[var(--text-secondary)]">{entry.prompt}</p>
+        <p className="type-caption">
+          {entry.status} · {entry.model}
+        </p>
+      </div>
+      <ButtonLink href={galleryHref} size="sm" variant="secondary">
+        Open in Gallery
+      </ButtonLink>
+    </li>
+  );
+}
 
 function QueueActiveJobRow({
   entry,
@@ -367,7 +399,7 @@ export default function QueueTool() {
           compact
           title="ComfyUI health unavailable"
           description="The queue stats endpoint did not respond. Use Settings → Heal & ready, or check your ComfyUI URL under Connection."
-          action={{ label: 'Heal & ready', href: '/settings' }}
+          action={{ label: 'Heal & ready', href: '/settings?tab=comfyui&section=connection' }}
         />
       )}
 
@@ -587,7 +619,7 @@ export default function QueueTool() {
         <CollapsibleSection
           title="Recent completed"
           summary={`${recent.length} finished job${recent.length === 1 ? '' : 's'} in gallery.`}
-          defaultOpen={false}
+          defaultOpen={recent.length > 0}
           persistKey="queue-recent"
         >
           {recent.length === 0 ? (
@@ -600,31 +632,9 @@ export default function QueueTool() {
             />
           ) : (
             <ul className="ui-list ui-scroll-region max-h-[min(24rem,50vh)] overflow-y-auto">
-              {recent.map(entry => {
-                const url = galleryEntryThumbUrls(entry)[0];
-                return (
-                  <li key={entry.id} className="ui-list-row items-center gap-3">
-                    {url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={url}
-                        alt=""
-                        loading="lazy"
-                        decoding="async"
-                        className="h-12 w-12 rounded object-cover"
-                      />
-                    ) : null}
-                    <div className="ui-list-primary min-w-0">
-                      <p className="truncate text-sm text-[var(--text-secondary)]">
-                        {entry.prompt}
-                      </p>
-                      <p className="type-caption">
-                        {entry.status} · {entry.model}
-                      </p>
-                    </div>
-                  </li>
-                );
-              })}
+              {recent.map(entry => (
+                <QueueCompletedRow key={entry.id} entry={entry} />
+              ))}
             </ul>
           )}
         </CollapsibleSection>
@@ -640,31 +650,9 @@ export default function QueueTool() {
             />
           ) : (
             <ul className="ui-list">
-              {recent.map(entry => {
-                const url = galleryEntryThumbUrls(entry)[0];
-                return (
-                  <li key={entry.id} className="ui-list-row items-center gap-3">
-                    {url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={url}
-                        alt=""
-                        loading="lazy"
-                        decoding="async"
-                        className="h-12 w-12 rounded object-cover"
-                      />
-                    ) : null}
-                    <div className="ui-list-primary min-w-0">
-                      <p className="truncate text-sm text-[var(--text-secondary)]">
-                        {entry.prompt}
-                      </p>
-                      <p className="type-caption">
-                        {entry.status} · {entry.model}
-                      </p>
-                    </div>
-                  </li>
-                );
-              })}
+              {recent.map(entry => (
+                <QueueCompletedRow key={entry.id} entry={entry} />
+              ))}
             </ul>
           )}
         </ToolSection>

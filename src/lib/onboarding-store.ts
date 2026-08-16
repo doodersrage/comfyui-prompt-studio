@@ -29,7 +29,7 @@ export const ONBOARDING_STEPS: Omit<OnboardingStep, 'done'>[] = [
   {
     id: 'system-workflows',
     label: 'Enable system workflows (or Heal & ready)',
-    href: settingsComfyUiSectionHref('workflow-map'),
+    href: settingsComfyUiSectionHref('connection'),
   },
   {
     id: 'first-generate',

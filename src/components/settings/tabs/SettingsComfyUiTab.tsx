@@ -74,6 +74,7 @@ import { FieldError, FieldLabel, TextArea } from '@/components/ui/Field';
 import { Button, PrimaryButton } from '@/components/ui/Button';
 import { restartComfyUi } from '@/lib/comfyui-queue-control';
 import { isDesktopShellClient } from '@/lib/desktop-shell';
+import SettingsConnectionFirstRun from '@/components/settings/SettingsConnectionFirstRun';
 
 const ComfyWorkflowLibraryPanel = dynamic(() => import('@/components/ComfyWorkflowLibraryPanel'), {
   ssr: false,
@@ -137,6 +138,9 @@ export type SettingsComfyUiTabProps = {
   handleResetComfySettings: () => void;
   refreshHealth: () => void | Promise<void>;
   health: HealthResponse | null;
+  healBusy?: boolean;
+  healProgress?: string | null;
+  handleHealAndReady?: () => void | Promise<void>;
 };
 
 export default function SettingsComfyUiTab({
@@ -194,6 +198,9 @@ export default function SettingsComfyUiTab({
   handleResetComfySettings,
   refreshHealth,
   health,
+  healBusy = false,
+  healProgress = null,
+  handleHealAndReady,
 }: SettingsComfyUiTabProps) {
   const [systemWorkflowsSaveHint, setSystemWorkflowsSaveHint] = useState<string | null>(null);
   const [systemWorkflowsSaving, setSystemWorkflowsSaving] = useState(false);
@@ -1436,6 +1443,15 @@ export default function SettingsComfyUiTab({
       ) : null}
 
       <ToolSection id="settings-comfyui-connection" title="ComfyUI connection & injection">
+        {handleHealAndReady ? (
+          <SettingsConnectionFirstRun
+            health={health}
+            systemWorkflowsEnabled={sharedSettings.useSystemWorkflows === true}
+            healBusy={healBusy}
+            healProgress={healProgress}
+            onHealAndReady={handleHealAndReady}
+          />
+        ) : null}
         {isDesktopShellClient() ||
         serverEnvFieldValue(health?.serverEnv, 'PROMPT_DESKTOP') === 'true' ? (
           <div className="mb-4 rounded-[var(--radius-xl)] border border-[var(--border-subtle)] bg-[color-mix(in_oklab,var(--surface)_90%,transparent)] px-4 py-3">

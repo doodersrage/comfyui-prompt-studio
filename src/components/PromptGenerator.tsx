@@ -584,7 +584,7 @@ export default function PromptGenerator() {
           <span>
             Prompt Studio
             <span className="mx-1.5 text-[var(--border-strong)]">·</span>
-            scene → queue → gallery
+            scene → queue → gallery — Random surprise skips the blank page
           </span>
         </p>
       ) : null}
@@ -601,7 +601,7 @@ export default function PromptGenerator() {
       />
       <SceneSetupSection
         title="Prompt"
-        description="Write a scene idea, generate a prompt, then queue."
+        description="Write a scene idea, or use Random surprise if you have nothing in mind — then queue."
       >
         <HistoryHintSeedPanel
           tool="generate"
@@ -853,21 +853,37 @@ export default function PromptGenerator() {
         </CollapsibleSection>
 
         <div className="ui-cta-block">
-          <PrimaryButton
-            accentClassName={accentButtonClass(ACCENT)}
-            type="button"
-            data-action="primary-generate"
-            onClick={() => void generate()}
-            disabled={submitDisabled}
-            loading={loading}
-            loadingLabel={
-              hintSource === 'random' ? 'Generating random scene' : 'Generating scene prompt'
-            }
-            title={submitDisabledReason ?? undefined}
-            aria-disabled={submitDisabled}
-          >
-            {hintSource === 'random' ? 'Generate random scene' : 'Generate scene prompt'}
-          </PrimaryButton>
+          <div className="flex flex-wrap items-center gap-2">
+            <PrimaryButton
+              accentClassName={accentButtonClass(ACCENT)}
+              type="button"
+              data-action="primary-generate"
+              onClick={() => void generate()}
+              disabled={submitDisabled}
+              loading={loading}
+              loadingLabel={
+                hintSource === 'random' ? 'Generating random scene' : 'Generating scene prompt'
+              }
+              title={submitDisabledReason ?? undefined}
+              aria-disabled={submitDisabled}
+            >
+              {hintSource === 'random' ? 'Generate random scene' : 'Generate scene prompt'}
+            </PrimaryButton>
+            {hintSource !== 'random' ? (
+              <Button
+                type="button"
+                variant="secondary"
+                data-action="random-surprise"
+                disabled={!mounted || loading}
+                onClick={() => {
+                  setHintSource('random');
+                  void generateRandom();
+                }}
+              >
+                Random surprise
+              </Button>
+            ) : null}
+          </div>
 
           {submitDisabledReason && !loading && <FieldError>{submitDisabledReason}</FieldError>}
 

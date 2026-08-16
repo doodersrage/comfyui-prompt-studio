@@ -11,6 +11,7 @@ test.beforeEach(async ({ page }) => {
 test('home page loads', async ({ page }) => {
   await gotoStable(page, '/');
   await expect(page.getByRole('heading', { name: /^Generate$/i })).toBeVisible();
+  await expect(page.locator('[data-action="random-surprise"]')).toBeVisible();
 });
 
 test('dashboard page loads', async ({ page }) => {
@@ -25,8 +26,27 @@ test('gallery page loads', async ({ page }) => {
 });
 
 test('queue page loads', async ({ page }) => {
+  await seedGalleryFixture(page);
   await gotoStable(page, '/queue');
   await expect(page.getByRole('heading', { name: /ComfyUI job queue/i })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Open in Gallery/i }).first()).toBeVisible({
+    timeout: 15_000,
+  });
+});
+
+test('settings connection first-run hub loads', async ({ page }) => {
+  await gotoStable(page, '/settings?tab=comfyui&section=connection');
+  await expect(page.getByRole('heading', { name: /Settings & Health/i })).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(page.getByRole('button', { name: /Heal & ready/i })).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(page.getByRole('link', { name: /Open Generate/i })).toHaveAttribute(
+    'href',
+    '/?source=random'
+  );
+  await expect(page.getByRole('button', { name: /Test connection/i })).toBeVisible();
 });
 
 test('settings page loads', async ({ page }) => {

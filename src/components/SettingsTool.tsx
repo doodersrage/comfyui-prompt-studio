@@ -903,6 +903,9 @@ export default function SettingsTool() {
               handleResetComfySettings={handleResetComfySettings}
               refreshHealth={refreshHealth}
               health={health}
+              healBusy={healBusy}
+              healProgress={healProgress}
+              handleHealAndReady={handleHealAndReady}
             />
           )}
 

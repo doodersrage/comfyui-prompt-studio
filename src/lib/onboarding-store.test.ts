@@ -25,6 +25,10 @@ describe("onboarding-store", () => {
     for (const step of core) {
       assert.ok(step.href, `${step.id} should have an href`);
     }
+    assert.equal(
+      ONBOARDING_STEPS.find((step) => step.id === "system-workflows")?.href,
+      "/settings?tab=comfyui&section=connection",
+    );
   });
 
   it("keeps chrome tips separate from MVP path", () => {

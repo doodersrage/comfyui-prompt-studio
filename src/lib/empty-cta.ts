@@ -7,6 +7,9 @@ export type EmptyCta = {
   href: string;
 };
 
+/** First-run Generate deep link — Random surprise, no keywords required. */
+export const FIRST_RUN_GENERATE_HREF = '/?source=random';
+
 const PROMPT_TOOL_PATHS = new Set([
   '/',
   '/format',

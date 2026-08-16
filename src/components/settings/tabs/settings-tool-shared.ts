@@ -28,7 +28,8 @@ export const PLAYBOOK_SECTION_CHECKLISTS: Partial<Record<ComfyUiSettingsSectionI
     'Checklist: confirm checkpoint/VAE/upscale filenames match ComfyUI input folders → save loader maps.',
   'lora-library':
     'Checklist: enable the LoRA in the session stack → verify filename on disk → re-queue.',
-  connection: 'Checklist: verify ComfyUI URL/port → allow CORS if remote → retry health probe.',
+  connection:
+    'Checklist: verify ComfyUI URL/port → Test connection → Heal & ready (system workflows + maps) → Open Generate.',
   'inference-engine':
     'Checklist: confirm Diffusers host is running → or switch engine back to ComfyUI.',
   'vram-guard': 'Checklist: lower queue quality / enable OOM downgrade → free VRAM → re-queue.',
