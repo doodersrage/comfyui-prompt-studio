@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import BackgroundPresetControls from '@/components/BackgroundPresetControls';
 import { SceneGenerateFooter, SceneQuickTags } from '@/components/scene-tool/SceneToolSections';
 import SceneSetupSection from '@/components/scene-tool/SceneSetupSection';
+import SceneFamilySwitcher from '@/components/SceneFamilySwitcher';
 import ScenePromptResultPanel from '@/components/scene-tool/ScenePromptResultPanel';
 import {
   HistoryHintSeedPanel,
@@ -228,6 +229,7 @@ export default function BackgroundTool() {
         title="Environment setup"
         description="Quick tags and optional presets — no people."
       >
+        <SceneFamilySwitcher />
         <HistoryHintSeedPanel
           tool="background"
           hintSource={hintSource}

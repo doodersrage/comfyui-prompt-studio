@@ -1307,7 +1307,7 @@ export default function GalleryCard({
                         ) : null}
                         {primaryMediaKind === 'image' && entry.status === 'completed' ? (
                           <GalleryMenuButton
-                            label="Send to Video (I2V)"
+                            label="Animate this still"
                             onClick={() => {
                               saveGalleryHandoff(buildGalleryHandoff(entry, 'video'));
                               router.push(galleryHandoffPath('video'));

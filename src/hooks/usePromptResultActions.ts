@@ -133,6 +133,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         queueQualityProfile?: import('@/lib/queue-quality-profile').QueueQualityProfile;
         /** Actual model queued (may differ from picker when Generate remaps Edit Lightning). */
         model?: ComfyImageModel;
+        tool?: string;
         sessionActiveLoraIds?: string[];
         sessionLoraStrengthOverrides?: import('@/lib/lora-stack').SessionLoraStrengthOverrides;
         engineId?: import('@/lib/engine/types').EngineId;
@@ -145,7 +146,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         promptId: input.promptId,
         prompt: input.prompt,
         negativePrompt: input.negativePrompt,
-        tool: config.tool,
+        tool: input.tool ?? config.tool,
         model: input.model ?? config.model,
         comfyUrl: input.comfyUrl,
         clientId: input.clientId,
@@ -488,6 +489,9 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         parentGalleryEntryId?: string;
         derivedKind?: import('@/lib/comfyui-gallery-entry').ComfyGalleryEntry['derivedKind'];
         sourceImageUrl?: string;
+        /** Override the hook tool for this queue (Roleplay → video I2V). */
+        queueTool?: string;
+        queueModel?: import('@/lib/comfy-models/client').ComfyImageModel;
       }
     ) => {
       if (!prompt) {
@@ -529,8 +533,10 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         const engineAdapter = getEngineAdapter();
         const engineSettings = loadEngineSettings();
         const cloudEngine = isCloudEngine(engineAdapter.id);
+        const effectiveTool = options?.queueTool ?? config.tool;
+        const requestedModel = options?.queueModel ?? config.model;
 
-        const queueModel = resolveModelForQueueTool(config.model, config.tool);
+        const queueModel = resolveModelForQueueTool(requestedModel, effectiveTool);
         let runtime:
           | Awaited<
               ReturnType<
@@ -548,7 +554,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
 
         if (!cloudEngine) {
           const { resolveRuntimeForQueueAsync } = await import('@/lib/comfyui-runtime-for-model');
-          const baseRuntime = await resolveRuntimeForQueueAsync(config.model, config.tool);
+          const baseRuntime = await resolveRuntimeForQueueAsync(queueModel, effectiveTool);
           vramGuard = await guardQueueQualityForVram({
             profile: options?.qualityProfile ?? baseRuntime.queueQualityProfile,
             runtime: baseRuntime,
@@ -742,6 +748,31 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           inputImageFilename = inputImageFilenames[0];
         }
 
+        if (cloudEngine && !inputImageFilename) {
+          const { resolveCloudIdentityFallback } = await import('@/lib/cloud-identity-fallback');
+          const identity = loadSettingsCache().shared;
+          const fallback = resolveCloudIdentityFallback({
+            inputImageFilename,
+            identityFilename: identity.ipAdapterImageFilename,
+            identityUrl: identity.ipAdapterImageUrl,
+          });
+          if (fallback) {
+            setComfyUiStatus('Uploading identity reference…');
+            const uploaded = await resolveQueueInputImageFilename({
+              filename: fallback.inputImageFilename,
+              imageUrl: fallback.imageUrl,
+              model: queueModel,
+            });
+            if (uploaded) {
+              inputImageFilename = uploaded;
+              uploadedFilenames[0] = uploaded;
+            } else if (fallback.inputImageFilename) {
+              inputImageFilename = fallback.inputImageFilename;
+              uploadedFilenames[0] = fallback.inputImageFilename;
+            }
+          }
+        }
+
         let maskImageFilename = options?.maskImageFilename?.trim();
         if (!cloudEngine && (options?.maskImage || options?.maskImageUrl?.trim())) {
           setComfyUiStatus('Uploading mask to ComfyUI…');
@@ -807,7 +838,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
 
         const queueParams = resolveQueueParams({
           model: queueModel,
-          tool: config.tool,
+          tool: effectiveTool,
           base: options?.queueParamsBase,
           workflow,
           inputImageFilename,
@@ -918,7 +949,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
               prompt: preparedPrompt,
               negativePrompt,
               model: queueModel,
-              tool: config.tool,
+              tool: effectiveTool,
               params: queueParams,
               comfy: runtime,
               qualityProfile: 'max',
@@ -1015,7 +1046,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
               {
                 model: queueModel,
                 qualityProfile: runtime?.queueQualityProfile,
-                tool: config.tool,
+                tool: effectiveTool,
                 vramDowngraded: vramGuard.downgraded,
                 samplerMemory: Object.keys(rememberedSamplerOverrides(queueModel)).length > 0,
                 hasInputImage: Boolean(inputImageFilename),
@@ -1040,6 +1071,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             promptId: queued.promptId,
             prompt: preparedPrompt,
             negativePrompt,
+            tool: effectiveTool,
             comfyUrl:
               queued.engineUrl ??
               previewComfyUrlHint ??
@@ -1075,7 +1107,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             prompt: preparedPrompt,
             negativePrompt,
             model: queueModel,
-            tool: config.tool,
+            tool: effectiveTool,
             status: 'queued',
             queueParams,
             completedAt: Date.now(),

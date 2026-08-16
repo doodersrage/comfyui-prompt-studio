@@ -31,6 +31,7 @@ import {
   parseCharacterIdentityBundle,
   type CharacterIdentityBundle,
 } from '@/lib/character-identity-bundle';
+import { characterFromBundle, upsertCharacter } from '@/lib/character-os';
 import {
   deleteUserSceneStarterPreset,
   loadUserSceneStarterPresets,
@@ -427,6 +428,7 @@ export default function StudioPresetsTab({
                   bundle
                 ),
               });
+              upsertCharacter(characterFromBundle(bundle));
               onBackupStatusChange(`Saved identity bundle “${bundle.name}” to your list.`);
             }}
           >

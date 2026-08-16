@@ -116,6 +116,7 @@ import {
 } from '@/lib/lora-stack';
 import { engineDisplayName, isCloudEngine } from '@/lib/engine/capabilities';
 import { resolveCloudTxt2ImgModel } from '@/lib/engine-settings';
+import CharacterOsPicker from '@/components/CharacterOsPicker';
 
 const ModelSelector = dynamic(() => import('@/components/ModelSelector'), {
   ssr: false,
@@ -1289,6 +1290,25 @@ export default function SharedToolControls({
             onChange={handleModelChange}
           />
         )}
+        {toolId !== 'audio' && toolId !== 'mesh' ? (
+          <CharacterOsPicker
+            shared={shared}
+            hints={recommendFromText}
+            onApply={patch => {
+              if (onSharedSettingsChange) {
+                onSharedSettingsChange(patch);
+              } else {
+                saveSharedSettings({
+                  ...loadSettingsCache().shared,
+                  ...patch,
+                });
+              }
+              if (patch.model && onModelChange) {
+                onModelChange(patch.model as ComfyImageModel);
+              }
+            }}
+          />
+        ) : null}
         {shared.inferenceEngine === 'diffusers' ? (
           <DiffusersQueueHint workflowJson={selectedWorkflowJson} />
         ) : null}
@@ -1610,6 +1630,43 @@ export default function SharedToolControls({
                   </CollapsibleSection>
                 ) : null}
               </>
+            ) : null}
+
+            {cloudEngine ? (
+              <CollapsibleSection
+                title="Reference image"
+                summary={
+                  shared.ipAdapterImageFilename?.trim() || shared.ipAdapterImageUrl?.trim()
+                    ? 'Locked face sent as img2img'
+                    : 'Optional img2img when Image 1 is empty'
+                }
+                defaultOpen={Boolean(
+                  shared.ipAdapterImageFilename?.trim() || shared.ipAdapterImageUrl?.trim()
+                )}
+                persistKey="shared-cloud-identity"
+              >
+                <IdentityLockSessionControl
+                  model={shared.model}
+                  filename={shared.ipAdapterImageFilename}
+                  imageUrl={shared.ipAdapterImageUrl}
+                  strength={shared.ipAdapterStrength}
+                  identityKind={shared.identityKind}
+                  onChange={patch => {
+                    if (onSharedSettingsChange) {
+                      onSharedSettingsChange(patch);
+                    } else {
+                      saveSharedSettings({
+                        ...loadSettingsCache().shared,
+                        ...patch,
+                      });
+                    }
+                  }}
+                />
+                <p className="type-caption text-[var(--text-muted)]">
+                  Cloud engines have no IP-Adapter nodes. If you queue without Image 1, this
+                  reference is uploaded as img2img.
+                </p>
+              </CollapsibleSection>
             ) : null}
 
             {!cloudEngine ? (

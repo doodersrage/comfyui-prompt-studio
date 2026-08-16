@@ -69,6 +69,7 @@ export default function VideoPromptTool() {
 
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [parentGalleryEntryId, setParentGalleryEntryId] = useState<string | undefined>();
 
   const rememberVideoDraft = useCallback(
     (next: { subject?: string; motion?: string; camera?: string; style?: string }) => {
@@ -180,18 +181,18 @@ export default function VideoPromptTool() {
       });
 
       const sharedPatch = sharedPatchFromGalleryHandoff(handoff.payload);
-      if (handoff.model?.trim()) {
-        const handoffModel = handoff.model.trim() as ComfyImageModel;
+      const handoffModel = handoff.model?.trim() as ComfyImageModel | undefined;
+      if (handoffModel && isVideoModel(handoffModel)) {
         updateShared({
           model: handoffModel,
           ...sharedPatch,
         });
-        if (isVideoModel(handoffModel)) {
-          updateToolSettings({ model: handoffModel });
-        }
+        updateToolSettings({ model: handoffModel });
       } else if (Object.keys(sharedPatch).length > 0) {
         updateShared(sharedPatch);
       }
+
+      setParentGalleryEntryId(handoff.payload.galleryEntryId?.trim() || undefined);
 
       setPreviewUrl(current => {
         revokePreviewIfBlob(current);
@@ -368,8 +369,10 @@ export default function VideoPromptTool() {
         videoFrames: resolvedFrames,
         videoFps: resolvedFps,
       },
+      parentGalleryEntryId,
+      derivedKind: parentGalleryEntryId ? ('i2v' as const) : undefined,
     };
-  }, [durationSec, file, frames, fps, initImageUrl, previewUrl]);
+  }, [durationSec, file, frames, fps, initImageUrl, parentGalleryEntryId, previewUrl]);
 
   const queueVideo = useCallback(() => {
     if (!output.trim()) {

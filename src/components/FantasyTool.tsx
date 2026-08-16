@@ -35,6 +35,7 @@ import {
   VariationSliderField,
 } from '@/components/scene-tool/SceneToolSections';
 import SceneSetupSection from '@/components/scene-tool/SceneSetupSection';
+import SceneFamilySwitcher from '@/components/SceneFamilySwitcher';
 import ScenePromptResultPanel from '@/components/scene-tool/ScenePromptResultPanel';
 import {
   HistoryHintSeedPanel,
@@ -298,6 +299,7 @@ export default function FantasyTool() {
     >
       <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.fantasy} />
       <SceneSetupSection description="Presets, hints, then generate.">
+        <SceneFamilySwitcher />
         <CollapsibleSection
           title="Fantasy presets"
           summary="Starter chips and subgenre, magic, and camera options."

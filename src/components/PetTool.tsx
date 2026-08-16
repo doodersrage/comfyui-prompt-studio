@@ -31,6 +31,7 @@ import {
   VariationSliderField,
 } from '@/components/scene-tool/SceneToolSections';
 import SceneSetupSection from '@/components/scene-tool/SceneSetupSection';
+import SceneFamilySwitcher from '@/components/SceneFamilySwitcher';
 import ScenePromptResultPanel from '@/components/scene-tool/ScenePromptResultPanel';
 import {
   HistoryHintSeedPanel,
@@ -227,6 +228,7 @@ export default function PetTool() {
     >
       <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.pet} />
       <SceneSetupSection description="Presets, hints, then generate.">
+        <SceneFamilySwitcher />
         <CollapsibleSection
           title="Pet presets"
           summary="Starter chips and species, pose, and setting options."

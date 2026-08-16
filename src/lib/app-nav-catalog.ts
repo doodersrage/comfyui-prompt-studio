@@ -40,15 +40,12 @@ export const APP_NAV_GROUPS: AppNavGroup[] = [
       {
         href: '/character',
         label: 'Character',
-        description: 'Solo, duo, or with background',
+        description: 'Person, pet, fantasy, or environment — switch on the page',
       },
-      { href: '/background', label: 'Background', description: 'No people' },
-      { href: '/pet', label: 'Pet', description: 'Dogs, cats & more' },
-      { href: '/fantasy', label: 'Fantasy', description: 'Magic & myth' },
       {
         href: '/roleplay',
         label: 'Roleplay',
-        description: 'Be someone. Pick a scene. Get a still.',
+        description: 'Be someone. Pick a scene. Get a still or clip.',
       },
     ],
   },
@@ -109,8 +106,25 @@ export const APP_NAV_PROFILE_LINK: AppNavLink = {
   description: 'Appearance & account',
 };
 
+/** Kept for command palette / Simple “More tools”; Scene nav is Character + Roleplay. */
+export const APP_NAV_SCENE_ALIASES: AppNavLink[] = [
+  { href: '/background', label: 'Background', description: 'Environment-only — no people' },
+  { href: '/pet', label: 'Pet', description: 'Dogs, cats & more' },
+  { href: '/fantasy', label: 'Fantasy', description: 'Magic & myth' },
+];
+
 export function flattenAppNavLinks(groups: AppNavGroup[] = APP_NAV_GROUPS): AppNavLink[] {
-  return groups.flatMap(group => group.links);
+  const links = groups.flatMap(group => group.links);
+  const seen = new Set(links.map(link => link.href.split('?')[0] ?? link.href));
+  for (const alias of APP_NAV_SCENE_ALIASES) {
+    const path = alias.href.split('?')[0] ?? alias.href;
+    if (seen.has(path)) {
+      continue;
+    }
+    seen.add(path);
+    links.push(alias);
+  }
+  return links;
 }
 
 /**

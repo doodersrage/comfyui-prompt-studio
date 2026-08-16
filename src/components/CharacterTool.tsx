@@ -61,6 +61,7 @@ import { ToolBadge, CollapsibleSection, ToolLayout } from '@/components/ui/ToolP
 import ToolSetupBanner from '@/components/ToolSetupBanner';
 import { resolveCollabFieldValue } from '@/lib/collab-presence';
 import CollabPresenceBar from '@/components/CollabPresenceBar';
+import SceneFamilySwitcher from '@/components/SceneFamilySwitcher';
 import { ChipButton, FieldDivider, FieldLabel } from '@/components/ui/Field';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { Button } from '@/components/ui/Button';
@@ -512,6 +513,8 @@ export default function CharacterTool() {
         }}
       />
       <SceneSetupSection description="Pick a mode, add hints, then generate.">
+        <FieldLabel>Scene family</FieldLabel>
+        <SceneFamilySwitcher />
         <FieldLabel>Scene mode</FieldLabel>
         <div className="flex flex-wrap gap-2">
           {SCENE_MODE_OPTIONS.map(option => (

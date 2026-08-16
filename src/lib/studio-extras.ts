@@ -99,6 +99,7 @@ import {
 } from './last-failed-queue';
 import { listHeldMaxJobs, replaceHeldMaxJobs, type HeldMaxJob } from './held-max-queue';
 import { loadLastToolRoute, saveLastToolRoute } from './last-tool-route';
+import { loadCharacters, saveCharacters, type CharacterRecord } from './character-os';
 import { FIRST_QUEUE_SETUP_DISMISS_KEY } from './first-queue-setup';
 import { loadNotifications, type AppNotification } from './notification-center';
 import {
@@ -175,6 +176,7 @@ export type StudioExtrasPayload = {
   notifications?: AppNotification[];
   localObservability?: LocalObservabilityCounters;
   studioBackupLastExport?: string | null;
+  characters?: CharacterRecord[];
   appTheme?: AppTheme;
   ambientIntensity?: AmbientIntensity;
   uiDensity?: UiDensity;
@@ -235,6 +237,7 @@ export function collectStudioExtras(): StudioExtrasPayload {
     notifications: loadNotifications(),
     localObservability: loadLocalObservability(),
     studioBackupLastExport: readBrowserValue<string>(STUDIO_BACKUP_LAST_EXPORT_KEY) ?? null,
+    characters: loadCharacters(),
     appTheme: loadAppTheme(),
     ambientIntensity: loadAmbientIntensity(),
     uiDensity: loadUiDensity(),
@@ -286,6 +289,9 @@ export function applyStudioExtras(payload: StudioExtrasPayload | null | undefine
     }
     if (payload.sessionRecipes) {
       saveSessionRecipes(payload.sessionRecipes);
+    }
+    if (payload.characters) {
+      saveCharacters(payload.characters);
     }
     if (payload.userNsfwGeneratorPresets) {
       saveUserNsfwGeneratorPresets(payload.userNsfwGeneratorPresets);
@@ -463,6 +469,9 @@ export function localStudioExtrasLooksEmpty(extras?: StudioExtrasPayload | null)
     return false;
   }
   if (extras.promptRecipes && extras.promptRecipes.length > 0) {
+    return false;
+  }
+  if (extras.characters && extras.characters.length > 0) {
     return false;
   }
   if (extras.userTemplates && extras.userTemplates.length > 0) {

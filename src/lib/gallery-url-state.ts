@@ -119,7 +119,8 @@ export function parseGalleryUrlState(params: URLSearchParams): GalleryUrlState {
     derivedKind === 'variation' ||
     derivedKind === 'moire-clean' ||
     derivedKind === 'face-detail' ||
-    derivedKind === 'controlnet'
+    derivedKind === 'controlnet' ||
+    derivedKind === 'i2v'
   ) {
     filter.derivedKind = derivedKind;
   }

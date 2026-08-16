@@ -204,6 +204,7 @@ export default function RoleplayStoryReel({
   onQueue,
   onCopy,
   onRetry,
+  onAnimate,
   onSelectTake,
 }: {
   story: RoleplayStoryBeat[];
@@ -211,6 +212,7 @@ export default function RoleplayStoryReel({
   onQueue?: (beat: RoleplayStoryBeat) => void;
   onCopy?: (beat: RoleplayStoryBeat) => void;
   onRetry?: (beat: RoleplayStoryBeat) => void;
+  onAnimate?: (beat: RoleplayStoryBeat) => void;
   onSelectTake?: (beat: RoleplayStoryBeat, index: number) => void;
 }) {
   const promptIds = useMemo(() => roleplayStoryPromptIds(story), [story]);
@@ -348,6 +350,9 @@ export default function RoleplayStoryReel({
           );
           const canCopy = Boolean(beat.prompt && onCopy);
           const canOpen = Boolean(beatPreviewUrl(beat, liveUrl));
+          const canAnimate = Boolean(
+            onAnimate && beatDisplayUrl(beat, liveUrl) && beat.stillStatus === 'completed'
+          );
           return (
             <li key={`${beat.id}-${beat.at}`}>
               <article className="space-y-2">
@@ -367,7 +372,7 @@ export default function RoleplayStoryReel({
                   </p>
                   <p className="type-caption text-[var(--text-muted)]">{beat.blurb}</p>
                 </div>
-                {canQueue || canCopy ? (
+                {canQueue || canCopy || canAnimate ? (
                   <div className="flex flex-wrap gap-2">
                     {canQueue ? (
                       <Button
@@ -377,6 +382,16 @@ export default function RoleplayStoryReel({
                         onClick={() => onQueue?.(beat)}
                       >
                         Queue still
+                      </Button>
+                    ) : null}
+                    {canAnimate ? (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={busy}
+                        onClick={() => onAnimate?.(beat)}
+                      >
+                        Animate still
                       </Button>
                     ) : null}
                     {canCopy ? (

@@ -19,8 +19,16 @@ import { rememberDraftFields } from '@/lib/remember-draft-fields';
 import { avoidedTokensRequestBody } from '@/lib/avoided-tokens';
 import { sharedLlmRequestBody } from '@/lib/llm-request-options';
 import { dispatchWebhook } from '@/lib/webhook-settings';
-import { DEFAULT_ROLEPLAY_TOOL_CACHE } from '@/lib/settings-cache';
-import { isSceneGenerationModel, resolveTxt2iCounterpartForGenerate } from '@/lib/queue-tool-model';
+import {
+  DEFAULT_ROLEPLAY_TOOL_CACHE,
+  DEFAULT_VIDEO_TOOL_CACHE,
+  loadToolSettings,
+} from '@/lib/settings-cache';
+import {
+  isSceneGenerationModel,
+  resolvePreferredVideoModel,
+  resolveTxt2iCounterpartForGenerate,
+} from '@/lib/queue-tool-model';
 import {
   COMFYUI_GALLERY_UPDATED_EVENT,
   galleryEntryPrimaryViewUrl,
@@ -846,6 +854,61 @@ export default function RoleplayTool() {
     [actions, queueStillOptions, updateToolSettings]
   );
 
+  const queueBeatAsVideo = useCallback(
+    async (beat: RoleplayStoryBeat) => {
+      const latest =
+        storyRef.current.find(entry => entry.id === beat.id && entry.at === beat.at) ?? beat;
+      const imageUrl =
+        latest.imageUrl?.trim() ||
+        latest.stillTakes?.find(take => take.imageUrl?.trim())?.imageUrl?.trim();
+      if (!imageUrl) {
+        setError('Render a still first, then animate it.');
+        return;
+      }
+      const parentEntry = latest.promptId
+        ? loadComfyGallery().find(entry => entry.promptId === latest.promptId)
+        : undefined;
+      const videoModel = resolvePreferredVideoModel({
+        toolModel: loadToolSettings('video', DEFAULT_VIDEO_TOOL_CACHE).model,
+        sharedModel: shared.model,
+      });
+      setError(null);
+      let prompt = latest.prompt?.trim() || latest.blurb;
+      try {
+        const response = await fetch('/api/video-prompt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            subject: latest.title,
+            motion: latest.prompt?.trim() || latest.blurb,
+            model: videoModel,
+            durationSec: 4,
+          }),
+        });
+        const data = (await response.json()) as { prompt?: string };
+        if (data.prompt?.trim()) {
+          prompt = data.prompt.trim();
+        }
+      } catch {
+        /* use beat prompt */
+      }
+      try {
+        await actions.sendComfyUi(prompt, undefined, undefined, {
+          queueTool: 'video',
+          queueModel: videoModel,
+          inputImageUrl: imageUrl,
+          parentGalleryEntryId: parentEntry?.id,
+          derivedKind: 'i2v',
+          qualityProfile: 'final',
+          queueParamsBase: { videoFrames: 64, videoFps: 16 },
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Could not animate that still.');
+      }
+    },
+    [actions, shared.model]
+  );
+
   const selectStillTake = useCallback(
     (beat: RoleplayStoryBeat, index: number) => {
       const latest =
@@ -1405,6 +1468,7 @@ export default function RoleplayTool() {
           busy={busy}
           onQueue={beat => void queueBeat(beat)}
           onRetry={beat => void queueBeat(beat, { retry: true })}
+          onAnimate={beat => void queueBeatAsVideo(beat)}
           onSelectTake={selectStillTake}
           onCopy={beat => void copyBeatPrompt(beat)}
         />

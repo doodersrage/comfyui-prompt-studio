@@ -15,7 +15,14 @@ export type ComfyGalleryEntry = {
   parentGalleryEntryId?: string;
   /** How this entry was derived from parentGalleryEntryId. */
   derivedKind?:
-    'upscale' | 'refine' | 'soft-pass' | 'variation' | 'moire-clean' | 'face-detail' | 'controlnet';
+    | 'upscale'
+    | 'refine'
+    | 'soft-pass'
+    | 'variation'
+    | 'moire-clean'
+    | 'face-detail'
+    | 'controlnet'
+    | 'i2v';
   /** Resolved queue params (seed, width, cfg, etc.). */
   queueParams?: WorkflowParamValues;
   /**

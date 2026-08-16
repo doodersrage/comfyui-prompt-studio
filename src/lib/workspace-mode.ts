@@ -41,6 +41,7 @@ export const SIMPLE_NAV_HREFS = [
   '/m',
   '/',
   '/character',
+  '/video',
   '/refine',
   '/compose',
   '/inpaint',

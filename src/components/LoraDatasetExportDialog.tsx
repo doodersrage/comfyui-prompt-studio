@@ -8,6 +8,7 @@ import type { LoraCaptionMode } from '@/lib/gallery-lora-dataset-export';
 import type { LoraDatasetExportUiOptions } from '@/lib/lora-dataset-export-ui';
 import { normalizeLoraDatasetExportPrefs } from '@/lib/lora-train-job';
 import { loadSettingsCache, saveSharedSettings } from '@/lib/settings-cache';
+import { getCharacter, loraTriggerFromCharacter } from '@/lib/character-os';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 
 type LoraDatasetExportDialogProps = {
@@ -33,7 +34,10 @@ export default function LoraDatasetExportDialog({
       loadSettingsCache().shared.loraDatasetExportPrefs
     );
     scheduleAfterCommit(() => {
-      setTriggerWord(prefs.triggerWord ?? '');
+      const characterTrigger = loraTriggerFromCharacter(
+        getCharacter(loadSettingsCache().shared.activeCharacterId)
+      );
+      setTriggerWord(prefs.triggerWord || characterTrigger || '');
       setCaptionMode(prefs.captionMode ?? 'prompt');
     });
   }, [open]);

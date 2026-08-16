@@ -8,6 +8,7 @@ export const GALLERY_DERIVED_KIND_FILTERS = [
   'moire-clean',
   'face-detail',
   'controlnet',
+  'i2v',
 ] as const satisfies ReadonlyArray<NonNullable<ComfyGalleryEntry['derivedKind']>>;
 
 export type GalleryDerivedKindFilter = (typeof GALLERY_DERIVED_KIND_FILTERS)[number];
@@ -30,6 +31,8 @@ export function galleryDerivedKindLabel(
       return 'face-detailed from prior';
     case 'controlnet':
       return 'ControlNet from prior';
+    case 'i2v':
+      return 'animated from still';
     default:
       return undefined;
   }
@@ -51,6 +54,8 @@ export function galleryDerivedKindChipLabel(kind: GalleryDerivedKindFilter): str
       return 'Face detail';
     case 'controlnet':
       return 'ControlNet';
+    case 'i2v':
+      return 'I2V';
     default:
       return kind;
   }

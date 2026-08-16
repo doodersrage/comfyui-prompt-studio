@@ -1126,8 +1126,11 @@ async function requeueCloudJobFromEntry(
       ...(seed != null ? { seed } : {}),
     },
     ...resolveCloudQueueExtras(engineId, {
-      hasInputImage: Boolean(entry.queueParams?.inputImageFilename),
-      inputImageFilename: entry.queueParams?.inputImageFilename,
+      hasInputImage: Boolean(
+        entry.queueParams?.inputImageFilename || loadSettingsCache().shared.ipAdapterImageFilename
+      ),
+      inputImageFilename:
+        entry.queueParams?.inputImageFilename || loadSettingsCache().shared.ipAdapterImageFilename,
     }),
   });
   if (!queued.ok || !queued.promptId) {

@@ -16,5 +16,8 @@ describe('gallery-derived-kind', () => {
   it('exposes the full filter set', () => {
     assert.ok(GALLERY_DERIVED_KIND_FILTERS.includes('controlnet'));
     assert.ok(GALLERY_DERIVED_KIND_FILTERS.includes('face-detail'));
+    assert.ok(GALLERY_DERIVED_KIND_FILTERS.includes('i2v'));
+    assert.match(galleryDerivedKindLabel('i2v') ?? '', /animated/i);
+    assert.equal(galleryDerivedKindChipLabel('i2v'), 'I2V');
   });
 });

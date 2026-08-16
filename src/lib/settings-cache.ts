@@ -471,6 +471,8 @@ export type SharedToolSettings = {
   sessionLlmApiKey?: string;
   /** Pinned character appearance block injected into Character/Duo generations. */
   activeCharacterDescriptor?: string;
+  /** Active Character OS record id (`comfy-prompt-characters-v1`). */
+  activeCharacterId?: string;
   /** KSampler preset tier applied when queueing (base, optimized, max compatible, or max quality). */
   modelSamplerPreset?: ModelSamplerPresetTier;
   /** Optional sidebar overrides for KSampler fields; blank = use preset defaults. */
