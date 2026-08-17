@@ -25,6 +25,7 @@ import {
   resolveRoleplayPersonaPrompt,
   resolveRoleplaySetting,
   resolveRoleplayToneAndContent,
+  roleplayStoryPhase,
   roleplayToneLine,
   roleplayToneTemperature,
   templateRoleplayBio,
@@ -209,6 +210,13 @@ function hasRoleplayPlot(story: RoleplayStoryBeat[] | undefined): boolean {
   return Boolean(lastRoleplayPlotBeat(story));
 }
 
+function stampFinaleScenes(scenes: RoleplayScene[], finale: boolean): RoleplayScene[] {
+  if (!finale) {
+    return scenes;
+  }
+  return scenes.map(scene => ({ ...scene, kind: 'ending' as const }));
+}
+
 async function llmJson(options: {
   system: string;
   user: string;
@@ -336,7 +344,12 @@ export async function generateRoleplayScenes(
     options.characterName
   );
   const continuing = hasRoleplayPlot(options.story);
+  const phase = roleplayStoryPhase(options.story);
   const rejectedScenes = options.rejectedScenes ?? [];
+  if (phase === 'complete') {
+    return { scenes: [], provider: 'template' };
+  }
+  const finale = phase === 'finale';
   const fallback = templateRoleplayScenes(
     options.personaId,
     options.customPersona,
@@ -364,9 +377,13 @@ ${toneLine(tone)}
 ${uncensoredAdultLine(content)}
 ${settingCue}
 ${wardrobeCue}
-Return ONLY JSON: {"scenes":[{"title":"","blurb":""}]}
+Return ONLY JSON: {"scenes":[{"title":"","blurb":""${finale ? ',"kind":"ending"' : ''}}]}
 - Exactly 4 scenes. Titles 2–6 words. Blurbs one sentence, visual, actionable.
-- Each option is a different way THIS character's story continues from the last chosen beat.
+${
+  finale
+    ? '- These are ENDINGS: last stills that close the story. Resolution, twist, fade-out, or aftermath. Do not tease a sequel still.'
+    : "- Each option is a different way THIS character's story continues from the last chosen beat."
+}
 - The four stills must not look alike: vary action, place or time of day, wardrobe or who else is in frame, and pose.
 - At least two options must change location, time of day, or wardrobe. Do not offer four angles on the same room and pose.
 - Do not start every title with the last beat's words. Do not paraphrase an earlier blurb.
@@ -381,24 +398,27 @@ ${
       formatRoleplayBio(bio),
       formatRoleplayStoryDigest(options.story),
       formatRoleplayAvoidedScenes(rejectedScenes),
-      continuing
-        ? 'The player just picked the last beat. Write four mutually exclusive next moments that follow from it — four different photographs, not four captions for the same one.'
-        : 'No plot yet. Write four opening options for this character that would look like four different photographs.',
+      finale
+        ? 'The plot is complete. Write four mutually exclusive endings that follow from the last chosen beat — four last photographs, not four captions for the same one.'
+        : continuing
+          ? 'The player just picked the last beat. Write four mutually exclusive next moments that follow from it — four different photographs, not four captions for the same one.'
+          : 'No plot yet. Write four opening options for this character that would look like four different photographs.',
       options.extraHints?.trim() ? `Player notes: ${options.extraHints.trim()}` : '',
       setting ? `Setting: ${setting}` : '',
       options.avoidedTokensInstruction ?? '',
-      continuing ? 'Four continuing scenes.' : 'Four opening scenes.',
+      finale ? 'Four endings.' : continuing ? 'Four continuing scenes.' : 'Four opening scenes.',
     ]
       .filter(Boolean)
       .join('\n\n'),
   });
   if (!raw) {
-    return { scenes: fallback, provider: 'template' };
+    return { scenes: stampFinaleScenes(fallback, finale), provider: 'template' };
   }
   const parsed = parseRoleplayScenes(extractJsonValue(raw));
   const scenes = mergeRoleplaySceneOptions(parsed, fallback, options.story, 4, rejectedScenes);
+  const next = stampFinaleScenes(scenes.length > 0 ? scenes : fallback, finale);
   return {
-    scenes: scenes.length > 0 ? scenes : fallback,
+    scenes: next,
     provider: parsed.length > 0 ? 'llm' : 'template',
   };
 }
@@ -457,7 +477,11 @@ ${wardrobeCue}
         ? ' that already matches the rating (skin, wardrobe state, sexual heat) — not a fully clothed yearbook photo'
         : ' — not a crowded plot'
     }.
-- ${styleLine} No camera brand names, no quality-tag soup, no comic-book lettering.`,
+${
+  situation.kind === 'ending'
+    ? '- This is the LAST still of the story. Resolve or fade out. Do not stage a cliffhanger that needs another frame.\n'
+    : ''
+}- ${styleLine} No camera brand names, no quality-tag soup, no comic-book lettering.`,
     userMessage: [
       formatRoleplayBio(bio),
       formatRoleplayStoryDigest(options.story),

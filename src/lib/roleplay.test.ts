@@ -37,6 +37,10 @@ import {
   lastCompletedRoleplayStillUrl,
   MAX_ROLEPLAY_STILL_TAKES,
   MAX_ROLEPLAY_CLIP_TAKES,
+  MAX_ROLEPLAY_PLOT_BEATS,
+  roleplayPlotBeatCount,
+  roleplayStoryPhase,
+  formatRoleplayStoryProgress,
   normalizeRoleplayIsolateSubject,
   normalizeRoleplayPlayAs,
   resolveRoleplaySetting,
@@ -274,17 +278,35 @@ describe('roleplay parsers', () => {
     assert.equal(normalizeRoleplayIsolateSubject(false), false);
   });
 
-  it('caps story beats', () => {
-    let story = appendRoleplayStoryBeat([], { id: 'a', title: 'A', blurb: 'a' });
-    for (let index = 0; index < 20; index += 1) {
+  it('closes the episode at 12 panels (first look, ten plot beats, ending)', () => {
+    let story = appendRoleplayStoryBeat(
+      [],
+      roleplayIntroScene({ name: 'Crisp', look: 'a toaster with a scarf', personality: 'sincere' })
+    );
+    assert.equal(roleplayStoryPhase(story), 'open');
+    for (let index = 0; index < MAX_ROLEPLAY_PLOT_BEATS; index += 1) {
       story = appendRoleplayStoryBeat(story, {
         id: `s${index}`,
         title: `Beat ${index}`,
         blurb: 'x',
       });
     }
-    assert.equal(story.length, 12);
-    assert.equal(story[0]?.title, 'Beat 8');
+    assert.equal(roleplayPlotBeatCount(story), MAX_ROLEPLAY_PLOT_BEATS);
+    assert.equal(roleplayStoryPhase(story), 'finale');
+    assert.equal(story[0]?.id, ROLEPLAY_INTRO_SCENE_ID);
+
+    const endings = templateRoleplayScenes('raccoon-pirate', undefined, story, 'Crisp');
+    assert.equal(endings.length, 4);
+    assert.ok(endings.every(scene => scene.kind === 'ending'));
+
+    story = appendRoleplayStoryBeat(story, endings[0]!);
+    assert.equal(roleplayStoryPhase(story), 'complete');
+    assert.equal(story.length, 1 + MAX_ROLEPLAY_PLOT_BEATS + 1);
+    assert.equal(story.at(-1)?.kind, 'ending');
+    const frozen = appendRoleplayStoryBeat(story, { id: 'extra', title: 'Too late', blurb: 'nope' });
+    assert.equal(frozen, story);
+    assert.equal(formatRoleplayStoryProgress(story).heading, 'The end');
+    assert.match(formatRoleplayStoryDigest(story), /already ended/i);
   });
 
   it('builds an establishing first-look still from the bio', () => {

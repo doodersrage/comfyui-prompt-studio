@@ -25,10 +25,13 @@ export type RoleplayBio = {
   catchphrase?: string;
 };
 
+export type RoleplaySceneKind = 'plot' | 'ending';
+
 export type RoleplayScene = {
   id: string;
   title: string;
   blurb: string;
+  kind?: RoleplaySceneKind;
 };
 
 export type RoleplayStillStatus = 'writing' | 'queued' | 'running' | 'completed' | 'error';
@@ -1356,7 +1359,12 @@ export function parseRoleplayScenes(payload: unknown): RoleplayScene[] {
     if (!title) {
       continue;
     }
-    scenes.push({ id: slugId(title, index), title, blurb });
+    scenes.push({
+      id: slugId(title, index),
+      title,
+      blurb,
+      ...(record.kind === 'ending' || record.kind === 'plot' ? { kind: record.kind } : {}),
+    });
   }
   return scenes.slice(0, 6);
 }
@@ -1557,7 +1565,9 @@ export function usedRoleplaySceneTitles(story: Array<{ title: string }> | undefi
 export function lastRoleplayPlotBeat(
   story: RoleplayStoryBeat[] | undefined
 ): RoleplayStoryBeat | undefined {
-  return (story ?? []).filter(beat => beat.id !== ROLEPLAY_INTRO_SCENE_ID).at(-1);
+  return (story ?? [])
+    .filter(beat => beat.id !== ROLEPLAY_INTRO_SCENE_ID && beat.kind !== 'ending')
+    .at(-1);
 }
 
 export const MAX_ROLEPLAY_REJECTED_SCENES = 24;
@@ -1618,6 +1628,7 @@ export function formatRoleplayStoryDigest(story: RoleplayStoryBeat[] | undefined
   const recent = (story ?? []).slice(-8);
   const variety =
     'Four options must look like four different photographs: change the action, the place or time of day, and the pose. Do not offer the same tableau with a new verb.';
+  const phase = roleplayStoryPhase(story);
   if (recent.length === 0) {
     return [
       'Story so far: nothing yet — this is the opening beat. Write four opening options.',
@@ -1625,14 +1636,31 @@ export function formatRoleplayStoryDigest(story: RoleplayStoryBeat[] | undefined
     ].join('\n');
   }
   const lines = recent.map((beat, index) => `${index + 1}. ${beat.title} — ${beat.blurb}`);
-  const lastPlot = lastRoleplayPlotBeat(recent);
+  const lastPlot = lastRoleplayPlotBeat(story);
   const played = formatRoleplayAvoidedScenes(
     (story ?? []).filter(beat => beat.id !== ROLEPLAY_INTRO_SCENE_ID)
   );
+  if (phase === 'complete') {
+    return [
+      `Story so far:\n${lines.join('\n')}`,
+      'This episode already ended. Do not write more scenes.',
+    ].join('\n');
+  }
   if (!lastPlot) {
     return [
       `Story so far:\n${lines.join('\n')}`,
       'Write four opening plot options — first things that can happen to this character.',
+      variety,
+    ]
+      .filter(Boolean)
+      .join('\n');
+  }
+  if (phase === 'finale') {
+    return [
+      `Story so far:\n${lines.join('\n')}`,
+      `Last chosen beat (end from here): ${lastPlot.title} — ${lastPlot.blurb}`,
+      played,
+      'Write four mutually exclusive ENDINGS — last stills, not new plot forks. Resolution, twist, fade-out, or aftermath. The story stops after the player picks one.',
       variety,
     ]
       .filter(Boolean)
@@ -1697,6 +1725,39 @@ const ROLEPLAY_CONTINUATION_FORKS: RoleplayContinuationFork[] = [
   },
 ];
 
+const ROLEPLAY_ENDING_FORKS: RoleplayContinuationFork[] = [
+  {
+    titlePrefix: 'Last light',
+    blurb: (name, last) =>
+      `${name} at dusk after ${last.title.toLowerCase()} — the trouble is over, the face is readable, the place is emptying.`,
+  },
+  {
+    titlePrefix: 'Walk away',
+    blurb: (name, last) =>
+      `${name} leaves ${last.title.toLowerCase()} for good, one look back, no one following.`,
+  },
+  {
+    titlePrefix: 'Aftermath',
+    blurb: (name, last) =>
+      `Morning after ${last.title.toLowerCase()}: ${name} in the wreckage or the quiet, clothes and light telling the ending.`,
+  },
+  {
+    titlePrefix: 'Credits pose',
+    blurb: (name, last) =>
+      `${name} holds still for a last portrait that resolves ${last.title.toLowerCase()} — no new plot, just the landing.`,
+  },
+  {
+    titlePrefix: 'Door closes',
+    blurb: (name, last) =>
+      `The door on ${last.title.toLowerCase()} shuts with ${name} on the other side. Story over.`,
+  },
+  {
+    titlePrefix: 'One last look',
+    blurb: (name, last) =>
+      `${name} looks at what ${last.title.toLowerCase()} cost, then the frame holds and fades.`,
+  },
+];
+
 function uniqueRoleplayTitle(title: string, used: Set<string>): string {
   const base = clipRoleplayTitle(title);
   if (!used.has(roleplaySceneTitleKey(base))) {
@@ -1735,6 +1796,42 @@ export function continueRoleplayScenes(
       id: slugId(title, scenes.length),
       title,
       blurb: fork.blurb(name, last),
+    };
+    if (
+      [...(story ?? []), ...(avoid ?? []), ...scenes].some(prior =>
+        roleplayScenesTooSimilar(scene, prior)
+      )
+    ) {
+      continue;
+    }
+    used.add(roleplaySceneTitleKey(title));
+    used.add(roleplaySceneCoreTitle(title));
+    scenes.push(scene);
+  }
+  return scenes;
+}
+
+export function continueRoleplayEndings(
+  last: RoleplayStoryBeat,
+  story?: RoleplayStoryBeat[],
+  characterName?: string,
+  avoid?: Array<{ title: string; blurb?: string }>
+): RoleplayScene[] {
+  const name = characterName?.trim() || 'You';
+  const used = usedRoleplaySceneTitles([...(story ?? []), ...(avoid ?? [])]);
+  const start = ((story?.length ?? 0) + (avoid?.length ?? 0)) % ROLEPLAY_ENDING_FORKS.length;
+  const rotated = [...ROLEPLAY_ENDING_FORKS.slice(start), ...ROLEPLAY_ENDING_FORKS.slice(0, start)];
+  const scenes: RoleplayScene[] = [];
+  for (const fork of rotated) {
+    if (scenes.length >= 4) {
+      break;
+    }
+    const title = uniqueRoleplayTitle(fork.titlePrefix, used);
+    const scene: RoleplayScene = {
+      id: slugId(title, scenes.length),
+      title,
+      blurb: fork.blurb(name, last),
+      kind: 'ending',
     };
     if (
       [...(story ?? []), ...(avoid ?? []), ...scenes].some(prior =>
@@ -1823,7 +1920,14 @@ export function templateRoleplayScenes(
   characterName?: string,
   avoid?: Array<{ title: string; blurb?: string }>
 ): RoleplayScene[] {
+  const phase = roleplayStoryPhase(story);
+  if (phase === 'complete') {
+    return [];
+  }
   const lastPlot = lastRoleplayPlotBeat(story);
+  if (phase === 'finale' && lastPlot) {
+    return continueRoleplayEndings(lastPlot, story, characterName, avoid);
+  }
   if (lastPlot) {
     return continueRoleplayScenes(lastPlot, story, characterName, avoid);
   }
@@ -1861,7 +1965,97 @@ export function roleplayIntroScene(bio: RoleplayBio): RoleplayScene {
   };
 }
 
+/** Plot scenes after first look, before the closing still. Intro + 10 + ending = 12 panels. */
+export const MAX_ROLEPLAY_PLOT_BEATS = 10;
+/** Intro + plot + one ending. Slack for older 12-beat sessions. */
 export const MAX_ROLEPLAY_STORY_BEATS = 12;
+/** How much story the scene/prompt LLM is allowed to see. */
+export const MAX_ROLEPLAY_STORY_CONTEXT = 12;
+
+export type RoleplayStoryPhase = 'open' | 'mid' | 'finale' | 'complete';
+
+export function isRoleplayEndingBeat(
+  beat: Pick<RoleplayStoryBeat, 'kind' | 'id'> | undefined
+): boolean {
+  return beat?.kind === 'ending';
+}
+
+export function roleplayPlotBeatCount(story: RoleplayStoryBeat[] | undefined): number {
+  return (story ?? []).filter(beat => beat.id !== ROLEPLAY_INTRO_SCENE_ID && beat.kind !== 'ending')
+    .length;
+}
+
+export function roleplayStoryPhase(story: RoleplayStoryBeat[] | undefined): RoleplayStoryPhase {
+  if ((story ?? []).some(beat => beat.kind === 'ending')) {
+    return 'complete';
+  }
+  if (roleplayPlotBeatCount(story) >= MAX_ROLEPLAY_PLOT_BEATS) {
+    return 'finale';
+  }
+  if (roleplayPlotBeatCount(story) === 0) {
+    return 'open';
+  }
+  return 'mid';
+}
+
+export function formatRoleplayStoryProgress(story: RoleplayStoryBeat[] | undefined): {
+  phase: RoleplayStoryPhase;
+  heading: string;
+  hint: string;
+  rollLabel: string;
+  rerollLabel: string;
+} {
+  const phase = roleplayStoryPhase(story);
+  const plot = roleplayPlotBeatCount(story);
+  if (phase === 'complete') {
+    return {
+      phase,
+      heading: 'The end',
+      hint: 'This episode is over. Download the story, cut a film, or start another with this cast.',
+      rollLabel: 'The end',
+      rerollLabel: 'The end',
+    };
+  }
+  if (phase === 'finale') {
+    return {
+      phase,
+      heading: 'How does it end?',
+      hint: 'Four closing stills. Pick one and the reel stops — earlier panels stay.',
+      rollLabel: 'Roll four endings',
+      rerollLabel: 'Reroll four endings',
+    };
+  }
+  if (phase === 'open') {
+    return {
+      phase,
+      heading: 'What happens next?',
+      hint: `Tap a beat to start the plot. ${MAX_ROLEPLAY_PLOT_BEATS} scenes, then an ending.`,
+      rollLabel: 'Roll four scenes',
+      rerollLabel: 'Reroll four scenes',
+    };
+  }
+  return {
+    phase,
+    heading: 'What happens next?',
+    hint: `Plot ${plot} of ${MAX_ROLEPLAY_PLOT_BEATS}. After that, four endings close the episode.`,
+    rollLabel: 'Roll four scenes',
+    rerollLabel: 'Reroll four scenes',
+  };
+}
+
+export function capRoleplayStoryBeats(story: RoleplayStoryBeat[] | undefined): RoleplayStoryBeat[] {
+  const beats = story ?? [];
+  if (beats.length <= MAX_ROLEPLAY_STORY_BEATS) {
+    return beats;
+  }
+  const introIndex = beats.findIndex(beat => beat.id === ROLEPLAY_INTRO_SCENE_ID);
+  if (introIndex < 0) {
+    return beats.slice(-MAX_ROLEPLAY_STORY_BEATS);
+  }
+  const intro = beats[introIndex];
+  const withoutIntro = beats.filter((_, index) => index !== introIndex);
+  return [intro, ...withoutIntro.slice(-(MAX_ROLEPLAY_STORY_BEATS - 1))];
+}
 
 export function appendRoleplayStoryBeat(
   story: RoleplayStoryBeat[] | undefined,
@@ -1869,12 +2063,27 @@ export function appendRoleplayStoryBeat(
   extras?: Partial<
     Pick<
       RoleplayStoryBeat,
-      'prompt' | 'promptId' | 'imageUrl' | 'stillStatus' | 'stillTakes' | 'stillTakeIndex'
+      'prompt' | 'promptId' | 'imageUrl' | 'stillStatus' | 'stillTakes' | 'stillTakeIndex' | 'kind'
     >
   >
 ): RoleplayStoryBeat[] {
-  const next: RoleplayStoryBeat = { ...scene, at: Date.now(), ...extras };
-  return [...(story ?? []), next].slice(-MAX_ROLEPLAY_STORY_BEATS);
+  const current = story ?? [];
+  if (roleplayStoryPhase(current) === 'complete') {
+    return current;
+  }
+  const kind: RoleplaySceneKind | undefined =
+    roleplayStoryPhase(current) === 'finale' || scene.kind === 'ending' || extras?.kind === 'ending'
+      ? 'ending'
+      : scene.kind === 'plot' || extras?.kind === 'plot'
+        ? 'plot'
+        : undefined;
+  const next: RoleplayStoryBeat = {
+    ...scene,
+    at: Date.now(),
+    ...extras,
+    ...(kind ? { kind } : {}),
+  };
+  return capRoleplayStoryBeats([...current, next]);
 }
 
 export function patchRoleplayStoryBeat(

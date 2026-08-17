@@ -10,7 +10,7 @@ import {
   getRoleplayArchetype,
   lastRoleplayStillImage,
   MAX_ROLEPLAY_REJECTED_SCENES,
-  MAX_ROLEPLAY_STORY_BEATS,
+  capRoleplayStoryBeats,
   normalizeRoleplayCharacterName,
   normalizeRoleplayContent,
   normalizeRoleplayIsolateSubject,
@@ -62,6 +62,9 @@ function normalizeStoryBeat(value: unknown): RoleplayStoryBeat | null {
   const id = readString(record.id, 80) || title;
   const at = typeof record.at === 'number' && Number.isFinite(record.at) ? record.at : Date.now();
   const beat: RoleplayStoryBeat = { id: id || title, title, blurb, at };
+  if (record.kind === 'ending' || record.kind === 'plot') {
+    beat.kind = record.kind;
+  }
   if (typeof record.prompt === 'string' && record.prompt.trim()) {
     beat.prompt = record.prompt.trim().slice(0, 4000);
   }
@@ -142,10 +145,11 @@ export function normalizeRoleplayLibrarySnapshot(value: unknown): RoleplayToolCa
   }
   const record = value as Record<string, unknown>;
   const story = Array.isArray(record.story)
-    ? record.story
-        .map(entry => normalizeStoryBeat(entry))
-        .filter((entry): entry is RoleplayStoryBeat => Boolean(entry))
-        .slice(-MAX_ROLEPLAY_STORY_BEATS)
+    ? capRoleplayStoryBeats(
+        record.story
+          .map(entry => normalizeStoryBeat(entry))
+          .filter((entry): entry is RoleplayStoryBeat => Boolean(entry))
+      )
     : [];
   const bio = normalizeBio(record.bio);
   const rejectedScenes = Array.isArray(record.rejectedScenes)

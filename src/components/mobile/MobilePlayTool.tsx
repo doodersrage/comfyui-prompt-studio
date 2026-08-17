@@ -33,6 +33,7 @@ import {
   beginRoleplayStillRetryPatch,
   canRetryRoleplayStill,
   formatRoleplayBio,
+  formatRoleplayStoryProgress,
   lastRoleplayPlotBeat,
   MAX_ROLEPLAY_CHARACTER_NAME,
   mergeRoleplayRejectedScenes,
@@ -43,6 +44,7 @@ import {
   roleplayIntroScene,
   roleplayStillQueueResultPatch,
   roleplayStillTakes,
+  roleplayStoryPhase,
   selectRoleplayStillTakePatch,
   type RoleplayBio,
   type RoleplayScene,
@@ -104,6 +106,7 @@ export default function MobilePlayTool() {
   const isolateSubject = normalizeRoleplayIsolateSubject(toolSettings.isolateSubject);
   const bio = toolSettings.bio;
   const story = toolSettings.story ?? EMPTY_STORY;
+  const storyProgress = formatRoleplayStoryProgress(story);
   const autoQueue = toolSettings.autoQueue !== false;
   const storyRef = useRef(story);
   useEffect(() => {
@@ -464,9 +467,15 @@ export default function MobilePlayTool() {
         setError('Capture a plate first.');
         return;
       }
+      if (roleplayStoryPhase(storyRef.current) === 'complete') {
+        setError('This story already ended. Start a new session to play another.');
+        return;
+      }
       setPlayingId(scene.id);
       setError(null);
-      const writingStory = appendRoleplayStoryBeat(storyRef.current, scene, {
+      const playing: RoleplayScene =
+        roleplayStoryPhase(storyRef.current) === 'finale' ? { ...scene, kind: 'ending' } : scene;
+      const writingStory = appendRoleplayStoryBeat(storyRef.current, playing, {
         stillStatus: 'writing',
       });
       const beat = writingStory[writingStory.length - 1];
@@ -479,13 +488,17 @@ export default function MobilePlayTool() {
         const response = await fetch('/api/roleplay', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody('prompt', scene)),
+          body: JSON.stringify(requestBody('prompt', playing)),
         });
         const data = (await response.json()) as RoleplayApiPayload;
         if (!response.ok || !data.prompt?.trim()) {
           throw new Error(data.error ?? 'Could not write a still.');
         }
         const nextStory = await commitStill(data, beat, bio, writingStory);
+        if (roleplayStoryPhase(nextStory) === 'complete') {
+          setScenes([]);
+          return;
+        }
         const nextScenes = await fetch('/api/roleplay', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -754,7 +767,8 @@ export default function MobilePlayTool() {
 
       {scenes.length > 0 ? (
         <div className="space-y-2">
-          <p className="type-caption text-[var(--text-muted)]">Beats</p>
+          <p className="type-caption text-[var(--text-muted)]">{storyProgress.heading}</p>
+          <p className="text-xs text-[var(--text-muted)]">{storyProgress.hint}</p>
           <div className="grid gap-2">
             {scenes.map(scene => (
               <button
@@ -772,6 +786,23 @@ export default function MobilePlayTool() {
               </button>
             ))}
           </div>
+        </div>
+      ) : null}
+
+      {storyProgress.phase === 'complete' ? (
+        <div className="space-y-2">
+          <p className="text-sm text-[var(--text-secondary)]">{storyProgress.hint}</p>
+          <Button
+            variant="secondary"
+            disabled={bioLoading || playingId !== null}
+            onClick={() => {
+              updateToolSettings({ story: [], rejectedScenes: [] });
+              setScenes([]);
+            }}
+            className="w-full justify-center"
+          >
+            Restart story
+          </Button>
         </div>
       ) : null}
 

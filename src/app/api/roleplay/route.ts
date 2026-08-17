@@ -13,6 +13,7 @@ import {
   parseRoleplayScenes,
   resolveRoleplayLockedCharacterName,
   resolveRoleplayToneAndContent,
+  MAX_ROLEPLAY_STORY_CONTEXT,
   type RoleplayBio,
   type RoleplayScene,
   type RoleplayStoryBeat,
@@ -83,7 +84,7 @@ function parseStory(raw: unknown): RoleplayStoryBeat[] {
       return { id: id || title, title, blurb, at };
     })
     .filter((entry): entry is RoleplayStoryBeat => Boolean(entry))
-    .slice(-12);
+    .slice(-MAX_ROLEPLAY_STORY_CONTEXT);
 }
 
 export async function GET() {

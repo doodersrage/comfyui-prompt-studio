@@ -66,6 +66,7 @@ import {
   formatRoleplayBio,
   getRoleplayArchetype,
   MAX_ROLEPLAY_CHARACTER_NAME,
+  formatRoleplayStoryProgress,
   lastCompletedRoleplayStillUrl,
   lastRoleplayPlotBeat,
   lastRoleplayStillImage,
@@ -79,6 +80,7 @@ import {
   roleplayClipTakes,
   roleplayStillQueueResultPatch,
   roleplayStillTakes,
+  roleplayStoryPhase,
   rollRoleplaySetting,
   selectRoleplayClipTakePatch,
   selectRoleplayStillTakePatch,
@@ -163,6 +165,7 @@ export default function RoleplayTool() {
   const playAs = normalizeRoleplayPlayAs(toolSettings.playAs);
   const bio = toolSettings.bio;
   const story = toolSettings.story ?? [];
+  const storyProgress = formatRoleplayStoryProgress(story);
   const rejectedScenesMemory = useMemo(
     () => toolSettings.rejectedScenes ?? [],
     [toolSettings.rejectedScenes]
@@ -802,6 +805,10 @@ export default function RoleplayTool() {
       setError('Write a bio first — the scenes need someone to happen to.');
       return;
     }
+    if (roleplayStoryPhase(storyRef.current) === 'complete') {
+      setScenes([]);
+      return;
+    }
     setScenesLoading(true);
     setError(null);
     try {
@@ -836,10 +843,16 @@ export default function RoleplayTool() {
         setError('Upload a photo or pick a gallery still first.');
         return;
       }
+      if (roleplayStoryPhase(storyRef.current) === 'complete') {
+        setError('This story already ended. Restart to play another.');
+        return;
+      }
       setPlayingId(scene.id);
       setError(null);
-      const rejectedScenes = rememberRejectedScenes(scenes, scene);
-      const writingStory = appendRoleplayStoryBeat(storyRef.current, scene, {
+      const playing: RoleplayScene =
+        roleplayStoryPhase(storyRef.current) === 'finale' ? { ...scene, kind: 'ending' } : scene;
+      const rejectedScenes = rememberRejectedScenes(scenes, playing);
+      const writingStory = appendRoleplayStoryBeat(storyRef.current, playing, {
         stillStatus: skipStillForClip ? undefined : 'writing',
       });
       const beat = writingStory[writingStory.length - 1];
@@ -852,7 +865,7 @@ export default function RoleplayTool() {
         const response = await fetch('/api/roleplay', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody('prompt', scene)),
+          body: JSON.stringify(requestBody('prompt', playing)),
         });
         const data = (await response.json()) as RoleplayApiPayload;
         if (!response.ok || !data.prompt?.trim()) {
@@ -861,6 +874,10 @@ export default function RoleplayTool() {
         const nextStory = await commitStill(data, beat, bio, writingStory, {
           queueStill: autoQueue && !skipStillForClip,
         });
+        if (roleplayStoryPhase(nextStory) === 'complete') {
+          setScenes([]);
+          return;
+        }
         const nextScenes = await fetch('/api/roleplay', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1325,6 +1342,11 @@ export default function RoleplayTool() {
     [toolSettings, updateToolSettings]
   );
 
+  const restartStory = useCallback(() => {
+    updateToolSettings({ story: [], rejectedScenes: [] });
+    setScenes([]);
+  }, [updateToolSettings]);
+
   const surpriseCast = useCallback(() => {
     const pick = ROLEPLAY_ARCHETYPES[Math.floor(Math.random() * ROLEPLAY_ARCHETYPES.length)];
     shelfAndStartNew({ personaId: pick.id, customPersona: undefined });
@@ -1762,15 +1784,8 @@ export default function RoleplayTool() {
               Clear bio
             </Button>
           ) : null}
-          {story.length > 0 ? (
-            <Button
-              variant="ghost"
-              disabled={busy}
-              onClick={() => {
-                updateToolSettings({ story: [], rejectedScenes: [] });
-                setScenes([]);
-              }}
-            >
+          {story.length > 0 && storyProgress.phase !== 'complete' ? (
+            <Button variant="ghost" disabled={busy} onClick={restartStory}>
               Restart story
             </Button>
           ) : null}
@@ -1876,82 +1891,94 @@ export default function RoleplayTool() {
         />
       </ToolSection>
 
-      <ToolSection title="What happens next?">
-        <p className="text-sm text-[var(--text-muted)]">
-          Tap a beat to continue the story. The next four options fork from that pick, and unpicked
-          cards stay off the next rolls.
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <ChipButton
-            active={beatOutput === 'still'}
-            disabled={busy}
-            onClick={() => updateToolSettings({ beatOutput: 'still' })}
-          >
-            Still
-          </ChipButton>
-          <ChipButton
-            active={beatOutput === 'clip'}
-            disabled={busy}
-            onClick={() => updateToolSettings({ beatOutput: 'clip' })}
-          >
-            Clip
-          </ChipButton>
-        </div>
-        <label className="flex cursor-pointer items-start gap-3 text-sm text-[var(--text-secondary)]">
-          <input
-            type="checkbox"
-            checked={autoQueue}
-            disabled={busy}
-            onChange={event => updateToolSettings({ autoQueue: event.target.checked })}
-            className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] ${accentFocusClass(ACCENT)}`}
-          />
-          <span>
-            Queue a {beatOutput === 'clip' ? 'clip' : 'still'} when I write a bio or pick a scene
-            <span className="mt-0.5 block text-xs text-[var(--text-muted)]">
-              {beatOutput === 'clip'
-                ? 'Each scene queues a new clip from the beat prompt (T2V). From photo uses that photo as I2V, not the previous scene. Use Play another clip to reroll a take. Extend clip / Continue from last frame is the continuity action — Fal extend-video when the parent is already a public Fal URL, or after a successful Fal CDN upload of a local clip; otherwise last-frame I2V (Roleplay says so if the upload fails). Local WAN, Fal, or Replicate.'
-                : 'Uses the model and Fast/Good/Best from the sidebar. Turn off to write the prompt first.'}
-            </span>
-          </span>
-        </label>
-        <Button
-          variant="secondary"
-          loading={scenesLoading}
-          loadingLabel="Rolling scenes"
-          disabled={!bio || busy}
-          onClick={() => void rollScenes()}
-        >
-          {scenes.length > 0 ? 'Reroll four scenes' : 'Roll four scenes'}
-        </Button>
-        {scenes.length > 0 ? (
-          <div className="grid gap-2 sm:grid-cols-2">
-            {scenes.map(scene => (
-              <button
-                key={scene.id}
-                type="button"
+      <ToolSection title={storyProgress.heading}>
+        <p className="text-sm text-[var(--text-muted)]">{storyProgress.hint}</p>
+        {storyProgress.phase === 'complete' ? (
+          <Button variant="secondary" disabled={busy} onClick={restartStory}>
+            Restart story
+          </Button>
+        ) : (
+          <>
+            <div className="flex flex-wrap gap-2">
+              <ChipButton
+                active={beatOutput === 'still'}
                 disabled={busy}
-                onClick={() => void playScene(scene)}
-                className={`rounded-[var(--radius-lg)] border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] ${
-                  playingId === scene.id
-                    ? 'border-[var(--accent-border)] bg-[var(--accent-soft)]'
-                    : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]'
-                }`}
+                onClick={() => updateToolSettings({ beatOutput: 'still' })}
               >
-                <span className="block text-sm font-medium text-[var(--text-primary)]">
-                  {scene.title}
+                Still
+              </ChipButton>
+              <ChipButton
+                active={beatOutput === 'clip'}
+                disabled={busy}
+                onClick={() => updateToolSettings({ beatOutput: 'clip' })}
+              >
+                Clip
+              </ChipButton>
+            </div>
+            <label className="flex cursor-pointer items-start gap-3 text-sm text-[var(--text-secondary)]">
+              <input
+                type="checkbox"
+                checked={autoQueue}
+                disabled={busy}
+                onChange={event => updateToolSettings({ autoQueue: event.target.checked })}
+                className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] ${accentFocusClass(ACCENT)}`}
+              />
+              <span>
+                Queue a {beatOutput === 'clip' ? 'clip' : 'still'} when I write a bio or pick a
+                scene
+                <span className="mt-0.5 block text-xs text-[var(--text-muted)]">
+                  {beatOutput === 'clip'
+                    ? 'Each scene queues a new clip from the beat prompt (T2V). From photo uses that photo as I2V, not the previous scene. Use Play another clip to reroll a take. Extend clip / Continue from last frame is the continuity action — Fal extend-video when the parent is already a public Fal URL, or after a successful Fal CDN upload of a local clip; otherwise last-frame I2V (Roleplay says so if the upload fails). Local WAN, Fal, or Replicate.'
+                    : 'Uses the model and Fast/Good/Best from the sidebar. Turn off to write the prompt first.'}
                 </span>
-                <span className="type-caption mt-1 block text-[var(--text-muted)]">
-                  {scene.blurb}
-                </span>
-                {playingId === scene.id ? (
-                  <span className="type-caption mt-2 block text-[var(--accent-text)]">
-                    {beatOutput === 'clip' ? 'Writing clip…' : 'Writing still…'}
-                  </span>
-                ) : null}
-              </button>
-            ))}
-          </div>
-        ) : null}
+              </span>
+            </label>
+            <Button
+              variant="secondary"
+              loading={scenesLoading}
+              loadingLabel="Rolling scenes"
+              disabled={!bio || busy}
+              onClick={() => void rollScenes()}
+            >
+              {scenes.length > 0 ? storyProgress.rerollLabel : storyProgress.rollLabel}
+            </Button>
+            {scenes.length > 0 ? (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {scenes.map(scene => (
+                  <button
+                    key={scene.id}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void playScene(scene)}
+                    className={`rounded-[var(--radius-lg)] border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] ${
+                      playingId === scene.id
+                        ? 'border-[var(--accent-border)] bg-[var(--accent-soft)]'
+                        : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]'
+                    }`}
+                  >
+                    <span className="block text-sm font-medium text-[var(--text-primary)]">
+                      {scene.title}
+                    </span>
+                    <span className="type-caption mt-1 block text-[var(--text-muted)]">
+                      {scene.blurb}
+                    </span>
+                    {playingId === scene.id ? (
+                      <span className="type-caption mt-2 block text-[var(--accent-text)]">
+                        {beatOutput === 'clip'
+                          ? scene.kind === 'ending'
+                            ? 'Writing ending clip…'
+                            : 'Writing clip…'
+                          : scene.kind === 'ending'
+                            ? 'Writing ending…'
+                            : 'Writing still…'}
+                      </span>
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </>
+        )}
         {error ? <FieldError>{error}</FieldError> : null}
       </ToolSection>
     </ToolLayout>
