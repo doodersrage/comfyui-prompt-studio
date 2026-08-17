@@ -13,7 +13,7 @@ The first tagged GitHub Release was [`Initial-Release`](https://github.com/doode
    - runs lint, unit tests, and `next build`
    - bumps `package.json` / `package-lock.json` and pushes `Release vX.Y.Z` plus tag `vX.Y.Z`
    - creates the GitHub Release with generated notes
-   - builds and pushes `ghcr.io/doodersrage/llm-prompt-studio:vX.Y.Z` and `:latest`
+   - builds and pushes `ghcr.io/doodersrage/llm-prompt-studio:X.Y.Z` and `:latest`
    - builds desktop installers and attaches them to the GitHub Release
 
 Use **dry run** to print the next version without tagging.

@@ -125,9 +125,9 @@ jobs:
           **Docker (GHCR):**
 
           \`\`\`bash
-          docker pull ${IMAGE}:${TAG}
+          docker pull ${IMAGE}:${VERSION}
           docker run -d --name comfyui-prompt-studio -p 127.0.0.1:47832:47832 \\
-            ${IMAGE}:${TAG}
+            ${IMAGE}:${VERSION}
           \`\`\`
 
           Desktop installers (\`.dmg\`, \`.exe\`, \`.deb\`) attach after the desktop job finishes.
