@@ -27,7 +27,6 @@ import {
   looksOf,
   forgetCharacterRecord,
   removeLook,
-  roleplayLibraryIdFromCharacter,
   subscribeCharacters,
   toggleLookKeeper,
 } from '@/lib/character-os';
@@ -47,13 +46,13 @@ import { isGalleryClipEntry } from '@/lib/roleplay-film';
 import GalleryEntryPreview from '@/components/ui/GalleryEntryPreview';
 import { selectCharacterKeepers } from '@/lib/gallery-lora-dataset-export';
 import {
-  applyRoleplayLibrarySession,
   deleteRoleplayLibrarySession,
-  getRoleplayLibrarySession,
+  resolveRoleplayContinueFromCharacter,
 } from '@/lib/roleplay-library';
 import { loadSettingsCache, saveSharedSettings, saveToolSettings } from '@/lib/settings-cache';
 import { continueClipActionLabel } from '@/lib/video-clip-mode';
 import { loadEngineSettings } from '@/lib/engine-settings';
+import { FieldError } from '@/components/ui/Field';
 
 type MediaTab = 'all' | 'stills' | 'clips' | 'keepers';
 
@@ -85,6 +84,7 @@ export default function CharacterHome({ characterId }: CharacterHomeProps) {
   const gallery = useSyncExternalStore(subscribeGallery, getGalleryCache, () => EMPTY_GALLERY);
   const [lookName, setLookName] = useState('');
   const [mediaTab, setMediaTab] = useState<MediaTab>('all');
+  const [continueError, setContinueError] = useState<string | null>(null);
 
   const character = characters.find(entry => entry.id === characterId) ?? getCharacter(characterId);
 
@@ -348,11 +348,13 @@ export default function CharacterHome({ characterId }: CharacterHomeProps) {
               variant="secondary"
               onClick={() => {
                 persistApply();
-                const sessionId = roleplayLibraryIdFromCharacter(character.id);
-                const session = sessionId ? getRoleplayLibrarySession(sessionId) : null;
-                if (session) {
-                  saveToolSettings('roleplay', applyRoleplayLibrarySession(session));
+                const result = resolveRoleplayContinueFromCharacter(character.id);
+                if (!result.ok) {
+                  setContinueError(result.message);
+                  return;
                 }
+                setContinueError(null);
+                saveToolSettings('roleplay', result.cache);
                 go('/roleplay');
               }}
             >
@@ -360,6 +362,7 @@ export default function CharacterHome({ characterId }: CharacterHomeProps) {
             </Button>
           </ToolActionRow>
         ) : null}
+        {continueError ? <FieldError>{continueError}</FieldError> : null}
         {visible.length === 0 ? (
           <EmptyState
             compact

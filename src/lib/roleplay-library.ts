@@ -9,6 +9,7 @@ import {
   CUSTOM_ROLEPLAY_PERSONA_ID,
   getRoleplayArchetype,
   lastRoleplayStillImage,
+  MAX_ROLEPLAY_REJECTED_SCENES,
   MAX_ROLEPLAY_STORY_BEATS,
   normalizeRoleplayCharacterName,
   normalizeRoleplayContent,
@@ -17,6 +18,7 @@ import {
   normalizeRoleplayTone,
   parseRoleplayAllowGore,
   parseRoleplayBio,
+  parseRoleplayScenes,
   ROLEPLAY_INTRO_SCENE_ID,
   type RoleplayBio,
   type RoleplayStoryBeat,
@@ -146,6 +148,9 @@ export function normalizeRoleplayLibrarySnapshot(value: unknown): RoleplayToolCa
         .slice(-MAX_ROLEPLAY_STORY_BEATS)
     : [];
   const bio = normalizeBio(record.bio);
+  const rejectedScenes = Array.isArray(record.rejectedScenes)
+    ? parseRoleplayScenes(record.rejectedScenes).slice(-MAX_ROLEPLAY_REJECTED_SCENES)
+    : [];
   return {
     personaId: readString(record.personaId, 80) || DEFAULT_ROLEPLAY_TOOL_CACHE.personaId,
     customPersona: readString(record.customPersona, 400) || undefined,
@@ -168,6 +173,7 @@ export function normalizeRoleplayLibrarySnapshot(value: unknown): RoleplayToolCa
     referenceIsolated: record.referenceIsolated === true,
     bio,
     story,
+    ...(rejectedScenes.length > 0 ? { rejectedScenes } : {}),
     autoQueue: record.autoQueue !== false,
     allowGore: parseRoleplayAllowGore(record.allowGore),
     activeSessionId: readString(record.activeSessionId, 80) || undefined,
@@ -329,8 +335,51 @@ export function startNewRoleplaySession(current: RoleplayToolCache): RoleplayToo
     // Explicit clears — updateToolSettings shallow-merges, so omitted keys keep the old story.
     bio: undefined,
     story: [],
+    rejectedScenes: [],
     activeSessionId: undefined,
   };
+}
+
+export type RoleplayContinueFromCast =
+  | { ok: true; session: RoleplayLibrarySession; cache: RoleplayToolCache }
+  | {
+      ok: false;
+      reason: 'not-roleplay-character' | 'session-missing';
+      message: string;
+    };
+
+/** Continue in Roleplay from a Cast character — honest when the library session is gone. */
+export function resolveRoleplayContinueFromCharacter(
+  characterId: string
+): RoleplayContinueFromCast {
+  const key = characterId.trim();
+  if (!key.startsWith('char-rp-')) {
+    return {
+      ok: false,
+      reason: 'not-roleplay-character',
+      message:
+        'This Cast entry was not started from Roleplay. Open Roleplay and Save to Cast, or continue from Library.',
+    };
+  }
+  const sessionId = key.slice('char-rp-'.length).trim();
+  if (!sessionId) {
+    return {
+      ok: false,
+      reason: 'not-roleplay-character',
+      message:
+        'This Cast entry was not started from Roleplay. Open Roleplay and Save to Cast, or continue from Library.',
+    };
+  }
+  const session = getRoleplayLibrarySession(sessionId);
+  if (!session) {
+    return {
+      ok: false,
+      reason: 'session-missing',
+      message:
+        'Roleplay session not found — it may have been deleted or aged out of the library (max 24). Open Roleplay to start again, or pick a shelved session from Library.',
+    };
+  }
+  return { ok: true, session, cache: applyRoleplayLibrarySession(session) };
 }
 
 /** Library plus the live Roleplay draft so Cast sees a bio that has not flushed yet. */

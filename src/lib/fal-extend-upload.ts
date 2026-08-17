@@ -1,5 +1,14 @@
 import { canFalExtendFromParentUrl } from './video-clip-mode';
 
+export type FalExtendParentResolve = {
+  /** Public Fal URL when extend can run; otherwise null. */
+  url: string | null;
+  /** True when a local/same-origin upload was attempted. */
+  uploadAttempted: boolean;
+  /** Present when upload was attempted and failed (or returned a non-Fal URL). */
+  uploadError?: string;
+};
+
 /** Upload a local / same-origin clip to Fal CDN so extend-video can fetch it. */
 export async function uploadClipToFalCdn(input: {
   url?: string;
@@ -36,25 +45,38 @@ export async function uploadClipToFalCdn(input: {
   return fileUrl;
 }
 
+/**
+ * Resolve a parent clip for Fal extend-video.
+ * Already-public Fal URLs pass through. Local clips attempt CDN upload.
+ * Callers must read `uploadError` — do not treat a null url as a silent soft miss.
+ */
 export async function resolveFalExtendParentUrl(input: {
   parentUrl?: string | null;
   file?: File;
   falApiKey?: string;
-}): Promise<string | null> {
+}): Promise<FalExtendParentResolve> {
   const parent = input.parentUrl?.trim() || '';
   if (canFalExtendFromParentUrl(parent)) {
-    return parent;
+    return { url: parent, uploadAttempted: false };
   }
   if (!parent && !input.file) {
-    return null;
+    return { url: null, uploadAttempted: false };
   }
   try {
-    return await uploadClipToFalCdn({
+    const url = await uploadClipToFalCdn({
       url: parent || undefined,
       file: input.file,
       falApiKey: input.falApiKey,
     });
-  } catch {
-    return null;
+    return { url, uploadAttempted: true };
+  } catch (error) {
+    return {
+      url: null,
+      uploadAttempted: true,
+      uploadError:
+        error instanceof Error && error.message.trim()
+          ? error.message.trim()
+          : 'Could not upload that local clip to Fal.',
+    };
   }
 }

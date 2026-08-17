@@ -2,7 +2,7 @@
 
 import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SharedToolControls from '@/components/SharedToolControls';
 import RoleplayBibleEditor from '@/components/RoleplayBibleEditor';
 import RoleplayLibraryPanel from '@/components/RoleplayLibraryPanel';
@@ -68,6 +68,7 @@ import {
   lastCompletedRoleplayStillUrl,
   lastRoleplayPlotBeat,
   lastRoleplayStillImage,
+  mergeRoleplayRejectedScenes,
   normalizeRoleplayPlayAs,
   normalizeRoleplayIsolateSubject,
   patchRoleplayStoryBeat,
@@ -159,6 +160,10 @@ export default function RoleplayTool() {
   const playAs = normalizeRoleplayPlayAs(toolSettings.playAs);
   const bio = toolSettings.bio;
   const story = toolSettings.story ?? [];
+  const rejectedScenesMemory = useMemo(
+    () => toolSettings.rejectedScenes ?? [],
+    [toolSettings.rejectedScenes]
+  );
   const autoQueue = toolSettings.autoQueue !== false;
   const beatOutput = normalizeRoleplayBeatOutput(toolSettings.beatOutput);
   const storyRef = useRef(toolSettings.story ?? []);
@@ -514,7 +519,7 @@ export default function RoleplayTool() {
           playAs === 'photo' && hasReferenceImage && toolSettings.referenceIsolated === true,
         bio,
         story: toolSettings.story,
-        rejectedScenes: scenes,
+        rejectedScenes: mergeRoleplayRejectedScenes(rejectedScenesMemory, scenes),
       }),
     [
       bio,
@@ -531,6 +536,7 @@ export default function RoleplayTool() {
       toolSettings.referenceIsolated,
       toolSettings.allowGore,
       toolSettings.story,
+      rejectedScenesMemory,
       scenes,
     ]
   );
@@ -653,6 +659,7 @@ export default function RoleplayTool() {
       updateToolSettings({
         bio: nextBio,
         story: writingStory,
+        rejectedScenes: [],
       });
       rememberDraftFields({
         toolKey: TOOL_ID,
@@ -672,6 +679,7 @@ export default function RoleplayTool() {
               ...requestBody('prompt', intro),
               bio: nextBio,
               story: [],
+              rejectedScenes: [],
             }),
           }),
           fetch('/api/roleplay', {
@@ -681,6 +689,7 @@ export default function RoleplayTool() {
               ...requestBody('scenes'),
               bio: nextBio,
               story: writingStory,
+              rejectedScenes: [],
             }),
           }).catch(() => null),
         ]);
@@ -756,6 +765,15 @@ export default function RoleplayTool() {
     [beginStoryFromBio, hasReferenceImage, playAs, updateToolSettings]
   );
 
+  const rememberRejectedScenes = useCallback(
+    (offered: RoleplayScene[], chosen?: RoleplayScene | null) => {
+      const next = mergeRoleplayRejectedScenes(rejectedScenesMemory, offered, chosen);
+      updateToolSettings({ rejectedScenes: next });
+      return next;
+    },
+    [rejectedScenesMemory, updateToolSettings]
+  );
+
   const rollScenes = useCallback(async () => {
     if (!bio) {
       setError('Write a bio first — the scenes need someone to happen to.');
@@ -764,10 +782,14 @@ export default function RoleplayTool() {
     setScenesLoading(true);
     setError(null);
     try {
+      const rejectedScenes = rememberRejectedScenes(scenes);
       const response = await fetch('/api/roleplay', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody('scenes')),
+        body: JSON.stringify({
+          ...requestBody('scenes'),
+          rejectedScenes,
+        }),
       });
       const data = (await response.json()) as RoleplayApiPayload;
       if (!response.ok) {
@@ -779,7 +801,7 @@ export default function RoleplayTool() {
     } finally {
       setScenesLoading(false);
     }
-  }, [bio, requestBody]);
+  }, [bio, rememberRejectedScenes, requestBody, scenes]);
 
   const playScene = useCallback(
     async (scene: RoleplayScene) => {
@@ -793,6 +815,7 @@ export default function RoleplayTool() {
       }
       setPlayingId(scene.id);
       setError(null);
+      const rejectedScenes = rememberRejectedScenes(scenes, scene);
       const prior = lastRoleplayMotionSource(storyRef.current);
       const skipStill = beatOutput === 'clip' && autoQueue && Boolean(prior);
       const writingStory = appendRoleplayStoryBeat(storyRef.current, scene, {
@@ -803,7 +826,7 @@ export default function RoleplayTool() {
         setPlayingId(null);
         return;
       }
-      updateToolSettings({ story: writingStory });
+      updateToolSettings({ story: writingStory, rejectedScenes });
       try {
         const response = await fetch('/api/roleplay', {
           method: 'POST',
@@ -833,6 +856,7 @@ export default function RoleplayTool() {
           body: JSON.stringify({
             ...requestBody('scenes'),
             story: nextStory,
+            rejectedScenes,
           }),
         });
         const nextPayload = (await nextScenes.json()) as RoleplayApiPayload;
@@ -856,7 +880,9 @@ export default function RoleplayTool() {
       commitStill,
       hasReferenceImage,
       playAs,
+      rememberRejectedScenes,
       requestBody,
+      scenes,
       updateToolSettings,
     ]
   );
@@ -954,14 +980,24 @@ export default function RoleplayTool() {
       const parentClipUrl = source?.fromClip ? source.imageUrl : '';
       let extendUrl =
         engine === 'fal' && canFalExtendFromParentUrl(parentClipUrl) ? parentClipUrl : '';
+      let falUploadNote: string | null = null;
       if (engine === 'fal' && !extendUrl && parentClipUrl && looksLikeVideoUrl(parentClipUrl)) {
-        extendUrl =
-          (await resolveFalExtendParentUrl({
-            parentUrl: parentClipUrl,
-            falApiKey: loadSettingsCache().shared.sessionFalApiKey,
-          })) || '';
+        const resolved = await resolveFalExtendParentUrl({
+          parentUrl: parentClipUrl,
+          falApiKey: loadSettingsCache().shared.sessionFalApiKey,
+        });
+        if (resolved.url) {
+          extendUrl = resolved.url;
+        } else if (resolved.uploadAttempted) {
+          falUploadNote =
+            resolved.uploadError?.trim() ||
+            'Could not upload that local clip to Fal for extend-video.';
+        }
       }
       const useFalExtend = Boolean(extendUrl);
+      if (falUploadNote && !useFalExtend) {
+        setError(`${falUploadNote} Continuing from the last frame instead.`);
+      }
 
       let inputImage: File | undefined;
       let inputImageUrl: string | undefined = useFalExtend ? undefined : source?.imageUrl;
@@ -990,7 +1026,9 @@ export default function RoleplayTool() {
         toolModel: loadToolSettings('video', DEFAULT_VIDEO_TOOL_CACHE).model,
         sharedModel: shared.model,
       });
-      setError(null);
+      if (!falUploadNote) {
+        setError(null);
+      }
       let prompt = latest.prompt?.trim() || latest.blurb;
       try {
         const response = await fetch('/api/video-prompt', {
@@ -1659,7 +1697,7 @@ export default function RoleplayTool() {
               variant="ghost"
               disabled={busy}
               onClick={() => {
-                updateToolSettings({ story: [] });
+                updateToolSettings({ story: [], rejectedScenes: [] });
                 setScenes([]);
               }}
             >
@@ -1768,7 +1806,8 @@ export default function RoleplayTool() {
 
       <ToolSection title="What happens next?">
         <p className="text-sm text-[var(--text-muted)]">
-          Tap a beat to continue the story. The next four options fork from that pick.
+          Tap a beat to continue the story. The next four options fork from that pick, and unpicked
+          cards stay off the next rolls.
         </p>
         <div className="flex flex-wrap gap-2">
           <ChipButton
@@ -1798,7 +1837,7 @@ export default function RoleplayTool() {
             Queue a {beatOutput === 'clip' ? 'clip' : 'still'} when I write a bio or pick a scene
             <span className="mt-0.5 block text-xs text-[var(--text-muted)]">
               {beatOutput === 'clip'
-                ? 'A still becomes I2V. A text-only beat is T2V. Later beats continue from the last clip — Fal extend-video when the parent is a public Fal URL, otherwise last-frame I2V. Local WAN, Fal, or Replicate.'
+                ? 'A still becomes I2V. A text-only beat is T2V. Later beats continue from the last clip — Fal extend-video when the parent is already a public Fal URL, or after a successful Fal CDN upload of a local clip; otherwise last-frame I2V (Roleplay says so if the upload fails). Local WAN, Fal, or Replicate.'
                 : 'Uses the model and Fast/Good/Best from the sidebar. Turn off to write the prompt first.'}
             </span>
           </span>

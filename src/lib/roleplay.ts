@@ -1550,6 +1550,41 @@ export function lastRoleplayPlotBeat(
   return (story ?? []).filter(beat => beat.id !== ROLEPLAY_INTRO_SCENE_ID).at(-1);
 }
 
+export const MAX_ROLEPLAY_REJECTED_SCENES = 24;
+
+/** Keep unpicked cards across rolls so later forks do not resurface. */
+export function mergeRoleplayRejectedScenes(
+  prior: RoleplayScene[] | undefined,
+  offered: RoleplayScene[] | undefined,
+  chosen?: Pick<RoleplayScene, 'title'> | null
+): RoleplayScene[] {
+  const chosenKey = chosen ? roleplaySceneTitleKey(chosen.title) : '';
+  const chosenCore = chosen ? roleplaySceneCoreTitle(chosen.title) : '';
+  const next: RoleplayScene[] = [];
+  const seen = new Set<string>();
+  for (const scene of [...(prior ?? []), ...(offered ?? [])]) {
+    const title = scene.title.trim();
+    if (!title) {
+      continue;
+    }
+    const key = roleplaySceneTitleKey(title);
+    const core = roleplaySceneCoreTitle(title);
+    if (!key || key === chosenKey || (chosenCore && core === chosenCore) || seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    if (core) {
+      seen.add(core);
+    }
+    next.push({
+      id: scene.id?.trim() || key,
+      title,
+      blurb: scene.blurb?.trim() || title,
+    });
+  }
+  return next.slice(-MAX_ROLEPLAY_REJECTED_SCENES);
+}
+
 export function formatRoleplayAvoidedScenes(
   scenes: Array<{ title: string; blurb?: string }> | undefined
 ): string {

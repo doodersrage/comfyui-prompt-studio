@@ -74,36 +74,36 @@ Audio and 3D use **Audio** (`/audio`) and **3D Mesh** (`/mesh`). **WAN / Hunyuan
 
 ## Tools
 
-| Page                | Route              | Purpose                                                                                                                            |
-| ------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| **Dashboard**       | `/dashboard`       | Pending jobs, queue status, recent outputs, active project                                                                         |
-| **Generate**        | `/`                | Keywords or random surprise → model-ready prompt                                                                                   |
-| **Format**          | `/format`          | Adapt an existing prompt draft for a selected model                                                                                |
-| **Character**       | `/character`       | Solo person, duo/sport, or subject + background compose                                                                            |
-| **Pet**             | `/pet`             | Pet-focused prompts with scene pools                                                                                               |
-| **Fantasy**         | `/fantasy`         | Fantasy character/scene prompts                                                                                                    |
-| **Roleplay**        | `/roleplay`        | Cast a character, pick a beat, queue a still or clip. Continue is Fal extend-video or last-frame I2V. Cut a film and Save to Cast  |
-| **Topics**          | `/topics`          | Topic lists for batch prompt builds                                                                                                |
-| **Background**      | `/background`      | Environment-only prompt with no people                                                                                             |
-| **Image → Prompt**  | `/image-prompt`    | Upload an image; vision LLM writes the prompt                                                                                      |
-| **Inpaint**         | `/inpaint`         | Mask a region and queue FLUX/Qwen inpaint with `{{INPUT_IMAGE}}` / `{{MASK_IMAGE}}`                                                |
-| **Outpaint**        | `/outpaint`        | Expand canvas borders (pad + mask) and queue through the inpaint path with Final quality recipes                                   |
-| **Mobile Studio**   | `/m`               | Phone companion: capture a character plate (isolate on white), watch the queue, rate gallery stills, Play Roleplay from photo      |
-| **Compose**         | `/compose`         | Multi-image transfer / edit with optional identity lock, Isolate on white for Image 1, regional edit, and gallery re-edit handoffs |
-| **Workflow editor** | `/workflow-editor` | Edit Comfy API graphs (React Flow), save to library, queue                                                                         |
-| **Audio**           | `/audio`           | Stable Audio prompts + `{{AUDIO_SECONDS}}`                                                                                         |
-| **3D Mesh**         | `/mesh`            | Hunyuan3D-style mesh prompts + optional reference image                                                                            |
-| **Cast**            | `/characters`      | Character homes: looks, stills, clips, film cut, LoRA flywheel                                                                     |
-| **Video**           | `/video`           | Motion/camera prompts for WAN / Hunyuan, or Fal / Replicate / Grok / Gemini clips (T2V, I2V, extend)                               |
-| **Negative**        | `/negative`        | Sport-aware negative/preserve prompts for SD models                                                                                |
-| **Studio**          | `/studio`          | History, iteration tree, projects, compare, portfolio, campaign, analytics, catalog, templates                                     |
-| **Lint**            | `/lint`            | Paste prompts for diagnostics, fix, compact, reformat                                                                              |
-| **Refine**          | `/refine`          | Refine an existing prompt with image + intent hints                                                                                |
-| **Settings**        | `/settings`        | Overview (heal, backup), LLM, ComfyUI cluster, Automation, Data, Users (SMTP + invite)                                             |
-| **Gallery**         | `/gallery`         | Stats dashboard, grid/dense/list layouts, review focus, compare modal, semantic search                                             |
-| **Variations**      | `/variations`      | Roll N prompt variations and batch-queue to ComfyUI                                                                                |
-| **ControlNet**      | `/controlnet`      | Structure prompts (text or image-assisted)                                                                                         |
-| **Plugins**         | `/plugins`         | Installable plugin manifests (nav + queue mutators + custom tool pages)                                                            |
+| Page                | Route              | Purpose                                                                                                                                                                                                     |
+| ------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Dashboard**       | `/dashboard`       | Pending jobs, queue status, recent outputs, active project                                                                                                                                                  |
+| **Generate**        | `/`                | Keywords or random surprise → model-ready prompt                                                                                                                                                            |
+| **Format**          | `/format`          | Adapt an existing prompt draft for a selected model                                                                                                                                                         |
+| **Character**       | `/character`       | Solo person, duo/sport, or subject + background compose                                                                                                                                                     |
+| **Pet**             | `/pet`             | Pet-focused prompts with scene pools                                                                                                                                                                        |
+| **Fantasy**         | `/fantasy`         | Fantasy character/scene prompts                                                                                                                                                                             |
+| **Roleplay**        | `/roleplay`        | Cast a character, pick a beat, queue a still or clip. Continue is Fal extend-video when the parent uploads (or is already Fal); otherwise last-frame I2V. Cut encodes a film; Save to Cast reuses that blob |
+| **Topics**          | `/topics`          | Topic lists for batch prompt builds                                                                                                                                                                         |
+| **Background**      | `/background`      | Environment-only prompt with no people                                                                                                                                                                      |
+| **Image → Prompt**  | `/image-prompt`    | Upload an image; vision LLM writes the prompt                                                                                                                                                               |
+| **Inpaint**         | `/inpaint`         | Mask a region and queue FLUX/Qwen inpaint with `{{INPUT_IMAGE}}` / `{{MASK_IMAGE}}`                                                                                                                         |
+| **Outpaint**        | `/outpaint`        | Expand canvas borders (pad + mask) and queue through the inpaint path with Final quality recipes                                                                                                            |
+| **Mobile Studio**   | `/m`               | Phone companion: capture a character plate (isolate on white), watch the queue, rate gallery stills, Play Roleplay from photo (stills)                                                                      |
+| **Compose**         | `/compose`         | Multi-image transfer / edit with optional identity lock, Isolate on white for Image 1, regional edit, and gallery re-edit handoffs                                                                          |
+| **Workflow editor** | `/workflow-editor` | Edit Comfy API graphs (React Flow), save to library, queue                                                                                                                                                  |
+| **Audio**           | `/audio`           | Stable Audio prompts + `{{AUDIO_SECONDS}}`                                                                                                                                                                  |
+| **3D Mesh**         | `/mesh`            | Hunyuan3D-style mesh prompts + optional reference image                                                                                                                                                     |
+| **Cast**            | `/characters`      | Character homes: looks, stills, clips, film cut, LoRA flywheel                                                                                                                                              |
+| **Video**           | `/video`           | Motion/camera prompts for WAN / Hunyuan, or Fal / Replicate / Grok / Gemini clips (T2V, I2V, extend)                                                                                                        |
+| **Negative**        | `/negative`        | Sport-aware negative/preserve prompts for SD models                                                                                                                                                         |
+| **Studio**          | `/studio`          | History, iteration tree, projects, compare, portfolio, campaign, analytics, catalog, templates                                                                                                              |
+| **Lint**            | `/lint`            | Paste prompts for diagnostics, fix, compact, reformat                                                                                                                                                       |
+| **Refine**          | `/refine`          | Refine an existing prompt with image + intent hints                                                                                                                                                         |
+| **Settings**        | `/settings`        | Overview (heal, backup), LLM, ComfyUI cluster, Automation, Data, Users (SMTP + invite)                                                                                                                      |
+| **Gallery**         | `/gallery`         | Stats dashboard, grid/dense/list layouts, review focus, compare modal, semantic search                                                                                                                      |
+| **Variations**      | `/variations`      | Roll N prompt variations and batch-queue to ComfyUI                                                                                                                                                         |
+| **ControlNet**      | `/controlnet`      | Structure prompts (text or image-assisted)                                                                                                                                                                  |
+| **Plugins**         | `/plugins`         | Installable plugin manifests (nav + queue mutators + custom tool pages)                                                                                                                                     |
 
 Legacy URLs `/duo` and `/random-scene` redirect to Character and Generate.
 

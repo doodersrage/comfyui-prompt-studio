@@ -931,6 +931,8 @@ export type RoleplayToolCache = {
   referenceIsolated?: boolean;
   bio?: import('./roleplay').RoleplayBio;
   story?: import('./roleplay').RoleplayStoryBeat[];
+  /** Unpicked beat cards remembered across rolls for continuity. */
+  rejectedScenes?: import('./roleplay').RoleplayScene[];
   autoQueue?: boolean;
   /** Still frames only, or still-then-clip / clip-to-clip film loop. Default clip. */
   beatOutput?: 'still' | 'clip';

@@ -6,6 +6,7 @@ import {
   deleteRoleplayLibrarySession,
   loadRoleplayLibrary,
   persistRoleplayLibraryFromCache,
+  resolveRoleplayContinueFromCharacter,
   ROLEPLAY_LIBRARY_KEY,
   roleplaySessionHasProgress,
   roleplaySessionTitle,
@@ -156,6 +157,7 @@ describe('roleplay library', () => {
       const blank = startNewRoleplaySession(saved.cache);
       assert.equal(blank.bio, undefined);
       assert.deepEqual(blank.story, []);
+      assert.deepEqual(blank.rejectedScenes, []);
       assert.equal(blank.activeSessionId, undefined);
       assert.equal(blank.tone, saved.cache.tone);
       assert.equal(blank.characterName, '');
@@ -204,6 +206,32 @@ describe('roleplay library', () => {
       upsertRoleplayLibrarySession(sessions[0]!);
       saveRoleplayLibrary(loadRoleplayLibrary());
       assert.equal(loadRoleplayLibrary().length, 24);
+    });
+  });
+
+  it('continues from Cast only when the library session still exists', () => {
+    withMockLocalStorage(() => {
+      const missing = resolveRoleplayContinueFromCharacter('char-rp-gone');
+      assert.equal(missing.ok, false);
+      if (!missing.ok) {
+        assert.equal(missing.reason, 'session-missing');
+        assert.match(missing.message, /not found/i);
+      }
+
+      const foreign = resolveRoleplayContinueFromCharacter('char-manual');
+      assert.equal(foreign.ok, false);
+      if (!foreign.ok) {
+        assert.equal(foreign.reason, 'not-roleplay-character');
+      }
+
+      const saved = persistRoleplayLibraryFromCache(sampleCache());
+      assert.ok(saved);
+      const ok = resolveRoleplayContinueFromCharacter(`char-rp-${saved.session.id}`);
+      assert.equal(ok.ok, true);
+      if (ok.ok) {
+        assert.equal(ok.session.id, saved.session.id);
+        assert.equal(ok.cache.bio?.name, 'Alex Quill');
+      }
     });
   });
 });

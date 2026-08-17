@@ -578,9 +578,10 @@ export default function SettingsComfyUiTab({
           </code>
           . Clips queue on Fal (Kling including O3, WAN, LTX 2.3, Grok Imagine, Veo), Replicate
           (Kling, WAN, LTX 2.3), Grok native video, Gemini Veo, or local WAN/LTX. Fal can extend a
-          public Fal clip with LTX 2.3 extend-video, or upload a local clip to Fal CDN — otherwise
-          continue is last-frame I2V. ChatGPT stays stills (Sora is deprecated). Runway stays out of
-          Settings (own API, not Fal/Replicate-hosted). Stills go through{' '}
+          public Fal clip with LTX 2.3 extend-video, or upload a local clip to Fal CDN when the
+          upload succeeds — otherwise continue is last-frame I2V (Roleplay and Video say so if the
+          upload fails). ChatGPT stays stills (Sora is deprecated). Runway stays out of Settings
+          (own API, not Fal/Replicate-hosted). Stills go through{' '}
           <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
             /api/fal
           </code>

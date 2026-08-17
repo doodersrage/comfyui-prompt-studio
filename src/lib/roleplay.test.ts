@@ -7,6 +7,7 @@ import {
   filterFreshRoleplayScenes,
   formatRoleplayAvoidedScenes,
   formatRoleplayStoryDigest,
+  mergeRoleplayRejectedScenes,
   mergeRoleplaySceneOptions,
   mergeRoleplayStoryStills,
   normalizeRoleplayTone,
@@ -378,6 +379,29 @@ describe('roleplay parsers', () => {
     );
     assert.equal(merged.length, 4);
     assert.ok(merged.every(scene => scene.title.toLowerCase() !== 'mutiny at brunch'));
+  });
+
+  it('remembers unpicked cards across rolls without keeping the chosen beat', () => {
+    const prior = mergeRoleplayRejectedScenes(
+      [],
+      [
+        { id: 'a', title: 'Foggy dock heist', blurb: 'Picnic basket.' },
+        { id: 'b', title: 'Parley with pigeons', blurb: 'Half a croissant.' },
+      ]
+    );
+    assert.equal(prior.length, 2);
+    const afterPick = mergeRoleplayRejectedScenes(
+      prior,
+      [
+        { id: 'b', title: 'Parley with pigeons', blurb: 'Half a croissant.' },
+        { id: 'c', title: 'Storm in a teacup', blurb: 'Tiny barrel.' },
+        { id: 'd', title: 'Mutiny at brunch', blurb: 'Syrup hostage.' },
+      ],
+      { title: 'Mutiny at brunch' }
+    );
+    assert.ok(afterPick.every(scene => scene.title.toLowerCase() !== 'mutiny at brunch'));
+    assert.ok(afterPick.some(scene => scene.title === 'Foggy dock heist'));
+    assert.ok(afterPick.some(scene => scene.title === 'Storm in a teacup'));
   });
 
   it('drops near-duplicate titles and rejected reroll options', () => {

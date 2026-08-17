@@ -35,6 +35,7 @@ import {
   formatRoleplayBio,
   lastRoleplayPlotBeat,
   MAX_ROLEPLAY_CHARACTER_NAME,
+  mergeRoleplayRejectedScenes,
   normalizeRoleplayIsolateSubject,
   normalizeRoleplayPlayAs,
   patchRoleplayStoryBeat,
@@ -259,7 +260,7 @@ export default function MobilePlayTool() {
           isolateSubject && hasReferenceImage && toolSettings.referenceIsolated === true,
         bio,
         story: toolSettings.story,
-        rejectedScenes: scenes,
+        rejectedScenes: mergeRoleplayRejectedScenes(toolSettings.rejectedScenes, scenes),
       }),
     [
       bio,
@@ -276,6 +277,7 @@ export default function MobilePlayTool() {
       toolSettings.referenceIsolated,
       toolSettings.setting,
       toolSettings.story,
+      toolSettings.rejectedScenes,
       scenes,
     ]
   );

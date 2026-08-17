@@ -519,13 +519,14 @@ export default function VideoPromptTool() {
           parentUrl: parentVideoUrl,
           falApiKey: shared.sessionFalApiKey,
         });
-        if (!uploaded) {
+        if (!uploaded.url) {
           setError(
-            'Could not upload that local clip to Fal. Continue from last frame instead, or use a Fal-hosted clip.'
+            uploaded.uploadError?.trim() ||
+              'Could not upload that local clip to Fal. Continue from last frame instead, or use a Fal-hosted clip.'
           );
           return;
         }
-        options.videoUrl = uploaded;
+        options.videoUrl = uploaded.url;
       }
       void actions.sendComfyUi(output, null, undefined, options);
     })();
