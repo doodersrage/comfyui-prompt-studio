@@ -446,12 +446,21 @@ const MODEL_SAMPLER_PRESETS: ModelSamplerPresetMap = {
     max: { steps: 40, cfg: 5, samplerName: 'dpmpp_2m', scheduler: 'simple' },
   },
   'ltx-video': {
-    base: { steps: 20, cfg: 3, samplerName: 'euler', scheduler: 'ltxv' },
-    optimized: { steps: 30, cfg: 3, samplerName: 'euler', scheduler: 'ltxv' },
-    maxCompatible: { steps: 30, cfg: 2.5, samplerName: 'euler', scheduler: 'ltxv' },
-    max: { steps: 40, cfg: 2.5, samplerName: 'euler', scheduler: 'ltxv' },
+    base: { steps: 20, cfg: 3, samplerName: 'euler', scheduler: 'simple' },
+    optimized: { steps: 30, cfg: 3, samplerName: 'euler', scheduler: 'simple' },
+    maxCompatible: { steps: 30, cfg: 2.5, samplerName: 'euler', scheduler: 'simple' },
+    max: { steps: 40, cfg: 2.5, samplerName: 'euler', scheduler: 'simple' },
   },
 };
+
+/** `ltxv` belongs on LTXVScheduler — KSampler only accepts simple/karras/normal/…. */
+export function ksamplerSafeScheduler(scheduler: string | undefined): string {
+  const trimmed = scheduler?.trim() ?? '';
+  if (/^ltxv?$/i.test(trimmed)) {
+    return 'simple';
+  }
+  return trimmed;
+}
 
 export function normalizeModelSamplerPresetTier(value: unknown): ModelSamplerPresetTier {
   if (value === 'maxCompatible' || value === 'max-compatible' || value === 'max_compatible') {

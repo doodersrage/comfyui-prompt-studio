@@ -47,6 +47,7 @@ import { normalizeInputImageFilenames } from './workflow-load-image-bindings';
 import type { ModelLoaderFilenames } from './model-checkpoint-map';
 import { matchInventoryFilenameNearMiss } from './loader-map-inventory-sync';
 import { isVideoCheckpointMapKey, pickVideoCheckpointFromInventory } from './video-checkpoint-pick';
+import { ensureLtxClipLoaderForQueue } from './video-i2v-scaffold';
 
 export const DEFAULT_POSITIVE_TOKEN = '{{POSITIVE}}';
 export const DEFAULT_NEGATIVE_TOKEN = '{{NEGATIVE}}';
@@ -101,6 +102,7 @@ import {
   ensureDistilledSamplerParams,
   resolveUserSamplerDenoiseOverride,
   isLightningModelId,
+  ksamplerSafeScheduler,
   shouldNeutralizeStyleLorasAtQueue,
   type ModelSamplerPresetTier,
 } from './model-sampler-defaults';
@@ -967,7 +969,11 @@ export function injectWorkflowPlaceholders(
       ['cfg', tokens.cfg, input.params.cfg?.toString() ?? ''],
       ['steps', tokens.steps, input.params.steps?.toString() ?? ''],
       ['samplerName', tokens.sampler, input.params.samplerName?.toString() ?? ''],
-      ['scheduler', tokens.scheduler, input.params.scheduler?.toString() ?? ''],
+      [
+        'scheduler',
+        tokens.scheduler,
+        ksamplerSafeScheduler(input.params.scheduler?.toString() ?? ''),
+      ],
       ['samplingShift', tokens.shift, input.params.samplingShift?.toString() ?? ''],
       ['fluxMaxShift', tokens.fluxMaxShift, input.params.fluxMaxShift?.toString() ?? ''],
       ['fluxBaseShift', tokens.fluxBaseShift, input.params.fluxBaseShift?.toString() ?? ''],
@@ -1023,7 +1029,7 @@ export function injectWorkflowPlaceholders(
 
 function isSamplerLikeNode(classType: string, inputs: Record<string, unknown>): boolean {
   const lower = classType.toLowerCase();
-  if (lower.includes('modelsampling')) {
+  if (lower.includes('modelsampling') || lower.includes('ltxvscheduler')) {
     return false;
   }
   if (
@@ -1107,13 +1113,19 @@ export function patchSamplerParamsInWorkflow(
       inputs.sampler_name = params.samplerName.toString().trim();
       patched.samplerName = (patched.samplerName ?? 0) + 1;
     }
-    if (
-      params.scheduler != null &&
-      params.scheduler.toString().trim() !== '' &&
-      'scheduler' in inputs
-    ) {
-      inputs.scheduler = params.scheduler.toString().trim();
-      patched.scheduler = (patched.scheduler ?? 0) + 1;
+    if ('scheduler' in inputs) {
+      const requested =
+        params.scheduler != null && params.scheduler.toString().trim() !== ''
+          ? params.scheduler.toString().trim()
+          : typeof inputs.scheduler === 'string'
+            ? inputs.scheduler
+            : '';
+      const safe = ksamplerSafeScheduler(requested);
+      const writingParams = params.scheduler != null && params.scheduler.toString().trim() !== '';
+      if (safe && (writingParams || safe !== requested)) {
+        inputs.scheduler = safe;
+        patched.scheduler = (patched.scheduler ?? 0) + 1;
+      }
     }
     if ('denoise' in inputs) {
       const current = inputs.denoise;
@@ -1775,6 +1787,16 @@ export function injectPromptsWithFallbacks(
       upscaleFallback
     ),
   };
+
+  const ltxClip = ensureLtxClipLoaderForQueue(injected.workflow, {
+    model: options?.model,
+    checkpointFilename: loaders.checkpoint ?? input.params?.checkpointFilename?.toString(),
+    availableClips: options?.availableClips,
+  });
+  if (ltxClip.error) {
+    throw new Error(ltxClip.error);
+  }
+  injected = { ...injected, workflow: ltxClip.workflow };
 
   return injected;
 }

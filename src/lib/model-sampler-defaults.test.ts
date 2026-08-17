@@ -9,6 +9,7 @@ import {
   getModelSamplerDefaults,
   hasModelSamplerOverrides,
   normalizeModelSamplerPresetTier,
+  ksamplerSafeScheduler,
   pickModelSamplerOverrideFields,
   resolveModelSamplerParams,
 } from "./model-sampler-defaults";
@@ -378,7 +379,9 @@ describe("model sampler defaults", () => {
       samplerName: "uni_pc",
       scheduler: "simple",
     });
-    assert.equal(getModelSamplerDefaults("ltx-video", "base").scheduler, "ltxv");
+    assert.equal(getModelSamplerDefaults("ltx-video", "base").scheduler, "simple");
+    assert.equal(ksamplerSafeScheduler("ltxv"), "simple");
+    assert.equal(ksamplerSafeScheduler("karras"), "karras");
   });
 
   it("formats sampler hint with preset label", () => {
@@ -425,6 +428,37 @@ describe("patchSamplerParamsInWorkflow", () => {
       samplerName: 1,
       scheduler: 1,
     });
+  });
+
+  it("maps leftover KSampler scheduler ltxv to simple", () => {
+    const workflow = {
+      "5": {
+        class_type: "KSampler",
+        inputs: {
+          seed: 1,
+          steps: 20,
+          cfg: 3,
+          sampler_name: "euler",
+          scheduler: "ltxv",
+        },
+      },
+    };
+    const coerced = patchSamplerParamsInWorkflow(workflow, { seed: 1, steps: 20, cfg: 3 });
+    assert.equal(
+      (coerced.workflow["5"] as { inputs: Record<string, unknown> }).inputs.scheduler,
+      "simple",
+    );
+
+    const stamped = patchSamplerParamsInWorkflow(workflow, {
+      seed: 1,
+      steps: 20,
+      cfg: 3,
+      scheduler: "ltxv",
+    });
+    assert.equal(
+      (stamped.workflow["5"] as { inputs: Record<string, unknown> }).inputs.scheduler,
+      "simple",
+    );
   });
 
   it("resolves {{DENOISE}} placeholder to 1.0 when params omit denoise", () => {

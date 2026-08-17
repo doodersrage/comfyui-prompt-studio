@@ -720,6 +720,11 @@ export function resolveLoaderFilenamesForModel(
     result.dualClip = qwenDualClipFilename(effectiveTier);
   } else if (inferred.dualClip) {
     result.dualClip = inferred.dualClip;
+  } else {
+    const clipHint = trimFilename(def?.clipHint);
+    if (clipHint) {
+      result.dualClip = clipHint;
+    }
   }
   return result;
 }

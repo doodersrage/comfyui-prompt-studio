@@ -856,6 +856,47 @@ describe("video I2V auto-wiring (patchVideoImageToVideoWiringInWorkflow)", () =>
     );
   });
 
+  it("attaches CLIPLoader type ltxv so LTX checkpoints do not feed CLIP None", () => {
+    const workflow = {
+      "1": {
+        class_type: "CheckpointLoaderSimple",
+        inputs: { ckpt_name: "ltxv-2b-0.9.8-distilled.safetensors" },
+      },
+      "2": { class_type: "CLIPTextEncode", inputs: { text: "{{POSITIVE}}", clip: ["1", 1] } },
+      "3": { class_type: "CLIPTextEncode", inputs: { text: "{{NEGATIVE}}", clip: ["1", 1] } },
+      "4": {
+        class_type: "EmptyLTXVLatentVideo",
+        inputs: { width: 768, height: 512, length: 97, batch_size: 1 },
+      },
+      "5": {
+        class_type: "KSampler",
+        inputs: { positive: ["2", 0], negative: ["3", 0], latent_image: ["4", 0] },
+      },
+      "6": { class_type: "VAEDecode", inputs: { samples: ["5", 0], vae: ["1", 2] } },
+    };
+
+    const result = patchWorkflowDirectParams(workflow, {
+      model: "ltx-video",
+      loaders: { checkpoint: "ltxv-2b-0.9.8-distilled.safetensors" },
+      availableCheckpoints: ["ltxv-2b-0.9.8-distilled.safetensors"],
+      availableClips: ["t5xxl_fp16.safetensors"],
+    });
+
+    assert.equal(result.error, undefined);
+    assert.equal(result.patched.ltxClipLoader, 1);
+    const positive = result.workflow["2"] as { inputs?: { clip?: [string, number] } };
+    assert.equal(positive.inputs?.clip?.[1], 0);
+    const clipNode = result.workflow[String(positive.inputs?.clip?.[0])] as {
+      class_type?: string;
+      inputs?: { type?: string; clip_name?: string };
+    };
+    assert.equal(clipNode.class_type, "CLIPLoader");
+    assert.equal(clipNode.inputs?.type, "ltxv");
+    assert.equal(clipNode.inputs?.clip_name, "t5xxl_fp16.safetensors");
+    const decode = result.workflow["6"] as { inputs?: { vae?: [string, number] } };
+    assert.deepEqual(decode.inputs?.vae, ["1", 2]);
+  });
+
   it("respects an already-wired LTXVImgToVideo pack instead of failing", () => {
     const workflow = {
       "900": {

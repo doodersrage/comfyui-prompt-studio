@@ -56,6 +56,182 @@ export type VideoSplitClipNode =
       inputs: { clip_name1: string; clip_name2: string; type: string };
     };
 
+/** Official LTX 0.9.x CLIPLoader type `ltxv` — T5 lives in text_encoders, not the checkpoint. */
+export const LTX_T5_FILENAMES = [
+  't5xxl_fp16.safetensors',
+  't5xxl_fp8_e4m3fn.safetensors',
+  't5xxl_fp8_e4m3fn_scaled.safetensors',
+] as const;
+
+export function pickLtxTextEncoderFilename(availableClips?: string[] | null): string | undefined {
+  return pickListedFilename([...LTX_T5_FILENAMES], availableClips);
+}
+
+export function ltxTextEncoderMissingError(weight?: string): string {
+  const named = weight?.trim() ? `“${weight.trim()}” ` : '';
+  return `${named}LTX checkpoints do not include a CLIP/text encoder. Install t5xxl_fp16.safetensors (Video → Install → T5-XXL fp16) into ComfyUI/models/text_encoders/. Official graphs use CLIPLoader type ltxv.`;
+}
+
+export function isLtxVideoModel(model?: string): boolean {
+  return /ltx/i.test(model ?? '');
+}
+
+function isLtxClipLoaderNode(node: {
+  class_type?: string;
+  inputs?: Record<string, unknown>;
+}): boolean {
+  return (
+    node.class_type === 'CLIPLoader' &&
+    String(node.inputs?.type ?? '')
+      .trim()
+      .toLowerCase() === 'ltxv'
+  );
+}
+
+function isCheckpointLoaderClass(classType: string | undefined): boolean {
+  return classType === 'CheckpointLoaderSimple' || classType === 'CheckpointLoader';
+}
+
+function workflowNodeRecord(
+  workflow: Record<string, unknown>,
+  id: unknown
+): { class_type?: string; inputs?: Record<string, unknown> } | undefined {
+  const node = workflow[String(id)];
+  if (!node || typeof node !== 'object') {
+    return undefined;
+  }
+  return node as { class_type?: string; inputs?: Record<string, unknown> };
+}
+
+function isCheckpointClipLink(workflow: Record<string, unknown>, value: unknown): boolean {
+  if (!Array.isArray(value) || value.length < 2 || Number(value[1]) !== 1) {
+    return false;
+  }
+  return isCheckpointLoaderClass(workflowNodeRecord(workflow, value[0])?.class_type);
+}
+
+function looksLikePromptEncodeNode(classType: string | undefined): boolean {
+  const lower = (classType ?? '').toLowerCase();
+  return lower.includes('cliptextencode') || lower.includes('textencode');
+}
+
+export function workflowNeedsLtxTextEncoder(
+  workflow: Record<string, unknown>,
+  model?: string,
+  checkpointFilename?: string
+): boolean {
+  if (isLtxVideoModel(model) || /ltx/i.test(checkpointFilename ?? '')) {
+    return true;
+  }
+  for (const node of Object.values(workflow)) {
+    if (!node || typeof node !== 'object') {
+      continue;
+    }
+    const classType = (node as { class_type?: string }).class_type ?? '';
+    if (
+      classType === 'EmptyLTXVLatentVideo' ||
+      classType === 'LTXVImgToVideo' ||
+      classType === 'LTXVConditioning'
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * LTX 0.9.x CheckpointLoaderSimple yields CLIP=None. Rewire CLIPTextEncode / LoraLoader
+ * clip inputs onto CLIPLoader type ltxv (ComfyUI_examples/ltxv). Always rewires even
+ * when a T5 loader is already present — leftover checkpoint CLIP links still error.
+ */
+export function attachLtxClipLoader(
+  workflow: Record<string, unknown>,
+  clipName: string
+): { workflow: Record<string, unknown>; attached: number; rewired: number } {
+  const next = structuredClone(workflow);
+  const trimmed = clipName.trim();
+  if (!trimmed) {
+    return { workflow: next, attached: 0, rewired: 0 };
+  }
+
+  let clipId: string | undefined;
+  for (const [nodeId, node] of Object.entries(next)) {
+    if (!node || typeof node !== 'object') {
+      continue;
+    }
+    const record = node as { class_type?: string; inputs?: Record<string, unknown> };
+    if (!isLtxClipLoaderNode(record) || !record.inputs) {
+      continue;
+    }
+    record.inputs.clip_name = trimmed;
+    record.inputs.type = 'ltxv';
+    clipId = nodeId;
+    break;
+  }
+
+  let attached = 0;
+  if (!clipId) {
+    clipId = nextAvailableNodeId(next);
+    next[clipId] = {
+      class_type: 'CLIPLoader',
+      inputs: { clip_name: trimmed, type: 'ltxv' },
+      _meta: { title: 'LTX CLIP (T5-XXL)' },
+    };
+    attached = 1;
+  }
+
+  let rewired = 0;
+  for (const node of Object.values(next)) {
+    if (!node || typeof node !== 'object') {
+      continue;
+    }
+    const record = node as { class_type?: string; inputs?: Record<string, unknown> };
+    const inputs = record.inputs;
+    if (!inputs) {
+      continue;
+    }
+    const clipValue = inputs.clip;
+    if (isCheckpointClipLink(next, clipValue)) {
+      inputs.clip = [clipId, 0];
+      rewired += 1;
+      continue;
+    }
+    if (
+      looksLikePromptEncodeNode(record.class_type) &&
+      (clipValue == null || clipValue === '' || clipValue === 'None')
+    ) {
+      inputs.clip = [clipId, 0];
+      rewired += 1;
+    }
+  }
+
+  return { workflow: next, attached, rewired };
+}
+
+export function ensureLtxClipLoaderForQueue(
+  workflow: Record<string, unknown>,
+  input: {
+    model?: string;
+    checkpointFilename?: string;
+    availableClips?: string[] | null;
+  }
+): { workflow: Record<string, unknown>; attached: number; rewired: number; error?: string } {
+  if (!workflowNeedsLtxTextEncoder(workflow, input.model, input.checkpointFilename)) {
+    return { workflow, attached: 0, rewired: 0 };
+  }
+  const clipName = pickLtxTextEncoderFilename(input.availableClips);
+  if (!clipName) {
+    return {
+      workflow,
+      attached: 0,
+      rewired: 0,
+      error: ltxTextEncoderMissingError(input.checkpointFilename),
+    };
+  }
+  const result = attachLtxClipLoader(workflow, clipName);
+  return { workflow: result.workflow, attached: result.attached, rewired: result.rewired };
+}
+
 export type VideoSplitCompanions = {
   unet: string;
   vae: string;
@@ -104,7 +280,7 @@ export function resolveVideoSplitCompanions(input: {
 
   if (family === 'ltx') {
     return {
-      error: `“${unet}” is a diffusion_models UNET — CheckpointLoaderSimple cannot load it. Import a pack-accurate LTX graph (CLIP + VAE) or install an LTX checkpoint.`,
+      error: `“${unet}” is in diffusion_models. LTX 0.9.x distilled files are checkpoints with a baked-in VAE — move the file to ComfyUI/models/checkpoints/ and install t5xxl_fp16.safetensors (CLIPLoader type ltxv).`,
     };
   }
 
@@ -234,7 +410,11 @@ export function rewriteCheckpointLoadersToVideoSplit(
     inputs: { ...companions.clip.inputs },
     _meta: {
       title:
-        companions.clip.class_type === 'DualCLIPLoader' ? 'Hunyuan DualCLIP' : 'WAN CLIP (UMT5)',
+        companions.clip.class_type === 'DualCLIPLoader'
+          ? 'Hunyuan DualCLIP'
+          : companions.clip.inputs.type === 'ltxv'
+            ? 'LTX CLIP (T5-XXL)'
+            : 'WAN CLIP (UMT5)',
     },
   };
   const vaeId = nextAvailableNodeId(next);
@@ -279,12 +459,14 @@ export function rewriteCheckpointLoadersToVideoSplit(
  */
 export function buildBuiltInVideoI2vWorkflow(model: string): Record<string, unknown> {
   const id = String(model ?? '');
-  const latentClass = /ltx/i.test(id) ? 'EmptyLTXVLatentVideo' : 'EmptyHunyuanLatentVideo';
-  const i2vHint = /ltx/i.test(id)
+  const isLtx = /ltx/i.test(id);
+  const latentClass = isLtx ? 'EmptyLTXVLatentVideo' : 'EmptyHunyuanLatentVideo';
+  const i2vHint = isLtx
     ? 'Init Image (optional — auto-wired into LTXVImgToVideo at queue time)'
     : 'Init Image (optional — auto-wired into WanImageToVideo/HunyuanImageToVideo at queue time)';
+  const clipRef: [string, number] = isLtx ? ['10', 0] : ['1', 1];
 
-  return {
+  const graph: Record<string, unknown> = {
     '1': {
       class_type: 'CheckpointLoaderSimple',
       inputs: { ckpt_name: '{{CHECKPOINT}}' },
@@ -292,12 +474,12 @@ export function buildBuiltInVideoI2vWorkflow(model: string): Record<string, unkn
     },
     '2': {
       class_type: 'CLIPTextEncode',
-      inputs: { text: '{{POSITIVE}}', clip: ['1', 1] },
+      inputs: { text: '{{POSITIVE}}', clip: clipRef },
       _meta: { title: 'Positive Prompt' },
     },
     '3': {
       class_type: 'CLIPTextEncode',
-      inputs: { text: '{{NEGATIVE}}', clip: ['1', 1] },
+      inputs: { text: '{{NEGATIVE}}', clip: clipRef },
       _meta: { title: 'Negative Prompt' },
     },
     '900': {
@@ -349,4 +531,14 @@ export function buildBuiltInVideoI2vWorkflow(model: string): Record<string, unkn
       _meta: { title: 'Save Video (WEBP)' },
     },
   };
+
+  if (isLtx) {
+    graph['10'] = {
+      class_type: 'CLIPLoader',
+      inputs: { clip_name: 't5xxl_fp16.safetensors', type: 'ltxv' },
+      _meta: { title: 'LTX CLIP (T5-XXL)' },
+    };
+  }
+
+  return graph;
 }

@@ -37,10 +37,12 @@ describe("WAN video workflow scaffold", () => {
     assert.match(suggestedScaffoldName("wan-video", "template"), /scaffold/i);
   });
 
-  it("builds an LTX scaffold with EmptyLTXVLatentVideo", () => {
+  it("builds an LTX scaffold with EmptyLTXVLatentVideo and CLIPLoader type ltxv", () => {
     const result = buildWorkflowScaffoldForModel("ltx-video");
     assert.equal(result.category, "video");
     assert.match(result.json, /EmptyLTXVLatentVideo/);
+    assert.match(result.json, /CLIPLoader/);
+    assert.match(result.json, /"type"\s*:\s*"ltxv"/);
   });
 
   it("can assign the scaffold id to wan-video and hunyuan-video without wiping other keys", () => {

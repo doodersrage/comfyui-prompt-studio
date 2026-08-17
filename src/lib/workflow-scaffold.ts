@@ -2556,10 +2556,11 @@ function videoScaffold(
 ): Record<string, unknown> {
   const latentClass = resolveVideoLatentClass(model);
   const useLightning = isWanLightningModel(model);
-  const i2vHint =
-    latentClass === 'EmptyLTXVLatentVideo'
-      ? 'Init Image (optional — auto-wired into LTXVImgToVideo at queue time)'
-      : 'Init Image (optional — auto-wired into WanImageToVideo/HunyuanImageToVideo at queue time)';
+  const isLtx = latentClass === 'EmptyLTXVLatentVideo';
+  const clipRef: [string, number] = isLtx ? ['10', 0] : ['1', 1];
+  const i2vHint = isLtx
+    ? 'Init Image (optional — auto-wired into LTXVImgToVideo at queue time)'
+    : 'Init Image (optional — auto-wired into WanImageToVideo/HunyuanImageToVideo at queue time)';
 
   const graph: Record<string, unknown> = {
     '1': {
@@ -2569,12 +2570,12 @@ function videoScaffold(
     },
     '2': {
       class_type: 'CLIPTextEncode',
-      inputs: { text: tokens.positive, clip: ['1', 1] },
+      inputs: { text: tokens.positive, clip: clipRef },
       _meta: { title: 'Positive Prompt' },
     },
     '3': {
       class_type: 'CLIPTextEncode',
-      inputs: { text: tokens.negative, clip: ['1', 1] },
+      inputs: { text: tokens.negative, clip: clipRef },
       _meta: { title: 'Negative Prompt' },
     },
     '900': {
@@ -2636,6 +2637,14 @@ function videoScaffold(
         strength_model: 1,
       },
       _meta: { title: 'Lightning LoRA' },
+    };
+  }
+
+  if (isLtx) {
+    graph['10'] = {
+      class_type: 'CLIPLoader',
+      inputs: { clip_name: 't5xxl_fp16.safetensors', type: 'ltxv' },
+      _meta: { title: 'LTX CLIP (T5-XXL)' },
     };
   }
 

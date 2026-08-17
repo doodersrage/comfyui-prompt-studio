@@ -55,6 +55,9 @@ import {
   resolveVideoSplitCompanions,
   rewriteCheckpointLoadersToVideoSplit,
   videoWeightIsUnetOnly,
+  ensureLtxClipLoaderForQueue,
+  isLtxVideoModel,
+  pickLtxTextEncoderFilename,
 } from './video-i2v-scaffold';
 
 export const IMAGE_SCALE_BY_NODE_TYPE = 'ImageScaleBy';
@@ -151,6 +154,8 @@ export type WorkflowDirectPatchCounts = {
   videoScaffoldFallback?: number;
   /** CheckpointLoaderSimple rewritten to UNET + CLIP + VAE for diffusion_models video weights. */
   videoSplitLoaders?: number;
+  /** LTX CLIPLoader type ltxv spliced because the checkpoint CLIP output is None. */
+  ltxClipLoader?: number;
   /** Klein ReferenceLatent instruction-edit wiring when figures are queued. */
   img2imgLatentWired?: number;
   referenceLatentWired?: number;
@@ -1721,6 +1726,20 @@ export function patchWorkflowDirectParams(
     if (split.companions.vae) {
       loaders.vae = split.companions.vae;
     }
+    if (split.companions.clip.class_type === 'CLIPLoader') {
+      loaders.dualClip = split.companions.clip.inputs.clip_name;
+    } else if (split.companions.clip.class_type === 'DualCLIPLoader') {
+      loaders.dualClip = split.companions.clip.inputs.clip_name1;
+    }
+  }
+  if (!unetOnly) {
+    const ltxClip = pickLtxTextEncoderFilename(input.availableClips);
+    if (
+      ltxClip &&
+      (isLtxVideoModel(input.model) || /ltx/i.test(resolvedVideoWeight ?? loaders.checkpoint ?? ''))
+    ) {
+      loaders.dualClip = ltxClip;
+    }
   }
   const loaderPatch = patchLoaderNodesInWorkflow(videoGraph, loaders, {
     syncLoadersToModel: input.syncWorkflowLoadersToModel,
@@ -1840,9 +1859,21 @@ export function patchWorkflowDirectParams(
     input.model,
     input.params
   );
+  const ltxClip = ensureLtxClipLoaderForQueue(fluxGuidance.workflow, {
+    model: input.model,
+    checkpointFilename: resolvedVideoWeight ?? loaders.checkpoint,
+    availableClips: input.availableClips,
+  });
+  if (ltxClip.error) {
+    return {
+      workflow: ltxClip.workflow,
+      patched: {},
+      error: ltxClip.error,
+    };
+  }
 
   return {
-    workflow: fluxGuidance.workflow,
+    workflow: ltxClip.workflow,
     patched: {
       ...(latentType.converted > 0 ? { emptySd3Latent: latentType.converted } : {}),
       ...latentPatch.patched,
@@ -1860,6 +1891,9 @@ export function patchWorkflowDirectParams(
       ...videoWirePatch.patched,
       ...(videoI2vGraph.usedScaffold ? { videoScaffoldFallback: 1 } : {}),
       ...(videoSplitConverted > 0 ? { videoSplitLoaders: videoSplitConverted } : {}),
+      ...(ltxClip.attached > 0 || ltxClip.rewired > 0
+        ? { ltxClipLoader: ltxClip.attached || ltxClip.rewired }
+        : {}),
       ...(kleinRefWire.wired
         ? {
             referenceLatentWired: kleinRefWire.insertedNodeIds.length || 1,

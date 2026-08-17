@@ -737,6 +737,7 @@ export const COMFY_IMAGE_MODELS: ComfyImageModelDefinition[] = [
     referenceTokenLimit: 512,
     limitsByDetail: PROFILE_LIMITS.video_motion,
     checkpointHint: 'ltx-video-2b-v0.9.safetensors',
+    clipHint: 't5xxl_fp16.safetensors',
   },
   {
     id: 'stable-audio',
