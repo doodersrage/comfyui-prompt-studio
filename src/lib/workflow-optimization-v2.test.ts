@@ -4,7 +4,7 @@ import { applyWorkflowNodeBindings } from "./workflow-apply-bindings";
 import { patchSamplerParamsInWorkflow } from "./comfyui-config";
 import { shouldSkipGlobalSamplerPatch } from "./workflow-enrich-markers";
 import { inferLoadImageBinding } from "./workflow-load-image-bindings";
-import { auditWorkflowNodeTypes } from "./workflow-node-type-audit";
+import { auditWorkflowNodeTypes, stripComfyUiOnlyNodes } from "./workflow-node-type-audit";
 import { runWorkflowPreflightSync } from "./workflow-preflight-sync";
 import { diffWorkflowNodes } from "./workflow-diff";
 import { enrichWorkflowGraph } from "./workflow-graph-enrich";
@@ -130,6 +130,24 @@ describe("workflow optimization v2", () => {
     });
     assert.equal(issues.length, 1);
     assert.match(issues[0]?.message ?? "", /MissingCustomNode/);
+  });
+
+  it("does not treat canvas Note nodes as missing custom packs", () => {
+    const issues = auditWorkflowNodeTypes({
+      workflowJson: JSON.stringify({
+        "1": { class_type: "KSampler", inputs: {} },
+        "2": { class_type: "Note", inputs: { text: "scaffold hint" } },
+        "3": { class_type: "MarkdownNote", inputs: { markdown: "hi" } },
+      }),
+      knownNodeTypes: new Set(["KSampler"]),
+    });
+    assert.equal(issues.length, 0);
+    const stripped = stripComfyUiOnlyNodes({
+      "1": { class_type: "KSampler", inputs: {} },
+      "2": { class_type: "Note", inputs: { text: "scaffold hint" } },
+    });
+    assert.equal("2" in stripped, false);
+    assert.equal("1" in stripped, true);
   });
 
   it("runs sync preflight for mixed stacks", () => {

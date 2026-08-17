@@ -50,6 +50,7 @@ import type { ModelLoaderFilenames } from './model-checkpoint-map';
 import { matchInventoryFilenameNearMiss } from './loader-map-inventory-sync';
 import { isVideoCheckpointMapKey, pickVideoCheckpointFromInventory } from './video-checkpoint-pick';
 import { ensureLtxClipLoaderForQueue } from './video-i2v-scaffold';
+import { stripComfyUiOnlyNodes } from './workflow-node-type-audit';
 
 export const DEFAULT_POSITIVE_TOKEN = '{{POSITIVE}}';
 export const DEFAULT_NEGATIVE_TOKEN = '{{NEGATIVE}}';
@@ -1813,6 +1814,8 @@ export function injectPromptsWithFallbacks(
       workflow: pruneUnresolvedQwenEditFigureLoaders(disconnected.workflow).workflow,
     };
   }
+
+  injected = { ...injected, workflow: stripComfyUiOnlyNodes(injected.workflow) };
 
   return injected;
 }

@@ -9,6 +9,36 @@ export type WorkflowNodeTypeIssue = {
   classType?: string;
 };
 
+/**
+ * Frontend / canvas-only class types. They often omit `/object_info` (so Manager
+ * has nothing to install) and never produce outputs. `Note` is the sticky on the
+ * graph, not a custom node pack.
+ */
+export const COMFY_UI_ONLY_NODE_TYPES = new Set(['Note', 'MarkdownNote', 'Reroute']);
+
+export function isComfyUiOnlyNodeType(classType: string | undefined): boolean {
+  const name = classType?.trim();
+  return Boolean(name && COMFY_UI_ONLY_NODE_TYPES.has(name));
+}
+
+/** Drop canvas notes before submit — ComfyUI rejects `Note` when it is not in object_info. */
+export function stripComfyUiOnlyNodes(workflow: Record<string, unknown>): Record<string, unknown> {
+  let changed = false;
+  const next: Record<string, unknown> = {};
+  for (const [nodeId, node] of Object.entries(workflow)) {
+    const classType =
+      node && typeof node === 'object'
+        ? (node as { class_type?: string }).class_type?.trim()
+        : undefined;
+    if (classType === 'Note' || classType === 'MarkdownNote') {
+      changed = true;
+      continue;
+    }
+    next[nodeId] = node;
+  }
+  return changed ? next : workflow;
+}
+
 export function listWorkflowClassTypes(
   workflowJson?: string,
   workflow?: Record<string, unknown> | null
@@ -54,14 +84,15 @@ export function auditWorkflowNodeTypes(input: {
 
   const issues: WorkflowNodeTypeIssue[] = [];
   for (const classType of listWorkflowClassTypes(input.workflowJson, input.workflow)) {
-    if (!known.has(classType)) {
-      issues.push({
-        severity: 'error',
-        message: `Workflow node type “${classType}” is not installed in ComfyUI — install the custom node pack or pick a different workflow.`,
-        href: settingsComfyUiSectionHref('workflow-map'),
-        classType,
-      });
+    if (isComfyUiOnlyNodeType(classType) || known.has(classType)) {
+      continue;
     }
+    issues.push({
+      severity: 'error',
+      message: `Workflow node type “${classType}” is not installed in ComfyUI — install the custom node pack or pick a different workflow.`,
+      href: settingsComfyUiSectionHref('workflow-map'),
+      classType,
+    });
   }
 
   return issues;
@@ -79,7 +110,7 @@ export function collectMissingWorkflowNodeTypes(
   const missing = new Set<string>();
   for (const workflow of workflows) {
     for (const classType of listWorkflowClassTypes(workflow.workflowJson, workflow.workflow)) {
-      if (!known.has(classType)) {
+      if (!isComfyUiOnlyNodeType(classType) && !known.has(classType)) {
         missing.add(classType);
       }
     }
