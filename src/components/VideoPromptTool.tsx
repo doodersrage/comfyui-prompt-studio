@@ -56,6 +56,7 @@ import { resolveFalExtendParentUrl } from '@/lib/fal-extend-upload';
 import { engineDisplayName } from '@/lib/engine/capabilities';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { Button, ButtonLink, PrimaryButton } from '@/components/ui/Button';
+import { appendSharedLlmFormData } from '@/lib/llm-request-options';
 
 const ACCENT = 'violet' as const;
 
@@ -93,6 +94,7 @@ export default function VideoPromptTool() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const clipMode = inferVideoClipMode({
     clipMode: toolSettings.clipMode,
     hasInitImage: Boolean(
@@ -486,6 +488,78 @@ export default function VideoPromptTool() {
   const pastedInitValue = initImageUrl === LOCAL_INIT_IMAGE_MARKER ? '' : initImageUrl;
   const hasInitImage = Boolean(file || previewUrl || pastedInitValue.trim());
 
+  const resolveInitImageFile = useCallback(async (): Promise<File> => {
+    if (file) {
+      return file;
+    }
+    const url = [previewUrl, pastedInitValue]
+      .find(value => value && isFetchableImageRef(value))
+      ?.trim();
+    if (!url) {
+      throw new Error(
+        'Upload a still, pick from Gallery, or paste an http/data URL before scanning.'
+      );
+    }
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error('Could not read the first frame to scan.');
+    }
+    const blob = await response.blob();
+    if (blob.type && !blob.type.startsWith('image/')) {
+      throw new Error('Vision scan needs a still image, not a clip.');
+    }
+    return new File([blob], 'video-init.jpg', { type: blob.type || 'image/jpeg' });
+  }, [file, pastedInitValue, previewUrl]);
+
+  const scanInitWithVision = useCallback(async () => {
+    if (!hasInitImage) {
+      setError('Add a first frame before scanning.');
+      return;
+    }
+    setScanning(true);
+    setError(null);
+    try {
+      const image = await resolveInitImageFile();
+      const form = new FormData();
+      form.append('image', image);
+      if (camera.trim()) {
+        form.append('camera', camera.trim());
+      }
+      if (style.trim()) {
+        form.append('style', style.trim());
+      }
+      appendSharedLlmFormData(form, shared);
+      const response = await fetch('/api/video-prompt', {
+        method: 'POST',
+        body: form,
+      });
+      const data = (await response.json()) as {
+        subject?: string;
+        motion?: string;
+        error?: string;
+      };
+      if (!response.ok || !data.subject?.trim()) {
+        throw new Error(data.error ?? 'Vision scan failed.');
+      }
+      setClipMode('i2v');
+      setSubject(data.subject.trim());
+      setMotion(data.motion?.trim() || '');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Vision scan failed.');
+    } finally {
+      setScanning(false);
+    }
+  }, [
+    camera,
+    hasInitImage,
+    resolveInitImageFile,
+    setClipMode,
+    setMotion,
+    setSubject,
+    shared,
+    style,
+  ]);
+
   const queueVideo = useCallback(() => {
     if (!output.trim()) {
       return;
@@ -800,7 +874,7 @@ export default function VideoPromptTool() {
             {clipMode === 'extend'
               ? 'Needs a parent clip. Fal calls LTX extend-video when the parent is already a Fal URL (or after a documented CDN upload). Otherwise continue is last-frame I2V. Replicate has no extend API.'
               : clipMode === 'i2v'
-                ? 'Needs a first frame. Local WAN / Hunyuan / LTX wire I2V nodes; Fal uses the I2V model in Settings.'
+                ? 'Needs a first frame. Scan with vision fills Subject and Motion from that still. Local WAN / Hunyuan / LTX wire I2V nodes; Fal uses the I2V model in Settings.'
                 : 'No still required. Local graphs stay T2V; Fal uses the T2V model in Settings.'}
           </p>
           {!engineCanQueueClips(inferenceEngine) &&
@@ -862,10 +936,20 @@ export default function VideoPromptTool() {
             <ButtonLink href={galleryPickPath('video')} variant="secondary" size="sm">
               Choose from Gallery
             </ButtonLink>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={!hasInitImage || scanning || loading}
+              loading={scanning}
+              loadingLabel="Scanning still"
+              onClick={() => void scanInitWithVision()}
+            >
+              Scan with vision
+            </Button>
           </div>
           <p className="type-caption text-[var(--text-muted)]">
             Opens Gallery in pick mode — click a completed still to return here as the I2V init
-            image.
+            image. Scan with vision fills Subject and Motion from the still.
           </p>
           {previewUrl ? (
             <div className="flex flex-wrap items-start gap-3">
@@ -963,7 +1047,7 @@ export default function VideoPromptTool() {
           accentClassName={accentButtonClass(ACCENT)}
           data-action="primary-generate"
           onClick={() => void generate()}
-          disabled={!mounted || !subject.trim()}
+          disabled={!mounted || !subject.trim() || scanning}
           loading={loading}
           loadingLabel="Building video prompt"
           className="mt-4"

@@ -1,7 +1,19 @@
-import { chatCompletion, allowTemplateFallback, isLlmEnabled } from './llm-client';
+import {
+  chatCompletion,
+  allowTemplateFallback,
+  isLlmEnabled,
+  visionCompletion,
+} from './llm-client';
 import { getComfyModelDefinition } from './comfy-models/client';
 import { isWanLightningModel } from './model-sampling-patch';
 import { isWanRapidAioModel } from './model-denoise-defaults';
+import {
+  resolveRequestLlmEnabled,
+  resolveRequestLlmEndpoint,
+  resolveRequestVisionModel,
+  type LlmRequestOptions,
+} from './llm-request-options';
+import { stripPromptArtifacts } from './prompt-cleanup';
 
 export type VideoPromptRequest = {
   subject: string;
@@ -126,4 +138,128 @@ export async function generateVideoPrompt(request: VideoPromptRequest): Promise<
     }
     throw error;
   }
+}
+
+export type VideoInitScan = {
+  subject: string;
+  motion: string;
+};
+
+const VIDEO_SCAN_SUBJECT_MAX = 600;
+const VIDEO_SCAN_MOTION_MAX = 400;
+
+function clipScanField(value: string, max: number): string {
+  return value.replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
+function extractJsonObject(text: string): Record<string, unknown> | null {
+  const trimmed = text.trim();
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const raw = (fenced?.[1] ?? trimmed).trim();
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  if (start < 0 || end <= start) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw.slice(start, end + 1)) as unknown;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return null;
+    }
+    return parsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+/** Parse a vision reply into Video subject + motion fields. */
+export function parseVideoInitScan(raw: string): VideoInitScan {
+  const cleaned = stripPromptArtifacts(raw).trim();
+  const json = extractJsonObject(cleaned);
+  const fromJsonSubject =
+    typeof json?.subject === 'string'
+      ? json.subject
+      : typeof json?.action === 'string'
+        ? json.action
+        : '';
+  const fromJsonMotion =
+    typeof json?.motion === 'string'
+      ? json.motion
+      : typeof json?.camera === 'string'
+        ? json.camera
+        : '';
+  if (fromJsonSubject.trim()) {
+    return {
+      subject: clipScanField(fromJsonSubject, VIDEO_SCAN_SUBJECT_MAX),
+      motion:
+        clipScanField(fromJsonMotion, VIDEO_SCAN_MOTION_MAX) ||
+        'Gentle continuous motion that continues this freeze-frame, stable camera.',
+    };
+  }
+  const prose = cleaned.replace(/^```(?:json)?\s*|\s*```$/g, '').trim();
+  const sentenceSplit = prose.match(/^(.+?[.!?])\s+([\s\S]+)$/);
+  if (sentenceSplit?.[1] && sentenceSplit[2]) {
+    return {
+      subject: clipScanField(sentenceSplit[1], VIDEO_SCAN_SUBJECT_MAX),
+      motion: clipScanField(sentenceSplit[2], VIDEO_SCAN_MOTION_MAX),
+    };
+  }
+  return {
+    subject: clipScanField(prose, VIDEO_SCAN_SUBJECT_MAX) || 'the subject in the first frame',
+    motion: 'Gentle continuous motion that continues this freeze-frame, stable camera.',
+  };
+}
+
+export async function scanVideoInitFrame(options: {
+  imageDataUrl: string;
+  camera?: string;
+  style?: string;
+  extraHints?: string;
+  llm?: LlmRequestOptions;
+}): Promise<VideoInitScan> {
+  const hosted = Boolean(options.llm?.llmProvider && options.llm.llmProvider !== 'server');
+  if (!resolveRequestLlmEnabled(options.llm)) {
+    throw new Error(
+      hosted
+        ? 'Vision scan needs a hosted vision model. Pick one under Settings → LLM and paste your API key.'
+        : 'Vision scan needs a vision-capable LLM. Set LLM_ENABLED=true and configure LLM_VISION_MODEL.'
+    );
+  }
+  const visionModel =
+    resolveRequestVisionModel(options.llm) ?? process.env.LLM_VISION_MODEL?.trim();
+  if (!visionModel) {
+    throw new Error(
+      hosted
+        ? 'Pick a session vision model under Settings → LLM to scan this still.'
+        : 'LLM_VISION_MODEL is not set. Add LLM_VISION_MODEL=qwen3-vl:latest to .env.local and restart.'
+    );
+  }
+
+  const content = await visionCompletion({
+    systemPrompt: `You read a still that will be the first frame of an image-to-video clip.
+Return ONLY JSON: {"subject":"","motion":""}
+- subject: one or two sentences of who/what is visible — pose, clothes, setting. Do not invent unseen people or places.
+- motion: one sentence of plausible continuing action and a simple camera move that could start from this freeze-frame. Not a new scene.
+- No markdown, no commentary.`,
+    textPrompt: [
+      'This still is the I2V first frame. Fill subject and motion for a video prompt.',
+      options.camera?.trim() ? `Camera preference: ${options.camera.trim()}` : '',
+      options.style?.trim() ? `Look/style: ${options.style.trim()}` : '',
+      options.extraHints?.trim() ? `Player notes: ${options.extraHints.trim()}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n'),
+    imageDataUrl: options.imageDataUrl,
+    maxTokens: 280,
+    temperature: 0.35,
+    model: visionModel,
+    endpoint: resolveRequestLlmEndpoint(options.llm),
+    usageContext: { route: 'video-prompt-scan' },
+  });
+
+  const scanned = parseVideoInitScan(content);
+  if (!scanned.subject.trim()) {
+    throw new Error('Vision scan returned an empty subject. Try a clearer still.');
+  }
+  return scanned;
 }

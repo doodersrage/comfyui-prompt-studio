@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { buildVideoPrompt, generateVideoPrompt } from "./video-prompt";
+import { buildVideoPrompt, generateVideoPrompt, parseVideoInitScan } from "./video-prompt";
 
 describe("video prompt", () => {
   it("composes a template prompt", () => {
@@ -22,5 +22,21 @@ describe("video prompt", () => {
     });
     assert.equal(result.method, "template");
     assert.match(result.prompt, /drone flyover/);
+  });
+
+  it("parses a vision I2V scan into subject and motion", () => {
+    const scanned = parseVideoInitScan(
+      '```json\n{"subject":"A fox on a snowbank, coat fluffed.","motion":"It bounds downhill, camera tracking left."}\n```'
+    );
+    assert.equal(scanned.subject, "A fox on a snowbank, coat fluffed.");
+    assert.match(scanned.motion, /bounds downhill/i);
+  });
+
+  it("falls back to prose when the vision scan is not JSON", () => {
+    const scanned = parseVideoInitScan(
+      "A cyclist crests a foggy hill. Wheels spin as the camera dollies in."
+    );
+    assert.match(scanned.subject, /cyclist/i);
+    assert.match(scanned.motion, /Wheels spin|dollies/i);
   });
 });

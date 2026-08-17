@@ -194,7 +194,7 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 - **Workflow preset pack builder** — add workflows or settings snapshots to packs; install packs into library
 - **Workflow diff** — Settings compares two workflow JSON files
 - **Workflow node auto-map** — suggested positive/negative bindings while editing workflow JSON
-- **Video prompt builder** — `/video` + local WAN / Hunyuan / LTX, or Fal / Replicate / Grok / Gemini clips (T2V, I2V, extend). Extend chip: Fal LTX extend-video or last-frame I2V. ChatGPT warns before queue.
+- **Video prompt builder** — `/video` + local WAN / Hunyuan / LTX, or Fal / Replicate / Grok / Gemini clips (T2V, I2V, extend). I2V **Scan with vision** fills Subject and Motion from the first frame. Extend chip: Fal LTX extend-video or last-frame I2V. ChatGPT warns before queue.
 - **ControlNet prompt builder** — `/controlnet` tool for depth/pose/canny/normal/lineart conditioning text
 - **ControlNet from image** — upload reference for vision-assisted structure extraction on `/controlnet`
 - **ControlNet gallery lineage** — gallery → ControlNet handoffs keep parent entry + source image; derivatives filter as ControlNet
