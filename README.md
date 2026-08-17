@@ -2,9 +2,9 @@
 
 A Next.js app that turns topics or keywords into model-specific prompts for image and video workflows (ComfyUI primary for generate / Lightning / specialty graphs; Diffusers optional for experimental txt2img; Fal and Replicate for cloud stills + clips; Grok and Gemini for stills plus native video; ChatGPT stills only), and reformats existing drafts for any supported architecture.
 
-**Documentation hub:** [docs/README.md](docs/README.md) — features, API, configuration, architecture, and contributor notes.
+**Docs:** [doodersrage.github.io/llm-prompt-studio](https://doodersrage.github.io/llm-prompt-studio/) · [source](docs/README.md)
 
-**Releases:** [GitHub Releases](https://github.com/doodersrage/comfyui-prompt-studio/releases) · [how to cut one](docs/releasing.md)
+**Get it:** [GitHub Releases](https://github.com/doodersrage/llm-prompt-studio/releases) (macOS `.dmg`, Windows `.exe`, Linux `.deb`) · `docker pull ghcr.io/doodersrage/llm-prompt-studio:latest` · [how to cut a release](docs/releasing.md)
 
 ## Quick start
 

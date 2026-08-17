@@ -168,7 +168,7 @@ jobs:
           {
             echo "ghcr.io/${GITHUB_REPOSITORY,,}"
             if [ "${{ steps.hub.outcome }}" = "success" ]; then
-              echo "doodersrage/comfyui-prompt-studio"
+              echo "doodersrage/llm-prompt-studio"
             fi
           } > /tmp/docker-images.txt
           echo "list<<EOF" >> "$GITHUB_OUTPUT"

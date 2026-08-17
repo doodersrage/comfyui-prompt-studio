@@ -1,19 +1,19 @@
 # Releases
 
-Prompt Studio ships from **GitHub Releases** on `vX.Y.Z` tags. Each release publishes a container image to [GHCR](https://github.com/doodersrage/comfyui-prompt-studio/pkgs/container/comfyui-prompt-studio) and desktop installers (`.dmg`, `.exe`, `.deb`). See [Desktop app](desktop.md).
+Prompt Studio ships from **GitHub Releases** on `vX.Y.Z` tags. Each release publishes a container image to [GHCR](https://github.com/doodersrage/llm-prompt-studio/pkgs/container/llm-prompt-studio) and desktop installers (`.dmg`, `.exe`, `.deb`). See [Desktop app](desktop.md).
 
-The first tagged GitHub Release was [`Initial-Release`](https://github.com/doodersrage/comfyui-prompt-studio/releases/tag/Initial-Release) (July 2026). Later cuts use semver tags (`v0.2.0`, …) so notes and images stay comparable.
+The first tagged GitHub Release was [`Initial-Release`](https://github.com/doodersrage/llm-prompt-studio/releases/tag/Initial-Release) (July 2026). Later cuts use semver tags (`v0.2.0`, …) so notes and images stay comparable.
 
 ## Cut a release (preferred)
 
 1. Merge whatever should ship to `main`.
 2. Actions → **Release** → **Run workflow**.
-3. Choose **patch** / **minor** / **major** (from `package.json`, currently the 0.x line).
+3. Choose **patch** / **minor** / **major** (from `package.json`).
 4. Run. The workflow:
    - runs lint, unit tests, and `next build`
    - bumps `package.json` / `package-lock.json` and pushes `Release vX.Y.Z` plus tag `vX.Y.Z`
    - creates the GitHub Release with generated notes
-   - builds and pushes `ghcr.io/doodersrage/comfyui-prompt-studio:vX.Y.Z` and `:latest`
+   - builds and pushes `ghcr.io/doodersrage/llm-prompt-studio:vX.Y.Z` and `:latest`
    - builds desktop installers and attaches them to the GitHub Release
 
 Use **dry run** to print the next version without tagging.
@@ -37,16 +37,16 @@ Pushing `v*.*.*` runs the same publish path (tests, GitHub Release, image) witho
 ## Install a release
 
 ```bash
-docker pull ghcr.io/doodersrage/comfyui-prompt-studio:latest
+docker pull ghcr.io/doodersrage/llm-prompt-studio:latest
 docker run -d --name comfyui-prompt-studio -p 127.0.0.1:47832:47832 \
-  ghcr.io/doodersrage/comfyui-prompt-studio:latest
+  ghcr.io/doodersrage/llm-prompt-studio:latest
 ```
 
 Pin a version with the `vX.Y.Z` tag instead of `latest`. Env vars and Compose: [Configuration & deployment](configuration.md).
 
 ## Docker Hub (optional)
 
-The workflow also pushes `doodersrage/comfyui-prompt-studio` when these repository secrets exist:
+The workflow also pushes `doodersrage/llm-prompt-studio` when these repository secrets exist:
 
 | Secret | Value |
 | --- | --- |
@@ -55,7 +55,7 @@ The workflow also pushes `doodersrage/comfyui-prompt-studio` when these reposito
 
 If login fails, GHCR still publishes and the GitHub Release still goes out.
 
-The first GHCR package is **private** until you open **Packages → comfyui-prompt-studio → Package settings → Change visibility → Public**.
+The first GHCR package is **private** until you open **Packages → llm-prompt-studio → Package settings → Change visibility → Public**.
 
 ## Notes
 

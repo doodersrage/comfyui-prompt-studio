@@ -36,19 +36,19 @@ Before exposing Prompt Studio beyond a trusted LAN:
 
 ## Docker
 
-Published images (from [GitHub Releases](https://github.com/doodersrage/comfyui-prompt-studio/releases); see [Releases](releasing.md)):
+Published images (from [GitHub Releases](https://github.com/doodersrage/llm-prompt-studio/releases); see [Releases](releasing.md)):
 
 ```bash
-docker pull ghcr.io/doodersrage/comfyui-prompt-studio:latest
+docker pull ghcr.io/doodersrage/llm-prompt-studio:latest
 docker run -d --name comfyui-prompt-studio --restart=always \
   -p 127.0.0.1:47832:47832 \
   -e LLM_API_BASE_URL=http://host.docker.internal:11434/v1 \
   -e LLM_MODEL=hermes3 \
   -e LLM_VISION_MODEL=gemma4:latest \
-  ghcr.io/doodersrage/comfyui-prompt-studio:latest
+  ghcr.io/doodersrage/llm-prompt-studio:latest
 ```
 
-Docker Hub (`doodersrage/comfyui-prompt-studio`) is updated on the same release when Hub secrets are set.
+Docker Hub (`doodersrage/llm-prompt-studio`) is updated on the same release when Hub secrets are set.
 
 Build locally:
 
