@@ -34,8 +34,8 @@ export default function ComfyUiSettingsJumpNav({
           <p className="type-overline text-[var(--text-muted)]">Jump to</p>
           <p className="ui-meta mt-1">
             {essentialsOnly
-              ? 'Essentials only — connection, workflows, downloads, and queue basics.'
-              : 'Search or jump within the ComfyUI settings tab.'}
+              ? 'Essentials — engines first, then ComfyUI connection, workflows, and queue.'
+              : 'Search or jump: engines first, then ComfyUI connection and queue.'}
           </p>
         </div>
         <label className="block min-w-[12rem] flex-1 sm:max-w-xs">

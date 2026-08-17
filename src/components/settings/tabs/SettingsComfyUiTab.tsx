@@ -230,7 +230,8 @@ export default function SettingsComfyUiTab({
       {slimSettings ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-xl)] border border-[var(--border-subtle)] bg-[color-mix(in_oklab,var(--surface)_90%,transparent)] px-4 py-3 shadow-[inset_0_1px_0_rgb(255_255_255_/0.03)]">
           <p className="type-caption text-[var(--text-secondary)]">
-            Essentials view — connection, workflow map, model downloads, and queue basics.
+            Essentials view — engines, ComfyUI connection, workflow map, model downloads, and queue
+            basics.
           </p>
           {onShowAllSettings ? (
             <Button type="button" variant="secondary" size="sm" onClick={onShowAllSettings}>

@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
   isGalleryClipEntry,
   lastRoleplayMotionSource,
+  looksLikeMotionUrl,
   looksLikeVideoUrl,
   nextRoleplayMotionKind,
   normalizeRoleplayBeatOutput,
@@ -83,6 +84,22 @@ describe('roleplay-film', () => {
   it('treats mp4 and i2v/extend entries as clips', () => {
     assert.equal(looksLikeVideoUrl('http://local/clip.mp4'), true);
     assert.equal(looksLikeVideoUrl('http://local/still.png'), false);
+    assert.equal(
+      looksLikeVideoUrl('/api/comfyui/view?filename=clip.mp4&type=output'),
+      true,
+    );
+    assert.equal(
+      looksLikeVideoUrl('/api/fal/view?filename=job.mp4&promptId=abc'),
+      true,
+    );
+    assert.equal(
+      looksLikeVideoUrl('/api/comfyui/view?filename=clip.webp&type=output'),
+      false,
+    );
+    assert.equal(
+      looksLikeMotionUrl('/api/comfyui/view?filename=clip.webp&type=output'),
+      true,
+    );
     assert.equal(isGalleryClipEntry({ derivedKind: 'extend', tool: 'video' }), true);
     assert.equal(isGalleryClipEntry({ derivedKind: 'film', tool: 'roleplay' }), true);
     assert.equal(isGalleryClipEntry({ tool: 'character', mediaKind: 'image' }), false);

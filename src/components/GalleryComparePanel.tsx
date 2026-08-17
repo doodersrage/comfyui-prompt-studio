@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import type { ComfyGalleryEntry } from '@/lib/comfyui-gallery';
-import { galleryEntryThumbUrls } from '@/lib/comfyui-gallery';
+import { galleryEntryHeroPreviewUrl, type ComfyGalleryEntry } from '@/lib/comfyui-gallery';
+import GalleryEntryPreview from '@/components/ui/GalleryEntryPreview';
 import { Button } from '@/components/ui/Button';
 import {
   createEloBracket,
@@ -274,7 +274,7 @@ export default function GalleryComparePanel({
       ) : null}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {entries.map(entry => {
-          const url = galleryEntryThumbUrls(entry)[0] ?? null;
+          const url = galleryEntryHeroPreviewUrl(entry);
           const caps = entryEnhanceCapabilities(entry);
           return (
             <article
@@ -287,28 +287,21 @@ export default function GalleryComparePanel({
             >
               {url ? (
                 onOpenPreview ? (
-                  <button
-                    type="button"
-                    onClick={() => onOpenPreview(entry)}
-                    className="block w-full overflow-hidden rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
-                    aria-label="Open preview"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={url}
-                      alt=""
-                      loading="lazy"
-                      decoding="async"
+                  <div className="relative overflow-hidden rounded">
+                    <GalleryEntryPreview
+                      entry={entry}
                       className="aspect-square w-full object-cover transition hover:opacity-95"
                     />
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => onOpenPreview(entry)}
+                      className="absolute inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+                      aria-label="Open preview"
+                    />
+                  </div>
                 ) : (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={url}
-                    alt=""
-                    loading="lazy"
-                    decoding="async"
+                  <GalleryEntryPreview
+                    entry={entry}
                     className="aspect-square w-full rounded object-cover"
                   />
                 )

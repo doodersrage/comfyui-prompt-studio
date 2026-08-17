@@ -3,7 +3,9 @@
 import { Suspense, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import AppNav from '@/components/AppNav';
+import PlayKioskShell from '@/components/PlayKioskShell';
 import { isMobileStudioPath } from '@/lib/mobile-studio';
+import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
 
 function NavFallback() {
   return (
@@ -13,7 +15,7 @@ function NavFallback() {
     >
       <div className="flex h-14 items-center gap-3 px-4 lg:h-auto lg:flex-col lg:items-stretch lg:gap-4 lg:p-5">
         <div className="h-8 w-8 shrink-0 rounded-[22%] bg-[var(--bg-active)]" />
-        <div className="hidden h-3 w-28 rounded-[var(--radius-full)] bg-[var(--bg-active)] lg:block" />
+        <div className="hidden h-3 w-28 rounded-[var(--radius-full)] bg-[var(--bg-subtle)] lg:block" />
         <div className="mt-2 hidden space-y-2 lg:block">
           <div className="h-8 w-full rounded-[var(--radius-md)] bg-[var(--bg-subtle)]" />
           <div className="h-8 w-full rounded-[var(--radius-md)] bg-[var(--bg-subtle)]" />
@@ -26,22 +28,32 @@ function NavFallback() {
 
 export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const workspaceMode = useWorkspaceMode();
   const mobileStudio = isMobileStudioPath(pathname);
+  const playKiosk = workspaceMode === 'play' && !mobileStudio;
 
   return (
     <div
       className={
-        mobileStudio
+        mobileStudio || playKiosk
           ? 'relative z-[1] min-h-full'
           : 'relative z-[1] min-h-full lg:pl-[var(--sidebar-width)]'
       }
     >
-      {mobileStudio ? null : (
+      {mobileStudio ? null : playKiosk ? (
+        <PlayKioskShell />
+      ) : (
         <Suspense fallback={<NavFallback />}>
           <AppNav />
         </Suspense>
       )}
-      {children}
+      {playKiosk ? (
+        <div className="pt-[calc(4.75rem+env(safe-area-inset-top))] pb-[calc(5.5rem+env(safe-area-inset-bottom))]">
+          {children}
+        </div>
+      ) : (
+        children
+      )}
     </div>
   );
 }

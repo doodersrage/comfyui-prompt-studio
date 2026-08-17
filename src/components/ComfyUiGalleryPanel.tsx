@@ -96,6 +96,7 @@ import { loadGalleryDensity, saveGalleryDensity, type GalleryDensity } from '@/l
 import { toastBulkQueueSummary } from '@/lib/app-toast';
 import {
   buildGalleryLightboxPlaylist,
+  galleryEntryHeroPreviewUrl,
   galleryEntryLightboxUrls,
   galleryEntryMediaKinds,
   galleryEntryPrimaryMediaKind,
@@ -1165,7 +1166,7 @@ export default function ComfyUiGalleryPanel({
           (filter.reviewMode === true && reviewFocusEntry?.id === entry.id) ||
           filter.focusEntryId === entry.id
         }
-        previewUrl={primaryThumbUrl(entry)}
+        previewUrl={galleryEntryHeroPreviewUrl(entry)}
         imageUrls={galleryEntryStripThumbUrls(entry)}
         reviewMode={filter.reviewMode === true && !pickFor}
         reviewMutationHints={

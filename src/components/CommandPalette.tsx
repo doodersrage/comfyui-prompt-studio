@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { canAccessNavFeature, useAuth } from '@/hooks/useAuth';
 import { featureForPath, type AppFeatureId } from '@/lib/auth/features';
 import {
@@ -11,7 +11,13 @@ import {
   APP_NAV_SETTINGS_LINK,
   flattenAppNavLinks,
 } from '@/lib/app-nav-catalog';
-import { loadWorkspaceMode, navGroupsForWorkspaceMode } from '@/lib/workspace-mode';
+import {
+  isLeanWorkspaceMode,
+  isRoleplayFocusNavHref,
+  loadWorkspaceMode,
+  navGroupsForPath,
+  usesPlayChrome,
+} from '@/lib/workspace-mode';
 import { SETTINGS_TABS, settingsTabHref, SIMPLE_SETTINGS_TAB_IDS } from '@/lib/settings-nav';
 import { studioTabHref, studioTabsForWorkspaceMode } from '@/lib/studio-nav';
 import { isNavFavorite, loadNavFavorites, toggleNavFavorite } from '@/lib/nav-favorites';
@@ -112,6 +118,21 @@ const ACTION_ITEMS: CommandItem[] = [
   },
 ];
 
+function allowPaletteItemOnPath(item: CommandItem, pathname: string): boolean {
+  if (!usesPlayChrome(loadWorkspaceMode(), pathname)) {
+    return true;
+  }
+  if (!item.href) {
+    return (
+      item.id === 'keyboard-shortcuts' ||
+      item.id === 'reload' ||
+      item.id === 'report-bug' ||
+      item.id === 'dismiss-continue'
+    );
+  }
+  return isRoleplayFocusNavHref(item.href);
+}
+
 function isCommandItemAllowed(
   item: CommandItem,
   allowedFeatures: AppFeatureId[] | 'all',
@@ -139,9 +160,10 @@ function isCommandItemAllowed(
   return canAccessNavFeature(allowedFeatures, featureForPath(path));
 }
 
-function buildNavItems(): CommandItem[] {
+function buildNavItems(pathname: string): CommandItem[] {
   const mode = loadWorkspaceMode();
-  const groups = navGroupsForWorkspaceMode(mode, APP_NAV_GROUPS);
+  const focused = usesPlayChrome(mode, pathname);
+  const groups = navGroupsForPath(mode, pathname, APP_NAV_GROUPS);
   const nav = flattenAppNavLinks(groups).map(link => ({
     id: `nav-${link.href}`,
     label: link.label,
@@ -149,8 +171,9 @@ function buildNavItems(): CommandItem[] {
     href: link.href,
     group: 'Navigate',
   }));
-  const settingsTabIds =
-    mode === 'simple' ? SIMPLE_SETTINGS_TAB_IDS : SETTINGS_TABS.map(tab => tab.id);
+  const settingsTabIds = isLeanWorkspaceMode(mode)
+    ? SIMPLE_SETTINGS_TAB_IDS
+    : SETTINGS_TABS.map(tab => tab.id);
   const settingsTabs = settingsTabIds
     .map(id => SETTINGS_TABS.find(tab => tab.id === id))
     .filter((tab): tab is (typeof SETTINGS_TABS)[number] => Boolean(tab))
@@ -168,6 +191,9 @@ function buildNavItems(): CommandItem[] {
     href: studioTabHref(tab.id),
     group: 'Studio',
   }));
+  const actionItems = focused
+    ? ACTION_ITEMS.filter(item => item.id === 'reload' || item.id === 'report-bug')
+    : ACTION_ITEMS;
   return [
     ...nav,
     {
@@ -184,14 +210,15 @@ function buildNavItems(): CommandItem[] {
       href: APP_NAV_PROFILE_LINK.href,
       group: 'Navigate',
     },
-    ...settingsTabs,
-    ...studioTabs,
-    ...ACTION_ITEMS,
+    ...(focused ? [] : settingsTabs),
+    ...(focused ? [] : studioTabs),
+    ...actionItems,
   ];
 }
 
 export default function CommandPalette() {
   const router = useRouter();
+  const pathname = usePathname() ?? '';
 
   // Defer null-check to after all hooks so hook-call order stays stable.
   const rawAuth = useAuth();
@@ -224,13 +251,16 @@ export default function CommandPalette() {
   const [pluginNavItems, setPluginNavItems] = useState<CommandItem[]>([]);
   const listRef = useRef<HTMLUListElement | null>(null);
   const nsfwGeneratorEnabled = useNsfwGeneratorEnabled();
+  const playChrome = usesPlayChrome(loadWorkspaceMode(), pathname);
 
   const catalog = useMemo(() => {
-    const base = buildNavItems();
+    const base = buildNavItems(pathname);
     const existing = new Set(base.map(item => item.href).filter(Boolean));
-    const pluginExtras = pluginNavItems.filter(item => item.href && !existing.has(item.href));
+    const pluginExtras = playChrome
+      ? []
+      : pluginNavItems.filter(item => item.href && !existing.has(item.href));
     const envGatedExtras =
-      nsfwGeneratorEnabled && !existing.has(NSFW_GENERATOR_NAV_LINK.href)
+      !playChrome && nsfwGeneratorEnabled && !existing.has(NSFW_GENERATOR_NAV_LINK.href)
         ? [
             {
               id: 'plugin-nav-nsfw-generator',
@@ -256,14 +286,18 @@ export default function CommandPalette() {
         },
       } satisfies CommandItem,
     ];
-  }, [pluginNavItems, nsfwGeneratorEnabled]);
+  }, [pluginNavItems, nsfwGeneratorEnabled, pathname, playChrome]);
 
   const items = useMemo(
     () =>
       isNullContext
         ? []
-        : catalog.filter(item => isCommandItemAllowed(item, allowedFeatures, guestShell)),
-    [isNullContext, allowedFeatures, catalog, guestShell]
+        : catalog.filter(
+            item =>
+              isCommandItemAllowed(item, allowedFeatures, guestShell) &&
+              allowPaletteItemOnPath(item, pathname)
+          ),
+    [isNullContext, allowedFeatures, catalog, guestShell, pathname]
   );
 
   useEffect(() => {
@@ -422,7 +456,11 @@ export default function CommandPalette() {
     if (!q) {
       const seen = new Set<string>();
       return [...continueItems, ...recentItems, ...withFavFirst]
-        .filter(item => isCommandItemAllowed(item, allowedFeatures, guestShell))
+        .filter(
+          item =>
+            isCommandItemAllowed(item, allowedFeatures, guestShell) &&
+            allowPaletteItemOnPath(item, pathname)
+        )
         .filter(item => {
           const key = item.group === 'Continue' ? item.id : (item.href ?? item.id);
           if (seen.has(key)) {
@@ -433,7 +471,11 @@ export default function CommandPalette() {
         });
     }
     const staticMatches = [...continueItems, ...recentItems, ...withFavFirst]
-      .filter(item => isCommandItemAllowed(item, allowedFeatures, guestShell))
+      .filter(
+        item =>
+          isCommandItemAllowed(item, allowedFeatures, guestShell) &&
+          allowPaletteItemOnPath(item, pathname)
+      )
       .filter(
         item =>
           item.label.toLowerCase().includes(q) ||
@@ -442,7 +484,11 @@ export default function CommandPalette() {
       );
     const seen = new Set<string>();
     return [...staticMatches, ...globalMatches]
-      .filter(item => isCommandItemAllowed(item, allowedFeatures, guestShell))
+      .filter(
+        item =>
+          isCommandItemAllowed(item, allowedFeatures, guestShell) &&
+          allowPaletteItemOnPath(item, pathname)
+      )
       .filter(item => {
         if (seen.has(item.id)) {
           return false;
@@ -460,6 +506,7 @@ export default function CommandPalette() {
     lastDraft,
     lastLook,
     lastRoute,
+    pathname,
     query,
     recent,
     router,
@@ -572,7 +619,7 @@ export default function CommandPalette() {
               }
             }}
             placeholder={
-              loadWorkspaceMode() === 'simple'
+              isLeanWorkspaceMode(loadWorkspaceMode())
                 ? 'Jump to a tool, Studio tab, or search…'
                 : 'Jump to a page, Studio/Settings tab, or search…'
             }

@@ -3,7 +3,11 @@
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useState } from 'react';
-import { galleryEntryThumbUrls, initGalleryStore, loadComfyGallery } from '@/lib/comfyui-gallery';
+import {
+  galleryEntryHeroPreviewUrl,
+  initGalleryStore,
+  loadComfyGallery,
+} from '@/lib/comfyui-gallery';
 import { loadScheduledBatchConfig } from '@/lib/scheduled-batch';
 import { loadActiveProjectId, loadPromptProjects } from '@/lib/prompt-projects';
 import {
@@ -15,6 +19,7 @@ import { loadLastToolRoute, clearLastToolRoute } from '@/lib/last-tool-route';
 import { flattenAppNavLinks } from '@/lib/app-nav-catalog';
 import { buildGalleryFocusUrl, buildUseAsHintsUrlFromGallery } from '@/lib/use-as-hints-url';
 import { startPromptEditorFromGalleryEntry } from '@/lib/improve-output';
+import GalleryEntryPreview from '@/components/ui/GalleryEntryPreview';
 import { usePromptHistory } from '@/hooks/usePromptHistory';
 import { useHubPageDescription, useToolSectionDescription } from '@/hooks/useToolPageDescription';
 import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
@@ -249,7 +254,7 @@ export default function HomeDashboard() {
             className={`grid gap-3 ${isSimple ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6'}`}
           >
             {recentCompleted.map(entry => {
-              const thumb = galleryEntryThumbUrls(entry)[0];
+              const preview = galleryEntryHeroPreviewUrl(entry);
               const focusHref = buildGalleryFocusUrl(entry.id);
               const hintsHref = buildUseAsHintsUrlFromGallery(entry);
               return (
@@ -257,14 +262,10 @@ export default function HomeDashboard() {
                   key={entry.id}
                   className="group ui-media-card relative overflow-hidden transition hover:border-[var(--border-strong)] focus-within:border-[var(--border-strong)] focus-within:ring-2 focus-within:ring-[var(--accent-ring)]"
                 >
-                  <Link href={focusHref} className="block">
-                    {thumb ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={thumb}
-                        alt=""
-                        loading="lazy"
-                        decoding="async"
+                  <div className="relative">
+                    {preview ? (
+                      <GalleryEntryPreview
+                        entry={entry}
                         className="aspect-square w-full object-cover transition duration-300 group-hover:scale-[1.02]"
                       />
                     ) : (
@@ -272,11 +273,20 @@ export default function HomeDashboard() {
                         No preview
                       </div>
                     )}
-                    <p className="line-clamp-2 p-2 text-[11px] text-[var(--text-tertiary)]">
+                    <Link
+                      href={focusHref}
+                      className="absolute inset-0 z-[1]"
+                      aria-label={
+                        entry.prompt.trim()
+                          ? `Open ${entry.prompt.slice(0, 80)}`
+                          : 'Open in gallery'
+                      }
+                    />
+                    <p className="pointer-events-none relative z-[2] line-clamp-2 p-2 text-[11px] text-[var(--text-tertiary)]">
                       {entry.prompt}
                     </p>
-                  </Link>
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 flex translate-y-1 gap-1 bg-gradient-to-t from-[rgb(0_0_0_/0.72)] via-[rgb(0_0_0_/0.45)] to-transparent p-2 pt-8 opacity-0 transition duration-200 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:translate-y-0 group-focus-within:opacity-100">
+                  </div>
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex translate-y-1 gap-1 bg-gradient-to-t from-[rgb(0_0_0_/0.72)] via-[rgb(0_0_0_/0.45)] to-transparent p-2 pt-8 opacity-0 transition duration-200 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:translate-y-0 group-focus-within:opacity-100">
                     <button
                       type="button"
                       className="rounded-md border border-white/15 bg-white/10 px-2 py-1 text-[10px] font-medium text-white backdrop-blur-sm transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"

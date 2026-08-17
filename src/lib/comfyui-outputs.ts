@@ -23,6 +23,203 @@ function fileExtensionOf(filename: string): string {
   return match ? match[1].toLowerCase() : '';
 }
 
+const VIDEO_MIME_BY_EXT: Record<string, string> = {
+  mp4: 'video/mp4',
+  webm: 'video/webm',
+  mov: 'video/quicktime',
+  mkv: 'video/x-matroska',
+  avi: 'video/x-msvideo',
+};
+
+const IMAGE_MIME_BY_EXT: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp',
+  gif: 'image/gif',
+  avif: 'image/avif',
+  bmp: 'image/bmp',
+};
+
+function normalizeMime(raw: string | null | undefined): string {
+  return (raw ?? '').split(';')[0]?.trim().toLowerCase() ?? '';
+}
+
+/** Detect mp4/webm/webp from magic bytes when ComfyUI labels the file as image/png. */
+export function sniffMediaContentType(bytes: ArrayBuffer | Uint8Array | Buffer): string | null {
+  const buf = bytes instanceof ArrayBuffer ? new Uint8Array(bytes) : bytes;
+  if (buf.length < 12) {
+    return null;
+  }
+  // ISO BMFF (mp4 / mov) — `ftyp` box at offset 4.
+  if (buf[4] === 0x66 && buf[5] === 0x74 && buf[6] === 0x79 && buf[7] === 0x70) {
+    return 'video/mp4';
+  }
+  // EBML (webm / mkv).
+  if (buf[0] === 0x1a && buf[1] === 0x45 && buf[2] === 0xdf && buf[3] === 0xa3) {
+    return 'video/webm';
+  }
+  // RIFF WEBP
+  if (
+    buf[0] === 0x52 &&
+    buf[1] === 0x49 &&
+    buf[2] === 0x46 &&
+    buf[3] === 0x46 &&
+    buf[8] === 0x57 &&
+    buf[9] === 0x45 &&
+    buf[10] === 0x42 &&
+    buf[11] === 0x50
+  ) {
+    return 'image/webp';
+  }
+  return null;
+}
+
+/**
+ * Content-Type for `/view` proxies. ComfyUI often sends mp4 as `image/png` or
+ * `application/octet-stream`; Firefox then refuses `<video>` with
+ * "No video with supported format and MIME type found."
+ */
+export function contentTypeForViewBytes(
+  filename: string,
+  upstream?: string | null,
+  bytes?: ArrayBuffer | Uint8Array | Buffer | null
+): string {
+  const sniffed = bytes ? sniffMediaContentType(bytes) : null;
+  if (sniffed?.startsWith('video/')) {
+    return sniffed;
+  }
+
+  const ext = fileExtensionOf(filename);
+  const videoMime = VIDEO_MIME_BY_EXT[ext];
+  const raw = normalizeMime(upstream);
+  if (videoMime) {
+    if (
+      !raw ||
+      raw === 'application/octet-stream' ||
+      raw === 'text/plain' ||
+      raw.startsWith('image/')
+    ) {
+      return videoMime;
+    }
+    return raw.startsWith('video/') ? raw : videoMime;
+  }
+
+  if (sniffed) {
+    return sniffed;
+  }
+  if (raw.startsWith('image/') || raw.startsWith('video/') || raw.startsWith('audio/')) {
+    return raw;
+  }
+  return IMAGE_MIME_BY_EXT[ext] || raw || 'image/png';
+}
+
+export function isHtmlVideoContentType(contentType: string): boolean {
+  return normalizeMime(contentType).startsWith('video/');
+}
+
+const HTML_VIDEO_URL_EXT = /\.(mp4|webm|mov|mkv)$/i;
+
+/** True when a `<video>` element can play this view/download URL (not animated webp/gif). */
+export function isHtmlVideoViewUrl(url: string): boolean {
+  return viewUrlFilenameMatches(url, HTML_VIDEO_URL_EXT);
+}
+
+const ANIMATED_IMAGE_URL_EXT = /\.(webp|gif)$/i;
+
+export function isAnimatedImageViewUrl(url: string): boolean {
+  return viewUrlFilenameMatches(url, ANIMATED_IMAGE_URL_EXT);
+}
+
+/** True for mp4/webm or animated webp/gif view URLs. */
+export function isMotionViewUrl(url: string): boolean {
+  return isHtmlVideoViewUrl(url) || isAnimatedImageViewUrl(url);
+}
+
+function viewUrlFilenameMatches(url: string, pattern: RegExp): boolean {
+  const trimmed = url.trim();
+  if (!trimmed) {
+    return false;
+  }
+  try {
+    const parsed = new URL(trimmed, 'http://local.invalid');
+    const fromQuery = parsed.searchParams.get('filename')?.trim() || '';
+    if (pattern.test(fromQuery) || pattern.test(parsed.pathname)) {
+      return true;
+    }
+  } catch {
+    // Fall through to the loose path matcher.
+  }
+  return pattern.test(trimmed.split('?')[0] ?? trimmed);
+}
+
+/** mp4/webm/mov/mkv — play in `<video>`. Animated webp/gif stay on `<img>`. */
+export function isHtmlVideoContainer(
+  image: Pick<ComfyOutputImage, 'filename' | 'format'>
+): boolean {
+  if (VIDEO_FILE_EXTENSIONS.has(fileExtensionOf(image.filename))) {
+    return true;
+  }
+  const format = image.format?.toLowerCase() ?? '';
+  return format.startsWith('video/') && !format.includes('webp') && !format.includes('gif');
+}
+
+/** Animated webp/gif or mp4/webm — gallery should not run these through the stills `w=` proxy. */
+export function isGalleryMotionOutput(
+  image: Pick<ComfyOutputImage, 'filename' | 'format'>
+): boolean {
+  if (isHtmlVideoContainer(image) || resolveComfyOutputMediaKind(image) === 'video') {
+    return true;
+  }
+  // Comfy SaveAnimatedWEBP often stores bare `.webp` with no format hint.
+  return isAnimatedImageViewUrl(image.filename);
+}
+
+export function shouldSkipGalleryThumbProxy(filename: string): boolean {
+  const ext = fileExtensionOf(filename);
+  return VIDEO_FILE_EXTENSIONS.has(ext) || ext === 'gif' || ext === 'webp';
+}
+
+/** GIF, or WebP with the VP8X animation flag. Sharp would flatten these to a still. */
+export function isAnimatedImageBytes(
+  filename: string,
+  bytes: ArrayBuffer | Uint8Array | Buffer
+): boolean {
+  const ext = fileExtensionOf(filename);
+  if (ext === 'gif') {
+    return true;
+  }
+  if (ext !== 'webp') {
+    return false;
+  }
+  const buf = bytes instanceof ArrayBuffer ? new Uint8Array(bytes) : bytes;
+  if (buf.length < 21) {
+    return false;
+  }
+  if (buf[0] !== 0x52 || buf[1] !== 0x49 || buf[2] !== 0x46 || buf[3] !== 0x46) {
+    return false;
+  }
+  if (buf[8] !== 0x57 || buf[9] !== 0x45 || buf[10] !== 0x42 || buf[11] !== 0x50) {
+    return false;
+  }
+  // VP8X chunk
+  if (buf[12] !== 0x56 || buf[13] !== 0x50 || buf[14] !== 0x38 || buf[15] !== 0x58) {
+    return false;
+  }
+  return (buf[20] & 0x02) !== 0;
+}
+
+/** Use a `<video>` tag: real clips, including mp4s Comfy named like `.png`. */
+export function shouldUseHtmlVideoElement(
+  kind: ComfyOutputMediaKind | undefined,
+  url: string
+): boolean {
+  if (!url.trim() || isAnimatedImageViewUrl(url)) {
+    return false;
+  }
+  return kind === 'video' || isHtmlVideoViewUrl(url);
+}
+
 /**
  * Resolves whether a ComfyUI output should be rendered as a `<video>` element
  * (mp4/webm/etc, or animated webp/gif) versus a plain `<img>`.
@@ -34,7 +231,13 @@ function fileExtensionOf(filename: string): string {
 export function resolveComfyOutputMediaKind(
   image: Pick<ComfyOutputImage, 'filename' | 'format'>
 ): ComfyOutputMediaKind {
+  const ext = fileExtensionOf(image.filename);
   const format = image.format?.toLowerCase() ?? '';
+
+  // Container extensions win even when Comfy tags the output as image/png.
+  if (VIDEO_FILE_EXTENSIONS.has(ext)) {
+    return 'video';
+  }
   if (format.startsWith('video/')) {
     return 'video';
   }
@@ -46,15 +249,11 @@ export function resolveComfyOutputMediaKind(
     return 'image';
   }
 
-  const ext = fileExtensionOf(image.filename);
   if (format.startsWith('audio/') || AUDIO_FILE_EXTENSIONS.has(ext)) {
     return 'audio';
   }
   if (format.includes('model') || format.includes('mesh') || MESH_FILE_EXTENSIONS.has(ext)) {
     return 'mesh';
-  }
-  if (VIDEO_FILE_EXTENSIONS.has(ext)) {
-    return 'video';
   }
   // Bare .webp/.gif without format are ambiguous (photo vs animated). Prefer
   // still image unless Comfy explicitly tagged video/* or image/webp|gif above.
@@ -179,9 +378,14 @@ export function extractImagesFromOutputs(
     // Most nodes (SaveImage, PreviewVideo, SaveAnimatedWEBP, SaveVideo) emit
     // refs under "images"; some custom video nodes (e.g. VHS_VideoCombine)
     // emit under "gifs" instead, using the same {filename,subfolder,type} shape.
-    const record = nodeOutput as { images?: unknown[]; gifs?: unknown[] };
-    const refLists = [record.images, record.gifs].filter((list): list is unknown[] =>
-      Array.isArray(list)
+    const record = nodeOutput as {
+      images?: unknown[];
+      gifs?: unknown[];
+      videos?: unknown[];
+      files?: unknown[];
+    };
+    const refLists = [record.videos, record.gifs, record.files, record.images].filter(
+      (list): list is unknown[] => Array.isArray(list)
     );
 
     for (const refList of refLists) {
@@ -205,7 +409,20 @@ export function extractImagesFromOutputs(
     }
   }
 
-  return images;
+  return preferGalleryMotionOutputsFirst(images);
+}
+
+function preferGalleryMotionOutputsFirst(images: ComfyOutputImage[]): ComfyOutputImage[] {
+  const motion: ComfyOutputImage[] = [];
+  const rest: ComfyOutputImage[] = [];
+  for (const image of images) {
+    if (isGalleryMotionOutput(image)) {
+      motion.push(image);
+    } else {
+      rest.push(image);
+    }
+  }
+  return motion.length === 0 ? images : [...motion, ...rest];
 }
 
 export type ComfyViewPathOptions = {
@@ -225,7 +442,12 @@ export function buildComfyViewPath(
     comfyUrl: comfyUrl.replace(/\/+$/, ''),
   });
   const width = options?.width;
-  if (typeof width === 'number' && Number.isFinite(width) && width > 0) {
+  if (
+    typeof width === 'number' &&
+    Number.isFinite(width) &&
+    width > 0 &&
+    !shouldSkipGalleryThumbProxy(image.filename)
+  ) {
     params.set('w', String(Math.min(Math.floor(width), 2048)));
   }
   return `/api/comfyui/view?${params.toString()}`;

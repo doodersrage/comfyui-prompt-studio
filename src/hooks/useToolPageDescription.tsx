@@ -7,6 +7,7 @@ import {
   sectionDescriptionForWorkspace,
 } from '@/lib/tool-page-chrome';
 import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
+import { isLeanWorkspaceMode } from '@/lib/workspace-mode';
 
 /** Pick full vs Simple workspace copy for ToolLayout descriptions. */
 export function useToolPageDescription(full: string, simple: string): string {
@@ -51,7 +52,7 @@ export function useSettingsPageDescriptionRich(slimSettings: boolean): ReactNode
     const copy = HUB_PAGE_DESCRIPTIONS.settings;
     return descriptionForWorkspace(mode, copy.full, copy.simple);
   }
-  if (mode === 'simple') {
+  if (isLeanWorkspaceMode(mode)) {
     return descriptionForWorkspace(
       mode,
       HUB_PAGE_DESCRIPTIONS.settingsExpanded.full,

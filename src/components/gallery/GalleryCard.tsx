@@ -31,14 +31,15 @@ import {
 } from '@/lib/gallery-variations-handoff';
 import { scoreGalleryEntryHeuristic, type AestheticScoreResult } from '@/lib/aesthetic-score';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
-import { updateComfyGalleryEntryById } from '@/lib/comfyui-gallery';
 import { downloadGalleryImage, downloadGallerySidecar } from '@/lib/comfyui-gallery-export';
 import { studioHistoryUrl } from '@/lib/prompt-lineage';
 import {
+  galleryEntryMediaKinds,
   galleryEntryPrimaryLqipUrl,
   galleryEntryPrimaryMediaKind,
+  galleryEntryPrimaryPlaybackIndex,
   galleryEntryPrimaryThumbSrcSet,
-  galleryEntryMediaKinds,
+  updateComfyGalleryEntryById,
   type ComfyGalleryEntry,
   type GalleryLayoutMode,
 } from '@/lib/comfyui-gallery';
@@ -53,6 +54,7 @@ import {
 import { applyGalleryFaceToSession, galleryEntryCanLockFace } from '@/lib/gallery-identity-lock';
 import { galleryToolHref, galleryToolLabel } from '@/lib/gallery-tool-href';
 import { continueClipActionLabel } from '@/lib/video-clip-mode';
+import { shouldUseHtmlVideoElement, isHtmlVideoViewUrl } from '@/lib/comfyui-outputs';
 import { loadEngineSettings } from '@/lib/engine-settings';
 import { isCloudEngine } from '@/lib/engine/capabilities';
 
@@ -197,6 +199,7 @@ export default function GalleryCard({
   const menuPanelRef = useRef<HTMLDivElement>(null);
   const [promptExpanded, setPromptExpanded] = useState(false);
   const [heroLoaded, setHeroLoaded] = useState(false);
+  const [heroVideoFailed, setHeroVideoFailed] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState<{
     top: number;
@@ -208,11 +211,17 @@ export default function GalleryCard({
   const primaryMediaKind = useMemo(() => galleryEntryPrimaryMediaKind(entry), [entry]);
   const stripMediaKinds = useMemo(() => galleryEntryMediaKinds(entry), [entry]);
   const isVideoHero = primaryMediaKind === 'video';
+  const playableHero = Boolean(
+    previewUrl && shouldUseHtmlVideoElement(primaryMediaKind, previewUrl)
+  );
+  const showHtmlVideo = playableHero && !heroVideoFailed;
+  const playbackIndex = galleryEntryPrimaryPlaybackIndex(entry);
   const isRendering = entry.status === 'pending' || entry.status === 'running';
 
   useEffect(() => {
     scheduleAfterCommit(() => {
       setHeroLoaded(false);
+      setHeroVideoFailed(false);
     });
   }, [previewUrl]);
 
@@ -405,11 +414,11 @@ export default function GalleryCard({
                 onPick();
                 return;
               }
-              onOpenImage(0);
+              onOpenImage(playbackIndex);
             }}
-            onPointerEnter={() => onPrefetchImage?.(0)}
-            onFocus={() => onPrefetchImage?.(0)}
-            onPointerDown={() => onPrefetchImage?.(0)}
+            onPointerEnter={() => onPrefetchImage?.(playbackIndex)}
+            onFocus={() => onPrefetchImage?.(playbackIndex)}
+            onPointerDown={() => onPrefetchImage?.(playbackIndex)}
             className={`relative block h-full w-full overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-base)] ${
               pickMode && pickable ? 'cursor-pointer' : 'cursor-zoom-in'
             }`}
@@ -425,37 +434,39 @@ export default function GalleryCard({
                 className="absolute inset-0 h-full w-full scale-110 object-cover opacity-80 blur-xl"
               />
             ) : null}
-            {isVideoHero ? (
+            {showHtmlVideo ? (
               <video
-                src={previewUrl}
+                src={previewUrl!}
                 autoPlay
                 loop
                 muted
                 playsInline
-                preload="metadata"
+                preload="auto"
+                poster={lqipUrl ?? undefined}
                 onLoadedData={() => setHeroLoaded(true)}
-                className={`relative h-full w-full object-cover transition duration-300 group-hover/card:scale-[1.02] ${
-                  heroLoaded ? 'opacity-100' : 'opacity-0'
-                }`}
+                onError={() => setHeroVideoFailed(true)}
+                className="relative h-full w-full object-cover transition duration-300 group-hover/card:scale-[1.02]"
               />
             ) : (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img
                 src={previewUrl}
-                srcSet={heroSrcSet ?? undefined}
+                srcSet={isVideoHero ? undefined : (heroSrcSet ?? undefined)}
                 alt={entry.prompt.slice(0, 80)}
                 loading="lazy"
                 decoding="async"
                 sizes={
-                  layout === 'list'
-                    ? '9rem'
-                    : layout === 'dense'
-                      ? '(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw'
-                      : '(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 25vw'
+                  isVideoHero
+                    ? undefined
+                    : layout === 'list'
+                      ? '9rem'
+                      : layout === 'dense'
+                        ? '(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw'
+                        : '(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 25vw'
                 }
                 onLoad={() => setHeroLoaded(true)}
                 className={`relative h-full w-full object-cover transition duration-300 group-hover/card:scale-[1.02] ${
-                  heroLoaded ? 'opacity-100' : 'opacity-0'
+                  isVideoHero || heroLoaded ? 'opacity-100' : 'opacity-0'
                 }`}
               />
             )}
@@ -470,7 +481,7 @@ export default function GalleryCard({
               <div className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-1.5">
                 <button
                   type="button"
-                  onClick={() => onOpenImage(0)}
+                  onClick={() => onOpenImage(playbackIndex)}
                   className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--border-default)]/80 bg-[var(--bg-base)]/80 px-2 py-0.5 text-[10px] text-[var(--text-primary)] backdrop-blur transition hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
                 >
                   Open
@@ -947,7 +958,7 @@ export default function GalleryCard({
       {!compact && layout !== 'list' && imageUrls.length > 1 ? (
         <div className="flex gap-1.5 overflow-x-auto pb-0.5">
           {imageUrls.slice(1, 5).map((url, thumbIndex) =>
-            stripMediaKinds[thumbIndex + 1] === 'video' ? (
+            stripMediaKinds[thumbIndex + 1] === 'video' && isHtmlVideoViewUrl(url) ? (
               <button
                 key={url}
                 type="button"

@@ -21,8 +21,8 @@ import {
 } from '@/lib/comfyui-gallery';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import type { ComfyOutputMediaKind } from '@/lib/comfyui-outputs';
+import { shouldUseHtmlVideoElement, stripGalleryViewWidthParam } from '@/lib/comfyui-outputs';
 import { prefetchGalleryImageUrl } from '@/lib/gallery-image-prefetch';
-import { stripGalleryViewWidthParam } from '@/lib/comfyui-outputs';
 import {
   loadGalleryLightboxUiPreferences,
   markGalleryLightboxTutorialSeen,
@@ -237,6 +237,7 @@ export default function ImageLightbox({
   const [histogram, setHistogram] = useState<LightboxHistogram | null>(null);
   const [histogramOpen, setHistogramOpen] = useState(false);
   const [histogramError, setHistogramError] = useState<string | null>(null);
+  const [htmlVideoFailed, setHtmlVideoFailed] = useState<Record<string, boolean>>({});
   const [histogramLoading, setHistogramLoading] = useState(false);
   const [noteDraft, setNoteDraft] = useState('');
   const prefsHydratedRef = useRef(false);
@@ -273,7 +274,15 @@ export default function ImageLightbox({
   const hasDistinctFullRes = Boolean(
     currentOriginalUrl && midResUrl && currentOriginalUrl !== midResUrl
   );
-  const currentUrl = preferFullRes && currentOriginalUrl ? currentOriginalUrl : (midResUrl ?? '');
+  const currentKind = state?.mediaKinds?.[displayIndex] ?? 'image';
+  const playInlineVideo = shouldUseHtmlVideoElement(
+    currentKind,
+    currentOriginalUrl ?? midResUrl ?? ''
+  );
+  const currentUrl =
+    (preferFullRes || playInlineVideo || currentKind === 'video') && currentOriginalUrl
+      ? currentOriginalUrl
+      : (midResUrl ?? '');
   const currentDownloadUrl = state?.downloadUrls?.[displayIndex] ?? undefined;
   const currentTitle = state?.titles?.[displayIndex] ?? state?.title;
   const canGoPrevious = index > 0;
@@ -1028,7 +1037,7 @@ export default function ImageLightbox({
   const imageClassName = isFullscreen
     ? 'relative flex h-full w-full max-h-[100vh] max-w-[100vw] items-center justify-center'
     : 'relative mx-auto flex h-full max-h-full max-w-full items-center justify-center bg-[var(--bg-subtle)]';
-  const currentMediaKind = state?.mediaKinds?.[displayIndex] ?? 'image';
+  const currentMediaKind = currentKind;
   const previousMediaKind =
     previousIndex !== null ? (state?.mediaKinds?.[previousIndex] ?? 'image') : 'image';
 
@@ -1050,18 +1059,43 @@ export default function ImageLightbox({
     const ariaHidden = options?.ariaHidden ?? false;
     const isCurrent = options?.isCurrent ?? false;
     if (kind === 'video') {
+      const fullUrl = stripGalleryViewWidthParam(url);
+      const videoSrc = shouldUseHtmlVideoElement(kind, url)
+        ? url
+        : shouldUseHtmlVideoElement(kind, fullUrl)
+          ? fullUrl
+          : '';
+      const playHtmlVideo = Boolean(videoSrc) && !htmlVideoFailed[fullUrl];
+      const mediaClass =
+        'max-h-[var(--lightbox-image-max-h,calc(96vh-6.5rem))] max-w-full object-contain';
       return (
-        <video
-          key={key}
-          src={url}
-          className={`${className} max-h-[var(--lightbox-image-max-h,calc(96vh-6.5rem))] max-w-full object-contain`}
-          aria-hidden={ariaHidden || undefined}
-          autoPlay
-          loop
-          muted
-          playsInline
-          controls={!ariaHidden}
-        />
+        <div key={key} className={className}>
+          {playHtmlVideo ? (
+            <video
+              src={videoSrc}
+              className={mediaClass}
+              aria-hidden={ariaHidden || undefined}
+              autoPlay={!ariaHidden}
+              loop
+              muted
+              playsInline
+              controls={!ariaHidden}
+              onError={() => {
+                setHtmlVideoFailed(previous =>
+                  previous[fullUrl] ? previous : { ...previous, [fullUrl]: true }
+                );
+              }}
+            />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={fullUrl}
+              alt=""
+              className={mediaClass}
+              aria-hidden={ariaHidden || undefined}
+            />
+          )}
+        </div>
       );
     }
 

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { apiError, apiMethodNotAllowed } from '@/lib/api/response';
 import { resolveRequestUser } from '@/lib/auth/access';
 import { isAuthEnabled } from '@/lib/auth/store';
+import { contentTypeForViewBytes } from '@/lib/comfyui-outputs';
 import { readGalleryOriginalFile, readGalleryThumbFile } from '@/lib/gallery-media-store';
 import { isServerStorageEnabled } from '@/lib/server-storage';
 
@@ -33,10 +34,15 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
       const original = readGalleryOriginalFile({ userId, entryId: id });
       if (original) {
         const filename = original.filename?.replace(/[\r\n"]+/g, '') || 'original';
+        const contentType = contentTypeForViewBytes(
+          filename,
+          original.contentType,
+          original.buffer
+        );
         return new NextResponse(new Uint8Array(original.buffer), {
           status: 200,
           headers: {
-            'Content-Type': original.contentType,
+            'Content-Type': contentType,
             'Content-Disposition': `inline; filename="${filename}"`,
             'Cache-Control': 'private, max-age=86400, stale-while-revalidate=604800',
           },

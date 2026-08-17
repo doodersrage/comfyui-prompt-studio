@@ -8,10 +8,12 @@ import {
 } from './app-nav-catalog';
 import { markOnboardingSetWorkspace } from './onboarding-hooks';
 
-export type WorkspaceMode = 'simple' | 'studio' | 'full';
+export type WorkspaceMode = 'simple' | 'play' | 'studio' | 'full';
 
 const MODE_KEY = 'comfy-workspace-mode-v1';
 const CHOSEN_KEY = 'comfy-workspace-mode-chosen-v1';
+
+export const WORKSPACE_MODE_CHANGED_EVENT = 'workspace-mode-changed';
 
 export const WORKSPACE_MODE_OPTIONS: {
   id: WorkspaceMode;
@@ -22,6 +24,11 @@ export const WORKSPACE_MODE_OPTIONS: {
     id: 'simple',
     label: 'Simple',
     description: 'Essentials in the sidebar; advanced tools under More. Lean shared controls.',
+  },
+  {
+    id: 'play',
+    label: 'Play',
+    description: 'Kiosk for Cast, Roleplay, Gallery, and Queue. Audio, Mesh, and Plugins stay out.',
   },
   {
     id: 'studio',
@@ -42,6 +49,7 @@ export const SIMPLE_NAV_HREFS = [
   '/',
   '/characters',
   '/character',
+  '/roleplay',
   '/video',
   '/refine',
   '/compose',
@@ -51,8 +59,28 @@ export const SIMPLE_NAV_HREFS = [
   '/studio',
 ] as const;
 
+/**
+ * Routes that slim chrome to Play: Cast, Roleplay, Gallery, Queue, plus All tools.
+ * Character home (`/characters/[id]`) is included; `/character` (the generator) is not.
+ */
+export const ROLEPLAY_FOCUS_HREFS = ['/roleplay', '/characters'] as const;
+
+/** Destinations listed in the Play sidebar (All tools is appended separately). */
+export const ROLEPLAY_FOCUS_NAV_HREFS = ['/characters', '/roleplay', '/gallery', '/queue'] as const;
+
+/** Escape hatch so Play focus is not a trap — Generate, labeled All tools. */
+export const ROLEPLAY_FOCUS_ESCAPE_HREF = '/';
+
+export function isRoleplayFocusPath(pathname: string | null | undefined): boolean {
+  if (!pathname) {
+    return false;
+  }
+  const path = pathname.split('?')[0] || '/';
+  return path === '/roleplay' || path === '/characters' || path.startsWith('/characters/');
+}
+
 export function normalizeWorkspaceMode(value: unknown): WorkspaceMode {
-  if (value === 'simple' || value === 'studio' || value === 'full') {
+  if (value === 'simple' || value === 'play' || value === 'studio' || value === 'full') {
     return value;
   }
   return 'simple';
@@ -74,6 +102,7 @@ export function saveWorkspaceMode(mode: WorkspaceMode): void {
   writeBrowserString(CHOSEN_KEY, '1');
   document.documentElement.dataset.workspace = next;
   markOnboardingSetWorkspace();
+  window.dispatchEvent(new Event(WORKSPACE_MODE_CHANGED_EVENT));
 }
 
 export function hasChosenWorkspaceMode(): boolean {
@@ -113,6 +142,35 @@ export function clearWorkspaceModeChoice(): void {
   writeBrowserString(CHOSEN_KEY, '');
 }
 
+export function isLeanWorkspaceMode(mode: WorkspaceMode): boolean {
+  return mode === 'simple' || mode === 'play';
+}
+
+function playNavGroups(baseGroups: AppNavGroup[]): AppNavGroup[] {
+  const catalog = flattenAppNavLinks(baseGroups);
+  const playLinks = ROLEPLAY_FOCUS_NAV_HREFS.map(href => linkByHref(href, catalog)).filter(
+    (link): link is AppNavLink => Boolean(link)
+  );
+  const escape = linkByHref(ROLEPLAY_FOCUS_ESCAPE_HREF, catalog) ?? {
+    href: ROLEPLAY_FOCUS_ESCAPE_HREF,
+    label: 'Generate',
+    description: 'Keywords or random scene',
+  };
+  return [
+    {
+      label: 'Play',
+      links: [
+        ...playLinks,
+        {
+          ...escape,
+          label: 'All tools',
+          description: 'Leave Play and open the full studio',
+        },
+      ],
+    },
+  ];
+}
+
 function hrefKey(href: string): string {
   return href.split('?')[0] || '/';
 }
@@ -135,6 +193,10 @@ export function navGroupsForWorkspaceMode(
   const flat = flattenAppNavLinks(baseGroups);
   const byHref = (href: string) => linkByHref(href, flat);
 
+  if (mode === 'play') {
+    return playNavGroups(baseGroups);
+  }
+
   if (mode === 'simple') {
     const essentials = SIMPLE_NAV_HREFS.map(href => byHref(href)).filter(
       (link): link is AppNavLink => Boolean(link)
@@ -152,8 +214,41 @@ export function navGroupsForWorkspaceMode(
   return baseGroups;
 }
 
+/**
+ * Workspace groups, then Play-route slim or Play workspace kiosk.
+ * Play mode uses the same destinations on every path.
+ */
+export function usesPlayChrome(mode: WorkspaceMode, pathname?: string | null): boolean {
+  return mode === 'play' || isRoleplayFocusPath(pathname);
+}
+
+export function navGroupsForPath(
+  mode: WorkspaceMode,
+  pathname: string,
+  baseGroups: AppNavGroup[] = APP_NAV_GROUPS
+): AppNavGroup[] {
+  if (usesPlayChrome(mode, pathname)) {
+    return playNavGroups(baseGroups);
+  }
+  return navGroupsForWorkspaceMode(mode, baseGroups);
+}
+
+export function isRoleplayFocusNavHref(href: string): boolean {
+  const path = href.split('?')[0] || '/';
+  if (path === ROLEPLAY_FOCUS_ESCAPE_HREF || path === '/settings' || path === '/profile') {
+    return true;
+  }
+  if ((ROLEPLAY_FOCUS_NAV_HREFS as readonly string[]).includes(path)) {
+    return true;
+  }
+  return path.startsWith('/characters/');
+}
+
 /** Default expanded group labels for a workspace mode when the user has no saved prefs. */
 export function defaultExpandedNavGroups(mode: WorkspaceMode, groups: AppNavGroup[]): string[] {
+  if (groups.some(group => group.label === 'Play') || mode === 'play') {
+    return ['Play'];
+  }
   if (mode === 'simple') {
     return ['Essentials'];
   }
@@ -165,7 +260,7 @@ export function defaultExpandedNavGroups(mode: WorkspaceMode, groups: AppNavGrou
 }
 
 export function workspaceShowsAdvancedControls(mode: WorkspaceMode): boolean {
-  return mode !== 'simple';
+  return !isLeanWorkspaceMode(mode);
 }
 
 export function workspaceControlsDefaultOpen(mode: WorkspaceMode): boolean {

@@ -8,8 +8,11 @@ import UiIcon from '@/components/ui/UiIcon';
 import FilmWatchPlayer from '@/components/FilmWatchPlayer';
 import { roleplayWatchPlaylist } from '@/lib/character-film';
 import { canFalExtendFromParentUrl } from '@/lib/video-clip-mode';
+import { looksLikeMotionUrl } from '@/lib/roleplay-film';
 import { loadEngineSettings } from '@/lib/engine-settings';
 import { downloadRoleplayUrl } from '@/lib/roleplay-export';
+import MotionMedia from '@/components/ui/MotionMedia';
+import { isHtmlVideoViewUrl, stripGalleryViewWidthParam } from '@/lib/comfyui-outputs';
 import {
   COMFY_LIVE_PREVIEW_UPDATED_EVENT,
   getComfyLivePreviewUrl,
@@ -78,7 +81,22 @@ function isBusyStatus(status: RoleplayStillStatus | undefined): boolean {
   return status === 'writing' || status === 'queued' || status === 'running';
 }
 
+function beatMotionUrl(beat: RoleplayStoryBeat): string | null {
+  if (beat.clipStatus !== 'completed') {
+    return null;
+  }
+  const clipUrl = beat.clipUrl?.trim();
+  if (!clipUrl) {
+    return null;
+  }
+  return stripGalleryViewWidthParam(clipUrl);
+}
+
 function beatPreviewUrl(beat: RoleplayStoryBeat, liveUrl: string | null): string | null {
+  const motion = beatMotionUrl(beat);
+  if (motion) {
+    return motion;
+  }
   if (beat.stillStatus === 'completed' && beat.imageUrl?.trim()) {
     return beat.imageUrl.trim();
   }
@@ -108,9 +126,12 @@ function RoleplayStillFrame({
   const takes = roleplayStillTakes(beat);
   const takeIndex = roleplayStillTakeIndex(beat);
   const completedUrl = beat.stillStatus === 'completed' ? beat.imageUrl : undefined;
-  const clipUrl = beat.clipStatus === 'completed' ? beat.clipUrl?.trim() : '';
+  const clipUrl = beatMotionUrl(beat) ?? '';
+  const motionClip = Boolean(clipUrl && looksLikeMotionUrl(clipUrl));
+  const playHtmlVideo = Boolean(clipUrl && isHtmlVideoViewUrl(clipUrl));
   const openableUrl = beatPreviewUrl(beat, liveUrl);
   const displayUrl = beatDisplayUrl(beat, liveUrl);
+  const frameUrl = displayUrl;
   const ghost = Boolean(displayUrl && !openableUrl);
   const clipBusy = isBusyStatus(beat.clipStatus);
   const busy = isBusyStatus(beat.stillStatus) || clipBusy || Boolean(liveUrl && !completedUrl);
@@ -130,26 +151,27 @@ function RoleplayStillFrame({
 
   return (
     <div className={frameClass} role="status" aria-live="polite" aria-busy={busy || undefined}>
-      {clipUrl ? (
-        <video
+      {motionClip && clipUrl ? (
+        <MotionMedia
           src={clipUrl}
+          alt={beat.title}
           className="h-full w-full object-cover"
-          controls
-          playsInline
-          muted
+          autoPlay
           loop
-          poster={displayUrl ?? undefined}
+          muted
+          controls={playHtmlVideo}
+          poster={completedUrl ?? displayUrl ?? undefined}
         />
-      ) : displayUrl ? (
+      ) : frameUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={displayUrl}
+          src={frameUrl}
           alt={beat.title}
           className={`h-full w-full object-cover ${completedUrl && !ghost ? '' : 'opacity-80'}`}
         />
       ) : null}
 
-      {clickable && !clipUrl ? (
+      {clickable && !playHtmlVideo ? (
         <button
           type="button"
           onClick={onOpen}
@@ -220,8 +242,8 @@ function RoleplayStillFrame({
         <button
           type="button"
           className={`${overlayBtnClass} absolute right-1.5 top-1.5 z-20`}
-          aria-label="Generate another still with a new seed"
-          title="Generate another still"
+          aria-label="Play another still with a new seed"
+          title="Play another still"
           onClick={event => {
             stop(event);
             onRetry?.();
@@ -285,6 +307,7 @@ export default function RoleplayStoryReel({
           url,
           title: beat.title,
           prompt: beat.prompt,
+          kind: looksLikeMotionUrl(url) ? ('video' as const) : ('image' as const),
         },
       ];
     });
@@ -302,6 +325,7 @@ export default function RoleplayStoryReel({
         images: playlist.map(slide => slide.url),
         titles: playlist.map(slide => slide.title),
         originalImages: playlist.map(slide => slide.url),
+        mediaKinds: playlist.map(slide => slide.kind),
         index: index >= 0 ? index : 0,
         title: beat.title,
       });

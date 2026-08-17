@@ -153,6 +153,27 @@ describe('character-film', () => {
     assert.equal(playlist[1]?.holdSec, 3);
   });
 
+  it('treats completed animated webp beats as watch clips, not stills', () => {
+    const playlist = roleplayWatchPlaylist(
+      [
+        {
+          id: 'a',
+          title: 'Dock',
+          blurb: 'Arrives',
+          at: 1,
+          imageUrl: 'http://local/still.png',
+          stillStatus: 'completed',
+          clipUrl: '/api/comfyui/view?filename=clip.webp&type=output',
+          clipStatus: 'completed',
+        },
+      ],
+      3
+    );
+    assert.equal(playlist.length, 1);
+    assert.equal(playlist[0]?.kind, 'clip');
+    assert.match(playlist[0]?.url ?? '', /clip\.webp/);
+  });
+
   it('stamps an already-cut film blob without requiring a new assemble', () => {
     assert.equal(canStampAssembledFilm(1), true);
     assert.equal(canStampAssembledFilm(MAX_GALLERY_FILM_BYTES), true);

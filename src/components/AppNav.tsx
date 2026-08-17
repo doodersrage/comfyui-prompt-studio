@@ -18,8 +18,9 @@ import {
 } from '@/lib/app-nav-catalog';
 import {
   defaultExpandedNavGroups,
+  isRoleplayFocusPath,
   loadWorkspaceMode,
-  navGroupsForWorkspaceMode,
+  navGroupsForPath,
   type WorkspaceMode,
 } from '@/lib/workspace-mode';
 import { PLUGIN_MANIFEST_UPDATED_EVENT } from '@/lib/plugin-manifest';
@@ -42,6 +43,9 @@ function linkIsActive(link: AppNavLink, pathname: string, search: string): boole
   const [path, query = ''] = link.href.split('?');
   const normalizedPath = path || '/';
   if (pathname !== normalizedPath) {
+    if (normalizedPath === '/characters' && pathname.startsWith('/characters/')) {
+      return !query;
+    }
     return false;
   }
   const current = new URLSearchParams(search);
@@ -226,8 +230,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     }));
     const envGatedLinks = nsfwGeneratorEnabled ? [NSFW_GENERATOR_NAV_LINK] : [];
     const pluginLinks = [...bookmarkLinks, ...manifestNavLinks, ...envGatedLinks];
-    const catalog = navGroupsForWorkspaceMode(
+    const catalog = navGroupsForPath(
       workspaceMode,
+      pathname,
       mergePluginLinksIntoNav(APP_NAV_GROUPS, pluginLinks)
     );
 
@@ -245,6 +250,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     loading,
     customPlugins,
     manifestNavLinks,
+    pathname,
     workspaceMode,
     nsfwGeneratorEnabled,
   ]);
@@ -353,6 +359,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   /** Auth on but session not ready or signed out — keep chrome minimal (login/forbidden). */
   const guestShell = authEnabled && !user;
   const navReady = !loading && (!authEnabled || Boolean(user));
+  const roleplayFocus = isRoleplayFocusPath(pathname);
   const openGroups = expandedGroups ?? visibleGroups.map(group => group.label);
 
   function handleToggleFavorite(href: string) {
@@ -488,7 +495,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             </div>
           </div>
         ) : null}
-        {navReady && workspaceMode !== 'simple' ? (
+        {navReady && !roleplayFocus && workspaceMode !== 'simple' ? (
           <WorkspaceModeControl
             variant="chips"
             onChanged={mode => {
@@ -498,7 +505,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             }}
           />
         ) : null}
-        {navReady && workspaceMode === 'simple' ? (
+        {navReady && !roleplayFocus && workspaceMode === 'simple' ? (
           <p className="type-caption px-3 text-[var(--text-muted)]">
             Simple workspace — theme and workspace live in{' '}
             <Link

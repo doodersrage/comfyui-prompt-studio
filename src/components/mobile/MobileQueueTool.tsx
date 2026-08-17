@@ -5,11 +5,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import {
   COMFYUI_GALLERY_UPDATED_EVENT,
+  galleryEntryHeroPreviewUrl,
   galleryEntryPrimaryThumbUrl,
   initGalleryStore,
   loadComfyGallery,
   type ComfyGalleryEntry,
 } from '@/lib/comfyui-gallery';
+import GalleryEntryPreview from '@/components/ui/GalleryEntryPreview';
 import { scheduleComfyGalleryPoll } from '@/lib/comfyui-gallery-poller';
 import {
   COMFY_LIVE_PREVIEW_UPDATED_EVENT,
@@ -156,20 +158,23 @@ export default function MobileQueueTool() {
 
       {recent.length > 0 ? (
         <div className="space-y-2">
-          <p className="type-caption text-[var(--text-muted)]">Recent stills</p>
+          <p className="type-caption text-[var(--text-muted)]">Recent outputs</p>
           <div className="grid grid-cols-4 gap-1.5">
             {recent.map(entry => {
-              const thumb = galleryEntryPrimaryThumbUrl(entry);
+              const preview = galleryEntryHeroPreviewUrl(entry);
               return (
                 <Link
                   key={entry.id}
                   href="/m/gallery"
-                  className="aspect-square overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)]"
+                  className="relative aspect-square overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)]"
                 >
-                  {thumb ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={thumb} alt="" className="h-full w-full object-cover" />
+                  {preview ? (
+                    <GalleryEntryPreview
+                      entry={entry}
+                      className="pointer-events-none h-full w-full object-cover"
+                    />
                   ) : null}
+                  <span className="sr-only">Open gallery</span>
                 </Link>
               );
             })}

@@ -1,5 +1,5 @@
 import type { ComfyGalleryEntry } from './comfyui-gallery-entry';
-import { resolveComfyOutputMediaKind } from './comfyui-outputs';
+import { resolveComfyOutputMediaKind, shouldSkipGalleryThumbProxy } from './comfyui-outputs';
 
 export const IDENTITY_MEDIA_URL = '/api/gallery/media/identity';
 
@@ -87,7 +87,10 @@ export async function persistGalleryThumb(
   if (!image?.filename?.trim()) {
     return null;
   }
-  if (resolveComfyOutputMediaKind(image) !== 'image') {
+  if (
+    resolveComfyOutputMediaKind(image) !== 'image' ||
+    shouldSkipGalleryThumbProxy(image.filename)
+  ) {
     return null;
   }
   try {

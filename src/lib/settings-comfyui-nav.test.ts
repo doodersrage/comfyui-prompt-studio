@@ -69,9 +69,24 @@ describe("settings-comfyui-nav", () => {
 
   it("marks advanced ComfyUI deep links as requiring full settings", () => {
     assert.equal(comfyUiSectionRequiresFullSettings("workflow-patching"), true);
-    assert.equal(comfyUiSectionRequiresFullSettings("workflow-library"), true);
+    assert.equal(comfyUiSectionRequiresFullSettings("lora-train"), true);
+    assert.equal(comfyUiSectionRequiresFullSettings("workflow-library"), false);
+    assert.equal(comfyUiSectionRequiresFullSettings("lora-library"), false);
     assert.equal(comfyUiSectionRequiresFullSettings("connection"), false);
     assert.equal(comfyUiSectionRequiresFullSettings(null), false);
+  });
+
+  it("lists inference engine before ComfyUI connection", () => {
+    const full = comfyUiSectionsForEssentials(false);
+    assert.equal(full[0]?.id, "inference-engine");
+    assert.equal(full[1]?.id, "connection");
+    const essentials = comfyUiSectionsForEssentials(true);
+    assert.deepEqual(
+      essentials.map((section) => section.id),
+      COMFYUI_ESSENTIAL_SECTION_IDS,
+    );
+    assert.equal(COMFYUI_ESSENTIAL_SECTION_IDS[0], "inference-engine");
+    assert.equal(COMFYUI_ESSENTIAL_SECTION_IDS[1], "connection");
   });
 
   it("limits jump-nav sections in essentials mode", () => {

@@ -35,8 +35,8 @@ import {
   COMFYUI_GALLERY_UPDATED_EVENT,
   clearGalleryCharacterStamp,
   filterComfyGalleryEntries,
+  galleryEntryHeroPreviewUrl,
   galleryEntryPrimaryMediaKind,
-  galleryEntryPrimaryThumbUrl,
   galleryEntryPrimaryViewUrl,
   getGalleryCache,
   type ComfyGalleryEntry,
@@ -44,6 +44,7 @@ import {
 import { unstampForeignCharacterGalleryEntries } from '@/lib/gallery-character-stamp';
 import { buildGalleryHandoff, galleryHandoffPath, saveGalleryHandoff } from '@/lib/gallery-handoff';
 import { isGalleryClipEntry } from '@/lib/roleplay-film';
+import GalleryEntryPreview from '@/components/ui/GalleryEntryPreview';
 import { selectCharacterKeepers } from '@/lib/gallery-lora-dataset-export';
 import {
   applyRoleplayLibrarySession,
@@ -432,8 +433,7 @@ function CharacterMediaTile({
   onAnimateStill?: () => void;
   onRemoveFromCharacter?: () => void;
 }) {
-  const thumb = galleryEntryPrimaryThumbUrl(entry);
-  const viewUrl = galleryEntryPrimaryViewUrl(entry);
+  const previewSrc = galleryEntryHeroPreviewUrl(entry);
   const clip = isGalleryClipEntry({
     ...entry,
     mediaKind: galleryEntryPrimaryMediaKind(entry),
@@ -442,20 +442,16 @@ function CharacterMediaTile({
   return (
     <li>
       <div className="overflow-hidden rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-muted)]">
-        {clip && viewUrl ? (
-          <video
-            src={viewUrl}
-            poster={thumb ?? undefined}
+        {clip && previewSrc ? (
+          <GalleryEntryPreview
+            entry={entry}
             className="aspect-square w-full object-cover"
             controls
-            playsInline
-            muted
           />
         ) : (
           <Link href={href} className="block">
-            {thumb ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={thumb} alt="" className="aspect-square w-full object-cover" />
+            {previewSrc ? (
+              <GalleryEntryPreview entry={entry} className="aspect-square w-full object-cover" />
             ) : (
               <div className="flex aspect-square items-center justify-center type-caption text-[var(--text-muted)]">
                 {entry.status}

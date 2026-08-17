@@ -6,7 +6,11 @@ import {
   SIMPLE_NAV_HREFS,
   defaultExpandedNavGroups,
   hasChosenWorkspaceMode,
+  isLeanWorkspaceMode,
+  isRoleplayFocusNavHref,
+  isRoleplayFocusPath,
   loadWorkspaceMode,
+  navGroupsForPath,
   navGroupsForWorkspaceMode,
   normalizeWorkspaceMode,
   saveWorkspaceMode,
@@ -30,6 +34,7 @@ function withMockLocalStorage(run: () => void): void {
           storage.delete(key);
         },
       },
+      dispatchEvent: () => true,
     },
   });
   Object.defineProperty(globalThis, "document", {
@@ -131,9 +136,81 @@ describe("workspace-mode", () => {
     );
   });
 
-  it("hides advanced controls only in simple mode", () => {
+  it("hides advanced controls in Simple and Play", () => {
     assert.equal(workspaceShowsAdvancedControls("simple"), false);
+    assert.equal(workspaceShowsAdvancedControls("play"), false);
     assert.equal(workspaceShowsAdvancedControls("studio"), true);
     assert.equal(workspaceShowsAdvancedControls("full"), true);
+    assert.equal(isLeanWorkspaceMode("play"), true);
+  });
+
+  it("treats Cast and Roleplay routes as Play focus, not Generate Character", () => {
+    assert.equal(isRoleplayFocusPath("/roleplay"), true);
+    assert.equal(isRoleplayFocusPath("/characters"), true);
+    assert.equal(isRoleplayFocusPath("/characters/kai"), true);
+    assert.equal(isRoleplayFocusPath("/character"), false);
+    assert.equal(isRoleplayFocusPath("/gallery"), false);
+    assert.equal(isRoleplayFocusPath("/"), false);
+    assert.equal(isRoleplayFocusPath("/m/play"), false);
+  });
+
+  it("slims Cast/Roleplay chrome to Play destinations plus All tools", () => {
+    for (const mode of ["simple", "studio", "full"] as const) {
+      for (const path of ["/roleplay", "/characters", "/characters/kai"]) {
+        const groups = navGroupsForPath(mode, path, APP_NAV_GROUPS);
+        assert.deepEqual(
+          groups.map((group) => group.label),
+          ["Play"],
+        );
+        const hrefs = groups[0]!.links.map((link) => link.href);
+        assert.deepEqual(hrefs, [
+          "/characters",
+          "/roleplay",
+          "/gallery",
+          "/queue",
+          "/",
+        ]);
+        assert.equal(
+          groups[0]!.links.find((link) => link.href === "/")?.label,
+          "All tools",
+        );
+      }
+    }
+  });
+
+  it("Play workspace mode is a kiosk catalog without Audio, Mesh, or Plugins", () => {
+    const groups = navGroupsForWorkspaceMode("play", APP_NAV_GROUPS);
+    assert.deepEqual(
+      groups.map((group) => group.label),
+      ["Play"],
+    );
+    const hrefs = groups[0]!.links.map((link) => link.href);
+    assert.deepEqual(hrefs, ["/characters", "/roleplay", "/gallery", "/queue", "/"]);
+    assert.equal(hrefs.includes("/audio"), false);
+    assert.equal(hrefs.includes("/mesh"), false);
+    assert.equal(hrefs.includes("/plugins"), false);
+    const generate = navGroupsForPath("play", "/", APP_NAV_GROUPS);
+    assert.equal(generate[0]?.label, "Play");
+  });
+
+  it("leaves Generate and other studio routes on the full workspace catalog", () => {
+    const focused = navGroupsForPath("simple", "/roleplay", APP_NAV_GROUPS);
+    const generate = navGroupsForPath("simple", "/", APP_NAV_GROUPS);
+    assert.equal(focused[0]?.label, "Play");
+    assert.equal(generate[0]?.label, "Essentials");
+    assert.ok(generate[0]!.links.some((link) => link.href === "/roleplay"));
+    const studio = navGroupsForPath("studio", "/video", APP_NAV_GROUPS);
+    assert.ok(studio.some((group) => group.label === "Edit"));
+  });
+
+  it("expands Play by default and allows footer Settings/Profile hrefs", () => {
+    const play = navGroupsForPath("studio", "/roleplay", APP_NAV_GROUPS);
+    assert.deepEqual(defaultExpandedNavGroups("studio", play), ["Play"]);
+    assert.equal(isRoleplayFocusNavHref("/characters"), true);
+    assert.equal(isRoleplayFocusNavHref("/settings"), true);
+    assert.equal(isRoleplayFocusNavHref("/profile"), true);
+    assert.equal(isRoleplayFocusNavHref("/"), true);
+    assert.equal(isRoleplayFocusNavHref("/video"), false);
+    assert.equal(isRoleplayFocusNavHref("/character"), false);
   });
 });

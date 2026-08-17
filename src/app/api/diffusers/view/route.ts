@@ -1,6 +1,11 @@
 import { getDiffusersBaseUrl } from '@/lib/diffusers-client';
 import { apiError, apiMethodNotAllowed } from '@/lib/api/response';
 import {
+  contentTypeForViewBytes,
+  isAnimatedImageBytes,
+  isHtmlVideoContentType,
+} from '@/lib/comfyui-outputs';
+import {
   sanitizeComfyViewFilename,
   sanitizeComfyViewSubfolder,
   normalizeComfyViewType,
@@ -59,9 +64,15 @@ export async function GET(request: Request) {
     }
 
     const buffer = Buffer.from(await response.arrayBuffer());
+    const contentType = contentTypeForViewBytes(
+      filename,
+      response.headers.get('Content-Type'),
+      buffer
+    );
+    const isVideo = isHtmlVideoContentType(contentType);
     const thumbWidth = parseThumbWidth(searchParams.get('w'));
 
-    if (thumbWidth) {
+    if (thumbWidth && !isVideo && !isAnimatedImageBytes(filename, buffer)) {
       const sharp = (await import('sharp')).default;
       const resized = await sharp(buffer)
         .rotate()
@@ -85,8 +96,9 @@ export async function GET(request: Request) {
     return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
-        'Content-Type': response.headers.get('Content-Type') || 'image/png',
+        'Content-Type': contentType,
         'Cache-Control': 'private, max-age=3600',
+        ...(isVideo ? { 'Accept-Ranges': 'bytes' } : {}),
       },
     });
   } catch (error) {

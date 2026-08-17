@@ -92,8 +92,8 @@ export default function CharacterCastRoster() {
         <EmptyState
           icon="catalog"
           title="No characters yet"
-          description="Save a look from Generate or Character, or cut a Roleplay film and tap Save to Cast. Identity bundles and Roleplay casts migrate in automatically."
-          action={{ label: 'Open Character tool', href: '/character' }}
+          description="Start in Roleplay and tap Save to Cast, or save a look from Generate or Character. Identity bundles migrate in automatically."
+          action={{ label: 'Continue in Roleplay', href: '/roleplay' }}
         />
       ) : (
         <ToolSection title="Roster" description={`${characters.length} saved`}>

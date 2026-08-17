@@ -31,7 +31,7 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
   {
     id: 'comfyui',
     label: 'ComfyUI',
-    description: 'Presets, workflows, prompt quality, VRAM guard, and injection.',
+    description: 'Inference engines, ComfyUI connection, workflows, and queue.',
   },
   {
     id: 'automation',

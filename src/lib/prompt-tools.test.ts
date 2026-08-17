@@ -41,6 +41,9 @@ import {
   buildGalleryLightboxPlaylist,
   filterComfyGalleryEntries,
   formatGallerySlideshowInterval,
+  galleryEntryHeroPreviewUrl,
+  galleryEntryPrimaryMediaKind,
+  galleryEntryPrimaryPlaybackIndex,
   normalizeGallerySlideshowIntervalMs,
   paginateGalleryEntries,
   resolveGalleryLightboxOpenIndex,
@@ -1467,6 +1470,79 @@ describe("comfyui gallery outputs", () => {
     assert.match(playlist.thumbImages[0] ?? "", /[?&]w=512(?:&|$)/);
     assert.doesNotMatch(playlist.originalImages[0] ?? "", /[?&]w=/);
     assert.equal(resolveGalleryLightboxOpenIndex(entries, "b", 1), 2);
+  });
+
+  it("plays clips from the original view URL instead of a stills proxy", () => {
+    const playlist = buildGalleryLightboxPlaylist([
+      {
+        id: "clip",
+        promptId: "p-clip",
+        prompt: "walks on",
+        comfyUrl: "http://127.0.0.1:8188",
+        status: "completed",
+        queuedAt: 1,
+        images: [{ filename: "clip.mp4", subfolder: "", type: "output", format: "image/png" }],
+      },
+    ]);
+    assert.equal(playlist.mediaKinds[0], "video");
+    assert.doesNotMatch(playlist.images[0] ?? "", /[?&]w=/);
+    assert.match(playlist.images[0] ?? "", /filename=clip\.mp4/);
+    assert.equal(playlist.images[0], playlist.originalImages[0]);
+  });
+
+  it("prefers the mp4 over a preview still for clip heroes", () => {
+    const entry = {
+      id: "clip",
+      promptId: "p-clip",
+      prompt: "walks on",
+      comfyUrl: "http://127.0.0.1:8188",
+      status: "completed" as const,
+      queuedAt: 1,
+      images: [
+        { filename: "preview.png", subfolder: "", type: "output" },
+        { filename: "clip.mp4", subfolder: "", type: "output" },
+      ],
+    };
+    assert.equal(galleryEntryPrimaryPlaybackIndex(entry), 1);
+    assert.equal(galleryEntryPrimaryMediaKind(entry), "video");
+    assert.match(galleryEntryHeroPreviewUrl(entry) ?? "", /filename=clip\.mp4/);
+    assert.doesNotMatch(galleryEntryHeroPreviewUrl(entry) ?? "", /preview\.png/);
+    assert.equal(
+      filterComfyGalleryEntries([entry], { mediaKind: "video" }).map(item => item.id)[0],
+      "clip",
+    );
+  });
+
+  it("uses the original animated webp for WAN-style clip heroes", () => {
+    const entry = {
+      id: "wan-clip",
+      promptId: "p-wan",
+      prompt: "walks on",
+      comfyUrl: "http://127.0.0.1:8188",
+      status: "completed" as const,
+      queuedAt: 1,
+      tool: "video",
+      derivedKind: "t2v" as const,
+      images: [
+        { filename: "preview.png", subfolder: "", type: "output" },
+        {
+          filename: "clip.webp",
+          subfolder: "",
+          type: "output",
+          format: "image/webp",
+        },
+      ],
+    };
+    assert.equal(galleryEntryPrimaryPlaybackIndex(entry), 1);
+    assert.equal(galleryEntryPrimaryMediaKind(entry), "video");
+    assert.match(galleryEntryHeroPreviewUrl(entry) ?? "", /filename=clip\.webp/);
+    assert.doesNotMatch(galleryEntryHeroPreviewUrl(entry) ?? "", /[?&]w=/);
+    assert.doesNotMatch(galleryEntryHeroPreviewUrl(entry) ?? "", /preview\.png/);
+    const playlist = buildGalleryLightboxPlaylist([entry]);
+    assert.equal(playlist.mediaKinds[1], "video");
+    assert.match(playlist.images[1] ?? "", /filename=clip\.webp/);
+    assert.doesNotMatch(playlist.images[1] ?? "", /[?&]w=/);
+    assert.equal(resolveGalleryLightboxOpenIndex([entry], "wan-clip", 1), 1);
   });
 });
 

@@ -5,7 +5,7 @@
 
 import type { ComfyGalleryEntry } from './comfyui-gallery-entry';
 import { lastCompletedRoleplayStillUrl, type RoleplayStoryBeat } from './roleplay';
-import { isVideoLikeEntry, looksLikeVideoUrl } from './roleplay-film';
+import { isVideoLikeEntry, looksLikeMotionUrl } from './roleplay-film';
 
 export const DEFAULT_STILL_HOLD_SEC = 2.5;
 export const MIN_STILL_HOLD_SEC = 0.5;
@@ -72,7 +72,7 @@ function imageLooksVideo(image: { filename?: string; format?: string } | undefin
   if (format.startsWith('video/')) {
     return true;
   }
-  return /\.(mp4|webm|mov|mkv)(\?|#|$)/i.test(image.filename ?? '');
+  return /\.(mp4|webm|mov|mkv|webp|gif)(\?|#|$)/i.test(image.filename ?? '');
 }
 
 export function filmMediaLooksVideo(entry: FilmMediaRef): boolean {
@@ -83,7 +83,7 @@ export function filmMediaLooksVideo(entry: FilmMediaRef): boolean {
     return true;
   }
   const source = entry.sourceImageUrl?.trim() || entry.viewUrl?.trim() || '';
-  return source ? looksLikeVideoUrl(source) : false;
+  return source ? looksLikeMotionUrl(source) : false;
 }
 
 export function isFilmSourceClip(entry: FilmMediaRef): boolean {
@@ -276,11 +276,13 @@ export function roleplayWatchPlaylist(
   for (const beat of story) {
     const clipUrl = beat.clipStatus === 'completed' ? beat.clipUrl?.trim() : '';
     if (clipUrl) {
+      const asClip = looksLikeMotionUrl(clipUrl);
       shots.push({
         entryId: beat.clipPromptId?.trim() || beat.id,
         title: beat.title,
         url: clipUrl,
-        kind: 'clip',
+        kind: asClip ? 'clip' : 'still',
+        holdSec: asClip ? undefined : hold,
       });
       continue;
     }

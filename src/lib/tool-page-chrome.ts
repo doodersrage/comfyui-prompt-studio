@@ -1,4 +1,4 @@
-import type { WorkspaceMode } from './workspace-mode';
+import { isLeanWorkspaceMode, type WorkspaceMode } from './workspace-mode';
 
 /** Shared ToolLayout sidebar copy — matches Generate simplified chrome. */
 export const TOOL_SIDEBAR_TITLE = 'Settings';
@@ -48,7 +48,7 @@ export const TOOL_PAGE_WIDTH = {
 } as const;
 
 export function descriptionForWorkspace(mode: WorkspaceMode, full: string, simple: string): string {
-  return mode === 'simple' ? simple : full;
+  return isLeanWorkspaceMode(mode) ? simple : full;
 }
 
 /** Hub page descriptions — full vs Simple workspace. */
@@ -86,5 +86,5 @@ export function sectionDescriptionForWorkspace(
   mode: WorkspaceMode,
   full: string
 ): string | undefined {
-  return mode === 'simple' ? undefined : full;
+  return isLeanWorkspaceMode(mode) ? undefined : full;
 }

@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import MotionMedia from '@/components/ui/MotionMedia';
 import type { FilmPlaylistShot } from '@/lib/character-film';
+import { looksLikeVideoUrl } from '@/lib/roleplay-film';
 
 export default function FilmWatchPlayer({
   shots,
@@ -23,25 +25,24 @@ export default function FilmWatchPlayer({
     setPlaying(false);
   }
   const shot = shots[index];
+  const htmlVideo = Boolean(shot?.kind === 'clip' && looksLikeVideoUrl(shot.url));
 
   useEffect(() => {
     window.clearTimeout(holdTimer.current);
     if (!playing || !shot) {
       return;
     }
-    if (shot.kind === 'still') {
-      holdTimer.current = window.setTimeout(
-        () => {
-          setIndex(current => {
-            if (current + 1 >= shots.length) {
-              setPlaying(false);
-              return current;
-            }
-            return current + 1;
-          });
-        },
-        Math.round((shot.holdSec ?? 2.5) * 1000)
-      );
+    if (shot.kind === 'still' || !htmlVideo) {
+      const holdMs = shot.kind === 'clip' ? 4000 : Math.round((shot.holdSec ?? 2.5) * 1000);
+      holdTimer.current = window.setTimeout(() => {
+        setIndex(current => {
+          if (current + 1 >= shots.length) {
+            setPlaying(false);
+            return current;
+          }
+          return current + 1;
+        });
+      }, holdMs);
       return () => window.clearTimeout(holdTimer.current);
     }
     const video = videoRef.current;
@@ -50,7 +51,7 @@ export default function FilmWatchPlayer({
     }
     video.currentTime = 0;
     void video.play().catch(() => setPlaying(false));
-  }, [playing, shot, shots.length]);
+  }, [playing, shot, shots.length, htmlVideo]);
 
   if (shots.length === 0) {
     return <p className="type-caption text-[var(--text-muted)]">{emptyLabel}</p>;
@@ -68,7 +69,7 @@ export default function FilmWatchPlayer({
   return (
     <div className="space-y-3">
       <div className="relative aspect-video overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-black">
-        {shot?.kind === 'clip' ? (
+        {htmlVideo && shot ? (
           <video
             key={shot.url}
             ref={videoRef}
@@ -83,6 +84,17 @@ export default function FilmWatchPlayer({
               }
               setIndex(index + 1);
             }}
+          />
+        ) : shot?.kind === 'clip' ? (
+          <MotionMedia
+            key={shot.url}
+            src={shot.url}
+            alt={shot.title}
+            className="h-full w-full object-contain"
+            autoPlay={playing}
+            loop
+            muted
+            controls={false}
           />
         ) : shot ? (
           // eslint-disable-next-line @next/next/no-img-element

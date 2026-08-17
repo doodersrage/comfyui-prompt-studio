@@ -38,6 +38,11 @@ const ESSENTIAL_TASKS: Array<{
   href?: string;
 }> = [
   {
+    title: 'Inference engine',
+    description: 'ComfyUI, Diffusers, Fal, Replicate, ChatGPT, Gemini, or Grok.',
+    section: 'inference-engine',
+  },
+  {
     title: 'Connection',
     description: 'ComfyUI URL, tokens, and save settings.',
     section: 'connection',

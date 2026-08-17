@@ -1,5 +1,8 @@
 /** Studio tab catalog for deep links + command palette. */
 
+import type { WorkspaceMode } from './workspace-mode';
+import { isLeanWorkspaceMode } from './workspace-mode';
+
 export type StudioTabId =
   | 'history'
   | 'compare'
@@ -113,17 +116,15 @@ export const SIMPLE_STUDIO_TAB_IDS: StudioTabId[] = [
   'analytics',
 ];
 
-export function studioTabsForWorkspaceMode(
-  mode: 'simple' | 'studio' | 'full'
-): StudioTabDefinition[] {
-  if (mode === 'simple') {
+export function studioTabsForWorkspaceMode(mode: WorkspaceMode): StudioTabDefinition[] {
+  if (isLeanWorkspaceMode(mode)) {
     return STUDIO_TABS.filter(tab => SIMPLE_STUDIO_TAB_IDS.includes(tab.id));
   }
   return STUDIO_TABS;
 }
 
 export function studioTabGroupsForWorkspaceMode(
-  mode: 'simple' | 'studio' | 'full'
+  mode: WorkspaceMode
 ): { label: string; tabs: StudioTabDefinition[] }[] {
   const tabs = studioTabsForWorkspaceMode(mode);
   const order = ['History', 'Library', 'Analyze', 'Experiments'] as const;

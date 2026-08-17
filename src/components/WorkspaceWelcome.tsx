@@ -201,6 +201,14 @@ export default function WorkspaceWelcome() {
                 Close
               </Button>
               <ButtonLink
+                href="/roleplay"
+                variant="secondary"
+                size="sm"
+                onClick={() => setPhase(null)}
+              >
+                Continue in Roleplay
+              </ButtonLink>
+              <ButtonLink
                 href={generateCta.href}
                 variant="primary"
                 size="sm"

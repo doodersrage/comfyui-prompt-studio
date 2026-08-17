@@ -7,12 +7,13 @@ import { Button } from '@/components/ui/Button';
 import ImageLightbox, { type ImageLightboxState } from '@/components/ui/ImageLightbox';
 import {
   buildGalleryLightboxPlaylist,
-  galleryEntryThumbUrls,
+  galleryEntryHeroPreviewUrl,
   loadComfyGallery,
   resolveGalleryLightboxOpenIndex,
   COMFYUI_GALLERY_UPDATED_EVENT,
   type ComfyGalleryEntry,
 } from '@/lib/comfyui-gallery';
+import GalleryEntryPreview from '@/components/ui/GalleryEntryPreview';
 import { downloadGalleryImage } from '@/lib/comfyui-gallery-export';
 import type { ExperimentGroup } from '@/lib/experiment-groups';
 import {
@@ -141,7 +142,7 @@ export default function ExperimentDashboardPanel() {
 
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {group.entries.slice(0, 4).map(entry => {
-            const thumb = galleryEntryThumbUrls(entry)[0];
+            const preview = galleryEntryHeroPreviewUrl(entry);
             const isWinner = winner?.entryId === entry.id;
             return (
               <div
@@ -152,22 +153,19 @@ export default function ExperimentDashboardPanel() {
                     : 'border-[var(--border-subtle)]/80'
                 }`}
               >
-                {thumb ? (
-                  <button
-                    type="button"
-                    onClick={() => openPreview(group, entry.id)}
-                    className="block w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
-                    aria-label="Open preview"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={thumb}
-                      alt=""
-                      loading="lazy"
-                      decoding="async"
+                {preview ? (
+                  <div className="relative">
+                    <GalleryEntryPreview
+                      entry={entry}
                       className="aspect-square w-full object-cover transition hover:opacity-95"
                     />
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => openPreview(group, entry.id)}
+                      className="absolute inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+                      aria-label="Open preview"
+                    />
+                  </div>
                 ) : (
                   <div className="flex aspect-square items-center justify-center text-xs text-[var(--text-muted)]">
                     No preview

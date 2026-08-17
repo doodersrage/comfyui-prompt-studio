@@ -721,8 +721,8 @@ function applyComfyJobStatus(
     });
 
     // Simple-mode first completed render (success metric beyond queue accept).
-    void import('./workspace-mode').then(({ loadWorkspaceMode }) => {
-      if (loadWorkspaceMode() !== 'simple') {
+    void import('./workspace-mode').then(({ isLeanWorkspaceMode, loadWorkspaceMode }) => {
+      if (!isLeanWorkspaceMode(loadWorkspaceMode())) {
         return;
       }
       void import('./onboarding-hooks').then(({ markOnboardingFirstQueueSuccess }) => {

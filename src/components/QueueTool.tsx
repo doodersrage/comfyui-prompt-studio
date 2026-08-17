@@ -1,11 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  loadComfyGallery,
-  galleryEntryThumbUrls,
-  type ComfyGalleryEntry,
-} from '@/lib/comfyui-gallery';
+import { loadComfyGallery, type ComfyGalleryEntry } from '@/lib/comfyui-gallery';
+import GalleryEntryPreview from '@/components/ui/GalleryEntryPreview';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { EmptyState, ErrorState } from '@/components/ui/ViewState';
 import {
@@ -60,20 +57,10 @@ type PoolHealthEndpoint = {
 };
 
 function QueueCompletedRow({ entry }: { entry: ComfyGalleryEntry }) {
-  const url = galleryEntryThumbUrls(entry)[0];
   const galleryHref = buildGalleryFocusUrl(entry.id);
   return (
     <li className="ui-list-row items-center gap-3">
-      {url ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={url}
-          alt=""
-          loading="lazy"
-          decoding="async"
-          className="h-12 w-12 rounded object-cover"
-        />
-      ) : null}
+      <GalleryEntryPreview entry={entry} className="h-12 w-12 rounded object-cover" />
       <div className="ui-list-primary min-w-0">
         <p className="truncate text-sm text-[var(--text-secondary)]">{entry.prompt}</p>
         <p className="type-caption">

@@ -15,9 +15,10 @@ import { Button } from '@/components/ui/Button';
 import { BatchPromptCard, type BatchPromptCrossLinks } from '@/components/ui/BatchPromptCard';
 import type { ImageLightboxState } from '@/components/ui/ImageLightbox';
 import ComfyUiJobStatusPanel from '@/components/ui/ComfyUiJobStatusPanel';
+import MotionMedia from '@/components/ui/MotionMedia';
 import StatusToastStrip, { type StatusToastNote } from '@/components/ui/StatusToastStrip';
 import type { ComfyUiJobTrackerState } from '@/lib/comfyui-job-status';
-import { formatComfyUiJobStatusLine, isComfyUiJobProcessing } from '@/lib/comfyui-job-status';
+import { isComfyUiJobProcessing } from '@/lib/comfyui-job-status';
 import type { GenerationDiagnostics } from '@/lib/generation-diagnostics';
 import { PINNED_VARIATION_SEED_LABEL } from '@/lib/tool-ui-labels';
 import type { ComfyImageModel } from '@/lib/comfy-models/client';
@@ -28,6 +29,7 @@ import { readRawPrompt } from '@/lib/raw-prompt';
 import { loadSettingsCache } from '@/lib/settings-cache';
 import { usesSystemWorkflowPath } from '@/lib/system-workflow-runtime';
 import { markComfyQueueIntent } from '@/lib/comfy-setup-intent';
+import { isHtmlVideoViewUrl, isMotionViewUrl } from '@/lib/comfyui-outputs';
 import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
 
 const WorkflowPreviewPanel = dynamic(() => import('@/components/WorkflowPreviewPanel'), {
@@ -288,6 +290,8 @@ export default function EnhancedPromptResult({
 
     setLightbox({
       images: [comfyUiPreviewUrl],
+      originalImages: [comfyUiPreviewUrl],
+      mediaKinds: [isMotionViewUrl(comfyUiPreviewUrl) ? 'video' : 'image'],
       index: 0,
       title: panelProps.output ? panelProps.output.slice(0, 120) : 'ComfyUI output preview',
     });
@@ -362,6 +366,9 @@ export default function EnhancedPromptResult({
       onContinueControlNet ||
       onQueueSeedBatch)
   );
+
+  const previewIsMotion = Boolean(comfyUiPreviewUrl && isMotionViewUrl(comfyUiPreviewUrl));
+  const previewIsHtmlVideo = Boolean(comfyUiPreviewUrl && isHtmlVideoViewUrl(comfyUiPreviewUrl));
 
   return (
     <div className="space-y-6">
@@ -714,19 +721,41 @@ export default function EnhancedPromptResult({
 
       {comfyUiPreviewUrl && (
         <div className="ui-card overflow-hidden">
-          <button
-            type="button"
-            onClick={openComfyPreviewLightbox}
-            className="block w-full cursor-zoom-in"
-            aria-label="Open image preview"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={comfyUiPreviewUrl}
-              alt="ComfyUI output preview"
-              className="max-h-80 w-full bg-[var(--bg-subtle)] object-contain"
-            />
-          </button>
+          {previewIsMotion ? (
+            <div className="relative bg-[var(--bg-subtle)]">
+              <MotionMedia
+                src={comfyUiPreviewUrl}
+                alt="ComfyUI clip preview"
+                className="max-h-80 w-full object-contain"
+                autoPlay
+                loop
+                muted
+                controls={previewIsHtmlVideo}
+              />
+              {previewIsHtmlVideo ? null : (
+                <button
+                  type="button"
+                  onClick={openComfyPreviewLightbox}
+                  className="absolute inset-0 cursor-zoom-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent-ring)]"
+                  aria-label="Open clip preview"
+                />
+              )}
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={openComfyPreviewLightbox}
+              className="block w-full cursor-zoom-in"
+              aria-label="Open image preview"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={comfyUiPreviewUrl}
+                alt="ComfyUI output preview"
+                className="max-h-80 w-full bg-[var(--bg-subtle)] object-contain"
+              />
+            </button>
+          )}
           <div className="space-y-2 border-t border-[var(--border-subtle)] px-3 py-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="type-caption text-[var(--tint-success-text)]">
@@ -738,7 +767,7 @@ export default function EnhancedPromptResult({
                   onClick={openComfyPreviewLightbox}
                   className="type-caption text-[var(--accent-text)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
                 >
-                  View image
+                  {previewIsMotion ? 'View clip' : 'View image'}
                 </button>
                 <a
                   href={comfyUiPreviewUrl}

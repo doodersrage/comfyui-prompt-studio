@@ -57,6 +57,10 @@ If login fails, GHCR still publishes and the GitHub Release still goes out.
 
 The first GHCR package is **private** until you open **Packages → llm-prompt-studio → Package settings → Change visibility → Public**.
 
+`write_package` on `ghcr.io/doodersrage/llm-prompt-studio` is an account setting, not an app-code fix. If the Release workflow logs `denied: permission_denied: write_package`, grant this repo's Actions token write access on that package (**Packages → llm-prompt-studio → Package settings → Manage Actions access**) and re-run the failed publish job. GitHub Release assets can still succeed when the image push is denied.
+
+Optional fallback: repo secret `GHCR_TOKEN` (classic PAT with `write:packages`). The Release workflow uses it for GHCR login when set.
+
 ## Notes
 
 - GitHub auto-generates the changelog from commits since the previous **published** release (today that is `Initial-Release` until the next cut).

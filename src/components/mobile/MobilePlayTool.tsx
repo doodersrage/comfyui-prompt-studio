@@ -9,12 +9,8 @@ import { Button, PrimaryButton } from '@/components/ui/Button';
 import { FieldError, TextInput } from '@/components/ui/Field';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { usePromptResultActions } from '@/hooks/usePromptResultActions';
-import { avoidedTokensRequestBody } from '@/lib/avoided-tokens';
-import {
-  COMFYUI_GALLERY_UPDATED_EVENT,
-  galleryEntryPrimaryViewUrl,
-  loadComfyGallery,
-} from '@/lib/comfyui-gallery';
+import { useRoleplayStorySync } from '@/hooks/useRoleplayStorySync';
+import { loadComfyGallery } from '@/lib/comfyui-gallery';
 import { loadComfyUiSettings } from '@/lib/comfyui-settings';
 import { IDENTITY_MEDIA_URL, persistIdentityImage } from '@/lib/gallery-media-client';
 import {
@@ -23,7 +19,6 @@ import {
   ISOLATE_QUEUE_BLOCKED_MESSAGE,
   loadImageBlobFromUrls,
 } from '@/lib/isolate-subject';
-import { sharedLlmRequestBody } from '@/lib/llm-request-options';
 import {
   normalizeCharacterPlates,
   roleplayPatchFromPlate,
@@ -40,9 +35,6 @@ import {
   formatRoleplayBio,
   lastRoleplayPlotBeat,
   MAX_ROLEPLAY_CHARACTER_NAME,
-  normalizeAvoidedRoleplayNames,
-  resolveRoleplayLockedCharacterName,
-  mergeRoleplayStoryStills,
   normalizeRoleplayIsolateSubject,
   normalizeRoleplayPlayAs,
   patchRoleplayStoryBeat,
@@ -50,7 +42,6 @@ import {
   roleplayIntroScene,
   roleplayStillQueueResultPatch,
   roleplayStillTakes,
-  roleplayStoryPromptIds,
   selectRoleplayStillTakePatch,
   type RoleplayBio,
   type RoleplayScene,
@@ -69,17 +60,15 @@ import {
   saveToolSettings,
   SETTINGS_CACHE_UPDATED_EVENT,
 } from '@/lib/settings-cache';
-import type { EnrichedToolGenerateResult } from '@/lib/specialized/types';
+import {
+  buildRoleplayQueueStillOptions,
+  buildRoleplayRequestBody,
+  type RoleplayApiPayload,
+} from '@/lib/roleplay-play-core';
 import { dispatchWebhook } from '@/lib/webhook-settings';
 
 const TOOL_ID = 'roleplay';
 const EMPTY_STORY: RoleplayStoryBeat[] = [];
-
-type RoleplayApiPayload = EnrichedToolGenerateResult & {
-  error?: string;
-  bio?: RoleplayBio;
-  scenes?: RoleplayScene[];
-};
 
 function loadPlates(): CharacterPlate[] {
   return normalizeCharacterPlates(
@@ -252,35 +241,26 @@ export default function MobilePlayTool() {
   });
 
   const requestBody = useCallback(
-    (action: 'bio' | 'scenes' | 'prompt', situation?: RoleplayScene) => {
-      const nameLock = resolveRoleplayLockedCharacterName(toolSettings.characterName);
-      const writingBio = action === 'bio';
-      return {
+    (action: 'bio' | 'scenes' | 'prompt', situation?: RoleplayScene) =>
+      buildRoleplayRequestBody({
         action,
-        model: shared.model,
-        detail: shared.detail,
+        situation,
+        shared,
         personaId,
         customPersona: toolSettings.customPersona,
-        characterName: nameLock,
-        avoidCharacterNames:
-          writingBio && !nameLock ? normalizeAvoidedRoleplayNames([bio?.name]) : [],
+        characterName: toolSettings.characterName,
         extraHints: toolSettings.extraHints,
         setting: toolSettings.setting,
-        lockedLocation: shared.lockedLocation,
-        isolatedSubject:
-          isolateSubject && hasReferenceImage && toolSettings.referenceIsolated === true,
         tone,
         content,
-        allowGore: toolSettings.allowGore === true,
+        allowGore: toolSettings.allowGore,
         hasReferenceImage,
-        bio: writingBio ? undefined : bio,
-        story: writingBio ? [] : toolSettings.story,
-        rejectedScenes: action === 'scenes' ? scenes : undefined,
-        situation,
-        ...avoidedTokensRequestBody(),
-        ...sharedLlmRequestBody(shared),
-      };
-    },
+        isolatedSubject:
+          isolateSubject && hasReferenceImage && toolSettings.referenceIsolated === true,
+        bio,
+        story: toolSettings.story,
+        rejectedScenes: scenes,
+      }),
     [
       bio,
       content,
@@ -300,56 +280,29 @@ export default function MobilePlayTool() {
     ]
   );
 
-  const queueStillOptions = useCallback(() => {
-    if (!hasReferenceImage) {
-      return undefined;
-    }
-    if (isolateSubject && toolSettings.referenceIsolated !== true) {
-      throw new Error(ISOLATE_QUEUE_BLOCKED_MESSAGE);
-    }
-    return {
-      inputImageFilename: referenceImageFilename || undefined,
-      inputImageUrl: referenceImageUrl || undefined,
-      identityLock: true,
-      identityLockStrength: shared.ipAdapterStrength,
-      identityKind: shared.identityKind,
-    };
-  }, [
-    hasReferenceImage,
-    isolateSubject,
-    referenceImageFilename,
-    referenceImageUrl,
-    shared.identityKind,
-    shared.ipAdapterStrength,
-    toolSettings.referenceIsolated,
-  ]);
+  const queueStillOptions = useCallback(
+    () =>
+      buildRoleplayQueueStillOptions({
+        photoMode: hasReferenceImage,
+        isolateSubject,
+        referenceIsolated: toolSettings.referenceIsolated === true,
+        filename: referenceImageFilename,
+        imageUrl: referenceImageUrl,
+        identityLockStrength: shared.ipAdapterStrength,
+        identityKind: shared.identityKind,
+      }),
+    [
+      hasReferenceImage,
+      isolateSubject,
+      referenceImageFilename,
+      referenceImageUrl,
+      shared.identityKind,
+      shared.ipAdapterStrength,
+      toolSettings.referenceIsolated,
+    ]
+  );
 
-  useEffect(() => {
-    const sync = () => {
-      const current = storyRef.current;
-      if (current.length === 0) {
-        return;
-      }
-      const wanted = new Set(roleplayStoryPromptIds(current));
-      if (wanted.size === 0) {
-        return;
-      }
-      const stills = loadComfyGallery()
-        .filter(entry => wanted.has(entry.promptId))
-        .map(entry => ({
-          promptId: entry.promptId,
-          status: entry.status,
-          imageUrl: galleryEntryPrimaryViewUrl(entry),
-        }));
-      const merged = mergeRoleplayStoryStills(current, stills);
-      if (merged.changed) {
-        updateToolSettings({ story: merged.story });
-      }
-    };
-    window.addEventListener(COMFYUI_GALLERY_UPDATED_EVENT, sync);
-    sync();
-    return () => window.removeEventListener(COMFYUI_GALLERY_UPDATED_EVENT, sync);
-  }, [updateToolSettings]);
+  useRoleplayStorySync(storyRef, patch => updateToolSettings(patch));
 
   const commitStill = useCallback(
     async (

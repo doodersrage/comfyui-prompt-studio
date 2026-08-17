@@ -58,5 +58,8 @@ export function resolveWelcomeLandingCta(): EmptyCta {
   if (loadWorkspaceMode() === 'simple') {
     return { label: 'Open Dashboard', href: '/dashboard' };
   }
+  if (loadWorkspaceMode() === 'play') {
+    return { label: 'Continue in Roleplay', href: '/roleplay' };
+  }
   return resolveGenerateEmptyCta();
 }

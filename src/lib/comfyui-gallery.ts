@@ -7,6 +7,9 @@ import {
   GALLERY_THUMB_SRCSET_WIDTHS,
   GALLERY_THUMB_WIDTH,
   resolveComfyOutputMediaKind,
+  isAnimatedImageViewUrl,
+  isGalleryMotionOutput,
+  shouldUseHtmlVideoElement,
   stripGalleryViewWidthParam,
 } from './comfyui-outputs';
 import { buildEngineViewPath } from './engine/view-paths';
@@ -997,15 +1000,36 @@ export function setComfyGalleryUserTags(
   );
 }
 
+function galleryEntryIsMotionJob(entry: Pick<ComfyGalleryEntry, 'tool' | 'derivedKind'>): boolean {
+  return (
+    entry.tool === 'video' ||
+    entry.derivedKind === 'i2v' ||
+    entry.derivedKind === 't2v' ||
+    entry.derivedKind === 'extend' ||
+    entry.derivedKind === 'film'
+  );
+}
+
+function galleryOutputIsMotion(
+  image: Pick<ComfyGalleryEntry['images'][number], 'filename' | 'format'>,
+  entry: Pick<ComfyGalleryEntry, 'tool' | 'derivedKind'>
+): boolean {
+  if (isGalleryMotionOutput(image)) {
+    return true;
+  }
+  return galleryEntryIsMotionJob(entry) && isAnimatedImageViewUrl(image.filename);
+}
+
 function galleryEntryBuildViewPath(
   entry: ComfyGalleryEntry,
   image: ComfyGalleryEntry['images'][number],
   options?: { width?: number }
 ): string {
-  if (entry.durableOriginalPath) {
+  if (entry.durableOriginalPath && !galleryOutputIsMotion(image, entry)) {
     return durableGalleryOriginalUrl(entry.id);
   }
-  return buildEngineViewPath(entry.engineId, entry.comfyUrl, image, options);
+  const width = options?.width && galleryOutputIsMotion(image, entry) ? undefined : options?.width;
+  return buildEngineViewPath(entry.engineId, entry.comfyUrl, image, width ? { width } : undefined);
 }
 
 /** Bounded per-entry URL cache to avoid re-allocating URLSearchParams on every render pass. */
@@ -1030,7 +1054,7 @@ function galleryEntryUrlCacheKey(entry: ComfyGalleryEntry): string {
   const images = entry.images
     .map(image => `${image.filename}:${image.subfolder}:${image.type}`)
     .join(',');
-  return `${entry.id}|${entry.engineId ?? ''}|${entry.comfyUrl ?? ''}|${images}|${entry.durableThumbPath ?? ''}|${entry.durableOriginalPath ?? ''}`;
+  return `${entry.id}|${entry.engineId ?? ''}|${entry.comfyUrl ?? ''}|${images}|${entry.durableThumbPath ?? ''}|${entry.durableOriginalPath ?? ''}|${entry.tool ?? ''}|${entry.derivedKind ?? ''}`;
 }
 
 function _evictUrlCacheIfNeeded(key: string): void {
@@ -1094,12 +1118,19 @@ export function galleryEntryThumbUrls(entry: ComfyGalleryEntry): string[] {
   if (cached) return cached;
 
   cached = entry.images.map((image, index) =>
-    index === 0 && entry.durableThumbPath
-      ? durableGalleryThumbUrl(entry.id)
-      : galleryEntryBuildViewPath(entry, image, { width: GALLERY_THUMB_WIDTH })
+    galleryOutputIsMotion(image, entry)
+      ? galleryEntryBuildViewPath(entry, image)
+      : index === 0 && entry.durableThumbPath
+        ? durableGalleryThumbUrl(entry.id)
+        : galleryEntryBuildViewPath(entry, image, { width: GALLERY_THUMB_WIDTH })
   );
 
-  const mediaKind = cached.length > 0 ? resolveComfyOutputMediaKind(entry.images[0]) : 'image';
+  const mediaKind =
+    cached.length > 0
+      ? resolveComfyOutputMediaKind(
+          entry.images[galleryEntryPrimaryPlaybackIndex(entry)] ?? entry.images[0]!
+        )
+      : 'image';
 
   _updateUrlCache(key, {
     thumb: cached,
@@ -1116,11 +1147,13 @@ export function galleryEntryStripThumbUrls(entry: ComfyGalleryEntry): string[] {
   if (entryCache?.stripThumb) return entryCache.stripThumb;
 
   const urls = entry.images.map((image, index) =>
-    index === 0 && entry.durableThumbPath
-      ? durableGalleryThumbUrl(entry.id)
-      : galleryEntryBuildViewPath(entry, image, {
-          width: GALLERY_STRIP_THUMB_WIDTH,
-        })
+    galleryOutputIsMotion(image, entry)
+      ? galleryEntryBuildViewPath(entry, image)
+      : index === 0 && entry.durableThumbPath
+        ? durableGalleryThumbUrl(entry.id)
+        : galleryEntryBuildViewPath(entry, image, {
+            width: GALLERY_STRIP_THUMB_WIDTH,
+          })
   );
 
   _updateUrlCache(key, { stripThumb: urls });
@@ -1133,11 +1166,18 @@ export function galleryEntryLightboxUrls(entry: ComfyGalleryEntry): string[] {
   if (entryCache?.lightbox) return entryCache.lightbox;
 
   const urls = entry.images.map(image =>
-    galleryEntryBuildViewPath(entry, image, { width: GALLERY_LIGHTBOX_WIDTH })
+    galleryOutputIsMotion(image, entry)
+      ? galleryEntryBuildViewPath(entry, image)
+      : galleryEntryBuildViewPath(entry, image, { width: GALLERY_LIGHTBOX_WIDTH })
   );
 
   _updateUrlCache(key, { lightbox: urls });
   return urls;
+}
+
+export function galleryEntryPrimaryPlaybackIndex(entry: ComfyGalleryEntry): number {
+  const index = entry.images.findIndex(image => galleryOutputIsMotion(image, entry));
+  return index >= 0 ? index : 0;
 }
 
 export function galleryEntryPrimaryViewUrl(entry: ComfyGalleryEntry): string | null {
@@ -1146,7 +1186,8 @@ export function galleryEntryPrimaryViewUrl(entry: ComfyGalleryEntry): string | n
   if (entryCache?.primaryView) return entryCache.primaryView;
 
   const urls = galleryEntryViewUrls(entry);
-  const primary = urls[0] ?? null;
+  const index = galleryEntryPrimaryPlaybackIndex(entry);
+  const primary = urls[index] ?? urls[0] ?? null;
   _updateUrlCache(key, { primaryView: primary });
   return primary;
 }
@@ -1158,8 +1199,8 @@ export function galleryEntryPrimaryThumbUrl(entry: ComfyGalleryEntry): string | 
 }
 
 export function galleryEntryPrimaryThumbSrcSet(entry: ComfyGalleryEntry): string | null {
-  const image = entry.images[0];
-  if (!image) {
+  const image = entry.images[galleryEntryPrimaryPlaybackIndex(entry)] ?? entry.images[0];
+  if (!image || galleryOutputIsMotion(image, entry)) {
     return null;
   }
   if (entry.durableThumbPath) {
@@ -1175,23 +1216,33 @@ export function galleryEntryPrimaryThumbSrcSet(entry: ComfyGalleryEntry): string
 
 /** Per-image media kind (image vs. video/animated) for gallery rendering. */
 export function galleryEntryMediaKinds(entry: ComfyGalleryEntry): ComfyOutputMediaKind[] {
-  const key = galleryEntryUrlCacheKey(entry);
-  const entryCache = _entryUrlCache.get(key);
-  if (entryCache?.primaryMediaKind) {
-    // Reuse the cached media kind when we have one; fall back to computing.
-    const kinds = entry.images.map(image => resolveComfyOutputMediaKind(image));
-    return kinds;
-  }
-
-  const kinds = entry.images.map(image => resolveComfyOutputMediaKind(image));
-  _updateUrlCache(key, { primaryMediaKind: kinds[0] ?? 'image' });
-  return kinds;
+  return entry.images.map(image =>
+    galleryOutputIsMotion(image, entry) ? 'video' : resolveComfyOutputMediaKind(image)
+  );
 }
 
-/** Media kind of the entry's primary (first) output. */
+/** Media kind of the entry's playable hero (clip if present, otherwise the first output). */
 export function galleryEntryPrimaryMediaKind(entry: ComfyGalleryEntry): ComfyOutputMediaKind {
-  const image = entry.images[0];
-  return image ? resolveComfyOutputMediaKind(image) : 'image';
+  const playback = entry.images[galleryEntryPrimaryPlaybackIndex(entry)];
+  if (playback && galleryOutputIsMotion(playback, entry)) {
+    return 'video';
+  }
+  return playback ? resolveComfyOutputMediaKind(playback) : 'image';
+}
+
+/** Grid/lightbox hero: original clip/animation URL — never the stills `w=` proxy. */
+export function galleryEntryHeroPreviewUrl(entry: ComfyGalleryEntry): string | null {
+  const view = galleryEntryPrimaryViewUrl(entry);
+  if (view) {
+    const image = entry.images[galleryEntryPrimaryPlaybackIndex(entry)];
+    if (image && galleryOutputIsMotion(image, entry)) {
+      return view;
+    }
+    if (shouldUseHtmlVideoElement(galleryEntryPrimaryMediaKind(entry), view)) {
+      return view;
+    }
+  }
+  return galleryEntryPrimaryThumbUrl(entry);
 }
 
 export function galleryEntryPrimaryLqipUrl(entry: ComfyGalleryEntry): string | null {
@@ -1199,15 +1250,16 @@ export function galleryEntryPrimaryLqipUrl(entry: ComfyGalleryEntry): string | n
   const entryCache = _entryUrlCache.get(key);
   if (entryCache?.lqip) return entryCache.lqip;
 
-  const image = entry.images[0];
-  if (!image) {
+  const image = entry.images[galleryEntryPrimaryPlaybackIndex(entry)] ?? entry.images[0];
+  if (!image || galleryOutputIsMotion(image, entry)) {
     _updateUrlCache(key, { lqip: null });
     return null;
   }
 
-  const url = entry.durableThumbPath
-    ? durableGalleryThumbUrl(entry.id)
-    : galleryEntryBuildViewPath(entry, image, { width: GALLERY_LQIP_WIDTH });
+  const url =
+    entry.durableThumbPath && !galleryOutputIsMotion(entry.images[0] ?? image, entry)
+      ? durableGalleryThumbUrl(entry.id)
+      : galleryEntryBuildViewPath(entry, image, { width: GALLERY_LQIP_WIDTH });
   _updateUrlCache(key, { lqip: url });
   return url;
 }

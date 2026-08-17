@@ -1,7 +1,14 @@
 import { getComfyUiBaseUrl } from '@/lib/comfyui-client';
 import { stripEmptyComfyUiRuntime } from '@/lib/comfyui-config';
 import { apiError, apiMethodNotAllowed } from '@/lib/api/response';
-import { galleryProxyEncodeTier, calculateDynamicQuality } from '@/lib/comfyui-outputs';
+import {
+  galleryProxyEncodeTier,
+  calculateDynamicQuality,
+  contentTypeForViewBytes,
+  isAnimatedImageBytes,
+  isHtmlVideoContentType,
+  shouldSkipGalleryThumbProxy,
+} from '@/lib/comfyui-outputs';
 // turbopackIgnore: true
 import {
   buildViewCacheKey,
@@ -106,8 +113,12 @@ export async function GET(request: Request) {
       }
 
       const rangeBuffer = Buffer.from(await rangeResponse.arrayBuffer());
+      const rangeType = contentTypeForViewBytes(
+        filename,
+        rangeResponse.headers.get('content-type')
+      );
       const passthroughHeaders: Record<string, string> = {
-        'Content-Type': rangeResponse.headers.get('content-type') ?? 'application/octet-stream',
+        'Content-Type': rangeType,
         'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
         'Accept-Ranges': 'bytes',
       };
@@ -138,7 +149,11 @@ export async function GET(request: Request) {
       format,
     });
     const cached = readViewCache(cacheKey, format);
-    if (cached) {
+    if (
+      cached &&
+      !shouldSkipGalleryThumbProxy(filename) &&
+      !isHtmlVideoContentType(cached.contentType)
+    ) {
       return new NextResponse(new Uint8Array(cached.buffer), {
         status: 200,
         headers: {
@@ -166,16 +181,20 @@ export async function GET(request: Request) {
       return apiError(`ComfyUI view returned HTTP ${response.status}`, 502);
     }
 
-    const contentType = response.headers.get('content-type') ?? 'image/png';
-    const isVideo = contentType.startsWith('video/');
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const contentType = contentTypeForViewBytes(
+      filename,
+      response.headers.get('content-type'),
+      buffer
+    );
+    const isVideo = isHtmlVideoContentType(contentType);
+    const isAnimatedImage = isAnimatedImageBytes(filename, buffer);
     if (!contentType.startsWith('image/') && !isVideo) {
       return apiError('ComfyUI view did not return an image.', 502);
     }
 
-    const buffer = Buffer.from(await response.arrayBuffer());
-
-    // Videos can't be resized by sharp; always return the original bytes.
-    if (thumbWidth && !isVideo) {
+    // Videos and animated gif/webp can't be resized by sharp; always return the original bytes.
+    if (thumbWidth && !isVideo && !isAnimatedImage) {
       try {
         const resized = await encodeThumb(buffer, thumbWidth, format);
         const encodedType = contentTypeForViewFormat(format);

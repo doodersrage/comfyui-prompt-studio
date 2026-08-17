@@ -23,11 +23,12 @@ import {
 import { assembleAndStampFilm, downloadFilmBlob } from '@/lib/character-film-assemble';
 import { saveCharacterFilmCut } from '@/lib/character-os';
 import {
+  galleryEntryHeroPreviewUrl,
   galleryEntryPrimaryMediaKind,
-  galleryEntryPrimaryThumbUrl,
   galleryEntryPrimaryViewUrl,
   type ComfyGalleryEntry,
 } from '@/lib/comfyui-gallery';
+import GalleryEntryPreview from '@/components/ui/GalleryEntryPreview';
 
 function toMediaRef(entry: ComfyGalleryEntry): FilmMediaRef {
   return {
@@ -166,15 +167,12 @@ export default function CharacterFilmStudio({
           {cut.items.map((item, index) => {
             const entry = byId.get(item.entryId);
             const gallery = entries.find(candidate => candidate.id === item.entryId);
-            const thumb = gallery ? galleryEntryPrimaryThumbUrl(gallery) : null;
             const kind = entry ? filmShotKind(entry) : 'still';
             return (
               <li key={item.entryId} className="ui-list-row items-center gap-3">
-                {thumb ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={thumb}
-                    alt=""
+                {gallery && galleryEntryHeroPreviewUrl(gallery) ? (
+                  <GalleryEntryPreview
+                    entry={gallery}
                     className="h-12 w-12 shrink-0 rounded-[var(--radius-sm)] object-cover"
                   />
                 ) : (

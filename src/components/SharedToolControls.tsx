@@ -216,6 +216,11 @@ type SharedToolControlsProps = {
    */
   preferEditModels?: boolean;
   onSharedSettingsChange?: (partial: Partial<SharedToolSettings>) => void;
+  /**
+   * Roleplay Play rail: engine + model + identity on the surface;
+   * quality and LoRA under Advanced. Hides Generate-oriented blocks.
+   */
+  variant?: 'default' | 'roleplay';
 };
 
 export default function SharedToolControls({
@@ -246,9 +251,11 @@ export default function SharedToolControls({
   toolId,
   preferEditModels = false,
   onSharedSettingsChange,
+  variant = 'default',
 }: SharedToolControlsProps) {
   const workspaceMode = useWorkspaceMode();
   const advancedOpenByDefault = workspaceControlsDefaultOpen(workspaceMode);
+  const roleplayVariant = variant === 'roleplay';
   const selectedModel = getComfyModelDefinition(shared.model);
   const activeLimits = getDetailLimits(shared.detail, shared.model);
   const workflowSelection = useComfyWorkflowSelection();
@@ -1270,7 +1277,7 @@ export default function SharedToolControls({
               .
             </p>
           </div>
-        ) : shared.inferenceEngine === 'diffusers' ? (
+        ) : shared.inferenceEngine === 'diffusers' && !roleplayVariant ? (
           <DiffusersCheckpointSelector
             value={diffusersSelectedAssetId}
             onChange={handleDiffusersAssetChange}
@@ -1309,10 +1316,11 @@ export default function SharedToolControls({
             }}
           />
         ) : null}
-        {shared.inferenceEngine === 'diffusers' ? (
+        {shared.inferenceEngine === 'diffusers' && !roleplayVariant ? (
           <DiffusersQueueHint workflowJson={selectedWorkflowJson} />
         ) : null}
-        {!cloudEngine &&
+        {!roleplayVariant &&
+        !cloudEngine &&
         toolId === 'generate' &&
         /qwen-image-edit-2511-lightning/i.test(shared.model) ? (
           <div className="space-y-2 rounded-xl border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-3 py-2.5">
@@ -1335,7 +1343,7 @@ export default function SharedToolControls({
             </Button>
           </div>
         ) : null}
-        {toolId === 'generate' && isBooguEditModel(shared.model) ? (
+        {!roleplayVariant && toolId === 'generate' && isBooguEditModel(shared.model) ? (
           <div className="space-y-2 rounded-xl border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-3 py-2.5">
             <p className="text-xs leading-relaxed text-[var(--tint-warning-text)]">
               Boogu Edit is instruction TI2I only — upload a reference on{' '}
@@ -1348,57 +1356,61 @@ export default function SharedToolControls({
         ) : null}
       </div>
 
-      <div className="space-y-3">
-        <FieldLabel
-          hint={
-            detailHelp ??
-            `Limits for ${selectedModel.label}: up to ${activeLimits.maxSentences} sentences, ~${activeLimits.maxChars} chars.`
-          }
-        >
-          Prompt detail
-        </FieldLabel>
-        <div className="flex flex-wrap gap-2">
-          {(
-            [
-              { label: 'Concise', value: 'concise' },
-              { label: 'Balanced', value: 'balanced' },
-              { label: 'Rich', value: 'rich' },
-            ] as const
-          ).map(preset => (
-            <ChipButton
-              key={preset.value}
-              active={shared.detail === preset.value}
-              onClick={() => onDetailChange(preset.value)}
-            >
-              {preset.label}
-            </ChipButton>
-          ))}
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <FieldLabel hint="How long the render takes and how much polish it gets.">
-          Quality
-        </FieldLabel>
-        <div className="flex flex-wrap gap-2">
-          {QUEUE_QUALITY_PROFILE_OPTIONS.filter(option => option.id !== 'followSettings').map(
-            option => (
+      {!roleplayVariant ? (
+        <div className="space-y-3">
+          <FieldLabel
+            hint={
+              detailHelp ??
+              `Limits for ${selectedModel.label}: up to ${activeLimits.maxSentences} sentences, ~${activeLimits.maxChars} chars.`
+            }
+          >
+            Prompt detail
+          </FieldLabel>
+          <div className="flex flex-wrap gap-2">
+            {(
+              [
+                { label: 'Concise', value: 'concise' },
+                { label: 'Balanced', value: 'balanced' },
+                { label: 'Rich', value: 'rich' },
+              ] as const
+            ).map(preset => (
               <ChipButton
-                key={option.id}
-                active={queueQualityProfile === option.id}
-                onClick={() => handleQueueQualityProfileChange(option.id)}
+                key={preset.value}
+                active={shared.detail === preset.value}
+                onClick={() => onDetailChange(preset.value)}
               >
-                {option.label}
+                {preset.label}
               </ChipButton>
-            )
-          )}
+            ))}
+          </div>
         </div>
-        {systemPathActive && systemQualityHint ? (
-          <p className="text-xs leading-relaxed text-[var(--text-muted)]">{systemQualityHint}</p>
-        ) : null}
-      </div>
+      ) : null}
 
-      {lastLookRecipe ? (
+      {!roleplayVariant ? (
+        <div className="space-y-2">
+          <FieldLabel hint="How long the render takes and how much polish it gets.">
+            Quality
+          </FieldLabel>
+          <div className="flex flex-wrap gap-2">
+            {QUEUE_QUALITY_PROFILE_OPTIONS.filter(option => option.id !== 'followSettings').map(
+              option => (
+                <ChipButton
+                  key={option.id}
+                  active={queueQualityProfile === option.id}
+                  onClick={() => handleQueueQualityProfileChange(option.id)}
+                >
+                  {option.label}
+                </ChipButton>
+              )
+            )}
+          </div>
+          {systemPathActive && systemQualityHint ? (
+            <p className="text-xs leading-relaxed text-[var(--text-muted)]">{systemQualityHint}</p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {lastLookRecipe && !roleplayVariant ? (
         <div className="space-y-1.5">
           <FieldLabel hint="Newest saved look from a 4–5★ still. Applies the same session stack on every image tool.">
             Last look
@@ -1488,16 +1500,18 @@ export default function SharedToolControls({
                 <span className="text-[var(--text-secondary)]">{systemWorkflowChoice.display}</span>
               </p>
             ) : null}
-            <QueueRecipesPanel
-              toolId={toolId}
-              shared={recipesShared}
-              qualityProfile={queueQualityProfile}
-              orientation={resolutionOrientation}
-              sizeTier={resolutionSizeTier}
-              systemWorkflowSource={systemWorkflowChoice?.source}
-              onApplied={handleRecipesApplied}
-            />
-            {shared.inferenceEngine === 'diffusers' ? (
+            {roleplayVariant ? null : (
+              <QueueRecipesPanel
+                toolId={toolId}
+                shared={recipesShared}
+                qualityProfile={queueQualityProfile}
+                orientation={resolutionOrientation}
+                sizeTier={resolutionSizeTier}
+                systemWorkflowSource={systemWorkflowChoice?.source}
+                onApplied={handleRecipesApplied}
+              />
+            )}
+            {shared.inferenceEngine === 'diffusers' && !roleplayVariant ? (
               <DiffusersSamplingReadout
                 model={shared.model}
                 checkpointMap={shared.modelCheckpointMap}
@@ -1509,6 +1523,7 @@ export default function SharedToolControls({
         ) : null;
 
         const workflowBlock =
+          !roleplayVariant &&
           !cloudEngine &&
           onWorkflowPresetChange &&
           workflowSelection.mounted &&
@@ -1533,105 +1548,45 @@ export default function SharedToolControls({
             />
           ) : null;
 
-        const advancedSections = (
+        const identitySurface = (
           <>
-            {queueQualityBlock}
-            {workflowBlock}
-            {!cloudEngine ? (
-              <>
-                <CollapsibleSection
-                  title="LoRA stack"
-                  summary={(() => {
-                    const tuned = countSessionLoraStrengthOverrides(sessionLoraStrengthOverrides);
-                    if (sessionActiveLoraIds !== undefined) {
-                      return `${sessionActiveLoraIds.length} selected${tuned ? ` · ${tuned} tuned` : ''}`;
+            {!cloudEngine &&
+            modelSupportsSessionIdentityLock(shared.model) &&
+            toolId !== 'video' &&
+            toolId !== 'compose' ? (
+              <CollapsibleSection
+                title="Identity lock"
+                summary={
+                  shared.ipAdapterImageFilename?.trim()
+                    ? `${shared.identityKind === 'instantid' ? 'InstantID' : shared.identityKind === 'pulid' ? 'PuLID' : shared.identityKind === 'auto' ? 'Auto' : 'IP-Adapter'} · ${shared.ipAdapterImageFilename}`
+                    : 'Lock a face or style reference'
+                }
+                defaultOpen={
+                  roleplayVariant ||
+                  advancedOpenByDefault ||
+                  Boolean(shared.ipAdapterImageFilename?.trim())
+                }
+                persistKey="shared-identity-lock"
+              >
+                <IdentityLockSessionControl
+                  model={shared.model}
+                  filename={shared.ipAdapterImageFilename}
+                  imageUrl={shared.ipAdapterImageUrl}
+                  strength={shared.ipAdapterStrength}
+                  identityKind={shared.identityKind}
+                  onChange={patch => {
+                    if (onSharedSettingsChange) {
+                      onSharedSettingsChange(patch);
+                    } else {
+                      saveSharedSettings({
+                        ...loadSettingsCache().shared,
+                        ...patch,
+                      });
                     }
-                    return tuned
-                      ? `${tuned} strength tweak${tuned === 1 ? '' : 's'}`
-                      : 'Pick LoRAs for this model';
-                  })()}
-                  defaultOpen={advancedOpenByDefault}
-                  persistKey="shared-lora-stack"
-                >
-                  <LoraStackSessionPicker
-                    model={shared.model}
-                    sessionActiveLoraIds={
-                      hasSessionLoraIdsForModel(sessionActiveLoraIdsByModel, shared.model)
-                        ? sessionActiveLoraIds
-                        : undefined
-                    }
-                    sessionLoraStrengthOverrides={sessionLoraStrengthOverrides}
-                    checkboxClassName={checkboxClass}
-                    onChange={handleSessionActiveLoraIdsChange}
-                    onSessionStrengthOverridesChange={handleSessionLoraStrengthOverridesChange}
-                  />
-                </CollapsibleSection>
-
-                {modelSupportsTextualInversion(shared.model) ? (
-                  <CollapsibleSection
-                    title="Embeddings"
-                    summary={
-                      (shared.sessionEmbeddingTokens?.length ?? 0) > 0
-                        ? `${shared.sessionEmbeddingTokens?.length} selected`
-                        : 'SD/SDXL textual inversion'
-                    }
-                    defaultOpen={advancedOpenByDefault}
-                    persistKey="shared-embeddings"
-                  >
-                    <EmbeddingSessionChips
-                      model={shared.model}
-                      selected={shared.sessionEmbeddingTokens ?? []}
-                      onChange={names => {
-                        if (onSharedSettingsChange) {
-                          onSharedSettingsChange({ sessionEmbeddingTokens: names });
-                        } else {
-                          saveSharedSettings({
-                            ...loadSettingsCache().shared,
-                            sessionEmbeddingTokens: names,
-                          });
-                        }
-                      }}
-                    />
-                  </CollapsibleSection>
-                ) : null}
-
-                {modelSupportsSessionIdentityLock(shared.model) &&
-                toolId !== 'video' &&
-                toolId !== 'compose' ? (
-                  <CollapsibleSection
-                    title="Identity lock"
-                    summary={
-                      shared.ipAdapterImageFilename?.trim()
-                        ? `${shared.identityKind === 'instantid' ? 'InstantID' : shared.identityKind === 'pulid' ? 'PuLID' : shared.identityKind === 'auto' ? 'Auto' : 'IP-Adapter'} · ${shared.ipAdapterImageFilename}`
-                        : 'Lock a face or style reference'
-                    }
-                    defaultOpen={
-                      advancedOpenByDefault || Boolean(shared.ipAdapterImageFilename?.trim())
-                    }
-                    persistKey="shared-identity-lock"
-                  >
-                    <IdentityLockSessionControl
-                      model={shared.model}
-                      filename={shared.ipAdapterImageFilename}
-                      imageUrl={shared.ipAdapterImageUrl}
-                      strength={shared.ipAdapterStrength}
-                      identityKind={shared.identityKind}
-                      onChange={patch => {
-                        if (onSharedSettingsChange) {
-                          onSharedSettingsChange(patch);
-                        } else {
-                          saveSharedSettings({
-                            ...loadSettingsCache().shared,
-                            ...patch,
-                          });
-                        }
-                      }}
-                    />
-                  </CollapsibleSection>
-                ) : null}
-              </>
+                  }}
+                />
+              </CollapsibleSection>
             ) : null}
-
             {cloudEngine ? (
               <CollapsibleSection
                 title="Reference image"
@@ -1669,6 +1624,74 @@ export default function SharedToolControls({
                 </p>
               </CollapsibleSection>
             ) : null}
+          </>
+        );
+
+        const advancedSections = (
+          <>
+            {queueQualityBlock}
+            {workflowBlock}
+            {!cloudEngine ? (
+              <>
+                <CollapsibleSection
+                  title="LoRA stack"
+                  summary={(() => {
+                    const tuned = countSessionLoraStrengthOverrides(sessionLoraStrengthOverrides);
+                    if (sessionActiveLoraIds !== undefined) {
+                      return `${sessionActiveLoraIds.length} selected${tuned ? ` · ${tuned} tuned` : ''}`;
+                    }
+                    return tuned
+                      ? `${tuned} strength tweak${tuned === 1 ? '' : 's'}`
+                      : 'Pick LoRAs for this model';
+                  })()}
+                  defaultOpen={advancedOpenByDefault}
+                  persistKey="shared-lora-stack"
+                >
+                  <LoraStackSessionPicker
+                    model={shared.model}
+                    sessionActiveLoraIds={
+                      hasSessionLoraIdsForModel(sessionActiveLoraIdsByModel, shared.model)
+                        ? sessionActiveLoraIds
+                        : undefined
+                    }
+                    sessionLoraStrengthOverrides={sessionLoraStrengthOverrides}
+                    checkboxClassName={checkboxClass}
+                    onChange={handleSessionActiveLoraIdsChange}
+                    onSessionStrengthOverridesChange={handleSessionLoraStrengthOverridesChange}
+                  />
+                </CollapsibleSection>
+
+                {roleplayVariant ? null : modelSupportsTextualInversion(shared.model) ? (
+                  <CollapsibleSection
+                    title="Embeddings"
+                    summary={
+                      (shared.sessionEmbeddingTokens?.length ?? 0) > 0
+                        ? `${shared.sessionEmbeddingTokens?.length} selected`
+                        : 'SD/SDXL textual inversion'
+                    }
+                    defaultOpen={advancedOpenByDefault}
+                    persistKey="shared-embeddings"
+                  >
+                    <EmbeddingSessionChips
+                      model={shared.model}
+                      selected={shared.sessionEmbeddingTokens ?? []}
+                      onChange={names => {
+                        if (onSharedSettingsChange) {
+                          onSharedSettingsChange({ sessionEmbeddingTokens: names });
+                        } else {
+                          saveSharedSettings({
+                            ...loadSettingsCache().shared,
+                            sessionEmbeddingTokens: names,
+                          });
+                        }
+                      }}
+                    />
+                  </CollapsibleSection>
+                ) : null}
+              </>
+            ) : null}
+
+            {roleplayVariant ? null : identitySurface}
 
             {!cloudEngine ? (
               <CollapsibleSection
@@ -1721,14 +1744,16 @@ export default function SharedToolControls({
                         ? `pinned seed ${lockedVariationSeed.trim().slice(0, 24)}${lockedVariationSeed.trim().length > 24 ? '…' : ''}`
                         : 'new seed each send'}
                     </p>
-                    <QueueRecipesPanel
-                      toolId={toolId}
-                      shared={recipesShared}
-                      qualityProfile={queueQualityProfile}
-                      orientation={resolutionOrientation}
-                      sizeTier={resolutionSizeTier}
-                      onApplied={handleRecipesApplied}
-                    />
+                    {roleplayVariant ? null : (
+                      <QueueRecipesPanel
+                        toolId={toolId}
+                        shared={recipesShared}
+                        qualityProfile={queueQualityProfile}
+                        orientation={resolutionOrientation}
+                        sizeTier={resolutionSizeTier}
+                        onApplied={handleRecipesApplied}
+                      />
+                    )}
                   </>
                 ) : null}
 
@@ -1743,7 +1768,7 @@ export default function SharedToolControls({
                   model={shared.model}
                 />
 
-                {recommendFromText ? (
+                {roleplayVariant ? null : recommendFromText ? (
                   <ModelRecommenderHints
                     text={recommendFromText}
                     currentModel={shared.model}
@@ -1753,135 +1778,142 @@ export default function SharedToolControls({
               </CollapsibleSection>
             ) : null}
 
-            <CollapsibleSection
-              title="Wildcards & auto-retry"
-              summary="Dynamic prompt tokens and OOM/execution_error auto-retry."
-              defaultOpen={false}
-              persistKey="shared-wildcards-oom-retry"
-            >
-              <label className="flex cursor-pointer items-start gap-3">
-                <input
-                  type="checkbox"
-                  checked={expandWildcards}
-                  onChange={e => handleExpandWildcardsChange(e.target.checked)}
-                  className={checkboxClass}
-                />
-                <span className="space-y-1">
-                  <span className="type-heading block">Expand wildcards</span>
-                  <span className="type-caption block">
-                    Replace <code>__color__</code> / <code>{'{a|b|c}'}</code> style tokens in the
-                    prompt before queueing.
-                  </span>
-                </span>
-              </label>
-
-              {expandWildcards && (
-                <div className="space-y-2 pl-7">
-                  <FieldLabel hint="Same seed always expands the same way — leave blank for a fresh random roll each queue.">
-                    Wildcard seed (optional)
-                  </FieldLabel>
+            {roleplayVariant ? null : (
+              <CollapsibleSection
+                title="Wildcards & auto-retry"
+                summary="Dynamic prompt tokens and OOM/execution_error auto-retry."
+                defaultOpen={false}
+                persistKey="shared-wildcards-oom-retry"
+              >
+                <label className="flex cursor-pointer items-start gap-3">
                   <input
-                    type="text"
-                    value={wildcardSeed}
-                    onChange={e => handleWildcardSeedChange(e.target.value)}
-                    placeholder="e.g. my-batch-01"
-                    className="ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
+                    type="checkbox"
+                    checked={expandWildcards}
+                    onChange={e => handleExpandWildcardsChange(e.target.checked)}
+                    className={checkboxClass}
                   />
-                  {textHasWildcardTokens(wildcardPreviewText ?? recommendFromText) ? (
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => {
-                            const source = (wildcardPreviewText ?? recommendFromText ?? '').trim();
-                            if (!source) {
-                              setWildcardPreview(null);
-                              return;
-                            }
-                            const seed =
-                              wildcardSeed.trim() || `preview-${Math.floor(Math.random() * 1e9)}`;
-                            setWildcardPreview(
-                              expandWildcardText(source, {
-                                seed,
-                                wildcards: shared.wildcardLists,
-                              })
-                            );
-                          }}
-                        >
-                          {wildcardPreview ? 'Roll again' : 'Preview expand'}
-                        </Button>
-                        {wildcardPreview ? (
+                  <span className="space-y-1">
+                    <span className="type-heading block">Expand wildcards</span>
+                    <span className="type-caption block">
+                      Replace <code>__color__</code> / <code>{'{a|b|c}'}</code> style tokens in the
+                      prompt before queueing.
+                    </span>
+                  </span>
+                </label>
+
+                {expandWildcards && (
+                  <div className="space-y-2 pl-7">
+                    <FieldLabel hint="Same seed always expands the same way — leave blank for a fresh random roll each queue.">
+                      Wildcard seed (optional)
+                    </FieldLabel>
+                    <input
+                      type="text"
+                      value={wildcardSeed}
+                      onChange={e => handleWildcardSeedChange(e.target.value)}
+                      placeholder="e.g. my-batch-01"
+                      className="ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
+                    />
+                    {textHasWildcardTokens(wildcardPreviewText ?? recommendFromText) ? (
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap gap-2">
                           <Button
                             type="button"
-                            variant="ghost"
+                            variant="secondary"
                             size="sm"
                             onClick={() => {
-                              void navigator.clipboard.writeText(wildcardPreview);
+                              const source = (
+                                wildcardPreviewText ??
+                                recommendFromText ??
+                                ''
+                              ).trim();
+                              if (!source) {
+                                setWildcardPreview(null);
+                                return;
+                              }
+                              const seed =
+                                wildcardSeed.trim() || `preview-${Math.floor(Math.random() * 1e9)}`;
+                              setWildcardPreview(
+                                expandWildcardText(source, {
+                                  seed,
+                                  wildcards: shared.wildcardLists,
+                                })
+                              );
                             }}
                           >
-                            Copy preview
+                            {wildcardPreview ? 'Roll again' : 'Preview expand'}
                           </Button>
+                          {wildcardPreview ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                void navigator.clipboard.writeText(wildcardPreview);
+                              }}
+                            >
+                              Copy preview
+                            </Button>
+                          ) : null}
+                        </div>
+                        {wildcardPreview ? (
+                          <pre className="max-h-36 overflow-auto whitespace-pre-wrap rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/50 p-3 text-xs leading-relaxed text-[var(--text-secondary)]">
+                            {wildcardPreview}
+                          </pre>
                         ) : null}
                       </div>
-                      {wildcardPreview ? (
-                        <pre className="max-h-36 overflow-auto whitespace-pre-wrap rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/50 p-3 text-xs leading-relaxed text-[var(--text-secondary)]">
-                          {wildcardPreview}
-                        </pre>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <p className="type-caption text-[var(--text-muted)]">
-                      Add <code>__list__</code> or <code>{'{a|b}'}</code> tokens to the draft/hints
-                      to preview expansion here.
-                    </p>
-                  )}
-                </div>
-              )}
+                    ) : (
+                      <p className="type-caption text-[var(--text-muted)]">
+                        Add <code>__list__</code> or <code>{'{a|b}'}</code> tokens to the
+                        draft/hints to preview expansion here.
+                      </p>
+                    )}
+                  </div>
+                )}
 
-              <FieldDivider />
+                <FieldDivider />
 
-              <label className="flex cursor-pointer items-start gap-3">
-                <input
-                  type="checkbox"
-                  checked={autoRetryOnOom}
-                  onChange={e => handleAutoRetryOnOomChange(e.target.checked)}
-                  className={checkboxClass}
-                />
-                <span className="space-y-1">
-                  <span className="type-heading block">Auto-retry on OOM</span>
-                  <span className="type-caption block">
-                    When a Best/Good gallery job fails with an OOM/CUDA/execution_error,
-                    automatically re-queue it once.
+                <label className="flex cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={autoRetryOnOom}
+                    onChange={e => handleAutoRetryOnOomChange(e.target.checked)}
+                    className={checkboxClass}
+                  />
+                  <span className="space-y-1">
+                    <span className="type-heading block">Auto-retry on OOM</span>
+                    <span className="type-caption block">
+                      When a Best/Good gallery job fails with an OOM/CUDA/execution_error,
+                      automatically re-queue it once.
+                    </span>
                   </span>
-                </span>
-              </label>
+                </label>
 
-              <label
-                className={`flex items-start gap-3 ${
-                  autoRetryOnOom ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  checked={oomRetryDowngrade}
-                  disabled={!autoRetryOnOom}
-                  onChange={e => handleOomRetryDowngradeChange(e.target.checked)}
-                  className={checkboxClass}
-                />
-                <span className="space-y-1">
-                  <span className="type-heading block">Downgrade quality on retry</span>
-                  <span className="type-caption block">
-                    Best → Good / Good → Fast on the same host; if a pool has multiple endpoints, an
-                    alternate one is also tried.
+                <label
+                  className={`flex items-start gap-3 ${
+                    autoRetryOnOom ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={oomRetryDowngrade}
+                    disabled={!autoRetryOnOom}
+                    onChange={e => handleOomRetryDowngradeChange(e.target.checked)}
+                    className={checkboxClass}
+                  />
+                  <span className="space-y-1">
+                    <span className="type-heading block">Downgrade quality on retry</span>
+                    <span className="type-caption block">
+                      Best → Good / Good → Fast on the same host; if a pool has multiple endpoints,
+                      an alternate one is also tried.
+                    </span>
                   </span>
-                </span>
-              </label>
-            </CollapsibleSection>
+                </label>
+              </CollapsibleSection>
+            )}
 
-            {(showWardrobeOption && onAlwaysIncludeClothingChange) ||
-            onSeedLlmWithIngredientsChange ? (
+            {!roleplayVariant &&
+            ((showWardrobeOption && onAlwaysIncludeClothingChange) ||
+              onSeedLlmWithIngredientsChange) ? (
               <>
                 <FieldDivider />
                 {onSeedLlmWithIngredientsChange ? (
@@ -1927,118 +1959,126 @@ export default function SharedToolControls({
               </>
             ) : null}
 
-            {(lockedWardrobeId ||
-              lockedLocation ||
-              lockedVariationSeed ||
-              onAutoFixRulesChange) && (
-              <CollapsibleSection
-                title="Pins & automation"
-                summary="Locked scene ingredients and post-generation fixes."
-                persistKey="shared-pins-automation"
-                defaultOpen={Boolean(lockedWardrobeId || lockedLocation || lockedVariationSeed)}
-              >
-                {lockedWardrobeId && (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="type-caption rounded-[var(--radius-full)] border border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] px-2.5 py-1 text-[var(--tint-info-text)]">
-                      Locked kit: {lockedWardrobeLabel ?? lockedWardrobeId}
-                    </span>
-                    {onClearLockedWardrobe && (
-                      <Button
-                        variant="ghost"
-                        onClick={onClearLockedWardrobe}
-                        className="!min-h-8 px-2 type-caption"
-                      >
-                        Clear
-                      </Button>
-                    )}
-                  </div>
-                )}
-
-                {lockedLocation && (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="type-caption rounded-[var(--radius-full)] border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-2.5 py-1 text-[var(--tint-warning-text)]">
-                      Locked location: {lockedLocation}
-                    </span>
-                    {onClearLockedLocation && (
-                      <Button
-                        variant="ghost"
-                        onClick={onClearLockedLocation}
-                        className="!min-h-8 px-2 type-caption"
-                      >
-                        Clear
-                      </Button>
-                    )}
-                  </div>
-                )}
-
-                {lockedVariationSeed && (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span
-                      className="type-caption max-w-full truncate rounded-[var(--radius-full)] border border-[var(--accent-border)] bg-[var(--accent-muted)] px-2.5 py-1 text-[var(--accent-text)]"
-                      title={lockedVariationSeed}
-                    >
-                      {PINNED_VARIATION_SEED_LABEL}:{' '}
-                      {lockedVariationSeed.length > 48
-                        ? `${lockedVariationSeed.slice(0, 48)}…`
-                        : lockedVariationSeed}
-                    </span>
-                    {onClearLockedVariationSeed && (
-                      <Button
-                        variant="ghost"
-                        onClick={onClearLockedVariationSeed}
-                        className="!min-h-8 px-2 type-caption"
-                      >
-                        Clear
-                      </Button>
-                    )}
-                  </div>
-                )}
-
-                {onAutoFixRulesChange && (
-                  <label className="flex cursor-pointer items-start gap-3">
-                    <input
-                      type="checkbox"
-                      checked={autoFixRules}
-                      onChange={e => onAutoFixRulesChange(e.target.checked)}
-                      className={checkboxClass}
-                    />
-                    <span className="space-y-1">
-                      <span className="type-heading block">Auto-fix lint errors</span>
-                      <span className="type-caption block">
-                        After generation, apply rule-based fixes when lint reports errors.
+            {!roleplayVariant &&
+              (lockedWardrobeId ||
+                lockedLocation ||
+                lockedVariationSeed ||
+                onAutoFixRulesChange) && (
+                <CollapsibleSection
+                  title="Pins & automation"
+                  summary="Locked scene ingredients and post-generation fixes."
+                  persistKey="shared-pins-automation"
+                  defaultOpen={Boolean(lockedWardrobeId || lockedLocation || lockedVariationSeed)}
+                >
+                  {lockedWardrobeId && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="type-caption rounded-[var(--radius-full)] border border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] px-2.5 py-1 text-[var(--tint-info-text)]">
+                        Locked kit: {lockedWardrobeLabel ?? lockedWardrobeId}
                       </span>
-                    </span>
-                  </label>
-                )}
+                      {onClearLockedWardrobe && (
+                        <Button
+                          variant="ghost"
+                          onClick={onClearLockedWardrobe}
+                          className="!min-h-8 px-2 type-caption"
+                        >
+                          Clear
+                        </Button>
+                      )}
+                    </div>
+                  )}
 
-                {onActiveCharacterDescriptorChange && (
-                  <div className="space-y-2">
-                    <FieldLabel hint="Injected into Character generation as a mandatory descriptor.">
-                      Active character descriptor
-                    </FieldLabel>
-                    <textarea
-                      value={activeCharacterDescriptor ?? ''}
-                      onChange={event => onActiveCharacterDescriptorChange(event.target.value)}
-                      rows={3}
-                      placeholder="e.g. athletic woman, mid-20s, short copper hair, green eyes"
-                      className="ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
-                    />
-                  </div>
-                )}
-              </CollapsibleSection>
-            )}
+                  {lockedLocation && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="type-caption rounded-[var(--radius-full)] border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-2.5 py-1 text-[var(--tint-warning-text)]">
+                        Locked location: {lockedLocation}
+                      </span>
+                      {onClearLockedLocation && (
+                        <Button
+                          variant="ghost"
+                          onClick={onClearLockedLocation}
+                          className="!min-h-8 px-2 type-caption"
+                        >
+                          Clear
+                        </Button>
+                      )}
+                    </div>
+                  )}
+
+                  {lockedVariationSeed && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span
+                        className="type-caption max-w-full truncate rounded-[var(--radius-full)] border border-[var(--accent-border)] bg-[var(--accent-muted)] px-2.5 py-1 text-[var(--accent-text)]"
+                        title={lockedVariationSeed}
+                      >
+                        {PINNED_VARIATION_SEED_LABEL}:{' '}
+                        {lockedVariationSeed.length > 48
+                          ? `${lockedVariationSeed.slice(0, 48)}…`
+                          : lockedVariationSeed}
+                      </span>
+                      {onClearLockedVariationSeed && (
+                        <Button
+                          variant="ghost"
+                          onClick={onClearLockedVariationSeed}
+                          className="!min-h-8 px-2 type-caption"
+                        >
+                          Clear
+                        </Button>
+                      )}
+                    </div>
+                  )}
+
+                  {onAutoFixRulesChange && (
+                    <label className="flex cursor-pointer items-start gap-3">
+                      <input
+                        type="checkbox"
+                        checked={autoFixRules}
+                        onChange={e => onAutoFixRulesChange(e.target.checked)}
+                        className={checkboxClass}
+                      />
+                      <span className="space-y-1">
+                        <span className="type-heading block">Auto-fix lint errors</span>
+                        <span className="type-caption block">
+                          After generation, apply rule-based fixes when lint reports errors.
+                        </span>
+                      </span>
+                    </label>
+                  )}
+
+                  {onActiveCharacterDescriptorChange && (
+                    <div className="space-y-2">
+                      <FieldLabel hint="Injected into Character generation as a mandatory descriptor.">
+                        Active character descriptor
+                      </FieldLabel>
+                      <textarea
+                        value={activeCharacterDescriptor ?? ''}
+                        onChange={event => onActiveCharacterDescriptorChange(event.target.value)}
+                        rows={3}
+                        placeholder="e.g. athletic woman, mid-20s, short copper hair, green eyes"
+                        className="ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
+                      />
+                    </div>
+                  )}
+                </CollapsibleSection>
+              )}
           </>
         );
 
         return (
-          <CollapsibleSection
-            title="Advanced settings"
-            summary="LoRAs, embeddings, identity, sampling, wildcards, and automation."
-            defaultOpen={advancedOpenByDefault}
-            persistKey="shared-advanced-settings"
-          >
-            {advancedSections}
-          </CollapsibleSection>
+          <>
+            {roleplayVariant ? identitySurface : null}
+            <CollapsibleSection
+              title="Advanced settings"
+              summary={
+                roleplayVariant
+                  ? 'Quality and LoRA stack.'
+                  : 'LoRAs, embeddings, identity, sampling, wildcards, and automation.'
+              }
+              defaultOpen={advancedOpenByDefault}
+              persistKey="shared-advanced-settings"
+            >
+              {advancedSections}
+            </CollapsibleSection>
+          </>
         );
       })()}
     </div>

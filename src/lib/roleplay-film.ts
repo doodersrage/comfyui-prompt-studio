@@ -4,6 +4,7 @@
  */
 
 import type { ComfyGalleryEntry } from './comfyui-gallery-entry';
+import { isHtmlVideoViewUrl, isMotionViewUrl } from './comfyui-outputs';
 import type { RoleplayStoryBeat } from './roleplay';
 import { lastCompletedRoleplayStillUrl } from './roleplay';
 
@@ -107,10 +108,12 @@ export function shouldAutoQueueRoleplayClip(beat: RoleplayStoryBeat): boolean {
   return Boolean(beat.prompt?.trim()) && !beat.imageUrl?.trim() && beat.stillStatus !== 'writing';
 }
 
+/** True when a `<video>` element can play this URL (not animated webp/gif). */
 export function looksLikeVideoUrl(url: string): boolean {
-  const trimmed = url.trim().toLowerCase();
-  return (
-    /\.(mp4|webm|mov|mkv)(\?|#|$)/.test(trimmed) ||
-    (trimmed.includes('type=output') && trimmed.includes('.mp4'))
-  );
+  return isHtmlVideoViewUrl(url);
+}
+
+/** True for mp4/webm or animated webp/gif — play in-place instead of a still. */
+export function looksLikeMotionUrl(url: string): boolean {
+  return isMotionViewUrl(url);
 }

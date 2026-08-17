@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
 import { apiError, apiMethodNotAllowed } from '@/lib/api/response';
+import {
+  contentTypeForViewBytes,
+  isAnimatedImageBytes,
+  isHtmlVideoContentType,
+} from '@/lib/comfyui-outputs';
 import { ensureReplicateOutput } from '@/lib/replicate-client';
 import { sanitizeComfyViewFilename, sanitizeComfyViewSubfolder } from '@/lib/url-safety';
 
@@ -39,8 +44,10 @@ export async function GET(request: Request) {
       return apiError('Replicate image is not available yet.', 404);
     }
 
+    const contentType = contentTypeForViewBytes(filename, file.mimeType, file.bytes);
+    const isVideo = isHtmlVideoContentType(contentType);
     const thumbWidth = parseThumbWidth(searchParams.get('w'));
-    if (thumbWidth) {
+    if (thumbWidth && !isVideo && !isAnimatedImageBytes(filename, file.bytes)) {
       const sharp = (await import('sharp')).default;
       const resized = await sharp(file.bytes)
         .rotate()
@@ -68,8 +75,9 @@ export async function GET(request: Request) {
     return new NextResponse(body, {
       status: 200,
       headers: {
-        'Content-Type': file.mimeType || 'image/png',
+        'Content-Type': contentType,
         'Cache-Control': 'private, max-age=3600',
+        ...(isVideo ? { 'Accept-Ranges': 'bytes' } : {}),
       },
     });
   } catch (error) {

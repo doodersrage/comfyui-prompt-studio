@@ -41,6 +41,25 @@ export const COMFYUI_SETTINGS_SECTIONS: ComfyUiSettingsSection[] = [
     ],
   },
   {
+    id: 'connection',
+    label: 'Connection',
+    keywords: [
+      'url',
+      'token',
+      'injection',
+      'placeholder',
+      'workflow json',
+      'pool',
+      'cluster',
+      'gpu',
+      'export',
+      'sidecar',
+      'restart',
+      'reboot',
+      'manager',
+    ],
+  },
+  {
     id: 'presets',
     label: 'Browser presets',
     keywords: ['iterate', 'keeper', 'lab', 'preset', 'profile'],
@@ -49,6 +68,11 @@ export const COMFYUI_SETTINGS_SECTIONS: ComfyUiSettingsSection[] = [
     id: 'workflow-map',
     label: 'Workflow map',
     keywords: ['model', 'workflow', 'map', 'assignment'],
+  },
+  {
+    id: 'workflow-library',
+    label: 'Workflow library',
+    keywords: ['library', 'import', 'health', 'diff'],
   },
   {
     id: 'model-assets',
@@ -70,48 +94,9 @@ export const COMFYUI_SETTINGS_SECTIONS: ComfyUiSettingsSection[] = [
     ],
   },
   {
-    id: 'workflow-patching',
-    label: 'Patching & maps',
-    keywords: ['checkpoint', 'vae', 'refiner', 'upscale', 'controlnet', 'patch'],
-  },
-  {
-    id: 'workflow-library',
-    label: 'Workflow library',
-    keywords: ['library', 'import', 'health', 'diff'],
-  },
-  {
     id: 'lora-library',
     label: 'LoRA library',
     keywords: ['lora', 'trigger', 'auto', 'stack', 'lightx2v', 'civitai', 'search', 'download'],
-  },
-  {
-    id: 'lora-train',
-    label: 'LoRA train',
-    keywords: ['lora', 'train', 'kohya', 'dataset', 'trigger', 'trainer', 'trainer_url'],
-  },
-  {
-    id: 'connection',
-    label: 'Connection',
-    keywords: [
-      'url',
-      'token',
-      'injection',
-      'placeholder',
-      'workflow json',
-      'pool',
-      'cluster',
-      'gpu',
-      'export',
-      'sidecar',
-      'restart',
-      'reboot',
-      'manager',
-    ],
-  },
-  {
-    id: 'auto-improve',
-    label: 'Auto-improve',
-    keywords: ['rating', 'requeue', 'mutate', 'seed', 'calm', 'aggressive'],
   },
   {
     id: 'queue-params',
@@ -132,6 +117,21 @@ export const COMFYUI_SETTINGS_SECTIONS: ComfyUiSettingsSection[] = [
     id: 'hold-max',
     label: 'Hold Max',
     keywords: ['hold', 'idle', 'orchestration', 'max'],
+  },
+  {
+    id: 'auto-improve',
+    label: 'Auto-improve',
+    keywords: ['rating', 'requeue', 'mutate', 'seed', 'calm', 'aggressive'],
+  },
+  {
+    id: 'workflow-patching',
+    label: 'Patching & maps',
+    keywords: ['checkpoint', 'vae', 'refiner', 'upscale', 'controlnet', 'patch'],
+  },
+  {
+    id: 'lora-train',
+    label: 'LoRA train',
+    keywords: ['lora', 'train', 'kohya', 'dataset', 'trigger', 'trainer', 'trainer_url'],
   },
   {
     id: 'sampler-memory',
@@ -157,14 +157,18 @@ export function normalizeComfyUiSettingsSection(
 
 /** ComfyUI sections shown when Settings is in essentials / slim mode. */
 export const COMFYUI_ESSENTIAL_SECTION_IDS: ComfyUiSettingsSectionId[] = [
+  'inference-engine',
   'connection',
+  'presets',
   'workflow-map',
+  'workflow-library',
   'model-assets',
+  'lora-library',
   'queue-params',
-  'hold-max',
   'prompt-quality',
   'vram-guard',
-  'inference-engine',
+  'hold-max',
+  'auto-improve',
 ];
 
 const ESSENTIAL_SECTION_ID_SET = new Set<ComfyUiSettingsSectionId>(COMFYUI_ESSENTIAL_SECTION_IDS);
@@ -184,7 +188,10 @@ export function comfyUiSectionsForEssentials(essentialsOnly: boolean): ComfyUiSe
   if (!essentialsOnly) {
     return COMFYUI_SETTINGS_SECTIONS;
   }
-  return COMFYUI_SETTINGS_SECTIONS.filter(section => ESSENTIAL_SECTION_ID_SET.has(section.id));
+  const byId = new Map(COMFYUI_SETTINGS_SECTIONS.map(section => [section.id, section] as const));
+  return COMFYUI_ESSENTIAL_SECTION_IDS.map(id => byId.get(id)).filter(
+    (section): section is ComfyUiSettingsSection => Boolean(section)
+  );
 }
 
 export function filterComfyUiSettingsSections(

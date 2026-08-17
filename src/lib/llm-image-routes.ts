@@ -23,6 +23,11 @@ import {
   isCloudVideoModelId,
   queueCloudVideo,
 } from '@/lib/cloud-video-client';
+import {
+  contentTypeForViewBytes,
+  isAnimatedImageBytes,
+  isHtmlVideoContentType,
+} from '@/lib/comfyui-outputs';
 import { sanitizeComfyViewFilename, sanitizeComfyViewSubfolder } from '@/lib/url-safety';
 
 type QueueBody = {
@@ -233,8 +238,10 @@ export function llmImageViewHandlers(engineId: LlmImageEngineId) {
         if (!file) {
           return apiError(`${option.shortLabel} image is not available yet.`, 404);
         }
+        const contentType = contentTypeForViewBytes(filename, file.mimeType, file.bytes);
+        const isVideo = isHtmlVideoContentType(contentType);
         const thumbWidth = parseThumbWidth(searchParams.get('w'));
-        if (thumbWidth && !file.mimeType.startsWith('video/')) {
+        if (thumbWidth && !isVideo && !isAnimatedImageBytes(filename, file.bytes)) {
           const sharp = (await import('sharp')).default;
           const resized = await sharp(file.bytes)
             .rotate()
@@ -261,8 +268,9 @@ export function llmImageViewHandlers(engineId: LlmImageEngineId) {
         return new NextResponse(body, {
           status: 200,
           headers: {
-            'Content-Type': file.mimeType || 'image/png',
+            'Content-Type': contentType,
             'Cache-Control': 'private, max-age=3600',
+            ...(isVideo ? { 'Accept-Ranges': 'bytes' } : {}),
           },
         });
       } catch (error) {

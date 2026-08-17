@@ -1,11 +1,19 @@
 import type { EngineId, EngineOutputImage, EngineViewPathOptions } from './types';
 import { isCloudEngine, type CloudEngineId } from './capabilities';
+import { shouldSkipGalleryThumbProxy } from '../comfyui-outputs';
 
 /** Bounded per-URL cache to avoid re-allocating URLSearchParams across render passes. */
 const _viewPathCacheMaxSize = 4096;
 const _viewPathCache = new Map<string, string>();
 
-function appendWidth(params: URLSearchParams, options?: EngineViewPathOptions): void {
+function appendWidth(
+  params: URLSearchParams,
+  image: EngineOutputImage,
+  options?: EngineViewPathOptions
+): void {
+  if (shouldSkipGalleryThumbProxy(image.filename)) {
+    return;
+  }
   const width = options?.width;
   if (typeof width === 'number' && Number.isFinite(width) && width > 0) {
     params.set('w', String(Math.min(Math.floor(width), 2048)));
@@ -33,7 +41,7 @@ export function buildDiffusersViewPath(
     type: image.type,
     engineUrl: engineUrl.replace(/\/+$/, ''),
   });
-  appendWidth(params, options);
+  appendWidth(params, image, options);
   return `/api/diffusers/view?${params.toString()}`;
 }
 
@@ -64,7 +72,7 @@ export function buildNamedCloudViewPath(
     subfolder: image.subfolder,
     type: image.type,
   });
-  appendWidth(params, options);
+  appendWidth(params, image, options);
   return `/api/${engineId}/view?${params.toString()}`;
 }
 
@@ -90,7 +98,7 @@ export function buildEngineViewPath(
       type: image.type,
       comfyUrl: engineUrl.replace(/\/+$/, ''),
     });
-    appendWidth(params, options);
+    appendWidth(params, image, options);
     result = `/api/comfyui/view?${params.toString()}`;
   }
 
