@@ -323,10 +323,13 @@ function withPendingSettingsOverlay(result: SettingsCache): SettingsCache {
 }
 
 export function notifySettingsCacheUpdated(): void {
-  if (typeof window === 'undefined') {
+  if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') {
     return;
   }
   scheduleAfterCommit(() => {
+    if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') {
+      return;
+    }
     window.dispatchEvent(new Event(SETTINGS_CACHE_UPDATED_EVENT));
   });
 }

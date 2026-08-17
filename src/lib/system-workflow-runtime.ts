@@ -87,6 +87,7 @@ import {
 } from './workflow-category-defaults';
 import { workflowHasLoraLoader } from './workflow-lightning-queue';
 import { lightningLoraMatchesModel } from './workflow-lora-patch';
+import { workflowGraphIsVideo } from './workflow-graph-kind';
 import { buildWorkflowScaffoldForModel, fluxKleinDualClipFilename } from './workflow-scaffold';
 import {
   extractWorkflowStackFingerprint,
@@ -206,9 +207,7 @@ function isVideoModel(model: ComfyImageModel | string): boolean {
 }
 
 function looksLikeVideoPackGraph(workflowJson: string): boolean {
-  return /WanImageToVideo|HunyuanImageToVideo|EmptyLTXVLatentVideo|LTXVConditioning|WanVideo|HunyuanVideoTextEncode|LTXVImgToVideo|LTXVScheduler|LTXVAddGuide|EmptyHunyuanLatentVideo/.test(
-    workflowJson
-  );
+  return workflowGraphIsVideo(workflowJson);
 }
 
 function isLtxVideoModel(model: ComfyImageModel | string): boolean {
@@ -460,6 +459,11 @@ export function pickPackWorkflowForModel(
       continue;
     }
 
+    const wantVideo = isVideoModel(model) || pickOptions.tool === 'video';
+    if (wantVideo && !looksLikeVideoPackGraph(json)) {
+      continue;
+    }
+
     const fingerprint = extractWorkflowStackFingerprint(json);
     if (fingerprint.isMixed) {
       continue;
@@ -500,9 +504,10 @@ export function pickPackWorkflowForModel(
     }
 
     const i2vGraph = looksLikeI2vPackGraph(json);
-    const videoPack = isVideoModel(model) && looksLikeVideoPackGraph(json);
+    const videoPack = wantVideo && looksLikeVideoPackGraph(json);
     const videoBoundPack =
-      isVideoModel(model) &&
+      wantVideo &&
+      looksLikeVideoPackGraph(json) &&
       packHasBoundLoaders(json) &&
       entry.score >= SYSTEM_WORKFLOW_STRUCTURE_MIN_PACK_SCORE;
     const videoI2vPack =
@@ -1316,18 +1321,21 @@ export function resolveSystemWorkflowForModel(
   const loaders = resolveSystemLoaderMaps(model, shared, models);
   const queueParams = buildSystemWorkflowQueueParams(model, shared);
   const pickOptions = resolvePickPackOptions(model, options);
+  const wantVideo = isVideoModel(model) || pickOptions.tool === 'video';
 
-  // Explicit Settings / library "Assign to model" wins over auto pack scoring.
+  // Explicit Settings / library "Assign to model" wins over auto pack scoring
+  // unless the assignment is a still-image graph on a clip queue.
   const mappedId = resolveWorkflowForModel(model, shared.modelWorkflowMap)?.trim();
   if (mappedId) {
     const mappedFile = workflowFiles.find(file => file.id === mappedId);
     const runtime = resolveSelectedWorkflowRuntime(mappedId);
-    if (runtime?.workflowJson?.trim()) {
-      const repaired = softRepairPackLoadersFromInventory(runtime.workflowJson, model, models);
+    const mappedJson = (mappedFile?.workflowJson ?? runtime?.workflowJson)?.trim();
+    if (mappedJson && !(wantVideo && !workflowGraphIsVideo(mappedJson))) {
+      const repaired = softRepairPackLoadersFromInventory(mappedJson, model, models);
       const customTokens = softFillLightningTokenForGraph(
         model,
         repaired.workflowJson,
-        [...(runtime.customTokens ?? [])],
+        [...(runtime?.customTokens ?? [])],
         models
       );
       return {

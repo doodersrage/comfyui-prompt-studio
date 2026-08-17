@@ -12,7 +12,11 @@ import {
 export type WorkflowGraphKind = 'image' | 'video' | 'audio' | 'mesh' | 'unknown';
 
 const VIDEO_CLASS_HINTS =
-  /EmptyHunyuanLatentVideo|EmptyLTXVLatentVideo|WanImageToVideo|HunyuanImageToVideo|LTXVImgToVideo|SaveAnimatedWEBP|VHS_VideoCombine|CreateVideo|WanImageToVideo|ImageOnlyCheckpointLoader/i;
+  /EmptyHunyuanLatentVideo|EmptyLTXVLatentVideo|EmptyMochiLatentVideo|WanImageToVideo|HunyuanImageToVideo|LTXVImgToVideo|SaveAnimatedWEBP|VHS_VideoCombine|CreateVideo|WanVideo|HunyuanVideoTextEncode|LTXVConditioning|LTXVScheduler|ImageOnlyCheckpointLoader/i;
+
+/** Unparseable graphs: match video nodes in the raw JSON string. */
+const VIDEO_GRAPH_FALLBACK_HINTS =
+  /EmptyHunyuanLatentVideo|EmptyLTXVLatentVideo|EmptyMochiLatentVideo|WanImageToVideo|HunyuanImageToVideo|LTXVImgToVideo|SaveAnimatedWEBP|VHS_VideoCombine|CreateVideo|HunyuanVideoTextEncode|LTXVConditioning|WanVideo|LTXVScheduler|LTXVAddGuide/i;
 
 const AUDIO_CLASS_HINTS =
   /SaveAudio|PreviewAudio|StableAudio|EmptyLatentAudio|AudioEncoder|LoadAudio|VAEDecodeAudio|CLIPTextEncodeAudio/i;
@@ -57,6 +61,25 @@ export function inferWorkflowGraphKind(workflowJson: string): WorkflowGraphKind 
     return 'mesh';
   }
   return 'image';
+}
+
+/**
+ * True when a pack/scaffold is a clip graph (T2V/I2V), not a still-image SaveImage
+ * pipeline. Clip queues must not run still graphs — they finish as a single PNG.
+ */
+export function workflowGraphIsVideo(workflowJson?: string): boolean {
+  const json = workflowJson?.trim();
+  if (!json) {
+    return false;
+  }
+  const kind = inferWorkflowGraphKind(json);
+  if (kind === 'video') {
+    return true;
+  }
+  if (kind === 'image' || kind === 'audio' || kind === 'mesh') {
+    return false;
+  }
+  return VIDEO_GRAPH_FALLBACK_HINTS.test(json);
 }
 
 export function graphKindToCategory(kind: WorkflowGraphKind): ComfyModelCategory | null {

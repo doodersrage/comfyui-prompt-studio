@@ -10,6 +10,7 @@ import {
 import type { SharedToolSettings } from './settings-cache';
 import { isEditQueueTool } from './model-denoise-defaults';
 import { isQwenLightningModel } from './model-sampling-patch';
+import { workflowGraphIsVideo } from './workflow-graph-kind';
 
 export type ModelWorkflowMap = Record<string, string>;
 
@@ -88,6 +89,7 @@ export function resolveWorkflowForModelSelection(
   }
 ): string | undefined {
   const editTool = isEditQueueTool(options?.tool);
+  const videoTool = options?.tool === 'video';
   const files = (options?.workflowFiles ?? []) as ComfyWorkflowFile[];
   const fileById = new Map(files.map(file => [file.id, file]));
 
@@ -97,6 +99,9 @@ export function resolveWorkflowForModelSelection(
       return undefined;
     }
     const file = fileById.get(id);
+    if (videoTool && file?.workflowJson && !workflowGraphIsVideo(file.workflowJson)) {
+      return undefined;
+    }
     if (!file || editTool || !workflowRequiresInputImage(file.workflowJson)) {
       return id;
     }
@@ -104,9 +109,15 @@ export function resolveWorkflowForModelSelection(
   };
 
   const ranked = files.length
-    ? rankWorkflowFilesForModel(model, files).filter(
-        entry => editTool || !workflowRequiresInputImage(entry.file.workflowJson)
-      )
+    ? rankWorkflowFilesForModel(model, files).filter(entry => {
+        if (!editTool && workflowRequiresInputImage(entry.file.workflowJson)) {
+          return false;
+        }
+        if (videoTool && !workflowGraphIsVideo(entry.file.workflowJson)) {
+          return false;
+        }
+        return true;
+      })
     : [];
   const bestRankedId = ranked[0]?.file.id;
 

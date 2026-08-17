@@ -117,6 +117,55 @@ describe("system-workflow-runtime", () => {
     assert.equal(picked?.file.id, "wan-pack");
   });
 
+  it("does not pick a still-image pack for WAN video even when the label scores high", () => {
+    const still = fakeWorkflow({
+      id: "still-wan-named",
+      name: "wan video t2v motion",
+      filename: "wan_video_t2v.json",
+      workflowJson: JSON.stringify({
+        "1": {
+          class_type: "CheckpointLoaderSimple",
+          inputs: { ckpt_name: "wan2.1_t2v_1.3B_fp8_scaled.safetensors" },
+        },
+        "2": {
+          class_type: "EmptyLatentImage",
+          inputs: { width: 1024, height: 1024, batch_size: 1 },
+        },
+        "3": { class_type: "SaveImage", inputs: { filename_prefix: "still" } },
+      }),
+    });
+    const picked = pickPackWorkflowForModel("wan-video", [still], {
+      ...emptyInventory,
+      checkpoints: ["wan2.1_t2v_1.3B_fp8_scaled.safetensors"],
+    });
+    assert.equal(picked, null);
+  });
+
+  it("ignores a mapped still-image workflow for video models and uses the T2V scaffold", () => {
+    const still = fakeWorkflow({
+      id: "qwen-still",
+      name: "qwen-image-2512",
+      filename: "qwen.json",
+      workflowJson: buildWorkflowScaffoldForModel("qwen-image-2512").json,
+    });
+    const resolved = resolveSystemWorkflowForModel(
+      "wan-video",
+      {
+        ...DEFAULT_SHARED_SETTINGS,
+        modelWorkflowMap: { "wan-video": "qwen-still" },
+      },
+      [still],
+      {
+        ...emptyInventory,
+        checkpoints: ["wan2.1_t2v_1.3B_fp8_scaled.safetensors"],
+      },
+      { tool: "video" },
+    );
+    assert.equal(resolved.source, "scaffold");
+    assert.match(resolved.workflowJson, /EmptyHunyuanLatentVideo|SaveAnimatedWEBP/);
+    assert.doesNotMatch(resolved.workflowJson, /"class_type":"SaveImage"/);
+  });
+
   it("skips packs until inventory is available (cold start)", () => {
     const pack = fakeWorkflow({
       id: "pack-1",

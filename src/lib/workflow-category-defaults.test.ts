@@ -113,4 +113,30 @@ describe("workflow-category-defaults", () => {
     const ranked = rankWorkflowFilesForModel("qwen-image-2512", files);
     assert.equal(ranked[0]?.file.id, "wf-t2i");
   });
+
+  it("skips still-image workflows when the queue tool is video", () => {
+    const files = [
+      {
+        id: "wf-still",
+        name: "wan video t2v",
+        filename: "wan_t2v.json",
+        workflowJson:
+          '{"1":{"class_type":"EmptyLatentImage"},"2":{"class_type":"SaveImage"}}',
+      },
+      {
+        id: "wf-clip",
+        name: "wan video t2v clip",
+        filename: "wan_clip.json",
+        workflowJson:
+          '{"1":{"class_type":"EmptyHunyuanLatentVideo"},"2":{"class_type":"SaveAnimatedWEBP"}}',
+      },
+    ];
+
+    const forVideo = resolveWorkflowForModelSelection("wan-video", {
+      workflowFiles: files,
+      tool: "video",
+      map: { "wan-video": "wf-still" },
+    });
+    assert.equal(forVideo, "wf-clip");
+  });
 });

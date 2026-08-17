@@ -25,7 +25,8 @@ import { resolveWorkflowForModel, resolveWorkflowForModelSelection } from './mod
 import { resolveSelectedWorkflowRuntime, getSelectedWorkflowFileId } from './comfyui-runtime';
 import type { ComfyUiRuntimeConfig } from './comfyui-config';
 import { resolveQueueQualityProfile, normalizeQueueQualityProfile } from './queue-quality-profile';
-import { resolveModelForQueueTool } from './queue-tool-model';
+import { isVideoModel, resolveModelForQueueTool } from './queue-tool-model';
+import { workflowGraphIsVideo } from './workflow-graph-kind';
 import { rankWorkflowFilesForModel } from './workflow-category-defaults';
 import {
   extractWorkflowStackFingerprint,
@@ -307,10 +308,9 @@ export function resolveRuntimeForModel(
   const shared = loadSettingsCache().shared;
   const inventory =
     options?.inventory !== undefined ? options.inventory : readCachedComfyObjectInfoModels();
+  const videoRequest = tool === 'video' || isVideoModel(model);
 
-  // System workflows for FLUX/Qwen/video: scored pack → scaffold. Unsupported
-  // families (hybrid mode) fall through to mapped/manual resolution below.
-  if (usesSystemWorkflowPath(shared, model)) {
+  const resolveViaSystemPath = (): ComfyUiRuntimeConfig => {
     const workflowFiles = loadComfyWorkflowFiles();
     // System packs replace workflow JSON / loader maps but must keep the session
     // LoRA stack from Settings — otherwise Lightning neutralize leaves style LoRAs
@@ -334,7 +334,7 @@ export function resolveRuntimeForModel(
           : {}),
       }),
       inventory,
-      { tool }
+      { tool: videoRequest ? (tool ?? 'video') : tool }
     );
     const lightning = attachLightningTokens(model, base.customTokens, base.workflowCustomTokens);
     return {
@@ -344,9 +344,16 @@ export function resolveRuntimeForModel(
         ? { workflowCustomTokens: lightning.workflowCustomTokens }
         : {}),
     };
+  };
+
+  // System workflows for FLUX/Qwen/video: scored pack → scaffold. Unsupported
+  // families (hybrid mode) fall through to mapped/manual resolution below.
+  if (usesSystemWorkflowPath(shared, model)) {
+    return resolveViaSystemPath();
   }
 
   const workflowFiles = loadComfyWorkflowFiles();
+  const selectionTool = videoRequest ? (tool ?? 'video') : tool;
   const manualId = options?.ignoreManualWorkflow ? undefined : getSelectedWorkflowFileId();
   const mappedId = resolveWorkflowForModel(model, shared.modelWorkflowMap);
   const autoId =
@@ -354,20 +361,43 @@ export function resolveRuntimeForModel(
       ? resolveWorkflowForModelSelection(model, {
           map: shared.modelWorkflowMap,
           workflowFiles,
-          tool,
+          tool: selectionTool,
         })
       : undefined;
+  const acceptWorkflowId = (id?: string): string | undefined => {
+    const trimmed = id?.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+    if (!videoRequest) {
+      return trimmed;
+    }
+    return workflowGraphIsVideo(resolveSelectedWorkflowRuntime(trimmed)?.workflowJson)
+      ? trimmed
+      : undefined;
+  };
   // Explicit map assignment, then the workflow picker selection, then auto-ranked default.
-  const workflowId = mappedId ?? manualId ?? autoId;
+  // Clip queues skip still-image graphs so Roleplay/Video cannot finish as a PNG.
+  const workflowId =
+    acceptWorkflowId(mappedId) ?? acceptWorkflowId(manualId) ?? acceptWorkflowId(autoId);
+  if (videoRequest && !workflowId) {
+    return resolveViaSystemPath();
+  }
   const base = workflowId ? resolveSelectedWorkflowRuntime(workflowId) : undefined;
   // Never stack-swap away from an explicit model→workflow map or the picker
   // selection — that dropped per-workflow {{LORA_LIGHTNING}} overrides.
+  // Clip graphs must also stay video: stack ranking can prefer a Hunyuan still.
   const trustExplicitWorkflow = Boolean(
-    (mappedId?.trim() && workflowId === mappedId) || (manualId?.trim() && workflowId === manualId)
+    videoRequest ||
+    (mappedId?.trim() && workflowId === mappedId) ||
+    (manualId?.trim() && workflowId === manualId)
   );
   const stackCompatible = trustExplicitWorkflow
     ? base
     : resolveStackCompatibleWorkflowRuntime(model, base, workflowFiles);
+  if (videoRequest && !workflowGraphIsVideo(stackCompatible?.workflowJson ?? base?.workflowJson)) {
+    return resolveViaSystemPath();
+  }
 
   const lightning = attachLightningTokens(
     model,
@@ -402,12 +432,19 @@ export function resolveRuntimeForQueue(
 ): ComfyUiRuntimeConfig {
   const queueModel = resolveModelForQueueTool(model, tool);
   const remapped = queueModel !== model;
+  const videoQueue = tool === 'video' || isVideoModel(queueModel);
   // When Generate remaps Edit Lightning → 2512 Lightning, resolve the T2I
   // counterpart's mapped workflow — never keep the Edit graph from the picker.
-  const base = resolveRuntimeForModel(queueModel, tool, {
+  let base = resolveRuntimeForModel(queueModel, tool, {
     ...options,
     ignoreManualWorkflow: remapped || options?.ignoreManualWorkflow,
   });
+  if (videoQueue && !workflowGraphIsVideo(base.workflowJson)) {
+    base = resolveRuntimeForModel(queueModel, 'video', {
+      ...options,
+      ignoreManualWorkflow: true,
+    });
+  }
   const shared = loadSettingsCache().shared;
   const resolvedProfile = resolveQueueQualityProfile({
     tool,

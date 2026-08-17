@@ -6,11 +6,13 @@ import {
   resolveRuntimeForQueue,
   scanAndAdaptSystemWorkflowInventory,
 } from "./comfyui-runtime-for-model";
+import { saveComfyWorkflowFiles } from "./comfyui-workflow-files";
 import {
   DEFAULT_SHARED_SETTINGS,
   loadSettingsCache,
   saveSharedSettings,
 } from "./settings-cache";
+import { buildWorkflowScaffoldForModel } from "./workflow-scaffold";
 
 function withMockLocalStorage(run: () => void | Promise<void>): Promise<void> {
   const storage = new Map<string, string>();
@@ -27,6 +29,7 @@ function withMockLocalStorage(run: () => void | Promise<void>): Promise<void> {
           storage.delete(key);
         },
       },
+      dispatchEvent: () => true,
     },
   });
   resetBrowserStorageCache();
@@ -77,17 +80,17 @@ describe("comfyui-runtime-for-model system path", () => {
     });
   });
 
-  it("falls through to mapped/manual path for SDXL in hybrid mode", async () => {
+  it("falls through to mapped/manual path for PixArt in hybrid mode", async () => {
     await withMockLocalStorage(() => {
       saveSharedSettings({
         ...DEFAULT_SHARED_SETTINGS,
         ...loadSettingsCache().shared,
         useSystemWorkflows: true,
         systemWorkflowsLimitPicker: false,
-        model: "sdxl",
+        model: "pixart-alpha",
         modelWorkflowMap: {},
       });
-      const runtime = resolveRuntimeForModel("sdxl", "generate", {
+      const runtime = resolveRuntimeForModel("pixart-alpha", "generate", {
         inventory: null,
       });
       // Hybrid unsupported: no system scaffold/source stamps.
@@ -251,6 +254,46 @@ describe("comfyui-runtime-for-model system path", () => {
       });
       assert.equal(runtime.queueQualityProfile, "final");
       assert.equal(runtime.workflowGraphEnrich, true);
+    });
+  });
+
+  it("uses the T2V scaffold for video queues when the picker is a still-image graph", async () => {
+    await withMockLocalStorage(() => {
+      saveComfyWorkflowFiles([
+        {
+          id: "qwen-still",
+          name: "Qwen 2512 txt2img",
+          filename: "qwen.json",
+          workflowJson: buildWorkflowScaffoldForModel("qwen-image-2512").json,
+          createdAt: 1,
+        },
+      ]);
+      saveSharedSettings({
+        ...DEFAULT_SHARED_SETTINGS,
+        ...loadSettingsCache().shared,
+        useSystemWorkflows: false,
+        model: "qwen-image-2512",
+        selectedWorkflowFileId: "qwen-still",
+        modelWorkflowMap: { "wan-video": "qwen-still" },
+      });
+      const runtime = resolveRuntimeForQueue("wan-video", "video", {
+        inventory: {
+          checkpoints: ["wan2.1_t2v_1.3B_fp8_scaled.safetensors"],
+          unets: [],
+          vaes: [],
+          clips: [],
+          dualClipTypes: [],
+          clipLoaderTypes: [],
+          loras: [],
+          upscaleModels: [],
+          controlNets: [],
+        },
+      });
+      assert.match(
+        runtime.workflowJson ?? "",
+        /EmptyHunyuanLatentVideo|SaveAnimatedWEBP/,
+      );
+      assert.doesNotMatch(runtime.workflowJson ?? "", /"class_type":"SaveImage"/);
     });
   });
 
