@@ -148,23 +148,46 @@ describe("comfy asset catalog", () => {
     }
 
     assert.equal(assetIsDownloadable(getCatalogAsset("wan-video-rapid-aio")!), true);
+    assert.equal(assetIsDownloadable(getCatalogAsset("wan-video-rapid-aio-nsfw")!), true);
     assert.equal(assetIsDownloadable(getCatalogAsset("wan-video-lightning-low-noise")!), true);
+    assert.equal(assetIsDownloadable(getCatalogAsset("wan-video-lightning-high-noise")!), true);
+    assert.equal(
+      assetIsDownloadable(getCatalogAsset("wan-video-lightning-i2v-high-noise")!),
+      true,
+    );
     assert.equal(assetIsDownloadable(getCatalogAsset("hunyuan-video")!), true);
     assert.equal(assetIsDownloadable(getCatalogAsset("hunyuan-video-vae")!), true);
     assert.equal(assetIsDownloadable(getCatalogAsset("hunyuan-video-llava")!), true);
     assert.equal(assetIsDownloadable(getCatalogAsset("ltx-video")!), true);
+    assert.equal(assetIsDownloadable(getCatalogAsset("ltx-video-2b-098-distilled")!), true);
+    assert.equal(assetIsDownloadable(getCatalogAsset("ltx-video-13b-098-distilled-fp8")!), true);
     assert.equal(assetIsDownloadable(getCatalogAsset("ltx-video-t5xxl")!), true);
+  });
+
+  it("lists current LTX 0.9.8 distilled checkpoints for ltx-video", () => {
+    const ltx = catalogAssetsForModel("ltx-video").map((entry) => entry.id);
+    assert.ok(ltx.includes("ltx-video-2b-098-distilled"));
+    assert.ok(ltx.includes("ltx-video-2b-098-distilled-fp8"));
+    assert.ok(ltx.includes("ltx-video-13b-098-distilled"));
+    assert.ok(ltx.includes("ltx-video-13b-098-distilled-fp8"));
+    assert.ok(ltx.includes("ltx-video-t5xxl"));
+    assert.equal(ltx.includes("wan-video-14b"), false);
   });
 
   it("does not attach official WAN 14B splits to Rapid AIO or Lightning", () => {
     const rapid = catalogAssetsForModel("wan-video-rapid-aio").map((entry) => entry.id);
     assert.ok(rapid.includes("wan-video-rapid-aio"));
+    assert.ok(rapid.includes("wan-video-rapid-aio-nsfw"));
     assert.equal(rapid.includes("wan-video-14b"), false);
     assert.equal(rapid.includes("wan-umt5-fp8"), false);
 
     const lightning = catalogAssetsForModel("wan-video-lightning-4").map((entry) => entry.id);
     assert.ok(lightning.includes("wan-video-rapid-aio"));
+    assert.ok(lightning.includes("wan-video-rapid-aio-nsfw"));
     assert.ok(lightning.includes("wan-video-lightning-low-noise"));
+    assert.ok(lightning.includes("wan-video-lightning-high-noise"));
+    assert.ok(lightning.includes("wan-video-lightning-i2v-low-noise"));
+    assert.ok(lightning.includes("wan-video-lightning-i2v-high-noise"));
     assert.equal(lightning.includes("wan-video-14b"), false);
   });
 });
