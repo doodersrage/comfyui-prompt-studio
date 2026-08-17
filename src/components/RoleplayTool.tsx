@@ -608,12 +608,15 @@ export default function RoleplayTool() {
 
   useRoleplayStorySync(storyRef, patch => updateToolSettings(patch));
 
+  const skipStillForClip = beatOutput === 'clip' && autoQueue;
+
   const commitStill = useCallback(
     async (
       data: RoleplayApiPayload,
       beat: RoleplayStoryBeat,
       nextBio: RoleplayBio,
-      currentStory: RoleplayStoryBeat[]
+      currentStory: RoleplayStoryBeat[],
+      options?: { queueStill?: boolean }
     ) => {
       if (!data.prompt?.trim()) {
         throw new Error(data.error ?? 'Could not write a still.');
@@ -633,7 +636,8 @@ export default function RoleplayTool() {
         completedAt: Date.now(),
       });
       let stillPatch: Partial<RoleplayStoryBeat> = { prompt };
-      if (autoQueue) {
+      const queueStill = options?.queueStill ?? autoQueue;
+      if (queueStill) {
         const promptId = await actions.sendComfyUi(prompt, undefined, undefined, {
           ...(queueStillOptions() ?? {}),
           ...roleplayCharacterQueueFields({ bio: nextBio, story: currentStory }),
@@ -660,7 +664,9 @@ export default function RoleplayTool() {
   const beginStoryFromBio = useCallback(
     async (nextBio: RoleplayBio) => {
       const intro = roleplayIntroScene(nextBio);
-      const writingStory = appendRoleplayStoryBeat([], intro, { stillStatus: 'writing' });
+      const writingStory = appendRoleplayStoryBeat([], intro, {
+        stillStatus: skipStillForClip ? undefined : 'writing',
+      });
       const introBeat = writingStory[writingStory.length - 1];
       updateToolSettings({
         bio: nextBio,
@@ -701,9 +707,16 @@ export default function RoleplayTool() {
         ]);
         const stillData = (await stillResponse.json()) as RoleplayApiPayload;
         if (!stillResponse.ok || !stillData.prompt?.trim()) {
-          throw new Error(stillData.error ?? 'Bio saved, but the first still failed.');
+          throw new Error(
+            stillData.error ??
+              (skipStillForClip
+                ? 'Bio saved, but the first clip prompt failed.'
+                : 'Bio saved, but the first still failed.')
+          );
         }
-        await commitStill(stillData, introBeat, nextBio, writingStory);
+        await commitStill(stillData, introBeat, nextBio, writingStory, {
+          queueStill: autoQueue && !skipStillForClip,
+        });
         if (scenesResponse) {
           const scenesData = (await scenesResponse.json()) as RoleplayApiPayload;
           setScenes(scenesResponse.ok && Array.isArray(scenesData.scenes) ? scenesData.scenes : []);
@@ -712,12 +725,16 @@ export default function RoleplayTool() {
         }
       } catch (err) {
         updateToolSettings({
-          story: patchRoleplayStoryBeat(writingStory, introBeat, { stillStatus: 'error' }),
+          story: patchRoleplayStoryBeat(
+            writingStory,
+            introBeat,
+            skipStillForClip ? {} : { stillStatus: 'error' }
+          ),
         });
         throw err;
       }
     },
-    [commitStill, requestBody, updateToolSettings]
+    [autoQueue, commitStill, requestBody, skipStillForClip, updateToolSettings]
   );
 
   const writeBio = useCallback(async () => {
@@ -823,7 +840,7 @@ export default function RoleplayTool() {
       setError(null);
       const rejectedScenes = rememberRejectedScenes(scenes, scene);
       const writingStory = appendRoleplayStoryBeat(storyRef.current, scene, {
-        stillStatus: 'writing',
+        stillStatus: skipStillForClip ? undefined : 'writing',
       });
       const beat = writingStory[writingStory.length - 1];
       if (!beat) {
@@ -841,7 +858,9 @@ export default function RoleplayTool() {
         if (!response.ok || !data.prompt?.trim()) {
           throw new Error(data.error ?? 'Could not write a still.');
         }
-        const nextStory = await commitStill(data, beat, bio, writingStory);
+        const nextStory = await commitStill(data, beat, bio, writingStory, {
+          queueStill: autoQueue && !skipStillForClip,
+        });
         const nextScenes = await fetch('/api/roleplay', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -865,6 +884,7 @@ export default function RoleplayTool() {
       }
     },
     [
+      autoQueue,
       bio,
       commitStill,
       hasReferenceImage,
@@ -872,6 +892,7 @@ export default function RoleplayTool() {
       rememberRejectedScenes,
       requestBody,
       scenes,
+      skipStillForClip,
       updateToolSettings,
     ]
   );
@@ -1714,7 +1735,13 @@ export default function RoleplayTool() {
           <Button
             variant="primary"
             loading={bioLoading}
-            loadingLabel={autoQueue ? 'Writing bio and queueing still' : 'Writing bio and still'}
+            loadingLabel={
+              autoQueue
+                ? beatOutput === 'clip'
+                  ? 'Writing bio and queueing clip'
+                  : 'Writing bio and queueing still'
+                : 'Writing bio and still'
+            }
             disabled={(busy && !bioLoading) || !photoReady}
             onClick={() => void writeBio()}
           >
@@ -1794,7 +1821,7 @@ export default function RoleplayTool() {
             : 'Stills land here as they render'}
           {autoQueue
             ? beatOutput === 'clip'
-              ? ' — still then I2V when a frame exists; otherwise T2V from the beat prompt'
+              ? ' — T2V from the beat prompt. From photo uses that photo as I2V. Extend clip continues the last frame'
               : ' — queued automatically from the bio and each pick'
             : ''}
           .
@@ -1882,7 +1909,7 @@ export default function RoleplayTool() {
             Queue a {beatOutput === 'clip' ? 'clip' : 'still'} when I write a bio or pick a scene
             <span className="mt-0.5 block text-xs text-[var(--text-muted)]">
               {beatOutput === 'clip'
-                ? 'Each scene writes a new still, then that still becomes I2V. A text-only beat is T2V. Use Play another clip to reroll a take from this beat’s still. Extend clip / Continue from last frame is the continuity action — Fal extend-video when the parent is already a public Fal URL, or after a successful Fal CDN upload of a local clip; otherwise last-frame I2V (Roleplay says so if the upload fails). Local WAN, Fal, or Replicate.'
+                ? 'Each scene queues a new clip from the beat prompt (T2V). From photo uses that photo as I2V, not the previous scene. Use Play another clip to reroll a take. Extend clip / Continue from last frame is the continuity action — Fal extend-video when the parent is already a public Fal URL, or after a successful Fal CDN upload of a local clip; otherwise last-frame I2V (Roleplay says so if the upload fails). Local WAN, Fal, or Replicate.'
                 : 'Uses the model and Fast/Good/Best from the sidebar. Turn off to write the prompt first.'}
             </span>
           </span>
