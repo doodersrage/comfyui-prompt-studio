@@ -1595,15 +1595,17 @@ export default function ComfyUiGalleryPanel({
         </div>
       )}
       {requeueStatus ? (
-        <StatusToastStrip
-          notes={[
-            {
-              id: 'gallery-requeue',
-              text: requeueStatus,
-              tone: toneForStatusText(requeueStatus),
-            },
-          ]}
-        />
+        <div data-testid="gallery-requeue-status">
+          <StatusToastStrip
+            notes={[
+              {
+                id: 'gallery-requeue',
+                text: requeueStatus,
+                tone: toneForStatusText(requeueStatus),
+              },
+            ]}
+          />
+        </div>
       ) : null}
 
       {compareOpen ? (

@@ -100,9 +100,20 @@ test('gallery replay exact graph queues via mocked Comfy API', async ({ page }) 
   }
 
   await expect(page.getByTestId('gallery-replay-exact')).toBeVisible({ timeout: 10_000 });
-  await page.getByTestId('gallery-replay-exact').click();
-
-  await expect(page.getByText(/queued|Replaying|prompt_id|e2e-replayed/i).first()).toBeVisible({
-    timeout: 15_000,
+  const queued = page.waitForResponse(response => {
+    try {
+      const path = new URL(response.url()).pathname.replace(/\/$/, '');
+      return response.request().method() === 'POST' && path === '/api/comfyui';
+    } catch {
+      return false;
+    }
   });
+  await page.getByTestId('gallery-replay-exact').click();
+  const queuedResponse = await queued;
+  expect(queuedResponse.ok()).toBeTruthy();
+
+  await expect(page.getByTestId('gallery-requeue-status')).toContainText(
+    /queued|Replaying|prompt_id|e2e-replayed/i,
+    { timeout: 15_000 }
+  );
 });
