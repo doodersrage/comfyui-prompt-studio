@@ -36,6 +36,7 @@ import {
   lastRoleplayStillImage,
   lastCompletedRoleplayStillUrl,
   MAX_ROLEPLAY_STILL_TAKES,
+  MAX_ROLEPLAY_CLIP_TAKES,
   normalizeRoleplayIsolateSubject,
   normalizeRoleplayPlayAs,
   resolveRoleplaySetting,
@@ -48,10 +49,14 @@ import {
   roleplayStillTakes,
   roleplayStoryPromptIds,
   beginRoleplayStillRetryPatch,
+  beginRoleplayClipRetryPatch,
   canRetryRoleplayStill,
+  canRetryRoleplayClip,
   roleplayClipQueueResultPatch,
+  roleplayClipTakes,
   roleplayStillQueueResultPatch,
   selectRoleplayStillTakePatch,
+  selectRoleplayClipTakePatch,
   ROLEPLAY_ARCHETYPES,
   ROLEPLAY_INTRO_SCENE_ID,
   formatRoleplayStoryMarkdown,
@@ -564,14 +569,103 @@ describe('roleplay parsers', () => {
       clipStatus: 'queued' as const,
     };
     assert.deepEqual(roleplayStoryPromptIds([beat]), ['clip-1']);
-    const queued = { ...beat, ...roleplayClipQueueResultPatch('clip-1') };
+    const queued = { ...beat, ...roleplayClipQueueResultPatch(beat, 'clip-1') };
     assert.equal(queued.clipStatus, 'queued');
+    assert.equal(queued.clipTakes?.length, 1);
     const done = mergeRoleplayStoryStills([queued], [
       { promptId: 'clip-1', status: 'completed', imageUrl: '/view/clip.mp4' },
     ]);
     assert.equal(done.changed, true);
     assert.equal(done.story[0]?.clipUrl, '/view/clip.mp4');
     assert.equal(done.story[0]?.clipStatus, 'completed');
+  });
+
+  it('archives completed clips on retry and hydrates every take from the gallery', () => {
+    const beat = {
+      id: 'dock',
+      title: 'Dock',
+      blurb: 'Arrives',
+      at: 1,
+      prompt: 'walks the pier',
+      promptId: 'still-1',
+      imageUrl: '/view/still.png',
+      stillStatus: 'completed' as const,
+      clipPromptId: 'clip-1',
+      clipUrl: '/view/clip-1.mp4',
+      clipStatus: 'completed' as const,
+    };
+    assert.equal(canRetryRoleplayClip(beat), true);
+    assert.equal(
+      canRetryRoleplayClip({
+        ...beat,
+        prompt: undefined,
+        blurb: '',
+        imageUrl: undefined,
+        stillStatus: undefined,
+      }),
+      false
+    );
+
+    const retrying = { ...beat, ...beginRoleplayClipRetryPatch(beat) };
+    assert.equal(retrying.clipTakes?.length, 2);
+    assert.equal(retrying.clipTakes?.[0]?.clipUrl, '/view/clip-1.mp4');
+    assert.equal(retrying.clipPromptId, undefined);
+    assert.equal(retrying.clipStatus, 'writing');
+    assert.equal(canRetryRoleplayClip(retrying), false);
+
+    const queued = { ...retrying, ...roleplayClipQueueResultPatch(retrying, 'clip-2') };
+    assert.equal(queued.clipPromptId, 'clip-2');
+    assert.equal(queued.clipStatus, 'queued');
+    assert.deepEqual(roleplayStoryPromptIds([queued]), ['still-1', 'clip-1', 'clip-2']);
+
+    const done = mergeRoleplayStoryStills([queued], [
+      { promptId: 'clip-1', status: 'completed', imageUrl: '/view/clip-1.mp4' },
+      { promptId: 'clip-2', status: 'completed', imageUrl: '/view/clip-2.mp4' },
+    ]);
+    assert.equal(done.changed, true);
+    assert.equal(done.story[0]?.clipUrl, '/view/clip-2.mp4');
+    assert.equal(done.story[0]?.clipTakes?.[0]?.clipUrl, '/view/clip-1.mp4');
+    assert.equal(done.story[0]?.clipTakes?.[1]?.clipUrl, '/view/clip-2.mp4');
+
+    const selected = {
+      ...done.story[0]!,
+      ...selectRoleplayClipTakePatch(done.story[0]!, 0),
+    };
+    assert.equal(selected.clipUrl, '/view/clip-1.mp4');
+    assert.equal(selected.clipTakeIndex, 0);
+    assert.equal(selected.clipPromptId, 'clip-1');
+
+    const later = mergeRoleplayStoryStills([selected], [
+      { promptId: 'clip-2', status: 'completed', imageUrl: '/view/clip-2b.mp4' },
+    ]);
+    assert.equal(later.story[0]?.clipUrl, '/view/clip-1.mp4');
+    assert.equal(later.story[0]?.clipTakeIndex, 0);
+    assert.equal(later.story[0]?.clipTakes?.[1]?.clipUrl, '/view/clip-2b.mp4');
+  });
+
+  it('caps archived clip takes when retrying', () => {
+    const clipTakes = Array.from({ length: MAX_ROLEPLAY_CLIP_TAKES }, (_, index) => ({
+      clipPromptId: `clip-${index}`,
+      clipUrl: `/view/clip-${index}.mp4`,
+      clipStatus: 'completed' as const,
+    }));
+    const beat = {
+      id: 'dock',
+      title: 'Dock',
+      blurb: 'Arrives',
+      at: 1,
+      prompt: 'walks the pier',
+      clipPromptId: 'clip-7',
+      clipUrl: '/view/clip-7.mp4',
+      clipStatus: 'completed' as const,
+      clipTakes,
+      clipTakeIndex: 7,
+    };
+    assert.equal(roleplayClipTakes(beat).length, MAX_ROLEPLAY_CLIP_TAKES);
+    const retrying = beginRoleplayClipRetryPatch(beat);
+    assert.equal(retrying.clipTakes?.length, MAX_ROLEPLAY_CLIP_TAKES);
+    assert.equal(retrying.clipTakes?.[0]?.clipPromptId, 'clip-1');
+    assert.equal(retrying.clipTakes?.at(-1)?.clipStatus, 'writing');
   });
 
   it('keeps unique starter parts and includes the new cast', () => {

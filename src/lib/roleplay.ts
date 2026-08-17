@@ -39,6 +39,12 @@ export type RoleplayStillTake = {
   stillStatus?: RoleplayStillStatus;
 };
 
+export type RoleplayClipTake = {
+  clipPromptId?: string;
+  clipUrl?: string;
+  clipStatus?: RoleplayStillStatus;
+};
+
 export type RoleplayStoryBeat = RoleplayScene & {
   at: number;
   prompt?: string;
@@ -52,9 +58,13 @@ export type RoleplayStoryBeat = RoleplayScene & {
   clipPromptId?: string;
   clipUrl?: string;
   clipStatus?: RoleplayStillStatus;
+  /** All clip takes for this beat; `clipPromptId` / `clipUrl` / `clipStatus` mirror the shown take. */
+  clipTakes?: RoleplayClipTake[];
+  clipTakeIndex?: number;
 };
 
 export const MAX_ROLEPLAY_STILL_TAKES = 8;
+export const MAX_ROLEPLAY_CLIP_TAKES = 8;
 
 export type RoleplayArchetype = {
   id: string;
@@ -1995,6 +2005,13 @@ export function roleplayBeatPromptIds(beat: RoleplayStoryBeat): string[] {
   if (current && !seen.has(current)) {
     ids.push(current);
   }
+  for (const take of roleplayClipTakes(beat)) {
+    const id = take.clipPromptId?.trim();
+    if (id && !seen.has(id)) {
+      seen.add(id);
+      ids.push(id);
+    }
+  }
   const clipId = beat.clipPromptId?.trim();
   if (clipId && !seen.has(clipId)) {
     ids.push(clipId);
@@ -2069,16 +2086,161 @@ export function beginRoleplayStillRetryPatch(beat: RoleplayStoryBeat): Partial<R
   };
 }
 
+function takeHasClip(take: RoleplayClipTake): boolean {
+  return Boolean(take.clipPromptId?.trim() || take.clipUrl?.trim() || take.clipStatus);
+}
+
+function activeClipFieldsFromTake(
+  take: RoleplayClipTake | undefined
+): Pick<RoleplayStoryBeat, 'clipPromptId' | 'clipUrl' | 'clipStatus'> {
+  return {
+    clipPromptId: take?.clipPromptId,
+    clipUrl: take?.clipUrl,
+    clipStatus: take?.clipStatus,
+  };
+}
+
+export function roleplayClipTakes(beat: RoleplayStoryBeat): RoleplayClipTake[] {
+  const stored = Array.isArray(beat.clipTakes) ? beat.clipTakes.filter(takeHasClip) : [];
+  const current: RoleplayClipTake = {
+    clipPromptId: beat.clipPromptId,
+    clipUrl: beat.clipUrl,
+    clipStatus: beat.clipStatus,
+  };
+  if (stored.length === 0) {
+    return takeHasClip(current) ? [current] : [];
+  }
+  if (!takeHasClip(current)) {
+    return stored.slice(-MAX_ROLEPLAY_CLIP_TAKES);
+  }
+  const index =
+    typeof beat.clipTakeIndex === 'number' &&
+    Number.isInteger(beat.clipTakeIndex) &&
+    beat.clipTakeIndex >= 0 &&
+    beat.clipTakeIndex < stored.length
+      ? beat.clipTakeIndex
+      : stored.length - 1;
+  const overlay = (take: RoleplayClipTake): RoleplayClipTake => ({
+    clipPromptId: current.clipPromptId ?? take.clipPromptId,
+    clipUrl: current.clipUrl ?? take.clipUrl,
+    clipStatus: current.clipStatus ?? take.clipStatus,
+  });
+  const currentId = current.clipPromptId?.trim();
+  if (currentId) {
+    const found = stored.findIndex(take => take.clipPromptId?.trim() === currentId);
+    if (found >= 0) {
+      return stored.map((take, takeIndex) => (takeIndex === found ? overlay(take) : take));
+    }
+    return [...stored, current].slice(-MAX_ROLEPLAY_CLIP_TAKES);
+  }
+  return stored.map((take, takeIndex) => (takeIndex === index ? overlay(take) : take));
+}
+
+export function roleplayClipTakeIndex(beat: RoleplayStoryBeat): number {
+  const takes = roleplayClipTakes(beat);
+  if (takes.length === 0) {
+    return 0;
+  }
+  if (
+    typeof beat.clipTakeIndex === 'number' &&
+    Number.isInteger(beat.clipTakeIndex) &&
+    beat.clipTakeIndex >= 0 &&
+    beat.clipTakeIndex < takes.length
+  ) {
+    return beat.clipTakeIndex;
+  }
+  const currentId = beat.clipPromptId?.trim();
+  if (currentId) {
+    const found = takes.findIndex(take => take.clipPromptId?.trim() === currentId);
+    if (found >= 0) {
+      return found;
+    }
+  }
+  return takes.length - 1;
+}
+
+export function roleplayClipHasInFlightTake(beat: RoleplayStoryBeat): boolean {
+  return roleplayClipTakes(beat).some(
+    take =>
+      take.clipStatus === 'writing' || take.clipStatus === 'queued' || take.clipStatus === 'running'
+  );
+}
+
+export function canRetryRoleplayClip(beat: RoleplayStoryBeat): boolean {
+  if (roleplayClipHasInFlightTake(beat)) {
+    return false;
+  }
+  const hasPrompt = Boolean(beat.prompt?.trim() || beat.blurb?.trim());
+  const hasStill = Boolean(lastCompletedRoleplayStillUrl(beat));
+  if (!hasPrompt && !hasStill) {
+    return false;
+  }
+  return roleplayClipTakes(beat).some(
+    take =>
+      take.clipStatus === 'completed' ||
+      take.clipStatus === 'error' ||
+      Boolean(take.clipPromptId?.trim()) ||
+      Boolean(take.clipUrl?.trim())
+  );
+}
+
+export function selectRoleplayClipTakePatch(
+  beat: RoleplayStoryBeat,
+  index: number
+): Partial<RoleplayStoryBeat> {
+  const takes = roleplayClipTakes(beat);
+  if (takes.length === 0) {
+    return {};
+  }
+  const nextIndex = Math.max(0, Math.min(takes.length - 1, Math.trunc(index)));
+  return {
+    clipTakes: takes,
+    clipTakeIndex: nextIndex,
+    ...activeClipFieldsFromTake(takes[nextIndex]),
+  };
+}
+
+export function beginRoleplayClipRetryPatch(beat: RoleplayStoryBeat): Partial<RoleplayStoryBeat> {
+  const previous = roleplayClipTakes(beat).filter(take =>
+    Boolean(take.clipPromptId?.trim() || take.clipUrl?.trim())
+  );
+  const capped = previous.slice(-(MAX_ROLEPLAY_CLIP_TAKES - 1));
+  const nextTakes: RoleplayClipTake[] = [...capped, { clipStatus: 'writing' }];
+  return {
+    clipTakes: nextTakes,
+    clipTakeIndex: nextTakes.length - 1,
+    clipPromptId: undefined,
+    clipUrl: undefined,
+    clipStatus: 'writing',
+  };
+}
+
 export function roleplayClipQueueResultPatch(
+  beat: RoleplayStoryBeat,
   promptId: string | undefined
 ): Partial<RoleplayStoryBeat> {
-  if (!promptId) {
-    return { clipStatus: 'error' };
+  const status: RoleplayStillStatus = promptId ? 'queued' : 'error';
+  const takes = roleplayClipTakes(beat);
+  const nextTake: RoleplayClipTake = { clipPromptId: promptId, clipStatus: status };
+  if (takes.length === 0) {
+    return {
+      clipTakes: [nextTake],
+      clipTakeIndex: 0,
+      clipPromptId: promptId,
+      clipUrl: undefined,
+      clipStatus: status,
+    };
   }
+  const index = roleplayClipTakeIndex(beat);
+  const nextTakes = takes.map((take, takeIndex) =>
+    takeIndex === index ? { ...take, clipPromptId: promptId, clipStatus: status } : take
+  );
   return {
+    clipTakes: nextTakes,
+    clipTakeIndex: index,
     clipPromptId: promptId,
-    clipStatus: 'queued',
-    clipUrl: undefined,
+    clipUrl: nextTakes[index]?.clipUrl,
+    clipStatus: status,
   };
 }
 
@@ -2139,21 +2301,36 @@ export function mergeRoleplayStoryStills(
       takeChanged = true;
       return { ...take, imageUrl, stillStatus };
     });
-    const clipId = beat.clipPromptId?.trim();
-    const clipMatch = clipId ? byPromptId.get(clipId) : undefined;
-    const clipUrl = clipMatch?.imageUrl?.trim() || beat.clipUrl;
-    const clipStatus = clipMatch ? stillStatusFromGallery(clipMatch.status) : beat.clipStatus;
-    const clipChanged = Boolean(
-      clipMatch && (clipUrl !== beat.clipUrl || clipStatus !== beat.clipStatus)
-    );
+    const clipTakes = roleplayClipTakes(beat);
+    let clipTakeChanged = false;
+    const updatedClipTakes = clipTakes.map(take => {
+      const id = take.clipPromptId?.trim();
+      if (!id) {
+        return take;
+      }
+      const match = byPromptId.get(id);
+      if (!match) {
+        return take;
+      }
+      const clipUrl = match.imageUrl?.trim() || take.clipUrl;
+      const clipStatus = stillStatusFromGallery(match.status);
+      if (take.clipUrl === clipUrl && take.clipStatus === clipStatus) {
+        return take;
+      }
+      clipTakeChanged = true;
+      return { ...take, clipUrl, clipStatus };
+    });
 
-    if (!takeChanged && !clipChanged) {
+    if (!takeChanged && !clipTakeChanged) {
       return beat;
     }
     changed = true;
     const indexedBeat = { ...beat, stillTakes: updatedTakes };
     const index = roleplayStillTakeIndex(indexedBeat);
     const shown = updatedTakes[index];
+    const indexedClipBeat = { ...beat, clipTakes: updatedClipTakes };
+    const clipIndex = roleplayClipTakeIndex(indexedClipBeat);
+    const shownClip = updatedClipTakes[clipIndex];
     return {
       ...beat,
       ...(updatedTakes.length > 0
@@ -2163,7 +2340,13 @@ export function mergeRoleplayStoryStills(
             ...activeFieldsFromTake(shown),
           }
         : {}),
-      ...(clipChanged ? { clipUrl, clipStatus } : {}),
+      ...(updatedClipTakes.length > 0
+        ? {
+            clipTakes: updatedClipTakes,
+            clipTakeIndex: clipIndex,
+            ...activeClipFieldsFromTake(shownClip),
+          }
+        : {}),
     };
   });
   return { story: next, changed };

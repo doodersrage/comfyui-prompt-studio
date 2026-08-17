@@ -18,8 +18,11 @@ import {
   getComfyLivePreviewUrl,
 } from '@/lib/comfyui-live-preview-store';
 import {
+  canRetryRoleplayClip,
   canRetryRoleplayStill,
   lastCompletedRoleplayStillUrl,
+  roleplayClipTakes,
+  roleplayClipTakeIndex,
   roleplayStillBasename,
   roleplayStillTakes,
   roleplayStillTakeIndex,
@@ -115,16 +118,22 @@ function RoleplayStillFrame({
   liveUrl,
   onOpen,
   onRetry,
+  onRetryClip,
   onSelectTake,
+  onSelectClipTake,
 }: {
   beat: RoleplayStoryBeat;
   liveUrl: string | null;
   onOpen?: () => void;
   onRetry?: () => void;
+  onRetryClip?: () => void;
   onSelectTake?: (index: number) => void;
+  onSelectClipTake?: (index: number) => void;
 }) {
   const takes = roleplayStillTakes(beat);
   const takeIndex = roleplayStillTakeIndex(beat);
+  const clipTakes = roleplayClipTakes(beat);
+  const clipTakeIndex = roleplayClipTakeIndex(beat);
   const completedUrl = beat.stillStatus === 'completed' ? beat.imageUrl : undefined;
   const clipUrl = beatMotionUrl(beat) ?? '';
   const motionClip = Boolean(clipUrl && looksLikeMotionUrl(clipUrl));
@@ -138,8 +147,13 @@ function RoleplayStillFrame({
   const motionLabel = clipLabel(beat);
   const label = motionLabel || stillLabel(beat, liveUrl);
   const clickable = Boolean(openableUrl && onOpen);
-  const canRetry = Boolean(onRetry && canRetryRoleplayStill(beat));
-  const canPage = Boolean(onSelectTake && takes.length > 1);
+  const canRetry = Boolean(!motionClip && onRetry && canRetryRoleplayStill(beat));
+  const canRetryClip = Boolean(onRetryClip && canRetryRoleplayClip(beat));
+  const canPageClips = Boolean(motionClip && onSelectClipTake && clipTakes.length > 1);
+  const canPageStills = Boolean(!motionClip && onSelectTake && takes.length > 1);
+  const pageIndex = canPageClips ? clipTakeIndex : takeIndex;
+  const pageCount = canPageClips ? clipTakes.length : takes.length;
+  const canPage = canPageClips || canPageStills;
 
   const frameClass =
     'relative aspect-[4/5] overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-muted)]/40';
@@ -211,11 +225,15 @@ function RoleplayStillFrame({
           <button
             type="button"
             className={`${overlayBtnClass} absolute left-1.5 top-1/2 z-20 -translate-y-1/2`}
-            aria-label="Previous still version"
-            disabled={takeIndex <= 0}
+            aria-label={canPageClips ? 'Previous clip version' : 'Previous still version'}
+            disabled={pageIndex <= 0}
             onClick={event => {
               stop(event);
-              onSelectTake?.(takeIndex - 1);
+              if (canPageClips) {
+                onSelectClipTake?.(pageIndex - 1);
+              } else {
+                onSelectTake?.(pageIndex - 1);
+              }
             }}
           >
             <UiIcon name="chevronLeft" size={14} />
@@ -223,17 +241,21 @@ function RoleplayStillFrame({
           <button
             type="button"
             className={`${overlayBtnClass} absolute right-1.5 top-1/2 z-20 -translate-y-1/2`}
-            aria-label="Next still version"
-            disabled={takeIndex >= takes.length - 1}
+            aria-label={canPageClips ? 'Next clip version' : 'Next still version'}
+            disabled={pageIndex >= pageCount - 1}
             onClick={event => {
               stop(event);
-              onSelectTake?.(takeIndex + 1);
+              if (canPageClips) {
+                onSelectClipTake?.(pageIndex + 1);
+              } else {
+                onSelectTake?.(pageIndex + 1);
+              }
             }}
           >
             <UiIcon name="chevronRight" size={14} />
           </button>
           <p className="pointer-events-none absolute left-1.5 top-1.5 z-20 rounded-full bg-[var(--bg-base)]/75 px-2 py-0.5 type-caption text-[var(--text-secondary)] backdrop-blur-sm">
-            {takeIndex + 1} / {takes.length}
+            {pageIndex + 1} / {pageCount}
           </p>
         </>
       ) : null}
@@ -252,6 +274,21 @@ function RoleplayStillFrame({
           <UiIcon name="retry" size={14} />
         </button>
       ) : null}
+
+      {motionClip && canRetryClip ? (
+        <button
+          type="button"
+          className={`${overlayBtnClass} absolute right-1.5 top-1.5 z-20`}
+          aria-label="Play another clip with a new seed"
+          title="Play another clip"
+          onClick={event => {
+            stop(event);
+            onRetryClip?.();
+          }}
+        >
+          <UiIcon name="retry" size={14} />
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -262,18 +299,22 @@ export default function RoleplayStoryReel({
   onQueue,
   onCopy,
   onRetry,
+  onRetryClip,
   onAnimate,
   onExtend,
   onSelectTake,
+  onSelectClipTake,
 }: {
   story: RoleplayStoryBeat[];
   busy?: boolean;
   onQueue?: (beat: RoleplayStoryBeat) => void;
   onCopy?: (beat: RoleplayStoryBeat) => void;
   onRetry?: (beat: RoleplayStoryBeat) => void;
+  onRetryClip?: (beat: RoleplayStoryBeat) => void;
   onAnimate?: (beat: RoleplayStoryBeat) => void;
   onExtend?: (beat: RoleplayStoryBeat) => void;
   onSelectTake?: (beat: RoleplayStoryBeat, index: number) => void;
+  onSelectClipTake?: (beat: RoleplayStoryBeat, index: number) => void;
 }) {
   const promptIds = useMemo(() => roleplayStoryPromptIds(story), [story]);
   const promptKey = promptIds.join('|');
@@ -405,8 +446,21 @@ export default function RoleplayStoryReel({
       ) : null}
       <ol className="grid gap-4 sm:grid-cols-2">
         {story.map((beat, index) => {
-          const liveUrl = beat.promptId ? (liveUrls[beat.promptId] ?? null) : null;
+          const clipLive =
+            beat.clipPromptId && (beat.clipStatus === 'queued' || beat.clipStatus === 'running')
+              ? (liveUrls[beat.clipPromptId] ?? null)
+              : null;
+          const liveUrl = clipLive ?? (beat.promptId ? (liveUrls[beat.promptId] ?? null) : null);
           const takes = roleplayStillTakes(beat);
+          const clipTakes = roleplayClipTakes(beat);
+          const hasClipAttempt = clipTakes.some(
+            take =>
+              take.clipPromptId ||
+              take.clipUrl ||
+              take.clipStatus === 'completed' ||
+              take.clipStatus === 'error' ||
+              isBusyStatus(take.clipStatus)
+          );
           const canQueue = Boolean(
             beat.prompt &&
             onQueue &&
@@ -430,19 +484,18 @@ export default function RoleplayStoryReel({
             onAnimate &&
             beatDisplayUrl(beat, liveUrl) &&
             beat.stillStatus === 'completed' &&
-            beat.clipStatus !== 'completed' &&
+            !hasClipAttempt &&
             !clipBusy
           );
           const canAnimateT2v = Boolean(
-            onAnimate &&
-            beat.prompt?.trim() &&
-            !canAnimateStill &&
-            beat.clipStatus !== 'completed' &&
-            !clipBusy
+            onAnimate && beat.prompt?.trim() && !canAnimateStill && !hasClipAttempt && !clipBusy
           );
           const canAnimate = canAnimateStill || canAnimateT2v;
           const canExtend = Boolean(
             onExtend && beat.clipStatus === 'completed' && beat.clipUrl?.trim()
+          );
+          const canRetryClipAction = Boolean(
+            onRetryClip && canRetryRoleplayClip(beat) && !beatMotionUrl(beat)
           );
           return (
             <li key={`${beat.id}-${beat.at}`}>
@@ -452,8 +505,12 @@ export default function RoleplayStoryReel({
                   liveUrl={liveUrl}
                   onOpen={canOpen ? () => openStill(beat) : undefined}
                   onRetry={onRetry ? () => onRetry(beat) : undefined}
+                  onRetryClip={onRetryClip ? () => onRetryClip(beat) : undefined}
                   onSelectTake={
                     onSelectTake ? nextIndex => onSelectTake(beat, nextIndex) : undefined
+                  }
+                  onSelectClipTake={
+                    onSelectClipTake ? nextIndex => onSelectClipTake(beat, nextIndex) : undefined
                   }
                 />
                 <div className="space-y-1">
@@ -463,7 +520,7 @@ export default function RoleplayStoryReel({
                   </p>
                   <p className="type-caption text-[var(--text-muted)]">{beat.blurb}</p>
                 </div>
-                {canQueue || canCopy || canAnimate || canExtend ? (
+                {canQueue || canCopy || canAnimate || canExtend || canRetryClipAction ? (
                   <div className="flex flex-wrap gap-2">
                     {canQueue ? (
                       <Button
@@ -483,6 +540,16 @@ export default function RoleplayStoryReel({
                         onClick={() => onAnimate?.(beat)}
                       >
                         {canAnimateStill ? 'Animate still' : 'Text to video'}
+                      </Button>
+                    ) : null}
+                    {canRetryClipAction ? (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={busy}
+                        onClick={() => onRetryClip?.(beat)}
+                      >
+                        Play another clip
                       </Button>
                     ) : null}
                     {canExtend ? (

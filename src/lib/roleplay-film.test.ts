@@ -79,6 +79,19 @@ describe('roleplay-film', () => {
       }),
       true
     );
+    assert.equal(
+      shouldAutoQueueRoleplayClip({
+        id: 'c',
+        title: 'Dock',
+        blurb: 'Arrives',
+        at: 1,
+        imageUrl: 'http://local/still.png',
+        stillStatus: 'completed',
+        clipStatus: 'error',
+        clipTakes: [{ clipStatus: 'error' }],
+      }),
+      false
+    );
   });
 
   it('treats mp4 and i2v/extend entries as clips', () => {

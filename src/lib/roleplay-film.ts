@@ -6,7 +6,7 @@
 import type { ComfyGalleryEntry } from './comfyui-gallery-entry';
 import { isHtmlVideoViewUrl, isMotionViewUrl } from './comfyui-outputs';
 import type { RoleplayStoryBeat } from './roleplay';
-import { lastCompletedRoleplayStillUrl } from './roleplay';
+import { lastCompletedRoleplayStillUrl, roleplayClipTakes } from './roleplay';
 
 export type RoleplayBeatOutput = 'still' | 'clip';
 
@@ -89,6 +89,9 @@ export function lastRoleplayMotionSource(
 }
 
 export function shouldAutoQueueRoleplayClip(beat: RoleplayStoryBeat): boolean {
+  if (roleplayClipTakes(beat).length > 0) {
+    return false;
+  }
   if (beat.clipPromptId?.trim()) {
     return false;
   }

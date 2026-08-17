@@ -59,6 +59,7 @@ import {
   ROLEPLAY_SETTING_PRESETS,
   ROLEPLAY_TONES,
   appendRoleplayStoryBeat,
+  beginRoleplayClipRetryPatch,
   beginRoleplayStillRetryPatch,
   canRetryRoleplayStill,
   applyRoleplayCharacterName,
@@ -75,9 +76,11 @@ import {
   resolveRoleplayToneAndContent,
   roleplayIntroScene,
   roleplayClipQueueResultPatch,
+  roleplayClipTakes,
   roleplayStillQueueResultPatch,
   roleplayStillTakes,
   rollRoleplaySetting,
+  selectRoleplayClipTakePatch,
   selectRoleplayStillTakePatch,
   type RoleplayBio,
   type RoleplayScene,
@@ -171,7 +174,10 @@ export default function RoleplayTool() {
   const queueBeatMotionRef = useRef<
     (
       beat: RoleplayStoryBeat,
-      options?: { source?: { imageUrl: string; parentPromptId?: string; fromClip: boolean } }
+      options?: {
+        source?: { imageUrl: string; parentPromptId?: string; fromClip: boolean };
+        retry?: boolean;
+      }
     ) => Promise<void>
   >(async () => undefined);
   const isolateGenRef = useRef(0);
@@ -816,10 +822,8 @@ export default function RoleplayTool() {
       setPlayingId(scene.id);
       setError(null);
       const rejectedScenes = rememberRejectedScenes(scenes, scene);
-      const prior = lastRoleplayMotionSource(storyRef.current);
-      const skipStill = beatOutput === 'clip' && autoQueue && Boolean(prior);
       const writingStory = appendRoleplayStoryBeat(storyRef.current, scene, {
-        stillStatus: skipStill ? undefined : 'writing',
+        stillStatus: 'writing',
       });
       const beat = writingStory[writingStory.length - 1];
       if (!beat) {
@@ -837,19 +841,7 @@ export default function RoleplayTool() {
         if (!response.ok || !data.prompt?.trim()) {
           throw new Error(data.error ?? 'Could not write a still.');
         }
-        let nextStory: RoleplayStoryBeat[];
-        if (skipStill && prior) {
-          const prompt = await actions.finalizePrompt(data.prompt, beat.title);
-          nextStory = patchRoleplayStoryBeat(writingStory, beat, { prompt });
-          updateToolSettings({ bio, story: nextStory });
-          const motionBeat = nextStory.find(entry => entry.id === beat.id && entry.at === beat.at);
-          if (motionBeat) {
-            await queueBeatMotionRef.current(motionBeat, { source: prior });
-            nextStory = storyRef.current;
-          }
-        } else {
-          nextStory = await commitStill(data, beat, bio, writingStory);
-        }
+        const nextStory = await commitStill(data, beat, bio, writingStory);
         const nextScenes = await fetch('/api/roleplay', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -873,9 +865,6 @@ export default function RoleplayTool() {
       }
     },
     [
-      actions,
-      autoQueue,
-      beatOutput,
       bio,
       commitStill,
       hasReferenceImage,
@@ -949,31 +938,36 @@ export default function RoleplayTool() {
       beat: RoleplayStoryBeat,
       options?: {
         source?: { imageUrl: string; parentPromptId?: string; fromClip: boolean };
+        retry?: boolean;
       }
     ) => {
       const latest =
         storyRef.current.find(entry => entry.id === beat.id && entry.at === beat.at) ?? beat;
+      const retry = options?.retry === true;
       const stillUrl = lastCompletedRoleplayStillUrl(latest) || latest.imageUrl?.trim() || '';
       const source =
-        options?.source ??
-        (stillUrl
-          ? {
-              imageUrl: stillUrl,
-              parentPromptId: latest.promptId?.trim(),
-              fromClip: false,
-            }
-          : (lastRoleplayMotionSource(storyRef.current) ??
-            (playAs === 'photo' && referenceImageUrl
+        retry || !options?.source
+          ? stillUrl
+            ? {
+                imageUrl: stillUrl,
+                parentPromptId: latest.promptId?.trim(),
+                fromClip: false,
+              }
+            : playAs === 'photo' && referenceImageUrl
               ? { imageUrl: referenceImageUrl, fromClip: false }
-              : null)));
+              : null
+          : options.source;
       const hasInit = Boolean(source?.imageUrl);
       if (!hasInit && !latest.prompt?.trim() && !latest.blurb?.trim()) {
         setError('Write a beat prompt, or add a still, before queueing a clip.');
         return;
       }
 
+      const startPatch = retry
+        ? beginRoleplayClipRetryPatch(latest)
+        : { clipStatus: 'writing' as const };
       updateToolSettings({
-        story: patchRoleplayStoryBeat(storyRef.current, latest, { clipStatus: 'writing' }),
+        story: patchRoleplayStoryBeat(storyRef.current, latest, startPatch),
       });
 
       const engine = loadEngineSettings().engine;
@@ -1011,14 +1005,32 @@ export default function RoleplayTool() {
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Could not read the last frame.');
           updateToolSettings({
-            story: patchRoleplayStoryBeat(storyRef.current, latest, { clipStatus: 'error' }),
+            story: patchRoleplayStoryBeat(
+              storyRef.current,
+              latest,
+              roleplayClipQueueResultPatch(
+                storyRef.current.find(
+                  entry => entry.id === latest.id && entry.at === latest.at
+                ) ?? {
+                  ...latest,
+                  ...startPatch,
+                },
+                undefined
+              )
+            ),
           });
           return;
         }
       }
 
-      const parentEntry = source?.parentPromptId
-        ? loadComfyGallery().find(entry => entry.promptId === source.parentPromptId)
+      const parentClipPromptId = retry
+        ? roleplayClipTakes(latest)
+            .map(take => take.clipPromptId?.trim())
+            .filter((id): id is string => Boolean(id))
+            .at(-1)
+        : source?.parentPromptId;
+      const parentEntry = parentClipPromptId
+        ? loadComfyGallery().find(entry => entry.promptId === parentClipPromptId)
         : latest.promptId
           ? loadComfyGallery().find(entry => entry.promptId === latest.promptId)
           : undefined;
@@ -1056,13 +1068,23 @@ export default function RoleplayTool() {
           inputImage: hasInit ? inputImage : undefined,
           inputImageUrl: hasInit ? inputImageUrl : undefined,
           parentGalleryEntryId: parentEntry?.id,
-          derivedKind: useFalExtend
-            ? 'extend'
-            : hasInit
-              ? nextRoleplayMotionKind(parentEntry)
-              : 't2v',
-          clipMode: useFalExtend ? 'extend' : hasInit ? 'i2v' : 't2v',
-          videoUrl: useFalExtend ? extendUrl : undefined,
+          derivedKind: retry
+            ? 'variation'
+            : useFalExtend
+              ? 'extend'
+              : hasInit
+                ? nextRoleplayMotionKind(parentEntry)
+                : 't2v',
+          clipMode: retry
+            ? hasInit
+              ? 'i2v'
+              : 't2v'
+            : useFalExtend
+              ? 'extend'
+              : hasInit
+                ? 'i2v'
+                : 't2v',
+          videoUrl: retry || !useFalExtend ? undefined : extendUrl,
           qualityProfile: 'final',
           queueParamsBase: { videoFrames: 64, videoFps: 16 },
           ...roleplayCharacterQueueFields(),
@@ -1070,11 +1092,17 @@ export default function RoleplayTool() {
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Could not queue that clip.');
       }
+      const after = storyRef.current.find(
+        entry => entry.id === latest.id && entry.at === latest.at
+      ) ?? {
+        ...latest,
+        ...startPatch,
+      };
       updateToolSettings({
         story: patchRoleplayStoryBeat(
           storyRef.current,
           latest,
-          roleplayClipQueueResultPatch(promptId)
+          roleplayClipQueueResultPatch(after, promptId)
         ),
       });
     },
@@ -1115,6 +1143,21 @@ export default function RoleplayTool() {
           storyRef.current,
           latest,
           selectRoleplayStillTakePatch(latest, index)
+        ),
+      });
+    },
+    [updateToolSettings]
+  );
+
+  const selectClipTake = useCallback(
+    (beat: RoleplayStoryBeat, index: number) => {
+      const latest =
+        storyRef.current.find(entry => entry.id === beat.id && entry.at === beat.at) ?? beat;
+      updateToolSettings({
+        story: patchRoleplayStoryBeat(
+          storyRef.current,
+          latest,
+          selectRoleplayClipTakePatch(latest, index)
         ),
       });
     },
@@ -1787,6 +1830,7 @@ export default function RoleplayTool() {
           busy={busy}
           onQueue={beat => void queueBeat(beat)}
           onRetry={beat => void queueBeat(beat, { retry: true })}
+          onRetryClip={beat => void queueBeatMotion(beat, { retry: true })}
           onAnimate={beat => void queueBeatMotion(beat)}
           onExtend={beat => {
             const source =
@@ -1800,6 +1844,7 @@ export default function RoleplayTool() {
             void queueBeatMotion(beat, source ? { source } : undefined);
           }}
           onSelectTake={selectStillTake}
+          onSelectClipTake={selectClipTake}
           onCopy={beat => void copyBeatPrompt(beat)}
         />
       </ToolSection>
@@ -1837,7 +1882,7 @@ export default function RoleplayTool() {
             Queue a {beatOutput === 'clip' ? 'clip' : 'still'} when I write a bio or pick a scene
             <span className="mt-0.5 block text-xs text-[var(--text-muted)]">
               {beatOutput === 'clip'
-                ? 'A still becomes I2V. A text-only beat is T2V. Later beats continue from the last clip — Fal extend-video when the parent is already a public Fal URL, or after a successful Fal CDN upload of a local clip; otherwise last-frame I2V (Roleplay says so if the upload fails). Local WAN, Fal, or Replicate.'
+                ? 'Each scene writes a new still, then that still becomes I2V. A text-only beat is T2V. Use Play another clip to reroll a take from this beat’s still. Extend clip / Continue from last frame is the continuity action — Fal extend-video when the parent is already a public Fal URL, or after a successful Fal CDN upload of a local clip; otherwise last-frame I2V (Roleplay says so if the upload fails). Local WAN, Fal, or Replicate.'
                 : 'Uses the model and Fast/Good/Best from the sidebar. Turn off to write the prompt first.'}
             </span>
           </span>
