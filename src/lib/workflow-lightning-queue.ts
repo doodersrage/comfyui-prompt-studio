@@ -1522,10 +1522,6 @@ export function disconnectQwenEditReferenceImagesForTxt2Img(
   if (options?.hasInputImage) {
     return { workflow, disconnectedNodeIds: [] };
   }
-  const modelId = options?.model?.trim() ?? '';
-  if (modelId && !isEditCapableModel(modelId) && !/edit/i.test(modelId)) {
-    return { workflow, disconnectedNodeIds: [] };
-  }
 
   const next = structuredClone(workflow) as Record<string, WorkflowNodeRecord>;
   const disconnectedNodeIds: string[] = [];
@@ -2083,6 +2079,17 @@ export function prepareQwenEditReferenceImagesForQueue(
   options?: { forceRewire?: boolean }
 ): Record<string, unknown> {
   const modelId = model?.trim() ?? '';
+  const hasInputImage = Boolean(
+    params?.inputImageFilename?.toString().trim() ||
+    params?.inputImageFilenames?.some(name => Boolean(name?.toString().trim()))
+  );
+
+  if (!hasInputImage) {
+    return disconnectQwenEditReferenceImagesForTxt2Img(workflow, {
+      hasInputImage: false,
+    }).workflow;
+  }
+
   if (!modelId) {
     return workflow;
   }
@@ -2090,46 +2097,34 @@ export function prepareQwenEditReferenceImagesForQueue(
     return workflow;
   }
 
-  const hasInputImage = Boolean(
-    params?.inputImageFilename?.toString().trim() ||
-    params?.inputImageFilenames?.some(name => Boolean(name?.toString().trim()))
-  );
+  let next = ensureQwenEditReferenceImagesForImg2Img(workflow, {
+    hasInputImage: true,
+    inputImageFilename: params?.inputImageFilename?.toString(),
+    inputImageFilenames: params?.inputImageFilenames,
+    forceRewire: options?.forceRewire,
+  }).workflow;
 
-  if (hasInputImage) {
-    let next = ensureQwenEditReferenceImagesForImg2Img(workflow, {
-      hasInputImage: true,
+  // Boogu builds reference latents inside TextEncodeBooguEdit (needs vae on that node).
+  if (!isBooguEditModel(modelId)) {
+    next = ensureQwenReferenceLatentWiringInWorkflow(next, {
       inputImageFilename: params?.inputImageFilename?.toString(),
       inputImageFilenames: params?.inputImageFilenames,
-      forceRewire: options?.forceRewire,
+      width: params?.width,
+      height: params?.height,
     }).workflow;
-
-    // Boogu builds reference latents inside TextEncodeBooguEdit (needs vae on that node).
-    if (!isBooguEditModel(modelId)) {
+    const latentSize = readEmptyLatentSize(next);
+    if (latentSize) {
       next = ensureQwenReferenceLatentWiringInWorkflow(next, {
         inputImageFilename: params?.inputImageFilename?.toString(),
         inputImageFilenames: params?.inputImageFilenames,
-        width: params?.width,
-        height: params?.height,
+        width: latentSize.width,
+        height: latentSize.height,
       }).workflow;
-      const latentSize = readEmptyLatentSize(next);
-      if (latentSize) {
-        next = ensureQwenReferenceLatentWiringInWorkflow(next, {
-          inputImageFilename: params?.inputImageFilename?.toString(),
-          inputImageFilenames: params?.inputImageFilenames,
-          width: latentSize.width,
-          height: latentSize.height,
-        }).workflow;
-      }
     }
-
-    next = pruneUnresolvedQwenEditFigureLoaders(next).workflow;
-    return next;
   }
 
-  return disconnectQwenEditReferenceImagesForTxt2Img(workflow, {
-    hasInputImage: false,
-    model: modelId,
-  }).workflow;
+  next = pruneUnresolvedQwenEditFigureLoaders(next).workflow;
+  return next;
 }
 
 export function prepareLightningWorkflowForQueue(

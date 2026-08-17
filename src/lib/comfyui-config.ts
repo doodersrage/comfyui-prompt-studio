@@ -8,6 +8,8 @@ import {
   prepareLightningWorkflowForQueue,
   prepareBooguTurboWorkflowForQueue,
   prepareQwenEditReferenceImagesForQueue,
+  disconnectQwenEditReferenceImagesForTxt2Img,
+  pruneUnresolvedQwenEditFigureLoaders,
   neutralizeNonLightningLoras,
   resolveLightningBf16Loaders,
 } from './workflow-lightning-queue';
@@ -1797,6 +1799,20 @@ export function injectPromptsWithFallbacks(
     throw new Error(ltxClip.error);
   }
   injected = { ...injected, workflow: ltxClip.workflow };
+
+  const hasInputImage = Boolean(
+    input.params?.inputImageFilename?.toString().trim() ||
+    input.params?.inputImageFilenames?.some(name => Boolean(name?.toString().trim()))
+  );
+  if (!hasInputImage) {
+    const disconnected = disconnectQwenEditReferenceImagesForTxt2Img(injected.workflow, {
+      hasInputImage: false,
+    });
+    injected = {
+      ...injected,
+      workflow: pruneUnresolvedQwenEditFigureLoaders(disconnected.workflow).workflow,
+    };
+  }
 
   return injected;
 }

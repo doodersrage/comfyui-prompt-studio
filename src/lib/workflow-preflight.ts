@@ -135,11 +135,15 @@ export async function runWorkflowPreflight(input: {
       });
     }
 
-    if (!isEditQueueTool(input.tool) && preview.workflowJson?.includes('{{INPUT_IMAGE}}')) {
+    if (
+      !isEditQueueTool(input.tool) &&
+      input.hasInputImage &&
+      preview.workflowJson?.includes('{{INPUT_IMAGE}}')
+    ) {
       issues.push({
         severity: 'error',
         message:
-          'Selected workflow expects an input image (edit/inpaint) — pick a txt2img workflow in Settings → workflow library or run Optimize all with a generate scaffold.',
+          'Input image placeholder was not replaced — bind LoadImage → {{INPUT_IMAGE}} in Settings → workflow library (Apply bindings).',
       });
     }
 

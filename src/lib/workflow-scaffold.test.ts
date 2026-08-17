@@ -322,6 +322,39 @@ describe("workflow scaffold", () => {
     assert.equal(loadImages.length, 0);
   });
 
+  it("txt2img-disconnects an edit scaffold when queued as generate without a source image", async () => {
+    const { disconnectQwenEditReferenceImagesForTxt2Img, prepareQwenEditReferenceImagesForQueue } =
+      await import("./workflow-lightning-queue");
+    const scaffold = buildWorkflowScaffoldForModel("qwen-image-edit-2511-lightning-8");
+    const parsed = JSON.parse(scaffold.json) as Record<string, unknown>;
+    assert.match(scaffold.json, /\{\{INPUT_IMAGE\}\}/);
+
+    const { workflow } = disconnectQwenEditReferenceImagesForTxt2Img(parsed, {
+      hasInputImage: false,
+      model: "qwen-image-2512",
+    });
+    const loadImages = Object.values(workflow).filter(
+      (node) =>
+        node &&
+        typeof node === "object" &&
+        (node as { class_type?: string }).class_type === "LoadImage",
+    );
+    assert.equal(loadImages.length, 0);
+    assert.doesNotMatch(JSON.stringify(workflow), /\{\{INPUT_IMAGE\}\}/);
+
+    const prepared = prepareQwenEditReferenceImagesForQueue(parsed, "qwen-image-2512");
+    assert.doesNotMatch(JSON.stringify(prepared), /\{\{INPUT_IMAGE\}\}/);
+
+    const { injectPromptsWithFallbacks, resolvePlaceholderTokens } = await import("./comfyui-config");
+    const injected = injectPromptsWithFallbacks(
+      parsed,
+      { positive: "a raccoon on a pier", negative: "", params: {} },
+      resolvePlaceholderTokens(),
+      { model: "qwen-image-2512" },
+    );
+    assert.doesNotMatch(JSON.stringify(injected.workflow), /\{\{INPUT_IMAGE\}\}/);
+  });
+
   it("builds rapid aio edit scaffold from checkpoint loader", () => {
     const result = buildWorkflowScaffoldForModel("qwen-rapid-aio-edit");
     assert.match(result.json, /CheckpointLoaderSimple/);
