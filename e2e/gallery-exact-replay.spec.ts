@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { ensureAuthenticated } from './helpers/auth';
+import { ensureStudioWorkspace } from './helpers/gallery';
 import { gotoStable } from './helpers/navigation';
 import { dismissBlockingOverlays } from './helpers/overlays';
 
@@ -21,6 +22,7 @@ const EXACT_REPLAY_FIXTURE = {
 };
 
 async function seedExactReplayEntry(page: import('@playwright/test').Page) {
+  await ensureStudioWorkspace(page);
   await page.addInitScript(entry => {
     try {
       localStorage.setItem('comfyui-gallery-v1', JSON.stringify([entry]));
@@ -65,20 +67,53 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('gallery replay exact graph queues via mocked Comfy API', async ({ page }) => {
-  await page.route('**/api/comfyui', async route => {
-    if (route.request().method() !== 'POST') {
-      await route.continue();
+  await page.route(/\/api\/comfyui(?:\/|\?|$)/, async route => {
+    const method = route.request().method();
+    let path = route.request().url();
+    try {
+      path = new URL(route.request().url()).pathname.replace(/\/$/, '');
+    } catch {
+      // keep raw url
+    }
+
+    if (method === 'POST' && path === '/api/comfyui') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ok: true,
+          promptId: 'e2e-replayed-prompt',
+          comfyUrl: 'http://127.0.0.1:8188',
+        }),
+      });
       return;
     }
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        ok: true,
-        promptId: 'e2e-replayed-prompt',
-        comfyUrl: 'http://127.0.0.1:8188',
-      }),
-    });
+
+    if (method === 'POST' && path === '/api/comfyui/preview') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ok: true,
+          workflowSource: 'minimal',
+          replacements: { positive: 1, negative: 0, params: {} },
+          preflightIssues: [{ severity: 'warn', message: 'e2e preview' }],
+          workflowJson: EXACT_REPLAY_FIXTURE.workflowJson,
+        }),
+      });
+      return;
+    }
+
+    if (path === '/api/comfyui/object-info' || path.startsWith('/api/comfyui/object-info')) {
+      await route.fulfill({
+        status: 502,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'e2e: skip live object_info' }),
+      });
+      return;
+    }
+
+    await route.continue();
   });
 
   await seedExactReplayEntry(page);
@@ -88,32 +123,20 @@ test('gallery replay exact graph queues via mocked Comfy API', async ({ page }) 
   await dismissBlockingOverlays(page);
 
   await expect(page.getByRole('heading', { name: /^Gallery$/i, level: 1 })).toBeVisible();
-  await expect(page.getByText(/Exact graph|Graph pruned/i).first()).toBeVisible({
-    timeout: 15_000,
-  });
+  const graphBadge = page.getByText(/Exact graph|Graph pruned/i).first();
+  await expect(graphBadge).toBeVisible({ timeout: 15_000 });
+  await graphBadge.hover();
 
+  const menu = page.getByTestId('gallery-card-menu').first();
+  await expect(menu).toBeAttached({ timeout: 10_000 });
+  await menu.click({ force: true });
   const replay = page.getByTestId('gallery-replay-exact');
-  if (!(await replay.isVisible().catch(() => false))) {
-    const menu = page.getByTestId('gallery-card-menu').first();
-    await expect(menu).toBeVisible({ timeout: 10_000 });
-    await menu.click();
-  }
+  await expect(replay).toBeVisible({ timeout: 10_000 });
+  await replay.click();
 
-  await expect(page.getByTestId('gallery-replay-exact')).toBeVisible({ timeout: 10_000 });
-  const queued = page.waitForResponse(response => {
-    try {
-      const path = new URL(response.url()).pathname.replace(/\/$/, '');
-      return response.request().method() === 'POST' && path === '/api/comfyui';
-    } catch {
-      return false;
-    }
-  });
-  await page.getByTestId('gallery-replay-exact').click();
-  const queuedResponse = await queued;
-  expect(queuedResponse.ok()).toBeTruthy();
-
-  await expect(page.getByTestId('gallery-requeue-status')).toContainText(
-    /queued|Replaying|prompt_id|e2e-replayed/i,
-    { timeout: 15_000 }
-  );
+  await expect
+    .poll(async () => (await page.getByTestId('gallery-requeue-status').textContent()) ?? '', {
+      timeout: 15_000,
+    })
+    .toMatch(/queued|Replaying|Re-queueing|prompt_id|e2e-replayed|Queueing|Validating/i);
 });

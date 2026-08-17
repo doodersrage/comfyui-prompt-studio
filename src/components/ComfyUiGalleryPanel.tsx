@@ -1282,6 +1282,20 @@ export default function ComfyUiGalleryPanel({
         />
       ) : null}
 
+      {requeueStatus ? (
+        <div data-testid="gallery-requeue-status">
+          <StatusToastStrip
+            notes={[
+              {
+                id: 'gallery-requeue',
+                text: requeueStatus,
+                tone: toneForStatusText(requeueStatus),
+              },
+            ]}
+          />
+        </div>
+      ) : null}
+
       {pickFor ? <GalleryPickDock pickFor={pickFor} /> : null}
 
       {galleryCapWarning.message ? (
@@ -1594,19 +1608,6 @@ export default function ComfyUiGalleryPanel({
           ))}
         </div>
       )}
-      {requeueStatus ? (
-        <div data-testid="gallery-requeue-status">
-          <StatusToastStrip
-            notes={[
-              {
-                id: 'gallery-requeue',
-                text: requeueStatus,
-                tone: toneForStatusText(requeueStatus),
-              },
-            ]}
-          />
-        </div>
-      ) : null}
 
       {compareOpen ? (
         <GalleryCompareModal
