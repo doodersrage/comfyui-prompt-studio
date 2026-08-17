@@ -123,9 +123,9 @@ test('gallery replay exact graph queues via mocked Comfy API', async ({ page }) 
   await dismissBlockingOverlays(page);
 
   await expect(page.getByRole('heading', { name: /^Gallery$/i, level: 1 })).toBeVisible();
-  const graphBadge = page.getByText(/Exact graph|Graph pruned/i).first();
-  await expect(graphBadge).toBeVisible({ timeout: 15_000 });
-  await graphBadge.hover();
+  await expect(page.getByText(/Exact graph|Graph pruned/i).first()).toBeVisible({
+    timeout: 15_000,
+  });
 
   const menu = page.getByTestId('gallery-card-menu').first();
   await expect(menu).toBeAttached({ timeout: 10_000 });
