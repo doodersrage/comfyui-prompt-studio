@@ -15,6 +15,10 @@ on:
         description: Compute the next version without tagging or publishing
         type: boolean
         default: false
+      existing_tag:
+        description: Republish an already-cut tag (skip version bump). Example v1.1.0
+        type: string
+        default: ''
 
 permissions:
   contents: write
@@ -59,7 +63,7 @@ jobs:
 
       - name: Cut version on main
         id: cut
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' && inputs.existing_tag == ''
         env:
           BUMP: ${{ inputs.bump }}
           DRY_RUN: ${{ inputs.dry_run }}
@@ -87,9 +91,17 @@ jobs:
         run: |
           set -euo pipefail
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "version=${{ steps.cut.outputs.version }}" >> "$GITHUB_OUTPUT"
-            echo "tag=v${{ steps.cut.outputs.version }}" >> "$GITHUB_OUTPUT"
-            echo "dry_run=${{ inputs.dry_run }}" >> "$GITHUB_OUTPUT"
+            EXISTING="${{ inputs.existing_tag }}"
+            if [ -n "$EXISTING" ]; then
+              TAG="${EXISTING#v}"
+              echo "version=${TAG}" >> "$GITHUB_OUTPUT"
+              echo "tag=v${TAG}" >> "$GITHUB_OUTPUT"
+              echo "dry_run=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "version=${{ steps.cut.outputs.version }}" >> "$GITHUB_OUTPUT"
+              echo "tag=v${{ steps.cut.outputs.version }}" >> "$GITHUB_OUTPUT"
+              echo "dry_run=${{ inputs.dry_run }}" >> "$GITHUB_OUTPUT"
+            fi
           else
             TAG="${GITHUB_REF_NAME}"
             echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
@@ -126,10 +138,18 @@ jobs:
             echo "Release ${TAG} already exists — leaving notes unchanged."
             exit 0
           fi
-          gh release create "$TAG" \
-            --title "Prompt Studio ${TAG}" \
-            --notes-file /tmp/release-preamble.md \
-            --generate-notes
+          for attempt in 1 2 3 4 5; do
+            if gh release create "$TAG" \
+              --title "Prompt Studio ${TAG}" \
+              --notes-file /tmp/release-preamble.md \
+              --generate-notes; then
+              exit 0
+            fi
+            echo "gh release create failed (attempt ${attempt}); retrying…"
+            sleep $((attempt * 4))
+          done
+          echo "gh release create failed after retries."
+          exit 1
 
   docker:
     name: Publish container image

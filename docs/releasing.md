@@ -18,6 +18,8 @@ The first tagged GitHub Release was [`Initial-Release`](https://github.com/doode
 
 Use **dry run** to print the next version without tagging.
 
+If the GitHub Release was created but Docker/desktop did not run (for example `gh release create` hit a GitHub 503), re-run Actions → Release with **existing_tag** set to `vX.Y.Z`. That skips the version bump and publishes installers and the container image for the tag that already exists.
+
 Releases must be cut from **`main`**. `GITHUB_TOKEN` cannot start a second workflow, so the same run both tags and publishes.
 
 ## Tag from a checkout
