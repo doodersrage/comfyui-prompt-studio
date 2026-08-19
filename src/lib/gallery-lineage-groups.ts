@@ -5,41 +5,52 @@ export type GalleryLineageGroup = {
   derivatives: ComfyGalleryEntry[];
 };
 
+function findLineageRootId(entry: ComfyGalleryEntry, byId: Map<string, ComfyGalleryEntry>): string {
+  let current = entry;
+  const seen = new Set<string>();
+
+  while (true) {
+    const parentId = current.parentGalleryEntryId?.trim();
+    const parent = parentId ? byId.get(parentId) : undefined;
+    if (!parent || seen.has(current.id)) {
+      return current.id;
+    }
+    seen.add(current.id);
+    current = parent;
+  }
+}
+
 export function buildGalleryLineageGroups(entries: ComfyGalleryEntry[]): GalleryLineageGroup[] {
   const byId = new Map(entries.map(entry => [entry.id, entry]));
-  const childrenByParent = new Map<string, ComfyGalleryEntry[]>();
+
+  // Resolve every entry to the ultimate ancestor root that is itself present
+  // in `entries`, walking the full parent chain (not just one hop). This
+  // ensures multi-generation chains (e.g. still -> refine -> i2v) are grouped
+  // together even when an intermediate generation is also present in the
+  // input set, instead of silently dropping the middle generations.
+  const derivativesByRoot = new Map<string, ComfyGalleryEntry[]>();
 
   for (const entry of entries) {
-    const parentId = entry.parentGalleryEntryId?.trim();
-    if (!parentId || !byId.has(parentId)) {
+    const rootId = findLineageRootId(entry, byId);
+    if (rootId === entry.id) {
       continue;
     }
-    const siblings = childrenByParent.get(parentId) ?? [];
+    const siblings = derivativesByRoot.get(rootId) ?? [];
     siblings.push(entry);
-    childrenByParent.set(parentId, siblings);
+    derivativesByRoot.set(rootId, siblings);
   }
 
-  const claimed = new Set<string>();
   const groups: GalleryLineageGroup[] = [];
 
   for (const entry of entries) {
-    if (claimed.has(entry.id)) {
+    const rootId = findLineageRootId(entry, byId);
+    if (rootId !== entry.id) {
       continue;
     }
 
-    const parentId = entry.parentGalleryEntryId?.trim();
-    if (parentId && byId.has(parentId)) {
-      continue;
-    }
-
-    const derivatives = (childrenByParent.get(entry.id) ?? [])
+    const derivatives = (derivativesByRoot.get(entry.id) ?? [])
       .slice()
       .sort((left, right) => left.queuedAt - right.queuedAt);
-
-    for (const derivative of derivatives) {
-      claimed.add(derivative.id);
-    }
-    claimed.add(entry.id);
 
     groups.push({ root: entry, derivatives });
   }

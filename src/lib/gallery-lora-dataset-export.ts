@@ -304,6 +304,14 @@ export async function downloadLoraDatasetZip(
     visionCaptionsById,
   });
   const files: ZipFileEntry[] = [];
+  // `manifest` is the full attempted plan, but an image fetch can fail mid-loop
+  // (network hiccup, the ComfyUI host restarting, an evicted output file) and
+  // that entry never lands in `files`. Track which entries actually made it in
+  // so the reported count -- surfaced directly to the user as "Exported N
+  // images" / "Packed N stills", and by the embedded manifest.json itself --
+  // reflects what's really in the zip instead of overstating it whenever even
+  // one fetch fails partway through.
+  const exportedManifest: LoraDatasetManifestEntry[] = [];
 
   for (const item of manifest) {
     try {
@@ -319,6 +327,7 @@ export async function downloadLoraDatasetZip(
         filename: item.captionFilename,
         data: new TextEncoder().encode(item.caption),
       });
+      exportedManifest.push(item);
     } catch {
       // Skip this entry — the rest of the dataset still exports.
     }
@@ -332,7 +341,11 @@ export async function downloadLoraDatasetZip(
     filename: 'manifest.json',
     data: new TextEncoder().encode(
       JSON.stringify(
-        { exportedAt: new Date().toISOString(), count: manifest.length, entries: manifest },
+        {
+          exportedAt: new Date().toISOString(),
+          count: exportedManifest.length,
+          entries: exportedManifest,
+        },
         null,
         2
       )
@@ -347,5 +360,5 @@ export async function downloadLoraDatasetZip(
   anchor.click();
   URL.revokeObjectURL(url);
 
-  return { count: manifest.length, manifest };
+  return { count: exportedManifest.length, manifest };
 }

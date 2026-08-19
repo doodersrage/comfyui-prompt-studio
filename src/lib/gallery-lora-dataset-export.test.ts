@@ -1,15 +1,17 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { afterEach, describe, it } from "node:test";
 import {
   buildLoraCaptionText,
   buildLoraDatasetBaseName,
   buildLoraDatasetManifest,
   cleanLoraCaptionText,
+  downloadLoraDatasetZip,
   loraDatasetImageExtension,
   sanitizeLoraDatasetSlug,
   selectCharacterKeepers,
   selectLoraDatasetEntries,
 } from "./gallery-lora-dataset-export";
+import { readZipTextEntries } from "./zip-read";
 import type { ComfyGalleryEntry } from "./comfyui-gallery-entry";
 
 function makeEntry(overrides: Partial<ComfyGalleryEntry> = {}): ComfyGalleryEntry {
@@ -312,5 +314,110 @@ describe("buildLoraDatasetManifest", () => {
     const manifest = buildLoraDatasetManifest(entries);
     assert.equal(manifest[0].favorite, true);
     assert.equal(manifest[0].reviewRating, 5);
+  });
+});
+
+describe("downloadLoraDatasetZip", () => {
+  const originalFetch = globalThis.fetch;
+  const originalDocument = globalThis.document;
+  const originalCreateObjectURL = globalThis.URL.createObjectURL;
+  const originalRevokeObjectURL = globalThis.URL.revokeObjectURL;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    if (originalDocument === undefined) {
+      // @ts-expect-error test cleanup
+      delete globalThis.document;
+    } else {
+      Object.defineProperty(globalThis, "document", {
+        configurable: true,
+        value: originalDocument,
+      });
+    }
+    Object.defineProperty(globalThis.URL, "createObjectURL", {
+      configurable: true,
+      value: originalCreateObjectURL,
+    });
+    Object.defineProperty(globalThis.URL, "revokeObjectURL", {
+      configurable: true,
+      value: originalRevokeObjectURL,
+    });
+  });
+
+  it("reports the actual exported count (not the full attempted manifest) when an image fetch fails partway through", async () => {
+    // Regression test: `count` used to be `manifest.length` -- the full
+    // attempted plan -- even though an entry whose image fetch fails never
+    // gets an image or caption written into the zip. Callers surface this
+    // count directly to the user ("Exported N images." / "Packed N
+    // stills."), so a partial failure used to silently overstate what's
+    // actually in the downloaded archive.
+    const entries = [
+      makeEntry({ id: "a", images: [{ filename: "a.png", subfolder: "", type: "output" }] }),
+      makeEntry({ id: "b", images: [{ filename: "b.png", subfolder: "", type: "output" }] }),
+      makeEntry({ id: "c", images: [{ filename: "c.png", subfolder: "", type: "output" }] }),
+    ];
+
+    globalThis.fetch = (async (url: string) => {
+      if (String(url).includes("c.png")) {
+        return { ok: false } as Response;
+      }
+      return {
+        ok: true,
+        arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+      } as unknown as Response;
+    }) as typeof fetch;
+
+    Object.defineProperty(globalThis, "document", {
+      configurable: true,
+      value: {
+        createElement: () => ({ click: () => {}, href: "", download: "" }),
+      },
+    });
+
+    let capturedBlob: Blob | null = null;
+    Object.defineProperty(globalThis.URL, "createObjectURL", {
+      configurable: true,
+      value: (blob: Blob) => {
+        capturedBlob = blob;
+        return "blob:mock";
+      },
+    });
+    Object.defineProperty(globalThis.URL, "revokeObjectURL", {
+      configurable: true,
+      value: () => {},
+    });
+
+    const result = await downloadLoraDatasetZip(entries);
+
+    // Only 2 of the 3 entries' images actually fetched successfully.
+    assert.equal(result.count, 2);
+
+    assert.ok(capturedBlob);
+    const blob = capturedBlob as Blob;
+    const buffer = await blob.arrayBuffer();
+    const zipEntries = await readZipTextEntries(buffer);
+    const manifestEntry = zipEntries.find(item => item.filename === "manifest.json");
+    assert.ok(manifestEntry);
+    const manifestJson = JSON.parse(manifestEntry!.text) as {
+      count: number;
+      entries: Array<{ id: string }>;
+    };
+    // The manifest.json bundled *inside* the zip must also only describe
+    // entries actually present in the zip, not the full attempted plan.
+    assert.equal(manifestJson.count, 2);
+    assert.deepEqual(
+      manifestJson.entries.map(item => item.id).sort(),
+      ["a", "b"],
+    );
+  });
+
+  it("returns count 0 without throwing when every image fetch fails", async () => {
+    const entries = [
+      makeEntry({ id: "a", images: [{ filename: "a.png", subfolder: "", type: "output" }] }),
+    ];
+    globalThis.fetch = (async () => ({ ok: false }) as Response) as typeof fetch;
+
+    const result = await downloadLoraDatasetZip(entries);
+    assert.equal(result.count, 0);
   });
 });

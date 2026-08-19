@@ -14,6 +14,7 @@ import {
   forgetPendingGalleryPoll,
   listPendingGalleryPollMeta,
   rememberPendingGalleryPoll,
+  type PendingGalleryPoll,
 } from './gallery-pending-polls';
 
 export {
@@ -75,31 +76,83 @@ export function scheduleComfyGalleryPoll(
   return promise;
 }
 
+export type GalleryPollResumeCandidate = {
+  promptId: string;
+  comfyUrl?: string;
+};
+
+export type GalleryPollResumePlan = {
+  /** Tracked promptIds whose entry already reached a terminal state. */
+  toForget: string[];
+  /** promptIds that need a poll (re)started, deduped. */
+  toSchedule: GalleryPollResumeCandidate[];
+};
+
+/**
+ * Pure decision logic for resuming gallery polls, split out from
+ * `resumePendingGalleryPolls` so it can be unit tested without mocking the
+ * gallery store or network layer.
+ *
+ * Two sources feed the schedule: entries explicitly tracked in `pendingMeta`
+ * (written by `scheduleComfyGalleryPoll` itself), and a fallback sweep over
+ * every gallery entry still in a `pending`/`running` state. The fallback
+ * exists to catch entries that reach a non-terminal state through a path
+ * that never calls `scheduleComfyGalleryPoll` locally -- e.g. a server-sync
+ * merge or a host-job import that lands an in-progress entry. It must run
+ * unconditionally: it previously only ran when `pendingMeta` was completely
+ * empty, so as soon as any single poll was locally tracked (the common case
+ * whenever a queue is active), every other untracked in-progress entry was
+ * silently skipped for the rest of the session.
+ */
+export function planGalleryPollResume(
+  gallery: Pick<ComfyGalleryEntry, 'promptId' | 'status' | 'comfyUrl'>[],
+  pendingMeta: PendingGalleryPoll[]
+): GalleryPollResumePlan {
+  const byPromptId = new Map(gallery.map(entry => [entry.promptId, entry]));
+  const toForget: string[] = [];
+  const toSchedule: GalleryPollResumeCandidate[] = [];
+  const scheduled = new Set<string>();
+
+  for (const item of pendingMeta) {
+    const entry = byPromptId.get(item.promptId);
+    if (entry?.status === 'completed' || entry?.status === 'error') {
+      toForget.push(item.promptId);
+      continue;
+    }
+    if (scheduled.has(item.promptId)) {
+      continue;
+    }
+    scheduled.add(item.promptId);
+    toSchedule.push({ promptId: item.promptId, comfyUrl: item.comfyUrl });
+  }
+
+  for (const entry of gallery) {
+    if (
+      (entry.status === 'pending' || entry.status === 'running') &&
+      !scheduled.has(entry.promptId)
+    ) {
+      scheduled.add(entry.promptId);
+      toSchedule.push({ promptId: entry.promptId, comfyUrl: entry.comfyUrl });
+    }
+  }
+
+  return { toForget, toSchedule };
+}
+
 export function resumePendingGalleryPolls(): void {
   if (typeof window === 'undefined') {
     return;
   }
 
   const gallery = loadComfyGallery();
-  const byPromptId = new Map(gallery.map(entry => [entry.promptId, entry]));
-
   const pendingMeta = listPendingGalleryPollMeta();
-  if (pendingMeta.length > 0) {
-    for (const item of pendingMeta) {
-      const entry = byPromptId.get(item.promptId);
-      if (entry?.status === 'completed' || entry?.status === 'error') {
-        forgetPendingGalleryPoll(item.promptId);
-        continue;
-      }
-      void scheduleComfyGalleryPoll(item.promptId, { comfyUrl: item.comfyUrl });
-    }
-    return;
-  }
+  const { toForget, toSchedule } = planGalleryPollResume(gallery, pendingMeta);
 
-  for (const entry of gallery) {
-    if (entry.status === 'pending' || entry.status === 'running') {
-      void scheduleComfyGalleryPoll(entry.promptId, { comfyUrl: entry.comfyUrl });
-    }
+  for (const promptId of toForget) {
+    forgetPendingGalleryPoll(promptId);
+  }
+  for (const candidate of toSchedule) {
+    void scheduleComfyGalleryPoll(candidate.promptId, { comfyUrl: candidate.comfyUrl });
   }
 }
 

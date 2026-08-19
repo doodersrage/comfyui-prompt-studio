@@ -38,8 +38,14 @@ let cacheStats = {
 // Incremental memory size tracker — O(1) getMemorySize instead of O(M) iteration.
 let totalMemoryBytes = 0;
 
-// Cleanup timer
+// Total bytes occupied by surviving disk-cache files, recomputed each cleanup
+// sweep. Only a snapshot as of the last sweep (not updated on individual
+// writes), but that's sufficient for budget enforcement and reporting.
+let lastKnownDiskBytes = 0;
+
+// Cleanup timers
 let cleanupTimer: NodeJS.Timeout | null = null;
+let initialCleanupTimer: NodeJS.Timeout | null = null;
 
 function cacheRoot(): string {
   const dataDir = process.env.PROMPT_DATA_DIR?.trim();
@@ -264,15 +270,27 @@ export function startDiskCleanup(): void {
   if (cleanupTimer) {
     clearInterval(cleanupTimer);
   }
+  if (initialCleanupTimer) {
+    clearTimeout(initialCleanupTimer);
+  }
 
-  cleanupTimer = setInterval(() => {
+  const runCleanup = () => {
     try {
-      // Cleanup expired entries on disk
+      // Cleanup expired entries on disk (and evict oldest entries if the
+      // surviving set is over the disk-cache byte budget).
       cleanupExpiredDiskCache();
     } catch (error) {
       console.error('Error during disk cache cleanup:', error);
     }
-  }, DISK_CLEANUP_INTERVAL_MS);
+  };
+
+  // Run once shortly after startup so a stale/oversized cache directory
+  // (e.g. left over from before size-budget enforcement existed, or from a
+  // prior process) gets trimmed promptly instead of waiting a full interval.
+  initialCleanupTimer = setTimeout(runCleanup, 1000);
+  initialCleanupTimer.unref();
+
+  cleanupTimer = setInterval(runCleanup, DISK_CLEANUP_INTERVAL_MS);
   // Don't keep unit tests / CLI processes alive forever.
   cleanupTimer.unref();
 }
@@ -282,6 +300,42 @@ export function stopDiskCleanup(): void {
     clearInterval(cleanupTimer);
     cleanupTimer = null;
   }
+  if (initialCleanupTimer) {
+    clearTimeout(initialCleanupTimer);
+    initialCleanupTimer = null;
+  }
+}
+
+export type DiskCacheFileInfo = {
+  key: string;
+  bytes: number;
+  mtimeMs: number;
+};
+
+/**
+ * Given the disk-cache files that survived TTL expiry and a byte budget,
+ * returns the keys to evict — oldest (by mtime) first — so the remaining
+ * total fits within `maxBytes`. Pure and side-effect free so it's testable
+ * without touching the filesystem.
+ */
+export function selectDiskCacheEvictions(
+  entries: DiskCacheFileInfo[],
+  maxBytes: number
+): Set<string> {
+  const totalBytes = entries.reduce((sum, entry) => sum + entry.bytes, 0);
+  if (totalBytes <= maxBytes || entries.length === 0) {
+    return new Set();
+  }
+
+  const sorted = [...entries].sort((a, b) => a.mtimeMs - b.mtimeMs);
+  const evict = new Set<string>();
+  let remaining = totalBytes;
+  for (const entry of sorted) {
+    if (remaining <= maxBytes) break;
+    evict.add(entry.key);
+    remaining -= entry.bytes;
+  }
+  return evict;
 }
 
 function cleanupExpiredDiskCache(): void {
@@ -291,8 +345,10 @@ function cleanupExpiredDiskCache(): void {
 
     const now = Date.now();
     let deletedCount = 0;
+    const survivors: DiskCacheFileInfo[] = [];
 
-    // Walk through all cache files and remove expired ones
+    // Walk through all cache files, removing expired ones and collecting
+    // size/recency info for whatever survives.
     function walkDirectory(dir: string) {
       if (!fs.existsSync(dir)) return;
 
@@ -308,10 +364,10 @@ function cleanupExpiredDiskCache(): void {
           try {
             const metaRaw = fs.readFileSync(fullPath, 'utf8');
             const meta = JSON.parse(metaRaw) as { expiresAt?: number };
+            const key = item.replace(/\.json$/, '');
 
             if (typeof meta.expiresAt === 'number' && meta.expiresAt <= now) {
               // Delete metadata and any format sibling (jpeg/webp/avif).
-              const key = item.replace(/\.json$/, '');
               for (const format of ['jpeg', 'webp', 'avif'] as const) {
                 const { filePath } = diskPaths(key, format);
                 if (fs.existsSync(filePath)) {
@@ -320,6 +376,25 @@ function cleanupExpiredDiskCache(): void {
               }
               fs.unlinkSync(fullPath);
               deletedCount++;
+              continue;
+            }
+
+            // Not expired — record its size/mtime for budget enforcement.
+            // The key's hash already bakes in the format, so exactly one of
+            // the three format files exists for it.
+            for (const format of ['jpeg', 'webp', 'avif'] as const) {
+              const { filePath } = diskPaths(key, format);
+              try {
+                const imageStat = fs.statSync(filePath);
+                survivors.push({
+                  key,
+                  bytes: imageStat.size + stat.size,
+                  mtimeMs: imageStat.mtimeMs,
+                });
+                break;
+              } catch {
+                // Not this format; try the next.
+              }
             }
           } catch {
             // Skip corrupted or invalid metadata files
@@ -330,8 +405,36 @@ function cleanupExpiredDiskCache(): void {
 
     walkDirectory(root);
 
+    const evictKeys = selectDiskCacheEvictions(survivors, MAX_DISK_CACHE_SIZE_BYTES);
+    for (const entry of survivors) {
+      if (!evictKeys.has(entry.key)) continue;
+      // metaPath is format-independent (diskPaths only uses `format` for the
+      // image extension), so any format argument yields the same metaPath.
+      const { metaPath } = diskPaths(entry.key, 'jpeg');
+      for (const format of ['jpeg', 'webp', 'avif'] as const) {
+        const { filePath: candidate } = diskPaths(entry.key, format);
+        if (fs.existsSync(candidate)) {
+          try {
+            fs.unlinkSync(candidate);
+          } catch {
+            /* already gone */
+          }
+        }
+      }
+      try {
+        fs.unlinkSync(metaPath);
+      } catch {
+        /* already gone */
+      }
+      deletedCount++;
+    }
+
+    lastKnownDiskBytes = survivors
+      .filter(entry => !evictKeys.has(entry.key))
+      .reduce((sum, entry) => sum + entry.bytes, 0);
+
     if (deletedCount > 0) {
-      console.log(`Cleaned up ${deletedCount} expired cache entries`);
+      console.log(`Cleaned up ${deletedCount} expired/over-budget cache entries`);
     }
   } catch (error) {
     console.error('Error during disk cleanup:', error);
@@ -341,7 +444,7 @@ function cleanupExpiredDiskCache(): void {
 export function getCacheSize(): { memory: number; disk: number } {
   return {
     memory: getMemorySize(),
-    disk: 0, // Calculate disk size if needed
+    disk: lastKnownDiskBytes,
   };
 }
 

@@ -132,10 +132,31 @@ function mergeUserEntriesIntoAll(userEntries: ComfyGalleryEntry[]): ComfyGallery
   return [...trimmedUser, ...others];
 }
 
+/**
+ * Tracks the (allEntries reference, active user) pair `cache` was last built
+ * from. `null` for lastRefreshEntriesRef never equals a real array, so the
+ * very first call always rebuilds regardless of lastRefreshUserId.
+ */
+let lastRefreshEntriesRef: ComfyGalleryEntry[] | null = null;
+let lastRefreshUserId: string | null = null;
+
 function refreshCacheFromAll(): void {
+  const userId = getActiveUserId();
+  // `allEntries` is always fully reassigned (never mutated in place) by every
+  // writer in this module, so a reference check is a safe, exact proxy for
+  // "did the underlying data actually change since the cache was last built."
+  // This function runs after essentially every gallery mutation (favorite /
+  // rating / tag toggle, poll completion, hydrate, etc.), so skipping the
+  // full filter+slice+map over up to MAX_GALLERY_ENTRIES items when nothing
+  // changed avoids real, frequent, unnecessary work.
+  if (lastRefreshEntriesRef === allEntries && lastRefreshUserId === userId) {
+    return;
+  }
   cache = filterEntriesForActiveUser(allEntries)
     .slice(0, MAX_GALLERY_ENTRIES)
     .map(projectGalleryEntryForList);
+  lastRefreshEntriesRef = allEntries;
+  lastRefreshUserId = userId;
 }
 
 /** Full entry including stored workflowJson (not the list projection). */

@@ -346,31 +346,38 @@ export function filterComfyGalleryEntries(
   filter: ComfyGalleryFilter
 ): ComfyGalleryEntry[] {
   const query = filter.query?.trim();
+  const needsHaystackMatch = Boolean(query) && !filter.semanticSearch;
+  const needleLower = needsHaystackMatch ? query!.toLowerCase() : '';
 
   // Cache corpus strings once to avoid repeated join/filter during filtering.
-  const haystacks = entries.map(
-    entry =>
-      [
-        entry.prompt,
-        entry.negativePrompt,
-        entry.tool,
-        entry.model,
-        entry.promptId,
-        entry.statusMessage,
-        entry.visionTags?.join(' '),
-        entry.userTags?.join(' '),
-      ]
-        .filter(Boolean)
-        .join(' ') // keep original case — we'll lowercase only when needed
-  );
+  // Only built when a plain-text (non-semantic) query is actually active --
+  // most filter changes (status/tool/favorites/rating/etc.) never touch this
+  // haystack at all, so building an 8-field corpus string per entry on every
+  // filter recompute was pure waste on a multi-thousand-entry gallery
+  // whenever there was no text query to match against.
+  const haystacks = needsHaystackMatch
+    ? entries.map(
+        entry =>
+          [
+            entry.prompt,
+            entry.negativePrompt,
+            entry.tool,
+            entry.model,
+            entry.promptId,
+            entry.statusMessage,
+            entry.visionTags?.join(' '),
+            entry.userTags?.join(' '),
+          ]
+            .filter(Boolean)
+            .join(' ') // keep original case — we'll lowercase only when needed
+      )
+    : null;
 
   let filtered: ComfyGalleryEntry[] = [];
   let idx = 0;
   for (const entry of entries) {
-    const haystack = haystacks[idx];
-    const needleLower = query ? query.toLowerCase() : '';
     // Early-exit on string match before doing any other checks when non-semantic search.
-    if (query && !filter.semanticSearch && haystack.toLowerCase().indexOf(needleLower) === -1) {
+    if (needsHaystackMatch && haystacks![idx].toLowerCase().indexOf(needleLower) === -1) {
       idx += 1;
       continue;
     }
@@ -1020,13 +1027,41 @@ function galleryOutputIsMotion(
   return galleryEntryIsMotionJob(entry) && isAnimatedImageViewUrl(image.filename);
 }
 
+/**
+ * Looks up a per-image durable path, falling back to the legacy single-value
+ * field for index 0 — entries persisted before multi-image batches were
+ * supported (or via the single-image upload/film-assemble/identity paths,
+ * which never write the arrays) only ever set the singular field.
+ */
+function durableOriginalPathAt(entry: ComfyGalleryEntry, index: number): string | undefined {
+  return (
+    entry.durableOriginalPaths?.[index] ??
+    (index === 0 ? entry.durableOriginalPath : undefined) ??
+    undefined
+  );
+}
+function durableThumbPathAt(entry: ComfyGalleryEntry, index: number): string | undefined {
+  return (
+    entry.durableThumbPaths?.[index] ??
+    (index === 0 ? entry.durableThumbPath : undefined) ??
+    undefined
+  );
+}
+
 function galleryEntryBuildViewPath(
   entry: ComfyGalleryEntry,
   image: ComfyGalleryEntry['images'][number],
+  index: number,
   options?: { width?: number }
 ): string {
-  if (entry.durableOriginalPath && !galleryOutputIsMotion(image, entry)) {
-    return durableGalleryOriginalUrl(entry.id);
+  // Durable storage (see gallery-media-store.ts) now holds full-res originals
+  // for video/animated outputs too, not just stills, and for every image in a
+  // multi-image batch — prefer it whenever it's there so playback and "open
+  // original" never depend on the source engine (ComfyUI, a cloud API, etc.)
+  // still having the file at request time.
+  const durableOriginal = durableOriginalPathAt(entry, index);
+  if (durableOriginal) {
+    return durableGalleryOriginalUrl(entry.id, index);
   }
   const width = options?.width && galleryOutputIsMotion(image, entry) ? undefined : options?.width;
   return buildEngineViewPath(entry.engineId, entry.comfyUrl, image, width ? { width } : undefined);
@@ -1054,7 +1089,9 @@ function galleryEntryUrlCacheKey(entry: ComfyGalleryEntry): string {
   const images = entry.images
     .map(image => `${image.filename}:${image.subfolder}:${image.type}`)
     .join(',');
-  return `${entry.id}|${entry.engineId ?? ''}|${entry.comfyUrl ?? ''}|${images}|${entry.durableThumbPath ?? ''}|${entry.durableOriginalPath ?? ''}|${entry.tool ?? ''}|${entry.derivedKind ?? ''}`;
+  const durableThumbs = entry.durableThumbPaths?.join(',') ?? '';
+  const durableOriginals = entry.durableOriginalPaths?.join(',') ?? '';
+  return `${entry.id}|${entry.engineId ?? ''}|${entry.comfyUrl ?? ''}|${images}|${entry.durableThumbPath ?? ''}|${entry.durableOriginalPath ?? ''}|${durableThumbs}|${durableOriginals}|${entry.tool ?? ''}|${entry.derivedKind ?? ''}`;
 }
 
 function _evictUrlCacheIfNeeded(key: string): void {
@@ -1107,7 +1144,7 @@ export function galleryEntryViewUrls(entry: ComfyGalleryEntry): string[] {
   const entryCache = _entryUrlCache.get(key);
   if (entryCache?.view) return entryCache.view;
 
-  const urls = entry.images.map(image => galleryEntryBuildViewPath(entry, image));
+  const urls = entry.images.map((image, index) => galleryEntryBuildViewPath(entry, image, index));
   _updateUrlCache(key, { view: urls });
   return urls;
 }
@@ -1117,13 +1154,14 @@ export function galleryEntryThumbUrls(entry: ComfyGalleryEntry): string[] {
   let cached = _entryUrlCache.get(key)?.thumb;
   if (cached) return cached;
 
-  cached = entry.images.map((image, index) =>
-    galleryOutputIsMotion(image, entry)
-      ? galleryEntryBuildViewPath(entry, image)
-      : index === 0 && entry.durableThumbPath
-        ? durableGalleryThumbUrl(entry.id)
-        : galleryEntryBuildViewPath(entry, image, { width: GALLERY_THUMB_WIDTH })
-  );
+  cached = entry.images.map((image, index) => {
+    const durableThumb = durableThumbPathAt(entry, index);
+    return galleryOutputIsMotion(image, entry)
+      ? galleryEntryBuildViewPath(entry, image, index)
+      : durableThumb
+        ? durableGalleryThumbUrl(entry.id, index)
+        : galleryEntryBuildViewPath(entry, image, index, { width: GALLERY_THUMB_WIDTH });
+  });
 
   const mediaKind =
     cached.length > 0
@@ -1146,15 +1184,16 @@ export function galleryEntryStripThumbUrls(entry: ComfyGalleryEntry): string[] {
   const entryCache = _entryUrlCache.get(key);
   if (entryCache?.stripThumb) return entryCache.stripThumb;
 
-  const urls = entry.images.map((image, index) =>
-    galleryOutputIsMotion(image, entry)
-      ? galleryEntryBuildViewPath(entry, image)
-      : index === 0 && entry.durableThumbPath
-        ? durableGalleryThumbUrl(entry.id)
-        : galleryEntryBuildViewPath(entry, image, {
+  const urls = entry.images.map((image, index) => {
+    const durableThumb = durableThumbPathAt(entry, index);
+    return galleryOutputIsMotion(image, entry)
+      ? galleryEntryBuildViewPath(entry, image, index)
+      : durableThumb
+        ? durableGalleryThumbUrl(entry.id, index)
+        : galleryEntryBuildViewPath(entry, image, index, {
             width: GALLERY_STRIP_THUMB_WIDTH,
-          })
-  );
+          });
+  });
 
   _updateUrlCache(key, { stripThumb: urls });
   return urls;
@@ -1165,10 +1204,10 @@ export function galleryEntryLightboxUrls(entry: ComfyGalleryEntry): string[] {
   const entryCache = _entryUrlCache.get(key);
   if (entryCache?.lightbox) return entryCache.lightbox;
 
-  const urls = entry.images.map(image =>
+  const urls = entry.images.map((image, index) =>
     galleryOutputIsMotion(image, entry)
-      ? galleryEntryBuildViewPath(entry, image)
-      : galleryEntryBuildViewPath(entry, image, { width: GALLERY_LIGHTBOX_WIDTH })
+      ? galleryEntryBuildViewPath(entry, image, index)
+      : galleryEntryBuildViewPath(entry, image, index, { width: GALLERY_LIGHTBOX_WIDTH })
   );
 
   _updateUrlCache(key, { lightbox: urls });
@@ -1199,16 +1238,17 @@ export function galleryEntryPrimaryThumbUrl(entry: ComfyGalleryEntry): string | 
 }
 
 export function galleryEntryPrimaryThumbSrcSet(entry: ComfyGalleryEntry): string | null {
-  const image = entry.images[galleryEntryPrimaryPlaybackIndex(entry)] ?? entry.images[0];
+  const index = galleryEntryPrimaryPlaybackIndex(entry);
+  const image = entry.images[index] ?? entry.images[0];
   if (!image || galleryOutputIsMotion(image, entry)) {
     return null;
   }
-  if (entry.durableThumbPath) {
-    return `${durableGalleryThumbUrl(entry.id)} ${GALLERY_THUMB_WIDTH}w`;
+  if (durableThumbPathAt(entry, index)) {
+    return `${durableGalleryThumbUrl(entry.id, index)} ${GALLERY_THUMB_WIDTH}w`;
   }
   if (entry.engineId === 'diffusers' || isCloudEngine(entry.engineId)) {
     return GALLERY_THUMB_SRCSET_WIDTHS.map(
-      width => `${galleryEntryBuildViewPath(entry, image, { width })} ${width}w`
+      width => `${galleryEntryBuildViewPath(entry, image, index, { width })} ${width}w`
     ).join(', ');
   }
   return buildComfyViewSrcSet(entry.comfyUrl, image);
@@ -1250,16 +1290,17 @@ export function galleryEntryPrimaryLqipUrl(entry: ComfyGalleryEntry): string | n
   const entryCache = _entryUrlCache.get(key);
   if (entryCache?.lqip) return entryCache.lqip;
 
-  const image = entry.images[galleryEntryPrimaryPlaybackIndex(entry)] ?? entry.images[0];
+  const index = galleryEntryPrimaryPlaybackIndex(entry);
+  const image = entry.images[index] ?? entry.images[0];
   if (!image || galleryOutputIsMotion(image, entry)) {
     _updateUrlCache(key, { lqip: null });
     return null;
   }
 
-  const url =
-    entry.durableThumbPath && !galleryOutputIsMotion(entry.images[0] ?? image, entry)
-      ? durableGalleryThumbUrl(entry.id)
-      : galleryEntryBuildViewPath(entry, image, { width: GALLERY_LQIP_WIDTH });
+  const durableThumb = durableThumbPathAt(entry, index);
+  const url = durableThumb
+    ? durableGalleryThumbUrl(entry.id, index)
+    : galleryEntryBuildViewPath(entry, image, index, { width: GALLERY_LQIP_WIDTH });
   _updateUrlCache(key, { lqip: url });
   return url;
 }
@@ -1272,7 +1313,7 @@ export function galleryEntryDownloadUrls(entry: ComfyGalleryEntry): {
   const entryCache = _entryUrlCache.get(key);
   if (entryCache?.download) return entryCache.download;
 
-  const urls = entry.images.map(image => galleryEntryBuildViewPath(entry, image));
+  const urls = entry.images.map((image, index) => galleryEntryBuildViewPath(entry, image, index));
   const filenames = entry.images.map(image => image.filename ?? '');
   _updateUrlCache(key, { download: { url: urls, filename: filenames } });
   return { url: urls, filename: filenames };

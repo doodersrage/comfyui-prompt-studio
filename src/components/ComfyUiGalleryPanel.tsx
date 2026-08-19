@@ -438,20 +438,54 @@ export default function ComfyUiGalleryPanel({
     [lineageGrouping, visibleEntries]
   );
   const experimentGroups = useMemo(() => {
-    const experiments = groupGalleryExperiments(visibleEntries);
+    // Group across the full filtered/sorted set, not just the current page's
+    // `visibleEntries`. Grouping on the paginated slice made membership (and
+    // whether a group even qualifies as an "experiment") depend on which
+    // page happened to be showing, so groups would flicker, split, or
+    // reappear with stale membership as the user paginated. `sortedSource`
+    // is stable across pages; buildGalleryDisplayRows already narrows each
+    // group down to the entries actually present on the current page.
+    const experiments = groupGalleryExperiments(sortedSource);
     const claimed = new Set(experiments.flatMap(group => group.entries.map(entry => entry.id)));
-    const runs = groupGalleryQueueRuns(visibleEntries).filter(
+    const runs = groupGalleryQueueRuns(sortedSource).filter(
       group => !group.entries.some(entry => claimed.has(entry.id))
     );
     return [...experiments, ...runs];
-  }, [visibleEntries]);
+  }, [sortedSource]);
   const duplicateClusters = useMemo(
     () => (showFilters && filter.duplicatesOnly ? clusterGalleryDuplicates(entries) : []),
     [entries, filter.duplicatesOnly, showFilters]
   );
+  // Rebuilding this Map from `entries` (up to MAX_GALLERY_ENTRIES) was previously
+  // done inline in JSX, so it ran on every render of the panel while the
+  // duplicates view was open, not just when `entries` actually changed.
+  const duplicateEntriesById = useMemo(
+    () =>
+      showFilters && filter.duplicatesOnly && duplicateClusters.length > 0
+        ? new Map(entries.map(entry => [entry.id, entry]))
+        : null,
+    [entries, filter.duplicatesOnly, showFilters, duplicateClusters.length]
+  );
   const capEvictionPreview = useMemo(
     () => (capWizardOpen ? previewGalleryCapEviction(entries, MAX_GALLERY_ENTRIES) : []),
     [capWizardOpen, entries]
+  );
+  const showVisionInbox = showFilters && (filter.needsVisionReview || visionInboxOpen);
+  // Same issue as duplicateEntriesById: this filter over the full entries list
+  // was inline in JSX and re-ran on every render while the inbox was open,
+  // including renders triggered by unrelated state (e.g. hover/lightbox).
+  const visionInboxQueue = useMemo(
+    () =>
+      showVisionInbox
+        ? entries.filter(
+            entry =>
+              entry.status === 'completed' &&
+              entry.images.length > 0 &&
+              !(entry.visionTags?.length ?? 0) &&
+              !visionInboxSkipIds.has(entry.id)
+          )
+        : [],
+    [showVisionInbox, entries, visionInboxSkipIds]
   );
   const galleryCardGridClass =
     layout === 'dense' || density === 'compact'
@@ -1354,7 +1388,7 @@ export default function ComfyUiGalleryPanel({
       {showFilters && filter.duplicatesOnly && duplicateClusters.length > 0 ? (
         <GalleryDuplicateClustersPanel
           clusters={duplicateClusters}
-          entriesById={new Map(entries.map(entry => [entry.id, entry]))}
+          entriesById={duplicateEntriesById ?? new Map()}
           onShowCluster={ids => {
             setSelectedIds(ids);
             setFilter(previous => ({ ...previous, duplicatesOnly: true }));
@@ -1387,28 +1421,16 @@ export default function ComfyUiGalleryPanel({
         />
       ) : null}
 
-      {showFilters && (filter.needsVisionReview || visionInboxOpen) ? (
+      {showVisionInbox ? (
         <GalleryVisionInbox
-          queue={entries.filter(
-            entry =>
-              entry.status === 'completed' &&
-              entry.images.length > 0 &&
-              !(entry.visionTags?.length ?? 0) &&
-              !visionInboxSkipIds.has(entry.id)
-          )}
+          queue={visionInboxQueue}
           previewUrl={galleryEntryPrimaryViewUrl}
           onApplyRating={(entryId, rating) => {
             setReviewRating(entryId, rating);
             setVisionInboxSkipIds(previous => new Set(previous).add(entryId));
           }}
           onSkip={() => {
-            const next = entries.find(
-              entry =>
-                entry.status === 'completed' &&
-                entry.images.length > 0 &&
-                !(entry.visionTags?.length ?? 0) &&
-                !visionInboxSkipIds.has(entry.id)
-            );
+            const next = visionInboxQueue[0];
             if (next) {
               setVisionInboxSkipIds(previous => new Set(previous).add(next.id));
             }

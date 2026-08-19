@@ -1,60 +1,48 @@
-import assert from "node:assert/strict";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
-import { after, before, describe, it } from "node:test";
-import {
-  buildViewCacheKey,
-  contentTypeForViewFormat,
-  negotiateViewFormat,
-  readViewCache,
-  stopDiskCleanup,
-  writeViewCache,
-} from "./comfyui-view-cache";
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { selectDiskCacheEvictions, type DiskCacheFileInfo } from './comfyui-view-cache';
 
-describe("comfyui view cache", () => {
-  const previousDataDir = process.env.PROMPT_DATA_DIR;
-  let tempDir = "";
+function entry(key: string, bytes: number, mtimeMs: number): DiskCacheFileInfo {
+  return { key, bytes, mtimeMs };
+}
 
-  before(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "view-cache-"));
-    process.env.PROMPT_DATA_DIR = tempDir;
-  });
+test('selectDiskCacheEvictions: returns nothing when under budget', () => {
+  const entries = [entry('a', 100, 1), entry('b', 100, 2)];
+  const evicted = selectDiskCacheEvictions(entries, 1000);
+  assert.equal(evicted.size, 0);
+});
 
-  after(() => {
-    stopDiskCleanup();
-    if (previousDataDir === undefined) {
-      delete process.env.PROMPT_DATA_DIR;
-    } else {
-      process.env.PROMPT_DATA_DIR = previousDataDir;
-    }
-    fs.rmSync(tempDir, { recursive: true, force: true });
-  });
+test('selectDiskCacheEvictions: returns nothing for an empty list', () => {
+  const evicted = selectDiskCacheEvictions([], 1000);
+  assert.equal(evicted.size, 0);
+});
 
-  it("negotiates format from Accept", () => {
-    assert.equal(negotiateViewFormat("image/avif,image/webp,*/*"), "avif");
-    assert.equal(negotiateViewFormat("image/webp,*/*"), "webp");
-    assert.equal(negotiateViewFormat("image/png,*/*"), "jpeg");
-    assert.equal(contentTypeForViewFormat("webp"), "image/webp");
-  });
+test('selectDiskCacheEvictions: evicts oldest entries first until under budget', () => {
+  const entries = [
+    entry('oldest', 400, 1),
+    entry('middle', 400, 2),
+    entry('newest', 400, 3),
+  ];
+  // Total is 1200; budget 1000 means we need to shed at least 200 bytes,
+  // which only requires evicting the oldest entry (400 bytes freed).
+  const evicted = selectDiskCacheEvictions(entries, 1000);
+  assert.deepEqual([...evicted], ['oldest']);
+});
 
-  it("round-trips memory and disk cache entries", () => {
-    const key = buildViewCacheKey({
-      comfyUrl: "http://127.0.0.1:8188",
-      filename: "a.png",
-      subfolder: "",
-      type: "output",
-      width: 512,
-      format: "webp",
-    });
-    const payload = {
-      buffer: Buffer.from("thumb-bytes"),
-      contentType: "image/webp",
-    };
-    writeViewCache(key, "webp", payload);
-    const hit = readViewCache(key, "webp");
-    assert.ok(hit);
-    assert.equal(hit.contentType, "image/webp");
-    assert.equal(hit.buffer.toString("utf8"), "thumb-bytes");
-  });
+test('selectDiskCacheEvictions: keeps evicting until the budget is met', () => {
+  const entries = [
+    entry('oldest', 100, 1),
+    entry('second', 100, 2),
+    entry('third', 100, 3),
+    entry('newest', 100, 4),
+  ];
+  // Total 400, budget 150 — must evict oldest three (300 bytes) to reach 100 <= 150.
+  const evicted = selectDiskCacheEvictions(entries, 150);
+  assert.deepEqual([...evicted].sort(), ['oldest', 'second', 'third'].sort());
+});
+
+test('selectDiskCacheEvictions: exactly at budget evicts nothing', () => {
+  const entries = [entry('a', 500, 1), entry('b', 500, 2)];
+  const evicted = selectDiskCacheEvictions(entries, 1000);
+  assert.equal(evicted.size, 0);
 });

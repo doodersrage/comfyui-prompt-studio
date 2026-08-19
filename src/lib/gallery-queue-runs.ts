@@ -6,7 +6,17 @@ const MIN_BATCH = 3;
 
 function runId(entries: ComfyGalleryEntry[]): string {
   const first = entries[0];
-  return `run-${first?.tool ?? 'batch'}-${first?.queuedAt ?? 0}`.slice(0, 32);
+  // Keyed on the first entry's own (already-unique) id rather than a
+  // tool-name + timestamp string truncated to 32 chars: several tools in
+  // this app have names long enough (e.g. "wan-video-rapid-aio", 19 chars)
+  // that the old scheme left only ~8 leading digits of the 13-digit
+  // queuedAt epoch-ms value before truncation -- any two batches of the
+  // same tool queued within the same ~100-second bucket collided on id.
+  // That id is used directly as both the React row key and the lookup key
+  // for collapse/winner state, so a collision made two unrelated batches
+  // silently share (and clobber) each other's expand/collapse + winner UI
+  // state, and could cause React to drop one of the rows entirely.
+  return `run-${first?.id ?? 'batch'}`;
 }
 
 /**
