@@ -6,10 +6,18 @@ import { addComfyGalleryEntry } from './comfyui-gallery';
 import { loadComfyUiSettings } from './comfyui-settings';
 import {
   canStampAssembledFilm,
+  DEFAULT_STILL_HOLD_SEC,
   filmDownloadFilename,
   type FilmPlaylistShot,
 } from './character-film';
+import type { ComfyGalleryEntry } from './comfyui-gallery-entry';
 import { persistGalleryOriginal } from './gallery-media-client';
+import { galleryStitchShots, MIN_GALLERY_STITCH_CLIPS } from './gallery-video-stitch';
+import {
+  isAnimatedImageShotUrl,
+  readAnimatedImageLoopDurationMs,
+  sniffAnimatedImageMime,
+} from './animated-image-timeline';
 
 const MAX_EDGE = 1280;
 const FRAME_RATE = 30;
@@ -126,10 +134,101 @@ async function paintFor(
   await tick();
 }
 
+async function loadShotBytes(url: string): Promise<ArrayBuffer> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error('Could not load that clip.');
+  }
+  return response.arrayBuffer();
+}
+
+type ImageDecoderLike = {
+  tracks: {
+    ready: Promise<void>;
+    selectedTrack: { frameCount: number } | null;
+  };
+  decode: (options: { frameIndex: number }) => Promise<{ image: VideoFrame }>;
+  close: () => void;
+};
+
+function imageDecoderCtor():
+  (new (init: { data: BufferSource; type: string }) => ImageDecoderLike) | undefined {
+  return (
+    globalThis as {
+      ImageDecoder?: new (init: { data: BufferSource; type: string }) => ImageDecoderLike;
+    }
+  ).ImageDecoder;
+}
+
+async function paintAnimatedImage(
+  context: CanvasRenderingContext2D,
+  url: string,
+  canvasWidth: number,
+  canvasHeight: number,
+  holdSec?: number
+): Promise<void> {
+  const fallbackHold = holdSec && holdSec > 0 ? holdSec : DEFAULT_STILL_HOLD_SEC;
+  let buffer: ArrayBuffer | null = null;
+  try {
+    buffer = await loadShotBytes(url);
+  } catch {
+    buffer = null;
+  }
+  const bytes = buffer ? new Uint8Array(buffer) : null;
+
+  const Decoder = imageDecoderCtor();
+  const mime = bytes ? sniffAnimatedImageMime(bytes, url) : null;
+  if (Decoder && buffer && mime) {
+    try {
+      const decoder = new Decoder({ data: buffer, type: mime });
+      await decoder.tracks.ready;
+      const frameCount = decoder.tracks.selectedTrack?.frameCount ?? 0;
+      if (frameCount >= 1) {
+        for (let index = 0; index < frameCount; index += 1) {
+          const { image } = await decoder.decode({ frameIndex: index });
+          const delaySec = Math.max(1 / FRAME_RATE, (image.duration ?? 40_000) / 1_000_000);
+          await paintFor(
+            context,
+            () =>
+              drawCover(
+                context,
+                image,
+                image.displayWidth,
+                image.displayHeight,
+                canvasWidth,
+                canvasHeight
+              ),
+            delaySec
+          );
+          image.close();
+        }
+        decoder.close();
+        if (frameCount === 1) {
+          await wait(Math.max(0, fallbackHold * 1000 - 1000 / FRAME_RATE));
+        }
+        return;
+      }
+      decoder.close();
+    } catch {
+      // Fall through to <img> playback.
+    }
+  }
+
+  const image = await loadImage(url);
+  const parsedMs = bytes ? readAnimatedImageLoopDurationMs(bytes, mime) : null;
+  const durationSec = parsedMs && parsedMs > 0 ? parsedMs / 1000 : fallbackHold;
+  await paintFor(
+    context,
+    () =>
+      drawCover(context, image, image.naturalWidth, image.naturalHeight, canvasWidth, canvasHeight),
+    durationSec
+  );
+}
+
 async function probeSize(shots: FilmPlaylistShot[]): Promise<{ width: number; height: number }> {
   for (const shot of shots) {
     try {
-      if (shot.kind === 'clip') {
+      if (shot.kind === 'clip' && !isAnimatedImageShotUrl(shot.url)) {
         const video = await loadVideo(shot.url);
         const size = fitSize(video.videoWidth, video.videoHeight);
         video.removeAttribute('src');
@@ -159,7 +258,7 @@ export async function assembleFilmBlob(
   options?.onProgress?.({ ratio: 0.02, label: 'Checking shots…' });
   for (const shot of shots) {
     try {
-      if (shot.kind === 'clip') {
+      if (shot.kind === 'clip' && !isAnimatedImageShotUrl(shot.url)) {
         const video = await loadVideo(shot.url);
         video.removeAttribute('src');
         video.load();
@@ -227,8 +326,12 @@ export async function assembleFilmBlob(
         await paintFor(
           context,
           () => drawCover(context, image, image.naturalWidth, image.naturalHeight, width, height),
-          shot.holdSec && shot.holdSec > 0 ? shot.holdSec : 2.5
+          shot.holdSec && shot.holdSec > 0 ? shot.holdSec : DEFAULT_STILL_HOLD_SEC
         );
+        continue;
+      }
+      if (isAnimatedImageShotUrl(shot.url)) {
+        await paintAnimatedImage(context, shot.url, width, height, shot.holdSec);
         continue;
       }
       const video = await loadVideo(shot.url);
@@ -306,10 +409,15 @@ export function downloadFilmBlob(blob: Blob, filename: string): void {
 export async function stampAssembledFilm(input: {
   blob: Blob;
   filename: string;
-  characterId: string;
-  characterName: string;
+  characterId?: string;
+  characterName?: string;
   lookId?: string;
   mimeType?: string;
+  prompt?: string;
+  tool?: string;
+  parentGalleryEntryId?: string;
+  projectId?: string;
+  userTags?: string[];
   onProgress?: (progress: AssembleFilmProgress) => void;
 }): Promise<{ persisted: boolean; entryId?: string }> {
   if (!canStampAssembledFilm(input.blob.size)) {
@@ -325,14 +433,17 @@ export async function stampAssembledFilm(input: {
   }
 
   const settings = loadComfyUiSettings();
+  const characterName = input.characterName?.trim() || 'character';
   addComfyGalleryEntry({
     id,
     promptId: `film-${id}`,
-    prompt: `Assembled film · ${input.characterName.trim() || 'character'}`,
-    tool: 'roleplay',
+    prompt: input.prompt?.trim() || `Assembled film · ${characterName}`,
+    tool: input.tool?.trim() || 'roleplay',
     derivedKind: 'film',
     characterId: input.characterId,
     lookId: input.lookId,
+    parentGalleryEntryId: input.parentGalleryEntryId,
+    projectId: input.projectId,
     comfyUrl: settings.apiUrl?.trim() || 'http://127.0.0.1:8188',
     status: 'completed',
     completedAt: Date.now(),
@@ -347,7 +458,7 @@ export async function stampAssembledFilm(input: {
     durableOriginalPath: persisted.originalPath,
     durableThumbPath: persisted.thumbPath,
     sourceImageUrl: persisted.originalUrl,
-    userTags: ['film'],
+    userTags: input.userTags ?? ['film'],
   });
 
   return { persisted: true, entryId: id };
@@ -377,4 +488,55 @@ export async function assembleAndStampFilm(input: {
     onProgress: input.onProgress,
   });
   return { filename, blob: assembled.blob, ...stamped };
+}
+
+export async function stitchSelectedGalleryVideos(input: {
+  entries: ComfyGalleryEntry[];
+  onProgress?: (progress: AssembleFilmProgress) => void;
+}): Promise<{
+  filename: string;
+  blob: Blob;
+  persisted: boolean;
+  entryId?: string;
+  clipCount: number;
+}> {
+  const shots = galleryStitchShots(input.entries);
+  if (shots.length < MIN_GALLERY_STITCH_CLIPS) {
+    throw new Error('Select at least two completed clips to stitch.');
+  }
+
+  const assembled = await assembleFilmBlob(shots, { onProgress: input.onProgress });
+  const filename = filmDownloadFilename('gallery-stitch', assembled.extension);
+  const firstId = shots[0]?.entryId;
+  const first = input.entries.find(entry => entry.id === firstId);
+  const characterIds = new Set(
+    input.entries
+      .filter(entry => shots.some(shot => shot.entryId === entry.id))
+      .map(entry => entry.characterId?.trim())
+      .filter((id): id is string => Boolean(id))
+  );
+
+  const stamped = await stampAssembledFilm({
+    blob: assembled.blob,
+    filename,
+    characterId: characterIds.size === 1 ? [...characterIds][0] : undefined,
+    characterName: 'gallery',
+    lookId: first?.lookId,
+    mimeType: assembled.mimeType,
+    prompt: `Stitched film · ${shots.length} clips`,
+    tool: 'gallery',
+    parentGalleryEntryId: first?.id,
+    projectId: first?.projectId,
+    userTags: ['film', 'stitch'],
+    onProgress: input.onProgress,
+  });
+
+  downloadFilmBlob(assembled.blob, filename);
+  return {
+    filename,
+    blob: assembled.blob,
+    persisted: stamped.persisted,
+    entryId: stamped.entryId,
+    clipCount: shots.length,
+  };
 }

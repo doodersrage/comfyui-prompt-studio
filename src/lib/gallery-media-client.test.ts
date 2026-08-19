@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
   cacheBustIdentityMediaUrl,
   durableGalleryOriginalUrl,
+  durableGalleryThumbUrl,
   IDENTITY_MEDIA_URL,
   isDurableGalleryMediaUrl,
   isIdentityMediaUrl,
@@ -65,5 +66,29 @@ describe('resolveDurableGalleryStillUrl', () => {
       }),
       undefined
     );
+  });
+});
+
+describe('durable media URLs with a batch index', () => {
+  it('omits the index param for the primary output (index 0 or unset)', () => {
+    assert.equal(durableGalleryThumbUrl('job-1'), '/api/gallery/media/job-1');
+    assert.equal(durableGalleryThumbUrl('job-1', 0), '/api/gallery/media/job-1');
+    assert.equal(durableGalleryOriginalUrl('job-1'), '/api/gallery/media/job-1?variant=original');
+    assert.equal(
+      durableGalleryOriginalUrl('job-1', 0),
+      '/api/gallery/media/job-1?variant=original'
+    );
+  });
+
+  it('adds the index param for later outputs in a multi-image batch', () => {
+    assert.equal(durableGalleryThumbUrl('job-1', 2), '/api/gallery/media/job-1?index=2');
+    assert.equal(
+      durableGalleryOriginalUrl('job-1', 3),
+      '/api/gallery/media/job-1?variant=original&index=3'
+    );
+  });
+
+  it('still matches isDurableGalleryMediaUrl once cache-busted with an index', () => {
+    assert.equal(isDurableGalleryMediaUrl(durableGalleryOriginalUrl('job-1', 1)), true);
   });
 });

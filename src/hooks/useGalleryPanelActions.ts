@@ -147,6 +147,7 @@ export function useGalleryPanelActions({
   setLoraExportOpen,
 }: UseGalleryPanelActionsInput) {
   const galleryCardActionsRef = useRef<GalleryCardActions>(EMPTY_GALLERY_CARD_ACTIONS);
+  const stitchBusyRef = useRef(false);
 
   useLayoutEffect(() => {
     galleryCardActionsRef.current = {
@@ -592,6 +593,35 @@ export function useGalleryPanelActions({
           .then(({ downloadGalleryZipBundle }) => downloadGalleryZipBundle(selectedEntries))
           .then(count => {
             setRequeueStatus(`ZIP export prepared for ${count} entries.`);
+          });
+      },
+      onStitchVideos: () => {
+        if (stitchBusyRef.current) {
+          return;
+        }
+        stitchBusyRef.current = true;
+        setRequeueStatus('Stitching selected clips…');
+        void import('@/lib/character-film-assemble')
+          .then(({ stitchSelectedGalleryVideos }) =>
+            stitchSelectedGalleryVideos({
+              entries: selectedEntries,
+              onProgress: progress => setRequeueStatus(progress.label),
+            })
+          )
+          .then(result => {
+            setRequeueStatus(
+              result.persisted
+                ? `Stitched ${result.clipCount} clips into ${result.filename} and saved to gallery.`
+                : `Downloaded ${result.filename}. Studio storage could not keep a copy (file may be over 80 MB).`
+            );
+          })
+          .catch(error => {
+            setRequeueStatus(
+              error instanceof Error ? error.message : 'Could not stitch those clips.'
+            );
+          })
+          .finally(() => {
+            stitchBusyRef.current = false;
           });
       },
       onExportLoraDataset: () => {

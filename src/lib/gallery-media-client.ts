@@ -1,5 +1,4 @@
 import type { ComfyGalleryEntry } from './comfyui-gallery-entry';
-import { resolveComfyOutputMediaKind, shouldSkipGalleryThumbProxy } from './comfyui-outputs';
 
 export const IDENTITY_MEDIA_URL = '/api/gallery/media/identity';
 
@@ -23,12 +22,15 @@ export function cacheBustIdentityMediaUrl(url: string): string {
   return `${path}?${params.toString()}`;
 }
 
-export function durableGalleryThumbUrl(entryId: string): string {
-  return `/api/gallery/media/${encodeURIComponent(entryId)}`;
+/** `index` addresses one output within a multi-image batch entry; omit/0 for the primary output. */
+export function durableGalleryThumbUrl(entryId: string, index?: number): string {
+  const base = `/api/gallery/media/${encodeURIComponent(entryId)}`;
+  return index ? `${base}?index=${index}` : base;
 }
 
-export function durableGalleryOriginalUrl(entryId: string): string {
-  return `/api/gallery/media/${encodeURIComponent(entryId)}?variant=original`;
+export function durableGalleryOriginalUrl(entryId: string, index?: number): string {
+  const base = `/api/gallery/media/${encodeURIComponent(entryId)}?variant=original`;
+  return index ? `${base}&index=${index}` : base;
 }
 
 export function isDurableGalleryMediaUrl(url: string): boolean {
@@ -76,46 +78,97 @@ async function readPersistResponse(response: Response): Promise<PersistResponse 
   }
 }
 
-/** Best-effort: copy the still's first image into durable storage. */
-export async function persistGalleryThumb(
-  entry: Pick<ComfyGalleryEntry, 'id' | 'comfyUrl' | 'engineId' | 'images'>
-): Promise<string | null> {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-  const image = entry.images?.[0];
-  if (!image?.filename?.trim()) {
-    return null;
-  }
-  if (
-    resolveComfyOutputMediaKind(image) !== 'image' ||
-    shouldSkipGalleryThumbProxy(image.filename)
-  ) {
-    return null;
-  }
+type PersistedImageResult = {
+  thumbUrl: string | null;
+  originalUrl: string | null;
+  /** Server-relative storage path (e.g. `gallery-media/{owner}/{id}/original-2`) — accurate per index. */
+  thumbPath: string | null;
+  originalPath: string | null;
+};
+
+async function persistGalleryMediaImage(
+  entry: Pick<ComfyGalleryEntry, 'id' | 'promptId' | 'comfyUrl' | 'engineId'>,
+  image: { filename: string; subfolder?: string; type?: string; format?: string },
+  index: number
+): Promise<PersistedImageResult | null> {
   try {
     const response = await fetch('/api/gallery/media/persist', {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        kind: 'thumb',
+        kind: 'auto',
         galleryEntryId: entry.id,
+        index,
+        promptId: entry.promptId,
         comfyUrl: entry.comfyUrl,
         filename: image.filename,
         subfolder: image.subfolder ?? '',
         type: image.type ?? 'output',
+        format: image.format,
         engineId: entry.engineId,
       }),
     });
     const data = await readPersistResponse(response);
-    if (!data || data.skipped || !data.url) {
+    if (!data || data.skipped || !data.originalPath) {
       return null;
     }
-    return data.url;
+    return {
+      thumbUrl: data.url ?? null,
+      originalUrl: data.originalUrl ?? null,
+      thumbPath: data.path ?? null,
+      originalPath: data.originalPath ?? null,
+    };
   } catch {
     return null;
   }
+}
+
+/**
+ * Best-effort: pull every output in the entry (image or video, any engine)
+ * into durable storage under PROMPT_DATA_DIR so the gallery survives the
+ * source engine cleaning up its own output history — including every frame
+ * of a multi-image batch, not just the first. Stills also get a small webp
+ * thumb; motion output is stored as-is (sharp can't resize video). Called
+ * once, right after a job completes — see comfyui-gallery-client.ts.
+ *
+ * Returns arrays parallel to `entry.images` (`null` at an index means that
+ * output wasn't persisted — the gallery keeps using the live engine proxy
+ * for it). `thumbPaths`/`originalPaths` are the accurate server-relative
+ * storage paths (for `ComfyGalleryEntry.durableThumbPaths`/
+ * `durableOriginalPaths`); `thumbUrls`/`originalUrls` are ready-to-render
+ * URLs. Each image is persisted independently so one failure/skip doesn't
+ * block the rest of the batch.
+ */
+export async function persistGalleryMedia(
+  entry: Pick<ComfyGalleryEntry, 'id' | 'promptId' | 'comfyUrl' | 'engineId' | 'images'>
+): Promise<{
+  thumbUrls: (string | null)[];
+  originalUrls: (string | null)[];
+  thumbPaths: (string | null)[];
+  originalPaths: (string | null)[];
+} | null> {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  const images = entry.images ?? [];
+  if (images.length === 0 || !images[0]?.filename?.trim()) {
+    return null;
+  }
+  const results = await Promise.all(
+    images.map((image, index) =>
+      image?.filename?.trim() ? persistGalleryMediaImage(entry, image, index) : null
+    )
+  );
+  if (results.every(result => !result)) {
+    return null;
+  }
+  return {
+    thumbUrls: results.map(result => result?.thumbUrl ?? null),
+    originalUrls: results.map(result => result?.originalUrl ?? null),
+    thumbPaths: results.map(result => result?.thumbPath ?? null),
+    originalPaths: results.map(result => result?.originalPath ?? null),
+  };
 }
 
 /** Persist a user-picked still as the durable original + thumb for a gallery id. */

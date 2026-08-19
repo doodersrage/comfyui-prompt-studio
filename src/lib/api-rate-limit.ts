@@ -50,3 +50,24 @@ export function rateLimitClientKey(request: Request): string {
   const realIp = request.headers.get('x-real-ip')?.trim();
   return forwarded || realIp || 'local';
 }
+
+// Read-only image/video byte-serving routes (ComfyUI `/view`, gallery thumbs,
+// other engine "view"/"preview" proxies). Every gallery thumbnail, hover
+// preview, and lightbox open fires one of these, so a gallery page with a
+// few dozen cards can burn through the general API budget in seconds even
+// though each request is cheap and already cache-backed (see
+// comfyui-view-cache.ts / Cache-Control headers). These routes get their own,
+// much larger budget so normal gallery browsing never trips the limiter that
+// exists to protect mutating/expensive API routes.
+const HIGH_VOLUME_MEDIA_ROUTE =
+  /^\/api\/(?:comfyui|openai|replicate|diffusers|gemini|fal|grok)\/(?:view|view-metadata|preview|model-preview)(?:\/|$)/;
+const GALLERY_MEDIA_ROUTE = /^\/api\/gallery\/media\/(?!persist(?:\/|$))[^/]+\/?$/;
+
+export function isHighVolumeMediaRoute(pathname: string): boolean {
+  return HIGH_VOLUME_MEDIA_ROUTE.test(pathname) || GALLERY_MEDIA_ROUTE.test(pathname);
+}
+
+export function mediaRateLimitMax(): number {
+  const raw = Number(process.env.API_RATE_LIMIT_MEDIA_MAX ?? '600');
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 600;
+}

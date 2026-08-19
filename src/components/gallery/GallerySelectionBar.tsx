@@ -12,6 +12,7 @@ import {
 } from '@/lib/gallery-entry-actions';
 import { isQwenRapidAioModel } from '@/lib/model-denoise-defaults';
 import { isQwenLightningModel } from '@/lib/model-sampling-patch';
+import { countGalleryStitchableVideos } from '@/lib/gallery-video-stitch';
 
 type GallerySelectionBarProps = {
   selectedCount: number;
@@ -30,6 +31,7 @@ type GallerySelectionBarProps = {
   onExportSidecars: () => void;
   onDownloadImages: () => void;
   onExportZip: () => void;
+  onStitchVideos: () => void;
   onExportLoraDataset: () => void;
   onExportCompareJson: () => void;
   onExportCompareHtml: () => void;
@@ -168,6 +170,8 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
 
   const singleSelected = props.selectedCount === 1;
   const compareReady = props.selectedCount >= 2 && props.selectedCount <= 4;
+  const stitchableCount = countGalleryStitchableVideos(props.selectedEntries);
+  const stitchReady = stitchableCount >= 2;
   const upscaleFinalLabel = queueCapabilities.allRapid
     ? 'Bulk Flux polish → Final' // rapid moiré blur only
     : 'Bulk upscale → Final (~1.25× Lanczos)';
@@ -205,7 +209,26 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
           Compare
         </button>
 
+        <button
+          type="button"
+          className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--accent-border)] bg-[var(--accent-muted)] backdrop-blur-xs transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] text-[var(--accent-text)] disabled:!hidden`}
+          disabled={!stitchReady}
+          title="Join selected clips end-to-end in oldest-to-newest order, including animated webp/gif. Re-encodes in the browser — does not run a video model."
+          onClick={props.onStitchVideos}
+        >
+          {`Stitch clips (${stitchableCount})`}
+        </button>
+
         <ActionMenu label="Export" disabled={props.selectedCount === 0}>
+          <MenuItem
+            label={
+              stitchReady
+                ? `Stitch clips into one video (${stitchableCount})`
+                : 'Stitch clips into one video'
+            }
+            disabled={!stitchReady}
+            onClick={props.onStitchVideos}
+          />
           <MenuItem label="Sidecars" onClick={props.onExportSidecars} />
           <MenuItem label="Images" onClick={props.onDownloadImages} />
           {!props.lean ? <MenuItem label="ZIP bundle" onClick={props.onExportZip} /> : null}

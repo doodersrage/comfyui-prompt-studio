@@ -86,10 +86,38 @@ export type ComfyGalleryEntry = {
   progressNode?: string | null;
   queuedAt: number;
   completedAt?: number;
-  /** Durable thumb under PROMPT_DATA_DIR (`gallery-media/{owner}/{id}/thumb.webp`). */
+  /**
+   * Durable thumb under PROMPT_DATA_DIR (`gallery-media/{owner}/{id}/thumb.webp`).
+   * Stills only. Legacy single-value field — always mirrors index 0 of
+   * `durableThumbPaths` below. Kept because several single-image call sites
+   * (user uploads, film assembly, identity handoff) only ever address index 0
+   * and read this field directly.
+   */
   durableThumbPath?: string;
-  /** Durable original still for user uploads (`gallery-media/{owner}/{id}/original`). */
+  /**
+   * Durable full-resolution original under PROMPT_DATA_DIR
+   * (`gallery-media/{owner}/{id}/original`) — set for user uploads/imports
+   * and automatically for completed engine outputs (image or video, any
+   * engine). When present, the gallery reads/plays from this copy instead of
+   * proxying live to the source engine, so it survives the engine cleaning
+   * up its own output history. Legacy single-value field — always mirrors
+   * index 0 of `durableOriginalPaths` below.
+   */
   durableOriginalPath?: string;
+  /**
+   * Per-image durable thumb presence, parallel to `images` (stills only —
+   * entries with more than one output in a batch each get their own thumb).
+   * `null`/missing at an index means that image isn't durably stored (still
+   * falls back to the live engine proxy). Index 0 always mirrors
+   * `durableThumbPath`.
+   */
+  durableThumbPaths?: (string | null)[];
+  /**
+   * Per-image durable original presence, parallel to `images`. `null`/missing
+   * at an index means that image isn't durably stored. Index 0 always
+   * mirrors `durableOriginalPath`.
+   */
+  durableOriginalPaths?: (string | null)[];
   /**
    * Workflow execution duration in ms (ComfyUI execution_start → success/error
    * when available; otherwise may be filled from queuedAt→completedAt wall clock).

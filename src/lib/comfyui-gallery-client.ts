@@ -696,14 +696,29 @@ function applyComfyJobStatus(
       void freeComfyUiMemory(entry.engineId === 'diffusers' ? undefined : entry.comfyUrl);
     }
     void autoTagGalleryEntry(entry);
-    void import('./gallery-media-client').then(({ persistGalleryThumb }) => {
-      void persistGalleryThumb(entry).then(url => {
-        if (!url) {
+    // Best-effort: pull every output in this job (image or video, any engine)
+    // into durable storage — including every frame of a multi-image batch,
+    // not just the first — so the gallery still has it once the source
+    // engine cleans up its own output history. See gallery-media-client.ts.
+    void import('./gallery-media-client').then(({ persistGalleryMedia }) => {
+      void persistGalleryMedia(entry).then(result => {
+        if (!result) {
           return;
         }
-        updateComfyGalleryEntryById(entry.id, {
-          durableThumbPath: `gallery-media/${entry.id}/thumb.webp`,
-        });
+        const patch: Partial<ComfyGalleryEntry> = {
+          durableThumbPaths: result.thumbPaths,
+          durableOriginalPaths: result.originalPaths,
+        };
+        // Legacy single-value fields always mirror index 0 — several
+        // single-image call sites (uploads, film assembly, requeue-from)
+        // still read these directly instead of the arrays above.
+        if (result.thumbPaths[0]) {
+          patch.durableThumbPath = result.thumbPaths[0];
+        }
+        if (result.originalPaths[0]) {
+          patch.durableOriginalPath = result.originalPaths[0];
+        }
+        updateComfyGalleryEntryById(entry.id, patch);
       });
     });
     noteScheduledBatchJobComplete(entry.tool);

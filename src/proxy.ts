@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { checkRateLimit, rateLimitClientKey } from '@/lib/api-rate-limit';
+import {
+  checkRateLimit,
+  isHighVolumeMediaRoute,
+  mediaRateLimitMax,
+  rateLimitClientKey,
+} from '@/lib/api-rate-limit';
 import { resolveUserIdFromApiKey } from '@/lib/auth/api-keys';
 import { readSessionFromRequest } from '@/lib/auth/session';
 import { findUserById, listGroups } from '@/lib/auth/store';
@@ -73,8 +78,9 @@ export function proxy(request: NextRequest) {
         : apiKeyUserId
           ? findUserById(apiKeyUserId)
           : null;
-    const limit =
-      user && user.enabled
+    const limit = isHighVolumeMediaRoute(path)
+      ? checkRateLimit(clientKey, path, mediaRateLimitMax())
+      : user && user.enabled
         ? checkUserRateLimit({
             user,
             groups: listGroups(),

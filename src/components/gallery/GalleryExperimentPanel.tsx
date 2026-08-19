@@ -24,6 +24,7 @@ export type GalleryExperimentPanelProps = {
   onExportSidecars: () => void;
   onDownloadImages: () => void;
   onExportZip: () => void;
+  onStitchVideos: () => void;
   onExportLoraDataset: () => void;
   onExportCompareJson: () => void;
   onExportCompareHtml: () => void;

@@ -2,7 +2,13 @@ import { NextResponse } from 'next/server';
 import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
 import { resolveRequestUser } from '@/lib/auth/access';
 import { isAuthEnabled } from '@/lib/auth/store';
-import { GALLERY_THUMB_WIDTH } from '@/lib/comfyui-outputs';
+import {
+  GALLERY_THUMB_WIDTH,
+  contentTypeForViewBytes,
+  isAnimatedImageBytes,
+  resolveComfyOutputMediaKind,
+} from '@/lib/comfyui-outputs';
+import { durableGalleryOriginalUrl, durableGalleryThumbUrl } from '@/lib/gallery-media-client';
 import {
   persistGalleryThumbFile,
   persistIdentityFile,
@@ -18,6 +24,7 @@ import {
 } from '@/lib/url-safety';
 
 export const runtime = 'nodejs';
+export const maxDuration = 60;
 
 function resolveMediaUserId(request: Request): string | null {
   if (!isAuthEnabled()) {
@@ -30,34 +37,97 @@ function resolveMediaUserId(request: Request): string | null {
   return user.id;
 }
 
-async function fetchComfyViewBuffer(input: {
-  comfyUrl?: string;
+type FetchedBuffer = { buffer: Buffer; contentType: string };
+
+/**
+ * Pull an engine output's raw bytes straight from the source (ComfyUI,
+ * Diffusers, or a cloud provider's cached job output), mirroring exactly what
+ * each engine's own `/api/<engine>/view` route does for live display. Kept
+ * in-process (no HTTP hop back through our own API) so this works
+ * server-to-server regardless of whether user auth is enabled — a self-fetch
+ * of one of these `view` routes would otherwise need to smuggle a session/service token
+ * through the auth gate in `proxy.ts`.
+ */
+async function fetchEngineOutputBuffer(input: {
+  engineId?: string;
+  engineUrl?: string;
+  promptId?: string;
   filename: string;
   subfolder: string;
   type: 'output' | 'input' | 'temp';
-}): Promise<{ buffer: Buffer; contentType: string }> {
-  const runtime = stripEmptyComfyUiRuntime({
-    apiUrl: input.comfyUrl,
-  });
+}): Promise<FetchedBuffer | null> {
+  const engineId = input.engineId?.trim() || 'comfyui';
+
+  if (engineId === 'fal' || engineId === 'replicate') {
+    const file =
+      engineId === 'fal'
+        ? await (
+            await import('@/lib/fal-client')
+          ).ensureFalOutput({
+            promptId: input.promptId,
+            filename: input.filename,
+            subfolder: input.subfolder,
+          })
+        : await (
+            await import('@/lib/replicate-client')
+          ).ensureReplicateOutput({
+            promptId: input.promptId,
+            filename: input.filename,
+            subfolder: input.subfolder,
+          });
+    if (!file) {
+      return null;
+    }
+    return { buffer: Buffer.from(file.bytes), contentType: file.mimeType };
+  }
+
+  if (engineId === 'openai' || engineId === 'gemini' || engineId === 'grok') {
+    const { ensureLlmImageOutput } = await import('@/lib/llm-image-client');
+    const file = await ensureLlmImageOutput({
+      engineId,
+      filename: input.filename,
+      subfolder: input.subfolder,
+    });
+    if (!file) {
+      return null;
+    }
+    return { buffer: Buffer.from(file.bytes), contentType: file.mimeType };
+  }
+
+  if (engineId === 'diffusers') {
+    const { getDiffusersBaseUrl } = await import('@/lib/diffusers-client');
+    const engineUrl = getDiffusersBaseUrl(input.engineUrl);
+    const upstream = new URL(`${engineUrl}/v1/view`);
+    upstream.searchParams.set('filename', input.filename);
+    upstream.searchParams.set('subfolder', input.subfolder);
+    upstream.searchParams.set('type', input.type);
+    const response = await fetch(upstream.toString(), { signal: AbortSignal.timeout(30_000) });
+    if (!response.ok) {
+      throw new Error(`Diffusers view returned HTTP ${response.status}`);
+    }
+    return {
+      buffer: Buffer.from(await response.arrayBuffer()),
+      contentType: response.headers.get('content-type') ?? 'application/octet-stream',
+    };
+  }
+
+  // Default: comfyui.
+  const runtime = stripEmptyComfyUiRuntime({ apiUrl: input.engineUrl });
   const comfyUrl = getComfyUiBaseUrl(runtime);
   const viewUrl = new URL(`${comfyUrl}/view`);
   viewUrl.searchParams.set('filename', input.filename);
   viewUrl.searchParams.set('subfolder', input.subfolder);
   viewUrl.searchParams.set('type', input.type);
   const response = await fetch(viewUrl.toString(), {
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(15_000),
     redirect: 'manual',
   });
   if (!response.ok) {
     throw new Error(`ComfyUI view returned HTTP ${response.status}`);
   }
-  const contentType = response.headers.get('content-type') ?? 'image/png';
-  if (!contentType.startsWith('image/')) {
-    throw new Error('ComfyUI view did not return an image.');
-  }
   return {
     buffer: Buffer.from(await response.arrayBuffer()),
-    contentType,
+    contentType: response.headers.get('content-type') ?? 'application/octet-stream',
   };
 }
 
@@ -78,15 +148,25 @@ async function encodeThumbWebp(buffer: Buffer): Promise<Buffer> {
 type PersistJsonBody = {
   kind?: string;
   galleryEntryId?: string;
+  /** Which output within a multi-image batch entry this call is for. Defaults to 0. */
+  index?: number;
   comfyUrl?: string;
+  promptId?: string;
   filename?: string;
   subfolder?: string;
   type?: string;
+  format?: string;
   engineId?: string;
 };
 
+function safeBodyIndex(raw: unknown): number {
+  return typeof raw === 'number' && Number.isInteger(raw) && raw >= 0 && raw <= 63 ? raw : 0;
+}
+
 const MAX_GALLERY_UPLOAD_BYTES = 25 * 1024 * 1024;
 const MAX_GALLERY_FILM_BYTES = 80 * 1024 * 1024;
+/** Same ceiling as a manual film upload — bounds worst-case disk use for one auto-persisted asset. */
+const MAX_AUTO_PERSIST_BYTES = MAX_GALLERY_FILM_BYTES;
 
 async function persistUploadedOriginal(request: Request, form: FormData): Promise<NextResponse> {
   const userId = resolveMediaUserId(request);
@@ -144,48 +224,106 @@ async function persistUploadedOriginal(request: Request, form: FormData): Promis
   });
 }
 
-async function persistFromViewParams(
+/**
+ * Auto-persist path: called best-effort right after a job completes, for any
+ * engine. Always stores the full-resolution original (image or video/audio/
+ * mesh); additionally encodes a small webp thumb for stills, since sharp
+ * can't resize motion content.
+ */
+async function persistAutoFromViewParams(
   request: Request,
-  kind: 'thumb' | 'identity',
   body: PersistJsonBody
 ): Promise<NextResponse> {
   const userId = resolveMediaUserId(request);
   if (isAuthEnabled() && !userId) {
     return apiError('Sign in required.', 401);
   }
-  if (body.engineId && body.engineId !== 'comfyui') {
-    return apiJson({ skipped: true, reason: 'engine' });
-  }
-  const filename = sanitizeComfyViewFilename(body.filename ?? '');
-  const subfolder = sanitizeComfyViewSubfolder(body.subfolder ?? '');
-  const type = normalizeComfyViewType(body.type?.trim() || 'output');
-  const fetched = await fetchComfyViewBuffer({
-    comfyUrl: typeof body.comfyUrl === 'string' ? body.comfyUrl : undefined,
-    filename,
-    subfolder,
-    type,
-  });
-  if (kind === 'identity') {
-    persistIdentityFile({
-      userId,
-      buffer: fetched.buffer,
-      contentType: fetched.contentType,
-      filename,
-    });
-    return apiJson({
-      url: '/api/gallery/media/identity',
-      path: `identity/${userId || '_global'}/lock`,
-    });
-  }
   const entryId = body.galleryEntryId?.trim();
   if (!entryId) {
     return apiError('galleryEntryId is required.', 400);
   }
-  const thumb = await encodeThumbWebp(fetched.buffer);
-  const stored = persistGalleryThumbFile({ userId, entryId, buffer: thumb });
+  const index = safeBodyIndex(body.index);
+  const filename = sanitizeComfyViewFilename(body.filename ?? '');
+  const subfolder = sanitizeComfyViewSubfolder(body.subfolder ?? '');
+  const type = normalizeComfyViewType(body.type?.trim() || 'output');
+
+  const fetched = await fetchEngineOutputBuffer({
+    engineId: body.engineId,
+    engineUrl: typeof body.comfyUrl === 'string' ? body.comfyUrl : undefined,
+    promptId: body.promptId,
+    filename,
+    subfolder,
+    type,
+  });
+  if (!fetched) {
+    return apiJson({ skipped: true, reason: 'not-available' });
+  }
+  if (fetched.buffer.byteLength > MAX_AUTO_PERSIST_BYTES) {
+    return apiJson({ skipped: true, reason: 'too-large' });
+  }
+
+  const contentType = contentTypeForViewBytes(filename, fetched.contentType, fetched.buffer);
+  const original = persistGalleryOriginalFile({
+    userId,
+    entryId,
+    index,
+    buffer: fetched.buffer,
+    contentType,
+    filename,
+  });
+
+  const mediaKind = resolveComfyOutputMediaKind({ filename, format: body.format });
+  let thumbPath: string | undefined;
+  if (mediaKind === 'image' && !isAnimatedImageBytes(filename, fetched.buffer)) {
+    try {
+      const thumb = await encodeThumbWebp(fetched.buffer);
+      const storedThumb = persistGalleryThumbFile({ userId, entryId, index, buffer: thumb });
+      thumbPath = storedThumb.relativePath;
+    } catch {
+      // Best-effort — the full original above is still persisted even if the
+      // thumb encode fails (e.g. an unusual/corrupt still).
+    }
+  }
+
   return apiJson({
-    url: `/api/gallery/media/${encodeURIComponent(entryId)}`,
-    path: stored.relativePath,
+    url: thumbPath ? durableGalleryThumbUrl(entryId, index) : undefined,
+    originalUrl: durableGalleryOriginalUrl(entryId, index),
+    path: thumbPath,
+    originalPath: original.relativePath,
+  });
+}
+
+async function persistIdentityFromViewParams(
+  request: Request,
+  body: PersistJsonBody
+): Promise<NextResponse> {
+  const userId = resolveMediaUserId(request);
+  if (isAuthEnabled() && !userId) {
+    return apiError('Sign in required.', 401);
+  }
+  const filename = sanitizeComfyViewFilename(body.filename ?? '');
+  const subfolder = sanitizeComfyViewSubfolder(body.subfolder ?? '');
+  const type = normalizeComfyViewType(body.type?.trim() || 'output');
+  const fetched = await fetchEngineOutputBuffer({
+    engineId: body.engineId,
+    engineUrl: typeof body.comfyUrl === 'string' ? body.comfyUrl : undefined,
+    promptId: body.promptId,
+    filename,
+    subfolder,
+    type,
+  });
+  if (!fetched) {
+    return apiJson({ skipped: true, reason: 'not-available' });
+  }
+  persistIdentityFile({
+    userId,
+    buffer: fetched.buffer,
+    contentType: fetched.contentType,
+    filename,
+  });
+  return apiJson({
+    url: '/api/gallery/media/identity',
+    path: `identity/${userId || '_global'}/lock`,
   });
 }
 
@@ -230,8 +368,10 @@ export async function POST(request: Request) {
     }
 
     const body = (await request.json()) as PersistJsonBody;
-    const kind = body.kind === 'identity' ? 'identity' : 'thumb';
-    return await persistFromViewParams(request, kind, body);
+    if (body.kind === 'identity') {
+      return await persistIdentityFromViewParams(request, body);
+    }
+    return await persistAutoFromViewParams(request, body);
   } catch (error) {
     return apiError(error instanceof Error ? error.message : 'Persist failed.', 502);
   }
