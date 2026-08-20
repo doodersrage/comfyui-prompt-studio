@@ -26,6 +26,11 @@ import {
 } from '@/lib/comfyui-requeue';
 import { loadSettingsCache, saveSharedSettings } from '@/lib/settings-cache';
 import { formatPoolQueueStrip, summarizePoolQueueDepth } from '@/lib/comfyui-host-ready';
+import {
+  refreshSharedHealth,
+  subscribeSharedHealth,
+  type RawHealthResponse,
+} from '@/lib/shared-health-poll';
 
 type ComfyHealth = {
   ok: boolean;
@@ -56,27 +61,31 @@ export default function QueueOrchestrationPanel(props: { compact?: boolean }) {
   const [flushing, setFlushing] = useState(false);
   const flushingRef = useRef(false);
 
+  const applyHealthData = useCallback((data: RawHealthResponse) => {
+    const typed = data as {
+      comfyui?: ComfyHealth;
+      comfyuiPool?: { enabled?: boolean; endpoints?: PoolHealthEndpoint[] };
+    } | null;
+    setHealth(typed?.comfyui ?? null);
+    setPoolEndpoints(
+      typed?.comfyuiPool?.enabled && Array.isArray(typed.comfyuiPool.endpoints)
+        ? typed.comfyuiPool.endpoints
+        : []
+    );
+  }, []);
+
+  // Shared with ConnectionHealthChip/SystemTray/QueueTool/MobileQueueTool — see
+  // shared-health-poll.ts. This force-refreshes for the manual "Refresh" button and on mount;
+  // the passive 30s tick is a subscription in the effect below instead of its own interval.
   const refreshHealth = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/health');
-      const data = (await response.json()) as {
-        comfyui?: ComfyHealth;
-        comfyuiPool?: { enabled?: boolean; endpoints?: PoolHealthEndpoint[] };
-      };
-      setHealth(data.comfyui ?? null);
-      setPoolEndpoints(
-        data.comfyuiPool?.enabled && Array.isArray(data.comfyuiPool.endpoints)
-          ? data.comfyuiPool.endpoints
-          : []
-      );
-    } catch {
-      setHealth(null);
-      setPoolEndpoints([]);
+      const data = await refreshSharedHealth({ force: true });
+      applyHealthData(data);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [applyHealthData]);
 
   useEffect(() => {
     scheduleAfterCommit(() => {
@@ -86,12 +95,14 @@ export default function QueueOrchestrationPanel(props: { compact?: boolean }) {
     });
     const onGalleryUpdate = () => setGalleryRevision(value => value + 1);
     window.addEventListener(COMFYUI_GALLERY_UPDATED_EVENT, onGalleryUpdate);
-    const interval = window.setInterval(() => void refreshHealth(), 30_000);
+    const unsubscribeHealth = subscribeSharedHealth(data => {
+      scheduleAfterCommit(() => applyHealthData(data));
+    }, 30_000);
     return () => {
       window.removeEventListener(COMFYUI_GALLERY_UPDATED_EVENT, onGalleryUpdate);
-      window.clearInterval(interval);
+      unsubscribeHealth();
     };
-  }, [refreshHealth]);
+  }, [refreshHealth, applyHealthData]);
 
   useEffect(() => {
     if (galleryRevision === 0) {

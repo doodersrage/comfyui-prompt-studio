@@ -9,6 +9,7 @@ import {
   CUSTOM_ROLEPLAY_PERSONA_ID,
   getRoleplayArchetype,
   lastRoleplayStillImage,
+  MAX_ROLEPLAY_CLIP_TAKES,
   MAX_ROLEPLAY_REJECTED_SCENES,
   capRoleplayStoryBeats,
   normalizeRoleplayCharacterName,
@@ -92,6 +93,31 @@ function normalizeStoryBeat(value: unknown): RoleplayStoryBeat | null {
   }
   if (typeof record.stillTakeIndex === 'number' && Number.isInteger(record.stillTakeIndex)) {
     beat.stillTakeIndex = record.stillTakeIndex;
+  }
+  if (typeof record.clipPromptId === 'string' && record.clipPromptId.trim()) {
+    beat.clipPromptId = record.clipPromptId.trim();
+  }
+  if (typeof record.clipUrl === 'string' && record.clipUrl.trim()) {
+    beat.clipUrl = record.clipUrl.trim();
+  }
+  if (
+    record.clipStatus === 'writing' ||
+    record.clipStatus === 'queued' ||
+    record.clipStatus === 'running' ||
+    record.clipStatus === 'completed' ||
+    record.clipStatus === 'error'
+  ) {
+    beat.clipStatus = record.clipStatus;
+  }
+  if (Array.isArray(record.clipTakes)) {
+    beat.clipTakes = record.clipTakes
+      .filter((take): take is NonNullable<RoleplayStoryBeat['clipTakes']>[number] =>
+        Boolean(take && typeof take === 'object')
+      )
+      .slice(-MAX_ROLEPLAY_CLIP_TAKES);
+  }
+  if (typeof record.clipTakeIndex === 'number' && Number.isInteger(record.clipTakeIndex)) {
+    beat.clipTakeIndex = record.clipTakeIndex;
   }
   return beat;
 }

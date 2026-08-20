@@ -39,6 +39,7 @@ import ToolSetupBanner from '@/components/ToolSetupBanner';
 import { useHubPageDescription } from '@/hooks/useToolPageDescription';
 import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
 import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
+import { refreshSharedHealth } from '@/lib/shared-health-poll';
 
 const ACCENT = 'violet' as const;
 
@@ -157,18 +158,22 @@ export default function QueueTool() {
   const refreshHealth = useCallback(async () => {
     let healthUrl: string | undefined;
     try {
-      const response = await fetch('/api/health');
-      const data = (await response.json()) as {
+      // Shared with ConnectionHealthChip/SystemTray/QueueOrchestrationPanel/MobileQueueTool —
+      // see shared-health-poll.ts. QueueTool still force-refreshes on its own 4s cadence (it
+      // needs that freshness for active queue monitoring, and drives host-jobs fetches off the
+      // result below) — going through the shared module just means the other, less-demanding
+      // pollers piggyback on these fetches instead of each running an independent one.
+      const data = (await refreshSharedHealth({ force: true })) as {
         comfyui?: ComfyQueueHealth;
         comfyuiPool?: { enabled?: boolean; endpoints?: PoolHealthEndpoint[] };
-      };
-      setQueueHealth(data.comfyui ?? null);
+      } | null;
+      setQueueHealth(data?.comfyui ?? null);
       setPoolEndpoints(
-        data.comfyuiPool?.enabled && Array.isArray(data.comfyuiPool.endpoints)
+        data?.comfyuiPool?.enabled && Array.isArray(data.comfyuiPool.endpoints)
           ? data.comfyuiPool.endpoints
           : []
       );
-      healthUrl = data.comfyui?.url?.trim() || undefined;
+      healthUrl = data?.comfyui?.url?.trim() || undefined;
     } catch {
       setQueueHealth(null);
       setPoolEndpoints([]);

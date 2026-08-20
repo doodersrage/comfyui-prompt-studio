@@ -16,13 +16,27 @@ function normalizePromptKey(prompt: string): string {
   return prompt.trim().toLowerCase().slice(0, 120);
 }
 
-/** Stable experiment-winner key shared by Gallery Compare, Experiments, and Mutate. */
+/**
+ * Stable experiment-winner key shared by Gallery Compare, Experiments, and Mutate.
+ *
+ * Must return the FULL normalized key, not a truncated prefix of it: this id is used both as
+ * the React row key for a group's rendered block and as the lookup key for its collapse/winner
+ * state (a plain object/Set keyed by this string, with no length limit). Two entries with
+ * different prompts that happen to share the same leading ~32 characters — extremely common
+ * with templated prompts like "keep the subject's pose and framing, but change X" repeated with
+ * different X's — used to collide onto the identical truncated id even though
+ * `groupGalleryExperiments` correctly treats them as separate groups (it maps by the full key).
+ * That collision meant unrelated groups on different pages shared the same React key (so React
+ * could reuse/confuse their DOM nodes across page navigation) and the same collapse/winner state
+ * (so expanding or crowning one silently affected the other) — together looking exactly like an
+ * experiment block "sticking" across pages that shouldn't be related at all.
+ */
 export function experimentGroupIdForPrompt(prompt: string): string | null {
   const key = normalizePromptKey(prompt);
   if (!key) {
     return null;
   }
-  return key.slice(0, 32);
+  return key;
 }
 
 export function groupGalleryExperiments(entries: ComfyGalleryEntry[]): ExperimentGroup[] {
@@ -39,7 +53,9 @@ export function groupGalleryExperiments(entries: ComfyGalleryEntry[]): Experimen
 
     if (!existing) {
       map.set(key, {
-        id: key.slice(0, 32),
+        // See experimentGroupIdForPrompt's doc comment: this must be the full key, not a
+        // truncated prefix, or distinct prompts sharing a common prefix collide onto the same id.
+        id: key,
         label: entry.prompt.slice(0, 80),
         parentPrompt: entry.prompt,
         entries: [entry],

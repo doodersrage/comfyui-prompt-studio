@@ -18,6 +18,7 @@ import {
   getComfyLivePreviewUrl,
 } from '@/lib/comfyui-live-preview-store';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
+import { subscribeSharedHealth, type RawHealthResponse } from '@/lib/shared-health-poll';
 
 type ComfyHealth = {
   ok: boolean;
@@ -61,23 +62,20 @@ export default function MobileQueueTool() {
     };
   }, [refresh]);
 
-  const refreshHealth = useCallback(async () => {
-    try {
-      const response = await fetch('/api/health');
-      const data = (await response.json()) as { comfyui?: ComfyHealth };
-      setHealth(data.comfyui ?? null);
-    } catch {
-      setHealth({ ok: false, error: 'Unreachable' });
-    }
-  }, []);
-
+  // Shared with ConnectionHealthChip/SystemTray/QueueTool/QueueOrchestrationPanel — see
+  // shared-health-poll.ts. This used to run its own independent fetch + 8s interval.
   useEffect(() => {
-    scheduleAfterCommit(() => {
-      void refreshHealth();
-    });
-    const id = window.setInterval(() => void refreshHealth(), 8000);
-    return () => window.clearInterval(id);
-  }, [refreshHealth]);
+    return subscribeSharedHealth((data: RawHealthResponse) => {
+      // `data === null` means the shared fetch itself failed (unreachable server) — distinct
+      // from a successful fetch whose response just doesn't include a `comfyui` field.
+      if (data === null) {
+        scheduleAfterCommit(() => setHealth({ ok: false, error: 'Unreachable' }));
+        return;
+      }
+      const typed = data as { comfyui?: ComfyHealth };
+      scheduleAfterCommit(() => setHealth(typed.comfyui ?? null));
+    }, 8000);
+  }, []);
 
   const active = useMemo(
     () =>

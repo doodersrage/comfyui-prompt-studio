@@ -102,6 +102,8 @@ export async function POST(request: Request) {
         username: user.username,
         changedBy: 'admin',
         adminUsername: admin.user.username,
+      }).catch(error => {
+        console.error('notifyPasswordChanged failed after admin reset:', error);
       });
     }
     return apiJson({ user });

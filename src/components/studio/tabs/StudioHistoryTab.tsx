@@ -506,6 +506,27 @@ export default function StudioHistoryTab({
   const useVirtualHistory = shouldVirtualizeHistoryList(filteredEntries.length);
   const visibleEntries = useVirtualHistory ? filteredEntries : pagination.items;
 
+  // findGalleryEntryForHistory() does an O(gallery.length) scan (gallery can hold thousands
+  // of entries). renderHistoryCard() used to call it directly at render time — twice per row,
+  // once just to decide whether onPreview should be set and again inside the handler — so every
+  // re-render of this tab (e.g. every keystroke in the history search box) redid that scan for
+  // every visible row. Precompute it once per row here instead; this only recomputes when the
+  // set of visible rows actually changes, not on unrelated re-renders.
+  const linkedGalleryEntryByHistoryId = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof findGalleryEntryForHistory>>();
+    for (const entry of visibleEntries) {
+      map.set(entry.id, findGalleryEntryForHistory(entry));
+    }
+    return map;
+  }, [visibleEntries]);
+
+  // Each of these does a map/flatMap → Set → sort() over the full (unfiltered) history list —
+  // they were previously called directly in JSX on every render, including every search
+  // keystroke, even though their result only depends on `entries`.
+  const historyToolOptions = useMemo(() => uniqueHistoryTools(entries), [entries]);
+  const historyModelOptions = useMemo(() => uniqueHistoryModels(entries), [entries]);
+  const historyTagOptions = useMemo(() => uniqueHistoryTags(entries), [entries]);
+
   const renderHistoryCard = (entry: PromptHistoryEntry) => (
     <HistoryCard
       key={entry.id}
@@ -693,9 +714,9 @@ export default function StudioHistoryTab({
       }}
       batchPromptCount={readHistoryBatchPrompts(entry).length}
       onPreview={
-        findGalleryEntryForHistory(entry)
+        linkedGalleryEntryByHistoryId.get(entry.id)
           ? () => {
-              const galleryEntry = findGalleryEntryForHistory(entry);
+              const galleryEntry = linkedGalleryEntryByHistoryId.get(entry.id);
               if (!galleryEntry) {
                 return;
               }
@@ -921,7 +942,7 @@ export default function StudioHistoryTab({
                 className="ui-input px-3 py-[var(--input-padding-y)] type-body"
               >
                 <option value="all">All tools</option>
-                {uniqueHistoryTools(entries).map(tool => (
+                {historyToolOptions.map(tool => (
                   <option key={tool} value={tool}>
                     {tool}
                   </option>
@@ -942,7 +963,7 @@ export default function StudioHistoryTab({
                 className="ui-input px-3 py-[var(--input-padding-y)] type-body"
               >
                 <option value="all">All models</option>
-                {uniqueHistoryModels(entries).map(model => (
+                {historyModelOptions.map(model => (
                   <option key={model} value={model}>
                     {model}
                   </option>
@@ -963,7 +984,7 @@ export default function StudioHistoryTab({
                 className="ui-input px-3 py-[var(--input-padding-y)] type-body"
               >
                 <option value="all">All tags</option>
-                {uniqueHistoryTags(entries).map(tag => (
+                {historyTagOptions.map(tag => (
                   <option key={tag} value={tag}>
                     {tag}
                   </option>

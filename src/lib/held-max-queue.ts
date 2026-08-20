@@ -54,7 +54,10 @@ function writeJobs(jobs: HeldMaxJob[]): void {
   if (typeof window === 'undefined') {
     return;
   }
-  writeBrowserValue(STORAGE_KEY, jobs.slice(0, 40));
+  // Jobs are appended to the end (see holdMaxGalleryEnhance/holdMaxGenerate below), so keeping
+  // the *last* 40 keeps the newest ones; slice(0, 40) was keeping the oldest and silently
+  // dropping every job queued past the cap.
+  writeBrowserValue(STORAGE_KEY, jobs.slice(-40));
   emitHeldMaxUpdated();
 }
 

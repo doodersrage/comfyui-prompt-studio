@@ -267,16 +267,21 @@ export function mergeSettingsCache<
         )
       : winner.installedPlugins;
 
-  // Prefer fuller loader maps when one side was slimmed for local IDB.
+  // Union both sides' loader-map keys (a slimmed-down side isn't a real deletion — it may just
+  // be a locally-trimmed IDB copy), but for a key present on BOTH sides, defer to whichever side
+  // `winner`/`loser` (the timestamp comparison above) already picked as newer — previously this
+  // unconditionally took the local value for any overlapping key regardless of which side was
+  // actually more recent, so a stale local edit could silently clobber a newer server change and
+  // then get written back as if it were correct.
   const mergeMapField = (key: string): Record<string, unknown> | undefined => {
-    const a = (local.shared?.[key] ?? {}) as Record<string, unknown>;
-    const b = (server.shared?.[key] ?? {}) as Record<string, unknown>;
-    const aKeys = Object.keys(a).length;
-    const bKeys = Object.keys(b).length;
-    if (aKeys === 0 && bKeys === 0) {
+    const localMap = (local.shared?.[key] ?? {}) as Record<string, unknown>;
+    const serverMap = (server.shared?.[key] ?? {}) as Record<string, unknown>;
+    if (Object.keys(localMap).length === 0 && Object.keys(serverMap).length === 0) {
       return undefined;
     }
-    return { ...b, ...a };
+    const winnerMap = (preferLocal ? localMap : serverMap) ?? {};
+    const loserMap = (preferLocal ? serverMap : localMap) ?? {};
+    return { ...loserMap, ...winnerMap };
   };
 
   const sharedMaps: Record<string, unknown> = {};

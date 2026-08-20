@@ -196,6 +196,12 @@ export async function pushGallerySnapshotToServer(): Promise<void> {
     return;
   }
   const { loadComfyGallery } = await import('./comfyui-gallery');
+  // This overwrites the ENTIRE server namespace, so it must read the full local gallery — not
+  // just the initial fast-paint page (see awaitFullGalleryHydration's doc comment). Skipping this
+  // wait let an early job completion (during the first few seconds after load) push a truncated
+  // ~48-entry snapshot that silently discarded all older server-persisted history.
+  const { awaitFullGalleryHydration } = await import('./gallery-db-store');
+  await awaitFullGalleryHydration();
   await syncNamespaceToServer(GALLERY_NAMESPACE, loadComfyGallery());
 }
 

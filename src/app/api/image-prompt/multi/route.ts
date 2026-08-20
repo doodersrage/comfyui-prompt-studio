@@ -6,6 +6,9 @@ import { mergeImagePromptParts, type ImageRefPart } from '@/lib/image-prompt-mer
 import type { ImagePromptFocus } from '@/lib/specialized/types';
 import { parseLlmRequestOptions } from '@/lib/llm-request-options';
 import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
+import { mapWithConcurrency } from '@/lib/concurrency';
+import { getLlmMaxInflight } from '@/lib/llm-backpressure';
+import { LlmBusyError } from '@/lib/llm-client';
 
 export const runtime = 'nodejs';
 
@@ -60,31 +63,48 @@ export async function POST(request: Request) {
     const detail = normalizeDetailLevel(body.detail);
     const descriptionPreset = normalizeImagePromptDescriptionPreset(body.descriptionPreset);
     const llm = parseLlmRequestOptions(body);
-    const parts: ImageRefPart[] = [];
-
-    for (const [index, ref] of images.entries()) {
-      const role = ref.role?.trim() || `reference ${index + 1}`;
-      const result = await generateImagePrompt({
-        model,
-        detail,
-        imageDataUrl: ref.image.trim(),
-        mimeType: ref.mimeType,
-        focus: normalizeFocus(ref.focus),
-        descriptionPreset,
-        extraHints: `Reference role: ${role}. ${body.extraHints?.trim() || ''}`.trim(),
-        llm,
-      });
-      parts.push({
-        role,
-        focus: ref.focus ?? 'full',
-        strength: normalizeStrength(ref.strength),
-        prompt: result.prompt,
-      });
-    }
+    // Each reference image's vision description is independent — was previously described one at
+    // a time, up to 4 in a row. Bounded by the same limit the text LLM client enforces
+    // (llm-backpressure.ts) as a sensible ceiling, even though vision calls aren't currently
+    // throttled by that module themselves.
+    const parts: ImageRefPart[] = await mapWithConcurrency(
+      images,
+      getLlmMaxInflight(),
+      async (ref, index) => {
+        const role = ref.role?.trim() || `reference ${index + 1}`;
+        const result = await generateImagePrompt({
+          model,
+          detail,
+          imageDataUrl: ref.image.trim(),
+          mimeType: ref.mimeType,
+          focus: normalizeFocus(ref.focus),
+          descriptionPreset,
+          extraHints: `Reference role: ${role}. ${body.extraHints?.trim() || ''}`.trim(),
+          llm,
+        });
+        return {
+          role,
+          focus: ref.focus ?? 'full',
+          strength: normalizeStrength(ref.strength),
+          prompt: result.prompt,
+        };
+      }
+    );
 
     const prompt = mergeImagePromptParts(parts);
     return apiJson({ prompt, parts, model, detail });
   } catch (error) {
+    if (error instanceof LlmBusyError) {
+      return apiError(
+        error.message,
+        429,
+        {
+          busy: true,
+          retryAfter: error.retryAfterSeconds,
+        },
+        { 'Retry-After': String(error.retryAfterSeconds) }
+      );
+    }
     return apiError(error instanceof Error ? error.message : 'Multi-ref prompt failed.', 500);
   }
 }

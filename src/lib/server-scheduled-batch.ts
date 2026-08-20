@@ -5,6 +5,8 @@ import {
   resolveScheduledBatchProfileFromEnv,
   type ScheduledBatchProfile,
 } from './scheduled-batch-profile';
+import { mapWithConcurrency } from './concurrency';
+import { getLlmMaxInflight } from './llm-backpressure';
 
 type StoredScheduledBatch = {
   config?: ScheduledBatchConfig;
@@ -173,26 +175,42 @@ export async function runServerScheduledBatch(
       }
     }
   } else if (config.target === 'nsfw-generator') {
-    for (let index = 0; index < generateCount; index += 1) {
-      const data = await fetchJson<{ prompt?: string }>('/api/nsfw-generate', {
-        model,
-        detail,
-        wildness: 55,
-        hints: config.genre?.trim() || undefined,
-      });
+    // Each call goes through /api/nsfw-generate -> chatCompletion(), which is throttled to
+    // LLM_MAX_INFLIGHT concurrent requests (llm-backpressure.ts) and throws immediately rather
+    // than queuing once saturated — so this can't be a flat Promise.all over up to 48 calls
+    // without most of them failing outright. Bounding concurrency to the same limit the LLM
+    // client itself enforces keeps this safely under that ceiling while still running calls in
+    // parallel instead of one at a time.
+    const results = await mapWithConcurrency(
+      Array.from({ length: generateCount }),
+      getLlmMaxInflight(),
+      () =>
+        fetchJson<{ prompt?: string }>('/api/nsfw-generate', {
+          model,
+          detail,
+          wildness: 55,
+          hints: config.genre?.trim() || undefined,
+        })
+    );
+    for (const data of results) {
       if (data.prompt?.trim()) {
         prompts.push(data.prompt.trim());
       }
     }
   } else {
-    for (let index = 0; index < generateCount; index += 1) {
-      const data = await fetchJson<{ prompt?: string }>('/api/random-scene', {
-        model,
-        detail,
-        genre: config.genre?.trim() || undefined,
-        includePeople: true,
-        wildness: 50,
-      });
+    const results = await mapWithConcurrency(
+      Array.from({ length: generateCount }),
+      getLlmMaxInflight(),
+      () =>
+        fetchJson<{ prompt?: string }>('/api/random-scene', {
+          model,
+          detail,
+          genre: config.genre?.trim() || undefined,
+          includePeople: true,
+          wildness: 50,
+        })
+    );
+    for (const data of results) {
       if (data.prompt?.trim()) {
         prompts.push(data.prompt.trim());
       }

@@ -187,8 +187,12 @@ export function patchRegionalNodesInWorkflow(
     if (!match) {
       continue;
     }
+    // Index by the node's own "Region N" title against the ORIGINAL slot order, not `filled` —
+    // `filled` drops empty-prompt slots and re-indexes, so once any earlier slot is blank every
+    // later "Region N" title would resolve to the wrong (shifted) slot's mask, or silently miss
+    // one entirely.
     const index = Number(match[1] ?? match[2]) - 1;
-    const slot = filled[index];
+    const slot = slots[index];
     if (!slot?.maskFilename?.trim() || !node.inputs) {
       continue;
     }

@@ -32,6 +32,8 @@ export async function POST(request: Request) {
       userId: user.id,
       username: user.username,
       changedBy: 'self',
+    }).catch(error => {
+      console.error('notifyPasswordChanged failed after password reset:', error);
     });
   }
 

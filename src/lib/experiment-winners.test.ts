@@ -18,10 +18,25 @@ function entry(id: string, prompt: string): ComfyGalleryEntry {
 }
 
 describe("experiment winners helpers", () => {
-  it("builds a stable 32-char group id from prompt text", () => {
+  it("builds a stable group id from prompt text", () => {
     const id = experimentGroupIdForPrompt("  Hello World Prompt  ");
-    assert.equal(id, "hello world prompt".slice(0, 32));
+    assert.equal(id, "hello world prompt");
     assert.equal(experimentGroupIdForPrompt("   "), null);
+  });
+
+  it("does not collide two different prompts that share the same 32-char prefix", () => {
+    // Regression test: the id used to be truncated to 32 chars, so templated prompts that only
+    // differ after that point (extremely common — e.g. "keep the subject's pose and framing,
+    // but change X" repeated with different X's) collided onto the SAME group id even though
+    // they're genuinely different experiments. That id doubles as the React row key and the
+    // lookup key for collapse/winner state, so colliding groups on different gallery pages ended
+    // up sharing state and keys — which looks exactly like one experiment block "sticking" across
+    // pages that have nothing to do with each other.
+    const prefix = "keep the subject's pose and framing, but change ";
+    assert.ok(prefix.length > 32);
+    const idA = experimentGroupIdForPrompt(`${prefix}the shirt to red`);
+    const idB = experimentGroupIdForPrompt(`${prefix}the background to a beach`);
+    assert.notEqual(idA, idB);
   });
 
   it("matches groupGalleryExperiments ids for the same prompt", async () => {
@@ -31,5 +46,18 @@ describe("experiment winners helpers", () => {
       entry("b", "shared prompt text"),
     ]);
     assert.equal(groups[0]?.id, experimentGroupIdForPrompt("shared prompt text"));
+  });
+
+  it("keeps groupGalleryExperiments ids distinct for prompts sharing a 32-char prefix", async () => {
+    const { groupGalleryExperiments } = await import("./experiment-groups");
+    const prefix = "keep the subject's pose and framing, but change ";
+    const groups = groupGalleryExperiments([
+      entry("a1", `${prefix}the shirt to red`),
+      entry("a2", `${prefix}the shirt to red`),
+      entry("b1", `${prefix}the background to a beach`),
+      entry("b2", `${prefix}the background to a beach`),
+    ]);
+    assert.equal(groups.length, 2);
+    assert.notEqual(groups[0]?.id, groups[1]?.id);
   });
 });

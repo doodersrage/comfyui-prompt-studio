@@ -2,6 +2,7 @@ import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
 import { resolveRequestUser } from '@/lib/auth/access';
 import { findUserById, updateUserProfile } from '@/lib/auth/store';
 import { generateTotpSecret, totpUri, verifyTotp } from '@/lib/auth/totp';
+import { verifyPassword } from '@/lib/auth/password';
 import { appendAuditLog } from '@/lib/auth/audit-log';
 
 export const runtime = 'nodejs';
@@ -30,6 +31,15 @@ export async function POST(request: Request) {
   }
 
   if (body.action === 'begin-setup') {
+    // Replacing an already-enabled authenticator without a password check would let anyone
+    // riding a hijacked session silently swap in their own secret (and it'd still read as
+    // "TOTP enabled" to the victim). Only require the password when TOTP is already on —
+    // first-time setup is fine gated by the session alone, same as before.
+    if (full.totpEnabled) {
+      if (!body.currentPassword || !verifyPassword(body.currentPassword, full.passwordHash)) {
+        return apiError('Current password is required to change authenticator setup.', 400);
+      }
+    }
     const secret = generateTotpSecret();
     updateUserProfile(user.id, { totpSecret: secret, totpEnabled: false });
     return apiJson({
@@ -53,10 +63,21 @@ export async function POST(request: Request) {
   }
 
   if (body.action === 'disable') {
+    // updateUserProfile() only verifies currentPassword when a new `password` is also being
+    // set, so passing currentPassword through here alone was a no-op — TOTP could be disabled
+    // with no password check at all. Verify it explicitly before touching anything.
+    if (!body.currentPassword || !verifyPassword(body.currentPassword, full.passwordHash)) {
+      return apiError('Current password is required to disable two-factor authentication.', 400);
+    }
     updateUserProfile(user.id, {
-      currentPassword: body.currentPassword,
       totpSecret: undefined,
       totpEnabled: false,
+    });
+    appendAuditLog({
+      actorUserId: user.id,
+      actorUsername: user.username,
+      action: 'totp.disabled',
+      details: 'TOTP disabled',
     });
     return apiJson({ enabled: false });
   }

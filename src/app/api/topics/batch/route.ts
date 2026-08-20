@@ -9,6 +9,7 @@ import {
   normalizeSharedGenerationOptions,
 } from '@/lib/specialized/normalize';
 import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
+import { LlmBusyError } from '@/lib/llm-client';
 import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
@@ -86,6 +87,17 @@ export async function POST(request: Request) {
 
     return apiJson(result);
   } catch (error) {
+    if (error instanceof LlmBusyError) {
+      return apiError(
+        error.message,
+        429,
+        {
+          busy: true,
+          retryAfter: error.retryAfterSeconds,
+        },
+        { 'Retry-After': String(error.retryAfterSeconds) }
+      );
+    }
     return apiError(error instanceof Error ? error.message : 'Topics batch failed.', 500);
   }
 }

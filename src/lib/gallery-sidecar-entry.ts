@@ -1,4 +1,5 @@
 import type { ComfyGalleryEntry } from './comfyui-gallery';
+import { GALLERY_DERIVED_KIND_FILTERS } from './gallery-derived-kind';
 import {
   readSidecarOutputImage,
   sidecarNegativePrompt,
@@ -26,6 +27,16 @@ export function galleryEntryFromSidecar(sidecar: PromptSidecar): ComfyGalleryEnt
       ? sidecar.metadata.galleryEntryId.trim()
       : undefined;
 
+  // Sourced from the canonical GALLERY_DERIVED_KIND_FILTERS list (rather than a hand-copied
+  // set of literals) so this whitelist can't silently drift out of sync with it again — it
+  // was previously missing 'moire-clean', 'face-detail', and 't2v'.
+  const rawDerivedKind = sidecar.metadata?.derivedKind;
+  const derivedKind = (GALLERY_DERIVED_KIND_FILTERS as readonly string[]).includes(
+    rawDerivedKind as string
+  )
+    ? (rawDerivedKind as ComfyGalleryEntry['derivedKind'])
+    : undefined;
+
   return {
     id: galleryEntryId ?? `sidecar-${Date.now()}`,
     promptId:
@@ -50,17 +61,7 @@ export function galleryEntryFromSidecar(sidecar: PromptSidecar): ComfyGalleryEnt
         : undefined,
     lookId:
       typeof sidecar.metadata?.lookId === 'string' ? sidecar.metadata.lookId.trim() : undefined,
-    derivedKind:
-      sidecar.metadata?.derivedKind === 'upscale' ||
-      sidecar.metadata?.derivedKind === 'refine' ||
-      sidecar.metadata?.derivedKind === 'soft-pass' ||
-      sidecar.metadata?.derivedKind === 'variation' ||
-      sidecar.metadata?.derivedKind === 'controlnet' ||
-      sidecar.metadata?.derivedKind === 'i2v' ||
-      sidecar.metadata?.derivedKind === 'extend' ||
-      sidecar.metadata?.derivedKind === 'film'
-        ? sidecar.metadata.derivedKind
-        : undefined,
+    derivedKind,
     comfyUrl,
     status: 'completed',
     queuedAt: Date.now(),

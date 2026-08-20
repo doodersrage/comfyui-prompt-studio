@@ -85,6 +85,10 @@ import {
 } from '@/lib/gallery-lineage-groups';
 import { groupGalleryExperiments } from '@/lib/experiment-groups';
 import { groupGalleryQueueRuns } from '@/lib/gallery-queue-runs';
+import {
+  normalizeExperimentGroupAnchors,
+  paginateGalleryEntriesWithGroups,
+} from '@/lib/gallery-display-rows';
 import { clusterGalleryDuplicates, duplicateDropIds } from '@/lib/gallery-duplicate-clusters';
 import {
   EXPERIMENT_WINNERS_UPDATED_EVENT,
@@ -108,7 +112,6 @@ import {
   GALLERY_SLIDESHOW_INTERVAL_OPTIONS,
   GALLERY_SLIDESHOW_TRANSITION_OPTIONS,
   loadGalleryViewPreferences,
-  paginateGalleryEntries,
   resolveGalleryPageSize,
   resolveGalleryLightboxEntry,
   resolveGalleryLightboxOpenIndex,
@@ -169,6 +172,7 @@ export default function ComfyUiGalleryPanel({
     setProjectIds,
     clearAll,
     refreshPending,
+    primaryThumbUrl,
     setReviewRating,
     embeddingSearchActive,
     similarSearchActive,
@@ -214,6 +218,9 @@ export default function ComfyUiGalleryPanel({
   const [layout, setLayout] = useState<GalleryLayoutMode>('grid');
   const [viewPrefsLoaded, setViewPrefsLoaded] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
+  // Stable reference for GalleryExperimentPanel's onCompare prop — that panel is memo()-wrapped,
+  // and passing a fresh arrow function inline every render was defeating the memo (see below).
+  const openCompare = useCallback(() => setCompareOpen(true), []);
   const [capWizardOpen, setCapWizardOpen] = useState(false);
   const [visionInboxOpen, setVisionInboxOpen] = useState(false);
   const [visionInboxSkipIds, setVisionInboxSkipIds] = useState<Set<string>>(() => new Set());
@@ -400,6 +407,32 @@ export default function ComfyUiGalleryPanel({
     });
   }, [filter, sort, pageSize]);
 
+  const experimentGroups = useMemo(() => {
+    // Group across the full filtered/sorted set, not just the current page's
+    // `visibleEntries`. Grouping on the paginated slice made membership (and
+    // whether a group even qualifies as an "experiment") depend on which
+    // page happened to be showing, so groups would flicker, split, or
+    // reappear with stale membership as the user paginated. `sortedSource`
+    // is stable across pages; buildGalleryDisplayRows anchors each group's
+    // block to a single page (the page holding its newest member) and
+    // renders the group's full entry list there, so a group whose members
+    // straddle a page boundary shows once, complete, instead of appearing
+    // again on the next page with a leftover subset of its entries.
+    // `pagination` below plans page boundaries around these same groups (see
+    // paginateGalleryEntriesWithGroups) so a group's true size is accounted
+    // for up front, instead of a flat index slice accidentally handing a
+    // later page's entries to an earlier page's group and leaving it empty.
+    const experiments = groupGalleryExperiments(sortedSource);
+    const claimed = new Set(experiments.flatMap(group => group.entries.map(entry => entry.id)));
+    const runs = groupGalleryQueueRuns(sortedSource).filter(
+      group => !group.entries.some(entry => claimed.has(entry.id))
+    );
+    // See normalizeExperimentGroupAnchors's doc comment: groupGalleryQueueRuns orders its
+    // entries oldest-first, which breaks the entries[0]-is-the-anchor assumption both
+    // buildGalleryDisplayRows and paginateGalleryEntriesWithGroups rely on.
+    return normalizeExperimentGroupAnchors([...experiments, ...runs], sortedSource);
+  }, [sortedSource]);
+
   const pagination = useMemo(() => {
     if (!paginationEnabled) {
       const items = limit ? sortedSource.slice(0, limit) : sortedSource;
@@ -421,8 +454,13 @@ export default function ComfyUiGalleryPanel({
     }
 
     const effectivePageSize = resolveGalleryPageSize(pageSize, sortedSource.length);
-    return paginateGalleryEntries(sortedSource, page, effectivePageSize);
-  }, [sortedSource, limit, page, pageSize, paginationEnabled]);
+    return paginateGalleryEntriesWithGroups(
+      sortedSource,
+      experimentGroups,
+      page,
+      effectivePageSize
+    );
+  }, [sortedSource, experimentGroups, limit, page, pageSize, paginationEnabled]);
 
   const visibleEntries = pagination.items;
   const totalPages = pagination.totalPages;
@@ -436,21 +474,6 @@ export default function ComfyUiGalleryPanel({
     () => (lineageGrouping ? buildGalleryLineageGroups(visibleEntries) : null),
     [lineageGrouping, visibleEntries]
   );
-  const experimentGroups = useMemo(() => {
-    // Group across the full filtered/sorted set, not just the current page's
-    // `visibleEntries`. Grouping on the paginated slice made membership (and
-    // whether a group even qualifies as an "experiment") depend on which
-    // page happened to be showing, so groups would flicker, split, or
-    // reappear with stale membership as the user paginated. `sortedSource`
-    // is stable across pages; buildGalleryDisplayRows already narrows each
-    // group down to the entries actually present on the current page.
-    const experiments = groupGalleryExperiments(sortedSource);
-    const claimed = new Set(experiments.flatMap(group => group.entries.map(entry => entry.id)));
-    const runs = groupGalleryQueueRuns(sortedSource).filter(
-      group => !group.entries.some(entry => claimed.has(entry.id))
-    );
-    return [...experiments, ...runs];
-  }, [sortedSource]);
   const duplicateClusters = useMemo(
     () => (showFilters && filter.duplicatesOnly ? clusterGalleryDuplicates(entries) : []),
     [entries, filter.duplicatesOnly, showFilters]
@@ -1553,7 +1576,7 @@ export default function ComfyUiGalleryPanel({
           setParamAxis={setParamAxis}
           similarSearchActive={similarSearchActive}
           onClearSelection={clearSelection}
-          onCompare={() => setCompareOpen(true)}
+          onCompare={openCompare}
           {...bulkExperimentHandlers}
         />
       ) : null}

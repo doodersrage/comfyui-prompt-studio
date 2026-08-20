@@ -1792,4 +1792,41 @@ describe("qwen edit reference image prep", () => {
       "only-fig1.png",
     );
   });
+
+  it("keeps a LoadImage still shared by another node when disconnecting T2I edit refs", async () => {
+    const { disconnectQwenEditReferenceImagesForTxt2Img } = await import(
+      "./workflow-lightning-queue"
+    );
+    const workflow = {
+      "4": {
+        class_type: "TextEncodeQwenImageEditPlus",
+        inputs: {
+          prompt: "edit",
+          clip: ["2", 0],
+          vae: ["3", 0],
+          image1: ["900", 0],
+        },
+      },
+      "900": {
+        class_type: "LoadImage",
+        inputs: { image: "reference.png" },
+        _meta: { title: "Figure 1" },
+      },
+      // Reuses the same reference image, e.g. a ControlNet node reading from Figure 1 too.
+      "950": {
+        class_type: "ControlNetApply",
+        inputs: { image: ["900", 0] },
+      },
+    };
+    const { workflow: next } = disconnectQwenEditReferenceImagesForTxt2Img(workflow, {
+      hasInputImage: false,
+    });
+    // "900" must survive: "950" still links to it, so deleting it would leave "950"
+    // pointing at a node ID that no longer exists in the graph.
+    assert.ok(next["900"], "shared LoadImage node was deleted despite still being referenced");
+    assert.deepEqual((next["950"] as { inputs: { image: [string, number] } }).inputs.image, [
+      "900",
+      0,
+    ]);
+  });
 });

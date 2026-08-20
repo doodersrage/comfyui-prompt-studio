@@ -4,6 +4,7 @@ import { rankImagesWithVision } from './best-of-n-rank-server';
 import { getComfyUiBaseUrl } from './comfyui-client';
 import { buildComfyViewPath, type ComfyOutputImage } from './comfyui-outputs';
 import { getComfyUiPromptStatus } from './comfyui-status';
+import { mapWithConcurrency } from './concurrency';
 
 export type ServerVisionCandidate = {
   id: string;
@@ -53,24 +54,36 @@ export async function waitForServerComfyPrompts(input: {
   const completed = new Map<string, ServerVisionCandidate>();
 
   while (Date.now() < deadline && completed.size < wanted.length) {
-    for (const promptId of wanted) {
-      if (completed.has(promptId)) {
-        continue;
-      }
+    // Each pending prompt's status/image check is independent of the others — was previously
+    // checked one at a time per tick, which meant a tick's wall-clock cost scaled with however
+    // many prompts were still outstanding. Bounded concurrency here keeps a single slow/stalled
+    // ComfyUI request from serializing behind the rest.
+    const pending = wanted.filter(promptId => !completed.has(promptId));
+    const results = await mapWithConcurrency(pending, 8, async promptId => {
       const status = await getComfyUiPromptStatus(promptId, { apiUrl: comfyUrl });
       if (status.status !== 'completed' || !status.images?.length) {
-        continue;
+        return null;
       }
       const imageDataUrl = await fetchComfyImageDataUrl(comfyUrl, status.images[0]);
       if (!imageDataUrl) {
-        continue;
+        return null;
       }
-      completed.set(promptId, {
+      const candidate: ServerVisionCandidate = {
         id: promptId,
         promptId,
         prompt: promptById.get(promptId) ?? '',
         imageDataUrl,
-      });
+      };
+      return candidate;
+    });
+    let newlyCompleted = 0;
+    for (const candidate of results) {
+      if (candidate) {
+        completed.set(candidate.promptId, candidate);
+        newlyCompleted += 1;
+      }
+    }
+    if (newlyCompleted > 0) {
       input.onProgress?.(completed.size, wanted.length);
     }
     if (completed.size >= wanted.length) {

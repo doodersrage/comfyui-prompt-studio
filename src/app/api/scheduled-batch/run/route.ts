@@ -27,7 +27,9 @@ export async function POST(request: Request) {
     }
 
     const result = await runServerScheduledBatch(configInput);
-    void notifyServerScheduledBatchComplete(result);
+    void notifyServerScheduledBatchComplete(result).catch(error => {
+      console.error('notifyServerScheduledBatchComplete failed:', error);
+    });
     return apiJson({ ok: true, skipped: false, ...result });
   } catch (error) {
     return apiError(error instanceof Error ? error.message : 'Server scheduled batch failed.', 500);

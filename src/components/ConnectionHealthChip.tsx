@@ -9,6 +9,11 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import { settingsTabHref } from '@/lib/settings-nav';
+import {
+  refreshSharedHealth,
+  subscribeSharedHealth,
+  type RawHealthResponse,
+} from '@/lib/shared-health-poll';
 
 type ChipHealth = {
   llmOk: boolean;
@@ -18,22 +23,17 @@ type ChipHealth = {
 
 const POLL_MS = 60_000;
 
-async function fetchChipHealth(): Promise<ChipHealth> {
-  try {
-    const response = await fetch('/api/health');
-    const data = (await response.json()) as {
-      llm?: { ok?: boolean };
-      comfyui?: { ok?: boolean };
-      diffusers?: { ok?: boolean };
-    };
-    return {
-      llmOk: Boolean(data.llm?.ok),
-      comfyOk: Boolean(data.comfyui?.ok),
-      diffusersOk: Boolean(data.diffusers?.ok),
-    };
-  } catch {
-    return { llmOk: false, comfyOk: false, diffusersOk: false };
-  }
+function deriveChipHealth(data: RawHealthResponse): ChipHealth {
+  const typed = data as {
+    llm?: { ok?: boolean };
+    comfyui?: { ok?: boolean };
+    diffusers?: { ok?: boolean };
+  } | null;
+  return {
+    llmOk: Boolean(typed?.llm?.ok),
+    comfyOk: Boolean(typed?.comfyui?.ok),
+    diffusersOk: Boolean(typed?.diffusers?.ok),
+  };
 }
 
 function toneClass(ok: boolean | null): string {
@@ -49,21 +49,15 @@ export default function ConnectionHealthChip({ compact = false }: { compact?: bo
   const [health, setHealth] = useState<ChipHealth | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
-    const load = () => {
-      void fetchChipHealth().then(next => {
-        if (!cancelled) {
-          setHealth(next);
-        }
-      });
-    };
-    scheduleAfterCommit(load);
-    const id = window.setInterval(load, POLL_MS);
-    const onFocus = () => load();
+    // Shared with SystemTray/QueueTool/QueueOrchestrationPanel/MobileQueueTool — see
+    // shared-health-poll.ts. This used to run its own independent fetch + 60s interval.
+    const unsubscribe = subscribeSharedHealth(data => {
+      scheduleAfterCommit(() => setHealth(deriveChipHealth(data)));
+    }, POLL_MS);
+    const onFocus = () => void refreshSharedHealth({ force: true });
     window.addEventListener('focus', onFocus);
     return () => {
-      cancelled = true;
-      window.clearInterval(id);
+      unsubscribe();
       window.removeEventListener('focus', onFocus);
     };
   }, []);

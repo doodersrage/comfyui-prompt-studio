@@ -1,4 +1,6 @@
 import { reviewGalleryImage } from './gallery-vision-review';
+import { mapWithConcurrency } from './concurrency';
+import { getLlmMaxInflight } from './llm-backpressure';
 
 export type BestOfNCandidate = {
   id: string;
@@ -8,18 +10,25 @@ export type BestOfNCandidate = {
 };
 
 export async function rankBestOfN(candidates: BestOfNCandidate[]): Promise<BestOfNCandidate[]> {
-  const ranked: BestOfNCandidate[] = [];
-  for (const candidate of candidates) {
+  // Each candidate's vision review is independent — score it in parallel instead of one at a
+  // time. Bounded by the same limit the text LLM client enforces (llm-backpressure.ts) as a
+  // sensible ceiling for a local model server, even though vision calls aren't currently
+  // throttled by that module themselves.
+  const ranked = await mapWithConcurrency(candidates, getLlmMaxInflight(), async candidate => {
     try {
       const review = await reviewGalleryImage({
         imageDataUrl: candidate.imageDataUrl,
         prompt: candidate.prompt,
       });
-      ranked.push({ ...candidate, score: review.suggestedRating });
-    } catch {
-      ranked.push({ ...candidate, score: 0 });
+      return { ...candidate, score: review.suggestedRating };
+    } catch (error) {
+      // A review failure (timeout, malformed vision response, etc.) is indistinguishable from a
+      // legitimate 0 rating downstream — log it so a spike in failures is visible rather than
+      // silently read as "the model rated everything terribly."
+      console.error('reviewGalleryImage failed during best-of-n ranking:', error);
+      return { ...candidate, score: 0 };
     }
-  }
+  });
   return ranked.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 }
 

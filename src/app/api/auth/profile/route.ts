@@ -78,6 +78,8 @@ export async function PATCH(request: Request) {
         userId: resolved.user.id,
         username: resolved.user.username,
         changedBy: 'self',
+      }).catch(error => {
+        console.error('notifyPasswordChanged failed after profile update:', error);
       });
     }
     return apiJson({ user });

@@ -16,6 +16,11 @@ import {
   SYSTEM_TRAY_MESSAGES_EVENT,
   type SystemTrayMessage,
 } from '@/lib/system-tray-messages';
+import {
+  refreshSharedHealth,
+  subscribeSharedHealth,
+  type RawHealthResponse,
+} from '@/lib/shared-health-poll';
 
 export type SystemTrayAssetJob = {
   id: string;
@@ -130,43 +135,42 @@ export function useSystemTrayState(options?: { pollAssets?: boolean }): SystemTr
     setHeldJobs(listHeldMaxJobs());
   }, []);
 
-  const refreshHealth = useCallback(async () => {
-    try {
-      const response = await fetch('/api/health');
-      if (!response.ok) {
-        setQueueHealth(null);
-        return;
-      }
-      const data = (await response.json()) as {
-        comfyui?: { queuePending?: number; queueRunning?: number; ok?: boolean };
-        comfyuiPool?: {
-          enabled?: boolean;
-          endpoints?: Array<{
-            url?: string;
-            ok?: boolean;
-            queuePending?: number;
-            queueRunning?: number;
-          }>;
-        };
+  const deriveQueueHealth = useCallback((data: RawHealthResponse): SystemTrayQueueHealth | null => {
+    const typed = data as {
+      comfyui?: { queuePending?: number; queueRunning?: number; ok?: boolean };
+      comfyuiPool?: {
+        enabled?: boolean;
+        endpoints?: Array<{
+          url?: string;
+          ok?: boolean;
+          queuePending?: number;
+          queueRunning?: number;
+        }>;
       };
-      const comfy = data.comfyui;
-      if (!comfy) {
-        setQueueHealth(null);
-        return;
-      }
-      const pool =
-        data.comfyuiPool?.enabled && data.comfyuiPool.endpoints?.length
-          ? summarizePoolQueueDepth(data.comfyuiPool.endpoints)
-          : null;
-      setQueueHealth({
-        queuePending: pool?.totalPending ?? comfy.queuePending ?? 0,
-        queueRunning: pool?.totalRunning ?? comfy.queueRunning ?? 0,
-        ok: pool ? pool.anyOk : (comfy.ok ?? false),
-      });
-    } catch {
-      setQueueHealth(null);
+    } | null;
+    const comfy = typed?.comfyui;
+    if (!comfy) {
+      return null;
     }
+    const pool =
+      typed?.comfyuiPool?.enabled && typed.comfyuiPool.endpoints?.length
+        ? summarizePoolQueueDepth(typed.comfyuiPool.endpoints)
+        : null;
+    return {
+      queuePending: pool?.totalPending ?? comfy.queuePending ?? 0,
+      queueRunning: pool?.totalRunning ?? comfy.queueRunning ?? 0,
+      ok: pool ? pool.anyOk : (comfy.ok ?? false),
+    };
   }, []);
+
+  // Shared with ConnectionHealthChip/QueueTool/QueueOrchestrationPanel/MobileQueueTool — see
+  // shared-health-poll.ts. `refreshHealth` force-refreshes (for the manual `refresh()` bundle
+  // below); the passive 20s tick is a subscription set up in the effect further down instead of
+  // this hook owning its own interval.
+  const refreshHealth = useCallback(async () => {
+    const data = await refreshSharedHealth({ force: true });
+    setQueueHealth(deriveQueueHealth(data));
+  }, [deriveQueueHealth]);
 
   const refreshAssets = useCallback(async () => {
     if (!pollAssets) {
@@ -228,9 +232,6 @@ export function useSystemTrayState(options?: { pollAssets?: boolean }): SystemTr
     window.addEventListener('storage', onHeld);
 
     const galleryInterval = window.setInterval(refreshGallery, 4000);
-    const healthInterval = window.setInterval(() => {
-      void refreshHealth();
-    }, 20000);
     const assetInterval = window.setInterval(() => {
       void refreshAssets();
     }, assetPollMs);
@@ -242,18 +243,17 @@ export function useSystemTrayState(options?: { pollAssets?: boolean }): SystemTr
       window.removeEventListener(SYSTEM_TRAY_MESSAGES_EVENT, onTrayMessages);
       window.removeEventListener('storage', onHeld);
       window.clearInterval(galleryInterval);
-      window.clearInterval(healthInterval);
       window.clearInterval(assetInterval);
     };
-  }, [
-    assetPollMs,
-    refresh,
-    refreshAssets,
-    refreshGallery,
-    refreshHealth,
-    refreshHeld,
-    refreshMessages,
-  ]);
+  }, [assetPollMs, refresh, refreshAssets, refreshGallery, refreshHeld, refreshMessages]);
+
+  // Passive 20s health tick, shared with the other pollers (see shared-health-poll.ts) — this
+  // used to be its own window.setInterval inside the effect above.
+  useEffect(() => {
+    return subscribeSharedHealth(data => {
+      scheduleAfterCommit(() => setQueueHealth(deriveQueueHealth(data)));
+    }, 20000);
+  }, [deriveQueueHealth]);
 
   const activeGalleryJobs = useMemo(
     () =>

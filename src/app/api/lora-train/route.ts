@@ -1,6 +1,8 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { NextResponse } from 'next/server';
 import { apiError, apiJson } from '@/lib/api/response';
+import { readSessionFromRequest } from '@/lib/auth/session';
+import { findUserById, isAuthEnabled } from '@/lib/auth/store';
 import {
   createTrainJob,
   normalizeTrainJob,
@@ -11,6 +13,22 @@ import type { LoraLibraryEntry } from '@/lib/lora-stack';
 import { assertSafeHttpUrl } from '@/lib/url-safety';
 
 export const runtime = 'nodejs';
+
+// This route can spawn an arbitrary local command (trainerCommand) from request input when
+// TRAINER_COMMAND isn't pinned by env — it must be admin-only. It was previously missing from
+// API_FEATURE_MAP entirely, which made the shared auth middleware treat it as always-allowed
+// for any signed-in account; this local check is a second, redundant gate.
+function requireAdmin(request: Request) {
+  if (!isAuthEnabled()) {
+    return null;
+  }
+  const session = readSessionFromRequest(request);
+  const user = session ? findUserById(session.userId) : null;
+  if (!user?.enabled || user.role !== 'admin') {
+    return apiError('Admin sign-in required.', 401);
+  }
+  return null;
+}
 
 type StartBody = {
   action?: 'start';
@@ -295,6 +313,10 @@ function handleComplete(body: CompleteBody) {
 }
 
 export async function GET(request: Request) {
+  const denied = requireAdmin(request);
+  if (denied) {
+    return denied;
+  }
   const url = new URL(request.url);
   const jobId = url.searchParams.get('id')?.trim();
   const envUrl = Boolean(process.env.TRAINER_URL?.trim());
@@ -318,6 +340,10 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const denied = requireAdmin(request);
+  if (denied) {
+    return denied;
+  }
   try {
     const body = (await request.json()) as LoraTrainBody;
     const action = body.action ?? 'start';

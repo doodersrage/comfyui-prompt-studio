@@ -1,6 +1,14 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import type { AppFeatureId } from '@/lib/auth/features';
 import type { AuthSessionResponse, AuthUserPublic } from '@/lib/auth/types';
 import { setActiveUserScope } from '@/lib/user-scope';
@@ -99,7 +107,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Always provide the same shape on server and client first paint. Branching on
   // `typeof window` made AuthContext null during SSR and non-null on hydrate,
   // which remounted AppNav auth UI (hydration mismatch).
-  const value: AuthContextValue = { ...state, refresh, logout, isAdmin };
+  //
+  // Memoized so this legacy merged context only gets a new reference when auth state (or the
+  // stable refresh/logout callbacks) actually changes — the fine-grained contexts above were
+  // added specifically to avoid forcing every useAuth() consumer to re-render on every
+  // AuthProvider render, but this merged value was creating a fresh object every render anyway.
+  const value: AuthContextValue = useMemo(
+    () => ({ ...state, refresh, logout, isAdmin }),
+    [state, refresh, logout, isAdmin]
+  );
 
   // Fine-grained providers — only fire when their specific field changes
   useEffect(() => {

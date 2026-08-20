@@ -8,6 +8,7 @@ import {
 } from './comfyui-gallery';
 import { rankImagesWithVision, type BestOfNImageCandidate } from './best-of-n-rank';
 import { markExperimentWinner } from './experiment-winners';
+import { mapWithConcurrency } from './concurrency';
 
 async function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -89,19 +90,21 @@ export async function waitForGalleryPromptIds(
 export async function buildVisionCandidatesFromEntries(
   entries: ComfyGalleryEntry[]
 ): Promise<BestOfNImageCandidate[]> {
-  const candidates: BestOfNImageCandidate[] = [];
-  for (const entry of entries) {
+  // Each thumbnail fetch+decode is independent and hits this app's own local server — safe to
+  // run concurrently instead of one at a time.
+  const results = await mapWithConcurrency(entries, 6, async entry => {
     const imageDataUrl = await galleryEntryToDataUrl(entry);
     if (!imageDataUrl) {
-      continue;
+      return null;
     }
-    candidates.push({
+    const candidate: BestOfNImageCandidate = {
       id: entry.id,
       prompt: entry.prompt,
       imageDataUrl,
-    });
-  }
-  return candidates;
+    };
+    return candidate;
+  });
+  return results.filter((candidate): candidate is BestOfNImageCandidate => candidate !== null);
 }
 
 export async function rankGalleryEntriesWithVision(

@@ -21,6 +21,7 @@ import { noteScheduledBatchJobComplete } from './scheduled-batch-tracker';
 import { noteJobCompletionEmail } from './job-completion-email';
 import { autoTagGalleryEntry } from './gallery-auto-vision-tags';
 import { backfillHistoryGalleryLink } from './prompt-lineage';
+import { mapWithConcurrency } from './concurrency';
 import { consumePendingRefineAfterUpscale } from './gallery-pending-actions';
 import type { WorkflowParamValues } from './comfyui-config';
 import { buildGalleryImageUrlsFromQueueParams } from './queue-requeue-images';
@@ -404,8 +405,12 @@ export async function claimOrphanComfyJobs(
   let imported = 0;
   let skipped = 0;
   let failed = 0;
-  for (const job of jobs) {
-    const result = await claimOrphanComfyJob(job);
+  // Each job is claimed independently — was previously one HTTP round-trip at a time via
+  // "Claim all host jobs". registerComfyGalleryJob() (called inside claimOrphanComfyJob) is
+  // synchronous, so running these concurrently doesn't introduce a read-modify-write race on
+  // the gallery store.
+  const results = await mapWithConcurrency(jobs, 6, job => claimOrphanComfyJob(job));
+  for (const result of results) {
     if (!result.ok) {
       failed += 1;
     } else if (result.imported === 0) {
@@ -449,16 +454,19 @@ export async function importCompletedHostJobs(
 ): Promise<{ imported: number; upgraded: number; skipped: number; hosts: number }> {
   const { listHealComfyUrls } = await import('./comfyui-manager-install-client');
   const urls = await listHealComfyUrls(comfyUrl);
-  const items: ComfyHistoryImportItem[] = [];
   const targets = urls.length > 0 ? urls : [comfyUrl?.trim() || ''];
-  for (const url of targets) {
+  // Each pool host's history is fetched independently — was previously one at a time, so a
+  // single slow/dead host in the pool serialized behind every other host's request too.
+  const batches = await mapWithConcurrency(targets, 6, async url => {
     try {
       const payload = await fetchComfyHistoryImports(limit, url || undefined);
-      items.push(...(payload.items ?? []));
+      return payload.items ?? [];
     } catch {
       // Skip a dead pool member; others can still import.
+      return [];
     }
-  }
+  });
+  const items: ComfyHistoryImportItem[] = batches.flat();
   const result = importComfyGalleryFromHistory(dedupeHistoryImportItems(items).slice(0, 80));
   return { ...result, hosts: urls.length || (comfyUrl?.trim() ? 1 : 0) };
 }

@@ -9,6 +9,8 @@ import { generatePetPrompt } from './specialized/pet-generator';
 import type { ComfyImageModel } from './comfy-models/client';
 import type { DetailLevel } from './detail-level';
 import type { LlmRequestOptions } from './llm-request-options';
+import { mapWithConcurrency } from './concurrency';
+import { getLlmMaxInflight } from './llm-backpressure';
 
 export type BatchFromTopicsTarget =
   'generate' | 'duo' | 'character' | 'pet' | 'fantasy' | 'background';
@@ -52,11 +54,9 @@ export async function batchGenerateFromTopics(
     .filter(Boolean)
     .slice(0, 12);
 
-  const results: BatchFromTopicsItem[] = [];
-
   const seedLlmWithIngredients = options.seedLlmWithIngredients !== false;
 
-  for (const topic of topics) {
+  async function generateOne(topic: string): Promise<BatchFromTopicsItem> {
     const hints = seedLlmWithIngredients
       ? (applyLockedLocation(topic, options.lockedLocation) ?? topic)
       : topic;
@@ -85,12 +85,11 @@ export async function batchGenerateFromTopics(
       const enriched = enrichGenerateResult(result, hints, {
         teamKit: options.teamKit,
       });
-      results.push({
+      return {
         topic,
         prompt: enriched.prompt,
         provider: enriched.provider,
-      });
-      continue;
+      };
     }
 
     if (options.target === 'character') {
@@ -108,12 +107,11 @@ export async function batchGenerateFromTopics(
         llm: options.llm,
         ...avoidance,
       });
-      results.push({
+      return {
         topic,
         prompt: result.prompt,
         provider: result.provider,
-      });
-      continue;
+      };
     }
 
     if (options.target === 'pet') {
@@ -130,12 +128,11 @@ export async function batchGenerateFromTopics(
         llm: options.llm,
         ...avoidance,
       });
-      results.push({
+      return {
         topic,
         prompt: result.prompt,
         provider: result.provider,
-      });
-      continue;
+      };
     }
 
     if (options.target === 'fantasy') {
@@ -156,12 +153,11 @@ export async function batchGenerateFromTopics(
         llm: options.llm,
         ...avoidance,
       });
-      results.push({
+      return {
         topic,
         prompt: result.prompt,
         provider: result.provider,
-      });
-      continue;
+      };
     }
 
     if (options.target === 'background') {
@@ -174,12 +170,11 @@ export async function batchGenerateFromTopics(
         llm: options.llm,
         ...avoidance,
       });
-      results.push({
+      return {
         topic,
         prompt: result.prompt,
         provider: result.provider,
-      });
-      continue;
+      };
     }
 
     const settings = normalizeGenerationSettings({
@@ -196,12 +191,16 @@ export async function batchGenerateFromTopics(
       avoidedTokensInstruction: options.avoidedTokensInstruction,
     });
 
-    results.push({
+    return {
       topic,
       prompt: result.prompt,
       provider: result.provider,
-    });
+    };
   }
+
+  // Each topic's generation is independent — was previously one LLM round-trip at a time, up to
+  // 12 in a row. Bounded by the same limit the text LLM client enforces (llm-backpressure.ts).
+  const results = await mapWithConcurrency(topics, getLlmMaxInflight(), generateOne);
 
   return { results, count: results.length };
 }

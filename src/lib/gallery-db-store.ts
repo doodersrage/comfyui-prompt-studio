@@ -330,6 +330,19 @@ async function loadRemainingGalleryEntries(): Promise<void> {
   return fullLoadPromise;
 }
 
+/**
+ * Resolves once the FULL gallery (not just the initial `INITIAL_GALLERY_LOAD_LIMIT`-entry page)
+ * has loaded into memory. `loadComfyGallery()`/`getGalleryCache()` only reflect the initial page
+ * until the background hydrate (kicked off via `scheduleLoadRemainingGalleryEntries`, up to 4s+
+ * after first paint) completes — a caller that needs a complete, non-partial snapshot (e.g. a
+ * full-overwrite push to server storage) must await this first, or it can silently push a
+ * truncated gallery that then overwrites — and discards — the server's older history.
+ */
+export async function awaitFullGalleryHydration(): Promise<void> {
+  await hydrateGalleryStore();
+  await loadRemainingGalleryEntries();
+}
+
 function scheduleLoadRemainingGalleryEntries(): void {
   if (typeof window === 'undefined') {
     return;

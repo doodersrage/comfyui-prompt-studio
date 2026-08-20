@@ -111,6 +111,10 @@ const API_FEATURE_MAP: Array<{ prefix: string; feature: AppFeatureId }> = [
   { prefix: '/api/compose', feature: 'llm-api' },
   { prefix: '/api/fix', feature: 'llm-api' },
   { prefix: '/api/compact', feature: 'llm-api' },
+
+  // Spawns a local trainer process/command from request input — must never be reachable by an
+  // unmapped (always-allowed) route. See requireAdmin() in the route itself for the second gate.
+  { prefix: '/api/lora-train', feature: 'settings' },
 ];
 
 export function featureForPath(pathname: string): AppFeatureId | null {

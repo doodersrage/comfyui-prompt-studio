@@ -1571,11 +1571,27 @@ export function disconnectQwenEditReferenceImagesForTxt2Img(
     }
   }
   for (const nodeId of removedLoadImageIds) {
-    if (next[nodeId]) {
-      delete next[nodeId];
-      if (!disconnectedNodeIds.includes(nodeId)) {
-        disconnectedNodeIds.push(nodeId);
+    const node = next[nodeId];
+    if (!node) {
+      continue;
+    }
+    // A LoadImage feeding the edit-encode node can also be shared by another node (e.g. a
+    // ControlNet/FaceDetailer reusing the same reference image) — the loop above already
+    // checks this and correctly keeps it. Re-check here too: deleting it unconditionally
+    // would leave that other node pointing at a node ID that no longer exists, which fails
+    // ComfyUI's prompt validation.
+    const stillReferenced = Object.values(next).some(other => {
+      if (!other?.inputs || other === node) {
+        return false;
       }
+      return Object.values(other.inputs).some(value => getLinkedNodeId(value) === nodeId);
+    });
+    if (stillReferenced) {
+      continue;
+    }
+    delete next[nodeId];
+    if (!disconnectedNodeIds.includes(nodeId)) {
+      disconnectedNodeIds.push(nodeId);
     }
   }
 
