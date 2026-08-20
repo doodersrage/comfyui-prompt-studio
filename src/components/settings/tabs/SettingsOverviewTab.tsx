@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import AppUpdateStatus from '@/components/settings/AppUpdateStatus';
 import ServerEnvPanel from '@/components/settings/ServerEnvPanel';
 import StorageHealthChip from '@/components/StorageHealthChip';
 import { ToolSection, HealthCard } from '@/components/ui/ToolPageShell';
@@ -468,6 +469,10 @@ export default function SettingsOverviewTab({
             <ComfyLogsSnippet comfyUrl={health.comfyui.url} />
           </>
         )}
+      </ToolSection>
+
+      <ToolSection title="About">
+        <AppUpdateStatus />
       </ToolSection>
 
       <ToolSection title="Feedback">

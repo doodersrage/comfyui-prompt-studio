@@ -59,7 +59,17 @@ function TrayNotice({
       <div className="flex items-start gap-3">
         <p className="type-caption min-w-0 flex-1 leading-relaxed">{text}</p>
         <div className="flex shrink-0 items-center gap-2">
-          {href ? (
+          {href?.startsWith('http') ? (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="type-caption text-[var(--accent-text)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+              onClick={onDismiss}
+            >
+              Open
+            </a>
+          ) : href ? (
             <Link
               href={href}
               className="type-caption text-[var(--accent-text)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
