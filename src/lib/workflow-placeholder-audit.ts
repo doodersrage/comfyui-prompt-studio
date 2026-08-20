@@ -1,5 +1,4 @@
 import {
-  DEFAULT_CFG_TOKEN,
   DEFAULT_DENOISE_TOKEN,
   DEFAULT_INPUT_IMAGE_TOKEN,
   DEFAULT_MASK_IMAGE_TOKEN,
@@ -15,11 +14,7 @@ import {
   DEFAULT_CONTROLNET_MODEL_TOKEN,
   DEFAULT_CONTROL_IMAGE_TOKEN,
 } from './model-controlnet-map';
-import {
-  LIGHTNING_LORA_TOKEN,
-  LORA_PLACEHOLDER_TOKEN_PATTERN,
-  isLightningFamilyLoraToken,
-} from './workflow-lora-patch';
+import { LORA_PLACEHOLDER_TOKEN_PATTERN, isLightningFamilyLoraToken } from './workflow-lora-patch';
 
 const LORA_TOKEN_PATTERN = LORA_PLACEHOLDER_TOKEN_PATTERN;
 

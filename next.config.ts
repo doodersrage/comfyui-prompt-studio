@@ -14,11 +14,22 @@ const baseConfig: NextConfig = {
   },
 
   // Keep local Python engine envs and dynamic filesystem ops out of NFT / Turbopack traces.
+  // The diffusers-engine loras/outputs dirs are runtime data (downloaded LoRAs, generated
+  // images), not code the engine needs to boot — including them was bloating the standalone
+  // output by ~650MB. run.sh/app/requirements.txt/configs stay traced so autostart still works.
+  // NOTE: the key MUST start with '/' — it's a route glob matched against the route path
+  // (see https://nextjs.org/docs/app/api-reference/config/next-config-js/output), not a
+  // bare wildcard. A key of '*' (no leading slash) never matches any real route and silently
+  // does nothing, which is why this block had zero effect despite being "correct" glob syntax.
   outputFileTracingExcludes: {
-    '*': [
-      './services/**/.venv/**',
-      './services/diffusers-engine/.venv/**',
+    '/*': [
+      './services/**/.venv/**/*',
+      './services/diffusers-engine/.venv/**/*',
+      './services/diffusers-engine/loras/**/*',
+      './services/diffusers-engine/outputs/**/*',
       './src/lib/comfyui-view-cache.ts',
+      // Scratch/cleanup dir from prior sessions — never belongs in a build output.
+      './_to_delete/**/*',
     ],
   },
 

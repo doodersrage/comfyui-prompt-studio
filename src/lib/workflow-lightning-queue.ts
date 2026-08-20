@@ -33,7 +33,6 @@ import {
   loraNameIsLightningSlot,
   LIGHTNING_LORA_TOKEN,
   alignLightningLoraFamilyInWorkflow,
-  lightningLoraMatchesModel,
   patchLoraNodesInWorkflow,
   resolveLoraLoaderFilename,
 } from './workflow-lora-patch';

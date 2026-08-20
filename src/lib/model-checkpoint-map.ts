@@ -5,7 +5,6 @@ import {
 } from './comfy-models';
 import type { CustomWorkflowToken, WorkflowParamValues } from './comfyui-config';
 import {
-  isBooguEditModel,
   isBooguFamilyModel,
   isFlux1FamilyModel,
   isFluxKleinModel,

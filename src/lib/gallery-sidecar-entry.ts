@@ -1,4 +1,3 @@
-import type { ComfyOutputImage } from './comfyui-outputs';
 import type { ComfyGalleryEntry } from './comfyui-gallery';
 import {
   readSidecarOutputImage,

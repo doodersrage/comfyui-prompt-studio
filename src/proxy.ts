@@ -48,6 +48,12 @@ function isTrustedSameOrigin(request: NextRequest): boolean {
   return site === 'same-origin' || site === 'none';
 }
 
+// Matches ONLY the shared PROMPT_API_TOKEN secret. This gate decides whether
+// authorizeAppRequest() (which enforces user.enabled and blocked-feature checks)
+// gets skipped entirely, so it must never also accept a personal (`pt_`) API key —
+// otherwise a disabled or feature-blocked user could keep full access via their own
+// key whenever an operator has PROMPT_API_TOKEN configured. Personal-key holders
+// still authenticate fine through authorizeAppRequest()'s own resolveRequestUser().
 function hasValidServiceToken(request: NextRequest): boolean {
   const expected = process.env.PROMPT_API_TOKEN?.trim();
   if (!expected) {
@@ -56,9 +62,6 @@ function hasValidServiceToken(request: NextRequest): boolean {
   const provided = extractToken(request);
   if (!provided) {
     return false;
-  }
-  if (provided.startsWith('pt_') && resolveUserIdFromApiKey(provided)) {
-    return true;
   }
   return timingSafeEqualString(provided, expected);
 }

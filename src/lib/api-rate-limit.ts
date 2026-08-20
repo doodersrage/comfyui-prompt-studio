@@ -5,6 +5,23 @@ type Bucket = {
 
 const buckets = new Map<string, Bucket>();
 
+// buckets never shrinks on its own — every distinct route:client-key pair that's
+// ever seen a request stays in memory even after its window expires. That's fine
+// at small scale, but on a long-running process with many distinct clients/routes
+// (in particular the high-volume media routes, which key by IP + full path) it's
+// unbounded growth. Sweep expired entries periodically rather than on every call,
+// so normal request handling stays O(1) amortized.
+const SWEEP_INTERVAL_CALLS = 500;
+let callsSinceSweep = 0;
+
+function sweepExpiredBuckets(now: number): void {
+  for (const [key, bucket] of buckets) {
+    if (now >= bucket.resetAt) {
+      buckets.delete(key);
+    }
+  }
+}
+
 export type RateLimitResult =
   | { allowed: true; remaining: number; resetAt: number }
   | { allowed: false; remaining: 0; resetAt: number; retryAfterSec: number };
@@ -23,6 +40,13 @@ export function checkRateLimit(key: string, route = 'api', maxOverride?: number)
   const max = maxOverride && maxOverride > 0 ? Math.floor(maxOverride) : envMax;
   const bucketKey = `${route}:${key}`;
   const now = Date.now();
+
+  callsSinceSweep += 1;
+  if (callsSinceSweep >= SWEEP_INTERVAL_CALLS) {
+    callsSinceSweep = 0;
+    sweepExpiredBuckets(now);
+  }
+
   const existing = buckets.get(bucketKey);
 
   if (!existing || now >= existing.resetAt) {

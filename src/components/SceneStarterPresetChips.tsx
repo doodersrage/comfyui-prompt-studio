@@ -23,7 +23,6 @@ import {
   presetVariationsPath,
   savePresetVariationsHandoff,
 } from '@/lib/preset-variations-handoff';
-import type { ComfyImageModel } from '@/lib/comfy-models/client';
 import { ROUTE_TINT_CLASSES, type ToolAccent } from '@/lib/tool-theme';
 import { TextInput } from '@/components/ui/Field';
 import { Button } from '@/components/ui/Button';
@@ -91,6 +90,11 @@ export default function SceneStarterPresetChips({
   const activeChipClass = ROUTE_TINT_CLASSES[accent].badge;
   const [visibleCount, setVisibleCount] = useState(PRESET_BATCH);
 
+  // userPresetVersion isn't read inside the callback — it's a deliberate cache-bust
+  // counter (bumped after saving a preset, see setUserPresetVersion below) that
+  // forces this to re-read from storage. Do not remove it despite the lint warning;
+  // loadUserSceneStarterPresets() has no other way to know storage changed.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const userPresets = useMemo(() => loadUserSceneStarterPresets(), [userPresetVersion]);
 
   const allPresets = useMemo(() => getAllSceneStarterPresets(userPresets), [userPresets]);

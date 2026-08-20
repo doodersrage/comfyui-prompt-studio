@@ -11,7 +11,6 @@ import {
   suggestedOptimizedWorkflowName,
 } from "./workflow-queue-optimizer";
 import { buildWorkflowScaffoldForModel } from "./workflow-scaffold";
-import { workflowContentHash } from "./workflow-content-hash";
 
 const FULL_TOKENS = {
   positive: DEFAULT_POSITIVE_TOKEN,

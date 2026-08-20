@@ -268,9 +268,24 @@ export async function loadComfyGalleryAsync(): Promise<ComfyGalleryEntry[]> {
 
 export function saveComfyGallery(
   entries: ComfyGalleryEntry[],
-  options?: { syncRemote?: boolean }
+  options?: { syncRemote?: boolean; skipMaintenance?: boolean }
 ): void {
   if (typeof window === 'undefined') {
+    return;
+  }
+
+  if (options?.skipMaintenance) {
+    // Ephemeral progress-only patch (queue position / % done / status text, ticking
+    // up to 4x/sec while a job runs — see galleryPatchIsEphemeralProgress below).
+    // Update the in-memory cache so the UI reflects it live, but skip the full-list
+    // maintenance passes below: age/byte-budget pruning, entry-count capping,
+    // IndexedDB persistence (which fingerprints every entry just to diff one row),
+    // and analytics/remote sync. None of that is time-critical for a transient
+    // tick — setGalleryCache() already marks the cache dirty, so it still gets
+    // flushed by the next non-ephemeral save (e.g. completed/error) or the next
+    // reload/tab-sync flush, same as before this patch just less often.
+    setGalleryCache(entries);
+    notifyGalleryUpdated();
     return;
   }
 
@@ -817,8 +832,10 @@ export function updateComfyGalleryByPromptId(
     celebrateSystemTray('job');
   }
 
+  const ephemeral = galleryPatchIsEphemeralProgress(patch);
   saveComfyGallery(next, {
-    syncRemote: !galleryPatchIsEphemeralProgress(patch),
+    syncRemote: !ephemeral,
+    skipMaintenance: ephemeral,
   });
   if (patch.status === 'completed' || patch.status === 'error') {
     void import('./gallery-server-sync').then(({ pushGallerySnapshotToServer }) => {

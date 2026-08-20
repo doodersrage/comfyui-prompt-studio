@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Link from 'next/link';
 import BatchLintGatePanel from '@/components/BatchLintGatePanel';
 import BatchReadinessPanel, {
   applyReadinessFilterToPrompts,

@@ -13,7 +13,6 @@ import {
   describeVisionPromptIssue,
   isVisionPromptHardFailure,
   isVisionPromptInsufficient,
-  visionPromptMinChars,
   visionPromptTargetChars,
 } from '../prompt-cleanup';
 import { sanitizeQwenPrompt, formatPromptForModel } from '../qwen-clarity';

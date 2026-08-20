@@ -148,6 +148,10 @@ export default function WorkflowHealthPanel({
       controlNetMap: { ...(shared.modelControlNetMap ?? {}) } as Record<string, string>,
       models: comfyModels,
     });
+    // refreshKey isn't read in the body — it's the caller's manual "force refresh"
+    // trigger prop (see the `void refreshKey;` acknowledgments elsewhere in this
+    // file), so it's kept despite the warning.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [comfyModels, refreshKey]);
 
   const applyLoaderMapRepairSuggestions = () => {

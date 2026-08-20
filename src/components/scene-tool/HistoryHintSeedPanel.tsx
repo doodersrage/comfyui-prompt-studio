@@ -128,7 +128,7 @@ export function HistoryHintSeedPanel({
   const [historyStatus, setHistoryStatus] = useState<string | null>(null);
   const candidateCount = useMemo(
     () => countHistorySeedCandidates(tool, historySeedScope),
-    [tool, historySeedScope, hints, hintSource]
+    [tool, historySeedScope]
   );
   const suggestions = useMemo(
     () =>

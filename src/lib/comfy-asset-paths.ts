@@ -32,7 +32,10 @@ export function getComfyUiRoot(env: NodeJS.ProcessEnv = process.env): string | n
 
 export function isComfyUiRootConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
   const root = getComfyUiRoot(env);
-  return Boolean(root && fs.existsSync(root));
+  // root comes from COMFYUI_ROOT, an operator-configured path entirely outside this
+  // project (e.g. /opt/comfyui) — not something Turbopack's file tracer needs to reason
+  // about, and without this it was triggering a whole-project trace fallback.
+  return Boolean(root && fs.existsSync(/* turbopackIgnore: true */ root));
 }
 
 /**

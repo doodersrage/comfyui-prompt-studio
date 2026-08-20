@@ -290,7 +290,7 @@ export default function ComfyWorkflowLibraryPanel({
         onStatus?.(message);
       }
     },
-    [assignInferredModels, newName, onStatus, placeholderTokens, refresh, startEdit]
+    [newName, onStatus, placeholderTokens, refresh, startEdit]
   );
 
   const cancelEdit = useCallback(() => {

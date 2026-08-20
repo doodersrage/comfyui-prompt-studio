@@ -1,6 +1,4 @@
-import { inferAthleticSport } from './athletic-sport-profiles';
-import { inferCyclingDiscipline, type CyclingDiscipline } from './athletic-sport-actions';
-import { hintsDescribeAthleticDuoCompetition } from './athletic-duo-hints';
+import type { CyclingDiscipline } from './athletic-sport-actions';
 import { analyzePromptDiagnostics, lintPrompt, type PromptDiagnostics } from './prompt-diagnostics';
 import type { ToolGenerateResult } from './specialized/types';
 

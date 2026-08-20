@@ -2164,11 +2164,11 @@ describe("gallery mutations", () => {
   it("builds location and wardrobe mutation prompts", async () => {
     const { buildMutatedPrompt } = await import("./gallery-mutations");
     assert.match(
-      buildMutatedPrompt("cyclist in forest", "location", "neon alley"),
+      await buildMutatedPrompt("cyclist in forest", "location", "neon alley"),
       /Relocate scene to neon alley/,
     );
     assert.match(
-      buildMutatedPrompt("portrait", "wardrobe", "red dress"),
+      await buildMutatedPrompt("portrait", "wardrobe", "red dress"),
       /Change outfit to red dress/,
     );
   });

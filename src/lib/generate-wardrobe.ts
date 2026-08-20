@@ -6,7 +6,6 @@ import {
   type ClothingPickFilters,
 } from './clothing-tags';
 import {
-  inferAthleticSport,
   promptContainsSportWardrobeConflict,
   summaryMatchesSportWardrobe,
 } from './athletic-sport-profiles';
@@ -19,7 +18,6 @@ import {
 } from './athletic-sport-actions';
 import {
   mergeWardrobeAssignmentsIntoPrompt,
-  mergeWardrobeRespectingLimits,
   pickRandomCharacterOutfit,
   buildOutfitFromLockedWardrobeId,
   type RandomCharacterOutfit,

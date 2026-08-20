@@ -110,19 +110,6 @@ const BY_CATEGORY = CATALOG.reduce(
   {} as Record<ClothingCategory, EnrichedClothingEntry[]>
 );
 
-const WARDROBE_CATEGORIES: ClothingCategory[] = [
-  'outfit',
-  'top',
-  'bottom',
-  'outerwear',
-  'swimwear',
-  'intimate',
-  'formalwear',
-  'sleepwear',
-  'underwear',
-  'traditional',
-];
-
 function sceneAllowsFormalwear(contexts: readonly ClothingContextTag[]): boolean {
   return contexts.includes('formal') || contexts.includes('evening');
 }

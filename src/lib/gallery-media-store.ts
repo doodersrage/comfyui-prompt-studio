@@ -6,6 +6,11 @@ import { resolvePromptDataDir } from './prompt-data-paths';
 import { isServerStorageEnabled } from './server-storage';
 
 const SAFE_ID = /^[A-Za-z0-9._-]{1,128}$/;
+// "." and ".." are otherwise valid under SAFE_ID's character class, and both are
+// real path segments (path.join(dataRoot(), 'gallery-media', owner, '..') walks up
+// a directory), so they must be rejected explicitly rather than relying on the
+// character-class alone.
+const DOT_SEGMENTS = new Set(['.', '..']);
 
 /** Bound on per-entry image index — generous for any realistic batch, cheap to validate. */
 const MAX_MEDIA_INDEX = 63;
@@ -15,14 +20,18 @@ export type DurableMediaFile = {
   contentType: string;
 };
 
+function isSafeId(value: string): boolean {
+  return SAFE_ID.test(value) && !DOT_SEGMENTS.has(value);
+}
+
 function mediaOwner(userId?: string | null): string {
   const raw = userId?.trim() || '_global';
-  return SAFE_ID.test(raw) ? raw : '_global';
+  return isSafeId(raw) ? raw : '_global';
 }
 
 function assertSafeId(id: string, label: string): string {
   const trimmed = id.trim();
-  if (!SAFE_ID.test(trimmed)) {
+  if (!isSafeId(trimmed)) {
     throw new Error(`Invalid ${label}.`);
   }
   return trimmed;

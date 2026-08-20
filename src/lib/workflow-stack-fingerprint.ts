@@ -36,7 +36,6 @@ const PLACEHOLDER_PATTERN = /^\{\{[A-Z0-9_]+\}\}$/;
 const CHECKPOINT_LOADER_TYPES = new Set(['CheckpointLoaderSimple', 'CheckpointLoader']);
 const UNET_LOADER_TYPES = new Set(['UNETLoader', 'UnetLoaderGGUF']);
 const VAE_LOADER_TYPES = new Set(['VAELoader']);
-const DUAL_CLIP_LOADER_TYPES = new Set(['DualCLIPLoader']);
 const CLIP_LOADER_TYPES = new Set(['CLIPLoader', 'DualCLIPLoader']);
 
 const COMPATIBLE_STACK_FAMILIES: Partial<
@@ -269,13 +268,6 @@ export function extractWorkflowStackFingerprint(
   const clipFamilies = clipFilenames.map(classifyLoaderFilenameFamily);
   const vaeFamilies = vaeFilenames.map(classifyLoaderFilenameFamily);
   const checkpointFamilies = checkpointFilenames.map(classifyLoaderFilenameFamily);
-
-  const concreteFamilies = uniqueConcreteFamilies([
-    ...unetFamilies,
-    ...clipFamilies,
-    ...vaeFamilies,
-    ...checkpointFamilies,
-  ]);
 
   const unetConcrete = uniqueConcreteFamilies(unetFamilies);
   const clipConcrete = uniqueConcreteFamilies(clipFamilies);

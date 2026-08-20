@@ -10,7 +10,6 @@ import {
   pickHighestScoringComfyUiEndpoint,
   pickLoadBalancedComfyUiEndpoint,
   resetComfyUiPoolStatsCacheForTests,
-  resolveComfyUiUrlWithPool,
   scoreComfyUiPoolEndpointStat,
   setComfyUiPoolStatsCache,
   type ComfyUiPoolEndpointStat,

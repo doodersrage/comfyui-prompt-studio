@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { CollapsibleSection } from '@/components/ui/ToolPageShell';
-import { loadPromptRecipes, type PromptRecipe, type PromptRecipeStep } from '@/lib/prompt-recipes';
+import { loadPromptRecipes, type PromptRecipe } from '@/lib/prompt-recipes';
 import { toastQueueOutcome } from '@/lib/app-toast';
 import {
   queueSameSeedShootout,

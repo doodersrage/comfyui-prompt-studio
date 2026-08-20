@@ -322,21 +322,6 @@ function filterIdentityPool(
   });
 }
 
-function pickFilteredIdentity(
-  gender: 'women' | 'men',
-  options: { allowMinimalHair?: boolean; athletic?: boolean }
-): string {
-  const pool = options.athletic
-    ? gender === 'women'
-      ? ATHLETIC_COMPETITION_IDENTITY_WOMEN
-      : ATHLETIC_COMPETITION_IDENTITY_MEN
-    : gender === 'women'
-      ? IDENTITY_WOMEN
-      : IDENTITY_MEN;
-  const filtered = filterIdentityPool(pool, options);
-  return pick(filtered.length > 0 ? filtered : [...pool]);
-}
-
 export function pickDistinctSubjects(count: number, gender: SubjectGender = 'any'): string[] {
   if (gender === 'mixed' && count >= 2) {
     return shuffle([pick(SUBJECTS_MEN), pick(SUBJECTS_WOMEN)]).slice(0, 2);

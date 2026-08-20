@@ -5,7 +5,6 @@ import { loadSettingsCache } from './settings-cache';
 import { auditLoaderMapsAgainstComfyUi } from './loader-map-health-audit';
 import { fetchComfyObjectInfoModelsCached } from './comfyui-object-info-cache';
 import { resolveComfyUiRuntime } from './comfyui-runtime';
-import type { ComfyUiModelLists } from './comfyui-object-info';
 import { auditLoaderFilenamesInWorkflow } from './workflow-loader-filename-audit';
 import type { WorkflowPreflightIssue } from './workflow-preflight';
 import { auditDualClipNodesInWorkflow } from './workflow-dual-clip-audit';

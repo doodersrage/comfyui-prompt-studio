@@ -1,10 +1,15 @@
-import { randomBytes } from 'node:crypto';
+import { randomBytes, createHash } from 'node:crypto';
 import { hashPassword } from './password';
 import { findUserByUsername, saveUsers, ensureAuthStore } from './store';
 import { loadPasswordResetTokens, savePasswordResetTokens } from '@/lib/sqlite/tables';
 
+// Reset tokens are already high-entropy random values (32 bytes from randomBytes),
+// so a plain deterministic digest is sufficient here (no per-hash salt needed, unlike
+// user passwords). Using hashPassword() previously broke redemption entirely, since
+// it salts randomly on every call, so the hash computed at consume-time could never
+// match the hash stored at creation-time.
 function hashToken(token: string): string {
-  return hashPassword(token);
+  return createHash('sha256').update(token).digest('hex');
 }
 
 export function createPasswordResetToken(userId: string): string {

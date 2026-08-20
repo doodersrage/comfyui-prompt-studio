@@ -44,7 +44,6 @@ import {
   RANDOMIZE_INGREDIENTS_LABEL,
   SCENE_WILDNESS_LABEL,
   rollVariationLabel,
-  sceneWildnessLabel,
 } from '@/lib/tool-ui-labels';
 import {
   CollapsibleSection,
@@ -56,14 +55,7 @@ import {
   accentFocusClass,
   accentRingClass,
 } from '@/components/ui/ToolPageShell';
-import {
-  ChipButton,
-  FieldDivider,
-  FieldError,
-  FieldLabel,
-  TextArea,
-  TextInput,
-} from '@/components/ui/Field';
+import { ChipButton, FieldDivider, FieldError, FieldLabel, TextArea } from '@/components/ui/Field';
 import { markOnboardingFirstGenerate } from '@/lib/onboarding-hooks';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
 import CollabPresenceBar from '@/components/CollabPresenceBar';
@@ -176,7 +168,6 @@ export default function PromptGenerator() {
 
   const hintSource = resolveGenerateHintSource(toolSettings);
   const historySeedScope = normalizeHistorySeedScope(toolSettings.historySeedScope);
-  const generateSource = hintSource === 'random' ? 'random' : 'keywords';
   const genre = toolSettings.genre ?? '';
   const includePeople = toolSettings.includePeople !== false;
   const wildness = toolSettings.wildness ?? 65;

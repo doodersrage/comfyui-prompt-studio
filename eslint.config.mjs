@@ -7,6 +7,22 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   prettier,
+  {
+    // Codebase convention: prefix an intentionally-unused binding with `_` (e.g. an
+    // interface-required param, or a destructured field kept for documentation).
+    // Recognize that convention so it isn't flagged as dead code.
+    rules: {
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        {
+          args: 'after-used',
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

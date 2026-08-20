@@ -22,8 +22,6 @@ import {
   hintsSpecifyDress,
   hintsSpecifyFootwear,
   extractBriefGarmentPhrases,
-  inferDressLabelFilter,
-  inferFootwearLabelFilter,
   hintsSwimwearOnlyMode,
   hintsWorkWardrobeAllowed,
   inferAthleticSport,

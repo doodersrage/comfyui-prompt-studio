@@ -11,6 +11,7 @@
     "dev:fast": "next dev",
     "dev:analyze": "ANALYZE=true next dev --webpack -p 47832",
     "build": "next build",
+    "postbuild": "node scripts/prune-standalone.mjs",
     "build:fast": "next build",
     "analyze": "ANALYZE=true next build",
     "start": "next start -p 47832",
@@ -54,7 +55,6 @@
     ]
   },
   "dependencies": {
-    "@huggingface/transformers": "^4.2.0",
     "@tanstack/react-virtual": "^3.14.7",
     "@xyflow/react": "^12.11.2",
     "critters": "^0.0.23",

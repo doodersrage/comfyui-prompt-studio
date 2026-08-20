@@ -44,8 +44,6 @@ import {
   DEFAULT_UNET_TOKEN,
   resolveLoaderFilenamesForModel,
   suggestedVaeFilenameForModel,
-  SUGGESTED_MODEL_VAE_MAP,
-  isVaeFilenameIncompatibleWithModel,
 } from './model-checkpoint-map';
 import { defaultLoaderPrecisionTier, qwenDualClipFilename } from './model-loader-precision';
 import { applyWorkflowNodeBindings } from './workflow-apply-bindings';

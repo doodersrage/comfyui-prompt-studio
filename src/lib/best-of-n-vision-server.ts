@@ -2,11 +2,7 @@ import 'server-only';
 
 import { rankImagesWithVision } from './best-of-n-rank-server';
 import { getComfyUiBaseUrl } from './comfyui-client';
-import {
-  buildComfyViewPath,
-  extractImagesFromOutputs,
-  type ComfyOutputImage,
-} from './comfyui-outputs';
+import { buildComfyViewPath, type ComfyOutputImage } from './comfyui-outputs';
 import { getComfyUiPromptStatus } from './comfyui-status';
 
 export type ServerVisionCandidate = {

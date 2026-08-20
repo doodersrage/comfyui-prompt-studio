@@ -33,7 +33,6 @@ import {
 import {
   hasModelSamplerOverrides,
   normalizeModelSamplerPresetTier,
-  pickModelSamplerOverrideFields,
   type ModelSamplerOverrideFields,
   type ModelSamplerPresetTier,
 } from '@/lib/model-sampler-defaults';

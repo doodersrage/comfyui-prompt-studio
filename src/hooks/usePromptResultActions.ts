@@ -915,7 +915,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         // edit denoise must not clobber CFG-1 / denoise-1 — that mosaics Compose.
         {
           const { ensureDistilledSamplerParams } = await import('@/lib/model-sampler-defaults');
-          const { resolveDistilledQueueDenoise, isQwenRapidAioModel, isWanRapidAioModel } =
+          const { isQwenRapidAioModel, isWanRapidAioModel } =
             await import('@/lib/model-denoise-defaults');
           const { isQwenLightningModel, isWanLightningModel } =
             await import('@/lib/model-sampling-patch');
@@ -1234,15 +1234,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         );
       }
     },
-    [
-      config.model,
-      config.tool,
-      config.hints,
-      fetchNegative,
-      saveHistory,
-      trackComfyUiJob,
-      historySaved,
-    ]
+    [config.model, config.tool, config.hints, saveHistory, trackComfyUiJob, historySaved]
   );
   useEffect(() => {
     sendComfyUiRef.current = sendComfyUi;
@@ -1523,15 +1515,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         });
       }
     },
-    [
-      config.hints,
-      config.model,
-      config.tool,
-      fetchNegative,
-      trackComfyUiJob,
-      saveHistory,
-      historySaved,
-    ]
+    [config.hints, config.model, config.tool, trackComfyUiJob, saveHistory, historySaved]
   );
 
   const copyPromptPair = useCallback(

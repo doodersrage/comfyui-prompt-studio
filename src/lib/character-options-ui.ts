@@ -2,11 +2,6 @@ import {
   CLOTHING_CATALOG_FIELD_KEYS,
   type ClothingCatalogFieldKey,
 } from './clothing-catalog-fields';
-import {
-  enrichAccessoriesHighSignal,
-  enrichFootwearHighSignal,
-  enrichWardrobeHighSignal,
-} from './clothing-quality';
 
 export type CharacterHeadcount = '' | 'solo' | 'duo';
 
@@ -1142,31 +1137,9 @@ function enrichPoseTarget(value: string): string {
   return `${base} featuring visible surface texture, tactile material detail, and believable wear`;
 }
 
-function enrichWardrobe(value: string): string {
-  return enrichWardrobeHighSignal(value);
-}
-
-function enrichFootwear(value: string): string {
-  return enrichFootwearHighSignal(value);
-}
-
-function enrichAccessories(value: string): string {
-  return enrichAccessoriesHighSignal(value);
-}
-
-function enrichProp(value: string): string {
-  const base = withArticle(value);
-  return `holding ${base}, with convincing grip pressure, object weight, and natural hand placement`;
-}
-
-function enrichHairColor(value: string): string {
-  const base = value.trim();
-  if (!base) {
-    return '';
-  }
-
-  return `with ${base} hair showing natural root variation, strand separation, and realistic light response`;
-}
+// Note: wardrobe/footwear/accessories/prop/hairColor enrichment lives in
+// character-options-catalog.ts, which is what's actually wired into prompt
+// building. These were a stale duplicate copy that nothing here called.
 
 function pickOption<T extends string>(raw: string | undefined, allowed: Set<string>): T | '' {
   return raw && allowed.has(raw) ? (raw as T) : '';

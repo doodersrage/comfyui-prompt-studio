@@ -49,6 +49,10 @@ function stripPromptArtifactsUnsafe(raw: string): string {
       .replace(/\\n/g, ' ')
       .replace(/\\t/g, ' ')
       .trim();
+    // Still cheap even on short strings (a handful of regex replaces), and
+    // without it a short "Target model: X. ..." / "FLUX.2 Klein: ..." leak
+    // sails through this fast path untouched.
+    text = stripModelDirectiveLeaks(text);
     return stripThinkingArtifacts(text);
   }
 
@@ -673,10 +677,6 @@ function parseVisionChecklistItems(text: string): VisionChecklistItem[] {
   return items;
 }
 
-function findChecklistValue(items: VisionChecklistItem[], patterns: RegExp[]): string | undefined {
-  return items.find(item => patterns.some(pattern => pattern.test(item.label)))?.value;
-}
-
 function normalizeAsciiQuotes(text: string): string {
   return text.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");
 }
@@ -1232,7 +1232,10 @@ export function isVisionPromptInsufficient(
   prompt: string,
   focus: VisionPromptFocus,
   detail: 'concise' | 'balanced' | 'rich',
-  limits: { minChars?: number; maxChars: number }
+  // Accepted for API-shape parity with callers' DetailLimits, but the length floor
+  // here is intentionally the fixed per-detail-level visionPromptMinChars(detail),
+  // not the caller's limits — flagging in case that divergence is unintentional.
+  _limits: { minChars?: number; maxChars: number }
 ): boolean {
   if (isVisionPromptHardFailure(prompt, focus)) {
     return true;

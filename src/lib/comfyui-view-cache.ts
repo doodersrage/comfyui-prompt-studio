@@ -87,10 +87,14 @@ function diskPaths(
 } {
   const root = cacheRoot();
   const shard = key.slice(0, 2);
-  const dir = /* turbopackIgnore: true */ path.join(root, shard);
+  // Per vercel/next.js#95125: turbopackIgnore only suppresses the whole-project
+  // trace bailout when it annotates a bare variable passed directly to the
+  // fs/path call — annotating the path.join(...) expression itself (as this
+  // used to) does not work, despite matching Next's own suggested remedy text.
+  const dir = path.join(/* turbopackIgnore: true */ root, shard);
   return {
-    filePath: /* turbopackIgnore: true */ path.join(dir, `${key}.${format}`),
-    metaPath: /* turbopackIgnore: true */ path.join(dir, `${key}.json`),
+    filePath: path.join(/* turbopackIgnore: true */ dir, `${key}.${format}`),
+    metaPath: path.join(/* turbopackIgnore: true */ dir, `${key}.json`),
   };
 }
 
@@ -168,7 +172,7 @@ export function readViewCache(key: string, format: ViewCacheFormat): CachedViewI
 
   try {
     const { filePath, metaPath } = diskPaths(key, format);
-    const metaRaw = /* turbopackIgnore: true */ fs.readFileSync(metaPath, 'utf8');
+    const metaRaw = fs.readFileSync(/* turbopackIgnore: true */ metaPath, 'utf8');
     const meta = JSON.parse(metaRaw) as { expiresAt?: number; contentType?: string };
 
     if (
@@ -179,7 +183,7 @@ export function readViewCache(key: string, format: ViewCacheFormat): CachedViewI
       return null;
     }
 
-    const buffer = /* turbopackIgnore: true */ fs.readFileSync(filePath);
+    const buffer = fs.readFileSync(/* turbopackIgnore: true */ filePath);
     const entry: MemoryEntry = {
       buffer,
       contentType: meta.contentType,
@@ -211,12 +215,13 @@ export function writeViewCache(
 
   try {
     const { filePath, metaPath } = diskPaths(key, format);
-    /* turbopackIgnore: true */ fs.mkdirSync(/* turbopackIgnore: true */ path.dirname(filePath), {
+    const fileDir = path.dirname(/* turbopackIgnore: true */ filePath);
+    fs.mkdirSync(/* turbopackIgnore: true */ fileDir, {
       recursive: true,
     });
-    /* turbopackIgnore: true */ fs.writeFileSync(filePath, image.buffer);
-    /* turbopackIgnore: true */ fs.writeFileSync(
-      metaPath,
+    fs.writeFileSync(/* turbopackIgnore: true */ filePath, image.buffer);
+    fs.writeFileSync(
+      /* turbopackIgnore: true */ metaPath,
       JSON.stringify({ expiresAt, contentType: image.contentType })
     );
     cacheStats.diskWrites++;
@@ -341,7 +346,7 @@ export function selectDiskCacheEvictions(
 function cleanupExpiredDiskCache(): void {
   try {
     const root = cacheRoot();
-    if (!fs.existsSync(root)) return;
+    if (!fs.existsSync(/* turbopackIgnore: true */ root)) return;
 
     const now = Date.now();
     let deletedCount = 0;
@@ -350,19 +355,19 @@ function cleanupExpiredDiskCache(): void {
     // Walk through all cache files, removing expired ones and collecting
     // size/recency info for whatever survives.
     function walkDirectory(dir: string) {
-      if (!fs.existsSync(dir)) return;
+      if (!fs.existsSync(/* turbopackIgnore: true */ dir)) return;
 
-      const items = fs.readdirSync(dir);
+      const items = fs.readdirSync(/* turbopackIgnore: true */ dir);
       for (const item of items) {
-        const fullPath = path.join(dir, item);
-        const stat = fs.statSync(fullPath);
+        const fullPath = path.join(/* turbopackIgnore: true */ dir, item);
+        const stat = fs.statSync(/* turbopackIgnore: true */ fullPath);
 
         if (stat.isDirectory()) {
           walkDirectory(fullPath);
         } else if (item.endsWith('.json')) {
           // This is a metadata file
           try {
-            const metaRaw = fs.readFileSync(fullPath, 'utf8');
+            const metaRaw = fs.readFileSync(/* turbopackIgnore: true */ fullPath, 'utf8');
             const meta = JSON.parse(metaRaw) as { expiresAt?: number };
             const key = item.replace(/\.json$/, '');
 
@@ -370,11 +375,11 @@ function cleanupExpiredDiskCache(): void {
               // Delete metadata and any format sibling (jpeg/webp/avif).
               for (const format of ['jpeg', 'webp', 'avif'] as const) {
                 const { filePath } = diskPaths(key, format);
-                if (fs.existsSync(filePath)) {
-                  fs.unlinkSync(filePath);
+                if (fs.existsSync(/* turbopackIgnore: true */ filePath)) {
+                  fs.unlinkSync(/* turbopackIgnore: true */ filePath);
                 }
               }
-              fs.unlinkSync(fullPath);
+              fs.unlinkSync(/* turbopackIgnore: true */ fullPath);
               deletedCount++;
               continue;
             }
@@ -385,7 +390,7 @@ function cleanupExpiredDiskCache(): void {
             for (const format of ['jpeg', 'webp', 'avif'] as const) {
               const { filePath } = diskPaths(key, format);
               try {
-                const imageStat = fs.statSync(filePath);
+                const imageStat = fs.statSync(/* turbopackIgnore: true */ filePath);
                 survivors.push({
                   key,
                   bytes: imageStat.size + stat.size,
@@ -413,16 +418,16 @@ function cleanupExpiredDiskCache(): void {
       const { metaPath } = diskPaths(entry.key, 'jpeg');
       for (const format of ['jpeg', 'webp', 'avif'] as const) {
         const { filePath: candidate } = diskPaths(entry.key, format);
-        if (fs.existsSync(candidate)) {
+        if (fs.existsSync(/* turbopackIgnore: true */ candidate)) {
           try {
-            fs.unlinkSync(candidate);
+            fs.unlinkSync(/* turbopackIgnore: true */ candidate);
           } catch {
             /* already gone */
           }
         }
       }
       try {
-        fs.unlinkSync(metaPath);
+        fs.unlinkSync(/* turbopackIgnore: true */ metaPath);
       } catch {
         /* already gone */
       }

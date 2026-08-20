@@ -84,8 +84,8 @@ describe("clothing quality", () => {
     }
   });
 
-  it("mutates wardrobe prompts with catalog outfits by default", () => {
-    const mutated = buildMutatedPrompt(
+  it("mutates wardrobe prompts with catalog outfits by default", async () => {
+    const mutated = await buildMutatedPrompt(
       "A woman standing in a neon alley",
       "wardrobe",
     );
@@ -96,8 +96,8 @@ describe("clothing quality", () => {
     );
   });
 
-  it("keeps explicit wardrobe mutation values", () => {
-    const mutated = buildMutatedPrompt("portrait", "wardrobe", "red dress");
+  it("keeps explicit wardrobe mutation values", async () => {
+    const mutated = await buildMutatedPrompt("portrait", "wardrobe", "red dress");
     assert.match(mutated, /Change outfit to red dress/i);
   });
 

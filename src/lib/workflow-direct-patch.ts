@@ -12,10 +12,7 @@ import {
   type ModelLoaderFilenames,
 } from './model-checkpoint-map';
 import { precisionHintFromFilename, qwenUnetFamiliesCompatible } from './model-loader-precision';
-import {
-  DEFAULT_CONTROLNET_MODEL_TOKEN,
-  DEFAULT_CONTROL_IMAGE_TOKEN,
-} from './model-controlnet-map';
+import { DEFAULT_CONTROL_IMAGE_TOKEN } from './model-controlnet-map';
 import { DEFAULT_UPSCALE_MODEL_TOKEN, SUGGESTED_MODEL_UPSCALE_MAP } from './model-upscale-map';
 import {
   buildLoraFilenameMapFromCustomTokens,
@@ -30,10 +27,7 @@ import {
 } from './ipadapter-workflow-patch';
 import { insertControlNetChainIfMissing, insertControlNetStack } from './controlnet-workflow-patch';
 import { insertIdentityChainIfMissing } from './identity-workflow-patch';
-import {
-  patchRegionalTokensInWorkflow,
-  type RegionalPromptSegment,
-} from './regional-prompt-builder';
+import { type RegionalPromptSegment } from './regional-prompt-builder';
 import { applyRegionalEditToWorkflow } from './workflow-regional-patch';
 import { normalizeRegionalPromptSlots, type RegionalPromptSlot } from './regional-prompt-slots';
 import {

@@ -1,11 +1,7 @@
 import { SPORT_PRESETS, type SportPreset } from './sport-presets';
 import { buildGeneratedSceneStarters } from './scene-starter-generated';
 import { withSceneStarterTags, filterSceneStarters } from './scene-starter-filter';
-import {
-  SCENE_STARTER_CATEGORIES,
-  type SceneStarterCategory,
-  type SceneStarterPreset,
-} from './scene-starter-types';
+import type { SceneStarterCategory, SceneStarterPreset } from './scene-starter-types';
 
 export type { SceneStarterCategory, SceneStarterPreset } from './scene-starter-types';
 export { SCENE_STARTER_CATEGORIES } from './scene-starter-types';

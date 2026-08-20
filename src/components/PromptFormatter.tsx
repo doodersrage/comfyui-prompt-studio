@@ -21,7 +21,7 @@ import {
   accentButtonClass,
   accentFocusClass,
 } from '@/components/ui/ToolPageShell';
-import { ChipButton, FieldError, FieldLabel, TextArea } from '@/components/ui/Field';
+import { ChipButton, FieldError, TextArea } from '@/components/ui/Field';
 import { PrimaryButton } from '@/components/ui/Button';
 import { DEFAULT_FORMAT_TOOL_CACHE } from '@/lib/settings-cache';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';

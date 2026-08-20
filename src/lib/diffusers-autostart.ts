@@ -167,7 +167,7 @@ function spawnEngine(url: string): ChildProcess {
     );
   }
 
-  const child = spawn(resolved.command, resolved.args, {
+  const child = spawn(/* turbopackIgnore: true */ resolved.command, resolved.args, {
     cwd: resolved.cwd,
     detached: true,
     stdio: 'ignore',

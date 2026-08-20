@@ -184,7 +184,6 @@ export function llmImageQueueHandlers(engineId: LlmImageEngineId) {
 }
 
 export function llmImageStatusHandlers(engineId: LlmImageEngineId) {
-  const option = cloudEngineOption(engineId)!;
   return {
     runtime: 'nodejs' as const,
     maxDuration: 60,

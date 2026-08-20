@@ -111,17 +111,6 @@ function toTypeSet(available?: Iterable<string> | null): Set<string> | undefined
   return available instanceof Set ? available : new Set(available);
 }
 
-function nextNodeId(workflow: Record<string, unknown>): string {
-  let maxId = 0;
-  for (const key of Object.keys(workflow)) {
-    const parsed = Number(key);
-    if (Number.isFinite(parsed) && parsed > maxId) {
-      maxId = parsed;
-    }
-  }
-  return String(maxId + 1);
-}
-
 export function canAutoInsertFaceDetailer(availableNodeTypes?: Iterable<string> | null): boolean {
   const available = toTypeSet(availableNodeTypes);
   if (!available) {

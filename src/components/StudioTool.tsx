@@ -362,6 +362,10 @@ export default function StudioTool() {
       .filter(group => group.derivatives.length > 0)
       .sort((left, right) => right.derivatives.length - left.derivatives.length)
       .slice(0, 8);
+    // galleryRevision/scopeRevision aren't read here — loadComfyGallery() reads an
+    // external store directly. They're deliberate cache-bust counters bumped
+    // elsewhere when gallery data changes, so this recomputes despite the warning.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, galleryRevision, scopeRevision]);
 
   const favoriteEntries = useMemo(() => entries.filter(entry => entry.favorite), [entries]);

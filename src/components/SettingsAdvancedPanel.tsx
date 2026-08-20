@@ -39,13 +39,6 @@ export default function SettingsAdvancedPanel() {
   const [serverGalleryCount, setServerGalleryCount] = useState<number | null>(null);
   const [localGalleryCount, setLocalGalleryCount] = useState<number | null>(null);
   const [gallerySyncBusy, setGallerySyncBusy] = useState(false);
-  const storageNamespaces = [
-    'settings-cache',
-    'prompt-history',
-    'comfy-gallery',
-    'gallery-deleted-ids',
-    'studio-extras',
-  ];
 
   const [llmUsage, setLlmUsage] = useState<{
     last24h: number;

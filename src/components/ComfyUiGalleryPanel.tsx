@@ -169,7 +169,6 @@ export default function ComfyUiGalleryPanel({
     setProjectIds,
     clearAll,
     refreshPending,
-    primaryThumbUrl,
     setReviewRating,
     embeddingSearchActive,
     similarSearchActive,
@@ -1229,7 +1228,6 @@ export default function ComfyUiGalleryPanel({
       layout,
       leanGallery,
       pickFor,
-      primaryThumbUrl,
       reviewFocusEntry?.id,
       selectedIdSet,
     ]

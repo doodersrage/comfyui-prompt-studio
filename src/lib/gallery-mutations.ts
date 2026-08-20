@@ -14,7 +14,6 @@ import { injectLoraTriggers } from './lora-prompt-injection';
 import { guardQueueQualityForVram } from './vram-queue-guard';
 import { maybeHoldMaxGenerateJobs } from './held-max-queue';
 import { prepareQueuePrompts } from './queue-prompt-prep';
-import { buildCatalogAwareWardrobeMutationClause } from './clothing-mutations';
 import { readClothingIdsFromMetadata } from './recent-clothing';
 
 export type MutationKind = 'variation' | 'location' | 'wardrobe' | 'wildness';
@@ -25,7 +24,7 @@ export type MutatedGalleryJobSummary = {
   wardrobeId?: string | null;
 };
 
-export function buildMutatedPrompt(
+export async function buildMutatedPrompt(
   basePrompt: string,
   kind: MutationKind,
   value?: string,
@@ -33,11 +32,11 @@ export function buildMutatedPrompt(
     hints?: string;
     recentClothing?: readonly string[];
   }
-): string {
-  return buildMutatedPromptDetails(basePrompt, kind, value, options).prompt;
+): Promise<string> {
+  return (await buildMutatedPromptDetails(basePrompt, kind, value, options)).prompt;
 }
 
-export function buildMutatedPromptDetails(
+export async function buildMutatedPromptDetails(
   basePrompt: string,
   kind: MutationKind,
   value?: string,
@@ -45,7 +44,7 @@ export function buildMutatedPromptDetails(
     hints?: string;
     recentClothing?: readonly string[];
   }
-): MutatedGalleryJobSummary & { prompt: string } {
+): Promise<MutatedGalleryJobSummary & { prompt: string }> {
   const prompt = basePrompt.trim();
   switch (kind) {
     case 'location':
@@ -57,6 +56,14 @@ export function buildMutatedPromptDetails(
         summary: value?.trim() || undefined,
       };
     case 'wardrobe': {
+      // Dynamically imported: clothing-mutations.ts pulls in the full wardrobe
+      // catalog (clothing-catalog.ts -> clothing-catalog-batches.ts), which is
+      // ~17k generated entries / several MB. gallery-mutations.ts is 'use client'
+      // and part of the always-loaded gallery panel bundle, so a static import
+      // here would ship that whole catalog to every gallery visit even though
+      // this branch only runs when someone explicitly requests a wardrobe
+      // mutation. Load it on demand instead.
+      const { buildCatalogAwareWardrobeMutationClause } = await import('./clothing-mutations');
       const built = buildCatalogAwareWardrobeMutationClause(prompt, value, {
         hints: options?.hints,
         recentClothing: options?.recentClothing,
@@ -125,10 +132,15 @@ export async function queueMutatedGalleryJobs(input: {
   const jobs: MutatedGalleryJobSummary[] = [];
   for (let index = 0; index < count; index += 1) {
     const kind = input.kinds[index % input.kinds.length] ?? 'variation';
-    const details = buildMutatedPromptDetails(input.entry.prompt, kind, input.values?.[kind], {
-      hints: input.entry.prompt.slice(0, 400),
-      recentClothing,
-    });
+    const details = await buildMutatedPromptDetails(
+      input.entry.prompt,
+      kind,
+      input.values?.[kind],
+      {
+        hints: input.entry.prompt.slice(0, 400),
+        recentClothing,
+      }
+    );
     jobs.push({
       kind: details.kind,
       summary: details.summary,
