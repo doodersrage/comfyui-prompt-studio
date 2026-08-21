@@ -8,6 +8,7 @@ import {
   isAnimatedImageBytes,
   isHtmlVideoContentType,
   resolveComfyOutputMediaKind,
+  shouldSkipGalleryThumbProxy,
 } from '@/lib/comfyui-outputs';
 // turbopackIgnore: true
 import {
