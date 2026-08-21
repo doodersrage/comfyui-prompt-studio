@@ -10,6 +10,8 @@ import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
 import { HistoryHintSeedPanel } from '@/components/scene-tool/HistoryHintSeedPanel';
 import { Button, ButtonLink, PrimaryButton } from '@/components/ui/Button';
+import VisionScanButton from '@/components/VisionScanButton';
+import { resolveLocalImageFile, scanStillWithVision } from '@/lib/vision-still-scan-client';
 import TurboEditStrengthControls from '@/components/TurboEditStrengthControls';
 import { FieldError, FieldLabel, TextInput, TextArea } from '@/components/ui/Field';
 import { normalizeTurboEditStrength } from '@/lib/turbo-edit-strength';
@@ -78,6 +80,7 @@ export default function OutpaintTool() {
   };
 
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -159,6 +162,31 @@ export default function OutpaintTool() {
     },
     [revokeSourceUrl]
   );
+
+  const scanWithVision = useCallback(async () => {
+    if (!sourceUrl) {
+      setError('Upload a source image first.');
+      return;
+    }
+    setScanning(true);
+    setError(null);
+    try {
+      const image = await resolveLocalImageFile(null, sourceUrl, 'outpaint-source.png');
+      const prompt = await scanStillWithVision({
+        image,
+        purpose: 'outpaint',
+        model: shared.model,
+        detail: shared.detail,
+        extraHints: intent.trim() || undefined,
+        shared,
+      });
+      setIntent(prompt);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Vision scan failed.');
+    } finally {
+      setScanning(false);
+    }
+  }, [intent, setIntent, shared, sourceUrl]);
 
   const applyGalleryHandoff = useCallback(
     (handoff: {
@@ -320,7 +348,15 @@ export default function OutpaintTool() {
           <ButtonLink href={galleryPickPath('outpaint')} variant="secondary" size="sm">
             Choose from Gallery
           </ButtonLink>
+          <VisionScanButton
+            disabled={!sourceUrl || busy}
+            scanning={scanning}
+            onClick={() => void scanWithVision()}
+          />
         </div>
+        <p className="mt-2 type-caption text-[var(--text-muted)]">
+          Scan with vision fills Intent for the new border from the still.
+        </p>
         {sourceUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img

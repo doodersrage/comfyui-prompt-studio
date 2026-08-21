@@ -99,6 +99,7 @@ const API_FEATURE_MAP: Array<{ prefix: string; feature: AppFeatureId }> = [
   { prefix: '/api/roleplay', feature: 'llm-api' },
   { prefix: '/api/nsfw-generate', feature: 'nsfw-generator' },
   { prefix: '/api/refine', feature: 'llm-api' },
+  { prefix: '/api/vision-scan', feature: 'llm-api' },
   { prefix: '/api/format', feature: 'llm-api' },
   { prefix: '/api/lint', feature: 'llm-api' },
   { prefix: '/api/topics', feature: 'llm-api' },

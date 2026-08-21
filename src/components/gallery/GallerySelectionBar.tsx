@@ -40,6 +40,9 @@ type GallerySelectionBarProps = {
   onClearSimilar: () => void;
   canClearSimilar: boolean;
   onApplyUserTag?: (tag: string) => void;
+  customGroups?: string[];
+  onAssignCustomGroup?: (groupName: string) => void;
+  onClearCustomGroup?: () => void;
   onSeedExperiment: () => void;
   onParamExperiment: () => void;
   onParamGrid: () => void;
@@ -129,6 +132,7 @@ function MenuItem(props: { label: string; onClick: () => void; disabled?: boolea
 }
 
 export default function GallerySelectionBar(props: GallerySelectionBarProps) {
+  const [groupDraft, setGroupDraft] = useState('');
   const queueCapabilities = useMemo(() => {
     const entries = props.selectedEntries;
     const canUpscaleFinal = entries.some(entry => canUpscaleGalleryEntry(entry, 'final'));
@@ -371,6 +375,56 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
                 }
               }}
             />
+          ) : null}
+          {props.onAssignCustomGroup ? (
+            <>
+              <form
+                className="flex flex-col gap-1 border-t border-[var(--border-subtle)]/70 px-2 py-2"
+                onSubmit={event => {
+                  event.preventDefault();
+                  const name = groupDraft.trim();
+                  if (!name) {
+                    return;
+                  }
+                  props.onAssignCustomGroup?.(name);
+                  setGroupDraft('');
+                }}
+              >
+                <input
+                  value={groupDraft}
+                  onChange={event => setGroupDraft(event.target.value)}
+                  placeholder="Group name"
+                  aria-label="Custom group name"
+                  data-testid="gallery-group-name-input"
+                  maxLength={80}
+                  className="ui-input w-full px-2 py-1 text-[11px]"
+                />
+                <button
+                  type="submit"
+                  disabled={!groupDraft.trim()}
+                  data-testid="gallery-group-assign"
+                  className="ui-menu-item rounded-xl border-[var(--border-subtle)]/60 bg-[var(--bg-base)]/70 text-[11px] backdrop-blur-xs transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-muted)] hover:text-[var(--accent-text)] disabled:opacity-40"
+                >
+                  Assign to group
+                </button>
+              </form>
+              {(props.customGroups ?? []).slice(0, 12).map(name => (
+                <MenuItem
+                  key={`group-${name}`}
+                  label={`Group · ${name}`}
+                  onClick={() => props.onAssignCustomGroup?.(name)}
+                />
+              ))}
+              {props.onClearCustomGroup ? (
+                <MenuItem
+                  label="Remove from group"
+                  disabled={
+                    !props.selectedEntries.some(entry => Boolean(entry.customGroup?.trim()))
+                  }
+                  onClick={props.onClearCustomGroup}
+                />
+              ) : null}
+            </>
           ) : null}
           {[5, 4, 3, 2, 1].map(rating => (
             <MenuItem

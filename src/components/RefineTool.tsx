@@ -48,7 +48,7 @@ import {
 } from '@/components/ui/ToolPageShell';
 import { FieldError, FieldLabel, TextArea } from '@/components/ui/Field';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
-import { ButtonLink, PrimaryButton } from '@/components/ui/Button';
+import { Button, ButtonLink, PrimaryButton } from '@/components/ui/Button';
 
 const ACCENT = 'fuchsia' as const;
 
@@ -108,6 +108,7 @@ export default function RefineTool() {
   });
   const [output, setOutput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [sourceHistoryId, setSourceHistoryId] = useState<string | undefined>();
@@ -238,6 +239,44 @@ export default function RefineTool() {
     });
   }, [file, previewUrl]);
 
+  const scanWithVision = useCallback(async () => {
+    if (!file && !previewUrl) {
+      setError('Upload a reference image first.');
+      return;
+    }
+    setScanning(true);
+    setError(null);
+    try {
+      const refineFile = await resolveRefineImageFile();
+      const image = await fileToDataUrl(refineFile);
+      const response = await fetch('/api/refine', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'scan',
+          image,
+          mimeType: refineFile.type || 'image/png',
+          model: shared.model,
+          detail: shared.detail,
+          intentHints: intentHints.trim() || undefined,
+          ...sharedLlmRequestBody(shared),
+        }),
+      });
+      const data = (await response.json()) as {
+        currentPrompt?: string;
+        error?: string;
+      };
+      if (!response.ok || !data.currentPrompt?.trim()) {
+        throw new Error(data.error ?? 'Vision scan failed.');
+      }
+      setCurrentPrompt(data.currentPrompt.trim());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Vision scan failed.');
+    } finally {
+      setScanning(false);
+    }
+  }, [file, intentHints, previewUrl, resolveRefineImageFile, setCurrentPrompt, shared]);
+
   const refine = useCallback(async () => {
     if (!file && !previewUrl) {
       setError('Upload a reference image first.');
@@ -345,6 +384,7 @@ export default function RefineTool() {
           onWorkflowPresetChange={id => updateShared({ selectedWorkflowFileId: id })}
           recommendFromText={output || currentPrompt || intentHints}
           onSharedSettingsChange={updateShared}
+          preferEditModels
         />
       }
     >
@@ -416,16 +456,31 @@ export default function RefineTool() {
           onChange={turboEditStrength => updateShared({ turboEditStrength })}
         />
         <FieldLabel>Reference image</FieldLabel>
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            type="file"
-            accept="image/*"
-            onChange={event => onFileChange(event.target.files?.[0] ?? null)}
-            className="ui-file-input block min-w-0 flex-1"
-          />
-          <ButtonLink href={galleryPickPath('refine')} variant="secondary" size="sm">
-            Choose from Gallery
-          </ButtonLink>
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={event => onFileChange(event.target.files?.[0] ?? null)}
+              className="ui-file-input block min-w-0 flex-1"
+            />
+            <ButtonLink href={galleryPickPath('refine')} variant="secondary" size="sm">
+              Choose from Gallery
+            </ButtonLink>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={(!file && !previewUrl) || scanning || loading}
+              loading={scanning}
+              loadingLabel="Scanning still"
+              onClick={() => void scanWithVision()}
+            >
+              Scan with vision
+            </Button>
+          </div>
+          <p className="type-caption text-[var(--text-muted)]">
+            Scan with vision fills Current prompt from the still. Add intent hints, then Refine.
+          </p>
         </div>
         {previewUrl && !needsInpaintMask ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -478,7 +533,7 @@ export default function RefineTool() {
           accentClassName={accentButtonClass(ACCENT)}
           data-action="primary-generate"
           onClick={() => void refine()}
-          disabled={!file && !previewUrl}
+          disabled={(!file && !previewUrl) || scanning}
           loading={loading}
           loadingLabel="Refining prompt"
         >

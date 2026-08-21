@@ -31,6 +31,22 @@ const VIDEO_MIME_BY_EXT: Record<string, string> = {
   avi: 'video/x-msvideo',
 };
 
+const AUDIO_MIME_BY_EXT: Record<string, string> = {
+  wav: 'audio/wav',
+  mp3: 'audio/mpeg',
+  flac: 'audio/flac',
+  ogg: 'audio/ogg',
+  m4a: 'audio/mp4',
+};
+
+const MESH_MIME_BY_EXT: Record<string, string> = {
+  glb: 'model/gltf-binary',
+  gltf: 'model/gltf+json',
+  obj: 'model/obj',
+  stl: 'model/stl',
+  ply: 'model/ply',
+};
+
 const IMAGE_MIME_BY_EXT: Record<string, string> = {
   png: 'image/png',
   jpg: 'image/jpeg',
@@ -59,18 +75,22 @@ export function sniffMediaContentType(bytes: ArrayBuffer | Uint8Array | Buffer):
   if (buf[0] === 0x1a && buf[1] === 0x45 && buf[2] === 0xdf && buf[3] === 0xa3) {
     return 'video/webm';
   }
-  // RIFF WEBP
-  if (
-    buf[0] === 0x52 &&
-    buf[1] === 0x49 &&
-    buf[2] === 0x46 &&
-    buf[3] === 0x46 &&
-    buf[8] === 0x57 &&
-    buf[9] === 0x45 &&
-    buf[10] === 0x42 &&
-    buf[11] === 0x50
-  ) {
-    return 'image/webp';
+  // RIFF WEBP / WAVE
+  if (buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46) {
+    if (buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50) {
+      return 'image/webp';
+    }
+    if (buf[8] === 0x57 && buf[9] === 0x41 && buf[10] === 0x56 && buf[11] === 0x45) {
+      return 'audio/wav';
+    }
+  }
+  // fLaC
+  if (buf[0] === 0x66 && buf[1] === 0x4c && buf[2] === 0x61 && buf[3] === 0x43) {
+    return 'audio/flac';
+  }
+  // glTF binary (GLB)
+  if (buf[0] === 0x67 && buf[1] === 0x6c && buf[2] === 0x54 && buf[3] === 0x46) {
+    return 'model/gltf-binary';
   }
   return null;
 }
@@ -105,10 +125,41 @@ export function contentTypeForViewBytes(
     return raw.startsWith('video/') ? raw : videoMime;
   }
 
+  const audioMime = AUDIO_MIME_BY_EXT[ext];
+  if (audioMime) {
+    if (
+      !raw ||
+      raw === 'application/octet-stream' ||
+      raw === 'text/plain' ||
+      raw.startsWith('image/')
+    ) {
+      return audioMime;
+    }
+    return raw.startsWith('audio/') ? raw : audioMime;
+  }
+
+  const meshMime = MESH_MIME_BY_EXT[ext];
+  if (meshMime) {
+    if (
+      !raw ||
+      raw === 'application/octet-stream' ||
+      raw === 'text/plain' ||
+      raw.startsWith('image/')
+    ) {
+      return meshMime;
+    }
+    return raw.startsWith('model/') || raw.includes('gltf') ? raw : meshMime;
+  }
+
   if (sniffed) {
     return sniffed;
   }
-  if (raw.startsWith('image/') || raw.startsWith('video/') || raw.startsWith('audio/')) {
+  if (
+    raw.startsWith('image/') ||
+    raw.startsWith('video/') ||
+    raw.startsWith('audio/') ||
+    raw.startsWith('model/')
+  ) {
     return raw;
   }
   return IMAGE_MIME_BY_EXT[ext] || raw || 'image/png';
@@ -119,6 +170,8 @@ export function isHtmlVideoContentType(contentType: string): boolean {
 }
 
 const HTML_VIDEO_URL_EXT = /\.(mp4|webm|mov|mkv)$/i;
+const AUDIO_URL_EXT = /\.(wav|mp3|flac|ogg|m4a)$/i;
+const MESH_URL_EXT = /\.(obj|glb|gltf|stl|ply)$/i;
 
 /** True when a `<video>` element can play this view/download URL (not animated webp/gif). */
 export function isHtmlVideoViewUrl(url: string): boolean {
@@ -131,9 +184,48 @@ export function isAnimatedImageViewUrl(url: string): boolean {
   return viewUrlFilenameMatches(url, ANIMATED_IMAGE_URL_EXT);
 }
 
+export function isAudioViewUrl(url: string): boolean {
+  return viewUrlFilenameMatches(url, AUDIO_URL_EXT);
+}
+
+export function isMeshViewUrl(url: string): boolean {
+  return viewUrlFilenameMatches(url, MESH_URL_EXT);
+}
+
 /** True for mp4/webm or animated webp/gif view URLs. */
 export function isMotionViewUrl(url: string): boolean {
   return isHtmlVideoViewUrl(url) || isAnimatedImageViewUrl(url);
+}
+
+export function mediaKindFromViewUrl(url: string): ComfyOutputMediaKind {
+  if (isHtmlVideoViewUrl(url) || isAnimatedImageViewUrl(url)) {
+    return 'video';
+  }
+  if (isAudioViewUrl(url)) {
+    return 'audio';
+  }
+  if (isMeshViewUrl(url)) {
+    return 'mesh';
+  }
+  return 'image';
+}
+
+/** Stills can zoom / pinch / before-after; clips, audio, and meshes cannot. */
+export function isStillLightboxKind(kind: ComfyOutputMediaKind | undefined): boolean {
+  return kind === 'image' || kind == null;
+}
+
+export function galleryDownloadActionLabel(kind: ComfyOutputMediaKind | undefined): string {
+  switch (kind) {
+    case 'audio':
+      return 'Download audio';
+    case 'mesh':
+      return 'Download 3D file';
+    case 'video':
+      return 'Download video';
+    default:
+      return 'Download image';
+  }
 }
 
 function viewUrlFilenameMatches(url: string, pattern: RegExp): boolean {
@@ -177,7 +269,21 @@ export function isGalleryMotionOutput(
 
 export function shouldSkipGalleryThumbProxy(filename: string): boolean {
   const ext = fileExtensionOf(filename);
-  return VIDEO_FILE_EXTENSIONS.has(ext) || ext === 'gif' || ext === 'webp';
+  return (
+    VIDEO_FILE_EXTENSIONS.has(ext) ||
+    AUDIO_FILE_EXTENSIONS.has(ext) ||
+    MESH_FILE_EXTENSIONS.has(ext) ||
+    ext === 'gif' ||
+    ext === 'webp'
+  );
+}
+
+/** True when Sharp must not resize this output (clip, audio, or mesh). */
+export function isGalleryPassthroughOutput(
+  image: Pick<ComfyOutputImage, 'filename' | 'format'>
+): boolean {
+  const kind = resolveComfyOutputMediaKind(image);
+  return kind === 'video' || kind === 'audio' || kind === 'mesh' || isGalleryMotionOutput(image);
 }
 
 /** GIF, or WebP with the VP8X animation flag. Sharp would flatten these to a still. */
@@ -376,17 +482,12 @@ export function extractImagesFromOutputs(
     }
 
     // Most nodes (SaveImage, PreviewVideo, SaveAnimatedWEBP, SaveVideo) emit
-    // refs under "images"; some custom video nodes (e.g. VHS_VideoCombine)
-    // emit under "gifs" instead, using the same {filename,subfolder,type} shape.
-    const record = nodeOutput as {
-      images?: unknown[];
-      gifs?: unknown[];
-      videos?: unknown[];
-      files?: unknown[];
-    };
-    const refLists = [record.videos, record.gifs, record.files, record.images].filter(
-      (list): list is unknown[] => Array.isArray(list)
-    );
+    // refs under "images"; VHS uses "gifs"; SaveAudio uses "audio"; Hunyuan3D
+    // SaveGLB uses "3d". Same {filename,subfolder,type} shape throughout.
+    const record = nodeOutput as Record<string, unknown>;
+    const refLists = ['videos', 'gifs', 'audio', '3d', 'mesh', 'files', 'images']
+      .map(key => record[key])
+      .filter((list): list is unknown[] => Array.isArray(list));
 
     for (const refList of refLists) {
       for (const image of refList) {
@@ -409,20 +510,27 @@ export function extractImagesFromOutputs(
     }
   }
 
-  return preferGalleryMotionOutputsFirst(images);
+  return preferGalleryPlaybackOutputsFirst(images);
 }
 
-function preferGalleryMotionOutputsFirst(images: ComfyOutputImage[]): ComfyOutputImage[] {
-  const motion: ComfyOutputImage[] = [];
-  const rest: ComfyOutputImage[] = [];
-  for (const image of images) {
-    if (isGalleryMotionOutput(image)) {
-      motion.push(image);
-    } else {
-      rest.push(image);
-    }
+function galleryPlaybackRank(image: ComfyOutputImage): number {
+  if (isGalleryMotionOutput(image)) {
+    return 0;
   }
-  return motion.length === 0 ? images : [...motion, ...rest];
+  const kind = resolveComfyOutputMediaKind(image);
+  if (kind === 'audio' || kind === 'mesh') {
+    return 1;
+  }
+  return 2;
+}
+
+function preferGalleryPlaybackOutputsFirst(images: ComfyOutputImage[]): ComfyOutputImage[] {
+  const ranked = images.map((image, index) => ({ image, index, rank: galleryPlaybackRank(image) }));
+  if (ranked.every(entry => entry.rank === 2)) {
+    return images;
+  }
+  ranked.sort((a, b) => a.rank - b.rank || a.index - b.index);
+  return ranked.map(entry => entry.image);
 }
 
 export type ComfyViewPathOptions = {

@@ -103,8 +103,9 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 
 ## Gallery {#gallery}
 
-- **Gallery** — `/gallery` stores queued jobs in IndexedDB (Dexie) and displays output images when ComfyUI finishes; previews appear inline on result panels
+- **Gallery** — `/gallery` stores queued jobs in IndexedDB (Dexie) and displays output images, clips, audio, and 3D meshes when ComfyUI finishes; previews appear inline on result panels
 - **In-place clip playback** — WAN/LTX animated WebP and mp4/webm play on gallery cards, lightbox, Roleplay beats, Video results, Queue, and Cast instead of a flattened still; view proxies skip Sharp flattening for motion bytes
+- **Audio and 3D gallery media** — Stable Audio wav/flac/mp3 and Hunyuan3D glb/gltf/obj are captured from Comfy history, persisted as originals, playable (audio) or downloadable (3D) from cards/lightbox, and included in ZIP export. Filter chips: Audio / 3D.
 - **Import completed host jobs** — Gallery import prefers Comfy `GET /api/jobs` and falls back to `/history`; walks every pool host; imported rows keep the workflow graph when present
 - **Failed-job node install** — missing `class_type` errors offer Install missing nodes (Manager + restart + retry) on Queue, Gallery, and workflow preview
 - **Gallery stats bar** — at-a-glance totals (completed, in queue, favorites, unreviewed, avg rating) with one-click filter chips
@@ -120,10 +121,11 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 - **Gallery compare panel** — pick winner, rate, favorite, mutate, or improve; bulk **Seed experiment**
 - **Gallery compare** — select 2–4 completed entries for side-by-side review on `/gallery`
 - **Gallery card polish** — hover quick actions (Open, Improve); storage cap warning near 5,000 IndexedDB entries
-- **Gallery tools** — favorites, status/tool filters, image download, sidecar JSON export per entry
+- **Gallery tools** — favorites, status/tool/media filters, image/audio/3D download, sidecar JSON export per entry
+- **Gallery custom groups** — select any number of cards, then Organize → type a group name and Assign. Filter by Group (or Ungrouped); click a card’s group badge to show that set. Re-assigning replaces the previous group.
 - **Gallery project filter** — filter `/gallery` by the active Studio project
 - **Gallery project filter & assign** — filter by project dropdown; bulk assign entries to projects
-- **Gallery ZIP export** — bulk export selected entries as images + sidecars
+- **Gallery ZIP export** — bulk export selected entries as originals (images, clips, audio, meshes) + sidecars
 - **Gallery → Refine / Image→Prompt** — open completed outputs with image + prompt pre-loaded
 - **Gallery handoffs** — send selected prompts to Topics batch or Variations matrix (`?matrix=1`)
 - **Gallery param grid** — CFG × steps experiment grid from a selected entry
@@ -194,7 +196,13 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 - **Workflow preset pack builder** — add workflows or settings snapshots to packs; install packs into library
 - **Workflow diff** — Settings compares two workflow JSON files
 - **Workflow node auto-map** — suggested positive/negative bindings while editing workflow JSON
-- **Video prompt builder** — `/video` + local WAN / Hunyuan / LTX, or Fal / Replicate / Grok / Gemini clips (T2V, I2V, extend). I2V **Scan with vision** fills Subject and Motion from the first frame. Extend chip: Fal LTX extend-video or last-frame I2V. ChatGPT warns before queue.
+- **Video prompt builder** — `/video` + local WAN / Hunyuan / LTX, or Fal / Replicate / Grok / Gemini clips (T2V, I2V, extend). I2V **Scan with vision** fills Subject and Motion from the first frame. Extend chip: Fal LTX extend-video or last-frame I2V. ChatGPT warns before queue. Compact **Video model files** Install rows download WAN / Hunyuan Video / LTX weights into `COMFYUI_ROOT`.
+- **Audio / mesh model files** — `/audio` and `/mesh` (and Settings → ComfyUI → Model assets) Install Stable Audio Open 1.0 + T5-Base, and Hunyuan3D 2.0 DiT (single-view, multi-view, turbo) into `checkpoints/` / `text_encoders/`.
+- **Refine vision scan** — `/refine` **Scan with vision** fills Current prompt from the reference still (same pattern as Video I2V), then intent + Refine.
+- **Vision scan on still tools** — Inpaint, Outpaint, Compose (Image 1), ControlNet, and Roleplay From photo share **Scan with vision** next to Choose from Gallery.
+- **Tool-locked model pickers** — Video stays on WAN / Hunyuan / LTX; Inpaint / Outpaint / Compose / Refine / From photo stay on edit/img2img. Show all is hidden on video/audio/mesh.
+- **Workspace first paint** — saved Simple / Play / Studio / Full is read from a cookie so chrome matches on load instead of flashing Simple.
+- **Mobile Cut film** — `/m/play` Cut film and Save to Cast use the same assembler as desktop Roleplay.
 - **ControlNet prompt builder** — `/controlnet` tool for depth/pose/canny/normal/lineart conditioning text
 - **ControlNet from image** — upload reference for vision-assisted structure extraction on `/controlnet`
 - **ControlNet gallery lineage** — gallery → ControlNet handoffs keep parent entry + source image; derivatives filter as ControlNet
@@ -267,7 +275,7 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 
 ## UI & UX {#ui-ux}
 
-- **Workspace modes** — Simple (default), Play, Studio, or Full from the sidebar footer or Profile → Appearance
+- **Workspace modes** — Simple (default), Play, Studio, or Full from the sidebar footer or Profile → Appearance; the saved mode is applied on first paint
 - **Home dashboard** — pending ComfyUI jobs, recent outputs, and active project on `/dashboard`
 - **Onboarding checklist** — Dashboard getting-started steps
 - **Command palette** — `Ctrl+K` / `⌘K` quick navigation across tools

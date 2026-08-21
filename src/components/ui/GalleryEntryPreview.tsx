@@ -1,12 +1,16 @@
 'use client';
 
-import MotionMedia from '@/components/ui/MotionMedia';
-import { galleryEntryHeroPreviewUrl, type ComfyGalleryEntry } from '@/lib/comfyui-gallery';
-import { isMotionViewUrl } from '@/lib/comfyui-outputs';
+import GalleryKindPreview from '@/components/ui/GalleryKindPreview';
+import {
+  galleryEntryHeroPreviewUrl,
+  galleryEntryPrimaryMediaKind,
+  galleryEntryPrimaryPlaybackIndex,
+  type ComfyGalleryEntry,
+} from '@/lib/comfyui-gallery';
 
 /**
- * Grid/list preview for a gallery entry: looping clip for video/animated webp,
- * still thumb otherwise.
+ * Grid/list preview for a gallery entry: looping clip, audio player, 3D
+ * placeholder, or still thumb.
  */
 export default function GalleryEntryPreview({
   entry,
@@ -23,21 +27,17 @@ export default function GalleryEntryPreview({
   if (!src) {
     return null;
   }
-  if (isMotionViewUrl(src)) {
-    return (
-      <MotionMedia
-        src={src}
-        alt={alt}
-        className={className}
-        autoPlay
-        loop
-        muted
-        controls={controls}
-      />
-    );
-  }
+  const kind = galleryEntryPrimaryMediaKind(entry);
+  const playbackIndex = galleryEntryPrimaryPlaybackIndex(entry);
+  const filename = entry.images[playbackIndex]?.filename ?? entry.images[0]?.filename;
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={src} alt={alt} loading="lazy" decoding="async" className={className} />
+    <GalleryKindPreview
+      kind={kind}
+      src={src}
+      filename={filename}
+      className={className}
+      alt={alt}
+      controls={controls}
+    />
   );
 }

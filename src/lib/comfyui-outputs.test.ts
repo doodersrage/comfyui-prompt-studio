@@ -166,6 +166,27 @@ describe("comfyui output media kind resolution", () => {
       false,
     );
   });
+
+  it("extracts SaveAudio and SaveGLB output keys and prefers them over preview stills", () => {
+    const images = extractImagesFromOutputs({
+      "6": {
+        images: [{ filename: "preview.png", subfolder: "mesh", type: "output" }],
+      },
+      "7": {
+        audio: [
+          { filename: "clip.flac", subfolder: "audio", type: "output", format: "audio/flac" },
+        ],
+      },
+      "8": {
+        "3d": [{ filename: "shape.glb", subfolder: "mesh", type: "output" }],
+      },
+    });
+    assert.equal(images[0]?.filename, "clip.flac");
+    assert.equal(images[1]?.filename, "shape.glb");
+    assert.equal(images[2]?.filename, "preview.png");
+    assert.equal(resolveComfyOutputMediaKind(images[0]!), "audio");
+    assert.equal(resolveComfyOutputMediaKind(images[1]!), "mesh");
+  });
 });
 
 describe("view proxy content types", () => {
@@ -193,6 +214,14 @@ describe("view proxy content types", () => {
   it("keeps still-image types for png/jpeg filenames", () => {
     assert.equal(contentTypeForViewBytes("out.png", "image/png"), "image/png");
     assert.equal(contentTypeForViewBytes("out.jpg", undefined), "image/jpeg");
+  });
+
+  it("uses audio and mesh MIME types instead of image/png", () => {
+    assert.equal(contentTypeForViewBytes("out.wav", "application/octet-stream"), "audio/wav");
+    assert.equal(contentTypeForViewBytes("out.flac", null), "audio/flac");
+    assert.equal(contentTypeForViewBytes("shape.glb", "image/png"), "model/gltf-binary");
+    assert.equal(shouldSkipGalleryThumbProxy("out.wav"), true);
+    assert.equal(shouldSkipGalleryThumbProxy("shape.glb"), true);
   });
 
   it("detects animated webp VP8X bytes so thumbs are not flattened", () => {

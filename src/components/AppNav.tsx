@@ -19,13 +19,12 @@ import {
 import {
   defaultExpandedNavGroups,
   isRoleplayFocusPath,
-  loadWorkspaceMode,
   navGroupsForPath,
-  type WorkspaceMode,
 } from '@/lib/workspace-mode';
 import { PLUGIN_MANIFEST_UPDATED_EVENT } from '@/lib/plugin-manifest';
 import { NSFW_GENERATOR_NAV_LINK } from '@/lib/nsfw-generator-nav';
 import { useNsfwGeneratorEnabled } from '@/hooks/useNsfwGeneratorEnabled';
+import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
 import WorkspaceModeControl from '@/components/WorkspaceModeControl';
 import { isNavFavorite, loadNavFavorites, toggleNavFavorite } from '@/lib/nav-favorites';
 import {
@@ -157,17 +156,15 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const [manifestNavLinks, setManifestNavLinks] = useState<AppNavLink[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [expandedGroups, setExpandedGroups] = useState<string[] | null>(null);
-  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('simple');
+  const workspaceMode = useWorkspaceMode();
   const nsfwGeneratorEnabled = useNsfwGeneratorEnabled();
 
   useEffect(() => {
     scheduleAfterCommit(() => {
       setFavorites(loadNavFavorites());
-      setWorkspaceMode(loadWorkspaceMode());
     });
     const onStorage = () => {
       setFavorites(loadNavFavorites());
-      setWorkspaceMode(loadWorkspaceMode());
     };
     window.addEventListener('storage', onStorage);
     window.addEventListener('focus', onStorage);
@@ -498,8 +495,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         {navReady && !roleplayFocus && workspaceMode !== 'simple' ? (
           <WorkspaceModeControl
             variant="chips"
-            onChanged={mode => {
-              setWorkspaceMode(mode);
+            onChanged={() => {
               setExpandedGroups(null);
               saveExpandedNavGroups([]);
             }}

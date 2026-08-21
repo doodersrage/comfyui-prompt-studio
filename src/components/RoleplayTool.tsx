@@ -101,19 +101,8 @@ import { resolveFalExtendParentUrl } from '@/lib/fal-extend-upload';
 import { loadEngineSettings } from '@/lib/engine-settings';
 import { isNsfwGeneratorEnabledClient } from '@/lib/nsfw-generator-env';
 import { downloadRoleplayStoryBundle } from '@/lib/roleplay-export';
-import { roleplayWatchPlaylist } from '@/lib/character-film';
-import {
-  assembleAndStampFilm,
-  downloadFilmBlob,
-  stampAssembledFilm,
-} from '@/lib/character-film-assemble';
-import {
-  applyCharacterRecord,
-  characterFromRoleplaySession,
-  getCharacter,
-  loadCharacters,
-  upsertCharacterFromRoleplaySession,
-} from '@/lib/character-os';
+import { useRoleplayFilmActions } from '@/hooks/useRoleplayFilmActions';
+import { applyCharacterRecord, upsertCharacterFromRoleplaySession } from '@/lib/character-os';
 import {
   applyRoleplayLibrarySession,
   archiveAndStartNewRoleplaySession,
@@ -123,6 +112,8 @@ import {
 } from '@/lib/roleplay-library';
 import { ChipButton, FieldError, TextArea, TextInput } from '@/components/ui/Field';
 import { Button, ButtonLink } from '@/components/ui/Button';
+import VisionScanButton from '@/components/VisionScanButton';
+import { resolveLocalImageFile, scanStillWithVision } from '@/lib/vision-still-scan-client';
 import {
   ToolBadge,
   ToolLayout,
@@ -148,12 +139,9 @@ export default function RoleplayTool() {
   const [scenesLoading, setScenesLoading] = useState(false);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
-  const [assemblingFilm, setAssemblingFilm] = useState(false);
-  const [filmStatus, setFilmStatus] = useState<string | null>(null);
-  const [filmNeedsCast, setFilmNeedsCast] = useState(false);
-  const assembledFilmRef = useRef<{ filename: string; data: Uint8Array } | null>(null);
   const [referencePreviewUrl, setReferencePreviewUrl] = useState<string | null>(null);
   const [referenceUploading, setReferenceUploading] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const [isolateStatus, setIsolateStatus] = useState<string | null>(null);
   const [ownBibleOpen, setOwnBibleOpen] = useState(false);
 
@@ -188,6 +176,19 @@ export default function RoleplayTool() {
   useEffect(() => {
     storyRef.current = toolSettings.story ?? [];
   }, [toolSettings.story]);
+  const {
+    assemblingFilm,
+    filmStatus,
+    filmNeedsCast,
+    cutRoleplayFilm,
+    saveFilmToCast,
+    filmError,
+    assembledFilmRef,
+  } = useRoleplayFilmActions({
+    toolSettings,
+    storyRef,
+    bioName: bio?.name,
+  });
 
   useEffect(() => {
     if (!mounted) {
@@ -445,6 +446,39 @@ export default function RoleplayTool() {
     [applyReference]
   );
   useGalleryHandoff('roleplay', applyGalleryHandoff);
+
+  const scanWithVision = useCallback(async () => {
+    const preview = referencePreviewUrl || referenceImageUrl;
+    if (!preview && !referenceImageFilename) {
+      setError('Add a photo first.');
+      return;
+    }
+    setScanning(true);
+    setError(null);
+    try {
+      const image = await resolveLocalImageFile(null, preview, 'roleplay-photo.png');
+      const prompt = await scanStillWithVision({
+        image,
+        purpose: 'roleplay-photo',
+        model: shared.model,
+        detail: shared.detail,
+        extraHints: toolSettings.extraHints?.trim() || undefined,
+        shared,
+      });
+      updateToolSettings({ extraHints: prompt });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Vision scan failed.');
+    } finally {
+      setScanning(false);
+    }
+  }, [
+    referenceImageFilename,
+    referenceImageUrl,
+    referencePreviewUrl,
+    shared,
+    toolSettings.extraHints,
+    updateToolSettings,
+  ]);
 
   useEffect(() => {
     if (!mounted || playAs !== 'photo' || referenceUploading) {
@@ -1241,96 +1275,7 @@ export default function RoleplayTool() {
     } finally {
       setExporting(false);
     }
-  }, [bio, content, personaId, tone, toolSettings.customPersona]);
-
-  const cutRoleplayFilm = useCallback(async () => {
-    const shots = roleplayWatchPlaylist(storyRef.current);
-    if (shots.length === 0) {
-      setError('Need a completed still or clip before cutting a film.');
-      return;
-    }
-    const name = toolSettings.characterName?.trim() || bio?.name.trim() || 'roleplay';
-    const session = snapshotRoleplaySession(toolSettings);
-    const fromSession = session ? characterFromRoleplaySession(session) : null;
-    const character =
-      (fromSession ? getCharacter(fromSession.id) : undefined) ||
-      loadCharacters().find(entry => {
-        const labels = [entry.name, entry.characterName].map(value => value?.trim().toLowerCase());
-        return labels.includes(name.toLowerCase());
-      });
-    setAssemblingFilm(true);
-    setError(null);
-    setFilmNeedsCast(false);
-    setFilmStatus('Checking shots…');
-    try {
-      const result = await assembleAndStampFilm({
-        shots,
-        characterId: character?.id ?? '',
-        characterName: name,
-        lookId: character?.activeLookId,
-        onProgress: progress => setFilmStatus(progress.label),
-      });
-      downloadFilmBlob(result.blob, result.filename);
-      assembledFilmRef.current = {
-        filename: result.filename,
-        data: new Uint8Array(await result.blob.arrayBuffer()),
-      };
-      if (character && result.persisted) {
-        setFilmNeedsCast(false);
-        setFilmStatus(`Saved ${result.filename} to ${character.name} and started the download.`);
-      } else {
-        setFilmNeedsCast(true);
-        setFilmStatus(
-          character
-            ? `Downloaded ${result.filename}. Save to Cast to stamp a studio copy.`
-            : `Downloaded ${result.filename} unstamped. Save to Cast to attach this film to a character.`
-        );
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not assemble the film.');
-      setFilmStatus(null);
-    } finally {
-      setAssemblingFilm(false);
-    }
-  }, [bio?.name, toolSettings]);
-
-  const saveFilmToCast = useCallback(() => {
-    const session = snapshotRoleplaySession(toolSettings);
-    if (!session) {
-      setError('Name the character and add a beat before saving to Cast.');
-      return;
-    }
-    const created = upsertCharacterFromRoleplaySession(session);
-    if (!created) {
-      setError('Name the character before saving to Cast.');
-      return;
-    }
-    saveSharedSettings({
-      ...loadSettingsCache().shared,
-      ...applyCharacterRecord(created),
-    });
-    const film = assembledFilmRef.current;
-    if (!film) {
-      setFilmNeedsCast(false);
-      setFilmStatus(`Saved ${created.name} to Cast.`);
-      return;
-    }
-    void (async () => {
-      const stamped = await stampAssembledFilm({
-        blob: new Blob([film.data.slice()]),
-        filename: film.filename,
-        characterId: created.id,
-        characterName: created.name,
-        lookId: created.activeLookId,
-      });
-      setFilmNeedsCast(false);
-      setFilmStatus(
-        stamped.persisted
-          ? `Saved ${created.name} to Cast and stamped ${film.filename}.`
-          : `Saved ${created.name} to Cast. Studio storage could not keep the film.`
-      );
-    })();
-  }, [toolSettings]);
+  }, [assembledFilmRef, bio, content, personaId, tone, toolSettings.customPersona]);
 
   const shelfAndStartNew = useCallback(
     (patch?: Partial<typeof toolSettings>) => {
@@ -1377,6 +1322,7 @@ export default function RoleplayTool() {
     Boolean(playingId) ||
     exporting ||
     assemblingFilm ||
+    scanning ||
     referenceUploading;
 
   return (
@@ -1582,6 +1528,11 @@ export default function RoleplayTool() {
                 <ButtonLink href={galleryPickPath('roleplay')} variant="secondary" size="sm">
                   Choose from Gallery
                 </ButtonLink>
+                <VisionScanButton
+                  disabled={!hasReferenceImage || busy}
+                  scanning={scanning}
+                  onClick={() => void scanWithVision()}
+                />
                 {lastStill ? (
                   <Button
                     variant="ghost"
@@ -1979,7 +1930,7 @@ export default function RoleplayTool() {
             ) : null}
           </>
         )}
-        {error ? <FieldError>{error}</FieldError> : null}
+        {error || filmError ? <FieldError>{error || filmError}</FieldError> : null}
       </ToolSection>
     </ToolLayout>
   );

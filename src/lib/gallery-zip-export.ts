@@ -1,6 +1,5 @@
 import { buildGallerySidecar } from './comfyui-gallery-export';
-import type { ComfyGalleryEntry } from './comfyui-gallery';
-import { buildComfyViewPath } from './comfyui-outputs';
+import { galleryEntryDownloadUrls, type ComfyGalleryEntry } from './comfyui-gallery';
 import { mapWithConcurrency } from './concurrency';
 
 /** Local ComfyUI host tolerates a handful of concurrent /view fetches (see comfyui-gallery-client.ts). */
@@ -136,13 +135,18 @@ export async function downloadGalleryZipBundle(
         },
       ];
 
-      const image = entry.images[0];
-      if (entry.status === 'completed' && image) {
+      const downloads = galleryEntryDownloadUrls(entry);
+      for (let imageIndex = 0; imageIndex < entry.images.length; imageIndex += 1) {
+        const image = entry.images[imageIndex];
+        const viewUrl = downloads.url[imageIndex];
+        if (entry.status !== 'completed' || !image || !viewUrl) {
+          continue;
+        }
         try {
-          const response = await fetch(buildComfyViewPath(entry.comfyUrl, image));
+          const response = await fetch(viewUrl);
           if (response.ok) {
             entryFiles.push({
-              filename: `${prefix}/${image.filename || 'output.png'}`,
+              filename: `${prefix}/${image.filename || `output-${imageIndex + 1}`}`,
               data: new Uint8Array(await response.arrayBuffer()),
             });
           }

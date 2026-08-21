@@ -66,6 +66,8 @@ import { FieldLabel } from '@/components/ui/Field';
 import { normalizeTurboEditStrength } from '@/lib/turbo-edit-strength';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { Button, ButtonLink, PrimaryButton } from '@/components/ui/Button';
+import VisionScanButton from '@/components/VisionScanButton';
+import { resolveLocalImageFile, scanStillWithVision } from '@/lib/vision-still-scan-client';
 
 const ACCENT = 'cyan' as const;
 
@@ -229,6 +231,7 @@ export default function ControlNetTool() {
   });
   const [refFile, setRefFile] = useState<File | null>(null);
   const [refPreview, setRefPreview] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
   const [extraRefFiles, setExtraRefFiles] = useState<Array<File | null>>([null, null, null]);
   const [extraRefPreviews, setExtraRefPreviews] = useState<Array<string | null>>([
     null,
@@ -289,6 +292,32 @@ export default function ControlNetTool() {
     }
     setRefFile(file);
     setRefPreview(file ? URL.createObjectURL(file) : null);
+  }
+
+  async function scanWithVision() {
+    const preview = refPreview || handoffSourceImageUrl || handoffControlImageUrls[0];
+    if (!refFile && !preview) {
+      setError('Upload a reference image first.');
+      return;
+    }
+    setScanning(true);
+    setError(null);
+    try {
+      const image = await resolveLocalImageFile(refFile, preview, 'controlnet-ref.png');
+      const prompt = await scanStillWithVision({
+        image,
+        purpose: 'controlnet',
+        model: shared.model,
+        detail: shared.detail,
+        extraHints: [subject, scene].filter(Boolean).join(' · ') || undefined,
+        shared,
+      });
+      setSubject(prompt);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Vision scan failed.');
+    } finally {
+      setScanning(false);
+    }
   }
 
   function onExtraRefChange(index: number, file: File | null) {
@@ -617,7 +646,15 @@ export default function ControlNetTool() {
           <ButtonLink href={galleryPickPath('controlnet')} variant="secondary" size="sm">
             Choose from Gallery
           </ButtonLink>
+          <VisionScanButton
+            disabled={!refFile && !refPreview && !handoffSourceImageUrl}
+            scanning={scanning}
+            onClick={() => void scanWithVision()}
+          />
         </div>
+        <p className="mt-2 type-caption text-[var(--text-muted)]">
+          Scan with vision fills Subject structure from the still.
+        </p>
         {refPreview ? (
           <div className="mt-3 flex flex-wrap items-start gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}

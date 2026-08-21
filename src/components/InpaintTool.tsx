@@ -45,6 +45,8 @@ import { FieldError, FieldLabel, TextArea } from '@/components/ui/Field';
 import { normalizeTurboEditStrength } from '@/lib/turbo-edit-strength';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { ButtonLink, PrimaryButton } from '@/components/ui/Button';
+import VisionScanButton from '@/components/VisionScanButton';
+import { resolveLocalImageFile, scanStillWithVision } from '@/lib/vision-still-scan-client';
 
 const ACCENT = 'amber' as const;
 const DEFAULT_INPAINT_MODEL: ComfyImageModel = 'flux-inpaint';
@@ -62,6 +64,7 @@ export default function InpaintTool() {
 
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
   const [maskFile, setMaskFile] = useState<File | null>(null);
   const [maskPreviewUrl, setMaskPreviewUrl] = useState<string | null>(null);
   const [handoffQueueParams, setHandoffQueueParams] = useState<WorkflowParamValues | undefined>();
@@ -232,6 +235,31 @@ export default function InpaintTool() {
     [clearMaskState, previewUrl]
   );
 
+  const scanWithVision = useCallback(async () => {
+    if (!file && !previewUrl) {
+      setError('Upload a source image first.');
+      return;
+    }
+    setScanning(true);
+    setError(null);
+    try {
+      const image = await resolveLocalImageFile(file, previewUrl, 'inpaint-source.png');
+      const prompt = await scanStillWithVision({
+        image,
+        purpose: 'inpaint',
+        model: shared.model,
+        detail: shared.detail,
+        extraHints: maskDescription.trim() || undefined,
+        shared,
+      });
+      setChangeDescription(prompt);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Vision scan failed.');
+    } finally {
+      setScanning(false);
+    }
+  }, [file, maskDescription, previewUrl, setChangeDescription, shared]);
+
   const assertReadyToQueue = useCallback(() => {
     if (!previewUrl && !file) {
       setError('Upload a source image first.');
@@ -343,7 +371,15 @@ export default function InpaintTool() {
           <ButtonLink href={galleryPickPath('inpaint')} variant="secondary" size="sm">
             Choose from Gallery
           </ButtonLink>
+          <VisionScanButton
+            disabled={!file && !previewUrl}
+            scanning={scanning}
+            onClick={() => void scanWithVision()}
+          />
         </div>
+        <p className="type-caption text-[var(--text-muted)]">
+          Scan with vision fills What belongs in the mask from the still.
+        </p>
         {previewUrl ? (
           <InpaintMaskEditor
             key={previewUrl}

@@ -29,7 +29,7 @@ describe('gallery-url-state', () => {
     assert.equal(parsed.projectFilterId, 'proj-1');
   });
 
-  it('round-trips similar, duplicates, vision inbox, and user tag params', () => {
+    it('round-trips similar, duplicates, vision inbox, user tag, and custom group params', () => {
     const params = new URLSearchParams();
     applyGalleryUrlState(params, {
       filter: {
@@ -39,6 +39,7 @@ describe('gallery-url-state', () => {
         duplicatesOnly: true,
         needsVisionReview: true,
         userTag: 'keeper',
+        customGroup: 'Look A',
         derivedKind: 'film',
         characterId: 'char-rin',
         visionTagsOnly: true,
@@ -53,10 +54,27 @@ describe('gallery-url-state', () => {
     assert.equal(parsed.filter.duplicatesOnly, true);
     assert.equal(parsed.filter.needsVisionReview, true);
     assert.equal(parsed.filter.userTag, 'keeper');
+    assert.equal(parsed.filter.customGroup, 'Look A');
     assert.equal(parsed.filter.derivedKind, 'film');
     assert.equal(parsed.filter.characterId, 'char-rin');
     assert.equal(parsed.filter.visionTagsOnly, true);
     assert.equal(parsed.sort, 'eviction-risk-desc');
+  });
+
+  it('round-trips audio and mesh media filters', () => {
+    const params = new URLSearchParams();
+    applyGalleryUrlState(params, {
+      filter: { mediaKind: 'audio' },
+      sort: 'queued-desc',
+      projectFilterId: '',
+    });
+    assert.equal(parseGalleryUrlState(params).filter.mediaKind, 'audio');
+    applyGalleryUrlState(params, {
+      filter: { mediaKind: 'mesh' },
+      sort: 'queued-desc',
+      projectFilterId: '',
+    });
+    assert.equal(parseGalleryUrlState(params).filter.mediaKind, 'mesh');
   });
 
   it('preserves unrelated params when applying state', () => {

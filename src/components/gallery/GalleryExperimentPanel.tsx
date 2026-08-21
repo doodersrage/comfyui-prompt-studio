@@ -33,6 +33,9 @@ export type GalleryExperimentPanelProps = {
   onClearSimilar: () => void;
   canClearSimilar: boolean;
   onApplyUserTag?: (tag: string) => void;
+  customGroups?: string[];
+  onAssignCustomGroup?: (groupName: string) => void;
+  onClearCustomGroup?: () => void;
   onSeedExperiment: () => void;
   onParamExperiment: () => void;
   onParamGrid: () => void;

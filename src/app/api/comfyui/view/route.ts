@@ -7,7 +7,7 @@ import {
   contentTypeForViewBytes,
   isAnimatedImageBytes,
   isHtmlVideoContentType,
-  shouldSkipGalleryThumbProxy,
+  resolveComfyOutputMediaKind,
 } from '@/lib/comfyui-outputs';
 // turbopackIgnore: true
 import {
@@ -189,12 +189,20 @@ export async function GET(request: Request) {
     );
     const isVideo = isHtmlVideoContentType(contentType);
     const isAnimatedImage = isAnimatedImageBytes(filename, buffer);
-    if (!contentType.startsWith('image/') && !isVideo) {
-      return apiError('ComfyUI view did not return an image.', 502);
+    const mediaKind = resolveComfyOutputMediaKind({ filename, format: contentType });
+    const passthrough =
+      isVideo ||
+      isAnimatedImage ||
+      mediaKind === 'audio' ||
+      mediaKind === 'mesh' ||
+      contentType.startsWith('audio/') ||
+      contentType.startsWith('model/');
+    if (!contentType.startsWith('image/') && !passthrough) {
+      return apiError('ComfyUI view did not return a supported media file.', 502);
     }
 
-    // Videos and animated gif/webp can't be resized by sharp; always return the original bytes.
-    if (thumbWidth && !isVideo && !isAnimatedImage) {
+    // Videos, animated gif/webp, audio, and meshes can't be resized by sharp.
+    if (thumbWidth && !passthrough) {
       try {
         const resized = await encodeThumb(buffer, thumbWidth, format);
         const encodedType = contentTypeForViewFormat(format);

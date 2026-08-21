@@ -1276,6 +1276,46 @@ describe("comfyui gallery outputs", () => {
     );
   });
 
+  it("filters gallery entries by audio and mesh media kinds", () => {
+    const entries = [
+      {
+        id: "still",
+        promptId: "a",
+        prompt: "photo",
+        comfyUrl: "http://127.0.0.1:8188",
+        status: "completed" as const,
+        queuedAt: 1,
+        images: [{ filename: "out.png", subfolder: "", type: "output" }],
+      },
+      {
+        id: "song",
+        promptId: "b",
+        prompt: "violin",
+        comfyUrl: "http://127.0.0.1:8188",
+        status: "completed" as const,
+        queuedAt: 2,
+        images: [{ filename: "out.wav", subfolder: "audio", type: "output" }],
+      },
+      {
+        id: "shape",
+        promptId: "c",
+        prompt: "teapot",
+        comfyUrl: "http://127.0.0.1:8188",
+        status: "completed" as const,
+        queuedAt: 3,
+        images: [{ filename: "mesh.glb", subfolder: "mesh", type: "output" }],
+      },
+    ];
+    assert.deepEqual(
+      filterComfyGalleryEntries(entries, { mediaKind: "audio" }).map((e) => e.id),
+      ["song"],
+    );
+    assert.deepEqual(
+      filterComfyGalleryEntries(entries, { mediaKind: "mesh" }).map((e) => e.id),
+      ["shape"],
+    );
+  });
+
   it("paginates gallery entries", () => {
     const entries = Array.from({ length: 25 }, (_, index) => `entry-${index}`);
     const page1 = paginateGalleryEntries(entries, 1, 12);

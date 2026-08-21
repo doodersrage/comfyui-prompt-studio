@@ -84,6 +84,8 @@ export const SUGGESTED_MODEL_CHECKPOINT_MAP: ModelCheckpointMap = {
   'wan-video-lightning-4': 'wan2.2-i2v-rapid-aio-v10-nsfw.safetensors',
   'hunyuan-video': 'hunyuan_video_t2v_720p_bf16.safetensors',
   'ltx-video': 'ltx-video-2b-v0.9.safetensors',
+  'stable-audio': 'stable-audio-open-1.0.safetensors',
+  'hunyuan-3d': 'hunyuan3d-dit-v2.safetensors',
   'z-image': 'z_image_bf16.safetensors',
   'z-image-turbo': 'z_image_turbo_bf16.safetensors',
   'boogu-image': 'boogu_image_base_bf16.safetensors',

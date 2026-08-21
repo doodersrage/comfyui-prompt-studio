@@ -82,6 +82,10 @@ const WAN_MODELS = ['wan-video', 'wan-video-rapid-aio', 'wan-video-lightning-4']
 
 export const NATIVE_VIDEO_MODEL_IDS = [...WAN_MODELS, 'hunyuan-video', 'ltx-video'] as const;
 
+export const NATIVE_AUDIO_MODEL_IDS = ['stable-audio'] as const;
+
+export const NATIVE_MESH_MODEL_IDS = ['hunyuan-3d'] as const;
+
 const Z_IMAGE_MODELS = ['z-image', 'z-image-turbo'] as const;
 
 const BOOGU_EDIT_MODELS = ['boogu-image-edit', 'boogu-image-edit-turbo'] as const;
@@ -768,6 +772,64 @@ export const COMFY_ASSET_CATALOG: ComfyCatalogAsset[] = [
     bytes: 9787841024,
     modelIds: ['ltx-video'],
     notes: 'Required companion for LTX checkpoints — place under text_encoders.',
+  },
+
+  // ── Stable Audio ──────────────────────────────────────────────────
+  {
+    id: 'stable-audio-open',
+    label: 'Stable Audio Open 1.0',
+    kind: 'checkpoint',
+    filename: 'stable-audio-open-1.0.safetensors',
+    url: 'https://huggingface.co/Comfy-Org/stable-audio-open-1.0_repackaged/resolve/main/stable-audio-open-1.0.safetensors',
+    bytes: 4853889016,
+    sha256: '7b20458a071231aaf32613b6fbc7945f28f34dbba4f295bb49bad56f5f66b57e',
+    modelIds: [...NATIVE_AUDIO_MODEL_IDS],
+    notes:
+      'Official Comfy-Org checkpoint for native text-to-audio. Put this in checkpoints/. Pair with t5-base in text_encoders when the graph uses a separate CLIPLoader.',
+  },
+  {
+    id: 'stable-audio-t5-base',
+    label: 'T5-Base text encoder (Stable Audio)',
+    kind: 'clip',
+    filename: 't5-base.safetensors',
+    url: 'https://huggingface.co/google-t5/t5-base/resolve/main/model.safetensors',
+    bytes: 891646390,
+    modelIds: [...NATIVE_AUDIO_MODEL_IDS],
+    notes:
+      'Required companion for official Stable Audio Open templates — place under text_encoders.',
+  },
+
+  // ── Hunyuan 3D ────────────────────────────────────────────────────
+  {
+    id: 'hunyuan3d-dit-v2',
+    label: 'Hunyuan3D 2.0 DiT (single view)',
+    kind: 'checkpoint',
+    filename: 'hunyuan3d-dit-v2.safetensors',
+    url: 'https://huggingface.co/Comfy-Org/hunyuan3D_2.0_repackaged/resolve/main/split_files/hunyuan3d-dit-v2_fp16.safetensors',
+    bytes: 4928151562,
+    modelIds: [...NATIVE_MESH_MODEL_IDS],
+    notes:
+      'Native Comfy image→mesh checkpoint (Image Only Checkpoint Loader). Saved under checkpoints/ with the filename official templates look up.',
+  },
+  {
+    id: 'hunyuan3d-dit-v2-mv',
+    label: 'Hunyuan3D 2.0 DiT multi-view',
+    kind: 'checkpoint',
+    filename: 'hunyuan3d-dit-v2-mv.safetensors',
+    url: 'https://huggingface.co/Comfy-Org/hunyuan3D_2.0_repackaged/resolve/main/split_files/hunyuan3d-dit-v2-mv_fp16.safetensors',
+    bytes: 4928151562,
+    modelIds: [...NATIVE_MESH_MODEL_IDS],
+    notes: 'Use when the pack graph takes front/left/back/right stills. Same checkpoints/ folder.',
+  },
+  {
+    id: 'hunyuan3d-dit-v2-mv-turbo',
+    label: 'Hunyuan3D 2.0 DiT multi-view turbo',
+    kind: 'checkpoint',
+    filename: 'hunyuan3d-dit-v2-mv-turbo.safetensors',
+    url: 'https://huggingface.co/Comfy-Org/hunyuan3D_2.0_repackaged/resolve/main/split_files/hunyuan3d-dit-v2-mv-turbo_fp16.safetensors',
+    bytes: 4930777530,
+    modelIds: [...NATIVE_MESH_MODEL_IDS],
+    notes: 'Faster distilled MV twin — CFG 1 with a Flux guidance node on official turbo graphs.',
   },
 
   // ── ControlNet ────────────────────────────────────────────────────

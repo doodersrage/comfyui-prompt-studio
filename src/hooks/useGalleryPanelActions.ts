@@ -69,6 +69,7 @@ const EMPTY_GALLERY_CARD_ACTIONS: GalleryCardActions = {
   downloadError: () => undefined,
   visionTagClick: () => undefined,
   userTagClick: () => undefined,
+  customGroupClick: () => undefined,
   viewWorkflow: () => undefined,
   restoreExactGraph: () => undefined,
   pick: () => undefined,
@@ -113,6 +114,8 @@ export type UseGalleryPanelActionsInput = {
   setFavorites: (ids: string[], favorite: boolean) => void;
   setReviewRatings: (ids: string[], rating: ComfyGalleryEntry['reviewRating']) => void;
   setUserTags?: (ids: string[], tags: string[], mode?: 'add' | 'replace' | 'remove') => void;
+  setCustomGroups?: (ids: string[], groupName: string | undefined) => void;
+  customGroups?: string[];
   paramAxis: ParamExperimentAxis;
   filter: ComfyGalleryFilter;
   setLoraExportScope: (scope: 'favorites' | 'selected') => void;
@@ -141,6 +144,8 @@ export function useGalleryPanelActions({
   setFavorites,
   setReviewRatings,
   setUserTags,
+  setCustomGroups,
+  customGroups = [],
   paramAxis,
   filter,
   setLoraExportScope,
@@ -484,6 +489,12 @@ export function useGalleryPanelActions({
           userTag: previous.userTag === tag ? undefined : tag,
         }));
       },
+      customGroupClick: (group: string) => {
+        setFilter(previous => ({
+          ...previous,
+          customGroup: previous.customGroup === group ? undefined : group,
+        }));
+      },
       viewWorkflow: (id: string) => {
         const entry = entriesRef.current.find(item => item.id === id);
         if (entry) {
@@ -673,6 +684,21 @@ export function useGalleryPanelActions({
         }
         setUserTags(selectedIds, [tag], 'add');
         setRequeueStatus(`Tagged ${selectedIds.length} with #${tag}`);
+      },
+      customGroups,
+      onAssignCustomGroup: (groupName: string) => {
+        if (!setCustomGroups || selectedIds.length === 0) {
+          return;
+        }
+        setCustomGroups(selectedIds, groupName);
+        setRequeueStatus(`Grouped ${selectedIds.length} as ${groupName.trim()}`);
+      },
+      onClearCustomGroup: () => {
+        if (!setCustomGroups || selectedIds.length === 0) {
+          return;
+        }
+        setCustomGroups(selectedIds, undefined);
+        setRequeueStatus(`Removed ${selectedIds.length} from group`);
       },
       onSeedExperiment: () => {
         const entry = selectedEntries[0];
@@ -953,6 +979,8 @@ export function useGalleryPanelActions({
       setFavorites,
       setReviewRatings,
       setUserTags,
+      setCustomGroups,
+      customGroups,
       setFilter,
       setLoraExportOpen,
       setLoraExportScope,

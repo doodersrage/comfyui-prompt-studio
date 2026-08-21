@@ -79,7 +79,13 @@ export function parseGalleryUrlState(params: URLSearchParams): GalleryUrlState {
     filter.atRiskOnly = true;
   }
   const media = params.get('media');
-  if (media === 'image' || media === 'video' || media === 'all') {
+  if (
+    media === 'image' ||
+    media === 'video' ||
+    media === 'audio' ||
+    media === 'mesh' ||
+    media === 'all'
+  ) {
     filter.mediaKind = media;
   }
 
@@ -110,6 +116,10 @@ export function parseGalleryUrlState(params: URLSearchParams): GalleryUrlState {
   const userTag = params.get('userTag')?.trim();
   if (userTag) {
     filter.userTag = userTag;
+  }
+  const customGroup = params.get('group')?.trim();
+  if (customGroup) {
+    filter.customGroup = customGroup;
   }
   const characterId = params.get('character')?.trim();
   if (characterId) {
@@ -175,6 +185,7 @@ export function applyGalleryUrlState(
   setOrDelete('duplicates', filter.duplicatesOnly ? '1' : undefined);
   setOrDelete('visionInbox', filter.needsVisionReview ? '1' : undefined);
   setOrDelete('userTag', filter.userTag?.trim() || undefined);
+  setOrDelete('group', filter.customGroup?.trim() || undefined);
   setOrDelete('derivedKind', filter.derivedKind || undefined);
   setOrDelete('character', filter.characterId?.trim() || undefined);
   setOrDelete('sort', sort !== 'queued-desc' ? sort : undefined);

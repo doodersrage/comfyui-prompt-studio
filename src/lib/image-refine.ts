@@ -20,6 +20,113 @@ export type RefinePromptOptions = Pick<
   intentHints?: string;
 };
 
+export type RefineScan = {
+  currentPrompt: string;
+};
+
+function extractJsonObject(text: string): Record<string, unknown> | null {
+  const trimmed = text.trim();
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const raw = (fenced?.[1] ?? trimmed).trim();
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  if (start < 0 || end <= start) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw.slice(start, end + 1)) as unknown;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return null;
+    }
+    return parsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function clipScanField(value: string, max: number): string {
+  const trimmed = value.replace(/\s+/g, ' ').trim();
+  if (trimmed.length <= max) {
+    return trimmed;
+  }
+  return `${trimmed.slice(0, Math.max(0, max - 1)).trimEnd()}…`;
+}
+
+function requireVisionScanReady(options: Pick<RefinePromptOptions, 'llm'>): string {
+  const hosted = Boolean(options.llm?.llmProvider && options.llm.llmProvider !== 'server');
+  if (!resolveRequestLlmEnabled(options.llm)) {
+    throw new Error(
+      hosted
+        ? 'Vision scan needs a hosted vision model. Pick one under Settings → LLM and paste your API key.'
+        : 'Vision scan needs a vision-capable LLM. Set LLM_ENABLED=true and configure LLM_VISION_MODEL.'
+    );
+  }
+  const visionModel =
+    resolveRequestVisionModel(options.llm) ?? process.env.LLM_VISION_MODEL?.trim();
+  if (!visionModel) {
+    throw new Error(
+      hosted
+        ? 'Pick a session vision model under Settings → LLM to scan this still.'
+        : 'LLM_VISION_MODEL is not set. Add LLM_VISION_MODEL=qwen3-vl:latest to .env.local and restart.'
+    );
+  }
+  return visionModel;
+}
+
+/** Parse a vision reply into the Refine Current prompt field. */
+export function parseRefineScan(raw: string, maxChars = 1200): RefineScan {
+  const cleaned = stripPromptArtifacts(raw).trim();
+  const json = extractJsonObject(cleaned);
+  const fromJson =
+    typeof json?.currentPrompt === 'string'
+      ? json.currentPrompt
+      : typeof json?.prompt === 'string'
+        ? json.prompt
+        : typeof json?.description === 'string'
+          ? json.description
+          : '';
+  const prose = cleaned.replace(/^```(?:json)?\s*|\s*```$/g, '').trim();
+  const source = fromJson.trim() || prose;
+  return {
+    currentPrompt: clipScanField(source, maxChars),
+  };
+}
+
+export async function scanRefineReference(
+  options: Pick<RefinePromptOptions, 'imageDataUrl' | 'model' | 'detail' | 'intentHints' | 'llm'>
+): Promise<RefineScan> {
+  const visionModel = requireVisionScanReady(options);
+  const limits = getDetailLimits(options.detail, options.model);
+  const intent = options.intentHints?.trim() ?? '';
+
+  const content = await visionCompletion({
+    systemPrompt: `You read a still that will be the reference for a ComfyUI refine (${comfyModelLabel(options.model)}).
+Return ONLY JSON: {"currentPrompt":""}
+- currentPrompt: a finished image prompt describing who/what is visible — pose, clothes, setting, lighting.
+- Stay faithful to the still. Do not invent unseen people, places, or props.
+- ${limits.maxSentences} sentences max, ~${limits.maxChars} characters.
+- No markdown, no commentary.`,
+    textPrompt: [
+      'Describe this reference still as a Current prompt draft.',
+      intent ? `User intent (optional, do not treat as already visible): ${intent}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n'),
+    imageDataUrl: options.imageDataUrl,
+    maxTokens: Math.max(limits.maxTokens, 280),
+    temperature: 0.35,
+    model: visionModel,
+    endpoint: resolveRequestLlmEndpoint(options.llm),
+    usageContext: { route: 'refine-scan' },
+  });
+
+  const scanned = parseRefineScan(content, limits.maxChars);
+  if (!scanned.currentPrompt.trim()) {
+    throw new Error('Vision scan returned an empty prompt. Try a clearer still.');
+  }
+  return scanned;
+}
+
 export async function refineImagePrompt(
   options: RefinePromptOptions
 ): Promise<

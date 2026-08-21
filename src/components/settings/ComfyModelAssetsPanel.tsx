@@ -14,6 +14,7 @@ import {
   COMFY_ASSET_KIND_ORDER,
   type ComfyAssetKind,
 } from '@/lib/comfy-asset-kinds';
+import { getComfyModelDefinition } from '@/lib/comfy-models/client';
 
 type AssetRow = {
   id: string;
@@ -345,6 +346,23 @@ export default function ComfyModelAssetsPanel({
 
   const jobFor = (assetId: string) => jobs.find(job => job.assetId === assetId);
 
+  const compactModelLabel = useMemo(() => {
+    if (!forcedModelId) {
+      return 'this model';
+    }
+    const category = getComfyModelDefinition(forcedModelId).category;
+    if (category === 'video') {
+      return 'this video model';
+    }
+    if (category === 'audio') {
+      return 'this audio model';
+    }
+    if (category === 'mesh') {
+      return 'this 3D mesh model';
+    }
+    return 'this model';
+  }, [forcedModelId]);
+
   const visibleRows = useMemo(() => {
     return rows.filter(row => {
       if (compact && (row.kind === 'controlnet' || row.kind === 'upscale')) {
@@ -427,8 +445,8 @@ export default function ComfyModelAssetsPanel({
     <div className="space-y-3">
       <p className="type-caption text-[var(--text-muted)]">
         {compact
-          ? 'Install this video model and its support files (VAE, text encoder, Lightning LoRA) into COMFYUI_ROOT/models. Downloads run one at a time and resume if cancelled.'
-          : 'Curated same-machine installs for supported workflows — checkpoints, UNETs, VAEs, text encoders / CLIP, LoRAs, upscalers, and ControlNets — into COMFYUI_ROOT/models/…. Downloads run one at a time, resume from .partial after cancel or stall, and show up in the system tray. Only allowlisted Hugging Face URLs run; gated or third-party rows stay manual. Optional HF_TOKEN helps with gated repos / 403s.'}
+          ? `Install ${compactModelLabel} and its support files into COMFYUI_ROOT/models. Downloads run one at a time and resume if cancelled.`
+          : 'Curated same-machine installs for supported workflows — image, video, audio, and 3D mesh checkpoints plus VAE / text encoder / LoRA companions — into COMFYUI_ROOT/models/…. Downloads run one at a time, resume from .partial after cancel or stall, and show up in the system tray. Only allowlisted Hugging Face URLs run; gated or third-party rows stay manual. Optional HF_TOKEN helps with gated repos / 403s.'}
       </p>
 
       {queueJobs.length > 0 ? (

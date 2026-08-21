@@ -14,6 +14,18 @@ const MODE_KEY = 'comfy-workspace-mode-v1';
 const CHOSEN_KEY = 'comfy-workspace-mode-chosen-v1';
 
 export const WORKSPACE_MODE_CHANGED_EVENT = 'workspace-mode-changed';
+export const WORKSPACE_MODE_COOKIE = 'comfy-workspace-mode-v1';
+
+function persistWorkspaceModeCookie(mode: WorkspaceMode): void {
+  if (typeof document === 'undefined') {
+    return;
+  }
+  try {
+    document.cookie = `${WORKSPACE_MODE_COOKIE}=${mode}; Path=/; Max-Age=31536000; SameSite=Lax`;
+  } catch {
+    /* private mode / mocked document */
+  }
+}
 
 export const WORKSPACE_MODE_OPTIONS: {
   id: WorkspaceMode;
@@ -101,6 +113,7 @@ export function saveWorkspaceMode(mode: WorkspaceMode): void {
   writeBrowserString(MODE_KEY, next);
   writeBrowserString(CHOSEN_KEY, '1');
   document.documentElement.dataset.workspace = next;
+  persistWorkspaceModeCookie(next);
   markOnboardingSetWorkspace();
   window.dispatchEvent(new Event(WORKSPACE_MODE_CHANGED_EVENT));
 }
@@ -133,6 +146,7 @@ export function applyWorkspaceMode(): void {
     writeBrowserString(CHOSEN_KEY, '1');
   }
   document.documentElement.dataset.workspace = loadWorkspaceMode();
+  persistWorkspaceModeCookie(loadWorkspaceMode());
 }
 
 export function clearWorkspaceModeChoice(): void {

@@ -364,6 +364,7 @@ export default function ImagePromptTool() {
           autoFixRules={shared.autoFixRules !== false}
           onAutoFixRulesChange={value => updateShared({ autoFixRules: value })}
           recommendFromText={output}
+          preferEditModels
         />
       }
     >

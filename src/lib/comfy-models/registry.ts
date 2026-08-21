@@ -750,7 +750,8 @@ export const COMFY_IMAGE_MODELS: ComfyImageModelDefinition[] = [
     profile: 'audio_sound',
     referenceTokenLimit: 256,
     limitsByDetail: PROFILE_LIMITS.audio_sound,
-    checkpointHint: 'stable-audio-open.safetensors',
+    checkpointHint: 'stable-audio-open-1.0.safetensors',
+    clipHint: 't5-base.safetensors',
   },
   {
     id: 'hunyuan-3d',
@@ -763,7 +764,7 @@ export const COMFY_IMAGE_MODELS: ComfyImageModelDefinition[] = [
     profile: 'mesh_3d',
     referenceTokenLimit: 256,
     limitsByDetail: PROFILE_LIMITS.mesh_3d,
-    checkpointHint: 'hunyuan3d.safetensors',
+    checkpointHint: 'hunyuan3d-dit-v2.safetensors',
   },
 ];
 

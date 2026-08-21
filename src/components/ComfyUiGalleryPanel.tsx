@@ -163,12 +163,14 @@ export default function ComfyUiGalleryPanel({
     tools,
     models,
     userTags,
+    customGroups,
     removeEntry,
     removeEntries,
     toggleFavorite,
     setFavorites,
     setReviewRatings,
     setUserTags,
+    setCustomGroups,
     setProjectIds,
     clearAll,
     refreshPending,
@@ -1186,6 +1188,8 @@ export default function ComfyUiGalleryPanel({
     setFavorites,
     setReviewRatings,
     setUserTags,
+    setCustomGroups,
+    customGroups,
     paramAxis,
     filter,
     setLoraExportScope,
@@ -1485,6 +1489,7 @@ export default function ComfyUiGalleryPanel({
           tools={tools}
           models={models}
           userTags={userTags}
+          customGroups={customGroups}
           projects={projects}
           projectFilterId={projectFilterId}
           setProjectFilterId={setProjectFilterId}

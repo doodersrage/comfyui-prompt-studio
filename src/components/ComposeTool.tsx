@@ -81,6 +81,8 @@ import {
 } from '@/components/ui/ToolPageShell';
 import { ChipButton, FieldError, FieldLabel, TextArea } from '@/components/ui/Field';
 import { ButtonLink, PrimaryButton } from '@/components/ui/Button';
+import VisionScanButton from '@/components/VisionScanButton';
+import { resolveLocalImageFile, scanStillWithVision } from '@/lib/vision-still-scan-client';
 
 const ACCENT = 'cyan' as const;
 
@@ -153,6 +155,7 @@ export default function ComposeTool() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [isolating, setIsolating] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const [isolateStatus, setIsolateStatus] = useState<string | null>(null);
   const isolateGenRef = useRef(0);
   const autoIsolateAttemptedRef = useRef(false);
@@ -173,6 +176,32 @@ export default function ComposeTool() {
     },
     [updateToolSettings]
   );
+
+  const scanWithVision = useCallback(async () => {
+    const slot = slots[0];
+    if (!slot?.file && !slot?.previewUrl) {
+      setError('Add Image 1 first.');
+      return;
+    }
+    setScanning(true);
+    setError(null);
+    try {
+      const image = await resolveLocalImageFile(slot.file, slot.previewUrl, 'compose-image-1.png');
+      const prompt = await scanStillWithVision({
+        image,
+        purpose: 'compose',
+        model: shared.model,
+        detail: shared.detail,
+        extraHints: instruction.trim() || undefined,
+        shared,
+      });
+      setInstruction(prompt);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Vision scan failed.');
+    } finally {
+      setScanning(false);
+    }
+  }, [instruction, setInstruction, shared, slots]);
 
   const setMode = useCallback(
     (next: ComposeMode) => {
@@ -868,14 +897,21 @@ export default function ComposeTool() {
                     className="ui-file-input w-full disabled:opacity-50"
                   />
                   {index === 0 ? (
-                    <ButtonLink
-                      href={galleryPickPath('compose')}
-                      variant="secondary"
-                      size="sm"
-                      className="w-full justify-center"
-                    >
-                      Choose from Gallery
-                    </ButtonLink>
+                    <>
+                      <ButtonLink
+                        href={galleryPickPath('compose')}
+                        variant="secondary"
+                        size="sm"
+                        className="w-full justify-center"
+                      >
+                        Choose from Gallery
+                      </ButtonLink>
+                      <VisionScanButton
+                        disabled={!slot.file && !slot.previewUrl}
+                        scanning={scanning}
+                        onClick={() => void scanWithVision()}
+                      />
+                    </>
                   ) : null}
                 </div>
                 {slot.previewUrl ? (

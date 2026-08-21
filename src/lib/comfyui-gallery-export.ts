@@ -1,5 +1,5 @@
 import { buildPromptSidecar } from './prompt-sidecar';
-import type { ComfyGalleryEntry } from './comfyui-gallery';
+import { galleryEntryDownloadUrls, type ComfyGalleryEntry } from './comfyui-gallery';
 import { buildComfyViewPath } from './comfyui-outputs';
 import { getGalleryEntryById } from './gallery-db-store';
 import { stripGalleryWorkflowJsonForExport } from './gallery-workflow-hygiene';
@@ -106,12 +106,14 @@ export async function downloadGalleryImage(
     return;
   }
 
-  const viewUrl = buildComfyViewPath(entry.comfyUrl, image);
+  const downloads = galleryEntryDownloadUrls(entry);
+  const viewUrl = downloads.url[imageIndex] ?? buildComfyViewPath(entry.comfyUrl, image);
   const blob = await resolveGalleryImageBlob(viewUrl);
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
-  anchor.download = image.filename || `comfyui-${entry.promptId.slice(0, 8)}.png`;
+  anchor.download =
+    downloads.filename[imageIndex] || image.filename || `comfyui-${entry.promptId.slice(0, 8)}.bin`;
   anchor.click();
   URL.revokeObjectURL(url);
 }

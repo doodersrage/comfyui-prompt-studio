@@ -43,6 +43,7 @@ export type GalleryCardActions = {
   downloadError: (message: string | null) => void;
   visionTagClick: (tag: string) => void;
   userTagClick: (tag: string) => void;
+  customGroupClick: (group: string) => void;
   viewWorkflow: (id: string) => void;
   restoreExactGraph: (id: string) => void;
   pick?: (id: string) => void;
@@ -161,6 +162,10 @@ function GalleryCardItem({
     (tag: string) => actionsRef.current.userTagClick(tag),
     [actionsRef]
   );
+  const onCustomGroupClick = useCallback(
+    (group: string) => actionsRef.current.customGroupClick(group),
+    [actionsRef]
+  );
   const onViewWorkflow = useCallback(
     () => actionsRef.current.viewWorkflow(entry.id),
     [actionsRef, entry.id]
@@ -233,6 +238,7 @@ function GalleryCardItem({
       reviewMutationHints={reviewMutationHints}
       onVisionTagClick={onVisionTagClick}
       onUserTagClick={onUserTagClick}
+      onCustomGroupClick={onCustomGroupClick}
       onReviewRating={onReviewRating}
       onViewWorkflow={onViewWorkflow}
       onRestoreExactGraph={onRestoreExactGraph}

@@ -1,6 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import {
+  createContext,
+  createElement,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from 'react';
 import {
   loadWorkspaceMode,
   WORKSPACE_MODE_CHANGED_EVENT,
@@ -8,9 +15,16 @@ import {
 } from '@/lib/workspace-mode';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 
-/** Live workspace mode for progressive disclosure in tool chrome. */
-export function useWorkspaceMode(): WorkspaceMode {
-  const [mode, setMode] = useState<WorkspaceMode>('simple');
+const WorkspaceModeContext = createContext<WorkspaceMode>('simple');
+
+export function WorkspaceModeProvider({
+  initialMode,
+  children,
+}: {
+  initialMode: WorkspaceMode;
+  children: ReactNode;
+}) {
+  const [mode, setMode] = useState<WorkspaceMode>(initialMode);
 
   useEffect(() => {
     scheduleAfterCommit(() => {
@@ -27,5 +41,10 @@ export function useWorkspaceMode(): WorkspaceMode {
     };
   }, []);
 
-  return mode;
+  return createElement(WorkspaceModeContext.Provider, { value: mode }, children);
+}
+
+/** Live workspace mode for progressive disclosure in tool chrome. */
+export function useWorkspaceMode(): WorkspaceMode {
+  return useContext(WorkspaceModeContext);
 }

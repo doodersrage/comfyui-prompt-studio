@@ -74,6 +74,8 @@ export type ComfyGalleryEntry = {
   visionTags?: string[];
   /** User-applied labels (distinct from LLM visionTags). */
   userTags?: string[];
+  /** Named custom group assigned from gallery multi-select. One group per entry. */
+  customGroup?: string;
   /** Cached aesthetic score (0–100) from heuristic or vision. */
   aestheticScore?: number;
   /** How aestheticScore was produced. */

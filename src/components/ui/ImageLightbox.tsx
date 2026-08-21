@@ -21,7 +21,12 @@ import {
 } from '@/lib/comfyui-gallery';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import type { ComfyOutputMediaKind } from '@/lib/comfyui-outputs';
-import { shouldUseHtmlVideoElement, stripGalleryViewWidthParam } from '@/lib/comfyui-outputs';
+import {
+  isStillLightboxKind,
+  shouldUseHtmlVideoElement,
+  stripGalleryViewWidthParam,
+} from '@/lib/comfyui-outputs';
+import GalleryKindPreview from '@/components/ui/GalleryKindPreview';
 import { prefetchGalleryImageUrl } from '@/lib/gallery-image-prefetch';
 import {
   loadGalleryLightboxUiPreferences,
@@ -280,7 +285,7 @@ export default function ImageLightbox({
     currentOriginalUrl ?? midResUrl ?? ''
   );
   const currentUrl =
-    (preferFullRes || playInlineVideo || currentKind === 'video') && currentOriginalUrl
+    (preferFullRes || playInlineVideo || !isStillLightboxKind(currentKind)) && currentOriginalUrl
       ? currentOriginalUrl
       : (midResUrl ?? '');
   const currentDownloadUrl = state?.downloadUrls?.[displayIndex] ?? undefined;
@@ -581,7 +586,7 @@ export default function ImageLightbox({
       if (
         (event.key === 'x' || event.key === 'X') &&
         slideChrome?.beforeAfterUrl &&
-        (state?.mediaKinds?.[index] ?? 'image') !== 'video'
+        isStillLightboxKind(state?.mediaKinds?.[index])
       ) {
         event.preventDefault();
         setBaOpen(previous => !previous);
@@ -661,7 +666,7 @@ export default function ImageLightbox({
 
       if (
         (event.key === 'z' || event.key === 'Z') &&
-        (state?.mediaKinds?.[index] ?? 'image') !== 'video'
+        isStillLightboxKind(state?.mediaKinds?.[index])
       ) {
         event.preventDefault();
         toggleZoom();
@@ -865,7 +870,7 @@ export default function ImageLightbox({
     }
 
     const current = images[index];
-    if (current && state?.mediaKinds?.[index] !== 'video') {
+    if (current && isStillLightboxKind(state?.mediaKinds?.[index])) {
       prefetchGalleryImageUrl(current);
     }
 
@@ -874,7 +879,7 @@ export default function ImageLightbox({
     );
     for (const neighbor of neighborIndexes) {
       const url = images[neighbor];
-      if (!url || state?.mediaKinds?.[neighbor] === 'video') {
+      if (!url || !isStillLightboxKind(state?.mediaKinds?.[neighbor])) {
         continue;
       }
       prefetchGalleryImageUrl(url);
@@ -903,7 +908,7 @@ export default function ImageLightbox({
     const onWheel = (event: WheelEvent) => {
       const mediaKind = state?.mediaKinds?.[index] ?? 'image';
       if (event.ctrlKey || event.metaKey) {
-        if (mediaKind === 'video') {
+        if (!isStillLightboxKind(mediaKind)) {
           return;
         }
         event.preventDefault();
@@ -1006,7 +1011,7 @@ export default function ImageLightbox({
 
     const clickedImage = event.target instanceof HTMLElement && event.target.tagName === 'IMG';
     const mediaKind = state?.mediaKinds?.[index] ?? 'image';
-    if (!drag.moved && clickedImage && mediaKind !== 'video') {
+    if (!drag.moved && clickedImage && isStillLightboxKind(mediaKind)) {
       toggleZoom();
       return;
     }
@@ -1058,6 +1063,20 @@ export default function ImageLightbox({
   ) => {
     const ariaHidden = options?.ariaHidden ?? false;
     const isCurrent = options?.isCurrent ?? false;
+    if (kind === 'audio' || kind === 'mesh') {
+      return (
+        <div key={key} className={className}>
+          <GalleryKindPreview
+            kind={kind}
+            src={stripGalleryViewWidthParam(url)}
+            filename={isCurrent ? state?.downloadFilenames?.[displayIndex] : undefined}
+            className="max-h-[var(--lightbox-image-max-h,calc(96vh-6.5rem))] w-full max-w-lg"
+            controls={!ariaHidden}
+          />
+        </div>
+      );
+    }
+
     if (kind === 'video') {
       const fullUrl = stripGalleryViewWidthParam(url);
       const videoSrc = shouldUseHtmlVideoElement(kind, url)
@@ -1740,7 +1759,7 @@ export default function ImageLightbox({
               onClick: () => slideChrome.onRemove?.(),
             })
           : null}
-        {slideChrome?.beforeAfterUrl && currentMediaKind !== 'video'
+        {slideChrome?.beforeAfterUrl && isStillLightboxKind(currentMediaKind)
           ? renderIconAction(compact, {
               label: 'B/A',
               title: baOpen ? 'Exit before/after (X)' : 'Before/after wipe (X)',
@@ -1781,28 +1800,28 @@ export default function ImageLightbox({
               previous === 'contain' ? 'cover' : previous === 'cover' ? 'actual' : 'contain'
             ),
         })}
-        {currentMediaKind !== 'video'
+        {isStillLightboxKind(currentMediaKind)
           ? renderIconAction(compact, {
               label: '⊡',
               title: 'Zoom fit',
               onClick: () => applyZoomPreset('fit'),
             })
           : null}
-        {currentMediaKind !== 'video'
+        {isStillLightboxKind(currentMediaKind)
           ? renderIconAction(compact, {
               label: '2×',
               title: 'Zoom 2× center',
               onClick: () => applyZoomPreset('center'),
             })
           : null}
-        {currentMediaKind !== 'video'
+        {isStillLightboxKind(currentMediaKind)
           ? renderIconAction(compact, {
               label: '☺',
               title: 'Face-zone zoom',
               onClick: () => applyZoomPreset('face'),
             })
           : null}
-        {currentMediaKind !== 'video'
+        {isStillLightboxKind(currentMediaKind)
           ? renderIconAction(compact, {
               label: '🎨',
               title: histogramOpen ? 'Hide colors (H)' : 'Color histogram (H)',
@@ -2033,7 +2052,7 @@ export default function ImageLightbox({
     ) : null;
 
   const onStageTouchStart = (event: ReactTouchEvent<HTMLDivElement>) => {
-    if (event.touches.length === 2 && (state?.mediaKinds?.[index] ?? 'image') !== 'video') {
+    if (event.touches.length === 2 && isStillLightboxKind(state?.mediaKinds?.[index])) {
       const [a, b] = [event.touches[0], event.touches[1]];
       if (!a || !b) {
         return;
@@ -2487,7 +2506,7 @@ export default function ImageLightbox({
                   ) : null}
                 </div>
               </div>
-              {slideChrome || currentMediaKind !== 'video' ? (
+              {slideChrome || isStillLightboxKind(currentMediaKind) ? (
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   {/* eslint-disable-next-line react-hooks/refs -- action handlers, not render reads */}
                   {renderSlideChrome(false)}

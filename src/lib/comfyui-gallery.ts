@@ -9,6 +9,7 @@ import {
   resolveComfyOutputMediaKind,
   isAnimatedImageViewUrl,
   isGalleryMotionOutput,
+  isGalleryPassthroughOutput,
   shouldUseHtmlVideoElement,
   stripGalleryViewWidthParam,
 } from './comfyui-outputs';
@@ -35,6 +36,11 @@ import { scheduleUserAnalyticsSync } from './user-analytics-sync';
 import { capGalleryEntriesForLocalStorage } from './gallery-cap';
 import { rememberGalleryDeletedIds } from './gallery-deleted-ids';
 import { galleryEntryCorpus } from './embedding-rank';
+import {
+  galleryEntryMatchesCustomGroup,
+  resolveGalleryCustomGroupName,
+  uniqueGalleryCustomGroups,
+} from './gallery-custom-groups';
 import {
   enforceGalleryWorkflowByteBudget,
   pruneStaleGalleryWorkflowJson,
@@ -71,8 +77,8 @@ export type ComfyGalleryFilter = {
   focusEntryId?: string;
   /** Filter by derivative kind (upscale, refine, variation). */
   derivedKind?: ComfyGalleryEntry['derivedKind'];
-  /** Filter by primary media kind (image stills vs video). */
-  mediaKind?: 'image' | 'video' | 'all';
+  /** Filter by primary media kind (stills, video, audio, or 3D mesh). */
+  mediaKind?: 'image' | 'video' | 'audio' | 'mesh' | 'all';
   projectId?: string;
   reviewMode?: boolean;
   unreviewedOnly?: boolean;
@@ -87,6 +93,8 @@ export type ComfyGalleryFilter = {
   needsVisionReview?: boolean;
   /** Exact user tag match. */
   userTag?: string;
+  /** Exact custom group match, or `__ungrouped__` for entries with no group. */
+  customGroup?: string;
   /** Character OS record this job was queued as. */
   characterId?: string;
 };
@@ -120,6 +128,7 @@ export function galleryEntryRenderKey(entry: ComfyGalleryEntry): string {
     entry.promptId ?? '',
     entry.visionTags?.join(',') ?? '',
     entry.userTags?.join(',') ?? '',
+    entry.customGroup ?? '',
     entry.projectId ?? '',
   ];
 
@@ -382,6 +391,7 @@ export function filterComfyGalleryEntries(
             entry.statusMessage,
             entry.visionTags?.join(' '),
             entry.userTags?.join(' '),
+            entry.customGroup,
           ]
             .filter(Boolean)
             .join(' ') // keep original case — we'll lowercase only when needed
@@ -452,6 +462,10 @@ export function filterComfyGalleryEntries(
         idx += 1;
         continue;
       }
+    }
+    if (filter.customGroup?.trim() && !galleryEntryMatchesCustomGroup(entry, filter.customGroup)) {
+      idx += 1;
+      continue;
     }
     if (filter.focusEntryId?.trim() && entry.id !== filter.focusEntryId.trim()) {
       idx += 1;
@@ -640,6 +654,8 @@ export function uniqueGalleryUserTags(entries: ComfyGalleryEntry[]): string[] {
   return [...tags].sort((a, b) => a.localeCompare(b));
 }
 
+export { uniqueGalleryCustomGroups };
+
 export function addComfyGalleryEntry(
   input: Omit<ComfyGalleryEntry, 'id' | 'queuedAt' | 'images' | 'status'> & {
     id?: string;
@@ -678,7 +694,8 @@ function applyGalleryEntryPatch<T extends Partial<ComfyGalleryEntry>>(
     patch.promptId !== undefined ||
     patch.reviewNote !== undefined ||
     patch.visionTags !== undefined ||
-    patch.userTags !== undefined
+    patch.userTags !== undefined ||
+    patch.customGroup !== undefined
   ) {
     delete updated._corpus;
     updated._corpus = galleryEntryCorpus(updated);
@@ -712,6 +729,7 @@ export function updateComfyGalleryEntryById(
       | 'projectId'
       | 'visionTags'
       | 'userTags'
+      | 'customGroup'
       | 'aestheticScore'
       | 'aestheticScoreMethod'
       | 'workflowJson'
@@ -933,6 +951,23 @@ export function setComfyGalleryProjectIds(ids: string[], projectId: string | und
   );
 }
 
+export function setComfyGalleryCustomGroups(ids: string[], groupName: string | undefined): void {
+  if (ids.length === 0) {
+    return;
+  }
+  const existing = uniqueGalleryCustomGroups(loadComfyGallery());
+  const nextName =
+    groupName == null || !groupName.trim()
+      ? undefined
+      : resolveGalleryCustomGroupName(groupName, existing);
+  const idSet = new Set(ids);
+  saveComfyGallery(
+    loadComfyGallery().map(entry =>
+      idSet.has(entry.id) ? { ...entry, customGroup: nextName } : entry
+    )
+  );
+}
+
 /** Drop character/look stamps so the still leaves Cast without deleting the file. */
 export function clearGalleryCharacterStamp(ids: string[]): number {
   const idSet = new Set(ids.map(id => id.trim()).filter(Boolean));
@@ -1044,6 +1079,27 @@ function galleryOutputIsMotion(
   return galleryEntryIsMotionJob(entry) && isAnimatedImageViewUrl(image.filename);
 }
 
+function galleryOutputSkipsThumbProxy(
+  image: Pick<ComfyGalleryEntry['images'][number], 'filename' | 'format'>,
+  entry: Pick<ComfyGalleryEntry, 'tool' | 'derivedKind'>
+): boolean {
+  return galleryOutputIsMotion(image, entry) || isGalleryPassthroughOutput(image);
+}
+
+function galleryResolvedMediaKind(
+  image: Pick<ComfyGalleryEntry['images'][number], 'filename' | 'format'>,
+  entry: Pick<ComfyGalleryEntry, 'tool' | 'derivedKind'>
+): ComfyOutputMediaKind {
+  const kind = resolveComfyOutputMediaKind(image);
+  if (kind === 'audio' || kind === 'mesh') {
+    return kind;
+  }
+  if (galleryOutputIsMotion(image, entry)) {
+    return 'video';
+  }
+  return kind;
+}
+
 /**
  * Looks up a per-image durable path, falling back to the legacy single-value
  * field for index 0 — entries persisted before multi-image batches were
@@ -1080,7 +1136,8 @@ function galleryEntryBuildViewPath(
   if (durableOriginal) {
     return durableGalleryOriginalUrl(entry.id, index);
   }
-  const width = options?.width && galleryOutputIsMotion(image, entry) ? undefined : options?.width;
+  const width =
+    options?.width && galleryOutputSkipsThumbProxy(image, entry) ? undefined : options?.width;
   return buildEngineViewPath(entry.engineId, entry.comfyUrl, image, width ? { width } : undefined);
 }
 
@@ -1173,7 +1230,7 @@ export function galleryEntryThumbUrls(entry: ComfyGalleryEntry): string[] {
 
   cached = entry.images.map((image, index) => {
     const durableThumb = durableThumbPathAt(entry, index);
-    return galleryOutputIsMotion(image, entry)
+    return galleryOutputSkipsThumbProxy(image, entry)
       ? galleryEntryBuildViewPath(entry, image, index)
       : durableThumb
         ? durableGalleryThumbUrl(entry.id, index)
@@ -1203,7 +1260,7 @@ export function galleryEntryStripThumbUrls(entry: ComfyGalleryEntry): string[] {
 
   const urls = entry.images.map((image, index) => {
     const durableThumb = durableThumbPathAt(entry, index);
-    return galleryOutputIsMotion(image, entry)
+    return galleryOutputSkipsThumbProxy(image, entry)
       ? galleryEntryBuildViewPath(entry, image, index)
       : durableThumb
         ? durableGalleryThumbUrl(entry.id, index)
@@ -1222,7 +1279,7 @@ export function galleryEntryLightboxUrls(entry: ComfyGalleryEntry): string[] {
   if (entryCache?.lightbox) return entryCache.lightbox;
 
   const urls = entry.images.map((image, index) =>
-    galleryOutputIsMotion(image, entry)
+    galleryOutputSkipsThumbProxy(image, entry)
       ? galleryEntryBuildViewPath(entry, image, index)
       : galleryEntryBuildViewPath(entry, image, index, { width: GALLERY_LIGHTBOX_WIDTH })
   );
@@ -1232,7 +1289,7 @@ export function galleryEntryLightboxUrls(entry: ComfyGalleryEntry): string[] {
 }
 
 export function galleryEntryPrimaryPlaybackIndex(entry: ComfyGalleryEntry): number {
-  const index = entry.images.findIndex(image => galleryOutputIsMotion(image, entry));
+  const index = entry.images.findIndex(image => galleryResolvedMediaKind(image, entry) !== 'image');
   return index >= 0 ? index : 0;
 }
 
@@ -1257,7 +1314,7 @@ export function galleryEntryPrimaryThumbUrl(entry: ComfyGalleryEntry): string | 
 export function galleryEntryPrimaryThumbSrcSet(entry: ComfyGalleryEntry): string | null {
   const index = galleryEntryPrimaryPlaybackIndex(entry);
   const image = entry.images[index] ?? entry.images[0];
-  if (!image || galleryOutputIsMotion(image, entry)) {
+  if (!image || galleryOutputSkipsThumbProxy(image, entry)) {
     return null;
   }
   if (durableThumbPathAt(entry, index)) {
@@ -1271,20 +1328,15 @@ export function galleryEntryPrimaryThumbSrcSet(entry: ComfyGalleryEntry): string
   return buildComfyViewSrcSet(entry.comfyUrl, image);
 }
 
-/** Per-image media kind (image vs. video/animated) for gallery rendering. */
+/** Per-image media kind (image, video, audio, or mesh) for gallery rendering. */
 export function galleryEntryMediaKinds(entry: ComfyGalleryEntry): ComfyOutputMediaKind[] {
-  return entry.images.map(image =>
-    galleryOutputIsMotion(image, entry) ? 'video' : resolveComfyOutputMediaKind(image)
-  );
+  return entry.images.map(image => galleryResolvedMediaKind(image, entry));
 }
 
-/** Media kind of the entry's playable hero (clip if present, otherwise the first output). */
+/** Media kind of the entry's playable hero (clip/audio/mesh if present, otherwise the first output). */
 export function galleryEntryPrimaryMediaKind(entry: ComfyGalleryEntry): ComfyOutputMediaKind {
   const playback = entry.images[galleryEntryPrimaryPlaybackIndex(entry)];
-  if (playback && galleryOutputIsMotion(playback, entry)) {
-    return 'video';
-  }
-  return playback ? resolveComfyOutputMediaKind(playback) : 'image';
+  return playback ? galleryResolvedMediaKind(playback, entry) : 'image';
 }
 
 /** Grid/lightbox hero: original clip/animation URL — never the stills `w=` proxy. */
@@ -1292,7 +1344,7 @@ export function galleryEntryHeroPreviewUrl(entry: ComfyGalleryEntry): string | n
   const view = galleryEntryPrimaryViewUrl(entry);
   if (view) {
     const image = entry.images[galleryEntryPrimaryPlaybackIndex(entry)];
-    if (image && galleryOutputIsMotion(image, entry)) {
+    if (image && galleryOutputSkipsThumbProxy(image, entry)) {
       return view;
     }
     if (shouldUseHtmlVideoElement(galleryEntryPrimaryMediaKind(entry), view)) {
@@ -1309,7 +1361,7 @@ export function galleryEntryPrimaryLqipUrl(entry: ComfyGalleryEntry): string | n
 
   const index = galleryEntryPrimaryPlaybackIndex(entry);
   const image = entry.images[index] ?? entry.images[0];
-  if (!image || galleryOutputIsMotion(image, entry)) {
+  if (!image || galleryOutputSkipsThumbProxy(image, entry)) {
     _updateUrlCache(key, { lqip: null });
     return null;
   }

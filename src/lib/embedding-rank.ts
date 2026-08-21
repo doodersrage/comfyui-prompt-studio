@@ -47,6 +47,7 @@ export function galleryEntryCorpus(entry: {
   statusMessage?: string;
   visionTags?: string[];
   userTags?: string[];
+  customGroup?: string;
 }): string {
   // Return pre-computed corpus when already seeded (hydration path).
   const cached = '_corpus' in entry ? (entry as { _corpus?: string })._corpus : undefined;
@@ -61,6 +62,7 @@ export function galleryEntryCorpus(entry: {
     entry.statusMessage,
     entry.visionTags?.join(' '),
     entry.userTags?.join(' '),
+    entry.customGroup,
   ]
     .filter(Boolean)
     .join('\n');

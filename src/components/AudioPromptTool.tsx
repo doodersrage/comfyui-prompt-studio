@@ -8,6 +8,7 @@ import SharedToolControls from '@/components/SharedToolControls';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import MediaScaffoldReadyPanel from '@/components/MediaScaffoldReadyPanel';
+import ComfyModelAssetsPanel from '@/components/settings/ComfyModelAssetsPanel';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { usePromptResultActions } from '@/hooks/usePromptResultActions';
 import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
@@ -151,7 +152,7 @@ export default function AudioPromptTool() {
             {workflowStatus}
           </p>
         ) : null}
-        <div className="mb-4">
+        <div className="mb-4 space-y-3">
           <MediaScaffoldReadyPanel
             kind="audio"
             ensureScaffold={() => {
@@ -164,6 +165,35 @@ export default function AudioPromptTool() {
               setWorkflowStatus(summary);
             }}
           />
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/40 px-3 py-3">
+            <p className="mb-2 text-xs font-medium text-[var(--text-primary)]">Audio model files</p>
+            <ComfyModelAssetsPanel
+              modelId={controlsModel}
+              compact
+              onStatus={setWorkflowStatus}
+              onInstalled={() => {
+                void (async () => {
+                  try {
+                    const { pinMediaWeightsAfterInstall } = await import('@/lib/pin-media-weights');
+                    const result = await pinMediaWeightsAfterInstall('audio', controlsModel);
+                    if (result.sharedPatch) {
+                      updateShared(result.sharedPatch);
+                    }
+                    setWorkflowStatus(
+                      result.note ??
+                        'Audio weights installed and mapped — refresh ComfyUI if loaders stay empty.'
+                    );
+                  } catch (error) {
+                    setWorkflowStatus(
+                      error instanceof Error
+                        ? error.message
+                        : 'Audio weights installed — refresh ComfyUI if loaders stay empty.'
+                    );
+                  }
+                })();
+              }}
+            />
+          </div>
         </div>
         <FieldLabel>Subject / scene sound</FieldLabel>
         <TextArea

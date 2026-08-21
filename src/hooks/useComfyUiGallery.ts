@@ -17,6 +17,7 @@ import {
   setComfyGalleryProjectIds,
   setComfyGalleryReviewRatings,
   setComfyGalleryUserTags,
+  setComfyGalleryCustomGroups,
   setGalleryReviewRating,
   toggleComfyGalleryFavorite,
   type ComfyGalleryEntry,
@@ -24,6 +25,7 @@ import {
   uniqueGalleryModels,
   uniqueGalleryTools,
   uniqueGalleryUserTags,
+  uniqueGalleryCustomGroups,
 } from '@/lib/comfyui-gallery';
 import { primeGalleryCacheSync } from '@/lib/gallery-db-store';
 import { pullAndMergeGalleryFromServer } from '@/lib/gallery-server-sync';
@@ -241,6 +243,7 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
   const tools = useMemo(() => uniqueGalleryTools(entries), [entries]);
   const models = useMemo(() => uniqueGalleryModels(entries), [entries]);
   const userTags = useMemo(() => uniqueGalleryUserTags(entries), [entries]);
+  const customGroups = useMemo(() => uniqueGalleryCustomGroups(entries), [entries]);
 
   const removeEntry = useCallback(
     (id: string) => {
@@ -290,6 +293,14 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
     [refresh]
   );
 
+  const setCustomGroups = useCallback(
+    (ids: string[], groupName: string | undefined) => {
+      setComfyGalleryCustomGroups(ids, groupName);
+      refresh();
+    },
+    [refresh]
+  );
+
   const clearAll = useCallback(() => {
     clearComfyGallery();
     refresh();
@@ -332,6 +343,7 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
     tools,
     models,
     userTags,
+    customGroups,
     refresh,
     removeEntry,
     removeEntries,
@@ -339,6 +351,7 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
     setFavorites,
     setReviewRatings,
     setUserTags,
+    setCustomGroups,
     setProjectIds,
     clearAll,
     refreshPending,

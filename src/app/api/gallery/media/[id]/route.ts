@@ -54,7 +54,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         // seek/scrub — the live ComfyUI proxy already supports this; durable
         // originals need the same so playback doesn't regress once a video
         // is persisted locally.
-        if (isHtmlVideoContentType(contentType)) {
+        if (isHtmlVideoContentType(contentType) || contentType.startsWith('audio/')) {
           baseHeaders['Accept-Ranges'] = 'bytes';
           const range = parseRangeHeader(request.headers.get('range'), size);
           if (range) {

@@ -8,6 +8,7 @@ import SharedToolControls from '@/components/SharedToolControls';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import MediaScaffoldReadyPanel from '@/components/MediaScaffoldReadyPanel';
+import ComfyModelAssetsPanel from '@/components/settings/ComfyModelAssetsPanel';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { useGalleryHandoff } from '@/hooks/useGalleryHandoff';
 import { usePromptResultActions } from '@/hooks/usePromptResultActions';
@@ -175,7 +176,7 @@ export default function MeshPromptTool() {
             {workflowStatus}
           </p>
         ) : null}
-        <div className="mb-4">
+        <div className="mb-4 space-y-3">
           <MediaScaffoldReadyPanel
             kind="mesh"
             ensureScaffold={() => {
@@ -188,6 +189,37 @@ export default function MeshPromptTool() {
               setWorkflowStatus(summary);
             }}
           />
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/40 px-3 py-3">
+            <p className="mb-2 text-xs font-medium text-[var(--text-primary)]">
+              3D mesh model files
+            </p>
+            <ComfyModelAssetsPanel
+              modelId={controlsModel}
+              compact
+              onStatus={setWorkflowStatus}
+              onInstalled={() => {
+                void (async () => {
+                  try {
+                    const { pinMediaWeightsAfterInstall } = await import('@/lib/pin-media-weights');
+                    const result = await pinMediaWeightsAfterInstall('mesh', controlsModel);
+                    if (result.sharedPatch) {
+                      updateShared(result.sharedPatch);
+                    }
+                    setWorkflowStatus(
+                      result.note ??
+                        'Mesh weights installed and mapped — refresh ComfyUI if loaders stay empty.'
+                    );
+                  } catch (error) {
+                    setWorkflowStatus(
+                      error instanceof Error
+                        ? error.message
+                        : 'Mesh weights installed — refresh ComfyUI if loaders stay empty.'
+                    );
+                  }
+                })();
+              }}
+            />
+          </div>
         </div>
         <FieldLabel>Reference image (optional)</FieldLabel>
         <div className="flex flex-wrap items-center gap-2">

@@ -9,6 +9,8 @@ import {
   catalogAssetsForModel,
   getCatalogAsset,
   isAllowlistedAssetUrl,
+  NATIVE_AUDIO_MODEL_IDS,
+  NATIVE_MESH_MODEL_IDS,
   NATIVE_VIDEO_MODEL_IDS,
 } from "./comfy-asset-catalog";
 import {
@@ -162,6 +164,45 @@ describe("comfy asset catalog", () => {
     assert.equal(assetIsDownloadable(getCatalogAsset("ltx-video-2b-098-distilled")!), true);
     assert.equal(assetIsDownloadable(getCatalogAsset("ltx-video-13b-098-distilled-fp8")!), true);
     assert.equal(assetIsDownloadable(getCatalogAsset("ltx-video-t5xxl")!), true);
+  });
+
+  it("exposes downloadable core files for native audio and mesh models", () => {
+    for (const modelId of [...NATIVE_AUDIO_MODEL_IDS, ...NATIVE_MESH_MODEL_IDS]) {
+      const rows = catalogAssetsForModel(modelId).filter(
+        (entry) => entry.kind !== "controlnet" && entry.kind !== "upscale",
+      );
+      const ownRows = rows.filter((entry) => entry.modelIds.includes(modelId));
+      assert.ok(ownRows.length > 0, `${modelId} should list curated files`);
+      const downloadable = ownRows.filter((entry) => assetIsDownloadable(entry));
+      assert.ok(
+        downloadable.length > 0,
+        `${modelId} should have at least one Install URL`,
+      );
+    }
+
+    assert.equal(assetIsDownloadable(getCatalogAsset("stable-audio-open")!), true);
+    assert.equal(assetIsDownloadable(getCatalogAsset("stable-audio-t5-base")!), true);
+    assert.equal(getCatalogAsset("stable-audio-open")!.filename, "stable-audio-open-1.0.safetensors");
+    assert.equal(getCatalogAsset("stable-audio-t5-base")!.kind, "clip");
+    assert.equal(assetIsDownloadable(getCatalogAsset("hunyuan3d-dit-v2")!), true);
+    assert.equal(assetIsDownloadable(getCatalogAsset("hunyuan3d-dit-v2-mv")!), true);
+    assert.equal(assetIsDownloadable(getCatalogAsset("hunyuan3d-dit-v2-mv-turbo")!), true);
+    assert.equal(getCatalogAsset("hunyuan3d-dit-v2")!.filename, "hunyuan3d-dit-v2.safetensors");
+  });
+
+  it("keeps audio and mesh installs off video catalogs", () => {
+    const wan = catalogAssetsForModel("wan-video").map((entry) => entry.id);
+    assert.equal(wan.includes("stable-audio-open"), false);
+    assert.equal(wan.includes("hunyuan3d-dit-v2"), false);
+    const audio = catalogAssetsForModel("stable-audio").map((entry) => entry.id);
+    assert.ok(audio.includes("stable-audio-open"));
+    assert.ok(audio.includes("stable-audio-t5-base"));
+    assert.equal(audio.includes("hunyuan3d-dit-v2"), false);
+    const mesh = catalogAssetsForModel("hunyuan-3d").map((entry) => entry.id);
+    assert.ok(mesh.includes("hunyuan3d-dit-v2"));
+    assert.ok(mesh.includes("hunyuan3d-dit-v2-mv"));
+    assert.ok(mesh.includes("hunyuan3d-dit-v2-mv-turbo"));
+    assert.equal(mesh.includes("stable-audio-open"), false);
   });
 
   it("lists current LTX 0.9.8 distilled checkpoints for ltx-video", () => {

@@ -5,6 +5,7 @@ import { applyAppTheme, subscribeSystemTheme } from '@/lib/theme-store';
 import { applyAmbientIntensity } from '@/lib/ambient-settings';
 import { applyCalmUi } from '@/lib/calm-settings';
 import { applyUiDensity } from '@/lib/density-settings';
+import { applyWorkspaceMode } from '@/lib/workspace-mode';
 
 export default function ThemeInit() {
   useEffect(() => {
@@ -12,6 +13,7 @@ export default function ThemeInit() {
     applyAmbientIntensity();
     applyUiDensity();
     applyCalmUi();
+    applyWorkspaceMode();
 
     return subscribeSystemTheme();
   }, []);

@@ -724,6 +724,35 @@ export default function SharedToolControls({
     storageReady,
   ]);
 
+  useEffect(() => {
+    if (!storageReady || showAllModelsOverride || preferEditModels) {
+      return;
+    }
+    if (
+      toolId !== 'video' &&
+      toolId !== 'inpaint' &&
+      toolId !== 'outpaint' &&
+      toolId !== 'compose'
+    ) {
+      return;
+    }
+    if (pickerModels.length === 0 || pickerModels.includes(shared.model)) {
+      return;
+    }
+    const fallback = pickerModels[0];
+    if (fallback && fallback !== shared.model) {
+      onModelChange(fallback);
+    }
+  }, [
+    onModelChange,
+    pickerModels,
+    preferEditModels,
+    shared.model,
+    showAllModelsOverride,
+    storageReady,
+    toolId,
+  ]);
+
   const [inventoryTick, setInventoryTick] = useState(0);
 
   useEffect(() => {
@@ -815,16 +844,23 @@ export default function SharedToolControls({
 
   const systemPathActive = usesSystemWorkflowPath(shared, shared.model);
   const cloudEngine = isCloudEngine(shared.inferenceEngine);
+  const categoryLocked = toolId === 'video' || toolId === 'audio' || toolId === 'mesh';
   const modelFilterHint =
     preferEditModels && !showAllModelsOverride
       ? `From photo · edit / img2img models (${pickerModels.length}). T2I checkpoints overbake the reference.`
-      : systemPathActive
-        ? shouldLimitSystemWorkflowPicker(shared) && !showAllModelsOverride
-          ? `System path · FLUX / Qwen / Z-Image / Boogu / video (${pickerModels.length} models).`
-          : `System path for this model (${pickerModels.length} in picker).`
-        : shared.useSystemWorkflows === true
-          ? `Hybrid · mapped/manual workflow for this model (${pickerModels.length} in picker).`
-          : supportedModelsFilterHint(supportedModels.source, supportedModels.models.length);
+      : toolId === 'video' && !showAllModelsOverride
+        ? `Video · WAN / Hunyuan / LTX only (${pickerModels.length}). Still-image checkpoints stay on Generate.`
+        : toolId === 'inpaint' || toolId === 'outpaint'
+          ? `Inpaint / edit models (${pickerModels.length}). T2I checkpoints cannot fill a mask.`
+          : toolId === 'compose'
+            ? `Compose-capable img2img models (${pickerModels.length}).`
+            : systemPathActive
+              ? shouldLimitSystemWorkflowPicker(shared) && !showAllModelsOverride
+                ? `System path · FLUX / Qwen / Z-Image / Boogu / video (${pickerModels.length} models).`
+                : `System path for this model (${pickerModels.length} in picker).`
+              : shared.useSystemWorkflows === true
+                ? `Hybrid · mapped/manual workflow for this model (${pickerModels.length} in picker).`
+                : supportedModelsFilterHint(supportedModels.source, supportedModels.models.length);
 
   useEffect(() => {
     // Respect a persisted library/picker selection — do not replace it with auto-ranked defaults.
@@ -1289,7 +1325,7 @@ export default function SharedToolControls({
             }
             filterHint={modelFilterHint}
             onShowAllModels={
-              showAllModelsOverride || supportedModels.source === 'disabled'
+              categoryLocked || showAllModelsOverride || supportedModels.source === 'disabled'
                 ? undefined
                 : handleShowAllModels
             }

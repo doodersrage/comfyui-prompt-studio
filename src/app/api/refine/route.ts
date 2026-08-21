@@ -1,4 +1,4 @@
-import { refineImagePrompt } from '@/lib/image-refine';
+import { refineImagePrompt, scanRefineReference } from '@/lib/image-refine';
 import { fileToDataUrl, normalizeImageDataUrl } from '@/lib/specialized/image-prompt-generator';
 import { normalizeDetailLevel } from '@/lib/detail-level';
 import { normalizeComfyModel } from '@/lib/comfy-models';
@@ -40,6 +40,7 @@ async function parseRefineRequest(request: Request) {
     }
 
     return {
+      action: String(formData.get('action') ?? '').trim() || undefined,
       imageDataUrl: await fileToDataUrl(file),
       mimeType,
       model: String(formData.get('model') ?? ''),
@@ -51,6 +52,7 @@ async function parseRefineRequest(request: Request) {
   }
 
   const body = (await request.json()) as {
+    action?: string;
     image?: string;
     mimeType?: string;
     model?: string;
@@ -75,6 +77,7 @@ async function parseRefineRequest(request: Request) {
   }
 
   return {
+    action: body.action?.trim() || undefined,
     imageDataUrl: normalizeImageDataUrl(body.image.trim(), body.mimeType),
     mimeType: body.mimeType,
     model: body.model ?? '',
@@ -93,10 +96,23 @@ export async function POST(request: Request) {
   let stage = 'parse-request';
   try {
     const parsed = await parseRefineRequest(request);
+    const model = normalizeComfyModel(parsed.model);
+    const detail = normalizeDetailLevel(parsed.detail);
+    if (parsed.action === 'scan') {
+      stage = 'scan';
+      const scanned = await scanRefineReference({
+        model,
+        detail,
+        imageDataUrl: parsed.imageDataUrl,
+        intentHints: parsed.intentHints,
+        llm: parsed.llm,
+      });
+      return apiJson(scanned);
+    }
     stage = 'refine';
     const result = await refineImagePrompt({
-      model: normalizeComfyModel(parsed.model),
-      detail: normalizeDetailLevel(parsed.detail),
+      model,
+      detail,
       imageDataUrl: parsed.imageDataUrl,
       mimeType: parsed.mimeType,
       currentPrompt: parsed.currentPrompt,

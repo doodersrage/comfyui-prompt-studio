@@ -129,8 +129,8 @@ async function persistGalleryMediaImage(
  * into durable storage under PROMPT_DATA_DIR so the gallery survives the
  * source engine cleaning up its own output history — including every frame
  * of a multi-image batch, not just the first. Stills also get a small webp
- * thumb; motion output is stored as-is (sharp can't resize video). Called
- * once, right after a job completes — see comfyui-gallery-client.ts.
+ * thumb; video, audio, and mesh output is stored as-is (sharp can't resize
+ * those). Called once, right after a job completes — see comfyui-gallery-client.ts.
  *
  * Returns arrays parallel to `entry.images` (`null` at an index means that
  * output wasn't persisted — the gallery keeps using the live engine proxy

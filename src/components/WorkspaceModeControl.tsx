@@ -1,14 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import {
   WORKSPACE_MODE_OPTIONS,
   hasChosenWorkspaceMode,
-  loadWorkspaceMode,
   saveWorkspaceMode,
   type WorkspaceMode,
 } from '@/lib/workspace-mode';
-import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
+import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
 import { Button } from '@/components/ui/Button';
 
 type WorkspaceModeControlProps = {
@@ -21,16 +19,9 @@ export default function WorkspaceModeControl({
   variant = 'panel',
   onChanged,
 }: WorkspaceModeControlProps) {
-  const [mode, setMode] = useState<WorkspaceMode>('studio');
-
-  useEffect(() => {
-    scheduleAfterCommit(() => {
-      setMode(loadWorkspaceMode());
-    });
-  }, []);
+  const mode = useWorkspaceMode();
 
   function apply(next: WorkspaceMode) {
-    setMode(next);
     saveWorkspaceMode(next);
     onChanged?.(next);
   }

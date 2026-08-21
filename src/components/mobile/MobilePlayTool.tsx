@@ -6,6 +6,7 @@ import RoleplayBibleEditor from '@/components/RoleplayBibleEditor';
 import RoleplayLibraryPanel from '@/components/RoleplayLibraryPanel';
 import RoleplayStoryReel from '@/components/RoleplayStoryReel';
 import { Button, PrimaryButton } from '@/components/ui/Button';
+import { useRoleplayFilmActions } from '@/hooks/useRoleplayFilmActions';
 import { FieldError, TextInput } from '@/components/ui/Field';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { usePromptResultActions } from '@/hooks/usePromptResultActions';
@@ -112,6 +113,12 @@ export default function MobilePlayTool() {
   useEffect(() => {
     storyRef.current = story;
   }, [story]);
+  const { assemblingFilm, filmStatus, filmNeedsCast, cutRoleplayFilm, saveFilmToCast, filmError } =
+    useRoleplayFilmActions({
+      toolSettings,
+      storyRef,
+      bioName: bio?.name,
+    });
 
   useEffect(() => {
     if (!mounted) {
@@ -808,13 +815,37 @@ export default function MobilePlayTool() {
 
       <RoleplayStoryReel
         story={story}
-        busy={bioLoading || playingId !== null}
+        busy={bioLoading || playingId !== null || assemblingFilm}
         onQueue={beat => void queueBeat(beat)}
         onRetry={beat => void queueBeat(beat, { retry: true })}
         onSelectTake={selectStillTake}
       />
 
-      <FieldError>{error}</FieldError>
+      <div className="space-y-2">
+        <Button
+          variant="secondary"
+          loading={assemblingFilm}
+          loadingLabel="Cutting film"
+          disabled={story.length === 0 || assemblingFilm || bioLoading}
+          onClick={() => void cutRoleplayFilm()}
+          className="w-full justify-center"
+        >
+          Cut film
+        </Button>
+        {filmNeedsCast ? (
+          <Button
+            variant="ghost"
+            disabled={bioLoading || assemblingFilm}
+            onClick={saveFilmToCast}
+            className="w-full justify-center"
+          >
+            Save to Cast
+          </Button>
+        ) : null}
+        {filmStatus ? <p className="type-caption text-[var(--text-muted)]">{filmStatus}</p> : null}
+      </div>
+
+      <FieldError>{error || filmError}</FieldError>
       <Link href="/roleplay" className="ui-btn-ghost w-full justify-center text-center text-sm">
         Full Roleplay on desk
       </Link>

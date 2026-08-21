@@ -32,6 +32,7 @@ import {
 import { scoreGalleryEntryHeuristic, type AestheticScoreResult } from '@/lib/aesthetic-score';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import { downloadGalleryImage, downloadGallerySidecar } from '@/lib/comfyui-gallery-export';
+import { galleryDownloadActionLabel } from '@/lib/comfyui-outputs';
 import { studioHistoryUrl } from '@/lib/prompt-lineage';
 import {
   galleryEntryMediaKinds,
@@ -55,6 +56,7 @@ import { applyGalleryFaceToSession, galleryEntryCanLockFace } from '@/lib/galler
 import { galleryToolHref, galleryToolLabel } from '@/lib/gallery-tool-href';
 import { continueClipActionLabel } from '@/lib/video-clip-mode';
 import { shouldUseHtmlVideoElement, isHtmlVideoViewUrl } from '@/lib/comfyui-outputs';
+import GalleryKindPreview from '@/components/ui/GalleryKindPreview';
 import { loadEngineSettings } from '@/lib/engine-settings';
 import { isCloudEngine } from '@/lib/engine/capabilities';
 
@@ -108,6 +110,7 @@ type GalleryCardProps = {
   reviewMutationHints?: string[];
   onVisionTagClick?: (tag: string) => void;
   onUserTagClick?: (tag: string) => void;
+  onCustomGroupClick?: (group: string) => void;
   onViewWorkflow?: () => void;
   onRestoreExactGraph?: () => void;
   /** When set, clicking a pickable card returns the image to the calling tool. */
@@ -127,6 +130,37 @@ function statusLabel(status: ComfyGalleryEntry['status'], entry?: ComfyGalleryEn
   }
   if (status === 'pending') return 'Queued';
   return 'Error';
+}
+
+function CustomGroupBadge(props: {
+  name: string;
+  onClick?: (group: string) => void;
+  pointerEvents?: boolean;
+}) {
+  const className = `${
+    props.pointerEvents ? 'pointer-events-auto ' : ''
+  }max-w-[10rem] truncate rounded-full border border-[var(--accent-border)] bg-[var(--accent-muted)] px-2 py-0.5 text-[10px] text-[var(--accent-text)] backdrop-blur-sm transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]`;
+  if (!props.onClick) {
+    return (
+      <span className={className} data-testid="gallery-card-custom-group" title={props.name}>
+        {props.name}
+      </span>
+    );
+  }
+  return (
+    <button
+      type="button"
+      data-testid="gallery-card-custom-group"
+      title={`Show group ${props.name}`}
+      className={className}
+      onClick={event => {
+        event.stopPropagation();
+        props.onClick?.(props.name);
+      }}
+    >
+      {props.name}
+    </button>
+  );
 }
 
 function statusTone(status: ComfyGalleryEntry['status']): string {
@@ -186,6 +220,7 @@ export default function GalleryCard({
   reviewMutationHints,
   onVisionTagClick,
   onUserTagClick,
+  onCustomGroupClick,
   onViewWorkflow,
   onRestoreExactGraph,
   pickMode = false,
@@ -422,10 +457,20 @@ export default function GalleryCard({
             className={`relative block h-full w-full overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-base)] ${
               pickMode && pickable ? 'cursor-pointer' : 'cursor-zoom-in'
             }`}
-            aria-label={pickMode && pickable ? pickLabel : 'Open image preview'}
+            aria-label={
+              pickMode && pickable
+                ? pickLabel
+                : primaryMediaKind === 'audio'
+                  ? 'Open audio preview'
+                  : primaryMediaKind === 'mesh'
+                    ? 'Open 3D file'
+                    : primaryMediaKind === 'video'
+                      ? 'Open clip preview'
+                      : 'Open image preview'
+            }
             disabled={pickMode && !pickable}
           >
-            {lqipUrl && !isVideoHero ? (
+            {lqipUrl && primaryMediaKind === 'image' ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={lqipUrl}
@@ -446,6 +491,14 @@ export default function GalleryCard({
                 onLoadedData={() => setHeroLoaded(true)}
                 onError={() => setHeroVideoFailed(true)}
                 className="relative h-full w-full object-cover transition duration-300 group-hover/card:scale-[1.02]"
+              />
+            ) : primaryMediaKind === 'audio' || primaryMediaKind === 'mesh' ? (
+              <GalleryKindPreview
+                kind={primaryMediaKind}
+                src={previewUrl}
+                filename={entry.images[playbackIndex]?.filename}
+                className="relative h-full w-full"
+                alt={entry.prompt.slice(0, 80)}
               />
             ) : (
               /* eslint-disable-next-line @next/next/no-img-element */
@@ -473,6 +526,14 @@ export default function GalleryCard({
             {isVideoHero ? (
               <span className="pointer-events-none absolute right-2 top-2 rounded-full border border-white/15 bg-black/55 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-white/85 backdrop-blur-sm">
                 Video
+              </span>
+            ) : primaryMediaKind === 'audio' ? (
+              <span className="pointer-events-none absolute right-2 top-2 rounded-full border border-white/15 bg-black/55 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-white/85 backdrop-blur-sm">
+                Audio
+              </span>
+            ) : primaryMediaKind === 'mesh' ? (
+              <span className="pointer-events-none absolute right-2 top-2 rounded-full border border-white/15 bg-black/55 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-white/85 backdrop-blur-sm">
+                3D
               </span>
             ) : null}
           </button>
@@ -598,7 +659,7 @@ export default function GalleryCard({
                         <button
                           type="button"
                           onClick={() => {
-                            void downloadGalleryImage(entry, 0).catch(error => {
+                            void downloadGalleryImage(entry, playbackIndex).catch(error => {
                               onDownloadError(
                                 error instanceof Error ? error.message : 'Download failed'
                               );
@@ -690,6 +751,13 @@ export default function GalleryCard({
               <span className="rounded-full border border-[var(--accent-border)] bg-[var(--accent-muted)] px-2 py-0.5 text-[10px] text-[var(--accent-text)] backdrop-blur-sm">
                 {entry.reviewRating}★
               </span>
+            ) : null}
+            {entry.customGroup?.trim() ? (
+              <CustomGroupBadge
+                name={entry.customGroup.trim()}
+                onClick={onCustomGroupClick}
+                pointerEvents
+              />
             ) : null}
             {entry.reviewNote?.trim() ? (
               <span
@@ -833,6 +901,9 @@ export default function GalleryCard({
           </span>
           {entry.reviewRating ? (
             <span className="text-[10px] text-[var(--accent-text)]">{entry.reviewRating}★</span>
+          ) : null}
+          {entry.customGroup?.trim() ? (
+            <CustomGroupBadge name={entry.customGroup.trim()} onClick={onCustomGroupClick} />
           ) : null}
           {entry.reviewNote?.trim() ? (
             <span
@@ -978,6 +1049,17 @@ export default function GalleryCard({
                   className="h-9 w-9 object-cover"
                 />
               </button>
+            ) : stripMediaKinds[thumbIndex + 1] === 'audio' ||
+              stripMediaKinds[thumbIndex + 1] === 'mesh' ? (
+              <button
+                key={url}
+                type="button"
+                onClick={() => onOpenImage(thumbIndex + 1)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-muted)] text-[8px] font-medium uppercase tracking-wide text-[var(--text-muted)] transition hover:border-[var(--accent-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+                aria-label={`Open ${stripMediaKinds[thumbIndex + 1] === 'audio' ? 'audio' : '3D'} ${thumbIndex + 2}`}
+              >
+                {stripMediaKinds[thumbIndex + 1] === 'audio' ? 'Audio' : '3D'}
+              </button>
             ) : (
               <button
                 key={url}
@@ -1105,7 +1187,7 @@ export default function GalleryCard({
                   />
                   {entry.status === 'completed' && previewUrl ? (
                     <GalleryMenuButton
-                      label="Download image"
+                      label={galleryDownloadActionLabel(primaryMediaKind)}
                       onClick={() => {
                         onDownloadError(null);
                         void downloadGalleryImage(entry).catch(error => {

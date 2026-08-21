@@ -185,17 +185,15 @@ async function persistUploadedOriginal(request: Request, form: FormData): Promis
     (typeof form.get('filename') === 'string' && form.get('filename')?.toString().trim()) ||
     (file instanceof File ? file.name : 'upload.png');
   const contentType = file.type || 'application/octet-stream';
-  const isVideo = contentType.startsWith('video/') || /\.(mp4|webm|mov)$/i.test(filename);
-  const isImage =
-    (contentType.startsWith('image/') && contentType !== 'image/svg+xml') ||
-    /\.(jpe?g|png|webp|gif)$/i.test(filename);
-  if (!isVideo && !isImage) {
-    return apiError('Only image or video files can be added to the gallery.', 400);
+  const mediaKind = resolveComfyOutputMediaKind({ filename, format: contentType });
+  const isImage = mediaKind === 'image' && contentType !== 'image/svg+xml';
+  if (!isImage && mediaKind !== 'video' && mediaKind !== 'audio' && mediaKind !== 'mesh') {
+    return apiError('Only image, video, audio, or 3D mesh files can be added to the gallery.', 400);
   }
-  const maxBytes = isVideo ? MAX_GALLERY_FILM_BYTES : MAX_GALLERY_UPLOAD_BYTES;
+  const maxBytes = isImage ? MAX_GALLERY_UPLOAD_BYTES : MAX_GALLERY_FILM_BYTES;
   if (file.size > maxBytes) {
     return apiError(
-      isVideo ? 'Film is too large (max 80MB).' : 'Image is too large (max 25MB).',
+      isImage ? 'Image is too large (max 25MB).' : 'File is too large (max 80MB).',
       413
     );
   }
@@ -204,10 +202,10 @@ async function persistUploadedOriginal(request: Request, form: FormData): Promis
     userId,
     entryId,
     buffer,
-    contentType,
+    contentType: contentTypeForViewBytes(filename, contentType, buffer),
     filename,
   });
-  if (isVideo) {
+  if (!isImage) {
     return apiJson({
       url: `/api/gallery/media/${encodeURIComponent(entryId)}?variant=original`,
       originalUrl: `/api/gallery/media/${encodeURIComponent(entryId)}?variant=original`,

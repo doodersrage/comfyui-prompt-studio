@@ -13,6 +13,7 @@ import type {
 } from '@/lib/comfyui-gallery';
 import { GALLERY_PAGE_SIZE_ALL, GALLERY_PAGE_SIZE_OPTIONS } from '@/lib/comfyui-gallery';
 import type { ComfyGalleryFilter } from '@/lib/comfyui-gallery';
+import { GALLERY_UNGROUPED_FILTER } from '@/lib/gallery-custom-groups';
 import {
   deleteGallerySavedView,
   loadGallerySavedViews,
@@ -38,6 +39,7 @@ type GalleryFiltersBarProps = {
   tools: string[];
   models: string[];
   userTags?: string[];
+  customGroups?: string[];
   projects: PromptProject[];
   projectFilterId: string;
   setProjectFilterId: (value: string) => void;
@@ -97,6 +99,7 @@ export default function GalleryFiltersBar({
   tools,
   models,
   userTags = [],
+  customGroups = [],
   projects,
   projectFilterId,
   setProjectFilterId,
@@ -140,6 +143,7 @@ export default function GalleryFiltersBar({
     filter.duplicatesOnly,
     filter.needsVisionReview,
     filter.userTag,
+    filter.customGroup,
     filter.similarToEntryId,
     filter.model,
     filter.minRating,
@@ -218,6 +222,16 @@ export default function GalleryFiltersBar({
         clear: () => setFilter(previous => ({ ...previous, userTag: undefined })),
       });
     }
+    if (filter.customGroup) {
+      chips.push({
+        key: 'customGroup',
+        label:
+          filter.customGroup === GALLERY_UNGROUPED_FILTER
+            ? 'Ungrouped'
+            : `Group: ${filter.customGroup}`,
+        clear: () => setFilter(previous => ({ ...previous, customGroup: undefined })),
+      });
+    }
     if (filter.similarToEntryId) {
       chips.push({
         key: 'similar',
@@ -259,7 +273,14 @@ export default function GalleryFiltersBar({
     if (filter.mediaKind && filter.mediaKind !== 'all') {
       chips.push({
         key: 'media',
-        label: filter.mediaKind === 'image' ? 'Stills' : 'Videos',
+        label:
+          filter.mediaKind === 'image'
+            ? 'Stills'
+            : filter.mediaKind === 'video'
+              ? 'Videos'
+              : filter.mediaKind === 'audio'
+                ? 'Audio'
+                : '3D',
         clear: () => setFilter(previous => ({ ...previous, mediaKind: 'all' })),
       });
     }
@@ -410,6 +431,29 @@ export default function GalleryFiltersBar({
             <option value="running">Running</option>
             <option value="completed">Completed</option>
             <option value="error">Error</option>
+          </select>
+        </label>
+
+        <label className="min-w-[8rem] space-y-1.5">
+          <span className="type-caption text-[var(--text-muted)]">Group</span>
+          <select
+            value={filter.customGroup ?? ''}
+            onChange={event =>
+              setFilter({
+                ...filter,
+                customGroup: event.target.value || undefined,
+              })
+            }
+            data-testid="gallery-filter-custom-group"
+            className="ui-input block w-full px-3 py-(--input-padding-y) type-body"
+          >
+            <option value="">All groups</option>
+            <option value={GALLERY_UNGROUPED_FILTER}>Ungrouped</option>
+            {customGroups.map(group => (
+              <option key={group} value={group}>
+                {group}
+              </option>
+            ))}
           </select>
         </label>
 
@@ -618,6 +662,8 @@ export default function GalleryFiltersBar({
                 focusEntryId: undefined,
                 derivativeOfEntryId: undefined,
                 derivedKind: undefined,
+                userTag: undefined,
+                customGroup: undefined,
               });
               setProjectFilterId('');
               setSort('queued-desc');
@@ -839,6 +885,16 @@ export default function GalleryFiltersBar({
               active={filter.mediaKind === 'video'}
               label="Videos"
               onClick={() => setFilter({ ...filter, mediaKind: 'video' })}
+            />
+            <FilterChip
+              active={filter.mediaKind === 'audio'}
+              label="Audio"
+              onClick={() => setFilter({ ...filter, mediaKind: 'audio' })}
+            />
+            <FilterChip
+              active={filter.mediaKind === 'mesh'}
+              label="3D"
+              onClick={() => setFilter({ ...filter, mediaKind: 'mesh' })}
             />
             <FilterChip
               active={Boolean(filter.favoritesOnly)}
