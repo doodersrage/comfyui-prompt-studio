@@ -1,6 +1,10 @@
 import { buildGallerySidecar } from './comfyui-gallery-export';
 import type { ComfyGalleryEntry } from './comfyui-gallery';
 import { buildComfyViewPath } from './comfyui-outputs';
+import { mapWithConcurrency } from './concurrency';
+
+/** Local ComfyUI host tolerates a handful of concurrent /view fetches (see comfyui-gallery-client.ts). */
+const IMAGE_FETCH_CONCURRENCY = 6;
 
 function crc32(data: Uint8Array): number {
   let crc = 0xffffffff;
@@ -116,31 +120,41 @@ export async function downloadGalleryZipBundle(
   entries: ComfyGalleryEntry[],
   options?: { filename?: string }
 ): Promise<number> {
-  const files: ZipFileEntry[] = [];
+  // Per-entry sidecar.json is synchronous; only the /view image fetch is
+  // async, so mapWithConcurrency parallelizes just that instead of
+  // serializing every entry's fetch behind the last one (was a plain
+  // sequential for-loop — noticeable on a multi-entry bulk export).
+  const perEntryFiles = await mapWithConcurrency(
+    entries,
+    IMAGE_FETCH_CONCURRENCY,
+    async (entry, index) => {
+      const prefix = `entry-${index + 1}-${entry.promptId.slice(0, 8)}`;
+      const entryFiles: ZipFileEntry[] = [
+        {
+          filename: `${prefix}/sidecar.json`,
+          data: new TextEncoder().encode(JSON.stringify(buildGallerySidecar(entry), null, 2)),
+        },
+      ];
 
-  for (let index = 0; index < entries.length; index += 1) {
-    const entry = entries[index];
-    const prefix = `entry-${index + 1}-${entry.promptId.slice(0, 8)}`;
-    files.push({
-      filename: `${prefix}/sidecar.json`,
-      data: new TextEncoder().encode(JSON.stringify(buildGallerySidecar(entry), null, 2)),
-    });
-
-    const image = entry.images[0];
-    if (entry.status === 'completed' && image) {
-      try {
-        const response = await fetch(buildComfyViewPath(entry.comfyUrl, image));
-        if (response.ok) {
-          files.push({
-            filename: `${prefix}/${image.filename || 'output.png'}`,
-            data: new Uint8Array(await response.arrayBuffer()),
-          });
+      const image = entry.images[0];
+      if (entry.status === 'completed' && image) {
+        try {
+          const response = await fetch(buildComfyViewPath(entry.comfyUrl, image));
+          if (response.ok) {
+            entryFiles.push({
+              filename: `${prefix}/${image.filename || 'output.png'}`,
+              data: new Uint8Array(await response.arrayBuffer()),
+            });
+          }
+        } catch {
+          // sidecar still exported
         }
-      } catch {
-        // sidecar still exported
       }
+
+      return entryFiles;
     }
-  }
+  );
+  const files: ZipFileEntry[] = perEntryFiles.flat();
 
   if (files.length === 0) {
     return 0;

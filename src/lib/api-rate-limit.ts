@@ -69,7 +69,20 @@ export function checkRateLimit(key: string, route = 'api', maxOverride?: number)
   return { allowed: true, remaining: max - existing.count, resetAt: existing.resetAt };
 }
 
+// X-Forwarded-For / X-Real-Ip are set by a trusted reverse proxy in front of
+// this app — but nothing stops a client connecting directly (or through an
+// untrusted hop) from setting them itself. Trusting them unconditionally
+// lets any such client mint a fresh rate-limit bucket key on every request
+// (a new X-Forwarded-For value = a new bucket), bypassing both the general
+// anonymous API limit and the high-volume media limit, which keys off this
+// same value even for signed-in users. Only trust these headers once the
+// operator confirms they're actually behind a proxy that sets/overwrites
+// them; otherwise every direct client collapses into one shared bucket,
+// which is stricter than intended but never spoofable.
 export function rateLimitClientKey(request: Request): string {
+  if (process.env.TRUST_PROXY_HEADERS?.trim().toLowerCase() !== 'true') {
+    return 'local';
+  }
   const forwarded = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
   const realIp = request.headers.get('x-real-ip')?.trim();
   return forwarded || realIp || 'local';

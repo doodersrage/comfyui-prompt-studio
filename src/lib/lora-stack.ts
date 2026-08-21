@@ -147,7 +147,13 @@ export function createLoraLibraryEntryFromFilename(
 
 export function createEmptyLoraLibraryEntry(): LoraLibraryEntry {
   return {
-    id: `lora-${Date.now().toString(36)}`,
+    // Random suffix matters here: this id is never passed through
+    // uniqueLoraLibraryId(), so two "Add blank" clicks landing in the same
+    // millisecond (e.g. a fast double-click) previously minted identical
+    // ids. Since session strength overrides and Lightning-slot detection
+    // key off `entry.id` (not array index), duplicate ids meant editing one
+    // blank row's strength silently applied to the other too.
+    id: `lora-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
     label: '',
     triggerPhrase: '',
     tokenValue: '',

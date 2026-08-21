@@ -14,6 +14,45 @@ export type CatalogLocationEntry = {
   source: 'handcrafted' | 'composed';
 };
 
+// ALL_CLOTHING_CATALOG_ENTRIES / ALL_EXTRA_SCENE_LOCATIONS are static
+// `readonly` module data (18k+ / several thousand entries) — every
+// /api/catalog?q= keystroke used to re-lowercase every entry's label/id/
+// category from scratch on top of the unavoidable per-request scan.
+// Precomputing the lowercased search fields once (lazily, on first search)
+// keeps the scan but drops the repeated lowercasing.
+type IndexedClothingEntry = {
+  entry: (typeof ALL_CLOTHING_CATALOG_ENTRIES)[number];
+  labelLower: string;
+  idLower: string;
+  categoryLower: string;
+};
+
+let clothingSearchIndex: IndexedClothingEntry[] | null = null;
+
+function getClothingSearchIndex(): IndexedClothingEntry[] {
+  if (!clothingSearchIndex) {
+    clothingSearchIndex = ALL_CLOTHING_CATALOG_ENTRIES.map(entry => ({
+      entry,
+      labelLower: entry.label.toLowerCase(),
+      idLower: entry.id.toLowerCase(),
+      categoryLower: entry.category.toLowerCase(),
+    }));
+  }
+  return clothingSearchIndex;
+}
+
+let locationSearchIndex: { label: string; labelLower: string }[] | null = null;
+
+function getLocationSearchIndex(): { label: string; labelLower: string }[] {
+  if (!locationSearchIndex) {
+    locationSearchIndex = ALL_EXTRA_SCENE_LOCATIONS.map(label => ({
+      label,
+      labelLower: label.toLowerCase(),
+    }));
+  }
+  return locationSearchIndex;
+}
+
 export function listCatalogClothing(options?: {
   query?: string;
   limit?: number;
@@ -31,24 +70,21 @@ export function listCatalogClothing(options?: {
       ? new Set(options.categories.map(category => category.trim()).filter(Boolean))
       : null;
 
-  return ALL_CLOTHING_CATALOG_ENTRIES.filter(entry => {
-    if (idSet && !idSet.has(entry.id)) {
-      return false;
-    }
-    if (categorySet && !categorySet.has(entry.category)) {
-      return false;
-    }
-    if (!query) {
-      return true;
-    }
-    return (
-      entry.label.toLowerCase().includes(query) ||
-      entry.id.toLowerCase().includes(query) ||
-      entry.category.toLowerCase().includes(query)
-    );
-  })
+  return getClothingSearchIndex()
+    .filter(({ entry, labelLower, idLower, categoryLower }) => {
+      if (idSet && !idSet.has(entry.id)) {
+        return false;
+      }
+      if (categorySet && !categorySet.has(entry.category)) {
+        return false;
+      }
+      if (!query) {
+        return true;
+      }
+      return labelLower.includes(query) || idLower.includes(query) || categoryLower.includes(query);
+    })
     .slice(0, limit)
-    .map(entry => ({
+    .map(({ entry }) => ({
       id: entry.id,
       label: entry.label,
       category: entry.category,
@@ -63,14 +99,10 @@ export function listCatalogLocations(options?: {
   const query = options?.query?.trim().toLowerCase() ?? '';
   const limit = options?.limit ?? 200;
 
-  return ALL_EXTRA_SCENE_LOCATIONS.filter(label => {
-    if (!query) {
-      return true;
-    }
-    return label.toLowerCase().includes(query);
-  })
+  return getLocationSearchIndex()
+    .filter(({ labelLower }) => !query || labelLower.includes(query))
     .slice(0, limit)
-    .map((label, index) => ({
+    .map(({ label }, index) => ({
       id: `loc-${index}`,
       label,
       source: 'handcrafted' as const,

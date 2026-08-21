@@ -3,6 +3,11 @@ import { buildComfyViewPath, type ComfyOutputImage } from './comfyui-outputs';
 import { buildZipBlob, type ZipFileEntry } from './gallery-zip-export';
 import { isAssembledFilmEntry } from './character-film';
 import { isVideoLikeEntry } from './roleplay-film';
+import { mapWithConcurrency } from './concurrency';
+import { getLlmMaxInflight } from './llm-backpressure';
+
+/** Local ComfyUI host tolerates a handful of concurrent /view fetches (see comfyui-gallery-client.ts). */
+const IMAGE_FETCH_CONCURRENCY = 6;
 
 /**
  * Gallery → LoRA training dataset export. Pulls selected/favorited/high-rated
@@ -249,17 +254,21 @@ export type LoraDatasetExportResult = {
 async function fetchVisionCaptionsForEntries(
   entries: ComfyGalleryEntry[]
 ): Promise<Record<string, string>> {
-  const captions: Record<string, string> = {};
-  for (const entry of entries) {
+  // Was a plain sequential for-loop — for a hundred-plus-entry dataset export
+  // (the whole point of this feature) that meant a hundred-plus sequential
+  // fetch+caption round-trips back to back. Fanned out through the same
+  // shared LLM inflight cap used by batch-from-topics.ts / best-of-n-campaign.ts
+  // so this doesn't trip LlmBusyError by exceeding LLM_MAX_INFLIGHT.
+  const pairs = await mapWithConcurrency(entries, getLlmMaxInflight(), async entry => {
     const image = entry.images[0];
     if (!image) {
-      continue;
+      return null;
     }
     try {
       const imageUrl = buildComfyViewPath(entry.comfyUrl, image);
       const imageResponse = await fetch(imageUrl);
       if (!imageResponse.ok) {
-        continue;
+        return null;
       }
       const blob = await imageResponse.blob();
       const dataUrl = await new Promise<string>((resolve, reject) => {
@@ -278,14 +287,20 @@ async function fetchVisionCaptionsForEntries(
         }),
       });
       if (!response.ok) {
-        continue;
+        return null;
       }
       const data = (await response.json()) as { caption?: string };
-      if (data.caption?.trim()) {
-        captions[entry.id] = data.caption.trim();
-      }
+      return data.caption?.trim() ? ([entry.id, data.caption.trim()] as const) : null;
     } catch {
       // Fall back to cleaned prompt for this entry.
+      return null;
+    }
+  });
+
+  const captions: Record<string, string> = {};
+  for (const pair of pairs) {
+    if (pair) {
+      captions[pair[0]] = pair[1];
     }
   }
   return captions;
@@ -313,24 +328,35 @@ export async function downloadLoraDatasetZip(
   // one fetch fails partway through.
   const exportedManifest: LoraDatasetManifestEntry[] = [];
 
-  for (const item of manifest) {
+  // Independent /view fetches to the local ComfyUI host — was sequential,
+  // which serialized what should be I/O-bound work for every entry in the
+  // dataset. mapWithConcurrency keeps result order stable so exportedManifest
+  // (and the embedded manifest.json) still lists entries in the same order
+  // as before, just fetched IMAGE_FETCH_CONCURRENCY at a time.
+  const fetched = await mapWithConcurrency(manifest, IMAGE_FETCH_CONCURRENCY, async item => {
     try {
       const response = await fetch(item.sourceImageUrl);
       if (!response.ok) {
-        continue;
+        return null;
       }
-      files.push({
-        filename: item.imageFilename,
-        data: new Uint8Array(await response.arrayBuffer()),
-      });
-      files.push({
-        filename: item.captionFilename,
-        data: new TextEncoder().encode(item.caption),
-      });
-      exportedManifest.push(item);
+      const imageBytes = new Uint8Array(await response.arrayBuffer());
+      return { item, imageBytes };
     } catch {
       // Skip this entry — the rest of the dataset still exports.
+      return null;
     }
+  });
+
+  for (const result of fetched) {
+    if (!result) {
+      continue;
+    }
+    files.push({ filename: result.item.imageFilename, data: result.imageBytes });
+    files.push({
+      filename: result.item.captionFilename,
+      data: new TextEncoder().encode(result.item.caption),
+    });
+    exportedManifest.push(result.item);
   }
 
   if (files.length === 0) {
