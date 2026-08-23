@@ -230,10 +230,15 @@ function applyLookFields(character: CharacterRecord, look: CharacterLook): Chara
 
 export function looksOf(character: CharacterRecord): CharacterLook[] {
   if (character.looks?.length) {
-    return character.looks
+    const filtered = character.looks
       .filter(look => look && look.id && readName(look.name))
       .sort((left, right) => right.createdAt - left.createdAt)
       .slice(0, MAX_LOOKS);
+    // Corrupt/legacy rows can leave a non-empty looks array that filters to
+    // nothing — never return [] or activeLook / normalize will throw.
+    if (filtered.length > 0) {
+      return filtered;
+    }
   }
   return [lookFromAppearance(character, 'Default')];
 }
@@ -291,9 +296,13 @@ export function characterFromBundle(bundle: CharacterIdentityBundle, id?: string
 }
 
 export function bundleFromCharacter(character: CharacterRecord): CharacterIdentityBundle {
+  const updatedAt = Number(character.updatedAt);
+  const exportedAt = Number.isFinite(updatedAt)
+    ? new Date(updatedAt).toISOString()
+    : new Date().toISOString();
   return {
     version: 1,
-    exportedAt: new Date(character.updatedAt).toISOString(),
+    exportedAt,
     name: character.name,
     hints: character.hints,
     model: character.model,
@@ -345,10 +354,22 @@ export function characterFromShared(
   };
 }
 
+function omitUndefinedSettings(
+  patch: Partial<SharedToolSettings> & Record<string, unknown>
+): Partial<SharedToolSettings> {
+  const next: Partial<SharedToolSettings> & Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(patch)) {
+    if (value !== undefined) {
+      next[key] = value;
+    }
+  }
+  return next as Partial<SharedToolSettings>;
+}
+
 export function applyCharacterRecord(character: CharacterRecord): Partial<SharedToolSettings> {
   const normalized = normalizeCharacterRecord(character);
   const bundlePatch = applyCharacterIdentityBundle(bundleFromCharacter(normalized));
-  return {
+  return omitUndefinedSettings({
     ...bundlePatch,
     activeCharacterId: normalized.id,
     activeLookId: normalized.activeLookId,
@@ -361,7 +382,7 @@ export function applyCharacterRecord(character: CharacterRecord): Partial<Shared
     ...(normalized.loraLibraryIds?.length
       ? { sessionActiveLoraIds: [...normalized.loraLibraryIds] }
       : {}),
-  };
+  });
 }
 
 export function characterFromRoleplaySession(

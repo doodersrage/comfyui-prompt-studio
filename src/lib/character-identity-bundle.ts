@@ -65,21 +65,53 @@ export function applyCharacterIdentityBundle(
   negativeProfileId?: string;
   loraTriggerPhrases?: string[];
 } {
-  return {
-    model: bundle.model as SharedToolSettings['model'] | undefined,
-    detail: bundle.detail,
-    lockedWardrobeId: bundle.lockedWardrobeId,
-    lockedLocation: bundle.lockedLocation,
-    lockedVariationSeed: bundle.lockedVariationSeed,
-    alwaysIncludeClothing: bundle.alwaysIncludeClothing,
-    hints: bundle.hints,
-    negativeProfileId: bundle.negativeProfileId,
-    activeCharacterDescriptor: bundle.descriptor,
-    ipAdapterImageFilename: bundle.ipAdapterImageFilename,
-    ipAdapterStrength: bundle.ipAdapterStrength,
-    ipAdapterModelFilename: bundle.ipAdapterModelFilename,
-    loraTriggerPhrases: bundle.loraTriggerPhrases,
-  };
+  // Omit undefined keys so applying a character without a saved model/detail
+  // does not wipe the live session (`{ ...shared, model: undefined }`).
+  const patch: Partial<SharedToolSettings> & {
+    hints?: string;
+    negativeProfileId?: string;
+    loraTriggerPhrases?: string[];
+  } = {};
+  if (bundle.model) {
+    patch.model = bundle.model as SharedToolSettings['model'];
+  }
+  if (bundle.detail) {
+    patch.detail = bundle.detail;
+  }
+  if (bundle.lockedWardrobeId !== undefined) {
+    patch.lockedWardrobeId = bundle.lockedWardrobeId;
+  }
+  if (bundle.lockedLocation !== undefined) {
+    patch.lockedLocation = bundle.lockedLocation;
+  }
+  if (bundle.lockedVariationSeed !== undefined) {
+    patch.lockedVariationSeed = bundle.lockedVariationSeed;
+  }
+  if (bundle.alwaysIncludeClothing !== undefined) {
+    patch.alwaysIncludeClothing = bundle.alwaysIncludeClothing;
+  }
+  if (bundle.hints !== undefined) {
+    patch.hints = bundle.hints;
+  }
+  if (bundle.negativeProfileId !== undefined) {
+    patch.negativeProfileId = bundle.negativeProfileId;
+  }
+  if (bundle.descriptor !== undefined) {
+    patch.activeCharacterDescriptor = bundle.descriptor;
+  }
+  if (bundle.ipAdapterImageFilename !== undefined) {
+    patch.ipAdapterImageFilename = bundle.ipAdapterImageFilename;
+  }
+  if (bundle.ipAdapterStrength !== undefined) {
+    patch.ipAdapterStrength = bundle.ipAdapterStrength;
+  }
+  if (bundle.ipAdapterModelFilename !== undefined) {
+    patch.ipAdapterModelFilename = bundle.ipAdapterModelFilename;
+  }
+  if (bundle.loraTriggerPhrases !== undefined) {
+    patch.loraTriggerPhrases = bundle.loraTriggerPhrases;
+  }
+  return patch;
 }
 
 export function parseCharacterIdentityBundle(raw: string): CharacterIdentityBundle {

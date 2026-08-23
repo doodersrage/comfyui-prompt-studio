@@ -178,6 +178,23 @@ export default function CharacterHome({ characterId }: CharacterHomeProps) {
         <Button size="sm" variant="secondary" onClick={() => go('/roleplay')}>
           Roleplay
         </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => go(`/fitting?character=${character.id}`)}
+        >
+          Try on
+        </Button>
+        <Button size="sm" variant="secondary" onClick={() => go(`/day?character=${character.id}`)}>
+          Plan a day
+        </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => go(`/moodboard?character=${character.id}`)}
+        >
+          Set look
+        </Button>
         <Button size="sm" variant="secondary" onClick={() => go('/video')}>
           Video
         </Button>

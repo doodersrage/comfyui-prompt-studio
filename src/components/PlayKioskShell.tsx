@@ -14,6 +14,8 @@ import { accentForPath } from '@/lib/tool-theme';
 
 const PLAY_KIOSK_TABS: { href: string; label: string }[] = [
   { href: '/characters', label: 'Cast' },
+  { href: '/fitting', label: 'Fitting' },
+  { href: '/day', label: 'Day' },
   { href: '/roleplay', label: 'Roleplay' },
   { href: '/gallery', label: 'Gallery' },
   { href: '/queue', label: 'Queue' },
@@ -45,7 +47,7 @@ export default function PlayKioskShell() {
           <div className="min-w-0">
             <p className="type-brand type-heading truncate tracking-tight">Play</p>
             <p className="type-caption text-[var(--text-muted)]">
-              Cast · Roleplay · Gallery · Queue
+              Cast · Fitting · Day · Roleplay · Gallery · Queue
               <span className="mx-1 text-[var(--border-strong)]">·</span>
               <ReportBugLink className="text-[var(--text-muted)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]" />
             </p>
@@ -70,7 +72,7 @@ export default function PlayKioskShell() {
         aria-label="Play"
         className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border-subtle)] bg-[color-mix(in_oklab,var(--bg-base)_92%,transparent)] pb-[env(safe-area-inset-bottom)] backdrop-blur-md"
       >
-        <ul className="mx-auto grid max-w-3xl grid-cols-4 gap-0.5 px-2 py-2">
+        <ul className="mx-auto grid max-w-3xl grid-cols-6 gap-0.5 px-2 py-2">
           {tabs.map(entry => {
             const active = tabIsActive(entry.href, pathname);
             const href = entry.href === '/gallery' ? galleryHref : entry.href;

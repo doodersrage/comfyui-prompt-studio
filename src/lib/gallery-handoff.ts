@@ -37,7 +37,10 @@ export type GalleryHandoffPayload = {
     | 'compose'
     | 'background'
     | 'mesh'
-    | 'roleplay';
+    | 'roleplay'
+    | 'fitting'
+    | 'day'
+    | 'moodboard';
   improveIntent?: string;
   /** Gallery → Anatomy repair opens Inpaint with pre-filled limb-fix prompts. */
   anatomyRepair?: boolean;
@@ -258,6 +261,15 @@ export function galleryHandoffPath(target: GalleryHandoffPayload['target']): str
   if (target === 'roleplay') {
     return '/roleplay?from=gallery';
   }
+  if (target === 'fitting') {
+    return '/fitting?from=gallery';
+  }
+  if (target === 'day') {
+    return '/day?from=gallery';
+  }
+  if (target === 'moodboard') {
+    return '/moodboard?from=gallery';
+  }
   return '/image-prompt?from=gallery';
 }
 
@@ -282,6 +294,9 @@ const GALLERY_PICK_TARGETS = new Set<GalleryHandoffPayload['target']>([
   'background',
   'mesh',
   'roleplay',
+  'fitting',
+  'day',
+  'moodboard',
 ]);
 
 export function parseGalleryPickTarget(
@@ -318,6 +333,12 @@ export function galleryPickPurposeLabel(target: GalleryHandoffPayload['target'])
       return 'Mesh reference';
     case 'roleplay':
       return 'Roleplay character';
+    case 'fitting':
+      return 'Fitting Room plate';
+    case 'day':
+      return 'Day Planner reference';
+    case 'moodboard':
+      return 'Moodboard tile';
     default:
       return 'tool reference';
   }
@@ -347,6 +368,12 @@ export function galleryPickActionLabel(target: GalleryHandoffPayload['target']):
       return 'Use for Prompt Editor';
     case 'roleplay':
       return 'Use for Roleplay';
+    case 'fitting':
+      return 'Use for Fitting Room';
+    case 'day':
+      return 'Use for Day Planner';
+    case 'moodboard':
+      return 'Use for Moodboard';
     default:
       return 'Use this image';
   }

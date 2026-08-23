@@ -80,6 +80,30 @@ export default function CharacterCastRoster() {
     router.push(characterHomeHref(id));
   };
 
+  const applyAndTryOn = (id: string) => {
+    const character = characters.find(entry => entry.id === id);
+    if (!character) {
+      return;
+    }
+    saveSharedSettings({
+      ...loadSettingsCache().shared,
+      ...applyCharacterRecord(character),
+    });
+    router.push(`/fitting?character=${encodeURIComponent(id)}`);
+  };
+
+  const applyAndPlanDay = (id: string) => {
+    const character = characters.find(entry => entry.id === id);
+    if (!character) {
+      return;
+    }
+    saveSharedSettings({
+      ...loadSettingsCache().shared,
+      ...applyCharacterRecord(character),
+    });
+    router.push(`/day?character=${encodeURIComponent(id)}`);
+  };
+
   return (
     <ToolLayout
       accent="sky"
@@ -119,6 +143,20 @@ export default function CharacterCastRoster() {
                   <div className="flex flex-wrap gap-2">
                     <Button size="sm" variant="primary" onClick={() => applyAndOpen(character.id)}>
                       Open home
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => applyAndTryOn(character.id)}
+                    >
+                      Try on
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => applyAndPlanDay(character.id)}
+                    >
+                      Plan a day
                     </Button>
                     <ButtonLink href="/character" size="sm" variant="secondary">
                       Generate

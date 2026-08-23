@@ -931,6 +931,31 @@ export type RoleplayToolCache = {
   activeSessionId?: string;
 };
 
+/** Fitting Room — outfit try-on from a Cast plate + locked wardrobe kit. */
+export type FittingToolCache = {
+  isolateSubject?: boolean;
+  referenceIsolated?: boolean;
+  referenceImageUrl?: string;
+  referenceImageFilename?: string;
+  referenceOriginalUrl?: string;
+  referenceOriginalFilename?: string;
+  /** Optional freeform notes layered onto the outfit edit instruction. */
+  notes?: string;
+};
+
+/** Day Planner — time-of-day slots with wardrobe + scene beats for one character. */
+export type DayToolCache = {
+  slots?: import('./day-planner').DaySlot[];
+  notes?: string;
+};
+
+/** Moodboard → Scene — reference tiles merged into one scene prompt. */
+export type MoodboardToolCache = {
+  tiles?: import('./moodboard-scene').MoodboardTile[];
+  templateId?: import('./moodboard-scene').MoodboardTemplateId;
+  instruction?: string;
+};
+
 export type ImagePromptToolCache = {
   focus?: 'full' | 'subject' | 'background' | 'style';
   descriptionPreset?: import('./image-prompt-presets').ImagePromptDescriptionPreset;
@@ -1007,6 +1032,9 @@ export type ToolSettingsCache = {
   fantasy?: FantasyToolCache;
   nsfwGenerator?: NsfwGeneratorToolCache;
   roleplay?: RoleplayToolCache;
+  fitting?: FittingToolCache;
+  day?: DayToolCache;
+  moodboard?: MoodboardToolCache;
   mobileStudio?: MobileStudioToolCache;
   character?: CharacterToolCache;
   imagePrompt?: ImagePromptToolCache;
@@ -1291,6 +1319,22 @@ export const DEFAULT_ROLEPLAY_TOOL_CACHE: RoleplayToolCache = {
   isolateSubject: true,
   autoQueue: true,
   beatOutput: 'clip',
+};
+
+export const DEFAULT_FITTING_TOOL_CACHE: FittingToolCache = {
+  isolateSubject: true,
+  notes: '',
+};
+
+export const DEFAULT_DAY_TOOL_CACHE: DayToolCache = {
+  slots: undefined,
+  notes: '',
+};
+
+export const DEFAULT_MOODBOARD_TOOL_CACHE: MoodboardToolCache = {
+  tiles: [],
+  templateId: 'scene-blend',
+  instruction: '',
 };
 
 export const DEFAULT_MOBILE_STUDIO_TOOL_CACHE: MobileStudioToolCache = {

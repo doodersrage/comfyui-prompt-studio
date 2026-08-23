@@ -52,6 +52,21 @@ export const APP_NAV_GROUPS: AppNavGroup[] = [
         label: 'Roleplay',
         description: 'Be someone. Pick a scene. Get a still or clip.',
       },
+      {
+        href: '/fitting',
+        label: 'Fitting Room',
+        description: 'Try a catalog kit on a Cast plate',
+      },
+      {
+        href: '/day',
+        label: 'Day Planner',
+        description: 'Morning through night — wardrobe, setting, and beats per slot',
+      },
+      {
+        href: '/moodboard',
+        label: 'Moodboard',
+        description: 'Reference tiles merged into one scene still',
+      },
     ],
   },
   {

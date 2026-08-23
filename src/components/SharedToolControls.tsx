@@ -1332,7 +1332,7 @@ export default function SharedToolControls({
             onChange={handleModelChange}
           />
         )}
-        {toolId !== 'audio' && toolId !== 'mesh' ? (
+        {!roleplayVariant && toolId !== 'audio' && toolId !== 'mesh' ? (
           <CharacterOsPicker
             shared={shared}
             hints={recommendFromText}

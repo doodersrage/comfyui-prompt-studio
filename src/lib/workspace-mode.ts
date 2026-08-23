@@ -40,7 +40,7 @@ export const WORKSPACE_MODE_OPTIONS: {
   {
     id: 'play',
     label: 'Play',
-    description: 'Cast, Roleplay, Gallery, and Queue — lean chrome for story loops.',
+    description: 'Cast, Fitting, Day, Roleplay, Gallery, and Queue — lean chrome for story loops.',
   },
   {
     id: 'studio',
@@ -79,10 +79,23 @@ export const SIMPLE_MORE_NAV_HREFS = [
  * Routes that slim chrome to Play: Cast, Roleplay, Gallery, Queue, plus All tools.
  * Character home (`/characters/[id]`) is included; `/character` (the generator) is not.
  */
-export const ROLEPLAY_FOCUS_HREFS = ['/roleplay', '/characters'] as const;
+export const ROLEPLAY_FOCUS_HREFS = [
+  '/roleplay',
+  '/fitting',
+  '/day',
+  '/moodboard',
+  '/characters',
+] as const;
 
 /** Destinations listed in the Play sidebar (All tools is appended separately). */
-export const ROLEPLAY_FOCUS_NAV_HREFS = ['/characters', '/roleplay', '/gallery', '/queue'] as const;
+export const ROLEPLAY_FOCUS_NAV_HREFS = [
+  '/characters',
+  '/fitting',
+  '/day',
+  '/roleplay',
+  '/gallery',
+  '/queue',
+] as const;
 
 /** Escape hatch so Play focus is not a trap — Generate, labeled All tools. */
 export const ROLEPLAY_FOCUS_ESCAPE_HREF = '/';
@@ -92,7 +105,14 @@ export function isRoleplayFocusPath(pathname: string | null | undefined): boolea
     return false;
   }
   const path = pathname.split('?')[0] || '/';
-  return path === '/roleplay' || path === '/characters' || path.startsWith('/characters/');
+  return (
+    path === '/roleplay' ||
+    path === '/fitting' ||
+    path === '/day' ||
+    path === '/moodboard' ||
+    path === '/characters' ||
+    path.startsWith('/characters/')
+  );
 }
 
 export function normalizeWorkspaceMode(value: unknown): WorkspaceMode {

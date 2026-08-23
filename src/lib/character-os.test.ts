@@ -14,6 +14,7 @@ import {
   normalizeCharacterRecord,
   roleplayLibraryIdFromCharacter,
   slugCharacterName,
+  type CharacterRecord,
 } from './character-os';
 import type { CharacterIdentityBundle } from './character-identity-bundle';
 import type { RoleplayLibrarySession } from './roleplay-library';
@@ -254,5 +255,27 @@ describe('character-os', () => {
     const patch = applyCharacterRecord(record);
     assert.ok(patch.sessionActiveLoraIds?.includes('lora-rin'));
     assert.equal(patch.activeLookId, record.activeLookId);
+  });
+
+  it('does not wipe session model when character has no model, and survives empty looks', () => {
+    const corrupt = {
+      id: 'char-empty-looks',
+      name: 'Empty Looks',
+      version: 1 as const,
+      updatedAt: Date.now(),
+      looks: [{ id: 'look-blank', name: '   ', createdAt: Date.now() }],
+    };
+    assert.equal(looksOf(corrupt as CharacterRecord).length, 1);
+    assert.ok(activeLook(corrupt as CharacterRecord).name);
+
+    const patch = applyCharacterRecord(corrupt as CharacterRecord);
+    assert.equal(patch.model, undefined);
+    assert.equal(patch.detail, undefined);
+    assert.equal(patch.activeCharacterId, 'char-empty-looks');
+    assert.ok(patch.activeLookId);
+
+    const merged = { model: 'qwen-image-2512', detail: 'balanced' as const, ...patch };
+    assert.equal(merged.model, 'qwen-image-2512');
+    assert.equal(merged.detail, 'balanced');
   });
 });

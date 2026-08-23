@@ -20,9 +20,11 @@ export default function GlobalError({
       overline="Error"
       title="Something went wrong"
       description={
-        error.digest
-          ? `An unexpected error occurred (ref ${error.digest}). Try again, or reload the page.`
-          : 'An unexpected error occurred. Try again, or reload the page.'
+        error.message?.trim()
+          ? `${error.message.trim()}${error.digest ? ` (ref ${error.digest})` : ''}`
+          : error.digest
+            ? `An unexpected error occurred (ref ${error.digest}). Try again, or reload the page.`
+            : 'An unexpected error occurred. Try again, or reload the page.'
       }
     >
       <Button variant="secondary" onClick={() => reset()}>

@@ -146,6 +146,9 @@ describe("workspace-mode", () => {
 
   it("treats Cast and Roleplay routes as Play focus, not Generate Character", () => {
     assert.equal(isRoleplayFocusPath("/roleplay"), true);
+    assert.equal(isRoleplayFocusPath("/fitting"), true);
+    assert.equal(isRoleplayFocusPath("/day"), true);
+    assert.equal(isRoleplayFocusPath("/moodboard"), true);
     assert.equal(isRoleplayFocusPath("/characters"), true);
     assert.equal(isRoleplayFocusPath("/characters/kai"), true);
     assert.equal(isRoleplayFocusPath("/character"), false);
@@ -156,7 +159,7 @@ describe("workspace-mode", () => {
 
   it("slims Cast/Roleplay chrome to Play destinations plus All tools", () => {
     for (const mode of ["simple", "studio", "full"] as const) {
-      for (const path of ["/roleplay", "/characters", "/characters/kai"]) {
+      for (const path of ["/roleplay", "/fitting", "/day", "/characters", "/characters/kai"]) {
         const groups = navGroupsForPath(mode, path, APP_NAV_GROUPS);
         assert.deepEqual(
           groups.map((group) => group.label),
@@ -165,6 +168,8 @@ describe("workspace-mode", () => {
         const hrefs = groups[0]!.links.map((link) => link.href);
         assert.deepEqual(hrefs, [
           "/characters",
+          "/fitting",
+          "/day",
           "/roleplay",
           "/gallery",
           "/queue",
@@ -185,7 +190,15 @@ describe("workspace-mode", () => {
       ["Play"],
     );
     const hrefs = groups[0]!.links.map((link) => link.href);
-    assert.deepEqual(hrefs, ["/characters", "/roleplay", "/gallery", "/queue", "/"]);
+    assert.deepEqual(hrefs, [
+      "/characters",
+      "/fitting",
+      "/day",
+      "/roleplay",
+      "/gallery",
+      "/queue",
+      "/",
+    ]);
     assert.equal(hrefs.includes("/audio"), false);
     assert.equal(hrefs.includes("/mesh"), false);
     assert.equal(hrefs.includes("/plugins"), false);

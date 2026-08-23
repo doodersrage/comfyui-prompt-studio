@@ -65,16 +65,25 @@ export default function CharacterOsPicker({ shared, hints, onApply }: CharacterO
       onApply({ activeCharacterId: undefined, activeLookId: undefined });
       return;
     }
-    onApply(applyCharacterRecord(character));
+    try {
+      onApply(applyCharacterRecord(character));
+    } catch (error) {
+      console.error('CharacterOsPicker: failed to apply character', error);
+      onApply({ activeCharacterId: character.id });
+    }
   };
 
   const applyLookId = (lookId: string) => {
     if (!activeId) {
       return;
     }
-    const next = activateLook(activeId, lookId);
-    if (next) {
-      onApply(applyCharacterRecord(next));
+    try {
+      const next = activateLook(activeId, lookId);
+      if (next) {
+        onApply(applyCharacterRecord(next));
+      }
+    } catch (error) {
+      console.error('CharacterOsPicker: failed to apply look', error);
     }
   };
 
