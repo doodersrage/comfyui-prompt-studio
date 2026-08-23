@@ -36,6 +36,8 @@ export type GalleryExperimentPanelProps = {
   customGroups?: string[];
   onAssignCustomGroup?: (groupName: string) => void;
   onClearCustomGroup?: () => void;
+  onRenameCustomGroup?: (from: string, to: string) => void;
+  onDeleteCustomGroup?: (name: string) => void;
   onSeedExperiment: () => void;
   onParamExperiment: () => void;
   onParamGrid: () => void;

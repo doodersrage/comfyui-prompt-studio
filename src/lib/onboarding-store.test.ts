@@ -13,13 +13,13 @@ describe("onboarding-store", () => {
     assert.deepEqual(
       core.map((step) => step.id),
       [
-        "llm-health",
         "comfy-health",
         "system-workflows",
         "first-generate",
         "first-queue",
         "first-queue-success",
         "review-gallery",
+        "llm-health",
       ],
     );
     for (const step of core) {
@@ -31,6 +31,10 @@ describe("onboarding-store", () => {
     );
     assert.ok(
       !ONBOARDING_STEPS.some((step) => /Simple mode/i.test(step.label)),
+    );
+    assert.equal(
+      ONBOARDING_STEPS.find((step) => step.id === "first-generate")?.href,
+      "/?source=random",
     );
     assert.equal(
       ONBOARDING_STEPS.find((step) => step.id === "system-workflows")?.href,

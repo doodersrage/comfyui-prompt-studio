@@ -45,3 +45,49 @@ export function galleryEntryMatchesCustomGroup(
   }
   return current.toLowerCase() === needle.toLowerCase();
 }
+
+/** Rewrite every entry matching `from` to `to` (case-insensitive). Returns how many changed. */
+export function renameGalleryCustomGroupEntries<T extends { customGroup?: string }>(
+  entries: T[],
+  from: string,
+  to: string
+): { entries: T[]; changed: number } {
+  const fromName = normalizeGalleryCustomGroupName(from);
+  const toName = normalizeGalleryCustomGroupName(to);
+  if (!fromName || !toName || fromName.toLowerCase() === toName.toLowerCase()) {
+    return { entries, changed: 0 };
+  }
+  const needle = fromName.toLowerCase();
+  let changed = 0;
+  const next = entries.map(entry => {
+    const current = normalizeGalleryCustomGroupName(entry.customGroup ?? '');
+    if (current.toLowerCase() !== needle) {
+      return entry;
+    }
+    changed += 1;
+    return { ...entry, customGroup: toName };
+  });
+  return { entries: next, changed };
+}
+
+/** Clear `customGroup` on every entry matching `name`. Returns how many cleared. */
+export function deleteGalleryCustomGroupEntries<T extends { customGroup?: string }>(
+  entries: T[],
+  name: string
+): { entries: T[]; changed: number } {
+  const target = normalizeGalleryCustomGroupName(name);
+  if (!target) {
+    return { entries, changed: 0 };
+  }
+  const needle = target.toLowerCase();
+  let changed = 0;
+  const next = entries.map(entry => {
+    const current = normalizeGalleryCustomGroupName(entry.customGroup ?? '');
+    if (current.toLowerCase() !== needle) {
+      return entry;
+    }
+    changed += 1;
+    return { ...entry, customGroup: undefined };
+  });
+  return { entries: next, changed };
+}

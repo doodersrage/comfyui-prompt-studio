@@ -575,6 +575,11 @@ export default function SettingsTool() {
           setStatus(progress.message);
         },
       });
+      if (result.ok || result.systemWorkflowsEnabled) {
+        void import('@/lib/first-run-dismiss').then(({ dismissFirstRunSetupSurfaces }) => {
+          dismissFirstRunSetupSurfaces();
+        });
+      }
       const adapted = loadSettingsCache().shared;
       updateSharedSettings({
         useSystemWorkflows: true,

@@ -125,7 +125,7 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 - **Gallery compare** — select 2–4 completed entries for side-by-side review on `/gallery`
 - **Gallery card polish** — hover quick actions (Open, Improve); storage cap warning near 5,000 IndexedDB entries
 - **Gallery tools** — favorites, status/tool/media filters, image/audio/3D download, sidecar JSON export per entry
-- **Gallery custom groups** — select any number of cards, then Organize → type a group name and Assign. Filter by Group (or Ungrouped); click a card’s group badge to show that set. Re-assigning replaces the previous group.
+- **Gallery custom groups** — select cards → Group menu to assign a name; Groups rail to browse; Rename / Delete group clears the label across items. Filter by Group (or Ungrouped); click a card badge to show that set.
 - **Gallery project filter** — filter `/gallery` by the active Studio project
 - **Gallery project filter & assign** — filter by project dropdown; bulk assign entries to projects
 - **Gallery ZIP export** — bulk export selected entries as originals (images, clips, audio, meshes) + sidecars
@@ -279,6 +279,14 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 ## UI & UX {#ui-ux}
 
 - **Workspace modes** — Simple (default), Play, Studio, or Full from the sidebar footer or Profile → Appearance; the saved mode is applied on first paint
+- **Unified first-run path** — Welcome, Settings Heal, and first-queue modal share dismiss state; onboarding leads with Comfy → workflows → Generate (`/?source=random`) before optional LLM
+- **Post-Heal checklist** — Connection first-run card lists Generate → Queue → Gallery review after Heal succeeds
+- **Active jobs chip** — sidebar and mobile header show live queue count with a deep link to `/queue`
+- **Mobile Studio offer** — narrow viewports get a dismissible banner to open `/m`
+- **Lean gallery discovery** — tip strip teaches Select → Compare / Collect / Group when nothing is selected
+- **Gallery group management** — Groups rail plus rename/delete for custom groups
+- **Semantic search inline** — Match chip sits next to gallery search (non-lean)
+- **First-success tray nudge** — first lean-mode completed render uses notification + celebrate even when toasts are muted
 - **Home dashboard** — pending ComfyUI jobs, recent outputs, and active project on `/dashboard`
 - **Onboarding checklist** — Dashboard getting-started steps
 - **Command palette** — `Ctrl+K` / `⌘K` quick navigation across tools

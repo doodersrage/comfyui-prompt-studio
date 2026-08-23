@@ -40,6 +40,8 @@ import {
   galleryEntryMatchesCustomGroup,
   resolveGalleryCustomGroupName,
   uniqueGalleryCustomGroups,
+  renameGalleryCustomGroupEntries,
+  deleteGalleryCustomGroupEntries,
 } from './gallery-custom-groups';
 import {
   enforceGalleryWorkflowByteBudget,
@@ -971,6 +973,24 @@ export function setComfyGalleryCustomGroups(ids: string[], groupName: string | u
       idSet.has(entry.id) ? { ...entry, customGroup: nextName } : entry
     )
   );
+}
+
+/** Rename a custom group across the whole gallery. Returns how many entries changed. */
+export function renameComfyGalleryCustomGroup(from: string, to: string): number {
+  const { entries, changed } = renameGalleryCustomGroupEntries(loadComfyGallery(), from, to);
+  if (changed > 0) {
+    saveComfyGallery(entries);
+  }
+  return changed;
+}
+
+/** Remove a custom group name from every entry that uses it. Returns how many cleared. */
+export function deleteComfyGalleryCustomGroup(name: string): number {
+  const { entries, changed } = deleteGalleryCustomGroupEntries(loadComfyGallery(), name);
+  if (changed > 0) {
+    saveComfyGallery(entries);
+  }
+  return changed;
 }
 
 /** Drop character/look stamps so the still leaves Cast without deleting the file. */

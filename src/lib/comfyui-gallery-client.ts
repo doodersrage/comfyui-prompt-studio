@@ -759,6 +759,18 @@ function applyComfyJobStatus(
         void import('./first-queue-setup').then(({ dismissFirstQueueSetupModal }) => {
           dismissFirstQueueSetupModal();
         });
+        // Tray + notification survive muted toasts (pushAppToast no-ops when toasts are off).
+        void import('./notification-center').then(({ pushNotification }) => {
+          pushNotification({
+            title: 'First render complete',
+            body: 'Rate it in Gallery review next.',
+            href: '/gallery?review=1',
+            kind: 'job',
+          });
+        });
+        void import('./system-tray-celebrate').then(({ celebrateSystemTray }) => {
+          celebrateSystemTray('job');
+        });
         void import('./app-toast').then(({ pushAppToast }) => {
           pushAppToast({
             text: 'First render complete — rate it in Gallery next.',

@@ -184,6 +184,8 @@ export default function ComfyUiGalleryPanel({
     setReviewRatings,
     setUserTags,
     setCustomGroups,
+    renameCustomGroup,
+    deleteCustomGroup,
     setProjectIds,
     clearAll,
     refreshPending,
@@ -1427,6 +1429,8 @@ export default function ComfyUiGalleryPanel({
     setReviewRatings,
     setUserTags,
     setCustomGroups,
+    renameCustomGroup,
+    deleteCustomGroup,
     customGroups,
     paramAxis,
     filter,
@@ -1719,6 +1723,18 @@ export default function ComfyUiGalleryPanel({
           models={models}
           userTags={userTags}
           customGroups={customGroups}
+          onRenameCustomGroup={(from, to) => {
+            const changed = renameCustomGroup(from, to);
+            if (changed > 0) {
+              setRequeueStatus(`Renamed group to ${to.trim()} (${changed} items)`);
+            }
+          }}
+          onDeleteCustomGroup={name => {
+            const changed = deleteCustomGroup(name);
+            if (changed > 0) {
+              setRequeueStatus(`Cleared group “${name}” from ${changed} items`);
+            }
+          }}
           projects={projects}
           projectFilterId={projectFilterId}
           setProjectFilterId={setProjectFilterId}
@@ -1780,19 +1796,28 @@ export default function ComfyUiGalleryPanel({
       )}
 
       {leanBulkEnabled && visibleEntries.length > 0 && selectedIds.length === 0 ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/20 px-4 py-3 text-xs text-[var(--text-muted)]">
-          <span>Select cards to compare, export, queue, assign projects, or remove.</span>
+        <div
+          data-testid="gallery-multiselect-tip"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-[var(--accent-border)]/60 bg-[var(--accent-muted)]/40 px-4 py-3 text-xs text-[var(--accent-text)]"
+        >
+          <span>
+            {leanGallery
+              ? 'Select cards → Compare, Collect, Group, or Queue. Tip: Shift-click for a range.'
+              : 'Select cards to compare, export, queue, group, assign projects, or remove.'}
+          </span>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setLoraExportScope('favorites');
-                setLoraExportOpen(true);
-              }}
-              className="ui-btn-ghost ui-btn-sm"
-            >
-              Export LoRA dataset (favorites/4–5★)
-            </button>
+            {!leanGallery ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setLoraExportScope('favorites');
+                  setLoraExportOpen(true);
+                }}
+                className="ui-btn-ghost ui-btn-sm"
+              >
+                Export LoRA dataset (favorites/4–5★)
+              </button>
+            ) : null}
             <button type="button" onClick={selectAllVisible} className="ui-btn-ghost ui-btn-sm">
               Select visible ({visibleEntries.length})
             </button>

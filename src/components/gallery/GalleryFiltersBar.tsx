@@ -40,6 +40,8 @@ type GalleryFiltersBarProps = {
   models: string[];
   userTags?: string[];
   customGroups?: string[];
+  onRenameCustomGroup?: (from: string, to: string) => void;
+  onDeleteCustomGroup?: (name: string) => void;
   projects: PromptProject[];
   projectFilterId: string;
   setProjectFilterId: (value: string) => void;
@@ -100,6 +102,8 @@ export default function GalleryFiltersBar({
   models,
   userTags = [],
   customGroups = [],
+  onRenameCustomGroup,
+  onDeleteCustomGroup,
   projects,
   projectFilterId,
   setProjectFilterId,
@@ -414,6 +418,34 @@ export default function GalleryFiltersBar({
           />
         </label>
 
+        {!lean ? (
+          <div className="flex min-w-[8rem] flex-col gap-1.5">
+            <span className="type-caption text-[var(--text-muted)]">Match</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <FilterChip
+                active={Boolean(filter.semanticSearch)}
+                label={
+                  embeddingSearchLoading
+                    ? 'Semantic…'
+                    : embeddingSearchActive
+                      ? 'Semantic ✓'
+                      : 'Semantic'
+                }
+                testId="gallery-filter-semantic-inline"
+                onClick={() =>
+                  setFilter({
+                    ...filter,
+                    semanticSearch: filter.semanticSearch ? undefined : true,
+                  })
+                }
+              />
+              {filter.semanticSearch && embeddingSearchUnavailable ? (
+                <span className="type-caption text-[var(--tint-warning-text)]">text fallback</span>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
         <label className="min-w-[8rem] space-y-1.5">
           <span className="type-caption text-[var(--text-muted)]">Status</span>
           <select
@@ -456,6 +488,48 @@ export default function GalleryFiltersBar({
             ))}
           </select>
         </label>
+
+        {filter.customGroup &&
+        filter.customGroup !== GALLERY_UNGROUPED_FILTER &&
+        (onRenameCustomGroup || onDeleteCustomGroup) ? (
+          <div className="flex flex-wrap items-end gap-2 pb-0.5">
+            {onRenameCustomGroup ? (
+              <button
+                type="button"
+                data-testid="gallery-group-rename"
+                className="ui-btn-ghost ui-btn-sm text-[11px]"
+                onClick={() => {
+                  const next = window.prompt('Rename group', filter.customGroup);
+                  if (next?.trim() && next.trim() !== filter.customGroup) {
+                    onRenameCustomGroup(filter.customGroup!, next.trim());
+                    setFilter(previous => ({ ...previous, customGroup: next.trim() }));
+                  }
+                }}
+              >
+                Rename
+              </button>
+            ) : null}
+            {onDeleteCustomGroup ? (
+              <button
+                type="button"
+                data-testid="gallery-group-delete"
+                className="ui-btn-ghost ui-btn-sm text-[11px] text-[var(--tint-danger-text)]"
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      `Remove group “${filter.customGroup}” from all gallery items? Files stay; only the group label is cleared.`
+                    )
+                  ) {
+                    onDeleteCustomGroup(filter.customGroup!);
+                    setFilter(previous => ({ ...previous, customGroup: undefined }));
+                  }
+                }}
+              >
+                Delete group
+              </button>
+            ) : null}
+          </div>
+        ) : null}
 
         {paginationEnabled ? (
           <label className="min-w-[8rem] space-y-1.5">
@@ -518,6 +592,47 @@ export default function GalleryFiltersBar({
           {!lean && similarSearchLoading ? ' · ranking similar…' : null}
         </p>
       </div>
+
+      {customGroups.length > 0 ? (
+        <div
+          data-testid="gallery-groups-rail"
+          className="flex flex-wrap items-center gap-2"
+          aria-label="Gallery groups"
+        >
+          <span className="type-caption text-[var(--text-muted)]">Groups</span>
+          <FilterChip
+            active={!filter.customGroup}
+            label="All"
+            onClick={() => setFilter({ ...filter, customGroup: undefined })}
+          />
+          <FilterChip
+            active={filter.customGroup === GALLERY_UNGROUPED_FILTER}
+            label="Ungrouped"
+            onClick={() =>
+              setFilter({
+                ...filter,
+                customGroup:
+                  filter.customGroup === GALLERY_UNGROUPED_FILTER
+                    ? undefined
+                    : GALLERY_UNGROUPED_FILTER,
+              })
+            }
+          />
+          {customGroups.map(group => (
+            <FilterChip
+              key={`rail-${group}`}
+              active={filter.customGroup === group}
+              label={group}
+              onClick={() =>
+                setFilter({
+                  ...filter,
+                  customGroup: filter.customGroup === group ? undefined : group,
+                })
+              }
+            />
+          ))}
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
         {(

@@ -18,6 +18,8 @@ import {
   setComfyGalleryReviewRatings,
   setComfyGalleryUserTags,
   setComfyGalleryCustomGroups,
+  renameComfyGalleryCustomGroup,
+  deleteComfyGalleryCustomGroup,
   setGalleryReviewRating,
   toggleComfyGalleryFavorite,
   type ComfyGalleryEntry,
@@ -301,6 +303,28 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
     [refresh]
   );
 
+  const renameCustomGroup = useCallback(
+    (from: string, to: string) => {
+      const changed = renameComfyGalleryCustomGroup(from, to);
+      if (changed > 0) {
+        refresh();
+      }
+      return changed;
+    },
+    [refresh]
+  );
+
+  const deleteCustomGroup = useCallback(
+    (name: string) => {
+      const changed = deleteComfyGalleryCustomGroup(name);
+      if (changed > 0) {
+        refresh();
+      }
+      return changed;
+    },
+    [refresh]
+  );
+
   const clearAll = useCallback(() => {
     clearComfyGallery();
     refresh();
@@ -352,6 +376,8 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
     setReviewRatings,
     setUserTags,
     setCustomGroups,
+    renameCustomGroup,
+    deleteCustomGroup,
     setProjectIds,
     clearAll,
     refreshPending,

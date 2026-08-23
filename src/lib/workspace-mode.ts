@@ -39,7 +39,7 @@ export const WORKSPACE_MODE_OPTIONS: {
   },
   {
     id: 'play',
-    label: 'Roleplay',
+    label: 'Play',
     description: 'Cast, Roleplay, Gallery, and Queue — lean chrome for story loops.',
   },
   {
@@ -176,7 +176,7 @@ function playNavGroups(baseGroups: AppNavGroup[]): AppNavGroup[] {
   };
   return [
     {
-      label: 'Roleplay',
+      label: 'Play',
       links: [
         ...playLinks,
         {

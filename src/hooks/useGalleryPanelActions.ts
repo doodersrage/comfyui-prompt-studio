@@ -115,6 +115,8 @@ export type UseGalleryPanelActionsInput = {
   setReviewRatings: (ids: string[], rating: ComfyGalleryEntry['reviewRating']) => void;
   setUserTags?: (ids: string[], tags: string[], mode?: 'add' | 'replace' | 'remove') => void;
   setCustomGroups?: (ids: string[], groupName: string | undefined) => void;
+  renameCustomGroup?: (from: string, to: string) => number;
+  deleteCustomGroup?: (name: string) => number;
   customGroups?: string[];
   paramAxis: ParamExperimentAxis;
   filter: ComfyGalleryFilter;
@@ -145,6 +147,8 @@ export function useGalleryPanelActions({
   setReviewRatings,
   setUserTags,
   setCustomGroups,
+  renameCustomGroup,
+  deleteCustomGroup,
   customGroups = [],
   paramAxis,
   filter,
@@ -700,6 +704,24 @@ export function useGalleryPanelActions({
         setCustomGroups(selectedIds, undefined);
         setRequeueStatus(`Removed ${selectedIds.length} from group`);
       },
+      onRenameCustomGroup: (from: string, to: string) => {
+        if (!renameCustomGroup) {
+          return;
+        }
+        const changed = renameCustomGroup(from, to);
+        if (changed > 0) {
+          setRequeueStatus(`Renamed group to ${to.trim()} (${changed} items)`);
+        }
+      },
+      onDeleteCustomGroup: (name: string) => {
+        if (!deleteCustomGroup) {
+          return;
+        }
+        const changed = deleteCustomGroup(name);
+        if (changed > 0) {
+          setRequeueStatus(`Cleared group “${name}” from ${changed} items`);
+        }
+      },
       onSeedExperiment: () => {
         const entry = selectedEntries[0];
         if (!entry) return;
@@ -980,6 +1002,8 @@ export function useGalleryPanelActions({
       setReviewRatings,
       setUserTags,
       setCustomGroups,
+      renameCustomGroup,
+      deleteCustomGroup,
       customGroups,
       setFilter,
       setLoraExportOpen,

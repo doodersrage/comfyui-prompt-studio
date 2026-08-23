@@ -30,7 +30,10 @@ export default function WorkspaceWelcome() {
   const [phase, setPhase] = useState<WelcomePhase | null>(null);
   const [busy, setBusy] = useState(false);
   const [setupMessage, setSetupMessage] = useState<string | null>(null);
-  const [generateCta, setGenerateCta] = useState({ label: 'Open Dashboard', href: '/dashboard' });
+  const [generateCta, setGenerateCta] = useState({
+    label: 'Open Generate',
+    href: '/?source=random',
+  });
 
   useEffect(() => {
     if (process.env.NEXT_PUBLIC_PLAYWRIGHT === '1') {
@@ -69,6 +72,11 @@ export default function WorkspaceWelcome() {
         onProgress: progress => setSetupMessage(progress.message),
       });
       setSetupMessage(result.message);
+      if (result.ok || result.systemWorkflowsEnabled) {
+        void import('@/lib/first-run-dismiss').then(({ dismissFirstRunSetupSurfaces }) => {
+          dismissFirstRunSetupSurfaces();
+        });
+      }
       finishWelcome();
     } catch (err) {
       setSetupMessage(err instanceof Error ? err.message : 'Heal failed.');
@@ -192,22 +200,24 @@ export default function WorkspaceWelcome() {
             </h2>
             <p className="type-body mt-2 text-[var(--text-secondary)]">
               {setupMessage ??
-                (generateCta.href === '/dashboard'
-                  ? 'Open your Dashboard for queue status and recent outputs, then Generate when you are ready.'
-                  : "Open Generate for your first prompt, then Queue when you're ready.")}
+                (generateCta.href.startsWith('/roleplay')
+                  ? 'Open Roleplay to start a story loop, or Generate anytime from All tools.'
+                  : 'Open Generate for a first image (Random surprise needs no keywords), then rate it in Gallery.')}
             </p>
             <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
               <Button type="button" variant="ghost" size="sm" onClick={() => setPhase(null)}>
                 Close
               </Button>
-              <ButtonLink
-                href="/roleplay"
-                variant="secondary"
-                size="sm"
-                onClick={() => setPhase(null)}
-              >
-                Continue in Roleplay
-              </ButtonLink>
+              {generateCta.href.startsWith('/roleplay') ? null : (
+                <ButtonLink
+                  href="/roleplay"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setPhase(null)}
+                >
+                  Open Roleplay
+                </ButtonLink>
+              )}
               <ButtonLink
                 href={generateCta.href}
                 variant="primary"

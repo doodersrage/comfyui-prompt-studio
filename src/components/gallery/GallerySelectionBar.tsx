@@ -43,6 +43,8 @@ type GallerySelectionBarProps = {
   customGroups?: string[];
   onAssignCustomGroup?: (groupName: string) => void;
   onClearCustomGroup?: () => void;
+  onRenameCustomGroup?: (from: string, to: string) => void;
+  onDeleteCustomGroup?: (name: string) => void;
   onSeedExperiment: () => void;
   onParamExperiment: () => void;
   onParamGrid: () => void;
@@ -410,6 +412,43 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
                 label="Remove from group"
                 disabled={!props.selectedEntries.some(entry => Boolean(entry.customGroup?.trim()))}
                 onClick={props.onClearCustomGroup}
+              />
+            ) : null}
+            {props.onRenameCustomGroup && (props.customGroups?.length ?? 0) > 0 ? (
+              <MenuItem
+                label="Rename group…"
+                onClick={() => {
+                  const from =
+                    props.selectedEntries.find(entry => entry.customGroup?.trim())?.customGroup ??
+                    props.customGroups?.[0];
+                  if (!from) {
+                    return;
+                  }
+                  const next = window.prompt(`Rename group “${from}”`, from);
+                  if (next?.trim() && next.trim() !== from) {
+                    props.onRenameCustomGroup?.(from, next.trim());
+                  }
+                }}
+              />
+            ) : null}
+            {props.onDeleteCustomGroup && (props.customGroups?.length ?? 0) > 0 ? (
+              <MenuItem
+                label="Delete group…"
+                onClick={() => {
+                  const name =
+                    props.selectedEntries.find(entry => entry.customGroup?.trim())?.customGroup ??
+                    props.customGroups?.[0];
+                  if (!name) {
+                    return;
+                  }
+                  if (
+                    window.confirm(
+                      `Remove group “${name}” from all gallery items? Files stay; only the label is cleared.`
+                    )
+                  ) {
+                    props.onDeleteCustomGroup?.(name);
+                  }
+                }}
               />
             ) : null}
           </ActionMenu>

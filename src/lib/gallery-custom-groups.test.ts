@@ -5,8 +5,10 @@ import { filterComfyGalleryEntries } from './comfyui-gallery';
 import {
   GALLERY_CUSTOM_GROUP_MAX_LENGTH,
   GALLERY_UNGROUPED_FILTER,
+  deleteGalleryCustomGroupEntries,
   galleryEntryMatchesCustomGroup,
   normalizeGalleryCustomGroupName,
+  renameGalleryCustomGroupEntries,
   resolveGalleryCustomGroupName,
   uniqueGalleryCustomGroups,
 } from './gallery-custom-groups';
@@ -80,5 +82,23 @@ describe('gallery custom groups', () => {
       ),
       ['c']
     );
+  });
+
+  it('renames and deletes custom groups across entries', () => {
+    const start = [
+      entry({ id: 'a', customGroup: 'Look A' }),
+      entry({ id: 'b', customGroup: 'Look A' }),
+      entry({ id: 'c', customGroup: 'Look B' }),
+    ];
+    const renamed = renameGalleryCustomGroupEntries(start, 'look a', 'Red Dress');
+    assert.equal(renamed.changed, 2);
+    assert.deepEqual(
+      renamed.entries.map(item => item.customGroup),
+      ['Red Dress', 'Red Dress', 'Look B']
+    );
+    const deleted = deleteGalleryCustomGroupEntries(renamed.entries, 'Red Dress');
+    assert.equal(deleted.changed, 2);
+    assert.equal(deleted.entries[0]?.customGroup, undefined);
+    assert.equal(deleted.entries[2]?.customGroup, 'Look B');
   });
 });

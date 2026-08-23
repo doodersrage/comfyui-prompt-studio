@@ -26,8 +26,9 @@ import {
   whenBrowserStorageReady,
   writeBrowserValue,
 } from '@/lib/browser-storage';
+import { SETUP_READINESS_DISMISS_KEY } from '@/lib/first-run-dismiss';
 
-const DISMISS_KEY = 'comfy-setup-readiness-dismiss-v1';
+const DISMISS_KEY = SETUP_READINESS_DISMISS_KEY;
 
 type Readiness = {
   comfyOk: boolean | null;

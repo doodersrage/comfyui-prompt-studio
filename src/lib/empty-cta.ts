@@ -50,16 +50,16 @@ export function resolveGenerateEmptyCta(
   return fallback;
 }
 
-/** Post-onboarding landing — Dashboard in Simple, Generate elsewhere. */
+/**
+ * Post-welcome primary CTA — always “make a first image” except Play → Roleplay.
+ * Aligns Welcome with Settings first-run (`FIRST_RUN_GENERATE_HREF`).
+ */
 export function resolveWelcomeLandingCta(): EmptyCta {
   if (typeof window === 'undefined') {
-    return { label: 'Open Dashboard', href: '/dashboard' };
-  }
-  if (loadWorkspaceMode() === 'simple') {
-    return { label: 'Open Dashboard', href: '/dashboard' };
+    return { label: 'Open Generate', href: FIRST_RUN_GENERATE_HREF };
   }
   if (loadWorkspaceMode() === 'play') {
-    return { label: 'Continue in Roleplay', href: '/roleplay' };
+    return { label: 'Open Roleplay', href: '/roleplay' };
   }
-  return resolveGenerateEmptyCta();
+  return { label: 'Open Generate', href: FIRST_RUN_GENERATE_HREF };
 }

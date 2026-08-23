@@ -4,6 +4,7 @@ import { Suspense, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import AppNav from '@/components/AppNav';
 import PlayKioskShell from '@/components/PlayKioskShell';
+import MobileStudioOfferBanner from '@/components/MobileStudioOfferBanner';
 import { isMobileStudioPath } from '@/lib/mobile-studio';
 import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
 
@@ -47,6 +48,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
           <AppNav />
         </Suspense>
       )}
+      {!mobileStudio ? <MobileStudioOfferBanner /> : null}
       {playKiosk ? (
         <div className="pt-[calc(4.75rem+env(safe-area-inset-top))] pb-[calc(5.5rem+env(safe-area-inset-bottom))]">
           {children}

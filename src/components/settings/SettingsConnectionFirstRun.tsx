@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { FIRST_RUN_GENERATE_HREF } from '@/lib/empty-cta';
 import type { HealthResponse } from '@/components/settings/tabs/settings-tool-shared';
@@ -83,9 +84,33 @@ export default function SettingsConnectionFirstRun({
         </li>
       </ul>
       {ready ? (
-        <p className="mt-3 text-sm font-medium text-[var(--accent-text)]">
-          Ready — open Generate for a first image (Random surprise needs no keywords).
-        </p>
+        <div className="mt-3 space-y-2" data-testid="post-heal-checklist">
+          <p className="text-sm font-medium text-[var(--accent-text)]">
+            Ready — next steps (advanced settings below stay optional)
+          </p>
+          <ol className="list-decimal space-y-1 pl-5 text-xs text-[var(--text-secondary)]">
+            <li>
+              <Link
+                href={FIRST_RUN_GENERATE_HREF}
+                className="font-medium text-[var(--accent-text)] underline-offset-2 hover:underline"
+              >
+                Open Generate
+              </Link>
+              {' — '}
+              Random surprise needs no keywords
+            </li>
+            <li>Queue the prompt, then watch progress on Queue</li>
+            <li>
+              Rate the still in{' '}
+              <Link
+                href="/gallery?review=1"
+                className="font-medium text-[var(--accent-text)] underline-offset-2 hover:underline"
+              >
+                Gallery review
+              </Link>
+            </li>
+          </ol>
+        </div>
       ) : null}
     </div>
   );

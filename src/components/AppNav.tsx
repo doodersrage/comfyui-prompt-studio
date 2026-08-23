@@ -35,6 +35,7 @@ import {
 } from '@/lib/nav-expanded-groups';
 import BrandMark from '@/components/BrandMark';
 import ConnectionHealthChip from '@/components/ConnectionHealthChip';
+import ActiveJobsChip from '@/components/ActiveJobsChip';
 import ReportBugLink from '@/components/ReportBugLink';
 import { pushRecentDestination } from '@/lib/recent-destinations';
 import { saveLastToolRoute } from '@/lib/last-tool-route';
@@ -489,8 +490,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       <div className="space-y-3 border-t border-[var(--border-subtle)] px-2 pt-4">
         {navReady ? (
           <div className="flex items-center justify-between gap-2 px-1">
-            <div className="min-w-0" onClick={onNavigate}>
+            <div className="flex min-w-0 flex-wrap items-center gap-2" onClick={onNavigate}>
               <ConnectionHealthChip compact />
+              <ActiveJobsChip compact />
             </div>
             <div className="shrink-0">
               <NotificationBell />
@@ -621,6 +623,7 @@ export default function AppNav() {
           />
         </Link>
         <div className="flex items-center gap-2">
+          <ActiveJobsChip />
           <Link href="/m" className="ui-btn-secondary px-3 py-2">
             Phone
           </Link>

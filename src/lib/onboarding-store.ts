@@ -17,11 +17,6 @@ const LEGACY_KEY = 'comfy-onboarding-v1';
 
 export const ONBOARDING_STEPS: Omit<OnboardingStep, 'done'>[] = [
   {
-    id: 'llm-health',
-    label: 'Confirm LLM connection in Settings',
-    href: settingsTabHref('llm'),
-  },
-  {
     id: 'comfy-health',
     label: 'Confirm ComfyUI connection in Settings',
     href: settingsComfyUiSectionHref('connection'),
@@ -34,7 +29,8 @@ export const ONBOARDING_STEPS: Omit<OnboardingStep, 'done'>[] = [
   {
     id: 'first-generate',
     label: 'Generate your first prompt',
-    href: '/',
+    // Keep in sync with FIRST_RUN_GENERATE_HREF in empty-cta.ts (avoid import cycle).
+    href: '/?source=random',
   },
   {
     id: 'first-queue',
@@ -52,6 +48,11 @@ export const ONBOARDING_STEPS: Omit<OnboardingStep, 'done'>[] = [
     href: '/gallery?review=1',
   },
   {
+    id: 'llm-health',
+    label: 'Confirm LLM connection in Settings (optional for first image)',
+    href: settingsTabHref('llm'),
+  },
+  {
     id: 'discover-palette',
     label: 'Open the command palette (⌘/Ctrl+K)',
   },
@@ -62,13 +63,13 @@ export const ONBOARDING_STEPS: Omit<OnboardingStep, 'done'>[] = [
 ];
 
 const CORE_STEP_IDS = new Set([
-  'llm-health',
   'comfy-health',
   'system-workflows',
   'first-generate',
   'first-queue',
   'first-queue-success',
   'review-gallery',
+  'llm-health',
 ]);
 
 const CHROME_STEP_IDS = new Set(['discover-palette', 'pin-tool']);

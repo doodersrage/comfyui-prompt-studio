@@ -280,7 +280,9 @@ export default function FirstQueueSetupModal() {
                 }));
                 if (result.systemWorkflowsEnabled) {
                   noteFirstQueueSetupCompletedMetric();
-                  writeBrowserValue(DISMISS_KEY, true);
+                  void import('@/lib/first-queue-setup').then(({ dismissFirstQueueSetupModal }) => {
+                    dismissFirstQueueSetupModal();
+                  });
                   window.setTimeout(() => setOpen(false), 900);
                 }
               });
