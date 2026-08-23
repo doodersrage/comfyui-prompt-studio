@@ -4,6 +4,7 @@ export type GalleryUrlState = {
   filter: Partial<ComfyGalleryFilter>;
   sort?: ComfyGallerySort;
   projectFilterId?: string;
+  page?: number;
 };
 
 const SORT_VALUES: ComfyGallerySort[] = [
@@ -31,7 +32,18 @@ function parseMinRating(value: string | null): ComfyGalleryFilter['minRating'] |
   return undefined;
 }
 
-/** Read shareable gallery view params from the current URL (filter/sort/project). */
+function parsePage(value: string | null): number | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 1) {
+    return undefined;
+  }
+  return Math.floor(n);
+}
+
+/** Read shareable gallery view params from the current URL (filter/sort/project/page). */
 export function parseGalleryUrlState(params: URLSearchParams): GalleryUrlState {
   const filter: Partial<ComfyGalleryFilter> = {};
   const q = params.get('q')?.trim();
@@ -93,6 +105,7 @@ export function parseGalleryUrlState(params: URLSearchParams): GalleryUrlState {
   const sort = isSort(sortRaw) ? sortRaw : undefined;
   const project = params.get('project');
   const projectFilterId = project === null ? undefined : project;
+  const page = parsePage(params.get('page'));
 
   if (params.get('semantic') === '1') {
     filter.semanticSearch = true;
@@ -142,7 +155,7 @@ export function parseGalleryUrlState(params: URLSearchParams): GalleryUrlState {
     filter.derivedKind = derivedKind;
   }
 
-  return { filter, sort, projectFilterId };
+  return { filter, sort, projectFilterId, page };
 }
 
 /** Write shareable gallery view params (preserves unrelated query keys like lightbox/pickFor). */
@@ -152,9 +165,10 @@ export function applyGalleryUrlState(
     filter: ComfyGalleryFilter;
     sort: ComfyGallerySort;
     projectFilterId: string;
+    page: number;
   }
 ): void {
-  const { filter, sort, projectFilterId } = state;
+  const { filter, sort, projectFilterId, page } = state;
 
   const setOrDelete = (key: string, value: string | undefined) => {
     if (value) {
@@ -190,4 +204,5 @@ export function applyGalleryUrlState(
   setOrDelete('character', filter.characterId?.trim() || undefined);
   setOrDelete('sort', sort !== 'queued-desc' ? sort : undefined);
   setOrDelete('project', projectFilterId.trim() || undefined);
+  setOrDelete('page', page > 1 ? String(page) : undefined);
 }

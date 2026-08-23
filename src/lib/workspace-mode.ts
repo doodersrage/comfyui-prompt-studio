@@ -39,8 +39,8 @@ export const WORKSPACE_MODE_OPTIONS: {
   },
   {
     id: 'play',
-    label: 'Play',
-    description: 'Kiosk for Cast, Roleplay, Gallery, and Queue. Audio, Mesh, and Plugins stay out.',
+    label: 'Roleplay',
+    description: 'Cast, Roleplay, Gallery, and Queue — lean chrome for story loops.',
   },
   {
     id: 'studio',
@@ -57,18 +57,22 @@ export const WORKSPACE_MODE_OPTIONS: {
 /** Primary destinations for Simple workspace (path or path?query). */
 export const SIMPLE_NAV_HREFS = [
   '/dashboard',
-  '/m',
   '/',
   '/characters',
-  '/character',
   '/roleplay',
+  '/gallery',
+  '/queue',
+  '/studio',
+] as const;
+
+/** Tools kept in Simple “More tools” (still reachable via ⌘K). */
+export const SIMPLE_MORE_NAV_HREFS = [
+  '/m',
+  '/character',
   '/video',
   '/refine',
   '/compose',
   '/inpaint',
-  '/gallery',
-  '/queue',
-  '/studio',
 ] as const;
 
 /**
@@ -172,7 +176,7 @@ function playNavGroups(baseGroups: AppNavGroup[]): AppNavGroup[] {
   };
   return [
     {
-      label: 'Play',
+      label: 'Roleplay',
       links: [
         ...playLinks,
         {
@@ -216,7 +220,13 @@ export function navGroupsForWorkspaceMode(
       (link): link is AppNavLink => Boolean(link)
     );
     const essentialKeys = new Set(essentials.map(link => link.href));
-    const more = flat.filter(link => !essentialKeys.has(link.href));
+    const morePreferred = SIMPLE_MORE_NAV_HREFS.map(href => byHref(href)).filter(
+      (link): link is AppNavLink => Boolean(link)
+    );
+    const moreRest = flat.filter(
+      link => !essentialKeys.has(link.href) && !morePreferred.some(item => item.href === link.href)
+    );
+    const more = [...morePreferred, ...moreRest];
     const groups: AppNavGroup[] = [{ label: 'Essentials', links: essentials }];
     if (more.length > 0) {
       groups.push({ label: 'More tools', links: more });
@@ -260,8 +270,8 @@ export function isRoleplayFocusNavHref(href: string): boolean {
 
 /** Default expanded group labels for a workspace mode when the user has no saved prefs. */
 export function defaultExpandedNavGroups(mode: WorkspaceMode, groups: AppNavGroup[]): string[] {
-  if (groups.some(group => group.label === 'Play') || mode === 'play') {
-    return ['Play'];
+  if (groups.some(group => group.label === 'Roleplay') || mode === 'play') {
+    return ['Roleplay'];
   }
   if (mode === 'simple') {
     return ['Essentials'];

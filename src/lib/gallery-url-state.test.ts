@@ -2,6 +2,12 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { applyGalleryUrlState, parseGalleryUrlState } from './gallery-url-state';
 
+const DEFAULT_PAGE_STATE = {
+  sort: 'queued-desc' as const,
+  projectFilterId: '',
+  page: 1,
+};
+
 describe('gallery-url-state', () => {
   it('round-trips filter and sort params', () => {
     const params = new URLSearchParams();
@@ -16,6 +22,7 @@ describe('gallery-url-state', () => {
       },
       sort: 'rating-desc',
       projectFilterId: 'proj-1',
+      page: 1,
     });
 
     const parsed = parseGalleryUrlState(params);
@@ -29,7 +36,26 @@ describe('gallery-url-state', () => {
     assert.equal(parsed.projectFilterId, 'proj-1');
   });
 
-    it('round-trips similar, duplicates, vision inbox, user tag, and custom group params', () => {
+  it('round-trips page param when greater than 1', () => {
+    const params = new URLSearchParams();
+    applyGalleryUrlState(params, {
+      filter: { status: 'all' },
+      sort: 'queued-desc',
+      projectFilterId: '',
+      page: 4,
+    });
+    assert.equal(params.get('page'), '4');
+    assert.equal(parseGalleryUrlState(params).page, 4);
+    applyGalleryUrlState(params, {
+      filter: { status: 'all' },
+      sort: 'queued-desc',
+      projectFilterId: '',
+      page: 1,
+    });
+    assert.equal(params.get('page'), null);
+  });
+
+  it('round-trips similar, duplicates, vision inbox, user tag, and custom group params', () => {
     const params = new URLSearchParams();
     applyGalleryUrlState(params, {
       filter: {
@@ -46,6 +72,7 @@ describe('gallery-url-state', () => {
       },
       sort: 'eviction-risk-desc',
       projectFilterId: '',
+      page: 1,
     });
     const parsed = parseGalleryUrlState(params);
     assert.equal(parsed.filter.semanticSearch, true);
@@ -65,14 +92,12 @@ describe('gallery-url-state', () => {
     const params = new URLSearchParams();
     applyGalleryUrlState(params, {
       filter: { mediaKind: 'audio' },
-      sort: 'queued-desc',
-      projectFilterId: '',
+      ...DEFAULT_PAGE_STATE,
     });
     assert.equal(parseGalleryUrlState(params).filter.mediaKind, 'audio');
     applyGalleryUrlState(params, {
       filter: { mediaKind: 'mesh' },
-      sort: 'queued-desc',
-      projectFilterId: '',
+      ...DEFAULT_PAGE_STATE,
     });
     assert.equal(parseGalleryUrlState(params).filter.mediaKind, 'mesh');
   });
@@ -81,8 +106,7 @@ describe('gallery-url-state', () => {
     const params = new URLSearchParams('lightbox=abc&pickFor=compose');
     applyGalleryUrlState(params, {
       filter: { status: 'error' },
-      sort: 'queued-desc',
-      projectFilterId: '',
+      ...DEFAULT_PAGE_STATE,
     });
     assert.equal(params.get('lightbox'), 'abc');
     assert.equal(params.get('pickFor'), 'compose');

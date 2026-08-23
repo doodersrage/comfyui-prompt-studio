@@ -108,13 +108,7 @@ export function studioTabHref(tab: StudioTabId): string {
 }
 
 /** Essentials for Simple workspace — power tabs stay available in Studio/Full. */
-export const SIMPLE_STUDIO_TAB_IDS: StudioTabId[] = [
-  'history',
-  'compare',
-  'templates',
-  'presets',
-  'analytics',
-];
+export const SIMPLE_STUDIO_TAB_IDS: StudioTabId[] = ['history', 'compare', 'templates', 'presets'];
 
 export function studioTabsForWorkspaceMode(mode: WorkspaceMode): StudioTabDefinition[] {
   if (isLeanWorkspaceMode(mode)) {

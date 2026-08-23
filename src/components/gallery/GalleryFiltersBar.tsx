@@ -435,7 +435,7 @@ export default function GalleryFiltersBar({
         </label>
 
         <label className="min-w-[8rem] space-y-1.5">
-          <span className="type-caption text-[var(--text-muted)]">Group</span>
+          <span className="type-caption text-[var(--text-muted)]">Gallery group</span>
           <select
             value={filter.customGroup ?? ''}
             onChange={event =>
@@ -810,9 +810,9 @@ export default function GalleryFiltersBar({
               </label>
             ) : null}
 
-            {userTags.length > 0 ? (
+            {userTags.length > 0 && !lean ? (
               <label className="space-y-1.5">
-                <span className="type-caption text-[var(--text-muted)]">Tag</span>
+                <span className="type-caption text-[var(--text-muted)]">Tags</span>
                 <select
                   value={filter.userTag ?? ''}
                   onChange={event =>

@@ -10,6 +10,7 @@ import ThemePreferenceControl from '@/components/ThemePreferenceControl';
 import { BUILTIN_TOOL_PLUGINS, type ToolPlugin } from '@/lib/tool-plugin-registry';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import { prefetchGalleryPage } from '@/lib/gallery-warmup';
+import { resolveAppNavLinkHref } from '@/lib/gallery-session-state';
 import {
   APP_NAV_GROUPS,
   APP_NAV_SETTINGS_LINK,
@@ -74,25 +75,29 @@ function SidebarLink({
   favorited?: boolean;
   onToggleFavorite?: () => void;
 }) {
+  const navHref = resolveAppNavLinkHref(link.href);
+  const galleryPath = link.href.split('?')[0] ?? link.href;
+  const isGalleryLink = galleryPath === '/gallery' || galleryPath === '/m/gallery';
+
   return (
     <div className="group/nav flex items-center gap-0.5">
       <Link
-        href={link.href}
+        href={navHref}
         title={link.description}
         data-active={active ? 'true' : 'false'}
         className="ui-nav-link min-w-0 flex-1"
         onMouseEnter={() => {
-          if (link.href === '/gallery') {
+          if (isGalleryLink) {
             prefetchGalleryPage();
           }
         }}
         onFocus={() => {
-          if (link.href === '/gallery') {
+          if (isGalleryLink) {
             prefetchGalleryPage();
           }
         }}
         onClick={() => {
-          if (link.href === '/gallery') {
+          if (isGalleryLink) {
             prefetchGalleryPage();
           }
         }}
@@ -492,7 +497,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             </div>
           </div>
         ) : null}
-        {navReady && !roleplayFocus && workspaceMode !== 'simple' ? (
+        {navReady && !roleplayFocus ? (
           <WorkspaceModeControl
             variant="chips"
             onChanged={() => {
@@ -503,7 +508,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         ) : null}
         {navReady && !roleplayFocus && workspaceMode === 'simple' ? (
           <p className="type-caption px-3 text-[var(--text-muted)]">
-            Simple workspace — theme and workspace live in{' '}
+            Theme and density in{' '}
             <Link
               href="/profile"
               onClick={onNavigate}

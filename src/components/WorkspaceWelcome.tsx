@@ -117,8 +117,8 @@ export default function WorkspaceWelcome() {
               How do you want to work?
             </h2>
             <p className="type-body mt-2 text-[var(--text-secondary)]">
-              Prompt Studio has many tools. Pick a workspace density — you can change this anytime
-              in Profile or the sidebar.
+              Prompt Studio has many tools. Pick a workspace density — change anytime in the sidebar
+              or Profile.
             </p>
             <div className="mt-5 grid gap-2">
               {WORKSPACE_MODE_OPTIONS.map(option => (

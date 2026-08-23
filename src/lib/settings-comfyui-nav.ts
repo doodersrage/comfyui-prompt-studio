@@ -159,16 +159,8 @@ export function normalizeComfyUiSettingsSection(
 export const COMFYUI_ESSENTIAL_SECTION_IDS: ComfyUiSettingsSectionId[] = [
   'inference-engine',
   'connection',
-  'presets',
-  'workflow-map',
-  'workflow-library',
   'model-assets',
-  'lora-library',
   'queue-params',
-  'prompt-quality',
-  'vram-guard',
-  'hold-max',
-  'auto-improve',
 ];
 
 const ESSENTIAL_SECTION_ID_SET = new Set<ComfyUiSettingsSectionId>(COMFYUI_ESSENTIAL_SECTION_IDS);

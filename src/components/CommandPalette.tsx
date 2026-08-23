@@ -164,7 +164,7 @@ function buildNavItems(pathname: string): CommandItem[] {
   const mode = loadWorkspaceMode();
   const focused = usesPlayChrome(mode, pathname);
   const groups = navGroupsForPath(mode, pathname, APP_NAV_GROUPS);
-  const nav = flattenAppNavLinks(groups).map(link => ({
+  const nav = flattenAppNavLinks(groups, { includeSceneAliases: true }).map(link => ({
     id: `nav-${link.href}`,
     label: link.label,
     subtitle: link.description,

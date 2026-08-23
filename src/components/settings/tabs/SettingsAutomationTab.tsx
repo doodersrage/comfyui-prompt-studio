@@ -31,6 +31,7 @@ import { ToolSection, accentFocusClass } from '@/components/ui/ToolPageShell';
 import { EmptyState } from '@/components/ui/ViewState';
 import { FieldLabel, TextArea } from '@/components/ui/Field';
 import { Button } from '@/components/ui/Button';
+import UserScheduledCampaignSection from '@/components/settings/UserScheduledCampaignSection';
 
 export type SettingsAutomationTabProps = {
   webhookSettings: WebhookSettings;
@@ -122,12 +123,12 @@ export default function SettingsAutomationTab({
     <>
       <ToolSection title="Automation hub">
         <p className="text-sm text-[var(--text-secondary)]">
-          Webhooks, scheduled batch, and avoided tokens live here. Browser notifications,
-          auto-improve, and ComfyUI queue defaults are under{' '}
+          Webhooks, browser scheduled batch, and per-user campaigns live here. ComfyUI queue
+          defaults are under{' '}
           <Link href="/settings?tab=comfyui" className="text-[var(--accent-text)] hover:underline">
             ComfyUI settings
           </Link>
-          . Email campaigns and best-of-N profile runs are under{' '}
+          . Appearance, workspace, and email notifications are under{' '}
           <Link href="/profile" className="text-[var(--accent-text)] hover:underline">
             Profile
           </Link>
@@ -146,6 +147,8 @@ export default function SettingsAutomationTab({
           </p>
         ) : null}
       </ToolSection>
+
+      <UserScheduledCampaignSection onStatus={setStatus} />
 
       <ToolSection title="Webhooks">
         <p className="text-sm text-[var(--text-secondary)]">

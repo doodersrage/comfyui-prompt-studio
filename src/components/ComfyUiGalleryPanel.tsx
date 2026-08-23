@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState, useCallback, useRef, useLayoutEffect } from 'react';
 import { useGalleryPanelActions } from '@/hooks/useGalleryPanelActions';
 import ImageLightbox, {
@@ -64,11 +64,20 @@ import { applyGalleryFaceToSession, galleryEntryCanLockFace } from '@/lib/galler
 import { galleryToolHref, galleryToolLabel } from '@/lib/gallery-tool-href';
 import { MAX_GALLERY_ENTRIES } from '@/lib/comfyui-gallery-storage-meta';
 import { applyGalleryUrlState, parseGalleryUrlState } from '@/lib/gallery-url-state';
+import {
+  galleryBrowseScope,
+  galleryUrlHasBrowseState,
+  loadGallerySessionState,
+  patchGallerySessionPage,
+  readInitialGalleryPage,
+  saveGallerySessionState,
+} from '@/lib/gallery-session-state';
 import { useGalleryReview } from '@/hooks/useGalleryReview';
 import { useGallerySelection } from '@/hooks/useGallerySelection';
 import { useGalleryCompareHandlers } from '@/hooks/useGalleryCompareHandlers';
 import { toneForStatusText } from '@/lib/status-progress';
 import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
+import { isLeanWorkspaceMode } from '@/lib/workspace-mode';
 import { computeGalleryStats } from '@/lib/gallery-stats';
 import { type ParamExperimentAxis } from '@/lib/param-experiment-queue';
 import { useHeldMaxCount } from '@/hooks/useHeldMaxJobs';
@@ -118,7 +127,9 @@ import {
   saveGalleryViewPreferences,
   setGalleryReviewNote,
   sortGalleryEntries,
+  isGalleryStoreReady,
   type ComfyGalleryEntry,
+  type ComfyGalleryFilter,
   type ComfyGallerySort,
   type GalleryLayoutMode,
   type GalleryPageSize,
@@ -151,8 +162,10 @@ export default function ComfyUiGalleryPanel({
   compact = false,
   showFilters = false,
 }: ComfyUiGalleryPanelProps) {
+  const pathname = usePathname();
+  const browsePaginationEnabled = showFilters && !compact && !limit;
   const workspaceMode = useWorkspaceMode();
-  const leanGallery = workspaceMode === 'simple' && showFilters && !compact;
+  const leanGallery = isLeanWorkspaceMode(workspaceMode) && showFilters && !compact;
 
   const {
     storeReady,
@@ -174,7 +187,7 @@ export default function ComfyUiGalleryPanel({
     setProjectIds,
     clearAll,
     refreshPending,
-    primaryThumbUrl,
+    primaryThumbUrl: _primaryThumbUrl,
     setReviewRating,
     embeddingSearchActive,
     similarSearchActive,
@@ -211,7 +224,9 @@ export default function ComfyUiGalleryPanel({
   const [lightbox, setLightbox] = useState<ImageLightboxState | null>(null);
   const [slideshowPlaying, setSlideshowPlaying] = useState(false);
   const [slideshowFullscreen, setSlideshowFullscreen] = useState(false);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(() =>
+    browsePaginationEnabled ? readInitialGalleryPage(window.location.pathname) : 1
+  );
   const [sort, setSort] = useState<ComfyGallerySort>('queued-desc');
   const [pageSize, setPageSize] = useState<GalleryPageSize>(12);
   const [slideshowIntervalMs, setSlideshowIntervalMs] = useState<GallerySlideshowIntervalMs>(5000);
@@ -241,8 +256,38 @@ export default function ComfyUiGalleryPanel({
   const [projects] = useState(() => loadPromptProjects());
   const [density, setDensity] = useState<GalleryDensity>('comfortable');
   const [galleryUrlReady, setGalleryUrlReady] = useState(false);
+  const [galleryEntriesSettled, setGalleryEntriesSettled] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
+  const galleryBrowseBaselineRef = useRef<string | null>(null);
+  const pendingRestorePageRef = useRef<number | null>(null);
+  const galleryBrowsePathRef = useRef<string | null>(
+    browsePaginationEnabled ? galleryBrowseScope(pathname) : null
+  );
+  const galleryBrowseSaveRef = useRef<{
+    filter: ComfyGalleryFilter;
+    sort: ComfyGallerySort;
+    projectFilterId: string;
+    page: number;
+  }>({
+    filter: { status: 'all' },
+    sort: 'queued-desc',
+    projectFilterId: '',
+    page: 1,
+  });
+  const galleryBrowseRestoringRef = useRef(false);
+  useLayoutEffect(() => {
+    if (!browsePaginationEnabled) {
+      return;
+    }
+    const initial = readInitialGalleryPage(window.location.pathname);
+    if (initial > 1) {
+      pendingRestorePageRef.current = initial;
+      galleryBrowseRestoringRef.current = true;
+    }
+  }, [browsePaginationEnabled]);
+
+  const [galleryBrowseHydrated, setGalleryBrowseHydrated] = useState(false);
   const entriesRef = useRef(entries);
   const visibleEntriesRef = useRef<ComfyGalleryEntry[]>([]);
   const entryIdsWithDerivatives = useMemo(() => {
@@ -309,7 +354,7 @@ export default function ComfyUiGalleryPanel({
   const bulkEnabled = showFilters && !compact;
   /** Full experiment/export menus stay advanced; lean still gets select + compare. */
   const leanBulkEnabled = bulkEnabled;
-  const paginationEnabled = showFilters && !compact && !limit;
+  const paginationEnabled = browsePaginationEnabled;
   const galleryStats = useMemo(() => computeGalleryStats(entries), [entries]);
   const galleryCapWarning = useMemo(
     () => assessGalleryCapWarning(entries.length, MAX_GALLERY_ENTRIES),
@@ -322,6 +367,67 @@ export default function ComfyUiGalleryPanel({
     () => (paginationEnabled ? sortGalleryEntries(filteredSource, sort) : filteredSource),
     [filteredSource, paginationEnabled, sort]
   );
+
+  useEffect(() => {
+    if (!storeReady) {
+      return;
+    }
+    if (entries.length > 0) {
+      scheduleAfterCommit(() => {
+        setGalleryEntriesSettled(true);
+      });
+      return;
+    }
+    if (!isGalleryStoreReady()) {
+      return;
+    }
+    let cancelled = false;
+    const frameId = window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        if (!cancelled) {
+          setGalleryEntriesSettled(true);
+        }
+      });
+    });
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [storeReady, entries.length]);
+
+  useEffect(() => {
+    if (!browsePaginationEnabled) {
+      return;
+    }
+    const scope = galleryBrowseScope(pathname);
+    if (scope === '/gallery' || scope === '/m/gallery') {
+      galleryBrowsePathRef.current = scope;
+    }
+  }, [pathname, browsePaginationEnabled]);
+
+  useEffect(() => {
+    galleryBrowseSaveRef.current = { filter, sort, projectFilterId, page };
+  }, [filter, sort, projectFilterId, page]);
+
+  useEffect(() => {
+    if (!browsePaginationEnabled || typeof window === 'undefined') {
+      return;
+    }
+    patchGallerySessionPage(galleryBrowseScope(pathname), page);
+  }, [page, browsePaginationEnabled, pathname]);
+
+  useEffect(() => {
+    if (!browsePaginationEnabled) {
+      return;
+    }
+    return () => {
+      const scope = galleryBrowsePathRef.current;
+      if (!scope) {
+        return;
+      }
+      saveGallerySessionState(scope, galleryBrowseSaveRef.current);
+    };
+  }, [browsePaginationEnabled]);
 
   useEffect(() => {
     scheduleAfterCommit(() => {
@@ -342,20 +448,48 @@ export default function ComfyUiGalleryPanel({
       return;
     }
     scheduleAfterCommit(() => {
-      const parsed = parseGalleryUrlState(new URLSearchParams(window.location.search));
-      const hasFilter = Object.keys(parsed.filter).length > 0;
-      if (hasFilter) {
-        setFilter(previous => ({
-          ...previous,
-          ...parsed.filter,
-          ...(parsed.filter.query?.trim() ? { semanticSearch: true } : {}),
-        }));
+      const params = new URLSearchParams(window.location.search);
+      const hasUrlBrowse = galleryUrlHasBrowseState(params);
+      const cached = loadGallerySessionState(window.location.pathname);
+      const urlParsed = parseGalleryUrlState(params);
+      if (hasUrlBrowse) {
+        const hasFilter = Object.keys(urlParsed.filter).length > 0;
+        if (hasFilter) {
+          setFilter(previous => ({
+            ...previous,
+            ...urlParsed.filter,
+            ...(urlParsed.filter.query?.trim() ? { semanticSearch: true } : {}),
+          }));
+        }
+        if (urlParsed.sort) {
+          setSort(urlParsed.sort);
+        }
+        if (urlParsed.projectFilterId !== undefined) {
+          setProjectFilterId(urlParsed.projectFilterId);
+        }
+      } else if (cached) {
+        const cachedFilter = cached.filter ?? {};
+        if (Object.keys(cachedFilter).length > 0) {
+          setFilter(previous => ({
+            ...previous,
+            ...cachedFilter,
+            status: cachedFilter.status ?? previous.status ?? 'all',
+            ...(cachedFilter.query?.trim() ? { semanticSearch: true } : {}),
+          }));
+        }
+        if (cached.sort) {
+          setSort(cached.sort);
+        }
+        if (cached.projectFilterId !== undefined) {
+          setProjectFilterId(cached.projectFilterId);
+        }
       }
-      if (parsed.sort) {
-        setSort(parsed.sort);
-      }
-      if (parsed.projectFilterId !== undefined) {
-        setProjectFilterId(parsed.projectFilterId);
+      const prefs = loadGalleryViewPreferences();
+      const restoredPage =
+        urlParsed.page ?? cached?.page ?? (prefs.page && prefs.page >= 1 ? prefs.page : undefined);
+      if (restoredPage) {
+        pendingRestorePageRef.current = restoredPage;
+        setPage(restoredPage);
       }
       setGalleryUrlReady(true);
     });
@@ -366,13 +500,38 @@ export default function ComfyUiGalleryPanel({
       return;
     }
     const url = new URL(window.location.href);
-    applyGalleryUrlState(url.searchParams, { filter, sort, projectFilterId });
+    applyGalleryUrlState(url.searchParams, { filter, sort, projectFilterId, page });
     const next = `${url.pathname}${url.search}${url.hash}`;
     const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     if (next !== current) {
       window.history.replaceState(null, '', next);
     }
-  }, [filter, sort, projectFilterId, galleryUrlReady, showFilters]);
+  }, [filter, sort, projectFilterId, page, galleryUrlReady, showFilters]);
+
+  useEffect(() => {
+    if (
+      !galleryUrlReady ||
+      !paginationEnabled ||
+      typeof window === 'undefined' ||
+      !galleryBrowseHydrated
+    ) {
+      return;
+    }
+    saveGallerySessionState(window.location.pathname, {
+      filter,
+      sort,
+      projectFilterId,
+      page,
+    });
+  }, [
+    filter,
+    sort,
+    projectFilterId,
+    page,
+    galleryUrlReady,
+    paginationEnabled,
+    galleryBrowseHydrated,
+  ]);
 
   useEffect(() => {
     const onWinners = () => setExperimentWinners(loadExperimentWinners());
@@ -390,6 +549,7 @@ export default function ComfyUiGalleryPanel({
       slideshowIntervalMs,
       slideshowTransition,
       layout,
+      page: galleryBrowseHydrated ? page : undefined,
     });
     saveGalleryDensity(density);
   }, [
@@ -399,15 +559,43 @@ export default function ComfyUiGalleryPanel({
     slideshowTransition,
     layout,
     density,
+    page,
     viewPrefsLoaded,
     paginationEnabled,
+    galleryBrowseHydrated,
   ]);
 
   useEffect(() => {
-    scheduleAfterCommit(() => {
-      setPage(1);
+    if (!galleryUrlReady || !paginationEnabled || !galleryBrowseHydrated) {
+      return;
+    }
+    if (galleryBrowseRestoringRef.current) {
+      return;
+    }
+    const { projectId: _projectId, ...filterWithoutProject } = filter;
+    const sig = JSON.stringify({
+      filter: filterWithoutProject,
+      sort,
+      pageSize,
+      projectFilterId,
     });
-  }, [filter, sort, pageSize]);
+    if (galleryBrowseBaselineRef.current === null) {
+      galleryBrowseBaselineRef.current = sig;
+      return;
+    }
+    if (galleryBrowseBaselineRef.current !== sig) {
+      galleryBrowseBaselineRef.current = sig;
+      setPage(1);
+    }
+  }, [
+    filter,
+    sort,
+    pageSize,
+    projectFilterId,
+    galleryUrlReady,
+    paginationEnabled,
+    galleryBrowseHydrated,
+  ]);
 
   const experimentGroups = useMemo(() => {
     // Group across the full filtered/sorted set, not just the current page's
@@ -467,6 +655,56 @@ export default function ComfyUiGalleryPanel({
   const visibleEntries = pagination.items;
   const totalPages = pagination.totalPages;
   const currentPage = pagination.page;
+
+  useEffect(() => {
+    if (
+      !paginationEnabled ||
+      !galleryUrlReady ||
+      !storeReady ||
+      !galleryEntriesSettled ||
+      galleryBrowseHydrated
+    ) {
+      return;
+    }
+    const pending = pendingRestorePageRef.current;
+    if (pending !== null && totalPages > 0) {
+      if (pending <= totalPages) {
+        pendingRestorePageRef.current = null;
+        if (page !== pending) {
+          setPage(pending);
+        }
+      } else if (sortedSource.length > 0) {
+        pendingRestorePageRef.current = null;
+        setPage(totalPages);
+      }
+    } else if (pending === null && totalPages > 0 && page > totalPages) {
+      setPage(totalPages);
+    }
+    scheduleAfterCommit(() => {
+      galleryBrowseRestoringRef.current = false;
+      setGalleryBrowseHydrated(true);
+      const { projectId: _projectId, ...filterWithoutProject } = filter;
+      galleryBrowseBaselineRef.current = JSON.stringify({
+        filter: filterWithoutProject,
+        sort,
+        pageSize,
+        projectFilterId,
+      });
+    });
+  }, [
+    filter,
+    sort,
+    pageSize,
+    projectFilterId,
+    page,
+    totalPages,
+    sortedSource.length,
+    galleryUrlReady,
+    paginationEnabled,
+    storeReady,
+    galleryEntriesSettled,
+    galleryBrowseHydrated,
+  ]);
   const totalFiltered = pagination.totalItems;
   const effectivePageSize = resolveGalleryPageSize(pageSize, totalFiltered);
   const showPagination =
@@ -1195,15 +1433,6 @@ export default function ComfyUiGalleryPanel({
     setLoraExportScope,
     setLoraExportOpen,
   });
-
-  useEffect(() => {
-    if (!paginationEnabled || page === currentPage) {
-      return;
-    }
-    scheduleAfterCommit(() => {
-      setPage(currentPage);
-    });
-  }, [currentPage, page, paginationEnabled]);
 
   useLayoutEffect(() => {
     entriesRef.current = entries;

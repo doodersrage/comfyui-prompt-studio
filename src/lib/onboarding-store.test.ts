@@ -42,7 +42,7 @@ describe("onboarding-store", () => {
     const chrome = ONBOARDING_STEPS.filter((step) =>
       isOnboardingChromeStep(step.id),
     );
-    assert.ok(chrome.length >= 3);
+    assert.equal(chrome.length, 2);
     assert.ok(chrome.every((step) => !isOnboardingCoreStep(step.id)));
   });
 

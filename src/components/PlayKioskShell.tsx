@@ -9,6 +9,7 @@ import { canAccessNavFeature, useAuth } from '@/hooks/useAuth';
 import { featureForPath } from '@/lib/auth/features';
 import { APP_NAV_PROFILE_LINK, APP_NAV_SETTINGS_LINK } from '@/lib/app-nav-catalog';
 import { ROLEPLAY_FOCUS_ESCAPE_HREF } from '@/lib/workspace-mode';
+import { galleryNavHref } from '@/lib/gallery-session-state';
 import { accentForPath } from '@/lib/tool-theme';
 
 const PLAY_KIOSK_TABS: { href: string; label: string }[] = [
@@ -27,6 +28,7 @@ function tabIsActive(href: string, pathname: string): boolean {
 
 export default function PlayKioskShell() {
   const pathname = usePathname() ?? '/roleplay';
+  const galleryHref = galleryNavHref('/gallery');
   const accent = accentForPath(pathname);
   const auth = useAuth();
   const allowed = auth?.allowedFeatures ?? 'all';
@@ -71,10 +73,11 @@ export default function PlayKioskShell() {
         <ul className="mx-auto grid max-w-3xl grid-cols-4 gap-0.5 px-2 py-2">
           {tabs.map(entry => {
             const active = tabIsActive(entry.href, pathname);
+            const href = entry.href === '/gallery' ? galleryHref : entry.href;
             return (
               <li key={entry.href}>
                 <Link
-                  href={entry.href}
+                  href={href}
                   data-active={active ? 'true' : 'false'}
                   className={[
                     'flex flex-col items-center rounded-[var(--radius-md)] px-2 py-2 text-center transition',

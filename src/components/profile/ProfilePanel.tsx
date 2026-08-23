@@ -5,28 +5,20 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/Field';
 import { ToolSection } from '@/components/ui/ToolPageShell';
-import type { UserScheduledCampaign } from '@/lib/auth/types';
 import ProfileSecurityPanel from '@/components/profile/ProfileSecurityPanel';
 import ProfileAppearancePanel from '@/components/profile/ProfileAppearancePanel';
 import ProfileNotificationsPanel from '@/components/profile/ProfileNotificationsPanel';
 import ProfileBackupPanel from '@/components/profile/ProfileBackupPanel';
 import type { SharedPresetEntry } from '@/lib/shared-preset-store';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
-
-const DEFAULT_CAMPAIGN: UserScheduledCampaign = {
-  enabled: false,
-  target: 'random-scene',
-  count: 3,
-  intervalMin: 60,
-  autoQueueComfyUi: false,
-};
+import Link from 'next/link';
+import { settingsTabHref } from '@/lib/settings-nav';
 
 export default function ProfilePanel() {
   const auth = useAuth();
   const [password, setPassword] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [comfyUiUrl, setComfyUiUrl] = useState('');
-  const [campaign, setCampaign] = useState<UserScheduledCampaign>(DEFAULT_CAMPAIGN);
   const [exportEnabled, setExportEnabled] = useState(false);
   const [email, setEmail] = useState('');
   const [emailNotifyBatch, setEmailNotifyBatch] = useState(true);
@@ -42,7 +34,6 @@ export default function ProfilePanel() {
     const data = (await response.json()) as {
       user?: {
         comfyUiUrl?: string;
-        scheduledCampaign?: UserScheduledCampaign;
         exportEnabled?: boolean;
         email?: string;
         emailNotifyBatch?: boolean;
@@ -52,7 +43,6 @@ export default function ProfilePanel() {
     };
     if (response.ok && data.user) {
       setComfyUiUrl(data.user.comfyUiUrl ?? '');
-      setCampaign(data.user.scheduledCampaign ?? DEFAULT_CAMPAIGN);
       setExportEnabled(Boolean(data.user.exportEnabled));
       setEmail(data.user.email ?? '');
       setEmailNotifyBatch(data.user.emailNotifyBatch !== false);
@@ -85,7 +75,6 @@ export default function ProfilePanel() {
           currentPassword: currentPassword || undefined,
           password: password || undefined,
           comfyUiUrl,
-          scheduledCampaign: campaign,
           exportEnabled,
           email,
           emailNotifyBatch,
@@ -239,101 +228,17 @@ export default function ProfilePanel() {
         />
       </ToolSection>
 
-      <ToolSection title="Scheduled campaign">
-        <p className="mb-3 text-sm text-[var(--text-muted)]">
-          Server maintenance runs user campaigns when{' '}
-          <code className="text-[var(--text-secondary)]">SERVER_USER_MAINTENANCE=true</code>.
+      <ToolSection title="Automation">
+        <p className="text-sm text-[var(--text-muted)]">
+          Scheduled campaigns, webhooks, and browser batch runs live in{' '}
+          <Link
+            href={settingsTabHref('automation')}
+            className="text-[var(--accent-text)] transition hover:text-[var(--text-primary)]"
+          >
+            Settings → Automation
+          </Link>
+          .
         </p>
-        <label className="mb-3 flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-          <input
-            type="checkbox"
-            checked={campaign.enabled}
-            onChange={event => setCampaign(prev => ({ ...prev, enabled: event.target.checked }))}
-            className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-[var(--accent)]"
-          />
-          Enable scheduled campaign
-        </label>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="space-y-2 text-sm">
-            <span className="type-caption text-[var(--text-muted)]">Target</span>
-            <select
-              value={campaign.target}
-              onChange={event =>
-                setCampaign(prev => ({
-                  ...prev,
-                  target: event.target.value as UserScheduledCampaign['target'],
-                }))
-              }
-              className="ui-input w-full"
-            >
-              <option value="random-scene">Random scene</option>
-              <option value="topics">Topics batch</option>
-            </select>
-          </label>
-          <label className="space-y-2 text-sm">
-            <span className="type-caption text-[var(--text-muted)]">Interval (minutes)</span>
-            <TextInput
-              type="number"
-              value={String(campaign.intervalMin)}
-              onChange={event =>
-                setCampaign(prev => ({
-                  ...prev,
-                  intervalMin: Math.max(5, Number(event.target.value) || 60),
-                }))
-              }
-            />
-          </label>
-          <label className="space-y-2 text-sm">
-            <span className="type-caption text-[var(--text-muted)]">Count</span>
-            <TextInput
-              type="number"
-              value={String(campaign.count)}
-              onChange={event =>
-                setCampaign(prev => ({
-                  ...prev,
-                  count: Math.max(1, Math.min(12, Number(event.target.value) || 3)),
-                }))
-              }
-            />
-          </label>
-          <label className="flex items-center gap-2 self-end text-sm text-[var(--text-secondary)]">
-            <input
-              type="checkbox"
-              checked={campaign.autoQueueComfyUi}
-              onChange={event =>
-                setCampaign(prev => ({ ...prev, autoQueueComfyUi: event.target.checked }))
-              }
-              className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-[var(--accent)]"
-            />
-            Auto-queue to ComfyUI
-          </label>
-          <label className="space-y-2 text-sm">
-            <span className="type-caption text-[var(--text-muted)]">Best-of-N rank (optional)</span>
-            <TextInput
-              type="number"
-              value={campaign.bestOfN ? String(campaign.bestOfN) : ''}
-              onChange={event =>
-                setCampaign(prev => ({
-                  ...prev,
-                  bestOfN: event.target.value ? Math.max(2, Number(event.target.value)) : undefined,
-                }))
-              }
-              placeholder="e.g. 3"
-            />
-          </label>
-          <label className="flex items-center gap-2 self-end text-sm text-[var(--text-secondary)]">
-            <input
-              type="checkbox"
-              checked={campaign.bestOfNVision ?? false}
-              onChange={event =>
-                setCampaign(prev => ({ ...prev, bestOfNVision: event.target.checked }))
-              }
-              disabled={!campaign.bestOfN || campaign.bestOfN < 2 || !campaign.autoQueueComfyUi}
-              className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-[var(--accent)] disabled:opacity-50"
-            />
-            Vision-rank queued outputs
-          </label>
-        </div>
       </ToolSection>
 
       <ToolSection title="Server export">

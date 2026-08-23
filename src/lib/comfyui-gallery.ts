@@ -217,6 +217,7 @@ export type ComfyGalleryViewPreferences = {
   slideshowIntervalMs: GallerySlideshowIntervalMs;
   slideshowTransition: GallerySlideshowTransition;
   layout: GalleryLayoutMode;
+  page?: number;
 };
 
 export const DEFAULT_GALLERY_VIEW: ComfyGalleryViewPreferences = {
@@ -618,8 +619,12 @@ export function loadGalleryViewPreferences(): ComfyGalleryViewPreferences {
     const layout = layoutValues.includes(parsed.layout as GalleryLayoutMode)
       ? (parsed.layout as GalleryLayoutMode)
       : DEFAULT_GALLERY_VIEW.layout;
+    const page =
+      typeof parsed.page === 'number' && Number.isFinite(parsed.page) && parsed.page >= 1
+        ? Math.floor(parsed.page)
+        : undefined;
 
-    return { sort, pageSize, slideshowIntervalMs, slideshowTransition, layout };
+    return { sort, pageSize, slideshowIntervalMs, slideshowTransition, layout, page };
   } catch {
     return DEFAULT_GALLERY_VIEW;
   }

@@ -59,16 +59,6 @@ export const ONBOARDING_STEPS: Omit<OnboardingStep, 'done'>[] = [
     id: 'pin-tool',
     label: 'Pin a favorite tool in the sidebar (☆)',
   },
-  {
-    id: 'set-density',
-    label: 'Try Compact density in Profile → Appearance',
-    href: '/profile',
-  },
-  {
-    id: 'set-workspace',
-    label: 'Pick Simple / Studio / Full workspace',
-    href: '/profile',
-  },
 ];
 
 const CORE_STEP_IDS = new Set([
@@ -81,7 +71,7 @@ const CORE_STEP_IDS = new Set([
   'review-gallery',
 ]);
 
-const CHROME_STEP_IDS = new Set(['discover-palette', 'pin-tool', 'set-density', 'set-workspace']);
+const CHROME_STEP_IDS = new Set(['discover-palette', 'pin-tool']);
 
 export function isOnboardingCoreStep(id: string): boolean {
   return CORE_STEP_IDS.has(id);

@@ -90,10 +90,9 @@ export const APP_NAV_GROUPS: AppNavGroup[] = [
   {
     label: 'Library',
     links: [
-      { href: '/studio', label: 'Studio', description: 'History & tools' },
+      { href: '/studio', label: 'Studio', description: 'History, presets, and compare' },
       { href: '/gallery', label: 'Gallery', description: 'ComfyUI outputs' },
-      { href: '/variations', label: 'Variations', description: 'Grid queue' },
-      { href: '/variations?matrix=1', label: 'Matrix', description: 'Cartesian prompts' },
+      { href: '/variations', label: 'Variations', description: 'Grid queue and matrix sweeps' },
       { href: '/plugins', label: 'Plugins', description: 'Tool registry' },
     ],
   },
@@ -111,15 +110,25 @@ export const APP_NAV_PROFILE_LINK: AppNavLink = {
   description: 'Appearance & account',
 };
 
-/** Kept for command palette / Simple “More tools”; Scene nav is Character + Roleplay. */
+/** Legacy scene routes — command palette only; Character page switcher covers these families. */
 export const APP_NAV_SCENE_ALIASES: AppNavLink[] = [
-  { href: '/background', label: 'Background', description: 'Environment-only — no people' },
-  { href: '/pet', label: 'Pet', description: 'Dogs, cats & more' },
-  { href: '/fantasy', label: 'Fantasy', description: 'Magic & myth' },
+  {
+    href: '/background',
+    label: 'Background (scene)',
+    description: 'Environment-only — opens Background tool',
+  },
+  { href: '/pet', label: 'Pet (scene)', description: 'Dogs, cats & more — opens Pet tool' },
+  { href: '/fantasy', label: 'Fantasy (scene)', description: 'Magic & myth — opens Fantasy tool' },
 ];
 
-export function flattenAppNavLinks(groups: AppNavGroup[] = APP_NAV_GROUPS): AppNavLink[] {
+export function flattenAppNavLinks(
+  groups: AppNavGroup[] = APP_NAV_GROUPS,
+  options?: { includeSceneAliases?: boolean }
+): AppNavLink[] {
   const links = groups.flatMap(group => group.links);
+  if (!options?.includeSceneAliases) {
+    return links;
+  }
   const seen = new Set(links.map(link => link.href.split('?')[0] ?? link.href));
   for (const alias of APP_NAV_SCENE_ALIASES) {
     const path = alias.href.split('?')[0] ?? alias.href;
