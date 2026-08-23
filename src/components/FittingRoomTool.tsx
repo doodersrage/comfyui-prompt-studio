@@ -92,12 +92,6 @@ export default function FittingRoomTool() {
   const [referenceUploading, setReferenceUploading] = useState(false);
   const [isolateStatus, setIsolateStatus] = useState<string | null>(null);
   const [referencePreviewUrl, setReferencePreviewUrl] = useState<string | null>(null);
-  const [wardrobeOptions, setWardrobeOptions] = useState<ClothingOption[]>([
-    { value: '', label: 'Pick a kit…' },
-  ]);
-  const [wardrobeLoadedKey, setWardrobeLoadedKey] = useState<string | null>(null);
-  const wardrobeOptionsKey = `wardrobeCatalog:${clothingGender}`;
-  const wardrobeReady = wardrobeLoadedKey === wardrobeOptionsKey;
   const [lockedWardrobeLabel, setLockedWardrobeLabel] = useState<string | undefined>();
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const isolateGenRef = useRef(0);
@@ -119,6 +113,13 @@ export default function FittingRoomTool() {
       ),
     [character?.descriptor, character?.hints]
   );
+
+  const [wardrobeOptions, setWardrobeOptions] = useState<ClothingOption[]>([
+    { value: '', label: 'Pick a kit…' },
+  ]);
+  const [wardrobeLoadedKey, setWardrobeLoadedKey] = useState<string | null>(null);
+  const wardrobeOptionsKey = `wardrobeCatalog:${clothingGender}`;
+  const wardrobeReady = wardrobeLoadedKey === wardrobeOptionsKey;
 
   useSeedToolDraft(mounted, {
     toolKey: TOOL_ID,

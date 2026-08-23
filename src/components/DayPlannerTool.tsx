@@ -75,12 +75,6 @@ export default function DayPlannerTool() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [activeSlotId, setActiveSlotId] = useState<DaySlotId>('morning');
-  const [wardrobeOptions, setWardrobeOptions] = useState<ClothingOption[]>([
-    { value: '', label: 'Default kit…' },
-  ]);
-  const [wardrobeLoadedKey, setWardrobeLoadedKey] = useState<string | null>(null);
-  const wardrobeOptionsKey = `wardrobeCatalog:${clothingGender}`;
-  const wardrobeReady = wardrobeLoadedKey === wardrobeOptionsKey;
   const [wardrobeLabels, setWardrobeLabels] = useState<Record<string, string>>({});
   const deepLinkHandled = useRef(false);
 
@@ -98,6 +92,13 @@ export default function DayPlannerTool() {
       ),
     [character?.descriptor, character?.hints]
   );
+
+  const [wardrobeOptions, setWardrobeOptions] = useState<ClothingOption[]>([
+    { value: '', label: 'Default kit…' },
+  ]);
+  const [wardrobeLoadedKey, setWardrobeLoadedKey] = useState<string | null>(null);
+  const wardrobeOptionsKey = `wardrobeCatalog:${clothingGender}`;
+  const wardrobeReady = wardrobeLoadedKey === wardrobeOptionsKey;
 
   useSeedToolDraft(mounted, {
     toolKey: TOOL_ID,
