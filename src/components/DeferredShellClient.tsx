@@ -81,8 +81,8 @@ export default function DeferredShellClient() {
 
     // Toast feedback should appear quickly after first paint.
     const cancelToastIdle = scheduleIdle(enableToast, 400);
-    // Command palette / shortcuts / welcome can wait longer or until Ctrl/Cmd+K.
-    const cancelShellIdle = scheduleIdle(enableShell, 7000);
+    const shellIdleMs = process.env.NEXT_PUBLIC_PLAYWRIGHT === '1' ? 100 : 7000;
+    const cancelShellIdle = scheduleIdle(enableShell, shellIdleMs);
 
     return () => {
       cancelled = true;

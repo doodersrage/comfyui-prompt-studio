@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { ensureAuthenticated } from './helpers/auth';
-import { gotoStable } from './helpers/navigation';
+import { gotoStable, revealFullSettings } from './helpers/navigation';
 
 test.describe('Settings automation', () => {
   test.beforeEach(async ({ page }) => {
@@ -24,6 +24,7 @@ test.describe('Settings automation', () => {
 
   test('vision-rank checkbox toggles when best-of-N is set', async ({ page }) => {
     await gotoStable(page, '/settings?tab=automation');
+    await revealFullSettings(page);
     const bestOfN = page.getByLabel(/Best-of-N ranking/i);
     await bestOfN.selectOption('3');
     // Vision-rank stays disabled until auto-queue is on.

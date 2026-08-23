@@ -6,6 +6,8 @@ The first tagged GitHub Release was [`Initial-Release`](https://github.com/doode
 
 ## Cut a release (preferred)
 
+Clone from [github.com/doodersrage/llm-prompt-studio](https://github.com/doodersrage/llm-prompt-studio) (`comfyui-prompt-studio.git` redirects to the same repo).
+
 1. Merge whatever should ship to `main`.
 2. Actions → **Release** → **Run workflow**.
 3. Choose **patch** / **minor** / **major** (from `package.json`).

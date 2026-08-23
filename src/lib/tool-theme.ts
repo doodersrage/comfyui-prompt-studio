@@ -1,19 +1,10 @@
 /**
  * Route tints — soft functional colors for badges and chips only.
  * Primary actions always use the single brand accent (--accent in globals.css).
- * `violet` is kept as a deprecated alias of `brand`.
+ * Legacy stored values may still say `violet`; normalizeToolAccent maps that to `brand`.
  */
 export type ToolAccent =
-  | 'brand'
-  | 'violet'
-  | 'emerald'
-  | 'sky'
-  | 'cyan'
-  | 'teal'
-  | 'amber'
-  | 'fuchsia'
-  | 'rose'
-  | 'neutral';
+  'brand' | 'emerald' | 'sky' | 'cyan' | 'teal' | 'amber' | 'fuchsia' | 'rose' | 'neutral';
 
 const brandTint = {
   badge: 'border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)]',
@@ -30,8 +21,6 @@ export const ROUTE_TINT_CLASSES: Record<
   }
 > = {
   brand: brandTint,
-  /** @deprecated Use `brand` — same teal/sky studio accent. */
-  violet: brandTint,
   emerald: {
     badge:
       'border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] text-[var(--tint-success-text)]',
