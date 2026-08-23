@@ -82,14 +82,14 @@ function ActionMenu(props: { label: string; children: ReactNode; disabled?: bool
   }, [open]);
 
   const menuTone =
-    'border-[var(--border-subtle)] bg-[var(--bg-base)]/80 text-[var(--text-secondary)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]';
+    'border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]';
 
   if (props.disabled) {
     return (
       <button
         type="button"
         disabled
-        className={`ui-btn-ghost ui-btn-sm text-xs opacity-35 rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-base)]/60`}
+        className={`ui-btn-ghost ui-btn-sm text-xs opacity-35 rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-muted)]`}
       >
         {props.label}
       </button>
@@ -118,7 +118,7 @@ function MenuItem(props: { label: string; onClick: () => void; disabled?: boolea
       type="button"
       disabled={props.disabled}
       onClick={props.onClick}
-      className={`ui-menu-item rounded-xl border-[var(--border-subtle)]/60 bg-[var(--bg-base)]/70 text-[11px] backdrop-blur-xs transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-muted)] hover:text-[var(--accent-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]`}
+      className={`ui-menu-item rounded-xl border-[var(--border-subtle)]/60 bg-[var(--bg-elevated)] text-[11px] transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-muted)] hover:text-[var(--accent-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]`}
     >
       {props.label}
     </button>
@@ -179,10 +179,10 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
 
   const selectionClassName =
     props.selectedCount <= 3
-      ? 'border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)] rounded-xl backdrop-blur-xs px-2.5 py-1 text-xs font-medium'
+      ? 'border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)] rounded-xl px-2.5 py-1 text-xs font-medium'
       : props.selectedCount <= 10
-        ? 'border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] text-[var(--tint-success-text)] rounded-xl backdrop-blur-xs px-2.5 py-1 text-xs font-medium'
-        : 'border-[var(--border-default)]/70 bg-[var(--bg-base)]/80 text-[var(--text-muted)] tabular-nums rounded-lg backdrop-blur-xs px-2.5 py-1 text-xs font-medium';
+        ? 'border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] text-[var(--tint-success-text)] rounded-xl px-2.5 py-1 text-xs font-medium'
+        : 'border-[var(--border-default)]/70 bg-[var(--bg-elevated)] text-[var(--text-muted)] tabular-nums rounded-lg px-2.5 py-1 text-xs font-medium';
 
   return (
     <div className="ui-gallery-dock sticky top-[calc(var(--header-offset,0px)+0.5rem)] z-20 p-3">
@@ -192,7 +192,7 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
           <button
             type="button"
             onClick={props.onClearSelection}
-            className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60 backdrop-blur-xs transition hover:bg-[var(--accent-muted)] hover:border-[var(--accent-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] text-[var(--accent-text)]`}
+            className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-muted)] transition hover:bg-[var(--accent-muted)] hover:border-[var(--accent-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] text-[var(--accent-text)]`}
           >
             Clear
           </button>
@@ -200,7 +200,7 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
 
         <button
           type="button"
-          className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] backdrop-blur-xs transition hover:bg-[var(--tint-success-bg)] hover:border-[var(--tint-success-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tint-success-border)] text-[var(--tint-success-text)] disabled:!hidden`}
+          className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] transition hover:bg-[var(--tint-success-bg)] hover:border-[var(--tint-success-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tint-success-border)] text-[var(--tint-success-text)] disabled:!hidden`}
           disabled={!compareReady}
           onClick={props.onCompare}
         >
@@ -209,7 +209,7 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
 
         <button
           type="button"
-          className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--accent-border)] bg-[var(--accent-muted)] backdrop-blur-xs transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] text-[var(--accent-text)] disabled:!hidden`}
+          className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--accent-border)] bg-[var(--accent-muted)] transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] text-[var(--accent-text)] disabled:!hidden`}
           disabled={!stitchReady}
           title="Join selected clips end-to-end in oldest-to-newest order, including animated webp/gif. Re-encodes in the browser — does not run a video model."
           onClick={props.onStitchVideos}
@@ -387,7 +387,7 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
                 type="submit"
                 disabled={!groupDraft.trim()}
                 data-testid="gallery-group-assign"
-                className="ui-menu-item rounded-xl border-[var(--border-subtle)]/60 bg-[var(--bg-base)]/70 text-[11px] backdrop-blur-xs transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-muted)] hover:text-[var(--accent-text)] disabled:opacity-40"
+                className="ui-menu-item rounded-xl border-[var(--border-subtle)]/60 bg-[var(--bg-elevated)] text-[11px] transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-muted)] hover:text-[var(--accent-text)] disabled:opacity-40"
               >
                 Assign to group
               </button>
@@ -470,7 +470,7 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
 
         <button
           type="button"
-          className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--tint-danger-border)] bg-[var(--tint-danger-bg)] backdrop-blur-xs transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tint-danger-border)] text-[var(--tint-danger-text)]`}
+          className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--tint-danger-border)] bg-[var(--tint-danger-bg)] transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tint-danger-border)] text-[var(--tint-danger-text)]`}
           onClick={props.onDelete}
         >
           Remove selected

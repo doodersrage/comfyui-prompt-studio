@@ -10,6 +10,9 @@ export type EmptyCta = {
 /** First-run Generate deep link — Random surprise, no keywords required. */
 export const FIRST_RUN_GENERATE_HREF = '/?source=random';
 
+/** Post-heal funnel — auto-generate random scene and queue to ComfyUI. */
+export const FIRST_RUN_QUEUE_HREF = '/?source=random&autogen=1&autoqueue=1';
+
 const PROMPT_TOOL_PATHS = new Set([
   '/',
   '/format',

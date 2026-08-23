@@ -22,12 +22,12 @@ export default function GalleryReviewTouchBar({
   ];
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/95 px-3 py-3 backdrop-blur-md lg:hidden">
+    <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[var(--border-subtle)]/80 bg-[var(--bg-elevated)] px-3 py-3 lg:hidden">
       <div className="mx-auto flex max-w-lg items-center justify-between gap-2">
         <button
           type="button"
           onClick={onPrev}
-          className={`ui-btn-secondary min-h-11 rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/60 backdrop-blur-xs transition hover:bg-[var(--accent-muted)] hover:border-[var(--accent-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] text-[var(--accent-text)]`}
+          className={`ui-btn-secondary min-h-11 rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-muted)] transition hover:bg-[var(--accent-muted)] hover:border-[var(--accent-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] text-[var(--accent-text)]`}
         >
           Prev
         </button>
@@ -37,7 +37,7 @@ export default function GalleryReviewTouchBar({
               key={rating}
               type="button"
               onClick={() => onRate(rating)}
-              className={`min-h-11 min-w-11 rounded-xl border-[var(--border-subtle)]/60 bg-[var(--bg-base)]/70 backdrop-blur-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] ${ratingColors[idx]}`}
+              className={`min-h-11 min-w-11 rounded-xl border-[var(--border-subtle)]/60 bg-[var(--bg-elevated)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] ${ratingColors[idx]}`}
             >
               {rating}
             </button>
@@ -46,14 +46,14 @@ export default function GalleryReviewTouchBar({
         <button
           type="button"
           onClick={onFavorite}
-          className={`ui-btn-secondary min-h-11 rounded-xl border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] backdrop-blur-xs transition hover:bg-[var(--tint-warning-bg)] hover:border-[var(--tint-warning-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] text-[var(--tint-warning-text)]`}
+          className={`ui-btn-secondary min-h-11 rounded-xl border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] transition hover:bg-[var(--tint-warning-bg)] hover:border-[var(--tint-warning-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] text-[var(--tint-warning-text)]`}
         >
           ★
         </button>
         <button
           type="button"
           onClick={onNext}
-          className={`ui-btn-secondary min-h-11 rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/60 backdrop-blur-xs transition hover:bg-[var(--accent-muted)] hover:border-[var(--accent-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] text-[var(--accent-text)]`}
+          className={`ui-btn-secondary min-h-11 rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-muted)] transition hover:bg-[var(--accent-muted)] hover:border-[var(--accent-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] text-[var(--accent-text)]`}
         >
           Next
         </button>

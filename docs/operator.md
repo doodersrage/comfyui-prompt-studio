@@ -24,7 +24,17 @@ Open [http://localhost:47832](http://localhost:47832) → **Settings → Overvie
 
 1. Click **Heal & ready**. That enables system workflows, merges suggested loader maps, adapts from ComfyUI inventory when reachable, installs missing custom-node packs via ComfyUI-Manager on each pool host (then restarts those hosts), and refreshes health.
 2. Confirm the heal checklist: LLM, ComfyUI, vision model, `PROMPT_DATA_DIR`, auth, SMTP.
-3. Generate a prompt on **Generate**, then **Send to ComfyUI**.
+3. Use **Generate & queue first scene** on the Connection tab (or open Generate and queue manually).
+
+### UX updates (1.3.x)
+
+Recent releases tightened first-run and day-to-day polish:
+
+- **Calm chrome** — flatter shadows, solid gallery docks, quieter card overlays (secondary chips on hover).
+- **First-run funnel** — post-Heal checklist links to `/?source=random&autogen=1&autoqueue=1` for a one-click random generate + ComfyUI queue; Welcome and palette **Heal & ready** mirror Settings.
+- **Dashboard outputs** — recent stills expose Re-queue, Refine, Roleplay, Edit, and Hints on hover.
+- **Command palette** (`Ctrl+K`) — Continue section lists active project, recent gallery outputs, and **Heal & ready**.
+- **Mobile gallery** — layout, density, and min-rating filters collapse to selects on narrow viewports; Mobile Studio header/tab bar uses solid surfaces instead of glass blur.
 
 If vision tools fail, `LLM_VISION_MODEL` is unset or the model is text-only. Settings → LLM can override the session text model; the vision model still comes from env (or the LLM panel override when present).
 

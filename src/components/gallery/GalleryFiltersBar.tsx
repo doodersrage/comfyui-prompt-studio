@@ -86,9 +86,9 @@ function FilterChip(props: {
       data-active={isActive ? 'true' : 'false'}
       className={`${
         isActive
-          ? 'border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)] hover:brightness-110'
-          : 'border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/80 text-[var(--text-muted)] hover:border-[var(--border-default)] hover:text-[var(--text-secondary)]'
-      } rounded-xl px-2.5 py-1 text-[11px] font-medium backdrop-blur-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]`}
+          ? 'border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)]'
+          : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-muted)] hover:border-[var(--border-default)] hover:text-[var(--text-secondary)]'
+      } rounded-xl px-2.5 py-1 text-[11px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]`}
     >
       {props.label}
     </button>
@@ -560,7 +560,54 @@ export default function GalleryFiltersBar({
           </label>
         ) : null}
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid w-full gap-3 md:hidden sm:grid-cols-2">
+          <label className="space-y-1.5">
+            <span className="type-caption text-[var(--text-muted)]">Layout</span>
+            <select
+              value={layout}
+              onChange={event => setLayout(event.target.value as GalleryLayoutMode)}
+              className="ui-input block w-full px-3 py-(--input-padding-y) type-body"
+            >
+              <option value="grid">Grid</option>
+              <option value="dense">Dense</option>
+              <option value="list">List</option>
+            </select>
+          </label>
+          <label className="space-y-1.5">
+            <span className="type-caption text-[var(--text-muted)]">Density</span>
+            <select
+              value={density}
+              onChange={event => setDensity(event.target.value as GalleryDensity)}
+              className="ui-input block w-full px-3 py-(--input-padding-y) type-body"
+            >
+              <option value="comfortable">Comfort</option>
+              <option value="compact">Compact</option>
+            </select>
+          </label>
+          <label className="space-y-1.5 sm:col-span-2">
+            <span className="type-caption text-[var(--text-muted)]">Min rating</span>
+            <select
+              value={filter.minRating ?? ''}
+              onChange={event =>
+                setFilter(previous => ({
+                  ...previous,
+                  minRating: event.target.value
+                    ? (Number(event.target.value) as 1 | 2 | 3 | 4 | 5)
+                    : undefined,
+                }))
+              }
+              className="ui-input block w-full px-3 py-(--input-padding-y) type-body"
+            >
+              <option value="">Any ★</option>
+              <option value="5">5★ only</option>
+              <option value="4">≥4★</option>
+              <option value="3">≥3★</option>
+              <option value="1">≥1★</option>
+            </select>
+          </label>
+        </div>
+
+        <div className="hidden flex-wrap items-center gap-2 md:flex">
           {(['grid', 'dense', 'list'] as const).map(mode => (
             <FilterChip
               key={mode}
@@ -634,7 +681,7 @@ export default function GalleryFiltersBar({
         </div>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="hidden flex-wrap items-center gap-2 md:flex">
         {(
           [
             { rating: undefined as 1 | 2 | 3 | 4 | 5 | undefined, label: 'Any ★' },
@@ -697,7 +744,7 @@ export default function GalleryFiltersBar({
                 type="button"
                 onClick={() => applySavedView(view)}
                 data-testid={`gallery-saved-view-${view.id}`}
-                className="ui-chip rounded-xl border border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)] backdrop-blur-xs transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+                className="ui-chip rounded-xl border border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)] transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
               >
                 {view.name}
               </button>
@@ -728,7 +775,7 @@ export default function GalleryFiltersBar({
               <button
                 type="button"
                 onClick={saveCurrentView}
-                className="ui-btn-ghost ui-btn-sm rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60 text-xs text-[var(--accent-text)] backdrop-blur-xs transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+                className="ui-btn-ghost ui-btn-sm rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-muted)] text-xs text-[var(--accent-text)] transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
               >
                 Save view
               </button>
@@ -783,7 +830,7 @@ export default function GalleryFiltersBar({
               setProjectFilterId('');
               setSort('queued-desc');
             }}
-            className="ui-btn-ghost ui-btn-sm rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60 text-xs transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+            className="ui-btn-ghost ui-btn-sm rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-muted)] text-xs transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
           >
             Clear all
           </button>
@@ -1089,7 +1136,7 @@ export default function GalleryFiltersBar({
               type="button"
               disabled={backfillLoading}
               onClick={() => void runVisionBackfill()}
-              className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] backdrop-blur-xs transition hover:bg-[var(--tint-info-bg)] hover:border-[var(--tint-info-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:opacity-40 ${
+              className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] transition hover:bg-[var(--tint-info-bg)] hover:border-[var(--tint-info-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:opacity-40 ${
                 backfillLoading ? 'text-slate-400' : 'text-[var(--tint-info-text)]'
               }`}
             >
@@ -1120,7 +1167,7 @@ export default function GalleryFiltersBar({
               <button
                 type="button"
                 onClick={onStartSlideshow}
-                className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] backdrop-blur-xs transition hover:bg-[var(--tint-warning-bg)] hover:border-[var(--tint-warning-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] text-[var(--tint-warning-text)]`}
+                className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] transition hover:bg-[var(--tint-warning-bg)] hover:border-[var(--tint-warning-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] text-[var(--tint-warning-text)]`}
               >
                 Slideshow
               </button>
@@ -1129,7 +1176,7 @@ export default function GalleryFiltersBar({
               <button
                 type="button"
                 onClick={onStartFullscreenSlideshow}
-                className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--accent-border)] bg-[var(--accent-muted)] backdrop-blur-xs transition hover:bg-[var(--accent-soft)] hover:border-[var(--accent-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] text-[var(--accent-text)]`}
+                className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--accent-border)] bg-[var(--accent-muted)] transition hover:bg-[var(--accent-soft)] hover:border-[var(--accent-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] text-[var(--accent-text)]`}
               >
                 Fullscreen slideshow
               </button>
@@ -1137,7 +1184,7 @@ export default function GalleryFiltersBar({
             {activeToggleCount > 0 ? (
               <button
                 type="button"
-                className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60 backdrop-blur-xs transition hover:bg-[var(--accent-muted)] hover:border-[var(--accent-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]`}
+                className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-muted)] transition hover:bg-[var(--accent-muted)] hover:border-[var(--accent-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]`}
                 onClick={() =>
                   setFilter({
                     ...filter,

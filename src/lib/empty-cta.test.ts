@@ -1,10 +1,18 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { FIRST_RUN_GENERATE_HREF, resolveWelcomeLandingCta } from './empty-cta';
+import {
+  FIRST_RUN_GENERATE_HREF,
+  FIRST_RUN_QUEUE_HREF,
+  resolveWelcomeLandingCta,
+} from './empty-cta';
 
 describe('empty-cta', () => {
   it('sends first-run Generate to random surprise', () => {
     assert.equal(FIRST_RUN_GENERATE_HREF, '/?source=random');
+  });
+
+  it('sends first-run queue funnel through autogen + autoqueue', () => {
+    assert.equal(FIRST_RUN_QUEUE_HREF, '/?source=random&autogen=1&autoqueue=1');
   });
 
   it('welcome landing defaults to Generate (SSR / no window mode)', () => {

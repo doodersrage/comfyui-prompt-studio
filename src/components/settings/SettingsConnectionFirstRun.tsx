@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Button, ButtonLink } from '@/components/ui/Button';
-import { FIRST_RUN_GENERATE_HREF } from '@/lib/empty-cta';
+import { FIRST_RUN_GENERATE_HREF, FIRST_RUN_QUEUE_HREF } from '@/lib/empty-cta';
 import type { HealthResponse } from '@/components/settings/tabs/settings-tool-shared';
 
 export default function SettingsConnectionFirstRun({
@@ -91,15 +91,25 @@ export default function SettingsConnectionFirstRun({
           <ol className="list-decimal space-y-1 pl-5 text-xs text-[var(--text-secondary)]">
             <li>
               <Link
+                href={FIRST_RUN_QUEUE_HREF}
+                className="font-medium text-[var(--accent-text)] underline-offset-2 hover:underline"
+              >
+                Generate & queue first scene
+              </Link>
+              {' — '}
+              Random surprise, auto-queued to ComfyUI
+            </li>
+            <li>
+              Or{' '}
+              <Link
                 href={FIRST_RUN_GENERATE_HREF}
                 className="font-medium text-[var(--accent-text)] underline-offset-2 hover:underline"
               >
-                Open Generate
-              </Link>
-              {' — '}
-              Random surprise needs no keywords
+                open Generate
+              </Link>{' '}
+              to review the prompt before queueing
             </li>
-            <li>Queue the prompt, then watch progress on Queue</li>
+            <li>Watch progress on Queue</li>
             <li>
               Rate the still in{' '}
               <Link

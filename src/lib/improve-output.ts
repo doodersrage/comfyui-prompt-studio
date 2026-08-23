@@ -226,6 +226,11 @@ export function startVideoFromGalleryEntry(entry: ComfyGalleryEntry): void {
   window.location.href = galleryHandoffPath('video');
 }
 
+export function startRoleplayFromGalleryEntry(entry: ComfyGalleryEntry): void {
+  saveGalleryHandoff(buildGalleryHandoff(entry, 'roleplay'));
+  window.location.href = galleryHandoffPath('roleplay');
+}
+
 export function startReeditRefineFromGalleryEntry(entry: ComfyGalleryEntry): void {
   saveGalleryHandoff(buildReeditGalleryHandoff(entry, 'refine'));
   applyGalleryStackToSession(entry, { toast: false });

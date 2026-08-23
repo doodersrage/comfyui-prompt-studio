@@ -26,7 +26,7 @@ function StatChip(props: {
 }) {
   const emphasisClass =
     props.emphasis === 'warning'
-      ? 'border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] text-[var(--tint-warning-text)] rounded-full backdrop-blur-xs'
+      ? 'border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] text-[var(--tint-warning-text)] rounded-full'
       : props.emphasis === 'muted'
         ? 'border-[var(--border-subtle)] bg-[var(--bg-subtle)] text-[var(--text-secondary)] rounded-lg'
         : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-secondary)] rounded-lg';
@@ -35,7 +35,7 @@ function StatChip(props: {
     ? 'ring-1 ring-[var(--accent-ring)] border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)] hover:bg-[var(--bg-hover)]'
     : '';
 
-  const className = `inline-flex min-w-0 items-baseline gap-2 rounded-[var(--radius-md)] border px-2.5 py-1.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] backdrop-blur-xs ${emphasisClass} ${activeClass} ${
+  const className = `inline-flex min-w-0 items-baseline gap-2 rounded-[var(--radius-md)] border px-2.5 py-1.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] ${emphasisClass} ${activeClass} ${
     props.onClick
       ? 'cursor-pointer hover:border-[var(--border-default)] hover:bg-[var(--bg-hover)]'
       : ''
@@ -89,7 +89,7 @@ export default function GalleryStatsBar({
         {heldMaxJobs > 0 ? (
           <div
             key="held-max"
-            className={`inline-flex min-w-0 items-baseline gap-2 rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60 px-2.5 py-1.5 backdrop-blur-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] text-slate-400`}
+            className={`inline-flex min-w-0 items-baseline gap-2 rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-muted)] px-2.5 py-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] text-slate-400`}
           >
             <span className="type-caption shrink-0 opacity-80">Held Max</span>
             <span className="type-heading tabular-nums">{heldMaxJobs}</span>
@@ -230,7 +230,7 @@ export default function GalleryStatsBar({
 
       {nearCapacity ? (
         <div
-          className={`rounded-xl border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] backdrop-blur-xs px-3.5 py-2 type-caption text-[var(--tint-warning-text)] transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tint-danger-border)]`}
+          className={`rounded-xl border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-3.5 py-2 type-caption text-[var(--tint-warning-text)] transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tint-danger-border)]`}
         >
           <p className="text-left">
             Gallery stores up to {GALLERY_ENTRY_LIMIT} entries in IndexedDB — oldest outputs drop

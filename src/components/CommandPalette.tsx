@@ -95,6 +95,32 @@ const ACTION_ITEMS: CommandItem[] = [
     group: 'Actions',
   },
   {
+    id: 'heal-connection',
+    label: 'Heal & ready',
+    subtitle: 'Enable system workflows and adapt loader maps from ComfyUI',
+    group: 'Actions',
+    action: () => {
+      void import('@/lib/first-run-setup').then(async ({ runHealAndReady }) => {
+        const result = await runHealAndReady({
+          onProgress: progress => {
+            window.dispatchEvent(
+              new CustomEvent('command-palette-heal-progress', { detail: progress.message })
+            );
+          },
+        });
+        if (result.ok || result.systemWorkflowsEnabled) {
+          void import('@/lib/first-run-dismiss').then(({ dismissFirstRunSetupSurfaces }) => {
+            dismissFirstRunSetupSurfaces();
+          });
+        }
+        window.dispatchEvent(new CustomEvent('settings-cache-updated'));
+        window.dispatchEvent(
+          new CustomEvent('command-palette-heal-done', { detail: result.message })
+        );
+      });
+    },
+  },
+  {
     id: 'reload',
     label: 'Reload page',
     action: () => window.location.reload(),
@@ -127,6 +153,7 @@ function allowPaletteItemOnPath(item: CommandItem, pathname: string): boolean {
       item.id === 'keyboard-shortcuts' ||
       item.id === 'reload' ||
       item.id === 'report-bug' ||
+      item.id === 'heal-connection' ||
       item.id === 'dismiss-continue'
     );
   }
@@ -246,6 +273,8 @@ export default function CommandPalette() {
   const [lastDraft, setLastDraft] = useState<ToolDraftSummary | null>(null);
   const [lastLook, setLastLook] = useState<SessionRecipe | null>(null);
   const [keeperStack, setKeeperStack] = useState<ComfyGalleryEntry | null>(null);
+  const [recentGallery, setRecentGallery] = useState<ComfyGalleryEntry[]>([]);
+  const [activeProjectLabel, setActiveProjectLabel] = useState<string | null>(null);
   const [globalMatches, setGlobalMatches] = useState<CommandItem[]>([]);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [pluginNavItems, setPluginNavItems] = useState<CommandItem[]>([]);
@@ -315,7 +344,23 @@ export default function CommandPalette() {
     });
     void import('@/lib/gallery-stack-restore').then(async ({ pickKeeperStackEntry }) => {
       const { loadComfyGallery } = await import('@/lib/comfyui-gallery');
-      setKeeperStack(pickKeeperStackEntry(loadComfyGallery()));
+      const gallery = loadComfyGallery();
+      setKeeperStack(pickKeeperStackEntry(gallery));
+      setRecentGallery(
+        gallery
+          .filter(entry => entry.status === 'completed')
+          .sort((a, b) => (b.completedAt ?? 0) - (a.completedAt ?? 0))
+          .slice(0, 5)
+      );
+    });
+    void import('@/lib/prompt-projects').then(({ loadActiveProjectId, loadPromptProjects }) => {
+      const activeId = loadActiveProjectId();
+      if (!activeId) {
+        setActiveProjectLabel(null);
+        return;
+      }
+      const project = loadPromptProjects().find(entry => entry.id === activeId);
+      setActiveProjectLabel(project?.name ?? activeId);
     });
     void import('@/lib/plugin-nav-links').then(({ resolveAllPluginNavLinks }) => {
       setPluginNavItems(
@@ -422,6 +467,25 @@ export default function CommandPalette() {
         },
       });
     }
+    if (activeProjectLabel) {
+      continueItems.push({
+        id: 'active-project',
+        label: `Active project · ${activeProjectLabel}`,
+        subtitle: 'Studio projects tab',
+        href: '/studio?tab=projects',
+        group: 'Continue',
+      });
+    }
+    for (const entry of recentGallery) {
+      const preview = entry.prompt.trim().slice(0, 72) || entry.model || 'Gallery output';
+      continueItems.push({
+        id: `recent-gallery-${entry.id}`,
+        label: `Gallery · ${preview}`,
+        subtitle: entry.tool ?? 'completed',
+        href: `/gallery?focus=${encodeURIComponent(entry.id)}`,
+        group: 'Gallery',
+      });
+    }
     if (lastDraft || lastRoute) {
       continueItems.push({
         id: 'dismiss-continue',
@@ -497,6 +561,7 @@ export default function CommandPalette() {
         return true;
       });
   }, [
+    activeProjectLabel,
     allowedFeatures,
     favorites,
     globalMatches,
@@ -509,6 +574,7 @@ export default function CommandPalette() {
     pathname,
     query,
     recent,
+    recentGallery,
     router,
   ]);
 

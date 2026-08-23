@@ -18,7 +18,12 @@ import {
 import { loadLastToolRoute, clearLastToolRoute } from '@/lib/last-tool-route';
 import { flattenAppNavLinks } from '@/lib/app-nav-catalog';
 import { buildGalleryFocusUrl, buildUseAsHintsUrlFromGallery } from '@/lib/use-as-hints-url';
-import { startPromptEditorFromGalleryEntry } from '@/lib/improve-output';
+import {
+  startPromptEditorFromGalleryEntry,
+  startRefineFromGalleryEntry,
+  startRoleplayFromGalleryEntry,
+} from '@/lib/improve-output';
+import { requeueComfyJobFromEntry } from '@/lib/comfyui-requeue';
 import GalleryEntryPreview from '@/components/ui/GalleryEntryPreview';
 import { usePromptHistory } from '@/hooks/usePromptHistory';
 import { useHubPageDescription, useToolSectionDescription } from '@/hooks/useToolPageDescription';
@@ -286,23 +291,44 @@ export default function HomeDashboard() {
                       {entry.prompt}
                     </p>
                   </div>
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex translate-y-1 gap-1 bg-gradient-to-t from-[rgb(0_0_0_/0.72)] via-[rgb(0_0_0_/0.45)] to-transparent p-2 pt-8 opacity-0 transition duration-200 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:translate-y-0 group-focus-within:opacity-100">
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex translate-y-1 gap-1 bg-gradient-to-t from-[var(--bg-base)] via-[var(--bg-base)]/80 to-transparent p-2 pt-8 opacity-0 transition duration-200 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:translate-y-0 group-focus-within:opacity-100">
                     <button
                       type="button"
-                      className="rounded-md border border-white/15 bg-white/10 px-2 py-1 text-[10px] font-medium text-white backdrop-blur-sm transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+                      className="rounded-md border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-2 py-1 text-[10px] font-medium text-[var(--text-primary)] transition hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+                      onClick={() => void requeueComfyJobFromEntry(entry)}
+                    >
+                      Re-queue
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-md border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-2 py-1 text-[10px] font-medium text-[var(--text-primary)] transition hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+                      onClick={() => startRefineFromGalleryEntry(entry)}
+                    >
+                      Refine
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-md border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-2 py-1 text-[10px] font-medium text-[var(--text-primary)] transition hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+                      onClick={() => startRoleplayFromGalleryEntry(entry)}
+                    >
+                      Roleplay
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-md border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-2 py-1 text-[10px] font-medium text-[var(--text-primary)] transition hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
                       onClick={() => startPromptEditorFromGalleryEntry(entry)}
                     >
                       Edit
                     </button>
                     <Link
                       href={hintsHref}
-                      className="rounded-md border border-white/15 bg-white/10 px-2 py-1 text-[10px] font-medium text-white backdrop-blur-sm transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+                      className="rounded-md border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-2 py-1 text-[10px] font-medium text-[var(--text-primary)] transition hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
                     >
                       Hints
                     </Link>
                     <Link
                       href={focusHref}
-                      className="rounded-md border border-white/15 bg-white/10 px-2 py-1 text-[10px] font-medium text-white backdrop-blur-sm transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+                      className="rounded-md border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-2 py-1 text-[10px] font-medium text-[var(--text-primary)] transition hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
                     >
                       Open
                     </Link>

@@ -55,13 +55,13 @@ export default function GalleryVisionReviewButton({ imageDataUrl, prompt, onAppl
         type="button"
         disabled={loading}
         onClick={() => void runReview()}
-        className={`ui-btn-secondary min-h-11 rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/70 backdrop-blur-xs transition hover:bg-[var(--accent-muted)] hover:border-[var(--accent-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] text-[var(--accent-text)] disabled:opacity-50`}
+        className={`ui-btn-secondary min-h-11 rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-elevated)] transition hover:bg-[var(--accent-muted)] hover:border-[var(--accent-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] text-[var(--accent-text)] disabled:opacity-50`}
       >
         {loading ? 'Analyzing…' : 'Vision review'}
       </button>
       {result ? (
         <div
-          className={`rounded-xl border-[var(--border-subtle)]/60 bg-[var(--bg-base)]/70 backdrop-blur-xs p-3 text-xs transition hover:border-[var(--accent-border)]`}
+          className={`rounded-xl border-[var(--border-subtle)]/60 bg-[var(--bg-elevated)] p-3 text-xs transition hover:border-[var(--accent-border)]`}
         >
           {result.suggestedRating > 0 ? (
             <p className="text-[var(--accent-text)]">Suggested: {result.suggestedRating}★</p>
@@ -73,7 +73,7 @@ export default function GalleryVisionReviewButton({ imageDataUrl, prompt, onAppl
           {result.suggestedRating >= 1 && result.suggestedRating <= 5 && onApplyRating ? (
             <button
               type="button"
-              className={`mt-2 rounded-xl border border-[var(--accent-border)] bg-[var(--accent-muted)] backdrop-blur-xs transition hover:bg-[var(--accent-muted)] hover:border-[var(--accent-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] text-[var(--accent-text)]`}
+              className={`mt-2 rounded-xl border border-[var(--accent-border)] bg-[var(--accent-muted)] transition hover:bg-[var(--accent-muted)] hover:border-[var(--accent-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] text-[var(--accent-text)]`}
               onClick={() => onApplyRating(result.suggestedRating as 1 | 2 | 3 | 4 | 5)}
             >
               Apply {result.suggestedRating}★

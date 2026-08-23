@@ -50,6 +50,8 @@ next-env.d.ts
 **/.venv/
 services/**/.venv/
 
+.cursor/
+
 # prettier cache
 .prettiercache
 

@@ -46,7 +46,22 @@ test('settings connection first-run hub loads', async ({ page }) => {
     'href',
     '/?source=random'
   );
+  await expect(page.getByRole('link', { name: /Generate & queue first scene/i })).toHaveAttribute(
+    'href',
+    '/?source=random&autogen=1&autoqueue=1'
+  );
   await expect(page.getByRole('button', { name: /Test connection/i })).toBeVisible();
+});
+
+test('command palette lists heal and gallery continue items', async ({ page }) => {
+  await seedGalleryFixture(page);
+  await gotoStable(page, '/dashboard');
+  await dismissBlockingOverlays(page);
+  await page.keyboard.press('Control+K');
+  const dialog = page.getByRole('dialog', { name: /Command palette/i });
+  await expect(dialog).toBeVisible({ timeout: 10_000 });
+  await expect(dialog.getByText(/Heal & ready/i)).toBeVisible();
+  await page.keyboard.press('Escape');
 });
 
 test('settings page loads', async ({ page }) => {

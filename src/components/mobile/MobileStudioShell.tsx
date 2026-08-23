@@ -25,7 +25,7 @@ export default function MobileStudioShell({ children }: { children: ReactNode })
       className="flex min-h-dvh flex-col bg-[var(--bg-base)] text-[var(--text-primary)]"
       data-accent={accent}
     >
-      <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] bg-[color-mix(in_oklab,var(--bg-base)_88%,transparent)] px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-md">
+      <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] bg-[var(--bg-muted)] px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <div className="flex min-w-0 items-center gap-2">
           <BrandMark size={28} />
           <div className="min-w-0">
@@ -46,7 +46,7 @@ export default function MobileStudioShell({ children }: { children: ReactNode })
       </main>
       <nav
         aria-label="Mobile Studio"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border-subtle)] bg-[color-mix(in_oklab,var(--bg-base)_92%,transparent)] pb-[env(safe-area-inset-bottom)] backdrop-blur-md"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border-subtle)] bg-[var(--bg-muted)] pb-[env(safe-area-inset-bottom)]"
       >
         <ul className="mx-auto grid max-w-lg grid-cols-4 gap-0.5 px-2 py-2">
           {tabs.map(entry => {

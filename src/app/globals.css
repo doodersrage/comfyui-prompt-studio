@@ -731,8 +731,14 @@ html[data-theme='light'] .ambient-bg__orb--rose {
 
 html[data-theme='light'] .ui-card,
 html[data-theme='light'] .ui-meta-panel,
-html[data-theme='light'] .ui-content-panel {
+html[data-theme='light'] .ui-content-panel,
+html[data-theme='light'] .ui-gallery-dock,
+html[data-theme='light'] .ui-gallery-card {
   background: color-mix(in oklab, var(--bg-elevated) 92%, white);
+}
+
+html[data-theme='light'] .ui-media-card:hover {
+  border-color: var(--border-strong);
 }
 
 .ambient-bg__orb--brand,

@@ -288,6 +288,10 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 - **Semantic search inline** — Match chip sits next to gallery search (non-lean)
 - **First-success tray nudge** — first lean-mode completed render uses notification + celebrate even when toasts are muted
 - **Visual polish** — restrained button/chip motion (no lift/glow), solid docks instead of stacked glass bars, quieter gallery overlays and menu labels, ToolBadge without pill chrome, Settings jump via select
+- **First-run queue deep link** — post-Heal checklist and `/?source=random&autogen=1&autoqueue=1` auto-generate + queue a random scene
+- **Dashboard output actions** — Re-queue, Refine, Roleplay, Edit, Hints on recent stills
+- **Command palette context** — active project, recent gallery outputs, Heal & ready action
+- **Mobile gallery filters** — layout/density/rating as selects on narrow viewports
 - **Home dashboard** — pending ComfyUI jobs, recent outputs, and active project on `/dashboard`
 - **Onboarding checklist** — Dashboard getting-started steps
 - **Command palette** — `Ctrl+K` / `⌘K` quick navigation across tools

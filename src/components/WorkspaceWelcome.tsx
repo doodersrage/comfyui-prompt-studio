@@ -13,7 +13,7 @@ import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { runHealAndReady } from '@/lib/first-run-setup';
 import { markOnboardingSetWorkspace } from '@/lib/onboarding-hooks';
-import { resolveWelcomeLandingCta } from '@/lib/empty-cta';
+import { resolveWelcomeLandingCta, FIRST_RUN_QUEUE_HREF } from '@/lib/empty-cta';
 import { useAuth } from '@/hooks/useAuth';
 
 type WelcomePhase = 'workspace' | 'setup' | 'ready';
@@ -218,13 +218,27 @@ export default function WorkspaceWelcome() {
                   Open Roleplay
                 </ButtonLink>
               )}
+              {generateCta.href.startsWith('/roleplay') ? null : (
+                <ButtonLink
+                  href={generateCta.href}
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setPhase(null)}
+                >
+                  {generateCta.label}
+                </ButtonLink>
+              )}
               <ButtonLink
-                href={generateCta.href}
+                href={
+                  generateCta.href.startsWith('/roleplay') ? generateCta.href : FIRST_RUN_QUEUE_HREF
+                }
                 variant="primary"
                 size="sm"
                 onClick={() => setPhase(null)}
               >
-                {generateCta.label}
+                {generateCta.href.startsWith('/roleplay')
+                  ? generateCta.label
+                  : 'Generate & queue first scene'}
               </ButtonLink>
             </div>
           </>

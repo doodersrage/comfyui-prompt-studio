@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { applySceneStarterWorkflowHints } from '@/lib/scene-starter-workflow-hints';
 import ScenePromptResultPanel from '@/components/scene-tool/ScenePromptResultPanel';
@@ -145,6 +145,13 @@ export default function PromptGenerator() {
     'model' | 'comfyNode' | 'limits' | 'metadata'
   > | null>(null);
 
+  const pendingFirstRunRef = useRef({
+    autogen: false,
+    autoqueue: false,
+    generated: false,
+    queued: false,
+  });
+
   const input = toolSettings.hints ?? '';
   const setInput = useCallback(
     (value: string) => {
@@ -248,6 +255,11 @@ export default function PromptGenerator() {
       applyHintSourceFromSearchParams(params, updateToolSettings);
       if (params.get('source') === 'random') {
         updateToolSettings({ generateSource: 'random', hintSource: 'random' });
+      }
+      const autogen = params.get('autogen') === '1';
+      const autoqueue = params.get('autoqueue') === '1';
+      if (autogen || autoqueue) {
+        pendingFirstRunRef.current = { autogen, autoqueue, generated: false, queued: false };
       }
       const seed = params.get('seed');
       if (seed?.trim()) {
@@ -537,6 +549,29 @@ export default function PromptGenerator() {
       setError('Could not copy to clipboard.');
     }
   }, [output]);
+
+  useEffect(() => {
+    if (!mounted || loading || pendingFirstRunRef.current.generated) {
+      return;
+    }
+    if (!pendingFirstRunRef.current.autogen || hintSource !== 'random') {
+      return;
+    }
+    pendingFirstRunRef.current.generated = true;
+    void generateRandom();
+  }, [generateRandom, hintSource, loading, mounted]);
+
+  useEffect(() => {
+    if (!mounted || loading || !output.trim() || pendingFirstRunRef.current.queued) {
+      return;
+    }
+    if (!pendingFirstRunRef.current.autoqueue) {
+      return;
+    }
+    pendingFirstRunRef.current.autoqueue = false;
+    pendingFirstRunRef.current.queued = true;
+    queueGenerate();
+  }, [loading, mounted, output, queueGenerate]);
 
   return (
     <ToolLayout
