@@ -6,7 +6,7 @@ export default function AmbientBackground() {
   return (
     <div className="ambient-bg" aria-hidden="true">
       <div className="ambient-bg__base" />
-      <div className="ambient-bg__orb ambient-bg__orb--violet" />
+      <div className="ambient-bg__orb ambient-bg__orb--brand" />
       <div className="ambient-bg__orb ambient-bg__orb--cyan" />
       <div className="ambient-bg__orb ambient-bg__orb--rose" />
       <div className="ambient-bg__sheen" />

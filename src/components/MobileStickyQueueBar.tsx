@@ -32,7 +32,7 @@ export default function MobileStickyQueueBar({
             suppressHydrationWarning
             data-action={primaryGenerate ? 'primary-generate' : undefined}
             onClick={onQueue}
-            className="ui-btn-primary min-h-12 flex-1 px-4 text-sm font-semibold transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+            className="ui-btn-primary min-h-12 flex-1 px-4 text-sm font-semibold transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:cursor-not-allowed disabled:opacity-40"
           >
             {label}
           </button>

@@ -80,7 +80,7 @@ function ComfyNodeCard({ data, selected }: NodeProps) {
 
 const nodeTypes = { comfy: ComfyNodeCard };
 
-const ACCENT = 'violet' as const;
+const ACCENT = 'brand' as const;
 
 export default function WorkflowEditorTool() {
   const description = useToolPageDescription(

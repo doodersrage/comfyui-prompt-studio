@@ -89,7 +89,7 @@ export default function ModelSamplerHints({
         <div className="mt-3 border-t border-[var(--tint-info-border)] pt-3">
           <button
             type="button"
-            className="flex w-full items-center justify-between gap-2 rounded-[var(--radius-md)] px-1 py-1 text-left text-xs font-medium text-[var(--tint-info-text)] transition hover:bg-[var(--tint-info-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.99]"
+            className="flex w-full items-center justify-between gap-2 rounded-[var(--radius-md)] px-1 py-1 text-left text-xs font-medium text-[var(--tint-info-text)] transition hover:bg-[var(--tint-info-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
             aria-expanded={overridesOpen}
             onClick={() => setOverridesOpen(open => !open)}
           >

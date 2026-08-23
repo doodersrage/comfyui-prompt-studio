@@ -82,22 +82,14 @@ function ActionMenu(props: { label: string; children: ReactNode; disabled?: bool
   }, [open]);
 
   const menuTone =
-    props.label === 'Export'
-      ? 'border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] text-[var(--tint-info-text)] hover:border-[var(--tint-info-border)]'
-      : props.label === 'Queue'
-        ? 'border-slate-600/35 bg-slate-900/15 text-slate-400 hover:border-slate-500/50'
-        : props.label === 'Send'
-          ? 'border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] text-[var(--tint-success-text)] hover:brightness-110'
-          : props.label === 'Organize'
-            ? 'border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)] hover:brightness-110'
-            : 'border-[var(--border-default)]/40 bg-[var(--bg-muted)]/20 text-[var(--text-muted)] hover:border-[var(--border-default)]/60';
+    'border-[var(--border-subtle)] bg-[var(--bg-base)]/80 text-[var(--text-secondary)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]';
 
   if (props.disabled) {
     return (
       <button
         type="button"
         disabled
-        className={`ui-btn-ghost ui-btn-sm text-xs opacity-35 rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60`}
+        className={`ui-btn-ghost ui-btn-sm text-xs opacity-35 rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-base)]/60`}
       >
         {props.label}
       </button>
@@ -110,7 +102,7 @@ function ActionMenu(props: { label: string; children: ReactNode; disabled?: bool
         type="button"
         aria-expanded={open}
         aria-haspopup="menu"
-        className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/70 backdrop-blur-xs transition ${menuTone} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.97]`}
+        className={`ui-btn-ghost ui-btn-sm text-xs rounded-[var(--radius-md)] border border-[var(--border-subtle)] transition ${menuTone} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]`}
         onClick={() => setOpen(value => !value)}
       >
         {props.label}
@@ -126,7 +118,7 @@ function MenuItem(props: { label: string; onClick: () => void; disabled?: boolea
       type="button"
       disabled={props.disabled}
       onClick={props.onClick}
-      className={`ui-menu-item rounded-xl border-[var(--border-subtle)]/60 bg-[var(--bg-base)]/70 text-[11px] backdrop-blur-xs transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-muted)] hover:text-[var(--accent-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.97]`}
+      className={`ui-menu-item rounded-xl border-[var(--border-subtle)]/60 bg-[var(--bg-base)]/70 text-[11px] backdrop-blur-xs transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-muted)] hover:text-[var(--accent-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]`}
     >
       {props.label}
     </button>

@@ -4,7 +4,7 @@ import { StudioTabSkeleton } from '@/components/ui/ViewState';
 
 const StudioTool = dynamic(() => import('@/components/StudioTool'), {
   loading: () => (
-    <PageCanvas accent="violet">
+    <PageCanvas accent="brand">
       <StudioTabSkeleton />
     </PageCanvas>
   ),
@@ -12,7 +12,7 @@ const StudioTool = dynamic(() => import('@/components/StudioTool'), {
 
 export default function StudioPage() {
   return (
-    <PageCanvas accent="violet">
+    <PageCanvas accent="brand">
       <StudioTool />
     </PageCanvas>
   );

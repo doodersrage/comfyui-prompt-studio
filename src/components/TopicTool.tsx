@@ -67,7 +67,7 @@ import { normalizeHistorySeedScope, normalizeSceneHintSource } from '@/lib/scene
 import { countHistorySeedCandidates } from '@/lib/history-hint-seed';
 import { scoreBatchReadiness } from '@/lib/batch-readiness';
 
-const ACCENT = 'violet' as const;
+const ACCENT = 'brand' as const;
 
 export default function TopicTool() {
   const description = useToolPageDescription(

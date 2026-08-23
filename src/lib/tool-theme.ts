@@ -1,9 +1,25 @@
 /**
  * Route tints — soft functional colors for badges and chips only.
  * Primary actions always use the single brand accent (--accent in globals.css).
+ * `violet` is kept as a deprecated alias of `brand`.
  */
 export type ToolAccent =
-  'violet' | 'emerald' | 'sky' | 'cyan' | 'teal' | 'amber' | 'fuchsia' | 'rose' | 'neutral';
+  | 'brand'
+  | 'violet'
+  | 'emerald'
+  | 'sky'
+  | 'cyan'
+  | 'teal'
+  | 'amber'
+  | 'fuchsia'
+  | 'rose'
+  | 'neutral';
+
+const brandTint = {
+  badge: 'border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)]',
+  chipActive: 'ui-chip',
+  text: 'text-[var(--accent-text)]',
+} as const;
 
 export const ROUTE_TINT_CLASSES: Record<
   ToolAccent,
@@ -13,11 +29,9 @@ export const ROUTE_TINT_CLASSES: Record<
     text: string;
   }
 > = {
-  violet: {
-    badge: 'border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)]',
-    chipActive: 'ui-chip',
-    text: 'text-[var(--accent-text)]',
-  },
+  brand: brandTint,
+  /** @deprecated Use `brand` — same teal/sky studio accent. */
+  violet: brandTint,
   emerald: {
     badge:
       'border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] text-[var(--tint-success-text)]',
@@ -68,16 +82,16 @@ export const ROUTE_TINT_CLASSES: Record<
 export const TOOL_ACCENT_CLASSES = ROUTE_TINT_CLASSES;
 
 export const ROUTE_ACCENT: Record<string, ToolAccent> = {
-  '/': 'violet',
+  '/': 'brand',
   '/format': 'emerald',
   '/prompt': 'sky',
   '/lint': 'amber',
-  '/topics': 'violet',
+  '/topics': 'brand',
   '/character': 'sky',
   '/characters': 'sky',
   '/background': 'teal',
   '/pet': 'rose',
-  '/fantasy': 'violet',
+  '/fantasy': 'brand',
   '/roleplay': 'amber',
   '/m': 'amber',
   '/m/queue': 'neutral',
@@ -89,9 +103,9 @@ export const ROUTE_ACCENT: Record<string, ToolAccent> = {
   '/inpaint': 'amber',
   '/compose': 'cyan',
   '/negative': 'rose',
-  '/studio': 'violet',
+  '/studio': 'brand',
   '/gallery': 'neutral',
-  '/variations': 'violet',
+  '/variations': 'brand',
   '/settings': 'neutral',
 };
 
@@ -102,7 +116,24 @@ export function accentForPath(pathname: string): ToolAccent {
   if (pathname.startsWith('/characters/')) {
     return 'sky';
   }
-  return 'violet';
+  const base = pathname.split('/').slice(0, 2).join('/') || '/';
+  if (ROUTE_ACCENT[base]) {
+    return ROUTE_ACCENT[base];
+  }
+  return 'brand';
+}
+
+export function normalizeToolAccent(value: string | undefined | null): ToolAccent {
+  if (!value) {
+    return 'brand';
+  }
+  if (value === 'violet') {
+    return 'brand';
+  }
+  if (value in ROUTE_TINT_CLASSES) {
+    return value as ToolAccent;
+  }
+  return 'brand';
 }
 
 /** Primary action button — always brand accent */

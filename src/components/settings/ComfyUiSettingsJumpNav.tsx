@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { ChipButton } from '@/components/ui/Field';
 import { accentFocusClass } from '@/components/ui/ToolPageShell';
 import {
   filterComfyUiSettingsSections,
@@ -26,6 +25,7 @@ export default function ComfyUiSettingsJumpNav({
     () => filterComfyUiSettingsSections('', { essentialsOnly }),
     [essentialsOnly]
   );
+  const options = sections.length ? sections : fallbackSections;
 
   return (
     <div className="ui-jump-nav space-y-3">
@@ -49,17 +49,27 @@ export default function ComfyUiSettingsJumpNav({
           />
         </label>
       </div>
-      <div className="flex flex-wrap gap-1.5">
-        {(sections.length ? sections : fallbackSections).map(section => (
-          <ChipButton
-            key={section.id}
-            active={activeSection === section.id}
-            onClick={() => onJump(section.id)}
-          >
-            {section.label}
-          </ChipButton>
-        ))}
-      </div>
+      <label className="block max-w-md space-y-1.5">
+        <span className="type-caption text-[var(--text-muted)]">Section</span>
+        <select
+          value={activeSection ?? ''}
+          onChange={event => {
+            const next = event.target.value as ComfyUiSettingsSectionId;
+            if (next) {
+              onJump(next);
+            }
+          }}
+          data-testid="comfyui-settings-jump-select"
+          className={`ui-input block w-full px-3 py-(--input-padding-y) type-body ${accentFocusClass()}`}
+        >
+          <option value="">Choose a section…</option>
+          {options.map(section => (
+            <option key={section.id} value={section.id}>
+              {section.label}
+            </option>
+          ))}
+        </select>
+      </label>
       {query.trim() && sections.length === 0 ? (
         <p className="type-caption text-[var(--text-muted)]">No sections match “{query.trim()}”.</p>
       ) : null}

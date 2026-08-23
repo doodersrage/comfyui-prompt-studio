@@ -8,7 +8,7 @@ const TopicTool = dynamic(() => import('@/components/TopicTool'), {
 
 export default function TopicsPage() {
   return (
-    <PageCanvas accent="violet">
+    <PageCanvas accent="brand">
       <TopicTool />
     </PageCanvas>
   );

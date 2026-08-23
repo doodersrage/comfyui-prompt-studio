@@ -69,7 +69,7 @@ import {
 import { FieldError, FieldLabel, TextArea } from '@/components/ui/Field';
 import { Button, PrimaryButton } from '@/components/ui/Button';
 
-const ACCENT = 'violet' as const;
+const ACCENT = 'brand' as const;
 
 function variationsHistoryTool(target: VariationTarget): HistorySeedTool {
   switch (target) {

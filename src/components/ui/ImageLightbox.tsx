@@ -1554,7 +1554,7 @@ export default function ImageLightbox({
                 data-testid={`lightbox-rate-${rating}`}
                 aria-label={`${rating}★`}
                 title={`Rate ${rating}`}
-                className={`rounded-md px-1.5 py-0.5 text-[11px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.97] ${
+                className={`rounded-md px-1.5 py-0.5 text-[11px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] ${
                   compact
                     ? slideChrome.rating === rating
                       ? 'bg-[var(--accent-muted)] text-white ring-white/40'

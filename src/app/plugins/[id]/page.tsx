@@ -159,8 +159,8 @@ export default function PluginDetailPage({ params }: PluginDetailPageProps) {
   if (plugin === undefined) {
     return (
       <ToolLayout
-        accent="violet"
-        badge={<ToolBadge accent="violet">Plugin</ToolBadge>}
+        accent="brand"
+        badge={<ToolBadge accent="brand">Plugin</ToolBadge>}
         title="Loading…"
         description="Resolving installed plugin manifest."
       >
@@ -172,8 +172,8 @@ export default function PluginDetailPage({ params }: PluginDetailPageProps) {
   if (!plugin) {
     return (
       <ToolLayout
-        accent="violet"
-        badge={<ToolBadge accent="violet">Plugin</ToolBadge>}
+        accent="brand"
+        badge={<ToolBadge accent="brand">Plugin</ToolBadge>}
         title="Plugin not found"
         description={`No installed plugin matches “${id}”.`}
       >
@@ -204,9 +204,9 @@ export default function PluginDetailPage({ params }: PluginDetailPageProps) {
       resolvePluginIframeTargetOrigin(iframeUrl) || '(unresolved — default deny)';
     return (
       <ToolLayout
-        accent="violet"
+        accent="brand"
         width="full"
-        badge={<ToolBadge accent="violet">Plugin</ToolBadge>}
+        badge={<ToolBadge accent="brand">Plugin</ToolBadge>}
         title={tool?.title || plugin.label}
         description={`${plugin.label} · v${plugin.version}`}
       >
@@ -239,8 +239,8 @@ export default function PluginDetailPage({ params }: PluginDetailPageProps) {
 
   return (
     <ToolLayout
-      accent="violet"
-      badge={<ToolBadge accent="violet">Plugin</ToolBadge>}
+      accent="brand"
+      badge={<ToolBadge accent="brand">Plugin</ToolBadge>}
       title={plugin.label}
       description={`Installed runtime plugin · v${plugin.version}`}
     >

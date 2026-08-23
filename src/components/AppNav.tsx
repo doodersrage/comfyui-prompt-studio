@@ -399,7 +399,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <Link
           href="/"
           onClick={onNavigate}
-          className="ui-nav-brand inline-flex items-center gap-2.5 rounded-[var(--radius-md)] px-1 py-1 transition hover:bg-[var(--bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.99]"
+          className="ui-nav-brand inline-flex items-center gap-2.5 rounded-[var(--radius-md)] px-1 py-1 transition hover:bg-[var(--bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
         >
           <BrandMark
             size={32}
@@ -614,7 +614,7 @@ export default function AppNav() {
       <header className="sticky top-0 z-40 flex items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--bg-muted)] px-4 py-3 backdrop-blur-md lg:hidden">
         <Link
           href="/"
-          className="inline-flex items-center gap-2 rounded-[var(--radius-md)] py-0.5 transition hover:bg-[var(--bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.99]"
+          className="inline-flex items-center gap-2 rounded-[var(--radius-md)] py-0.5 transition hover:bg-[var(--bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
         >
           <BrandMark
             size={28}

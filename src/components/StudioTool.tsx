@@ -101,7 +101,7 @@ const StudioPresetsTab = dynamic(() => import('@/components/studio/tabs/StudioPr
   loading: () => <StudioTabSkeleton />,
 });
 
-const ACCENT = 'violet' as const;
+const ACCENT = 'brand' as const;
 
 type StudioTab = StudioTabId;
 

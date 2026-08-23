@@ -9,7 +9,7 @@ const ProfilePanel = dynamic(() => import('@/components/profile/ProfilePanel'), 
   loading: () => <ToolPageSkeleton label="Loading profile" />,
 });
 
-const ACCENT = 'violet' as const;
+const ACCENT = 'brand' as const;
 
 export default function ProfilePageClient() {
   const description = useProfilePageDescription();

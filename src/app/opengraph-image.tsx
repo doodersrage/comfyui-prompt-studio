@@ -17,7 +17,7 @@ export default function OpenGraphImage() {
         padding: 64,
         background: 'linear-gradient(145deg, #0b0f14 0%, #121820 48%, #0c0c10 100%)',
         color: '#ececef',
-        fontFamily: 'Georgia, serif',
+        fontFamily: "Georgia, 'Iowan Old Style', 'Palatino Linotype', serif",
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>

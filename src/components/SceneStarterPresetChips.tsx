@@ -73,7 +73,7 @@ export default function SceneStarterPresetChips({
   category = 'all',
   onCategoryChange,
   mode = 'all',
-  accent = 'violet',
+  accent = 'brand',
   title = 'Scene presets',
   currentHints = '',
   variationsTarget = 'generate',

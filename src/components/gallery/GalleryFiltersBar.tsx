@@ -88,7 +88,7 @@ function FilterChip(props: {
         isActive
           ? 'border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)] hover:brightness-110'
           : 'border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/80 text-[var(--text-muted)] hover:border-[var(--border-default)] hover:text-[var(--text-secondary)]'
-      } rounded-xl px-2.5 py-1 text-[11px] font-medium backdrop-blur-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]`}
+      } rounded-xl px-2.5 py-1 text-[11px] font-medium backdrop-blur-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]`}
     >
       {props.label}
     </button>
@@ -697,7 +697,7 @@ export default function GalleryFiltersBar({
                 type="button"
                 onClick={() => applySavedView(view)}
                 data-testid={`gallery-saved-view-${view.id}`}
-                className="ui-chip rounded-xl border border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)] backdrop-blur-xs transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
+                className="ui-chip rounded-xl border border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)] backdrop-blur-xs transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
               >
                 {view.name}
               </button>
@@ -728,7 +728,7 @@ export default function GalleryFiltersBar({
               <button
                 type="button"
                 onClick={saveCurrentView}
-                className="ui-btn-ghost ui-btn-sm rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60 text-xs text-[var(--accent-text)] backdrop-blur-xs transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
+                className="ui-btn-ghost ui-btn-sm rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60 text-xs text-[var(--accent-text)] backdrop-blur-xs transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
               >
                 Save view
               </button>
@@ -748,7 +748,7 @@ export default function GalleryFiltersBar({
               key={chip.key}
               type="button"
               onClick={chip.clear}
-              className="inline-flex items-center gap-1 rounded-xl border border-[var(--accent-border)] bg-[var(--accent-muted)] px-2.5 py-1 text-[11px] font-medium text-[var(--accent-text)] transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
+              className="inline-flex items-center gap-1 rounded-xl border border-[var(--accent-border)] bg-[var(--accent-muted)] px-2.5 py-1 text-[11px] font-medium text-[var(--accent-text)] transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
             >
               {chip.label}
               <span aria-hidden className="text-[var(--accent-text)]">
@@ -783,7 +783,7 @@ export default function GalleryFiltersBar({
               setProjectFilterId('');
               setSort('queued-desc');
             }}
-            className="ui-btn-ghost ui-btn-sm rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60 text-xs transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
+            className="ui-btn-ghost ui-btn-sm rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60 text-xs transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
           >
             Clear all
           </button>

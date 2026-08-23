@@ -8,7 +8,7 @@ const WorkflowEditorTool = dynamic(() => import('@/components/WorkflowEditorTool
 
 export default function WorkflowEditorPage() {
   return (
-    <PageCanvas accent="violet">
+    <PageCanvas accent="brand">
       <WorkflowEditorTool />
     </PageCanvas>
   );

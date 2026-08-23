@@ -60,7 +60,7 @@ import {
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { FieldDivider } from '@/components/ui/Field';
 
-const ACCENT = 'violet' as const;
+const ACCENT = 'brand' as const;
 
 export default function FantasyTool() {
   const description = useToolPageDescription(

@@ -296,7 +296,7 @@ function AssetTrayRow({
         <button
           type="button"
           onClick={() => onCancel(job.id)}
-          className="shrink-0 rounded-lg border border-[var(--border-subtle)] px-2 py-1 text-[11px] text-[var(--text-secondary)] transition hover:border-[var(--border-default)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
+          className="shrink-0 rounded-lg border border-[var(--border-subtle)] px-2 py-1 text-[11px] text-[var(--text-secondary)] transition hover:border-[var(--border-default)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
         >
           Cancel
         </button>
@@ -448,7 +448,7 @@ export default function SystemTray() {
             aria-controls={panelId}
             data-testid="system-tray-toggle"
             onClick={() => setExpanded(value => !value)}
-            className="flex w-full items-start gap-3 px-3.5 py-3 text-left transition hover:bg-[var(--bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent-ring)] active:scale-[0.995]"
+            className="flex w-full items-start gap-3 px-3.5 py-3 text-left transition hover:bg-[var(--bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent-ring)]"
           >
             <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--accent-border)] bg-gradient-to-br from-[var(--accent-muted)] to-[var(--tint-info-bg)] text-[var(--accent-text)] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
               {primary.kind === 'asset' ? (

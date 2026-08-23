@@ -21,7 +21,7 @@ export default function BrandMark({
         alt=""
         width={size}
         height={size}
-        className="shrink-0 rounded-[22%] shadow-[0_8px_24px_-12px_rgba(56,189,248,0.45)]"
+        className="shrink-0 rounded-[22%] border border-[var(--border-subtle)]"
         decoding="async"
       />
       {withWordmark ? (

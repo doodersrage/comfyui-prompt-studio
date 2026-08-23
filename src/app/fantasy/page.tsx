@@ -8,7 +8,7 @@ const FantasyTool = dynamic(() => import('@/components/FantasyTool'), {
 
 export default function FantasyPage() {
   return (
-    <PageCanvas accent="violet">
+    <PageCanvas accent="brand">
       <FantasyTool />
     </PageCanvas>
   );

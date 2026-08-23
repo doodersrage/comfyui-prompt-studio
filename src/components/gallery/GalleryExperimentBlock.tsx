@@ -131,7 +131,7 @@ export default function GalleryExperimentBlock({
           <button
             type="button"
             onClick={onToggle}
-            className="rounded-lg border border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] px-2 py-0.5 text-[10px] font-medium text-[var(--tint-info-text)] backdrop-blur-sm transition hover:border-[var(--tint-info-border)] hover:bg-[var(--tint-info-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
+            className="rounded-lg border border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] px-2 py-0.5 text-[10px] font-medium text-[var(--tint-info-text)] backdrop-blur-sm transition hover:border-[var(--tint-info-border)] hover:bg-[var(--tint-info-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
           >
             {collapsed ? 'Expand' : 'Collapse'}
           </button>
@@ -145,7 +145,7 @@ export default function GalleryExperimentBlock({
               <button
                 type="button"
                 onClick={() => onCrown(entry.id)}
-                className={`absolute left-2 top-2 z-20 rounded-full border px-2 py-0.5 text-[10px] font-medium backdrop-blur transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98] ${
+                className={`absolute left-2 top-2 z-20 rounded-full border px-2 py-0.5 text-[10px] font-medium backdrop-blur transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] ${
                   winnerEntryId === entry.id
                     ? 'border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] text-[var(--tint-warning-text)]'
                     : 'border-[var(--border-subtle)] bg-[var(--bg-base)]/70 text-[var(--text-secondary)] hover:border-[var(--tint-warning-border)] hover:text-[var(--tint-warning-text)]'

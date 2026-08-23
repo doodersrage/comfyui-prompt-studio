@@ -198,8 +198,8 @@ export default function PluginsPage() {
 
   return (
     <ToolLayout
-      accent="violet"
-      badge={<ToolBadge accent="violet">Tools</ToolBadge>}
+      accent="brand"
+      badge={<ToolBadge accent="brand">Tools</ToolBadge>}
       title="Plugins"
       description="Install runtime manifests, manage queue-preflight hooks, and keep nav bookmarks for custom tools."
     >

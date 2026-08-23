@@ -85,7 +85,7 @@ const SharedToolControls = dynamic(() => import('@/components/SharedToolControls
   ),
 });
 
-const ACCENT = 'violet' as const;
+const ACCENT = 'brand' as const;
 
 type PromptMode = 'positive' | 'negative';
 

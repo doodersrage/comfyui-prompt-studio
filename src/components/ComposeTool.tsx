@@ -1118,7 +1118,7 @@ export default function ComposeTool() {
                           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]',
                           disabled
                             ? 'cursor-not-allowed border-[var(--border-subtle)]/60 bg-[var(--bg-muted)]/30 text-[var(--text-muted)]'
-                            : 'border-[var(--border-subtle)] bg-[var(--bg-muted)]/45 text-[var(--text-secondary)] hover:border-[var(--accent-border)] hover:bg-[var(--accent-muted)] hover:text-[var(--accent-text)] active:scale-[0.98]',
+                            : 'border-[var(--border-subtle)] bg-[var(--bg-muted)]/45 text-[var(--text-secondary)] hover:border-[var(--accent-border)] hover:bg-[var(--accent-muted)] hover:text-[var(--accent-text)]',
                         ].join(' ')}
                       >
                         {template.label}

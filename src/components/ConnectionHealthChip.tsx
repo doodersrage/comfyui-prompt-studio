@@ -80,7 +80,7 @@ export default function ConnectionHealthChip({ compact = false }: { compact?: bo
     <Link
       href={settingsTabHref('overview')}
       title="Open Settings → Overview for Heal & ready"
-      className={`inline-flex items-center gap-2 rounded-[var(--radius-lg)] border px-2.5 py-1.5 text-[11px] font-medium transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.99] ${toneClass(
+      className={`inline-flex items-center gap-2 rounded-[var(--radius-lg)] border px-2.5 py-1.5 text-[11px] font-medium transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] ${toneClass(
         health == null ? null : connected
       )}`}
     >

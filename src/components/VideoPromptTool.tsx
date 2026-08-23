@@ -58,7 +58,7 @@ import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { Button, ButtonLink, PrimaryButton } from '@/components/ui/Button';
 import { appendSharedLlmFormData } from '@/lib/llm-request-options';
 
-const ACCENT = 'violet' as const;
+const ACCENT = 'brand' as const;
 
 const LOCAL_INIT_IMAGE_MARKER = 'local-upload';
 

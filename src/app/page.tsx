@@ -8,7 +8,7 @@ const PromptGenerator = dynamic(() => import('@/components/PromptGenerator'), {
 
 export default function Home() {
   return (
-    <PageCanvas accent="violet">
+    <PageCanvas accent="brand">
       <PromptGenerator />
     </PageCanvas>
   );

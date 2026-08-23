@@ -5,7 +5,7 @@ import LoginForm from '@/components/auth/LoginForm';
 
 export default function LoginPage() {
   return (
-    <PageCanvas accent="violet">
+    <PageCanvas accent="brand">
       <div className="relative mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-6xl flex-col justify-center gap-10 px-4 py-12 sm:px-6 lg:min-h-[calc(100vh-4rem)] lg:flex-row lg:items-center lg:gap-16 lg:py-16">
         <section className="page-enter max-w-xl space-y-5 lg:flex-1">
           <BrandMark
@@ -17,13 +17,6 @@ export default function LoginPage() {
             Prompt, queue, and review ComfyUI work in one studio — image, video, audio, and 3D
             workflows with a gallery that keeps lineage close.
           </p>
-          <ul className="flex flex-wrap gap-2">
-            {['Generate', 'Queue', 'Gallery', 'Workflows'].map(label => (
-              <li key={label} className="ui-chip pointer-events-none" data-active="false">
-                {label}
-              </li>
-            ))}
-          </ul>
         </section>
 
         <section className="page-enter page-enter-delayed w-full max-w-md lg:flex-none">

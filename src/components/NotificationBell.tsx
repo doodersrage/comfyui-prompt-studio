@@ -36,7 +36,7 @@ export default function NotificationBell() {
       <button
         type="button"
         onClick={() => setOpen(value => !value)}
-        className="relative rounded-full border border-[var(--border-default)]/80 bg-[var(--bg-base)]/50 px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:border-[var(--accent-border)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
+        className="relative rounded-full border border-[var(--border-default)]/80 bg-[var(--bg-base)]/50 px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:border-[var(--accent-border)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
       >
         Alerts
         {unread > 0 ? (
@@ -57,7 +57,7 @@ export default function NotificationBell() {
             </div>
             <button
               type="button"
-              className="rounded-md px-1.5 py-0.5 text-[10px] text-[var(--accent-text)] transition hover:bg-[var(--accent-muted)] hover:text-[var(--accent-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
+              className="rounded-md px-1.5 py-0.5 text-[10px] text-[var(--accent-text)] transition hover:bg-[var(--accent-muted)] hover:text-[var(--accent-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
               onClick={() => {
                 markAllNotificationsRead();
                 refresh();

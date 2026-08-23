@@ -8,7 +8,7 @@ const VariationGridTool = dynamic(() => import('@/components/VariationGridTool')
 
 export default function VariationsPage() {
   return (
-    <PageCanvas accent="violet">
+    <PageCanvas accent="brand">
       <VariationGridTool />
     </PageCanvas>
   );

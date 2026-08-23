@@ -911,7 +911,7 @@ export default function SettingsComfyUiTab({
                   `Applied ${countMappedModels(merged)} model→workflow mappings from workflow filenames.`
                 );
               }}
-              className="mt-3 rounded-lg border border-[var(--border-default)] px-4 py-2 text-sm text-[var(--text-primary)] transition hover:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.99]"
+              className="mt-3 rounded-lg border border-[var(--border-default)] px-4 py-2 text-sm text-[var(--text-primary)] transition hover:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
             >
               Apply smart defaults by category
             </button>

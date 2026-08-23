@@ -19,19 +19,19 @@ const sectionSurfaceClasses: Record<ToolSectionVariant, string> = {
 };
 
 export const ToolBadge = memo(function ToolBadge({
-  accent = 'violet',
+  accent = 'brand',
   children,
 }: {
   accent?: ToolAccent;
   children: ReactNode;
 }) {
-  const theme = ROUTE_TINT_CLASSES[accent];
+  const theme = ROUTE_TINT_CLASSES[accent] ?? ROUTE_TINT_CLASSES.brand;
   return (
     <div
-      className={`type-overline inline-flex max-w-full items-center gap-2 rounded-[var(--radius-full)] border px-3 py-1 ${theme.badge}`}
+      className={`type-overline inline-flex max-w-full items-center gap-2 text-[var(--text-muted)] ${theme.text}`}
     >
       <BrandBars />
-      {children}
+      <span className="truncate">{children}</span>
     </div>
   );
 });
@@ -265,7 +265,7 @@ export const ToolPageShell = memo(function ToolPageShell({
 });
 
 export const ToolLayout = memo(function ToolLayout({
-  accent = 'violet',
+  accent = 'brand',
   width = 'default',
   badge,
   title,

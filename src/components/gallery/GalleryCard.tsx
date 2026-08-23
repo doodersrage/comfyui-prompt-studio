@@ -543,7 +543,7 @@ export default function GalleryCard({
                 <button
                   type="button"
                   onClick={() => onOpenImage(playbackIndex)}
-                  className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--border-default)]/80 bg-[var(--bg-base)]/80 px-2 py-0.5 text-[10px] text-[var(--text-primary)] backdrop-blur transition hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
+                  className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--border-default)]/80 bg-[var(--bg-base)]/80 px-2 py-0.5 text-[10px] text-[var(--text-primary)] backdrop-blur transition hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
                 >
                   Open
                 </button>
@@ -554,7 +554,7 @@ export default function GalleryCard({
                         <button
                           type="button"
                           onClick={() => startImproveFromGalleryEntry(entry)}
-                          className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] px-2 py-0.5 text-[10px] text-[var(--tint-success-text)] backdrop-blur transition hover:bg-[var(--tint-success-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tint-success-border)] active:scale-[0.98]"
+                          className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] px-2 py-0.5 text-[10px] text-[var(--tint-success-text)] backdrop-blur transition hover:bg-[var(--tint-success-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tint-success-border)]"
                         >
                           Improve
                         </button>
@@ -562,7 +562,7 @@ export default function GalleryCard({
                           <button
                             type="button"
                             onClick={() => startInpaintFromGalleryEntry(entry)}
-                            className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-2 py-0.5 text-[10px] text-[var(--tint-warning-text)] backdrop-blur transition hover:bg-[var(--tint-warning-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
+                            className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-2 py-0.5 text-[10px] text-[var(--tint-warning-text)] backdrop-blur transition hover:bg-[var(--tint-warning-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
                           >
                             Inpaint
                           </button>
@@ -571,7 +571,7 @@ export default function GalleryCard({
                           <button
                             type="button"
                             onClick={() => onRequeue(false, undefined, { exactGraph: true })}
-                            className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] px-2 py-0.5 text-[10px] text-[var(--tint-info-text)] backdrop-blur transition hover:bg-[var(--tint-info-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
+                            className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] px-2 py-0.5 text-[10px] text-[var(--tint-info-text)] backdrop-blur transition hover:bg-[var(--tint-info-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
                           >
                             Exact
                           </button>
@@ -579,7 +579,7 @@ export default function GalleryCard({
                           <button
                             type="button"
                             onClick={() => onRequeue(false)}
-                            className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)]/70 px-2 py-0.5 text-[10px] text-[var(--text-secondary)] backdrop-blur transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
+                            className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)]/70 px-2 py-0.5 text-[10px] text-[var(--text-secondary)] backdrop-blur transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
                           >
                             Requeue
                           </button>
@@ -594,7 +594,7 @@ export default function GalleryCard({
                           applyGalleryStackToSession(entry);
                           router.push(galleryToolHref(entry.tool));
                         }}
-                        className={`shrink-0 whitespace-nowrap rounded-lg border px-2 py-0.5 text-[10px] backdrop-blur transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98] ${
+                        className={`shrink-0 whitespace-nowrap rounded-lg border px-2 py-0.5 text-[10px] backdrop-blur transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] ${
                           (entry.reviewRating ?? 0) >= 4
                             ? 'border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)] hover:bg-[var(--accent-soft)]'
                             : 'border-[var(--border-subtle)] bg-[var(--bg-base)]/70 text-[var(--text-secondary)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]'
@@ -612,7 +612,7 @@ export default function GalleryCard({
                           applyGalleryPromptAndStackToSession(entry);
                           router.push(galleryToolHref(entry.tool));
                         }}
-                        className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)]/70 px-2 py-0.5 text-[10px] text-[var(--text-secondary)] backdrop-blur transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
+                        className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)]/70 px-2 py-0.5 text-[10px] text-[var(--text-secondary)] backdrop-blur transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
                       >
                         Prompt+
                       </button>
@@ -628,7 +628,7 @@ export default function GalleryCard({
                             }
                           });
                         }}
-                        className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)]/70 px-2 py-0.5 text-[10px] text-[var(--text-secondary)] backdrop-blur transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
+                        className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)]/70 px-2 py-0.5 text-[10px] text-[var(--text-secondary)] backdrop-blur transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
                       >
                         Lock
                       </button>
@@ -642,7 +642,7 @@ export default function GalleryCard({
                             onClick={() => {
                               saveGalleryLookFromEntry(entry);
                             }}
-                            className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)]/70 px-2 py-0.5 text-[10px] text-[var(--text-secondary)] backdrop-blur transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
+                            className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)]/70 px-2 py-0.5 text-[10px] text-[var(--text-secondary)] backdrop-blur transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
                           >
                             Look
                           </button>
@@ -651,7 +651,7 @@ export default function GalleryCard({
                           <button
                             type="button"
                             onClick={() => onFaceDetail()}
-                            className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--accent-border)] bg-[var(--accent-muted)] px-2 py-0.5 text-[10px] text-[var(--accent-text)] backdrop-blur transition hover:bg-[var(--accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
+                            className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--accent-border)] bg-[var(--accent-muted)] px-2 py-0.5 text-[10px] text-[var(--accent-text)] backdrop-blur transition hover:bg-[var(--accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
                           >
                             Face
                           </button>
@@ -665,7 +665,7 @@ export default function GalleryCard({
                               );
                             });
                           }}
-                          className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)]/70 px-2 py-0.5 text-[10px] text-[var(--text-secondary)] backdrop-blur transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
+                          className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)]/70 px-2 py-0.5 text-[10px] text-[var(--text-secondary)] backdrop-blur transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
                         >
                           ↓
                         </button>
@@ -683,7 +683,7 @@ export default function GalleryCard({
           <button
             type="button"
             onClick={onCancel}
-            className="absolute bottom-2.5 right-2.5 z-30 rounded-full border border-[var(--tint-danger-border)] bg-[var(--bg-base)]/85 px-2.5 py-1 text-[11px] text-[var(--tint-danger-text)] backdrop-blur transition hover:border-[var(--tint-danger-border)] hover:bg-[var(--tint-danger-bg)] hover:text-[var(--tint-danger-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tint-danger-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-base)] active:scale-[0.97]"
+            className="absolute bottom-2.5 right-2.5 z-30 rounded-full border border-[var(--tint-danger-border)] bg-[var(--bg-base)]/85 px-2.5 py-1 text-[11px] text-[var(--tint-danger-text)] backdrop-blur transition hover:border-[var(--tint-danger-border)] hover:bg-[var(--tint-danger-bg)] hover:text-[var(--tint-danger-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tint-danger-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-base)]"
           >
             Cancel
           </button>
@@ -701,7 +701,7 @@ export default function GalleryCard({
                 <button
                   type="button"
                   onClick={() => onRequeue(false, undefined, { exactGraph: true })}
-                  className="rounded-lg border border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] px-2.5 py-1 text-[11px] text-[var(--tint-info-text)] transition hover:bg-[var(--tint-info-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
+                  className="rounded-lg border border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] px-2.5 py-1 text-[11px] text-[var(--tint-info-text)] transition hover:bg-[var(--tint-info-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
                 >
                   Replay exact
                 </button>
@@ -709,7 +709,7 @@ export default function GalleryCard({
               <button
                 type="button"
                 onClick={() => onRequeue(false)}
-                className="rounded-lg border border-[var(--tint-danger-border)] bg-[var(--tint-danger-bg)] px-2.5 py-1 text-[11px] text-[var(--tint-danger-text)] transition hover:bg-[var(--tint-danger-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tint-danger-border)] active:scale-[0.98]"
+                className="rounded-lg border border-[var(--tint-danger-border)] bg-[var(--tint-danger-bg)] px-2.5 py-1 text-[11px] text-[var(--tint-danger-text)] transition hover:bg-[var(--tint-danger-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tint-danger-border)]"
               >
                 Retry
               </button>
@@ -722,7 +722,7 @@ export default function GalleryCard({
                       stickyHost: true,
                     })
                   }
-                  className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-muted)]/80 px-2.5 py-1 text-[11px] text-[var(--text-secondary)] transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
+                  className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-muted)]/80 px-2.5 py-1 text-[11px] text-[var(--text-secondary)] transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
                 >
                   Retry on {comfyHostLabel ?? 'this host'}
                 </button>
@@ -730,7 +730,7 @@ export default function GalleryCard({
               <button
                 type="button"
                 onClick={() => onRequeue(true)}
-                className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-muted)]/80 px-2.5 py-1 text-[11px] text-[var(--text-secondary)] transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98]"
+                className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-muted)]/80 px-2.5 py-1 text-[11px] text-[var(--text-secondary)] transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
               >
                 New seed
               </button>
@@ -743,12 +743,12 @@ export default function GalleryCard({
         <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-2.5">
           <div className="flex flex-wrap items-center gap-1.5">
             <span
-              className={`rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide backdrop-blur-sm ${statusTone(entry.status)}`}
+              className={`rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${statusTone(entry.status)}`}
             >
               {statusLabel(entry.status, entry)}
             </span>
             {entry.reviewRating ? (
-              <span className="rounded-full border border-[var(--accent-border)] bg-[var(--accent-muted)] px-2 py-0.5 text-[10px] text-[var(--accent-text)] backdrop-blur-sm">
+              <span className="rounded-full border border-[var(--accent-border)] bg-[var(--accent-muted)] px-2 py-0.5 text-[10px] text-[var(--accent-text)]">
                 {entry.reviewRating}★
               </span>
             ) : null}
@@ -759,55 +759,53 @@ export default function GalleryCard({
                 pointerEvents
               />
             ) : null}
-            {entry.reviewNote?.trim() ? (
-              <span
-                className="max-w-[9rem] truncate rounded-full border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-2 py-0.5 text-[10px] text-[var(--tint-warning-text)] backdrop-blur-sm"
-                title={entry.reviewNote.trim()}
-                data-testid="gallery-card-review-note"
-              >
-                Note
-              </span>
-            ) : null}
-            {entry.hasStoredWorkflow || entry.workflowJson ? (
-              <span
-                className="rounded-full border border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] px-2 py-0.5 text-[10px] text-[var(--tint-info-text)] backdrop-blur-sm"
-                title="Stored workflow JSON available for exact replay"
-              >
-                Exact graph
-              </span>
-            ) : entry.workflowJsonOmitted ? (
-              <span
-                className="rounded-full border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-2 py-0.5 text-[10px] text-[var(--tint-warning-text)] backdrop-blur-sm"
-                title="Graph was pruned (age/size budget) or too large to store"
-              >
-                Graph pruned
-              </span>
-            ) : null}
-            {primaryMediaKind === 'video' ? (
-              <span className="rounded-full border border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] px-2 py-0.5 text-[10px] text-[var(--tint-info-text)] backdrop-blur-sm">
-                {entry.sourceImageUrl?.trim() ? 'I2V' : 'Video'}
-              </span>
-            ) : null}
-            {entry.status === 'completed' && !entry.reviewRating ? (
-              <button
-                type="button"
-                disabled={!previewUrl || aestheticBusy}
-                onClick={() => void scoreWithVision()}
-                className={`pointer-events-auto rounded-full border border-[var(--border-default)]/60 bg-[var(--bg-base)]/70 px-2 py-0.5 text-[10px] text-[var(--text-muted)] backdrop-blur-sm transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.98] disabled:opacity-50 ${
-                  layout === 'dense'
-                    ? 'opacity-0 transition-opacity group-hover/card:opacity-100 group-focus-within/card:opacity-100'
-                    : ''
-                }`}
-                title={
-                  aestheticScore.notes.join(' · ') ||
-                  'Click to score with vision LLM (falls back to heuristic)'
-                }
-              >
-                {aestheticBusy
-                  ? '…'
-                  : `${aestheticScore.score}${aestheticScore.method === 'vision' ? '★' : ''}`}
-              </button>
-            ) : null}
+            <span className="contents opacity-0 transition-opacity group-hover/card:opacity-100 group-focus-within/card:opacity-100">
+              {entry.reviewNote?.trim() ? (
+                <span
+                  className="max-w-[9rem] truncate rounded-full border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-2 py-0.5 text-[10px] text-[var(--tint-warning-text)]"
+                  title={entry.reviewNote.trim()}
+                  data-testid="gallery-card-review-note"
+                >
+                  Note
+                </span>
+              ) : null}
+              {entry.hasStoredWorkflow || entry.workflowJson ? (
+                <span
+                  className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-base)]/80 px-2 py-0.5 text-[10px] text-[var(--text-muted)]"
+                  title="Stored workflow JSON available for exact replay"
+                >
+                  Exact graph
+                </span>
+              ) : entry.workflowJsonOmitted ? (
+                <span
+                  className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-base)]/80 px-2 py-0.5 text-[10px] text-[var(--text-muted)]"
+                  title="Graph was pruned (age/size budget) or too large to store"
+                >
+                  Graph pruned
+                </span>
+              ) : null}
+              {primaryMediaKind === 'video' ? (
+                <span className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-base)]/80 px-2 py-0.5 text-[10px] text-[var(--text-muted)]">
+                  {entry.sourceImageUrl?.trim() ? 'I2V' : 'Video'}
+                </span>
+              ) : null}
+              {entry.status === 'completed' && !entry.reviewRating ? (
+                <button
+                  type="button"
+                  disabled={!previewUrl || aestheticBusy}
+                  onClick={() => void scoreWithVision()}
+                  className="pointer-events-auto rounded-full border border-[var(--border-default)]/60 bg-[var(--bg-base)]/70 px-2 py-0.5 text-[10px] text-[var(--text-muted)] transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:opacity-50"
+                  title={
+                    aestheticScore.notes.join(' · ') ||
+                    'Click to score with vision LLM (falls back to heuristic)'
+                  }
+                >
+                  {aestheticBusy
+                    ? '…'
+                    : `${aestheticScore.score}${aestheticScore.method === 'vision' ? '★' : ''}`}
+                </button>
+              ) : null}
+            </span>
           </div>
 
           <div
@@ -883,7 +881,7 @@ export default function GalleryCard({
         <button
           type="button"
           onClick={onPick}
-          className="w-full rounded-xl border border-[var(--accent-border)] bg-[var(--accent-muted)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.99]"
+          className="w-full rounded-xl border border-[var(--accent-border)] bg-[var(--accent-muted)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
         >
           {pickLabel}
         </button>
@@ -1762,30 +1760,10 @@ export default function GalleryCard({
 }
 
 function GalleryMenuGroup({ label, children }: { label?: string; children: React.ReactNode }) {
-  const groupTone =
-    label === 'Export'
-      ? 'border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] text-[var(--tint-info-text)]' // cool accent
-      : label === 'Edit'
-        ? 'border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] text-[var(--tint-warning-text)]' // creative
-        : label === 'Queue'
-          ? 'border-slate-700/50 bg-slate-900/35 text-slate-400' // grounded
-          : label === 'Enhance'
-            ? 'border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)]' // premium
-            : label === 'Lineage'
-              ? 'border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)]' // ancestry
-              : label === 'Manage'
-                ? 'border-[var(--border-default)]/45 bg-[var(--bg-muted)]/25 text-[var(--text-muted)]' // utility
-                : 'border-[var(--border-default)]/60 bg-[var(--bg-muted)]/30 text-[var(--text-muted)]'; // default
-
   return (
     <div className="border-t border-[var(--border-subtle)]/80 py-1 first:border-t-0 first:pt-0">
       {label ? (
-        <p
-          className={
-            `rounded-full px-3 pb-1 pt-1.5 text-[10px] font-bold tracking-wider ${groupTone} ` +
-            'backdrop-blur-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]'
-          }
-        >
+        <p className="px-3 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
           {label}
         </p>
       ) : null}
@@ -1810,7 +1788,7 @@ function GalleryMenuButton(props: {
         props.tone === 'danger'
           ? 'text-[var(--tint-danger-text)] hover:bg-[var(--tint-danger-bg)] hover:text-[var(--tint-danger-text)] hover:border-[var(--tint-danger-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tint-danger-border)]'
           : 'text-[var(--text-muted)] hover:bg-[var(--accent-muted)] hover:text-[var(--text-primary)] hover:border-[var(--accent-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]'
-      } active:scale-[0.98]`}
+      }`}
     >
       {props.label}
     </button>

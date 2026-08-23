@@ -287,6 +287,7 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 - **Gallery group management** — Groups rail plus rename/delete for custom groups
 - **Semantic search inline** — Match chip sits next to gallery search (non-lean)
 - **First-success tray nudge** — first lean-mode completed render uses notification + celebrate even when toasts are muted
+- **Visual polish** — restrained button/chip motion (no lift/glow), solid docks instead of stacked glass bars, quieter gallery overlays and menu labels, ToolBadge without pill chrome, Settings jump via select
 - **Home dashboard** — pending ComfyUI jobs, recent outputs, and active project on `/dashboard`
 - **Onboarding checklist** — Dashboard getting-started steps
 - **Command palette** — `Ctrl+K` / `⌘K` quick navigation across tools

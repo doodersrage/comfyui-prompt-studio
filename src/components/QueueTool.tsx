@@ -41,7 +41,7 @@ import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
 import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
 import { refreshSharedHealth } from '@/lib/shared-health-poll';
 
-const ACCENT = 'violet' as const;
+const ACCENT = 'brand' as const;
 
 type ComfyQueueHealth = {
   queueRunning?: number;

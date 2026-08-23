@@ -8,7 +8,7 @@ const VideoPromptTool = dynamic(() => import('@/components/VideoPromptTool'), {
 
 export default function VideoPage() {
   return (
-    <PageCanvas accent="violet">
+    <PageCanvas accent="brand">
       <VideoPromptTool />
     </PageCanvas>
   );
