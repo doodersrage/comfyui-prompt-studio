@@ -128,6 +128,16 @@ export type ImagePromptOptions = SharedGenerationOptions & {
   extraHints?: string;
 };
 
+export type LogoOptions = SharedGenerationOptions & {
+  brandName?: string;
+  tagline?: string;
+  industry?: string;
+  stylePreset?: import('../logo-presets').LogoStylePresetId;
+  motif?: import('../logo-presets').LogoMotifId;
+  includeWordmark?: boolean;
+  extraNotes?: string;
+};
+
 export type TopicOptions = {
   seedTopic?: string;
   count?: number;

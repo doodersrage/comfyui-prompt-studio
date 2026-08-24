@@ -100,6 +100,7 @@ export const APP_NAV_GROUPS: AppNavGroup[] = [
       { href: '/video', label: 'Video', description: 'Motion prompts' },
       { href: '/audio', label: 'Audio', description: 'Sound / music prompts' },
       { href: '/mesh', label: '3D Mesh', description: 'Image → mesh prompts' },
+      { href: '/logo', label: 'Logo', description: 'SVG marks & raster logo prompts' },
     ],
   },
   {

@@ -139,6 +139,7 @@ const ADDITIONAL_ROUTES: Array<{ path: string; heading: RegExp; level?: 1 | 2 | 
   { path: '/topics', heading: /^Topics$/i },
   { path: '/variations', heading: /^Variations$/i },
   { path: '/video', heading: /^Video$/i },
+  { path: '/logo', heading: /^Logo$/i },
   { path: '/image-prompt', heading: /Image → Prompt/i },
   { path: '/inpaint', heading: /^Inpaint$/i },
   { path: '/plugins', heading: /^Plugins$/i },

@@ -98,6 +98,7 @@ export const ROUTE_ACCENT: Record<string, ToolAccent> = {
   '/studio': 'brand',
   '/gallery': 'neutral',
   '/variations': 'brand',
+  '/logo': 'amber',
   '/settings': 'neutral',
 };
 

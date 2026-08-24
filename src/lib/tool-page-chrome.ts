@@ -25,6 +25,7 @@ export const TOOL_SETUP_LABELS = {
   video: 'Video',
   audio: 'Audio',
   mesh: 'Mesh',
+  logo: 'Logo',
   lint: 'Lint',
   promptEditor: 'Prompt Editor',
   topics: 'Topics',

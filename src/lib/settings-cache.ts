@@ -811,6 +811,19 @@ export type MeshToolCache = {
   resolution?: number;
 };
 
+export type LogoToolCache = {
+  brandName?: string;
+  tagline?: string;
+  industry?: string;
+  stylePreset?: import('./logo-presets').LogoStylePresetId;
+  motif?: import('./logo-presets').LogoMotifId;
+  colorPrimary?: string;
+  colorSecondary?: string;
+  colorAccent?: string;
+  includeWordmark?: boolean;
+  extraNotes?: string;
+};
+
 export type LintToolCache = {
   hints?: string;
   prompt?: string;
@@ -1026,6 +1039,7 @@ export type ToolSettingsCache = {
   video?: VideoToolCache;
   audio?: AudioToolCache;
   mesh?: MeshToolCache;
+  logo?: LogoToolCache;
   lint?: LintToolCache;
   background?: BackgroundToolCache;
   pet?: PetToolCache;
@@ -1247,6 +1261,19 @@ export const DEFAULT_MESH_TOOL_CACHE: MeshToolCache = {
   materials: '',
   style: '',
   resolution: 512,
+};
+
+export const DEFAULT_LOGO_TOOL_CACHE: LogoToolCache = {
+  brandName: '',
+  tagline: '',
+  industry: '',
+  stylePreset: 'app-icon',
+  motif: 'studio-bars',
+  colorPrimary: '#5eead4',
+  colorSecondary: '#38bdf8',
+  colorAccent: '#f0ab7c',
+  includeWordmark: true,
+  extraNotes: '',
 };
 
 export const DEFAULT_LINT_TOOL_CACHE: LintToolCache = {

@@ -203,6 +203,7 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 - **Workflow diff** — Settings compares two workflow JSON files
 - **Workflow node auto-map** — suggested positive/negative bindings while editing workflow JSON
 - **Video prompt builder** — `/video` + local WAN / Hunyuan / LTX, or Fal / Replicate / Grok / Gemini clips (T2V, I2V, extend). I2V **Scan with vision** fills Subject and Motion from the first frame. Extend chip: Fal LTX extend-video or last-frame I2V. ChatGPT warns before queue. Compact **Video model files** Install rows download WAN / Hunyuan Video / LTX weights into `COMFYUI_ROOT`.
+- **Logo builder** — `/logo` instant SVG mark export (monogram, studio bars, viewport, geometric) from brand name + colors — no GPU. Optional **Generate raster prompt** queues a still for icon / wordmark refinement in ComfyUI or cloud.
 - **Audio / mesh model files** — `/audio` and `/mesh` (and Settings → ComfyUI → Model assets) Install Stable Audio Open 1.0 + T5-Base, and Hunyuan3D 2.0 DiT (single-view, multi-view, turbo) into `checkpoints/` / `text_encoders/`.
 - **Refine vision scan** — `/refine` **Scan with vision** fills Current prompt from the reference still (same pattern as Video I2V), then intent + Refine.
 - **Vision scan on still tools** — Inpaint, Outpaint, Compose (Image 1), ControlNet, and Roleplay From photo share **Scan with vision** next to Choose from Gallery.
