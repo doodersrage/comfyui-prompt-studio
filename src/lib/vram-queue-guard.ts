@@ -60,17 +60,65 @@ export function maybeDowngradeMaxForVram(
   return { profile: 'final', downgraded: true };
 }
 
-export async function fetchComfyVramSnapshot(): Promise<VramSnapshot | null> {
+export async function fetchComfyVramSnapshot(comfyUrl?: string): Promise<VramSnapshot | null> {
   try {
-    const response = await fetch('/api/health', {
+    const params = new URLSearchParams();
+    if (comfyUrl?.trim()) {
+      params.set('comfyUrl', comfyUrl.trim());
+    }
+    const query = params.toString();
+    const response = await fetch(query ? `/api/health?${query}` : '/api/health', {
       signal: AbortSignal.timeout(5000),
     });
     if (!response.ok) {
       return null;
     }
     const data = (await response.json()) as {
-      comfyui?: { vram?: VramSnapshot };
+      comfyui?: { vram?: VramSnapshot; url?: string };
+      comfyuiPool?: {
+        enabled?: boolean;
+        endpoints?: Array<{
+          url?: string;
+          ok?: boolean;
+          vram?: VramSnapshot;
+          queuePending?: number;
+          queueRunning?: number;
+        }>;
+      };
     };
+
+    // Prefer the target host, else the highest-scoring healthy pool member, else primary.
+    if (comfyUrl?.trim() && data.comfyui?.vram) {
+      return data.comfyui.vram;
+    }
+    if (data.comfyuiPool?.enabled && data.comfyuiPool.endpoints?.length) {
+      const { pickHighestScoringComfyUiEndpoint } = await import('./comfyui-pool');
+      const stats = data.comfyuiPool.endpoints
+        .map(endpoint => {
+          const url = endpoint.url?.trim();
+          if (!url) {
+            return null;
+          }
+          return {
+            url,
+            ok: endpoint.ok !== false,
+            vram: endpoint.vram,
+            queuePending: endpoint.queuePending,
+            queueRunning: endpoint.queueRunning,
+          };
+        })
+        .filter((endpoint): endpoint is NonNullable<typeof endpoint> => Boolean(endpoint));
+      const bestUrl = pickHighestScoringComfyUiEndpoint(
+        stats.map(stat => stat.url),
+        stats
+      );
+      const best = bestUrl
+        ? stats.find(stat => stat.url === bestUrl)
+        : stats.find(stat => stat.ok && stat.vram?.free != null);
+      if (best?.vram) {
+        return best.vram;
+      }
+    }
     return data.comfyui?.vram ?? null;
   } catch {
     return null;
@@ -80,10 +128,12 @@ export async function fetchComfyVramSnapshot(): Promise<VramSnapshot | null> {
 /**
  * Fetch VRAM + downgrade Max→Final on a runtime (and optional override profile).
  * Use before every /api/comfyui post that may run Max enrich.
+ * Pass `comfyUrl` when the target host is already known so the guard reads that card.
  */
 export async function guardQueueQualityForVram(input: {
   profile?: QueueQualityProfile;
   runtime?: ComfyUiRuntimeConfig;
+  comfyUrl?: string;
 }): Promise<{
   profile: QueueQualityProfile;
   runtime?: ComfyUiRuntimeConfig;
@@ -91,7 +141,8 @@ export async function guardQueueQualityForVram(input: {
 }> {
   const base =
     input.profile ?? input.runtime?.queueQualityProfile ?? normalizeQueueQualityProfile(undefined);
-  const vram = await fetchComfyVramSnapshot();
+  const targetUrl = input.comfyUrl?.trim() || input.runtime?.apiUrl?.trim() || undefined;
+  const vram = await fetchComfyVramSnapshot(targetUrl);
   const guard = maybeDowngradeMaxForVram(base, vram);
   return {
     profile: guard.profile,

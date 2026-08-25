@@ -96,6 +96,19 @@ describe("pickAlternateComfyUrl", () => {
       undefined,
     );
   });
+
+  it("prefers the highest-scoring alternate when pool stats are provided", () => {
+    const chosen = pickAlternateComfyUrl(
+      ["http://10.0.0.5:8188", "http://10.0.0.6:8188", "http://10.0.0.7:8188"],
+      "http://10.0.0.5:8188",
+      [
+        { url: "http://10.0.0.5:8188", ok: true, vram: { free: 20e9 }, queuePending: 0, queueRunning: 0 },
+        { url: "http://10.0.0.6:8188", ok: true, vram: { free: 4e9 }, queuePending: 3, queueRunning: 1 },
+        { url: "http://10.0.0.7:8188", ok: true, vram: { free: 18e9 }, queuePending: 0, queueRunning: 0 },
+      ],
+    );
+    assert.equal(chosen, "http://10.0.0.7:8188");
+  });
 });
 
 describe("decideOomRetry", () => {

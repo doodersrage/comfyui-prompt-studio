@@ -267,10 +267,20 @@ export default function QueueTool() {
       setStatus(result.error ?? 'Restart failed.');
       return;
     }
-    setStatus('ComfyUI restart requested. Wait a few seconds, then refresh.');
-    window.setTimeout(() => {
-      void refreshHealth();
-    }, 4000);
+    setStatus('Waiting for ComfyUI to come back…');
+    const { waitForComfyUiHostAfterRestart } = await import('@/lib/comfyui-host-ready');
+    const ready = await waitForComfyUiHostAfterRestart(queueHealth?.url);
+    if (ready.ok) {
+      setStatus(`ComfyUI ready after ${Math.round(ready.waitedMs / 1000)}s.`);
+      void import('@/lib/comfyui-gallery-poller').then(({ resumePendingGalleryPolls }) => {
+        resumePendingGalleryPolls();
+      });
+    } else {
+      setStatus(
+        'ComfyUI restart requested; host did not answer in time. Try Heal & ready on Overview.'
+      );
+    }
+    void refreshHealth();
   }
 
   async function cancelJob(entry: ComfyGalleryEntry) {

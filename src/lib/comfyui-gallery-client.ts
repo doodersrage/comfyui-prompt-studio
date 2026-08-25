@@ -665,6 +665,18 @@ function applyComfyJobStatus(
   clearComfyLivePreviewUrl(promptId);
   const completedAt = Date.now();
   const priorCompleted = loadComfyGallery().find(item => item.promptId === promptId);
+  const hasImages = Boolean(status.images && status.images.length > 0);
+  // Jobs can report completed before history writes filenames — keep polling briefly.
+  if (!hasImages) {
+    updateComfyGalleryByPromptId(promptId, {
+      status: 'running',
+      statusMessage: 'Job finished — waiting for output files…',
+      queuePosition: null,
+      comfyUrl: tracker.comfyUrl,
+    });
+    onStatus?.('Job finished — waiting for output files…');
+    return null;
+  }
   const renderDurationMs = resolveGalleryRenderDurationMs({
     renderDurationMs: status.renderDurationMs,
     queuedAt: priorCompleted?.queuedAt,
@@ -1008,9 +1020,45 @@ export async function pollComfyGalleryJob(
     return null;
   }
 
+  // Final history reconciliation before giving up — catches long Max jobs and WS races.
+  try {
+    const reconciled = await engine.fetchJobStatus(promptId, comfyUrl);
+    if (reconciled) {
+      const status = {
+        status: reconciled.status,
+        statusMessage: reconciled.statusMessage,
+        comfyUrl: reconciled.engineUrl || comfyUrl,
+        queuePosition: reconciled.queuePosition,
+        images: reconciled.images,
+        renderDurationMs: reconciled.renderDurationMs,
+        executionStartedAt: reconciled.executionStartedAt,
+      };
+      const entry = applyComfyJobStatus(promptId, status, onStatus, onJobUpdate);
+      if (entry) {
+        return entry;
+      }
+      if (reconciled.status === 'completed' && reconciled.images && reconciled.images.length > 0) {
+        return (
+          updateComfyGalleryByPromptId(promptId, {
+            status: 'completed',
+            statusMessage: reconciled.statusMessage ?? 'Completed',
+            images: reconciled.images,
+            queuePosition: null,
+            comfyUrl: reconciled.engineUrl || comfyUrl,
+            completedAt: Date.now(),
+          }) ?? null
+        );
+      }
+    }
+  } catch {
+    // Fall through to timed-out error.
+  }
+
+  forgetPendingGalleryPoll(promptId);
   return updateComfyGalleryByPromptId(promptId, {
-    status: 'running',
-    statusMessage: 'Still processing in ComfyUI — checking continues in background',
+    status: 'error',
+    statusMessage:
+      'Timed out waiting for ComfyUI — open Queue to claim orphans or import history, or run Heal & ready if the host restarted.',
     queuePosition: null,
     comfyUrl,
   });

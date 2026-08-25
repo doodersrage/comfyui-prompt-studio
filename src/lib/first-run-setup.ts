@@ -273,7 +273,9 @@ async function healMissingNodesOnPool(
           : `Checking ${url} for missing custom nodes…`,
     });
     const result = await installMissingWorkflowNodePacks(url);
-    hostsHealed += 1;
+    if (result.ok) {
+      hostsHealed += 1;
+    }
     for (const name of result.installed) {
       if (!installed.includes(name)) {
         installed.push(name);
@@ -295,6 +297,12 @@ async function healMissingNodesOnPool(
         hostCount: urls.length,
         message: note,
       });
+    } else if (!result.ok) {
+      const note =
+        urls.length > 1
+          ? `${url}: heal failed (host unreachable or object_info empty).`
+          : 'Heal failed (host unreachable or object_info empty).';
+      hostNotes.push(note);
     }
   }
 

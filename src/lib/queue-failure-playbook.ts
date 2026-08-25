@@ -46,6 +46,20 @@ export function resolveQueueFailureHref(message: string): string | undefined {
     return settingsComfyUiSectionHref('vram-guard');
   }
   if (
+    /timed out waiting for ComfyUI|claim orphans|import history|waiting for output files|still processing/i.test(
+      text
+    )
+  ) {
+    return '/queue';
+  }
+  if (
+    /host did not answer in time|could not read object_info|still booting|half-?healed|heal failed/i.test(
+      text
+    )
+  ) {
+    return settingsTabHref('overview');
+  }
+  if (
     /object_info unavailable|ComfyUI.*(unreachable|refused|failed to fetch|ECONNREFUSED)/i.test(
       text
     ) ||

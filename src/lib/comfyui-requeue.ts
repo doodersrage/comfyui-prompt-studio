@@ -181,7 +181,7 @@ export type RequeueComfyJobResult = {
 };
 
 async function resolveEnhanceQualityProfile(input: {
-  entry: Pick<ComfyGalleryEntry, 'id' | 'model' | 'tool'>;
+  entry: Pick<ComfyGalleryEntry, 'id' | 'model' | 'tool' | 'comfyUrl'>;
   qualityProfile: Extract<QueueQualityProfile, 'final' | 'max'>;
   kind: 'upscale' | 'moire' | 'refine';
   force?: boolean;
@@ -212,7 +212,7 @@ async function resolveEnhanceQualityProfile(input: {
   }
   // Always re-check VRAM for Max (including force flush) — hold bypass stays force-only.
   if (qualityProfile === 'max') {
-    const vram = await fetchComfyVramSnapshot();
+    const vram = await fetchComfyVramSnapshot(input.entry.comfyUrl);
     const guard = maybeDowngradeMaxForVram(qualityProfile, vram);
     if (guard.downgraded) {
       qualityProfile = 'final';

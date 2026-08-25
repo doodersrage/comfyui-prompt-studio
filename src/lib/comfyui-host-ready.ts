@@ -149,17 +149,41 @@ export async function probeComfyUiHostViaHealth(comfyUrl?: string): Promise<bool
   return Boolean(data?.comfyui?.ok);
 }
 
-export async function waitForComfyUiHostAfterRestart(comfyUrl?: string): Promise<{
+/** Health ok plus a non-empty object_info — cold GPU boots often answer health before nodes load. */
+export async function probeComfyUiHostFullyReady(comfyUrl?: string): Promise<boolean> {
+  if (!(await probeComfyUiHostViaHealth(comfyUrl))) {
+    return false;
+  }
+  try {
+    const { fetchComfyObjectInfoCached } = await import('./comfyui-object-info-cache');
+    const info = await fetchComfyObjectInfoCached({ comfyUrl, forceRefresh: true });
+    return Boolean(info?.nodeTypes && info.nodeTypes.size > 0);
+  } catch {
+    return false;
+  }
+}
+
+/** Default wait after Manager/Queue restart — cold GPU + custom nodes often need >60s. */
+export const COMFY_HOST_RESTART_READY_TIMEOUT_MS = 180_000;
+
+export async function waitForComfyUiHostAfterRestart(
+  comfyUrl?: string,
+  options?: { timeoutMs?: number; requireObjectInfo?: boolean }
+): Promise<{
   ok: boolean;
   waitedMs: number;
 }> {
+  const requireObjectInfo = options?.requireObjectInfo !== false;
   const ready = await waitForComfyUiHostReady({
-    probe: () => probeComfyUiHostViaHealth(comfyUrl),
-    timeoutMs: 60_000,
+    probe: () =>
+      requireObjectInfo
+        ? probeComfyUiHostFullyReady(comfyUrl)
+        : probeComfyUiHostViaHealth(comfyUrl),
+    timeoutMs: options?.timeoutMs ?? COMFY_HOST_RESTART_READY_TIMEOUT_MS,
     intervalMs: 2_000,
     initialDelayMs: 1_000,
   });
-  if (ready.ok) {
+  if (ready.ok && !requireObjectInfo) {
     const { fetchComfyObjectInfoCached } = await import('./comfyui-object-info-cache');
     await fetchComfyObjectInfoCached({ comfyUrl, forceRefresh: true });
   }

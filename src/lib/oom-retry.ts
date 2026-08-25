@@ -4,12 +4,18 @@
  * `isOomOrExecutionErrorMessage` / `decideOomRetry` are pure and unit-tested
  * directly. `attemptOomAutoRetry` is the orchestration hook wired into the
  * gallery job error path (comfyui-gallery-client.ts) — it loads settings,
- * marks the failed entry so it can only auto-retry once, and re-queues via a
- * dynamic import of comfyui-requeue.ts (kept dynamic to avoid a circular
- * import, since comfyui-requeue.ts imports comfyui-gallery-client.ts).
+ * marks the failed entry so it can only auto-retry once after a successful
+ * requeue, and re-queues via a dynamic import of comfyui-requeue.ts (kept
+ * dynamic to avoid a circular import, since comfyui-requeue.ts imports
+ * comfyui-gallery-client.ts).
  */
 
 import type { ComfyGalleryEntry } from './comfyui-gallery-entry';
+import {
+  pickHighestScoringComfyUiEndpoint,
+  pickLoadBalancedComfyUiEndpoint,
+  type ComfyUiPoolEndpointStat,
+} from './comfyui-pool';
 import { normalizeQueueQualityProfile, type QueueQualityProfile } from './queue-quality-profile';
 
 const OOM_OR_EXECUTION_ERROR_PATTERN =
@@ -61,16 +67,35 @@ function normalizeUrlForCompare(url: string): string {
   return url.trim().replace(/\/+$/, '').toLowerCase();
 }
 
-/** First pool URL that isn't (a normalized match of) the current endpoint, or `undefined`. */
+/**
+ * First alternate pool URL that isn't the current endpoint.
+ * When `stats` are provided, prefers the healthiest / highest VRAM-score candidate
+ * (same scoring as queue routing) instead of the first list entry.
+ */
 export function pickAlternateComfyUrl(
   poolUrls: string[] | undefined,
-  currentUrl: string | undefined
+  currentUrl: string | undefined,
+  stats?: ComfyUiPoolEndpointStat[] | null
 ): string | undefined {
   if (!poolUrls || poolUrls.length < 2) {
     return undefined;
   }
   const currentNormalized = currentUrl ? normalizeUrlForCompare(currentUrl) : '';
-  return poolUrls.find(url => url.trim() && normalizeUrlForCompare(url) !== currentNormalized);
+  const candidates = poolUrls.filter(
+    url => url.trim() && normalizeUrlForCompare(url) !== currentNormalized
+  );
+  if (candidates.length === 0) {
+    return undefined;
+  }
+  if (stats && stats.length > 0) {
+    const scored =
+      pickHighestScoringComfyUiEndpoint(candidates, stats) ??
+      pickLoadBalancedComfyUiEndpoint(candidates, stats);
+    if (scored) {
+      return scored;
+    }
+  }
+  return candidates[0];
 }
 
 export type OomRetryDecision =
@@ -99,6 +124,8 @@ export type DecideOomRetryInput = {
   poolUrls?: string[];
   /** The endpoint the failed job ran on. */
   currentComfyUrl?: string;
+  /** Optional live pool stats so failover matches queue routing. */
+  poolStats?: ComfyUiPoolEndpointStat[] | null;
 };
 
 /**
@@ -120,7 +147,7 @@ export function decideOomRetry(input: DecideOomRetryInput): OomRetryDecision {
 
   const profile = normalizeQueueQualityProfile(input.queueQualityProfile);
   const isMaxOrFinal = profile === 'max' || profile === 'final';
-  const altUrl = pickAlternateComfyUrl(input.poolUrls, input.currentComfyUrl);
+  const altUrl = pickAlternateComfyUrl(input.poolUrls, input.currentComfyUrl, input.poolStats);
 
   if (!isMaxOrFinal) {
     if (altUrl) {
@@ -178,6 +205,7 @@ export type DecideDeadHostRetryInput = {
   autoRetryOnOom?: boolean;
   poolUrls?: string[];
   currentComfyUrl?: string;
+  poolStats?: ComfyUiPoolEndpointStat[] | null;
 };
 
 /** Switch pool hosts on connection refused / timeout. Never downgrades quality. */
@@ -193,7 +221,7 @@ export function decideDeadHostRetry(input: DecideDeadHostRetryInput): DeadHostRe
   if (!fromMessage && !fromStatus) {
     return { action: 'none', reason: 'not a dead-host failure' };
   }
-  const altUrl = pickAlternateComfyUrl(input.poolUrls, input.currentComfyUrl);
+  const altUrl = pickAlternateComfyUrl(input.poolUrls, input.currentComfyUrl, input.poolStats);
   if (!altUrl) {
     return { action: 'none', reason: 'no alternate pool endpoint' };
   }
@@ -206,20 +234,66 @@ export function decideDeadHostRetry(input: DecideDeadHostRetryInput): DeadHostRe
 
 /** Best-effort: fetches known ComfyUI pool endpoint URLs from `/api/health`. Returns `[]` on any failure. */
 export async function fetchComfyUiPoolUrlsForRetry(): Promise<string[]> {
+  const stats = await fetchComfyUiPoolStatsForRetry();
+  return stats.map(endpoint => endpoint.url).filter(Boolean);
+}
+
+/** Live pool queue/VRAM stats from `/api/health` (same scores as queue routing). */
+export async function fetchComfyUiPoolStatsForRetry(): Promise<ComfyUiPoolEndpointStat[]> {
   try {
     const response = await fetch('/api/health');
     if (!response.ok) {
       return [];
     }
     const data = (await response.json()) as {
-      comfyuiPool?: { enabled?: boolean; endpoints?: Array<{ url?: string }> };
+      comfyuiPool?: {
+        enabled?: boolean;
+        endpoints?: Array<{
+          url?: string;
+          ok?: boolean;
+          vram?: { free?: number; total?: number };
+          queuePending?: number;
+          queueRunning?: number;
+        }>;
+      };
+      comfyui?: {
+        url?: string;
+        ok?: boolean;
+        vram?: { free?: number; total?: number };
+        queuePending?: number;
+        queueRunning?: number;
+      };
     };
-    if (!data.comfyuiPool?.enabled) {
+    if (data.comfyuiPool?.enabled) {
+      const stats: ComfyUiPoolEndpointStat[] = [];
+      for (const endpoint of data.comfyuiPool.endpoints ?? []) {
+        const url = endpoint.url?.trim();
+        if (!url) {
+          continue;
+        }
+        stats.push({
+          url,
+          ok: endpoint.ok !== false,
+          vram: endpoint.vram,
+          queuePending: endpoint.queuePending,
+          queueRunning: endpoint.queueRunning,
+        });
+      }
+      return stats;
+    }
+    const primary = data.comfyui?.url?.trim();
+    if (!primary) {
       return [];
     }
-    return (data.comfyuiPool.endpoints ?? [])
-      .map(endpoint => endpoint.url?.trim())
-      .filter((url): url is string => Boolean(url));
+    return [
+      {
+        url: primary,
+        ok: data.comfyui?.ok !== false,
+        vram: data.comfyui?.vram,
+        queuePending: data.comfyui?.queuePending,
+        queueRunning: data.comfyui?.queueRunning,
+      },
+    ];
   } catch {
     return [];
   }
@@ -234,10 +308,10 @@ export type OomAutoRetryResult = {
 
 /**
  * Orchestrates a single OOM auto-retry attempt for a failed gallery entry:
- * loads settings, resolves pool endpoints, decides an action, marks the
- * entry so it can't retry twice, and (when the decision isn't "none")
- * re-queues via comfyui-requeue.ts. Returns `null` when no retry is
- * attempted (settings disabled, not OOM, already retried, or no action).
+ * loads settings, resolves pool endpoints, decides an action, and (when the
+ * decision isn't "none") re-queues via comfyui-requeue.ts. Marks
+ * `oomRetryAttempted` only after a successful requeue so a transient 502 does
+ * not burn the one-shot budget. Returns `null` when no retry is attempted.
  */
 export async function attemptOomAutoRetry(
   entry: ComfyGalleryEntry,
@@ -257,24 +331,22 @@ export async function attemptOomAutoRetry(
   ]);
   const shared = loadSettingsCache().shared;
 
-  const poolUrls = await fetchComfyUiPoolUrlsForRetry();
+  const poolStats = await fetchComfyUiPoolStatsForRetry();
+  const poolUrls = poolStats.map(endpoint => endpoint.url);
   const decision = decideOomRetry({
     statusMessage,
     queueQualityProfile: entry.queueQualityProfile,
-    // Already checked above — `entry.oomRetryAttempted` is guaranteed falsy here.
     alreadyRetried: false,
     autoRetryOnOom: shared.autoRetryOnOom,
     downgradeEnabled: shared.oomRetryDowngrade,
     poolUrls,
     currentComfyUrl: entry.comfyUrl,
+    poolStats,
   });
 
   if (decision.action === 'none') {
     return { decision, requeued: false };
   }
-
-  // Mark before requeueing — never allow a second auto-retry even if the requeue itself fails.
-  updateComfyGalleryByPromptId(entry.promptId, { oomRetryAttempted: true });
 
   onStatus?.(`Auto-retry: ${decision.reason}…`);
 
@@ -297,6 +369,7 @@ export async function attemptOomAutoRetry(
     if (!result.ok) {
       return { decision, requeued: false, error: result.error };
     }
+    updateComfyGalleryByPromptId(entry.promptId, { oomRetryAttempted: true });
     return { decision, requeued: true, promptId: result.promptId };
   } catch (error) {
     return {
@@ -332,20 +405,21 @@ export async function attemptDeadHostAutoRetry(
     import('./comfyui-gallery'),
   ]);
   const shared = loadSettingsCache().shared;
-  const poolUrls = await fetchComfyUiPoolUrlsForRetry();
+  const poolStats = await fetchComfyUiPoolStatsForRetry();
+  const poolUrls = poolStats.map(endpoint => endpoint.url);
   const decision = decideDeadHostRetry({
     statusMessage,
     alreadyRetried: false,
     autoRetryOnOom: shared.autoRetryOnOom,
     poolUrls,
     currentComfyUrl: entry.comfyUrl,
+    poolStats,
   });
 
   if (decision.action === 'none') {
     return { decision, requeued: false };
   }
 
-  updateComfyGalleryByPromptId(entry.promptId, { oomRetryAttempted: true });
   onStatus?.(`Auto-retry: ${decision.reason}…`);
 
   try {
@@ -372,6 +446,7 @@ export async function attemptDeadHostAutoRetry(
     if (!result.ok) {
       return { decision, requeued: false, error: result.error };
     }
+    updateComfyGalleryByPromptId(entry.promptId, { oomRetryAttempted: true });
     return { decision, requeued: true, promptId: result.promptId };
   } catch (error) {
     return {
@@ -382,7 +457,7 @@ export async function attemptDeadHostAutoRetry(
   }
 }
 
-/** OOM first (may downgrade), then dead-host switch. At most one auto-retry. */
+/** OOM first (may downgrade), then dead-host switch. At most one successful auto-retry. */
 export async function attemptGalleryHostFailover(
   entry: ComfyGalleryEntry,
   statusMessage: string | undefined,

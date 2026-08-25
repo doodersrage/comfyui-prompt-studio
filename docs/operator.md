@@ -89,7 +89,7 @@ If Test says the host is not on `COMFYUI_ALLOWED_HOSTS`, copy the snippet anyway
 
 - **Preferred pool host** pins gallery stills / sticky retry to one URL.
 - **Load-balance** skips hosts at or above the busy threshold.
-- **Retry on OOM or unreachable host** fails over to another pool member; optional quality downgrade on OOM.
+- **Retry on OOM or unreachable host** fails over to another pool member using the same VRAM/queue scoring as normal routing; optional quality downgrade on OOM. A failed requeue does not burn the one-shot retry.
 
 ---
 
@@ -172,7 +172,7 @@ At queue time the server merges:
 
 Each extra URL is validated against `COMFYUI_ALLOWED_HOSTS` and dropped if it fails. Invalid extras do not abort the whole pool.
 
-**Heal & ready** walks every pool URL (env + Settings extras + health endpoints): missing system-workflow node types are installed via ComfyUI-Manager, then that host is restarted and polled until `/system_stats` (via health) answers. The Overview button shows which host is being checked. A host without Manager is reported, not skipped silently. Gallery import, Queue orphans, and queue-depth strips walk the same pool.
+**Heal & ready** walks every pool URL (env + Settings extras + health endpoints): missing system-workflow node types are installed via ComfyUI-Manager, then that host is restarted and polled until health **and** `object_info` answer (up to ~3 minutes for cold GPU boots). Unreachable hosts or empty `object_info` are reported as failed, not counted as healed. The Overview button shows which host is being checked. A host without Manager is reported, not skipped silently. Gallery import, Queue orphans, and queue-depth strips walk the same pool. Queue **Restart ComfyUI** uses the same ready-wait and resumes pending gallery polls.
 
 `COMFYUI_ALLOW_CLIENT_URL` and `COMFYUI_ALLOWED_HOSTS` are **env only**. The UI never writes them.
 

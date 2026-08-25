@@ -30,6 +30,26 @@ describe('resolveQueueFailureHref', () => {
     assert.match(resolveQueueFailureHref('ComfyUI unauthorized 401') ?? '', /connection|comfyui/i);
   });
 
+  it('routes stuck polls, empty outputs, and half-healed hosts', () => {
+    assert.equal(
+      resolveQueueFailureHref(
+        'Timed out waiting for ComfyUI — open Queue to claim orphans or import history'
+      ),
+      '/queue'
+    );
+    assert.equal(resolveQueueFailureHref('Job finished — waiting for output files…'), '/queue');
+    assert.match(
+      resolveQueueFailureHref(
+        'Could not read object_info from http://127.0.0.1:8188 — still booting'
+      ) ?? '',
+      /overview|settings/i
+    );
+    assert.match(
+      resolveQueueFailureHref('ComfyUI restart requested; host did not answer in time') ?? '',
+      /overview|settings/i
+    );
+  });
+
   it('returns undefined for generic failures', () => {
     assert.equal(resolveQueueFailureHref('Something went wrong'), undefined);
   });

@@ -119,15 +119,32 @@ export async function installMissingWorkflowNodePacks(
       forceRefresh: true,
     });
     if (!objectInfo?.nodeTypes || objectInfo.nodeTypes.size === 0) {
-      return emptyInstall();
+      const host = comfyUrl?.trim() || 'ComfyUI';
+      return {
+        ok: false,
+        installed: [],
+        unresolved: [],
+        restartRequested: false,
+        message: `Could not read object_info from ${host} — host may be down or still booting.`,
+      };
     }
     const missing = collectMissingWorkflowNodeTypes(loadComfyWorkflowFiles(), objectInfo.nodeTypes);
     if (missing.length === 0) {
       return emptyInstall();
     }
     return requestComfyManagerInstall({ nodeTypes: missing, comfyUrl, restart: true });
-  } catch {
-    return emptyInstall();
+  } catch (error) {
+    const host = comfyUrl?.trim() || 'ComfyUI';
+    return {
+      ok: false,
+      installed: [],
+      unresolved: [],
+      restartRequested: false,
+      message:
+        error instanceof Error
+          ? `Could not heal ${host}: ${error.message}`
+          : `Could not heal ${host} — host may be unreachable.`,
+    };
   }
 }
 
