@@ -46,12 +46,30 @@ function scheduleIdle(callback: () => void, timeoutMs: number): () => void {
 }
 
 export default function DeferredShellClient() {
-  const [toastReady, setToastReady] = useState(false);
-  const [shellReady, setShellReady] = useState(false);
+  const playwright = process.env.NEXT_PUBLIC_PLAYWRIGHT === '1';
+  // Playwright needs CommandPalette / shortcuts on first Ctrl+K — idle defer loses the keypress.
+  const [toastReady, setToastReady] = useState(playwright);
+  const [shellReady, setShellReady] = useState(playwright);
   const [batchEnabled, setBatchEnabled] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
+
+    void import('@/lib/scheduled-batch').then(({ loadScheduledBatchConfig }) => {
+      if (cancelled) {
+        return;
+      }
+      if (loadScheduledBatchConfig().enabled) {
+        setBatchEnabled(true);
+      }
+    });
+
+    if (playwright) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
     const enableToast = () => {
       if (!cancelled) {
         setToastReady(true);
@@ -63,15 +81,6 @@ export default function DeferredShellClient() {
       }
     };
 
-    void import('@/lib/scheduled-batch').then(({ loadScheduledBatchConfig }) => {
-      if (cancelled) {
-        return;
-      }
-      if (loadScheduledBatchConfig().enabled) {
-        setBatchEnabled(true);
-      }
-    });
-
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         enableShell();
@@ -81,8 +90,7 @@ export default function DeferredShellClient() {
 
     // Toast feedback should appear quickly after first paint.
     const cancelToastIdle = scheduleIdle(enableToast, 400);
-    const shellIdleMs = process.env.NEXT_PUBLIC_PLAYWRIGHT === '1' ? 100 : 7000;
-    const cancelShellIdle = scheduleIdle(enableShell, shellIdleMs);
+    const cancelShellIdle = scheduleIdle(enableShell, 7000);
 
     return () => {
       cancelled = true;
@@ -90,7 +98,7 @@ export default function DeferredShellClient() {
       cancelToastIdle();
       cancelShellIdle();
     };
-  }, []);
+  }, [playwright]);
 
   return (
     <>

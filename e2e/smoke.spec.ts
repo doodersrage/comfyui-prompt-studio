@@ -40,22 +40,23 @@ test('settings connection first-run hub loads', async ({ page }) => {
   await expect(page.getByRole('heading', { name: /Settings & Health/i })).toBeVisible({
     timeout: 30_000,
   });
-  await expect(page.getByRole('button', { name: /Heal & ready/i })).toBeVisible({
+  const connection = page.locator('#settings-comfyui-connection');
+  await expect(connection.getByRole('button', { name: /Heal & ready/i })).toBeVisible({
     timeout: 30_000,
   });
-  await expect(page.getByRole('link', { name: 'Open Generate', exact: true })).toHaveAttribute(
+  await expect(connection.getByRole('link', { name: 'Open Generate', exact: true })).toHaveAttribute(
     'href',
     '/?source=random',
     { timeout: 30_000 }
   );
-  const queueLink = page.getByRole('link', { name: /Generate & queue first scene/i });
+  const queueLink = connection.getByRole('link', { name: /Generate & queue first scene/i });
   if (await queueLink.isVisible({ timeout: 3_000 }).catch(() => false)) {
     await expect(queueLink).toHaveAttribute(
       'href',
       '/?source=random&autogen=1&autoqueue=1'
     );
   }
-  await expect(page.getByRole('button', { name: /Test connection/i })).toBeVisible({
+  await expect(connection.getByRole('button', { name: /Test connection/i })).toBeVisible({
     timeout: 30_000,
   });
 });

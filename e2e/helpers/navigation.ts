@@ -35,12 +35,16 @@ export async function revealFullSettings(page: Page): Promise<void> {
   // Sidebar control is in the parent Settings shell (available before the ComfyUI tab hydrates).
   const sidebar = page.getByRole('button', { name: /All settings/i });
   if (await sidebar.isVisible({ timeout: 3_000 }).catch(() => false)) {
-    await sidebar.click();
-  } else {
-    const comfy = page.getByRole('button', { name: /Show all ComfyUI settings/i });
-    if (await comfy.isVisible({ timeout: 3_000 }).catch(() => false)) {
+    await sidebar.click({ force: true }).catch(async () => {
+      await sidebar.click();
+    });
+    return;
+  }
+  const comfy = page.getByRole('button', { name: /Show all ComfyUI settings/i });
+  if (await comfy.isVisible({ timeout: 3_000 }).catch(() => false)) {
+    await comfy.click({ force: true }).catch(async () => {
       await comfy.click();
-    }
+    });
   }
 }
 
