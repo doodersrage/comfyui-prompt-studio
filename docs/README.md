@@ -11,7 +11,7 @@ Prompt Studio docs are split by audience so the [main README](../README.md) stay
 | Doc | Contents |
 | --- | --- |
 | [Main README](../README.md) | What it is, quick start, tools table, supported models |
-| [Operator guide](operator.md) | Heal & ready, second GPU, new-machine backup, invite + SMTP |
+| [Operator guide](operator.md) | Heal & ready, [10-minute loop](operator.md#10-minute-loop), second GPU, backup, invite + SMTP |
 | [Configuration & deployment](configuration.md) | `.env.local`, LLM, auth, security, production checklist, Docker |
 | [Desktop app](desktop.md) | Tauri installers (macOS / Windows / Linux) |
 | [ComfyUI custom nodes](../comfyui/comfyui_image_prompt_tools/README.md) | Install `PromptTools*` nodes into ComfyUI |

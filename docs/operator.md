@@ -2,7 +2,7 @@
 
 Stand up Prompt Studio, add a second ComfyUI box, move a studio to a new machine, and invite users. Product features live in [features.md](features.md); env names and production hardening live in [configuration.md](configuration.md).
 
-Jump to: [First launch](#first-launch) · [Settings map](#settings-map) · [Second GPU](#second-gpu) · [New machine](#new-machine) · [Auth and mail](#auth-and-mail) · [Cluster behavior](#cluster-behavior) · [What stays in env](#what-stays-in-env)
+Jump to: [First launch](#first-launch) · [10-minute loop](#10-minute-loop) · [Settings map](#settings-map) · [Second GPU](#second-gpu) · [New machine](#new-machine) · [Auth and mail](#auth-and-mail) · [Cluster behavior](#cluster-behavior) · [What stays in env](#what-stays-in-env)
 
 ---
 
@@ -26,7 +26,20 @@ Open [http://localhost:47832](http://localhost:47832) → **Settings → Overvie
 2. Confirm the heal checklist: LLM, ComfyUI, vision model, `PROMPT_DATA_DIR`, auth, SMTP.
 3. Use **Generate & queue first scene** on the Connection tab (or open Generate and queue manually).
 
-### UX updates (1.3.x)
+Tool banners also expose **Heal & ready** when ComfyUI is down or system workflows are off — same one-click path as Overview.
+
+### 10-minute loop {#10-minute-loop}
+
+The shortest path from a blank install to a character reel:
+
+1. **Still** — Generate (`/?source=random`) or queue from Heal’s first-scene link. Wait for Gallery.
+2. **Clip** — Open the still → **Continue in Video** (or `/video` with the still as first frame). Set I2V, add a short motion line, queue.
+3. **Rate** — In Gallery, favorite or rate the still/clip so avoidance and recommender learn.
+4. **Cast** — Open Roleplay or Character home → **Save to Cast** (or assign the look to a character). Continue the reel with Fitting / Day / Roleplay as needed.
+
+Stay in **Simple** for Essentials (Dashboard, Generate, Cast, Roleplay, Gallery, Queue). Studio history, Video, Refine, and specialty Scene tools sit under **More tools** / ⌘K.
+
+### UX updates (1.3.x+)
 
 Recent releases tightened first-run and day-to-day polish:
 
@@ -35,6 +48,8 @@ Recent releases tightened first-run and day-to-day polish:
 - **Dashboard outputs** — recent stills expose Re-queue, Refine, Roleplay, Edit, and Hints on hover.
 - **Command palette** (`Ctrl+K`) — Continue section lists active project, recent gallery outputs, and **Heal & ready**.
 - **Mobile gallery** — layout, density, and min-rating filters collapse to selects on narrow viewports; Mobile Studio header/tab bar uses solid surfaces instead of glass blur.
+- **Vision uploads** — Scan with vision and Image → Prompt send JSON data URLs (avoids intermittent multipart FormData parse failures).
+- **Simple Essentials** — Studio history moved under More; Fitting / Day / Moodboard preferred near the top of More.
 
 If vision tools fail, `LLM_VISION_MODEL` is unset or the model is text-only. Settings → LLM can override the session text model; the vision model still comes from env (or the LLM panel override when present).
 

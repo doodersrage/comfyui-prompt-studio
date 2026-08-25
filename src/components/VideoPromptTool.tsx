@@ -56,7 +56,8 @@ import { resolveFalExtendParentUrl } from '@/lib/fal-extend-upload';
 import { engineDisplayName } from '@/lib/engine/capabilities';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { Button, ButtonLink, PrimaryButton } from '@/components/ui/Button';
-import { appendSharedLlmFormData } from '@/lib/llm-request-options';
+import { sharedLlmRequestBody } from '@/lib/llm-request-options';
+import { fileToDataUrl } from '@/lib/browser-file-data-url';
 
 const ACCENT = 'brand' as const;
 
@@ -519,19 +520,22 @@ export default function VideoPromptTool() {
     setScanning(true);
     setError(null);
     try {
-      const image = await resolveInitImageFile();
-      const form = new FormData();
-      form.append('image', image);
-      if (camera.trim()) {
-        form.append('camera', camera.trim());
-      }
-      if (style.trim()) {
-        form.append('style', style.trim());
-      }
-      appendSharedLlmFormData(form, shared);
+      const initFile = await resolveInitImageFile();
+      // JSON + data URL avoids Next/undici "Failed to parse body as FormData"
+      // failures that hit multipart uploads (missing boundary / truncated body).
+      const image = await fileToDataUrl(initFile);
       const response = await fetch('/api/video-prompt', {
         method: 'POST',
-        body: form,
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          action: 'scan',
+          image,
+          mimeType: initFile.type || 'image/jpeg',
+          camera: camera.trim() || undefined,
+          style: style.trim() || undefined,
+          ...sharedLlmRequestBody(shared),
+        }),
       });
       const data = (await response.json()) as {
         subject?: string;

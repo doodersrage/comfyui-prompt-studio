@@ -26,7 +26,7 @@ import { normalizeTurboEditStrength } from '@/lib/turbo-edit-strength';
 import TurboEditStrengthControls from '@/components/TurboEditStrengthControls';
 import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-target';
 import { DEFAULT_IMAGE_PROMPT_TOOL_CACHE } from '@/lib/settings-cache';
-import { appendSharedLlmFormData, sharedLlmRequestBody } from '@/lib/llm-request-options';
+import { sharedLlmRequestBody } from '@/lib/llm-request-options';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
 import { normalizeHistorySeedScope, normalizeSceneHintSource } from '@/lib/scene-hint-source';
 import type {
@@ -208,20 +208,22 @@ export default function ImagePromptTool() {
       let data: ToolGenerateResult & { error?: string };
 
       if (refImages.length === 1) {
-        const formData = new FormData();
-        formData.append('image', refImages[0].file);
-        formData.append('model', shared.model);
-        formData.append('detail', shared.detail);
-        formData.append('focus', toolSettings.focus ?? 'full');
-        formData.append('descriptionPreset', toolSettings.descriptionPreset ?? 'standard');
-        if (toolSettings.extraHints?.trim()) {
-          formData.append('extraHints', toolSettings.extraHints.trim());
-        }
-        appendSharedLlmFormData(formData, shared);
-
+        // JSON + data URL avoids Next/undici multipart FormData parse failures.
+        const image = await fileToDataUrl(refImages[0].file);
         const response = await fetch('/api/image-prompt', {
           method: 'POST',
-          body: formData,
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({
+            image,
+            mimeType: refImages[0].file.type || 'image/jpeg',
+            model: shared.model,
+            detail: shared.detail,
+            focus: toolSettings.focus ?? 'full',
+            descriptionPreset: toolSettings.descriptionPreset ?? 'standard',
+            extraHints: toolSettings.extraHints?.trim() || undefined,
+            ...sharedLlmRequestBody(shared),
+          }),
         });
         data = (await response.json()) as ToolGenerateResult & { error?: string };
         if (!response.ok) {

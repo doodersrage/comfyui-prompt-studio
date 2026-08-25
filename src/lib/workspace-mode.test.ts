@@ -101,8 +101,23 @@ describe("workspace-mode", () => {
       );
     }
     assert.ok(groups[0]!.links.some((link) => link.href === "/dashboard"));
+    assert.equal(
+      groups[0]!.links.some((link) => link.href === "/studio"),
+      false,
+      "Studio belongs under More in Simple",
+    );
     assert.equal(groups[1]?.label, "More tools");
     assert.ok((groups[1]?.links.length ?? 0) > 5);
+    assert.ok(
+      groups[1]!.links.some((link) => link.href === "/studio"),
+      "Studio should appear in More tools",
+    );
+    const moreHrefs = groups[1]!.links.map((link) => link.href);
+    assert.ok(
+      moreHrefs.indexOf("/studio") < moreHrefs.indexOf("/negative") ||
+        !moreHrefs.includes("/negative"),
+      "preferred More order should surface Studio early",
+    );
     const flatCount = flattenAppNavLinks(groups).length;
     assert.equal(flatCount, flattenAppNavLinks(APP_NAV_GROUPS).length);
   });

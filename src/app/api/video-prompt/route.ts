@@ -15,7 +15,18 @@ async function parseScanImage(request: Request): Promise<{
 }> {
   const contentType = request.headers.get('content-type') ?? '';
   if (contentType.includes('multipart/form-data')) {
-    const formData = await request.formData();
+    let formData: FormData;
+    try {
+      formData = await request.formData();
+    } catch (error) {
+      const detail =
+        error instanceof Error && error.message.trim()
+          ? error.message.trim()
+          : 'Failed to parse body as FormData.';
+      throw new Error(
+        `Could not read the first frame (${detail}). Re-upload the still and try again, or refresh and scan once more.`
+      );
+    }
     const file = formData.get('image');
     if (!(file instanceof File)) {
       throw new Error('Image file is required.');
@@ -129,7 +140,10 @@ export async function POST(request: Request) {
     return apiJson({ prompt: result.prompt, method: result.method });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Video prompt failed.';
-    const status = /required|must be|too large|not set|needs a vision/i.test(message) ? 400 : 500;
+    const status =
+      /required|must be|too large|not set|needs a vision|could not read|re-upload/i.test(message)
+        ? 400
+        : 500;
     return apiError(message, status);
   }
 }

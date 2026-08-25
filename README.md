@@ -24,6 +24,8 @@ Open [http://localhost:47832](http://localhost:47832).
 2. Use **Heal & ready** on first launch (Settings → Overview).
 3. Generate a prompt on **Generate**, then **Send to ComfyUI**.
 
+**10-minute loop** (still → clip → Cast): Generate or pick a gallery still → open **Video** (I2V) → queue a clip → rate in **Gallery** → **Save to Cast** from Roleplay or Character home. Full walkthrough: [Operator guide — 10-minute loop](docs/operator.md#10-minute-loop).
+
 **Day-2 ops** (second GPU, move to a new machine, invite users): [Operator guide](docs/operator.md).
 
 See [Configuration & deployment](docs/configuration.md) for auth, production checklist, Docker, and the full env var table. Desktop installers (macOS / Windows / Linux): [docs/desktop.md](docs/desktop.md).
@@ -35,7 +37,7 @@ Use **Simple / Studio / Full** from the sidebar footer or **Profile → Appearan
 | Mode                 | Sidebar                         | Shared controls                  | Studio tabs                                     |
 | -------------------- | ------------------------------- | -------------------------------- | ----------------------------------------------- |
 | **Simple** (default) | Essentials + More tools         | Advanced collapsed               | History, Compare, Templates, Presets, Analytics |
-| **Play**             | Cast, Roleplay, Gallery, Queue  | Lean Roleplay rail               | Same as Simple                                  |
+| **Play**             | Cast, Fitting, Day, Roleplay, Gallery, Queue  | Lean Roleplay rail               | Same as Simple                                  |
 | **Studio**           | Edit / Media / Library groups   | Collapsed advanced sections      | All tabs                                        |
 | **Full**             | Same as Studio, groups expanded | Quality sections open by default | All tabs                                        |
 

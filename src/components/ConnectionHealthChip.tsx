@@ -69,12 +69,14 @@ export default function ConnectionHealthChip({ compact = false }: { compact?: bo
     health == null
       ? 'Checking…'
       : connected
-        ? 'Connected'
+        ? 'Ready'
         : !health.llmOk && !imageOk
           ? 'LLM & engines down'
           : !health.llmOk
             ? 'LLM unreachable'
-            : 'Image engine unreachable';
+            : health.comfyOk === false
+              ? 'ComfyUI unreachable'
+              : 'Image engine unreachable';
 
   return (
     <Link

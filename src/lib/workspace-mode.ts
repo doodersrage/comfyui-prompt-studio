@@ -62,10 +62,9 @@ export const SIMPLE_NAV_HREFS = [
   '/roleplay',
   '/gallery',
   '/queue',
-  '/studio',
 ] as const;
 
-/** Tools kept in Simple “More tools” (still reachable via ⌘K). */
+/** Preferred order inside Simple “More tools” (still reachable via ⌘K). */
 export const SIMPLE_MORE_NAV_HREFS = [
   '/m',
   '/character',
@@ -73,6 +72,12 @@ export const SIMPLE_MORE_NAV_HREFS = [
   '/refine',
   '/compose',
   '/inpaint',
+  '/studio',
+  '/fitting',
+  '/day',
+  '/moodboard',
+  '/image-prompt',
+  '/format',
 ] as const;
 
 /**

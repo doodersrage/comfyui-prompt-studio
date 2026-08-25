@@ -10,7 +10,7 @@ import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
 import { loadSettingsCache, SETTINGS_CACHE_UPDATED_EVENT } from '@/lib/settings-cache';
 import { loadOnboardingState } from '@/lib/onboarding-store';
-import { enableSystemWorkflowsAndHeal } from '@/lib/first-run-setup';
+import { runHealAndReady } from '@/lib/first-run-setup';
 import { settingsTabHref } from '@/lib/settings-nav';
 import { settingsComfyUiSectionHref } from '@/lib/settings-comfyui-nav';
 import {
@@ -206,26 +206,25 @@ export default function SetupReadinessBanner({
           {message ? <p className="type-caption text-[var(--text-muted)]">{message}</p> : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {needsSystemWf ? (
-            <Button
-              size="sm"
-              variant="secondary"
-              loading={busy}
-              loadingLabel="Enabling…"
-              onClick={() => {
-                setBusy(true);
-                void enableSystemWorkflowsAndHeal({
-                  onProgress: progress => setMessage(progress.message),
-                }).then(result => {
-                  setBusy(false);
-                  setMessage(result.message);
-                  refreshSystemWorkflows(result.comfyOk ? true : undefined);
-                });
-              }}
-            >
-              Enable system workflows
-            </Button>
-          ) : null}
+          <Button
+            size="sm"
+            variant="secondary"
+            loading={busy}
+            loadingLabel="Healing…"
+            onClick={() => {
+              setBusy(true);
+              setMessage(null);
+              void runHealAndReady({
+                onProgress: progress => setMessage(progress.message),
+              }).then(result => {
+                setBusy(false);
+                setMessage(result.message);
+                refreshSystemWorkflows(result.comfyOk ? true : false);
+              });
+            }}
+          >
+            Heal & ready
+          </Button>
           <Button
             size="sm"
             variant="ghost"
@@ -240,7 +239,7 @@ export default function SetupReadinessBanner({
             href={settingsTabHref('overview')}
             className="type-caption text-[var(--accent-text)] transition hover:text-[var(--text-primary)]"
           >
-            Heal & ready
+            Settings
           </Link>
         </div>
       </div>

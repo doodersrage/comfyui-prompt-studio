@@ -39,7 +39,7 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 
 - **Mobile Studio** — `/m` (Add to Home Screen via `manifest-mobile.json`): phone companion with Capture (isolate on white → character plate), Queue, Gallery ratings, and Play (Roleplay From photo using the plate — stills-first; Cut film / Save to Cast live on the desktop Roleplay tool). Desk tools stay on the desktop shell.
 - **Play workspace** — sidebar footer / Profile → Appearance: Cast, Fitting Room, Day Planner, Roleplay, Gallery, and Queue (Play mode label in workspace picker). Roleplay routes use a lean rail. Moodboard lives under Scene nav and ⌘K. Default for a film-first loop; Simple remains the first-run default.
-- **Simple Essentials** — Dashboard, Generate, Cast, Roleplay, Gallery, Queue, and Studio; Video, Refine, Compose, and Inpaint sit under More tools (⌘K finds everything).
+- **Simple Essentials** — Dashboard, Generate, Cast, Roleplay, Gallery, and Queue; Studio, Video, Refine, Compose, Inpaint, Fitting, Day, Moodboard, and the rest sit under More tools (⌘K finds everything).
 - **Gallery collections** — bulk **Collect** (favorite/rate), **Group** (named batches), and **Project** (campaign scope); tags are under Project in full mode only.
 - **Lean gallery** — Simple and Roleplay workspace modes use slimmer filters and bulk actions on `/gallery`.
 - **Fitting Room** — `/fitting` (Play workspace / Scene nav): lock a Cast character plate, pick a catalog wardrobe kit, queue an img2img try-on still with identity lock. Deep links `?character=` and `?wardrobe=`; **Save kit to Cast** writes `lockedWardrobeId`; **Continue in Roleplay** carries the active character. Cross-links to Day Planner and Moodboard.
