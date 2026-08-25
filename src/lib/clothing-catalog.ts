@@ -522,7 +522,8 @@ function filterPoolByScene(
       entry =>
         (!entry.contexts.includes('uniform') || entry.contexts.includes('athletic')) &&
         !entry.contexts.includes('work') &&
-        !/\b(?:steel-toe|work boot|coveralls|chore coat|hi-vis|scrubs|lab coat)\b/i.test(
+        !labelMatchesProfessionUniform(entry.label) &&
+        !/\b(?:steel-toe|work boot|coveralls|chore coat|hi-vis|scrubs|lab coat|chef hat|firefighter|police duty)\b/i.test(
           entry.label
         )
     );
