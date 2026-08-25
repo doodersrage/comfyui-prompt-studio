@@ -2,7 +2,13 @@
 
 import Link from 'next/link';
 import { useEffect, useId, useRef, useState } from 'react';
-import { APP_TOAST_EVENT, dismissAppToast, getAppToasts, type AppToast } from '@/lib/app-toast';
+import {
+  APP_TOAST_EVENT,
+  dismissAppToast,
+  getAppToasts,
+  toastQueueOutcome,
+  type AppToast,
+} from '@/lib/app-toast';
 import {
   comfyUiJobProgressPercent,
   comfyUiJobStatusLabel,
@@ -15,7 +21,6 @@ import {
 import type { ComfyGalleryEntry } from '@/lib/comfyui-gallery';
 import { RETRY_LAST_FAILED_QUEUE_EVENT, retryLastFailedQueue } from '@/lib/last-failed-queue';
 import { dismissSystemTrayMessage, type SystemTrayMessage } from '@/lib/system-tray-messages';
-import { toastQueueOutcome } from '@/lib/app-toast';
 import {
   useSystemTrayState,
   type SystemTrayAssetJob,
@@ -24,6 +29,7 @@ import {
 import { COMFY_ASSET_JOBS_UPDATED_EVENT } from '@/lib/comfy-asset-events';
 import { settingsComfyUiSectionHref } from '@/lib/settings-comfyui-nav';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
+import { cancelComfyGalleryJob } from '@/lib/comfyui-queue-cancel';
 import UiIcon from '@/components/ui/UiIcon';
 
 type TrayNoticeTone = AppToast['tone'];
@@ -191,6 +197,7 @@ function primarySubtitle(primary: SystemTrayPrimary): string | null {
       return comfyUiJobStatusLabel({
         promptId: primary.entry.promptId,
         status: primary.entry.status,
+        statusMessage: primary.entry.statusMessage,
         queuePosition: primary.entry.queuePosition,
         progressValue: primary.entry.progressValue,
         progressMax: primary.entry.progressMax,
@@ -215,7 +222,15 @@ function primaryPercent(primary: SystemTrayPrimary): number | null {
   return null;
 }
 
-function GalleryTrayRow({ entry }: { entry: ComfyGalleryEntry }) {
+function GalleryTrayRow({
+  entry,
+  onCancel,
+  cancelling,
+}: {
+  entry: ComfyGalleryEntry;
+  onCancel: (entry: ComfyGalleryEntry) => void;
+  cancelling?: boolean;
+}) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(() =>
     getComfyLivePreviewUrl(entry.promptId, [entry.clientId])
   );
@@ -256,13 +271,24 @@ function GalleryTrayRow({ entry }: { entry: ComfyGalleryEntry }) {
         </div>
       )}
       <div className="min-w-0 flex-1 space-y-1.5">
-        <p className="truncate text-sm text-[var(--text-primary)]">
-          {entry.prompt.trim() || entry.model || 'Generation job'}
-        </p>
+        <div className="flex items-start justify-between gap-2">
+          <p className="min-w-0 truncate text-sm text-[var(--text-primary)]">
+            {entry.prompt.trim() || entry.model || 'Generation job'}
+          </p>
+          <button
+            type="button"
+            disabled={cancelling}
+            onClick={() => onCancel(entry)}
+            className="shrink-0 rounded-lg border border-[var(--border-subtle)] px-2 py-1 text-[11px] text-[var(--text-secondary)] transition hover:border-[var(--border-default)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {cancelling ? 'Cancelling…' : 'Cancel'}
+          </button>
+        </div>
         <p className="type-caption text-[var(--text-tertiary)]">
           {comfyUiJobStatusLabel({
             promptId: entry.promptId,
             status: entry.status,
+            statusMessage: entry.statusMessage,
             queuePosition: entry.queuePosition,
             progressValue: entry.progressValue,
             progressMax: entry.progressMax,
@@ -315,6 +341,7 @@ export default function SystemTray() {
   const rootRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
   const [appToasts, setAppToasts] = useState<AppToast[]>([]);
+  const [cancellingGalleryIds, setCancellingGalleryIds] = useState<Set<string>>(() => new Set());
   const {
     activeGalleryJobs,
     heldJobs,
@@ -339,6 +366,32 @@ export default function SystemTray() {
       })
       .catch(() => {
         // tray cancel is best-effort
+      });
+  };
+
+  const cancelGalleryJob = (entry: ComfyGalleryEntry) => {
+    if (!entry.promptId?.trim() || cancellingGalleryIds.has(entry.id)) {
+      return;
+    }
+    setCancellingGalleryIds(prev => new Set(prev).add(entry.id));
+    void cancelComfyGalleryJob(entry)
+      .then(result => {
+        if (!result.ok) {
+          toastQueueOutcome({ ok: false, text: result.error ?? 'Cancel failed.' });
+          return;
+        }
+        toastQueueOutcome({ ok: true, text: 'Job cancelled' });
+        refresh();
+      })
+      .catch(() => {
+        toastQueueOutcome({ ok: false, text: 'Cancel failed.' });
+      })
+      .finally(() => {
+        setCancellingGalleryIds(prev => {
+          const next = new Set(prev);
+          next.delete(entry.id);
+          return next;
+        });
       });
   };
 
@@ -442,62 +495,89 @@ export default function SystemTray() {
             expanded ? 'ring-1 ring-[var(--accent-ring)]' : ''
           }`}
         >
-          <button
-            type="button"
-            aria-expanded={expanded}
-            aria-controls={panelId}
-            data-testid="system-tray-toggle"
-            onClick={() => setExpanded(value => !value)}
-            className="flex w-full items-start gap-3 px-3.5 py-3 text-left transition hover:bg-[var(--bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent-ring)]"
-          >
-            <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--accent-border)] bg-gradient-to-br from-[var(--accent-muted)] to-[var(--tint-info-bg)] text-[var(--accent-text)] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-              {primary.kind === 'asset' ? (
-                <UiIcon name="download" size={14} />
-              ) : primary.kind === 'held' ? (
-                <UiIcon name="pause" size={14} />
-              ) : (
-                <span className="relative flex h-2.5 w-2.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--accent)]/50" />
-                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[var(--accent)]" />
-                </span>
-              )}
-            </div>
+          <div className="flex w-full items-stretch">
+            <button
+              type="button"
+              aria-expanded={expanded}
+              aria-controls={panelId}
+              data-testid="system-tray-toggle"
+              onClick={() => setExpanded(value => !value)}
+              className="flex min-w-0 flex-1 items-start gap-3 px-3.5 py-3 text-left transition hover:bg-[var(--bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent-ring)]"
+            >
+              <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--accent-border)] bg-gradient-to-br from-[var(--accent-muted)] to-[var(--tint-info-bg)] text-[var(--accent-text)] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                {primary.kind === 'asset' ? (
+                  <UiIcon name="download" size={14} />
+                ) : primary.kind === 'held' ? (
+                  <UiIcon name="pause" size={14} />
+                ) : (
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--accent)]/50" />
+                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[var(--accent)]" />
+                  </span>
+                )}
+              </div>
 
-            <div className="min-w-0 flex-1 space-y-1.5">
-              <div className="flex items-start gap-2">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-[var(--text-primary)]">
-                    {primaryTitle(primary)}
-                  </p>
-                  {subtitle ? (
-                    <p className="mt-0.5 truncate type-caption text-[var(--text-tertiary)]">
-                      {subtitle}
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <div className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-[var(--text-primary)]">
+                      {primaryTitle(primary)}
                     </p>
-                  ) : null}
-                  {downloadHint ? (
-                    <p className="mt-0.5 truncate type-caption text-[var(--tint-info-text)]/80">
-                      {downloadHint}
-                    </p>
+                    {subtitle ? (
+                      <p className="mt-0.5 truncate type-caption text-[var(--text-tertiary)]">
+                        {subtitle}
+                      </p>
+                    ) : null}
+                    {downloadHint ? (
+                      <p className="mt-0.5 truncate type-caption text-[var(--tint-info-text)]/80">
+                        {downloadHint}
+                      </p>
+                    ) : null}
+                  </div>
+                  {extraCount > 0 ? (
+                    <span className="shrink-0 rounded-full border border-[var(--accent-border)] bg-[var(--accent-muted)] px-2 py-0.5 text-[10px] font-medium tabular-nums text-[var(--accent-text)]">
+                      +{extraCount}
+                    </span>
                   ) : null}
                 </div>
-                {extraCount > 0 ? (
-                  <span className="shrink-0 rounded-full border border-[var(--accent-border)] bg-[var(--accent-muted)] px-2 py-0.5 text-[10px] font-medium tabular-nums text-[var(--accent-text)]">
-                    +{extraCount}
-                  </span>
+                {percent != null && !expanded ? (
+                  <TrayProgressBar percent={percent} compact />
                 ) : null}
               </div>
-              {percent != null && !expanded ? <TrayProgressBar percent={percent} compact /> : null}
-            </div>
 
-            <span
-              aria-hidden
-              className={`mt-1 shrink-0 text-[var(--text-muted)] transition-transform duration-200 ${
-                expanded ? 'rotate-180' : ''
-              }`}
-            >
-              ▾
-            </span>
-          </button>
+              <span
+                aria-hidden
+                className={`mt-1 shrink-0 text-[var(--text-muted)] transition-transform duration-200 ${
+                  expanded ? 'rotate-180' : ''
+                }`}
+              >
+                ▾
+              </span>
+            </button>
+
+            {primary.kind === 'gallery' ? (
+              <button
+                type="button"
+                disabled={cancellingGalleryIds.has(primary.entry.id)}
+                aria-label="Cancel generation job"
+                data-testid="system-tray-cancel-primary"
+                onClick={() => cancelGalleryJob(primary.entry)}
+                className="shrink-0 border-l border-[var(--border-subtle)] px-3 text-[11px] font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent-ring)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {cancellingGalleryIds.has(primary.entry.id) ? '…' : 'Cancel'}
+              </button>
+            ) : primary.kind === 'asset' ? (
+              <button
+                type="button"
+                aria-label="Cancel download"
+                data-testid="system-tray-cancel-primary-asset"
+                onClick={() => cancelAssetJob(primary.job.id)}
+                className="shrink-0 border-l border-[var(--border-subtle)] px-3 text-[11px] font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent-ring)]"
+              >
+                Cancel
+              </button>
+            ) : null}
+          </div>
 
           {expanded ? (
             <div
@@ -551,7 +631,12 @@ export default function SystemTray() {
                   </h3>
                   <ul className="space-y-2">
                     {activeGalleryJobs.slice(0, 6).map(entry => (
-                      <GalleryTrayRow key={entry.id} entry={entry} />
+                      <GalleryTrayRow
+                        key={entry.id}
+                        entry={entry}
+                        onCancel={cancelGalleryJob}
+                        cancelling={cancellingGalleryIds.has(entry.id)}
+                      />
                     ))}
                   </ul>
                 </section>

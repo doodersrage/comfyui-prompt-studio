@@ -103,7 +103,11 @@ export function formatComfyUiJobStatusLine(job: ComfyUiJobTrackerState): string 
       parts.push(`${job.imageCount} image(s)`);
     }
   } else if (job.status === 'error') {
-    parts.push('Error');
+    if (job.statusMessage?.toLowerCase().includes('cancel')) {
+      parts.push('Cancelled');
+    } else {
+      parts.push('Error');
+    }
   }
 
   if (job.statusMessage?.trim()) {
@@ -140,6 +144,9 @@ export function comfyUiJobStatusLabel(job: ComfyUiJobTrackerState): string {
   }
   if (job.status === 'completed') {
     return 'Completed';
+  }
+  if (job.statusMessage?.toLowerCase().includes('cancel')) {
+    return 'Cancelled';
   }
   return 'Failed';
 }

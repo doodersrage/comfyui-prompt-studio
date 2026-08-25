@@ -14,11 +14,18 @@ import {
   COMFY_LIVE_PREVIEW_UPDATED_EVENT,
   getComfyLivePreviewUrl,
 } from '@/lib/comfyui-live-preview-store';
+import { loadComfyGallery, COMFYUI_GALLERY_UPDATED_EVENT } from '@/lib/comfyui-gallery';
+import { cancelComfyGalleryJob } from '@/lib/comfyui-queue-cancel';
+import { cancelComfyGalleryPoll } from '@/lib/comfyui-gallery-poller';
+import { cancelComfyUiJob } from '@/lib/comfyui-queue-control';
+import { toastQueueOutcome } from '@/lib/app-toast';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 
 type ComfyUiJobStatusPanelProps = {
   job: ComfyUiJobTrackerState;
   compact?: boolean;
+  /** Called after a successful cancel so parents can sync tracker state. */
+  onCancelled?: (job: ComfyUiJobTrackerState) => void;
 };
 
 function statusTone(job: ComfyUiJobTrackerState): string {
@@ -32,6 +39,10 @@ function statusTone(job: ComfyUiJobTrackerState): string {
     return 'text-[var(--tint-danger-text)] border-[var(--tint-danger-border)] bg-[var(--tint-danger-bg)]';
   }
   return 'text-[var(--tint-success-text)] border-[var(--tint-success-border)] bg-[var(--tint-success-bg)]';
+}
+
+function isCancelledJob(job: ComfyUiJobTrackerState): boolean {
+  return job.status === 'error' && Boolean(job.statusMessage?.toLowerCase().includes('cancel'));
 }
 
 function ProgressBar({ percent, label }: { percent: number; label?: string | null }) {
@@ -52,40 +63,124 @@ function ProgressBar({ percent, label }: { percent: number; label?: string | nul
   );
 }
 
+function cancelledJobState(job: ComfyUiJobTrackerState): ComfyUiJobTrackerState {
+  return {
+    ...job,
+    status: 'error',
+    statusMessage: 'Cancelled',
+    queuePosition: null,
+    progressValue: undefined,
+    progressMax: undefined,
+    progressNode: undefined,
+  };
+}
+
 export default function ComfyUiJobStatusPanel({
   job,
   compact = false,
+  onCancelled,
 }: ComfyUiJobStatusPanelProps) {
-  const processing = isComfyUiJobProcessing(job);
-  const label = comfyUiJobStatusLabel(job);
-  const percent = comfyUiJobProgressPercent(job);
-  const progressLabel = formatComfyUiJobProgressLabel(job);
-  const engineLabel = comfyUiJobEngineLabel(job);
+  const [localCancel, setLocalCancel] = useState<{
+    promptId: string;
+    phase: 'cancelling' | 'cancelled';
+  } | null>(null);
+
+  const cancelledOverride =
+    localCancel?.promptId === job.promptId && localCancel.phase === 'cancelled'
+      ? cancelledJobState(job)
+      : null;
+  const cancelling = localCancel?.promptId === job.promptId && localCancel.phase === 'cancelling';
+
+  // Mirror external cancels (system tray / queue) into this panel.
+  useEffect(() => {
+    if (!isComfyUiJobProcessing(job)) {
+      return;
+    }
+    if (localCancel?.promptId === job.promptId && localCancel.phase === 'cancelled') {
+      return;
+    }
+    const promptId = job.promptId;
+    const syncFromGallery = () => {
+      const entry = loadComfyGallery().find(item => item.promptId === promptId);
+      if (entry?.status === 'error' && entry.statusMessage?.toLowerCase().includes('cancel')) {
+        setLocalCancel({ promptId, phase: 'cancelled' });
+      }
+    };
+    window.addEventListener(COMFYUI_GALLERY_UPDATED_EVENT, syncFromGallery);
+    return () => window.removeEventListener(COMFYUI_GALLERY_UPDATED_EVENT, syncFromGallery);
+  }, [job, localCancel]);
+
+  const displayJob = cancelledOverride ?? job;
+  const processing = isComfyUiJobProcessing(displayJob);
+  const cancelled = isCancelledJob(displayJob);
+  const label = comfyUiJobStatusLabel(displayJob);
+  const percent = comfyUiJobProgressPercent(displayJob);
+  const progressLabel = formatComfyUiJobProgressLabel(displayJob);
+  const engineLabel = comfyUiJobEngineLabel(displayJob);
   const [previewUrl, setPreviewUrl] = useState<string | null>(
-    () => job.previewUrl ?? getComfyLivePreviewUrl(job.promptId)
+    () => displayJob.previewUrl ?? getComfyLivePreviewUrl(displayJob.promptId)
   );
 
   useEffect(() => {
     scheduleAfterCommit(() => {
-      setPreviewUrl(job.previewUrl ?? getComfyLivePreviewUrl(job.promptId));
+      setPreviewUrl(displayJob.previewUrl ?? getComfyLivePreviewUrl(displayJob.promptId));
     });
     const onPreview = (event: Event) => {
       const detail = (event as CustomEvent<{ promptId?: string; keys?: string[] }>).detail;
       const keys = detail?.keys ?? (detail?.promptId ? [detail.promptId] : []);
-      if (keys.length > 0 && !keys.includes(job.promptId)) {
+      if (keys.length > 0 && !keys.includes(displayJob.promptId)) {
         return;
       }
-      setPreviewUrl(job.previewUrl ?? getComfyLivePreviewUrl(job.promptId));
+      setPreviewUrl(displayJob.previewUrl ?? getComfyLivePreviewUrl(displayJob.promptId));
     };
     window.addEventListener(COMFY_LIVE_PREVIEW_UPDATED_EVENT, onPreview);
     return () => {
       window.removeEventListener(COMFY_LIVE_PREVIEW_UPDATED_EVENT, onPreview);
     };
-  }, [job.previewUrl, job.promptId]);
+  }, [displayJob.previewUrl, displayJob.promptId]);
+
+  const handleCancel = () => {
+    if (!processing || cancelling) {
+      return;
+    }
+    const promptId = job.promptId.trim();
+    setLocalCancel({ promptId: job.promptId, phase: 'cancelling' });
+    const galleryEntry = loadComfyGallery().find(
+      entry => entry.promptId === promptId || entry.id === promptId
+    );
+
+    void (
+      galleryEntry
+        ? cancelComfyGalleryJob(galleryEntry)
+        : cancelComfyUiJob({
+            promptId,
+            comfyUrl: job.comfyUrl,
+            deleteHistory: true,
+          }).then(result => {
+            cancelComfyGalleryPoll(promptId);
+            return result;
+          })
+    )
+      .then(result => {
+        if (!result.ok) {
+          setLocalCancel(null);
+          toastQueueOutcome({ ok: false, text: result.error ?? 'Cancel failed.' });
+          return;
+        }
+        const next = cancelledJobState(job);
+        setLocalCancel({ promptId: job.promptId, phase: 'cancelled' });
+        onCancelled?.(next);
+        toastQueueOutcome({ ok: true, text: 'Job cancelled' });
+      })
+      .catch(() => {
+        setLocalCancel(null);
+        toastQueueOutcome({ ok: false, text: 'Cancel failed.' });
+      });
+  };
 
   return (
     <div
-      className={`ui-card overflow-hidden border ${statusTone(job)}`}
+      className={`ui-card overflow-hidden border ${statusTone(displayJob)}`}
       role="status"
       aria-live="polite"
       aria-busy={processing}
@@ -96,7 +191,7 @@ export default function ComfyUiJobStatusPanel({
         ) : !processing ? (
           <span
             className={`mt-1 inline-flex h-2.5 w-2.5 shrink-0 rounded-full ${
-              job.status === 'error' ? 'bg-[var(--tint-danger)]' : 'bg-[var(--tint-success)]'
+              displayJob.status === 'error' ? 'bg-[var(--tint-danger)]' : 'bg-[var(--tint-success)]'
             }`}
             aria-hidden
           />
@@ -105,21 +200,34 @@ export default function ComfyUiJobStatusPanel({
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <p className={`font-medium ${compact ? 'type-caption' : 'type-body-sm'}`}>
-              {job.status === 'running'
+              {displayJob.status === 'running'
                 ? `${engineLabel} is generating`
-                : job.status === 'pending'
+                : displayJob.status === 'pending'
                   ? `${engineLabel} job queued`
-                  : job.status === 'error'
-                    ? `${engineLabel} job failed`
-                    : `${engineLabel} job finished`}
+                  : cancelled
+                    ? `${engineLabel} job cancelled`
+                    : displayJob.status === 'error'
+                      ? `${engineLabel} job failed`
+                      : `${engineLabel} job finished`}
             </p>
             <span className="rounded-full border border-current/20 px-2 py-0.5 type-overline opacity-90">
-              {percent != null && job.status === 'running' ? 'Running' : label}
+              {percent != null && displayJob.status === 'running' ? 'Running' : label}
             </span>
             {percent != null ? (
               <span className="rounded-full border border-current/20 px-2 py-0.5 type-caption tabular-nums">
                 {percent}%
               </span>
+            ) : null}
+            {processing ? (
+              <button
+                type="button"
+                disabled={cancelling}
+                data-testid="comfy-job-cancel"
+                onClick={handleCancel}
+                className="ml-auto shrink-0 rounded-lg border border-current/25 px-2.5 py-1 type-caption font-medium transition hover:bg-[color-mix(in_srgb,currentColor_12%,transparent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {cancelling ? 'Cancelling…' : 'Cancel'}
+              </button>
             ) : null}
           </div>
 
@@ -132,18 +240,18 @@ export default function ComfyUiJobStatusPanel({
             />
           ) : null}
 
-          {job.statusMessage?.trim() && job.statusMessage.trim() !== progressLabel ? (
-            <p className="type-caption text-[var(--text-secondary)]">{job.statusMessage}</p>
+          {displayJob.statusMessage?.trim() && displayJob.statusMessage.trim() !== progressLabel ? (
+            <p className="type-caption text-[var(--text-secondary)]">{displayJob.statusMessage}</p>
           ) : null}
 
           {percent != null ? <ProgressBar percent={percent} label={progressLabel} /> : null}
 
           <p className="type-caption text-[var(--text-tertiary)]">
-            <span className="font-mono">{job.promptId}</span>
-            {job.comfyUrl ? (
+            <span className="font-mono">{displayJob.promptId}</span>
+            {displayJob.comfyUrl ? (
               <>
                 {' · '}
-                <span className="break-all">{job.comfyUrl}</span>
+                <span className="break-all">{displayJob.comfyUrl}</span>
               </>
             ) : null}
           </p>

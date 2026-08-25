@@ -23,7 +23,11 @@ import {
 } from '@/lib/improve-output';
 import type { WorkflowParamValues } from '@/lib/comfyui-config';
 import { parseWorkflowJson } from '@/lib/comfyui-config';
-import { galleryEntryPrimaryViewUrl } from '@/lib/comfyui-gallery';
+import {
+  COMFYUI_GALLERY_UPDATED_EVENT,
+  galleryEntryPrimaryViewUrl,
+  loadComfyGallery,
+} from '@/lib/comfyui-gallery';
 import { scheduleComfyGalleryPoll } from '@/lib/comfyui-gallery-poller';
 import { registerComfyGalleryJob } from '@/lib/comfyui-gallery-client';
 import { attachGalleryPromptIdToHistory, linkGalleryToHistory } from '@/lib/prompt-lineage';
@@ -58,7 +62,11 @@ import { runPluginQueuePreflight } from '@/lib/plugin-queue-hooks';
 import { dispatchWebhook } from '@/lib/webhook-settings';
 import { markOnboardingFirstQueue } from '@/lib/onboarding-hooks';
 import { resolveQueueFailureHref, resolveQueueFailurePlaybook } from '@/lib/queue-failure-playbook';
-import { formatComfyUiJobStatusLine, type ComfyUiJobTrackerState } from '@/lib/comfyui-job-status';
+import {
+  formatComfyUiJobStatusLine,
+  isComfyUiJobProcessing,
+  type ComfyUiJobTrackerState,
+} from '@/lib/comfyui-job-status';
 
 type WorkflowPreviewResult = Awaited<
   ReturnType<typeof import('@/lib/comfyui-requeue').fetchWorkflowPreview>
@@ -92,6 +100,36 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
   /** Bumped on each queue so stale gallery polls cannot overwrite a newer job preview. */
   const previewGenerationRef = useRef(0);
   const identityRelocateAttemptRef = useRef(false);
+
+  // Keep tracker in sync when the same job is cancelled from tray / queue / gallery.
+  useEffect(() => {
+    if (!comfyUiJob || !isComfyUiJobProcessing(comfyUiJob)) {
+      return;
+    }
+    const promptId = comfyUiJob.promptId;
+    const syncFromGallery = () => {
+      const entry = loadComfyGallery().find(item => item.promptId === promptId);
+      if (!entry || (entry.status !== 'completed' && entry.status !== 'error')) {
+        return;
+      }
+      const finishedJob: ComfyUiJobTrackerState = {
+        promptId,
+        status: entry.status,
+        statusMessage: entry.statusMessage,
+        comfyUrl: entry.comfyUrl ?? comfyUiJob.comfyUrl,
+        engineId: comfyUiJob.engineId,
+        imageCount: entry.images?.length,
+        progressValue: undefined,
+        progressMax: undefined,
+        progressNode: undefined,
+      };
+      setComfyUiJob(finishedJob);
+      setComfyUiStatus(formatComfyUiJobStatusLine(finishedJob));
+    };
+    window.addEventListener(COMFYUI_GALLERY_UPDATED_EVENT, syncFromGallery);
+    return () => window.removeEventListener(COMFYUI_GALLERY_UPDATED_EVENT, syncFromGallery);
+  }, [comfyUiJob]);
+
   const sendComfyUiRef = useRef<
     (
       prompt: string,
