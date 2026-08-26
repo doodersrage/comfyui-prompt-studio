@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  buildDaySlotMotionSubject,
   buildDaySlotPrompt,
   dayWatchPlaylist,
   DEFAULT_DAY_SLOTS,
@@ -66,6 +67,28 @@ describe('day-planner', () => {
     ]);
     assert.equal(merged.changed, true);
     assert.equal(merged.stills.find(s => s.slotId === 'afternoon')?.status, 'completed');
+  });
+
+  it('dayWatchPlaylist prefers clips over stills', () => {
+    const stills = upsertDaySlotStill(undefined, {
+      slotId: 'morning',
+      promptId: 'p1',
+      status: 'completed',
+      imageUrl: 'https://example.com/m.jpg',
+      clipPromptId: 'c1',
+      clipStatus: 'completed',
+      clipUrl: 'https://example.com/m.mp4',
+    });
+    const playlist = dayWatchPlaylist(stills);
+    assert.equal(playlist.length, 1);
+    assert.equal(playlist[0]?.kind, 'clip');
+    assert.equal(playlist[0]?.url, 'https://example.com/m.mp4');
+  });
+
+  it('buildDaySlotMotionSubject includes slot label', () => {
+    const slot = DEFAULT_DAY_SLOTS[0]!;
+    assert.match(buildDaySlotMotionSubject({ ...slot, sceneHints: 'coffee' }, 'Rin'), /morning/i);
+    assert.match(buildDaySlotMotionSubject({ ...slot, sceneHints: 'coffee' }, 'Rin'), /Rin/);
   });
 
   it('seedDaySlotsWardrobe fills empty kits only', () => {

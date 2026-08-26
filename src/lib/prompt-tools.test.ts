@@ -2611,6 +2611,24 @@ describe("comfyui runtime queue params", () => {
     assert.equal(params.scheduler, "simple");
   });
 
+  it("comfyui-config resolveQueueParams keeps lockLatentSize thumbs on injection path", async () => {
+    const { resolveQueueParams } = await import("./comfyui-config");
+    const params = resolveQueueParams(
+      { queueQualityProfile: "draft", queueParams: { steps: "8", cfg: "1" } },
+      {
+        width: "256",
+        height: "384",
+        lockLatentSize: "true",
+        inputImageFilename: "fig.png",
+        seed: "1",
+      },
+      { model: "qwen-image-edit-2511-lightning-8" },
+    );
+    assert.equal(params.width, "256");
+    assert.equal(params.height, "384");
+    assert.equal(params.lockLatentSize, "true");
+  });
+
   it("injects native lightning latent size even when workflow JSON still says 1024", async () => {
     const {
       injectPromptsWithFallbacks,

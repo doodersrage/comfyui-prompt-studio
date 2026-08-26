@@ -310,7 +310,7 @@ export function getClothingSelectOptions(
   return options;
 }
 
-function categoryLabel(category: ClothingCategory): string {
+export function categoryLabel(category: ClothingCategory): string {
   switch (category) {
     case 'outfit':
       return 'Full outfits';

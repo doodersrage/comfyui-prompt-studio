@@ -34,6 +34,7 @@ import {
   applyCharacterRecord,
   characterFromShared,
   getCharacter,
+  toggleLookKeeper,
   upsertCharacter,
 } from '@/lib/character-os';
 import { subjectGenderToClothingGender } from '@/lib/clothing-gender';
@@ -42,14 +43,47 @@ import {
   fetchClothingSelectOptions,
   getCachedClothingLabel,
 } from '@/lib/clothing-catalog-client';
-import { getComfyModelDefinition } from '@/lib/comfy-models/client';
-import { loadComfyUiSettings } from '@/lib/comfyui-settings';
 import {
+  COMFYUI_GALLERY_UPDATED_EVENT,
+  galleryEntryPrimaryThumbUrl,
+  galleryEntryPrimaryViewUrl,
+  loadComfyGallery,
+} from '@/lib/comfyui-gallery';
+import {
+  buildFittingKitPreviewPrompt,
   buildFittingOutfitPrompt,
   buildFittingSwipeDeck,
+  fittingSwipeIndex,
   fittingSwipeNeighbor,
+  pushFittingCompareTryOn,
+  resolveFittingDeckWardrobeId,
   resolveFittingPlateFromCharacter,
+  type FittingCompareTryOn,
 } from '@/lib/fitting-room';
+import {
+  countInFlightFittingKitPreviews,
+  FITTING_KIT_PREVIEW_CONCURRENCY,
+  FITTING_KIT_PREVIEW_MAX,
+  FITTING_KIT_PREVIEW_HEIGHT,
+  FITTING_KIT_PREVIEW_PROMPT_VERSION,
+  FITTING_KIT_PREVIEW_WIDTH,
+  fittingKitPreviewQueueParams,
+  fittingKitPreviewQueueResolveOptions,
+  fittingKitsNeedingPreview,
+  getFittingKitPreview,
+  mergeFittingKitPreviewsFromGallery,
+  normalizeFittingKitPreviews,
+  resolveFittingKitPreviewModel,
+  upsertFittingKitPreview,
+} from '@/lib/fitting-kit-previews';
+import {
+  countWardrobeOptionsForFilter,
+  filterWardrobeSelectOptions,
+  normalizeWardrobeCategoryFilter,
+  wardrobeCategoryFilterOptions,
+} from '@/lib/wardrobe-catalog-ui';
+import { getComfyModelDefinition } from '@/lib/comfy-models/client';
+import { loadComfyUiSettings } from '@/lib/comfyui-settings';
 import { galleryPickPath } from '@/lib/gallery-handoff';
 import {
   cacheBustIdentityMediaUrl,
@@ -83,8 +117,8 @@ type ClothingOption = { value: string; label: string; group?: string };
 export default function FittingRoomTool() {
   const router = useRouter();
   const description = useToolPageDescription(
-    'Lock a Cast plate, swipe catalog kits, queue outfit try-on stills.',
-    'Try outfits on a Cast character — swipe kits on a locked plate.'
+    'Lock a Cast plate, swipe catalog kits with draft thumbs, queue outfit try-on stills.',
+    'Try outfits on a Cast character — swipe kits on a locked plate with draft previews.'
   );
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
     'fitting',
@@ -100,10 +134,25 @@ export default function FittingRoomTool() {
   const [referencePreviewUrl, setReferencePreviewUrl] = useState<string | null>(null);
   const [lockedWardrobeLabel, setLockedWardrobeLabel] = useState<string | undefined>();
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
+  const [compareTryOns, setCompareTryOns] = useState<FittingCompareTryOn[]>([]);
+  const [previewStatus, setPreviewStatus] = useState<string | null>(null);
+  const pendingTryOnRef = useRef<{
+    promptId: string;
+    wardrobeId: string;
+    wardrobeLabel?: string;
+  } | null>(null);
+  const previewQueueBusyRef = useRef(false);
+  const kitPreviewsRef = useRef(normalizeFittingKitPreviews(toolSettings.kitPreviews));
   const isolateGenRef = useRef(0);
   const deepLinkHandled = useRef(false);
 
   const isolateSubject = toolSettings.isolateSubject !== false;
+  const autoKitPreviews = toolSettings.autoKitPreviews === true;
+  const kitPreviews = useMemo(
+    () => normalizeFittingKitPreviews(toolSettings.kitPreviews),
+    [toolSettings.kitPreviews]
+  );
+  kitPreviewsRef.current = kitPreviews;
   const referenceImageFilename = toolSettings.referenceImageFilename?.trim() || '';
   const referenceImageUrl = toolSettings.referenceImageUrl?.trim() || '';
   const referenceOriginalFilename = toolSettings.referenceOriginalFilename?.trim() || '';
@@ -126,18 +175,60 @@ export default function FittingRoomTool() {
   const [wardrobeLoadedKey, setWardrobeLoadedKey] = useState<string | null>(null);
   const wardrobeOptionsKey = `wardrobeCatalog:${clothingGender}`;
   const wardrobeReady = wardrobeLoadedKey === wardrobeOptionsKey;
+  const wardrobeCategoryFilter = normalizeWardrobeCategoryFilter(
+    toolSettings.wardrobeCategoryFilter
+  );
+  const prevCategoryFilterRef = useRef(wardrobeCategoryFilter);
+  const filteredWardrobeOptions = useMemo(
+    () =>
+      filterWardrobeSelectOptions(wardrobeOptions, wardrobeCategoryFilter, shared.lockedWardrobeId),
+    [shared.lockedWardrobeId, wardrobeCategoryFilter, wardrobeOptions]
+  );
+  const wardrobeKitCount = useMemo(
+    () => countWardrobeOptionsForFilter(wardrobeOptions, wardrobeCategoryFilter),
+    [wardrobeCategoryFilter, wardrobeOptions]
+  );
 
   const swipeDeck = useMemo(
-    () => buildFittingSwipeDeck(wardrobeOptions, shared.lockedWardrobeId),
-    [shared.lockedWardrobeId, wardrobeOptions]
+    () => buildFittingSwipeDeck(filteredWardrobeOptions),
+    [filteredWardrobeOptions]
+  );
+  const deckSelectionId = useMemo(
+    () => resolveFittingDeckWardrobeId(swipeDeck, shared.lockedWardrobeId),
+    [swipeDeck, shared.lockedWardrobeId]
   );
   const activeSwipeKit = useMemo(() => {
-    const id = shared.lockedWardrobeId?.trim();
-    if (!id) {
+    if (!deckSelectionId) {
       return swipeDeck[0] ?? null;
     }
-    return swipeDeck.find(kit => kit.id === id) ?? swipeDeck[0] ?? null;
-  }, [shared.lockedWardrobeId, swipeDeck]);
+    return swipeDeck.find(kit => kit.id === deckSelectionId) ?? swipeDeck[0] ?? null;
+  }, [deckSelectionId, swipeDeck]);
+  const deckSelectionIndex = useMemo(
+    () => fittingSwipeIndex(swipeDeck, deckSelectionId),
+    [deckSelectionId, swipeDeck]
+  );
+  const activeThumbRef = useRef<HTMLButtonElement>(null);
+
+  const activeLookId = (shared.activeLookId ?? character?.activeLookId ?? '').trim();
+  const previewModel = useMemo(() => resolveFittingKitPreviewModel(shared.model), [shared.model]);
+  const previewModelLabel = previewModel
+    ? (getComfyModelDefinition(previewModel)?.label ?? previewModel)
+    : null;
+  const previewQueueParams = useMemo(() => fittingKitPreviewQueueParams(), []);
+  const previewQueueResolveOptions = useMemo(() => fittingKitPreviewQueueResolveOptions(), []);
+  const inFlightPreviewCount = useMemo(
+    () => countInFlightFittingKitPreviews(kitPreviews, activeLookId),
+    [activeLookId, kitPreviews]
+  );
+  const completedPreviewCount = useMemo(() => {
+    if (!activeLookId) {
+      return 0;
+    }
+    return swipeDeck.filter(kit => {
+      const preview = getFittingKitPreview(kitPreviews, kit.id, activeLookId);
+      return preview?.status === 'completed' && Boolean(preview.imageUrl?.trim());
+    }).length;
+  }, [activeLookId, kitPreviews, swipeDeck]);
 
   useSeedToolDraft(mounted, {
     toolKey: TOOL_ID,
@@ -312,6 +403,9 @@ export default function FittingRoomTool() {
           referenceImageFilename: queueFilename,
           referenceImageUrl: queueUrl,
           referenceIsolated: isolated,
+          previewPlateFilename: undefined,
+          previewPlateUrl: undefined,
+          previewPlateSourceKey: undefined,
         });
         if (!isolated && !queueUrl.startsWith('blob:')) {
           setReferencePreviewUrl(cacheBustIdentityMediaUrl(queueUrl));
@@ -341,6 +435,9 @@ export default function FittingRoomTool() {
       referenceOriginalUrl: '',
       referenceOriginalFilename: '',
       referenceIsolated: false,
+      previewPlateFilename: undefined,
+      previewPlateUrl: undefined,
+      previewPlateSourceKey: undefined,
     });
   }, [clearReferencePreview, updateToolSettings]);
 
@@ -538,11 +635,18 @@ export default function FittingRoomTool() {
         identityLockStrength: shared.ipAdapterStrength,
         identityKind: shared.identityKind,
       });
-      await actions.sendComfyUi(finalized, undefined, undefined, {
+      const promptId = await actions.sendComfyUi(finalized, undefined, undefined, {
         ...(queueOptions ?? {}),
         characterId: shared.activeCharacterId,
         lookId: shared.activeLookId ?? character?.activeLookId,
       });
+      if (typeof promptId === 'string' && promptId.trim()) {
+        pendingTryOnRef.current = {
+          promptId: promptId.trim(),
+          wardrobeId: shared.lockedWardrobeId?.trim() || '',
+          wardrobeLabel: lockedWardrobeLabel,
+        };
+      }
       return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not queue the try-on.');
@@ -562,8 +666,280 @@ export default function FittingRoomTool() {
     shared.identityKind,
     shared.ipAdapterStrength,
     shared.lockedWardrobeId,
+    lockedWardrobeLabel,
     toolSettings.referenceIsolated,
   ]);
+
+  useEffect(() => {
+    const syncGallery = () => {
+      const pending = pendingTryOnRef.current;
+      if (pending?.promptId) {
+        const entry = loadComfyGallery().find(item => item.promptId === pending.promptId);
+        if (entry?.status === 'completed') {
+          const imageUrl = galleryEntryPrimaryViewUrl(entry);
+          if (imageUrl) {
+            pendingTryOnRef.current = null;
+            setCompareTryOns(current =>
+              pushFittingCompareTryOn(current, {
+                promptId: pending.promptId,
+                wardrobeId: pending.wardrobeId,
+                wardrobeLabel: pending.wardrobeLabel,
+                imageUrl,
+                galleryEntryId: entry.id,
+              })
+            );
+          }
+        }
+      }
+
+      const currentPreviews = kitPreviewsRef.current;
+      const wanted = new Set(
+        Object.values(currentPreviews)
+          .map(entry => entry.promptId?.trim())
+          .filter(Boolean) as string[]
+      );
+      if (wanted.size === 0) {
+        return;
+      }
+      const gallery = loadComfyGallery()
+        .filter(entry => wanted.has(entry.promptId))
+        .map(entry => ({
+          promptId: entry.promptId,
+          status: entry.status,
+          imageUrl: galleryEntryPrimaryThumbUrl(entry) || galleryEntryPrimaryViewUrl(entry),
+        }));
+      const merged = mergeFittingKitPreviewsFromGallery(currentPreviews, gallery);
+      if (merged.changed) {
+        updateToolSettings({ kitPreviews: merged.previews });
+      }
+    };
+    window.addEventListener(COMFYUI_GALLERY_UPDATED_EVENT, syncGallery);
+    syncGallery();
+    return () => window.removeEventListener(COMFYUI_GALLERY_UPDATED_EVENT, syncGallery);
+  }, [updateToolSettings]);
+
+  const queueKitPreview = useCallback(
+    async (wardrobeId: string, wardrobeLabel: string) => {
+      const lookId = (shared.activeLookId ?? character?.activeLookId ?? '').trim();
+      if (!lookId || !hasReference || !wardrobeId.trim()) {
+        return false;
+      }
+      if (isolateSubject && toolSettings.referenceIsolated !== true) {
+        return false;
+      }
+      const existing = getFittingKitPreview(kitPreviewsRef.current, wardrobeId, lookId);
+      if (
+        (existing?.status === 'completed' &&
+          existing.imageUrl?.trim() &&
+          (existing.promptVersion ?? 0) >= FITTING_KIT_PREVIEW_PROMPT_VERSION) ||
+        existing?.status === 'queued' ||
+        existing?.status === 'running'
+      ) {
+        return false;
+      }
+
+      try {
+        if (!previewModel) {
+          setError(
+            'Install Boogu Edit Turbo or Qwen Edit Lightning 4 for fast kit previews. Queue try-on still uses your sidebar model.'
+          );
+          return false;
+        }
+        const prompt = buildFittingKitPreviewPrompt({
+          outfitLabel: wardrobeLabel.trim() || wardrobeId,
+        });
+        const queueOptions = buildRoleplayQueueStillOptions({
+          photoMode: true,
+          isolateSubject,
+          referenceIsolated: toolSettings.referenceIsolated === true,
+          filename: referenceImageFilename,
+          imageUrl: referenceImageUrl,
+          identityLockStrength: shared.ipAdapterStrength,
+          identityKind: shared.identityKind,
+        });
+        const promptId = await actions.sendComfyUi(prompt, undefined, undefined, {
+          ...(queueOptions ?? {}),
+          identityLock: false,
+          queueModel: previewModel,
+          qualityProfile: 'draft',
+          queueParamsBase: previewQueueParams,
+          ...previewQueueResolveOptions,
+          figurePixelSize: {
+            width: FITTING_KIT_PREVIEW_WIDTH,
+            height: FITTING_KIT_PREVIEW_HEIGHT,
+          },
+          draftPreviewLite: true,
+          queueHints: '',
+          characterId: shared.activeCharacterId,
+          lookId,
+        });
+        const next = upsertFittingKitPreview(kitPreviewsRef.current, {
+          wardrobeId,
+          lookId,
+          promptId: typeof promptId === 'string' ? promptId.trim() : undefined,
+          status: promptId ? 'queued' : 'error',
+          updatedAt: Date.now(),
+          promptVersion: FITTING_KIT_PREVIEW_PROMPT_VERSION,
+        });
+        kitPreviewsRef.current = next;
+        updateToolSettings({ kitPreviews: next });
+        return Boolean(promptId);
+      } catch {
+        const next = upsertFittingKitPreview(kitPreviewsRef.current, {
+          wardrobeId,
+          lookId,
+          status: 'error',
+          updatedAt: Date.now(),
+        });
+        kitPreviewsRef.current = next;
+        updateToolSettings({ kitPreviews: next });
+        return false;
+      }
+    },
+    [
+      actions,
+      character?.activeLookId,
+      hasReference,
+      isolateSubject,
+      previewModel,
+      previewQueueParams,
+      previewQueueResolveOptions,
+      referenceImageFilename,
+      referenceImageUrl,
+      shared.activeCharacterId,
+      shared.activeLookId,
+      shared.identityKind,
+      shared.ipAdapterStrength,
+      toolSettings.referenceIsolated,
+      updateToolSettings,
+    ]
+  );
+
+  const fillKitPreviews = useCallback(async () => {
+    const lookId = (shared.activeLookId ?? character?.activeLookId ?? '').trim();
+    if (
+      !lookId ||
+      !hasReference ||
+      !previewModel ||
+      previewQueueBusyRef.current ||
+      (isolateSubject && toolSettings.referenceIsolated !== true)
+    ) {
+      return;
+    }
+    const needed = fittingKitsNeedingPreview(
+      swipeDeck,
+      kitPreviewsRef.current,
+      lookId,
+      FITTING_KIT_PREVIEW_MAX,
+      deckSelectionId
+    );
+    if (needed.length === 0) {
+      return;
+    }
+    const slots =
+      FITTING_KIT_PREVIEW_CONCURRENCY -
+      countInFlightFittingKitPreviews(kitPreviewsRef.current, lookId);
+    if (slots <= 0) {
+      return;
+    }
+
+    previewQueueBusyRef.current = true;
+    setPreviewStatus('Queueing draft kit previews…');
+    try {
+      const batch = needed.slice(0, slots);
+      for (const wardrobeId of batch) {
+        const kit = swipeDeck.find(entry => entry.id === wardrobeId);
+        const label = kit?.label || getCachedClothingLabel(wardrobeId) || wardrobeId;
+        await queueKitPreview(wardrobeId, label);
+      }
+      const remaining = fittingKitsNeedingPreview(
+        swipeDeck,
+        kitPreviewsRef.current,
+        lookId,
+        FITTING_KIT_PREVIEW_MAX,
+        deckSelectionId
+      ).length;
+      setPreviewStatus(
+        remaining > 0
+          ? `Draft previews: ${FITTING_KIT_PREVIEW_MAX - remaining}/${FITTING_KIT_PREVIEW_MAX} queued near selection…`
+          : 'Draft previews queued — thumbs fill as jobs finish.'
+      );
+    } finally {
+      previewQueueBusyRef.current = false;
+    }
+  }, [
+    character?.activeLookId,
+    deckSelectionId,
+    hasReference,
+    isolateSubject,
+    previewModel,
+    queueKitPreview,
+    shared.activeLookId,
+    swipeDeck,
+    toolSettings.referenceIsolated,
+  ]);
+
+  useEffect(() => {
+    if (!mounted || !autoKitPreviews) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void fillKitPreviews();
+    }, 600);
+    return () => window.clearTimeout(timer);
+  }, [
+    activeLookId,
+    autoKitPreviews,
+    fillKitPreviews,
+    hasReference,
+    inFlightPreviewCount,
+    mounted,
+    swipeDeck,
+  ]);
+
+  useEffect(() => {
+    if (prevCategoryFilterRef.current === wardrobeCategoryFilter) {
+      return;
+    }
+    prevCategoryFilterRef.current = wardrobeCategoryFilter;
+    if (!wardrobeReady || swipeDeck.length === 0) {
+      return;
+    }
+    const locked = shared.lockedWardrobeId?.trim();
+    if (locked && swipeDeck.some(kit => kit.id === locked)) {
+      return;
+    }
+    const first = swipeDeck[0]?.id;
+    if (first) {
+      updateShared({ lockedWardrobeId: first });
+    }
+  }, [shared.lockedWardrobeId, swipeDeck, updateShared, wardrobeCategoryFilter, wardrobeReady]);
+
+  useEffect(() => {
+    activeThumbRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'nearest',
+      inline: 'nearest',
+    });
+  }, [deckSelectionId]);
+
+  const keepTryOn = useCallback(
+    (tryOn: FittingCompareTryOn) => {
+      const characterId = shared.activeCharacterId?.trim();
+      const lookId = shared.activeLookId ?? character?.activeLookId;
+      const entryId = tryOn.galleryEntryId?.trim();
+      if (!characterId || !lookId || !entryId) {
+        setError('Pick a Cast character with a look before keeping a try-on.');
+        return;
+      }
+      toggleLookKeeper(characterId, lookId, entryId);
+      setSaveStatus(
+        `Kept ${tryOn.wardrobeLabel || tryOn.wardrobeId || 'try-on'} as a Cast keeper.`
+      );
+      setError(null);
+    },
+    [character?.activeLookId, shared.activeCharacterId, shared.activeLookId]
+  );
 
   const selectKit = useCallback(
     (wardrobeId: string) => {
@@ -581,6 +957,11 @@ export default function FittingRoomTool() {
     },
     [selectKit, shared.lockedWardrobeId, swipeDeck]
   );
+
+  const skipKit = useCallback(() => {
+    swipeKit(1);
+    setSaveStatus('Skipped to next kit.');
+  }, [swipeKit]);
 
   const queueTryOnAndSwipe = useCallback(async () => {
     const ok = await queueTryOn();
@@ -638,7 +1019,7 @@ export default function FittingRoomTool() {
 
   const wardrobeGroups = useMemo(() => {
     const groups = new Map<string, ClothingOption[]>();
-    for (const option of wardrobeOptions) {
+    for (const option of filteredWardrobeOptions) {
       if (!option.group) {
         continue;
       }
@@ -648,7 +1029,7 @@ export default function FittingRoomTool() {
       groups.get(option.group)!.push(option);
     }
     return groups;
-  }, [wardrobeOptions]);
+  }, [filteredWardrobeOptions]);
 
   if (!mounted) {
     return null;
@@ -801,8 +1182,38 @@ export default function FittingRoomTool() {
 
       <ToolSection
         title="Wardrobe kit"
-        description="Swipe kits on the locked plate, or pick any catalog outfit."
+        description="Filter by clothing type, swipe kits on the locked plate, or pick from the catalog."
       >
+        <label className="space-y-2">
+          <FieldLabel>Clothing type</FieldLabel>
+          <SelectInput
+            value={wardrobeCategoryFilter}
+            disabled={!wardrobeReady || busy}
+            className={accentFocusClass(ACCENT)}
+            onChange={event =>
+              updateToolSettings({
+                wardrobeCategoryFilter: normalizeWardrobeCategoryFilter(event.target.value),
+              })
+            }
+          >
+            {wardrobeCategoryFilterOptions().map(option => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+                {option.value !== 'all' && wardrobeReady
+                  ? ` (${countWardrobeOptionsForFilter(wardrobeOptions, option.value)})`
+                  : option.value === 'all' && wardrobeReady
+                    ? ` (${countWardrobeOptionsForFilter(wardrobeOptions, 'all')})`
+                    : ''}
+              </option>
+            ))}
+          </SelectInput>
+          {wardrobeReady && wardrobeCategoryFilter !== 'all' ? (
+            <p className="type-caption text-[var(--text-muted)]">
+              Showing {wardrobeKitCount} kit{wardrobeKitCount === 1 ? '' : 's'} in this type.
+            </p>
+          ) : null}
+        </label>
+        <FieldDivider />
         {swipeDeck.length > 0 ? (
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
@@ -814,10 +1225,22 @@ export default function FittingRoomTool() {
               >
                 Prev
               </Button>
-              <span className="type-caption min-w-0 flex-1 text-[var(--text-muted)]">
-                {activeSwipeKit
-                  ? `${activeSwipeKit.label}${activeSwipeKit.group ? ` · ${activeSwipeKit.group}` : ''}`
-                  : 'Pick a kit to swipe'}
+              <span className="type-caption min-w-0 flex-1 text-center text-[var(--text-muted)]">
+                {activeSwipeKit ? (
+                  <>
+                    <span className="block truncate">
+                      {activeSwipeKit.label}
+                      {activeSwipeKit.group ? ` · ${activeSwipeKit.group}` : ''}
+                    </span>
+                    {swipeDeck.length > 1 ? (
+                      <span className="mt-0.5 block text-[var(--text-muted)]">
+                        {deckSelectionIndex + 1} / {swipeDeck.length}
+                      </span>
+                    ) : null}
+                  </>
+                ) : (
+                  'Pick a kit to swipe'
+                )}
               </span>
               <Button
                 size="sm"
@@ -829,17 +1252,89 @@ export default function FittingRoomTool() {
               </Button>
             </div>
             <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-              {swipeDeck.map(kit => (
-                <ChipButton
-                  key={kit.id}
-                  active={shared.lockedWardrobeId === kit.id}
-                  disabled={busy}
-                  onClick={() => selectKit(kit.id)}
-                >
-                  {kit.label}
-                </ChipButton>
-              ))}
+              {swipeDeck.map(kit => {
+                const preview = activeLookId
+                  ? getFittingKitPreview(kitPreviews, kit.id, activeLookId)
+                  : undefined;
+                const thumb = preview?.status === 'completed' ? preview.imageUrl?.trim() : '';
+                const pending = preview?.status === 'queued' || preview?.status === 'running';
+                const selected = deckSelectionId === kit.id;
+                return (
+                  <button
+                    key={kit.id}
+                    ref={selected ? activeThumbRef : undefined}
+                    type="button"
+                    data-active={selected ? 'true' : 'false'}
+                    disabled={busy}
+                    title={kit.label}
+                    aria-label={kit.label}
+                    aria-current={selected ? 'true' : undefined}
+                    onClick={() => selectKit(kit.id)}
+                    className={`shrink-0 rounded-md border p-1 transition ${
+                      selected
+                        ? 'border-[var(--accent-border)] bg-[var(--accent-muted)] shadow-[0_0_0_1px_var(--accent-border)]'
+                        : 'border-[var(--border-default)] bg-transparent hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]'
+                    }`}
+                  >
+                    {thumb ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={thumb} alt="" className="block h-20 w-16 rounded object-cover" />
+                    ) : (
+                      <span
+                        className={`flex h-20 w-16 items-center justify-center rounded border border-[var(--border-subtle)] type-caption ${
+                          pending ? 'text-[var(--text-muted)]' : 'text-[var(--text-muted)]'
+                        }`}
+                      >
+                        {pending ? '…' : '—'}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <ChipButton
+                active={autoKitPreviews}
+                disabled={busy || !hasReference}
+                onClick={() => updateToolSettings({ autoKitPreviews: !autoKitPreviews })}
+              >
+                Auto draft previews
+              </ChipButton>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={
+                  busy ||
+                  !hasReference ||
+                  !activeLookId ||
+                  !previewModel ||
+                  swipeDeck.length === 0 ||
+                  (isolateSubject && toolSettings.referenceIsolated !== true)
+                }
+                onClick={() => void fillKitPreviews()}
+              >
+                Preview kits
+              </Button>
+              {completedPreviewCount > 0 || inFlightPreviewCount > 0 ? (
+                <span className="type-caption text-[var(--text-muted)]">
+                  {completedPreviewCount} preview{completedPreviewCount === 1 ? '' : 's'}
+                  {inFlightPreviewCount > 0 ? ` · ${inFlightPreviewCount} rendering` : ''}
+                </span>
+              ) : null}
+            </div>
+            {previewStatus ? (
+              <p className="type-caption text-[var(--text-muted)]">{previewStatus}</p>
+            ) : hasReference && autoKitPreviews ? (
+              <p className="type-caption text-[var(--text-muted)]">
+                Draft previews use {previewModelLabel ?? 'a fast edit model'} · 4-step draft ·
+                256×384 (3 at a time). Queue try-on keeps your sidebar model and settings.
+              </p>
+            ) : previewModelLabel ? (
+              <p className="type-caption text-[var(--text-muted)]">
+                Preview kits: {previewModelLabel} · 4-step draft · 256×384 · 3 concurrent. Queue
+                try-on uses {selectedModel?.label ?? shared.model}.
+              </p>
+            ) : null}
           </div>
         ) : null}
         <label className="mt-3 space-y-2">
@@ -852,7 +1347,7 @@ export default function FittingRoomTool() {
               selectKit(event.target.value);
             }}
           >
-            {wardrobeOptions
+            {filteredWardrobeOptions
               .filter(option => !option.group)
               .map(option => (
                 <option key={option.value || 'default'} value={option.value}>
@@ -883,7 +1378,56 @@ export default function FittingRoomTool() {
         </label>
       </ToolSection>
 
+      {compareTryOns.length > 0 ? (
+        <ToolSection
+          title="Compare try-ons"
+          description="Keep a winner as a Cast keeper, or skip to the next kit."
+        >
+          <div className="flex gap-3 overflow-x-auto pb-1">
+            {compareTryOns.map(tryOn => (
+              <figure
+                key={tryOn.promptId}
+                className="min-w-[7.5rem] shrink-0 rounded-[var(--radius-md)] border border-[var(--border-subtle)] p-2"
+              >
+                {tryOn.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={tryOn.imageUrl}
+                    alt={tryOn.wardrobeLabel || tryOn.wardrobeId || 'Try-on'}
+                    className="mb-2 h-28 w-full rounded object-cover"
+                  />
+                ) : null}
+                <figcaption className="type-caption truncate text-[var(--text-muted)]">
+                  {tryOn.wardrobeLabel || tryOn.wardrobeId || 'Try-on'}
+                </figcaption>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    disabled={busy}
+                    onClick={() => keepTryOn(tryOn)}
+                  >
+                    Keep
+                  </Button>
+                  <Button size="sm" variant="ghost" disabled={busy} onClick={skipKit}>
+                    Skip
+                  </Button>
+                </div>
+              </figure>
+            ))}
+          </div>
+        </ToolSection>
+      ) : null}
+
       <ToolActionRow>
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={queueBlocked || swipeDeck.length < 2}
+          onClick={skipKit}
+        >
+          Skip kit
+        </Button>
         <Button
           size="sm"
           variant="primary"

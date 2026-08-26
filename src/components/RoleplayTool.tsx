@@ -102,7 +102,13 @@ import { loadEngineSettings } from '@/lib/engine-settings';
 import { isNsfwGeneratorEnabledClient } from '@/lib/nsfw-generator-env';
 import { downloadRoleplayStoryBundle } from '@/lib/roleplay-export';
 import { useRoleplayFilmActions } from '@/hooks/useRoleplayFilmActions';
-import { applyCharacterRecord, upsertCharacterFromRoleplaySession } from '@/lib/character-os';
+import {
+  applyCharacterRecord,
+  getCharacter,
+  getCharacterLookPack,
+  upsertCharacterFromRoleplaySession,
+} from '@/lib/character-os';
+import { applyLookPackToRoleplaySettings, loadLookPack, saveLookPack } from '@/lib/look-pack';
 import {
   applyRoleplayLibrarySession,
   archiveAndStartNewRoleplaySession,
@@ -173,6 +179,7 @@ export default function RoleplayTool() {
   >(async () => undefined);
   const isolateGenRef = useRef(0);
   const autoIsolateAttemptedRef = useRef(false);
+  const deepLinkHandled = useRef(false);
   useEffect(() => {
     storyRef.current = toolSettings.story ?? [];
   }, [toolSettings.story]);
@@ -215,6 +222,44 @@ export default function RoleplayTool() {
     }, 900);
     return () => window.clearTimeout(timer);
   }, [mounted, toolSettings, updateToolSettings]);
+
+  useEffect(() => {
+    if (!mounted || typeof window === 'undefined' || deepLinkHandled.current) {
+      return;
+    }
+    deepLinkHandled.current = true;
+    const params = new URLSearchParams(window.location.search);
+    const characterId = params.get('character')?.trim();
+    const wardrobeId = params.get('wardrobe')?.trim();
+    const lookPackId = params.get('lookPack')?.trim();
+    const fromLook = params.get('from')?.trim() === 'look';
+
+    if (characterId) {
+      const record = getCharacter(characterId);
+      if (record) {
+        updateShared(applyCharacterRecord(record));
+      }
+    }
+    if (wardrobeId) {
+      updateShared({ lockedWardrobeId: wardrobeId });
+    }
+
+    let pack = fromLook ? loadLookPack({ clear: true }) : null;
+    if (!pack && lookPackId && characterId) {
+      pack = getCharacterLookPack(characterId, lookPackId)?.pack ?? null;
+      if (pack) {
+        saveLookPack(pack);
+      }
+    }
+    if (pack) {
+      const applied = applyLookPackToRoleplaySettings(pack);
+      updateShared(applied.shared);
+      updateToolSettings(applied.tool);
+      if (pack.wardrobeId?.trim() && !wardrobeId) {
+        updateShared({ lockedWardrobeId: pack.wardrobeId.trim() });
+      }
+    }
+  }, [mounted, updateShared, updateToolSettings]);
 
   const referenceImageUrl = toolSettings.referenceImageUrl?.trim() || '';
   const referenceImageFilename = toolSettings.referenceImageFilename?.trim() || '';

@@ -5,12 +5,17 @@
 
 import type { DaySlot } from './day-planner';
 import type { MoodboardTemplateId, MoodboardTile, MoodboardTileRole } from './moodboard-scene';
+import type { RoleplayTone } from './roleplay';
+import { normalizeRoleplayTone } from './roleplay';
+import type { RoleplayToolCache } from './settings-cache';
 
 export const LOOK_PACK_KEY = 'moodboard-look-pack-v1';
 
+export type LookPackSource = 'moodboard' | 'saved';
+
 export type LookPack = {
   version: 1;
-  source: 'moodboard';
+  source: LookPackSource;
   characterId?: string;
   templateId?: MoodboardTemplateId;
   paletteNotes?: string;
@@ -86,7 +91,7 @@ export function normalizeLookPack(value: unknown): LookPack | null {
     return null;
   }
   const raw = value as Partial<LookPack>;
-  if (raw.version !== 1 || raw.source !== 'moodboard') {
+  if (raw.version !== 1 || (raw.source !== 'moodboard' && raw.source !== 'saved')) {
     return null;
   }
   const tileSummaries = Array.isArray(raw.tileSummaries)
@@ -101,7 +106,7 @@ export function normalizeLookPack(value: unknown): LookPack | null {
     : undefined;
   return {
     version: 1,
-    source: 'moodboard',
+    source: raw.source === 'saved' ? 'saved' : 'moodboard',
     characterId: readText(raw.characterId, 120) || undefined,
     templateId: raw.templateId,
     paletteNotes: readText(raw.paletteNotes, 480) || undefined,
@@ -189,6 +194,81 @@ export function lookPackDayHref(pack: LookPack): string {
     params.set('wardrobe', pack.wardrobeId);
   }
   return `/day?${params.toString()}`;
+}
+
+export function lookPackRoleplayHref(pack: LookPack): string {
+  const params = new URLSearchParams();
+  params.set('from', 'look');
+  if (pack.characterId) {
+    params.set('character', pack.characterId);
+  }
+  if (pack.wardrobeId) {
+    params.set('wardrobe', pack.wardrobeId);
+  }
+  return `/roleplay?${params.toString()}`;
+}
+
+const TONE_FROM_MOOD: Array<{ pattern: RegExp; tone: RoleplayTone }> = [
+  { pattern: /\bnoir\b/i, tone: 'noir' },
+  { pattern: /\bcozy\b|\bwarm\b|\bsoft\b/i, tone: 'cozy' },
+  { pattern: /\bromantic\b|\blove\b/i, tone: 'romantic' },
+  { pattern: /\bhorror\b|\bscary\b|\bcreepy\b/i, tone: 'horror' },
+  { pattern: /\bepic\b|\bgrand\b|\bheroic\b/i, tone: 'epic' },
+  { pattern: /\bdreamy\b|\bsoft focus\b|\bethereal\b/i, tone: 'dreamy' },
+  { pattern: /\bgritty\b|\braw\b|\bstreet\b/i, tone: 'gritty' },
+  { pattern: /\bmelanchol\b|\bsad\b|\blonely\b/i, tone: 'melancholy' },
+  { pattern: /\bchaotic\b|\bwild\b|\bunhinged\b/i, tone: 'chaotic' },
+  { pattern: /\bcinematic\b|\bdramatic\b|\bfilm\b/i, tone: 'cinematic' },
+  { pattern: /\bdeadpan\b|\bdry\b/i, tone: 'deadpan' },
+];
+
+/** Best-effort tone from moodboard mood / vibe text. */
+export function inferRoleplayToneFromLookPack(pack: LookPack): RoleplayTone | undefined {
+  const haystack = [pack.moodNotes, pack.vibePrompt, pack.instruction, pack.styleNotes]
+    .filter(Boolean)
+    .join(' ');
+  if (!haystack.trim()) {
+    return undefined;
+  }
+  for (const entry of TONE_FROM_MOOD) {
+    if (entry.pattern.test(haystack)) {
+      return entry.tone;
+    }
+  }
+  return undefined;
+}
+
+/** Map a look pack onto Roleplay tool settings + shared wardrobe lock. */
+export function applyLookPackToRoleplaySettings(pack: LookPack): {
+  tool: Partial<RoleplayToolCache>;
+  shared: { lockedWardrobeId?: string; lockedLocation?: string };
+} {
+  const setting =
+    pack.locationNotes?.trim() ||
+    [pack.lightingNotes, pack.paletteNotes].filter(Boolean).join(' · ').slice(0, 240) ||
+    undefined;
+  const extraHints = lookPackNotes(pack).slice(0, 1200) || undefined;
+  const tone = inferRoleplayToneFromLookPack(pack);
+  return {
+    tool: {
+      ...(setting ? { setting } : {}),
+      ...(extraHints ? { extraHints } : {}),
+      ...(tone ? { tone: normalizeRoleplayTone(tone) } : {}),
+    },
+    shared: {
+      ...(pack.wardrobeId?.trim() ? { lockedWardrobeId: pack.wardrobeId.trim() } : {}),
+      ...(pack.locationNotes?.trim() ? { lockedLocation: pack.locationNotes.trim() } : {}),
+    },
+  };
+}
+
+export function lookPackPlayCampaignHref(characterId: string, lookPackId?: string): string {
+  const params = new URLSearchParams();
+  params.set('character', characterId);
+  if (lookPackId?.trim()) {
+    params.set('lookPack', lookPackId.trim());
+  }
+  return `/play?${params.toString()}`;
 }
 
 /** Seed every Day slot location / beat from a look pack (wardrobe only when empty). */

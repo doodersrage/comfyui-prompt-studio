@@ -1,4 +1,4 @@
-import type { WorkflowParamValues } from './comfyui-config';
+import { isLockLatentSizeParams, type WorkflowParamValues } from './comfyui-config';
 import { readBrowserValue, writeBrowserValue } from './browser-storage';
 import {
   DEFAULT_MODEL_SAMPLER_PRESET_TIER,
@@ -78,6 +78,11 @@ export type ResolveQueueParamsOptions = {
   forceNewSeed?: boolean;
   /** Probed figure pixel size — overrides sidebar/handoff W×H for Compose/Refine I2I. */
   figurePixelSize?: { width: number; height: number };
+  /**
+   * When false, keep explicit base width/height instead of snapping img2img refs
+   * to the Lightning compose ladder (used for tiny Fitting Room draft thumbs).
+   */
+  preserveInputAspect?: boolean;
 };
 
 /** Random KSampler seed for a new queue job. */
@@ -166,7 +171,8 @@ function normalizeResolveQueueParamsInput(
     'workflow' in input ||
     'samplerOverrides' in input ||
     'forceNewSeed' in input ||
-    'figurePixelSize' in input
+    'figurePixelSize' in input ||
+    'preserveInputAspect' in input
   ) {
     return input as ResolveQueueParamsOptions;
   }
@@ -193,9 +199,13 @@ export function resolveQueueParams(
     samplerOverrides,
     forceNewSeed,
     figurePixelSize,
+    preserveInputAspect,
   } = normalizeResolveQueueParamsInput(input);
   const settings = loadQueueParamsSettings();
   const shared = loadSettingsCache().shared;
+  const lockExact = isLockLatentSizeParams(base);
+  const lockedWidth = lockExact ? base?.width?.toString().trim() : '';
+  const lockedHeight = lockExact ? base?.height?.toString().trim() : '';
   const profile = resolveQueueQualityProfile({
     tool,
     override: qualityProfile,
@@ -236,10 +246,12 @@ export function resolveQueueParams(
     ...(settings.enabled
       ? {
           width:
+            lockedWidth ||
             settings.width?.toString().trim() ||
             base?.width?.toString().trim() ||
             modelDefaults.width?.toString().trim(),
           height:
+            lockedHeight ||
             settings.height?.toString().trim() ||
             base?.height?.toString().trim() ||
             modelDefaults.height?.toString().trim(),
@@ -258,6 +270,16 @@ export function resolveQueueParams(
           seed,
         }),
   };
+
+  if (lockExact) {
+    if (lockedWidth) {
+      merged.width = lockedWidth;
+    }
+    if (lockedHeight) {
+      merged.height = lockedHeight;
+    }
+    merged.lockLatentSize = base?.lockLatentSize ?? 'true';
+  }
 
   // Video frame count / fps aren't part of the manual override UI — always
   // forward from base (queueParamsBase) regardless of settings.enabled.
@@ -426,15 +448,18 @@ export function resolveQueueParams(
       figurePixelSize.width > 0 &&
       figurePixelSize.height > 0 &&
       hasInputImage &&
-      toolUsesComposeFigureLatent(tool)
+      (toolUsesComposeFigureLatent(tool) || lockExact)
     ) {
-      const latent = resolveComposeOutputLatentSize(
-        figurePixelSize.width,
-        figurePixelSize.height,
-        model,
-        orientation,
-        sizeTier
-      );
+      const latent =
+        lockExact && lockedWidth && lockedHeight
+          ? { width: Number(lockedWidth), height: Number(lockedHeight) }
+          : resolveComposeOutputLatentSize(
+              figurePixelSize.width,
+              figurePixelSize.height,
+              model,
+              orientation,
+              sizeTier
+            );
       merged.width = latent.width;
       merged.height = latent.height;
     }
@@ -478,6 +503,10 @@ export function resolveQueueParams(
       }
     }
 
+    if (lockExact) {
+      return ensureDistilledSamplerParams(merged, model, presetTier);
+    }
+
     return ensureDistilledSamplerParams(
       ensureLightningNativeResolutionParams(
         merged,
@@ -485,8 +514,7 @@ export function resolveQueueParams(
         isQwenRapidAioModel(model) && !hasInputImage ? 'square' : orientation,
         isQwenRapidAioModel(model) && !hasInputImage && sizeTier === 'max' ? 'medium' : sizeTier,
         {
-          // Gallery → Compose/Refine: keep figure aspect (don't force 1328²).
-          preserveInputAspect: hasInputImage,
+          preserveInputAspect: preserveInputAspect ?? hasInputImage,
         }
       ),
       model,

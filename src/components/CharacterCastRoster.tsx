@@ -110,8 +110,15 @@ export default function CharacterCastRoster() {
       width="wide"
       badge={<ToolBadge accent="sky">Cast</ToolBadge>}
       title="Characters"
-      description="The character is the project. Open a home for looks, stills, clips, and LoRA."
+      description="The character is the project. Open a home for looks, stills, clips, and LoRA — or run a Play campaign."
     >
+      {characters.length > 0 ? (
+        <ToolSection title="Play loop" description="Guided Moodboard → Fitting → Day → Roleplay.">
+          <ButtonLink href="/play" size="sm" variant="primary">
+            Start Play campaign
+          </ButtonLink>
+        </ToolSection>
+      ) : null}
       {characters.length === 0 ? (
         <EmptyState
           icon="catalog"

@@ -6,6 +6,7 @@ import {
   type ModelLoaderFilenames,
 } from './model-checkpoint-map';
 import type { WorkflowParamValues } from './comfyui-config';
+import { isLockLatentSizeParams } from './comfyui-config';
 import {
   DEFAULT_RESOLUTION_ORIENTATION,
   DEFAULT_RESOLUTION_SIZE_TIER,
@@ -1175,7 +1176,7 @@ export function normalizeLightningLoraStrengths(
  * Flux2 empty latents; with Qwen VAE those decode at ~½ spatial size (1328→664→996 with Lanczos). */
 export function forceLightningLatentSizeInWorkflow(
   workflow: Record<string, unknown>,
-  params: Pick<WorkflowParamValues, 'width' | 'height'> | undefined,
+  params: Pick<WorkflowParamValues, 'width' | 'height' | 'lockLatentSize'> | undefined,
   model?: string
 ): Record<string, unknown> {
   if (!isQwenLightningModel(model)) {
@@ -1184,11 +1185,12 @@ export function forceLightningLatentSizeInWorkflow(
 
   const width = Number(params?.width);
   const height = Number(params?.height);
+  const lockExact = isLockLatentSizeParams(params);
   // Prefer queue params when present, but always snap oversized / extreme leftovers
   // (raw Compose uploads, stale gallery dims) to Lightning-safe presets.
   let resolvedWidth = Number.isFinite(width) && width > 0 ? width : undefined;
   let resolvedHeight = Number.isFinite(height) && height > 0 ? height : undefined;
-  if (resolvedWidth != null && resolvedHeight != null) {
+  if (resolvedWidth != null && resolvedHeight != null && !lockExact) {
     const clamped = ensureLightningNativeResolutionParams(
       { width: resolvedWidth, height: resolvedHeight },
       model ?? 'qwen-image-2512-lightning-8',
@@ -2156,7 +2158,12 @@ export function prepareLightningWorkflowForQueue(
     return workflow;
   }
 
-  const refsPrepared = prepareQwenEditReferenceImagesForQueue(workflow, model, options?.params);
+  let working = workflow;
+  if (isLockLatentSizeParams(options?.params)) {
+    working = forceLightningLatentSizeInWorkflow(working, options?.params, model);
+  }
+
+  const refsPrepared = prepareQwenEditReferenceImagesForQueue(working, model, options?.params);
 
   const loraPatch = patchLoraNodesInWorkflow(refsPrepared, loraFilenames);
   const familyAligned = alignLightningLoraFamilyInWorkflow(

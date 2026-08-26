@@ -49,6 +49,7 @@ import {
   loadComfyGallery,
 } from '@/lib/comfyui-gallery';
 import {
+  buildDaySlotMotionSubject,
   buildDaySlotPrompt,
   dayWatchPlaylist,
   mergeDaySlotStills,
@@ -60,15 +61,31 @@ import {
   type DaySlotId,
 } from '@/lib/day-planner';
 import { resolveFittingPlateFromCharacter } from '@/lib/fitting-room';
-import { applyLookPackToDaySlots, loadLookPack, lookPackNotes } from '@/lib/look-pack';
+import {
+  countWardrobeOptionsForFilter,
+  filterWardrobeSelectOptions,
+  normalizeWardrobeCategoryFilter,
+  wardrobeCategoryFilterOptions,
+} from '@/lib/wardrobe-catalog-ui';
+import {
+  applyLookPackToDaySlots,
+  loadLookPack,
+  lookPackNotes,
+  lookPackRoleplayHref,
+  saveLookPack,
+} from '@/lib/look-pack';
 import { getReformatTargetModel } from '@/lib/reformat-target';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
 import { buildRoleplayQueueStillOptions } from '@/lib/roleplay-play-core';
+import { isGalleryClipEntry } from '@/lib/roleplay-film';
 import { ROLEPLAY_SETTING_PRESETS } from '@/lib/roleplay';
+import { resolvePreferredVideoModel } from '@/lib/queue-tool-model';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import {
   DEFAULT_DAY_TOOL_CACHE,
+  DEFAULT_VIDEO_TOOL_CACHE,
   loadSettingsCache,
+  loadToolSettings,
   saveSharedSettings,
 } from '@/lib/settings-cache';
 
@@ -125,6 +142,22 @@ export default function DayPlannerTool() {
   const [wardrobeLoadedKey, setWardrobeLoadedKey] = useState<string | null>(null);
   const wardrobeOptionsKey = `wardrobeCatalog:${clothingGender}`;
   const wardrobeReady = wardrobeLoadedKey === wardrobeOptionsKey;
+  const wardrobeCategoryFilter = normalizeWardrobeCategoryFilter(
+    toolSettings.wardrobeCategoryFilter
+  );
+  const filteredWardrobeOptions = useMemo(
+    () =>
+      filterWardrobeSelectOptions(
+        wardrobeOptions,
+        wardrobeCategoryFilter,
+        activeSlot.wardrobeId || shared.lockedWardrobeId
+      ),
+    [activeSlot.wardrobeId, shared.lockedWardrobeId, wardrobeCategoryFilter, wardrobeOptions]
+  );
+  const wardrobeKitCount = useMemo(
+    () => countWardrobeOptionsForFilter(wardrobeOptions, wardrobeCategoryFilter),
+    [wardrobeCategoryFilter, wardrobeOptions]
+  );
 
   useSeedToolDraft(mounted, {
     toolKey: TOOL_ID,
@@ -254,15 +287,19 @@ export default function DayPlannerTool() {
       const wanted = new Set(
         current.map(still => still.promptId?.trim()).filter(Boolean) as string[]
       );
-      if (wanted.size === 0) {
+      const clipWanted = new Set(
+        current.map(still => still.clipPromptId?.trim()).filter(Boolean) as string[]
+      );
+      if (wanted.size === 0 && clipWanted.size === 0) {
         return;
       }
       const gallery = loadComfyGallery()
-        .filter(entry => wanted.has(entry.promptId))
+        .filter(entry => wanted.has(entry.promptId) || clipWanted.has(entry.promptId))
         .map(entry => ({
           promptId: entry.promptId,
           status: entry.status,
           imageUrl: galleryEntryPrimaryViewUrl(entry),
+          isClip: isGalleryClipEntry(entry) || clipWanted.has(entry.promptId),
         }));
       const merged = mergeDaySlotStills(current, gallery);
       if (merged.changed) {
@@ -378,6 +415,103 @@ export default function DayPlannerTool() {
     }
   }, [queueSlot, slots]);
 
+  const animateSlot = useCallback(
+    async (slot: DaySlot) => {
+      const still = stillsRef.current.find(entry => entry.slotId === slot.id);
+      const imageUrl = still?.status === 'completed' ? still.imageUrl?.trim() : '';
+      if (!imageUrl) {
+        setError(`Queue and wait for the ${slot.label.toLowerCase()} still before animating.`);
+        return;
+      }
+      setBusy(true);
+      setError(null);
+      setActiveSlotId(slot.id);
+      actions.resetStatuses();
+      try {
+        const parentEntry = still?.promptId
+          ? loadComfyGallery().find(entry => entry.promptId === still.promptId)
+          : undefined;
+        const videoModel = resolvePreferredVideoModel({
+          toolModel: loadToolSettings('video', DEFAULT_VIDEO_TOOL_CACHE).model,
+          sharedModel: shared.model,
+        });
+        const subject = buildDaySlotMotionSubject(slot, character?.name);
+        let prompt = subject;
+        try {
+          const response = await fetch('/api/video-prompt', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              subject: slot.label,
+              motion: slot.sceneHints?.trim() || subject,
+              model: videoModel,
+              durationSec: 4,
+            }),
+          });
+          const data = (await response.json()) as { prompt?: string };
+          if (data.prompt?.trim()) {
+            prompt = data.prompt.trim();
+          }
+        } catch {
+          /* use subject */
+        }
+        const promptId = await actions.sendComfyUi(prompt, undefined, undefined, {
+          queueTool: 'video',
+          queueModel: videoModel,
+          inputImageUrl: imageUrl,
+          parentGalleryEntryId: parentEntry?.id,
+          derivedKind: 'i2v',
+          clipMode: 'i2v',
+          qualityProfile: 'final',
+          queueParamsBase: { videoFrames: 64, videoFps: 16 },
+          characterId: shared.activeCharacterId,
+          lookId: shared.activeLookId ?? character?.activeLookId,
+        });
+        updateToolSettings({
+          stills: upsertDaySlotStill(stillsRef.current, {
+            slotId: slot.id,
+            clipPromptId: typeof promptId === 'string' ? promptId : undefined,
+            clipStatus: promptId ? 'queued' : 'error',
+            clipUrl: undefined,
+          }),
+        });
+        if (promptId) {
+          setFilmStatus(
+            `Queued ${slot.label.toLowerCase()} clip — motion reel prefers clips when ready.`
+          );
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Could not queue that clip.');
+        updateToolSettings({
+          stills: upsertDaySlotStill(stillsRef.current, {
+            slotId: slot.id,
+            clipStatus: 'error',
+          }),
+        });
+      } finally {
+        setBusy(false);
+      }
+    },
+    [
+      actions,
+      character,
+      shared.activeCharacterId,
+      shared.activeLookId,
+      shared.model,
+      updateToolSettings,
+    ]
+  );
+
+  const animateAllClips = useCallback(async () => {
+    for (const slot of slots) {
+      const still = stillsRef.current.find(entry => entry.slotId === slot.id);
+      if (still?.status !== 'completed' || still.clipStatus === 'completed') {
+        continue;
+      }
+      await animateSlot(slot);
+    }
+  }, [animateSlot, slots]);
+
   const cutDayFilm = useCallback(async () => {
     const shots = dayWatchPlaylist(stillsRef.current, slots);
     if (shots.length === 0) {
@@ -464,6 +598,15 @@ export default function DayPlannerTool() {
         ...loadSettingsCache().shared,
         ...applyCharacterRecord(character),
       });
+      const pack = loadLookPack();
+      if (pack) {
+        const staged = { ...pack, characterId: character.id };
+        saveLookPack(staged);
+        router.push(lookPackRoleplayHref(staged));
+        return;
+      }
+      router.push(`/roleplay?character=${encodeURIComponent(character.id)}`);
+      return;
     }
     router.push('/roleplay');
   }, [character, router]);
@@ -536,14 +679,21 @@ export default function DayPlannerTool() {
         <div className="flex flex-wrap gap-2">
           {slots.map(slot => {
             const still = stills.find(entry => entry.slotId === slot.id);
-            const status =
+            const stillStatus =
               still?.status === 'completed'
-                ? ' · ready'
+                ? ' · still'
                 : still?.status === 'queued' || still?.status === 'running'
                   ? ' · queued'
                   : still?.status === 'error'
                     ? ' · failed'
                     : '';
+            const clipStatus =
+              still?.clipStatus === 'completed'
+                ? ' · clip'
+                : still?.clipStatus === 'queued' || still?.clipStatus === 'running'
+                  ? ' · animating'
+                  : '';
+            const status = `${stillStatus}${clipStatus}`;
             return (
               <ChipButton
                 key={slot.id}
@@ -559,6 +709,36 @@ export default function DayPlannerTool() {
         </div>
         <FieldDivider />
         <label className="space-y-2">
+          <FieldLabel>Clothing type</FieldLabel>
+          <SelectInput
+            value={wardrobeCategoryFilter}
+            disabled={!wardrobeReady || busy}
+            className={accentFocusClass(ACCENT)}
+            onChange={event =>
+              updateToolSettings({
+                wardrobeCategoryFilter: normalizeWardrobeCategoryFilter(event.target.value),
+              })
+            }
+          >
+            {wardrobeCategoryFilterOptions().map(option => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+                {option.value !== 'all' && wardrobeReady
+                  ? ` (${countWardrobeOptionsForFilter(wardrobeOptions, option.value)})`
+                  : option.value === 'all' && wardrobeReady
+                    ? ` (${countWardrobeOptionsForFilter(wardrobeOptions, 'all')})`
+                    : ''}
+              </option>
+            ))}
+          </SelectInput>
+          {wardrobeReady && wardrobeCategoryFilter !== 'all' ? (
+            <p className="type-caption text-[var(--text-muted)]">
+              Showing {wardrobeKitCount} kit{wardrobeKitCount === 1 ? '' : 's'} for{' '}
+              {activeSlot.label.toLowerCase()}.
+            </p>
+          ) : null}
+        </label>
+        <label className="mt-3 space-y-2">
           <FieldLabel>Outfit kit</FieldLabel>
           <SelectInput
             value={activeSlot.wardrobeId ?? ''}
@@ -569,9 +749,9 @@ export default function DayPlannerTool() {
               updateSlot(activeSlot.id, { wardrobeId: value || undefined });
             }}
           >
-            {wardrobeOptions.map(option => (
+            {filteredWardrobeOptions.map(option => (
               <option key={option.value || 'default'} value={option.value}>
-                {option.label}
+                {option.group ? `${option.label} · ${option.group}` : option.label}
               </option>
             ))}
           </SelectInput>
@@ -628,6 +808,22 @@ export default function DayPlannerTool() {
           <Button size="sm" variant="secondary" disabled={busy} onClick={() => void queueAll()}>
             Queue all slots
           </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={busy}
+            onClick={() => void animateSlot(activeSlot)}
+          >
+            Animate slot
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={busy}
+            onClick={() => void animateAllClips()}
+          >
+            Animate all
+          </Button>
         </ToolActionRow>
       </ToolSection>
 
@@ -643,7 +839,7 @@ export default function DayPlannerTool() {
 
       <ToolSection
         title="Day reel"
-        description="Completed slot stills play Morning → Night. Cut film uses the same playlist."
+        description="Completed clips play first; otherwise stills. Cut film uses the same playlist."
       >
         <FilmWatchPlayer
           shots={watchPlaylist}

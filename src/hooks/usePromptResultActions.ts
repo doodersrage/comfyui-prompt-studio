@@ -519,6 +519,14 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         controlImageFilenames?: string[];
         queueParamsBase?: WorkflowParamValues;
         qualityProfile?: import('@/lib/queue-quality-profile').QueueQualityProfile;
+        resolutionSizeTier?: import('@/lib/model-resolution-defaults').ResolutionSizeTier;
+        resolutionOrientation?: import('@/lib/model-resolution-defaults').ResolutionOrientation;
+        /** When false, keep queueParamsBase W×H instead of Lightning compose upsnap. */
+        preserveInputAspect?: boolean;
+        /** Override probed upload dimensions (e.g. locked fitting preview thumbs). */
+        figurePixelSize?: { width: number; height: number };
+        /** Skip graph enrich passes for tiny fitting draft thumbs. */
+        draftPreviewLite?: boolean;
         /** Merged into runtime customTokens before inject (e.g. {{REGION_*}}). */
         customTokens?: Array<{ token: string; value: string }>;
         /** Multi-slot regional edit for AttentionCouple / {{REGION_*}} binding. */
@@ -540,6 +548,10 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         clipMode?: import('@/lib/video-clip-mode').VideoClipMode;
         /** Public Fal clip URL for clipMode extend. */
         videoUrl?: string;
+        /** Override shared turbo edit strength for this queue (e.g. fitting draft previews). */
+        turboEditStrength?: import('@/lib/turbo-edit-strength').TurboEditStrength;
+        /** Override hook hints for this queue — pass '' to skip tool notes on previews. */
+        queueHints?: string;
       }
     ) => {
       if (!prompt) {
@@ -611,6 +623,15 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             ...(vramGuard.runtime ?? baseRuntime),
           };
           effectiveQualityProfile = vramGuard.profile;
+          if (options?.draftPreviewLite && runtime) {
+            runtime = {
+              ...runtime,
+              queueQualityProfile: 'draft',
+              workflowGraphEnrich: false,
+              compactDraftSaves: true,
+            };
+            effectiveQualityProfile = 'draft';
+          }
         }
 
         if (options?.customTokens?.length && runtime) {
@@ -633,12 +654,13 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         const { positive: preparedPrompt, negative: negativePrompt } = await prepareQueuePrompts({
           model: queueModel,
           positive: injectLoraTriggers(workingPrompt),
-          hints: config.hints,
+          hints: options?.queueHints ?? config.hints,
           sport,
           tool: config.tool,
           explicitNegative: options?.explicitNegative ?? pluginNegative,
           embeddingTokens: loadSettingsCache().shared.sessionEmbeddingTokens,
-          turboEditStrength: loadSettingsCache().shared.turboEditStrength,
+          turboEditStrength:
+            options?.turboEditStrength ?? loadSettingsCache().shared.turboEditStrength,
         });
         failedQueueSnapshot = {
           prompt: preparedPrompt,
@@ -932,8 +954,11 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           controlImageFilenames:
             controlImageFilenames.length > 0 ? controlImageFilenames : undefined,
           qualityProfile: effectiveQualityProfile,
+          resolutionSizeTier: options?.resolutionSizeTier,
+          resolutionOrientation: options?.resolutionOrientation,
+          preserveInputAspect: options?.preserveInputAspect,
           forceNewSeed: true,
-          figurePixelSize: uploadedFigureSize,
+          figurePixelSize: options?.figurePixelSize ?? uploadedFigureSize,
         });
 
         if (pluginDenoise != null && pluginDenoise.toString().trim() !== '') {

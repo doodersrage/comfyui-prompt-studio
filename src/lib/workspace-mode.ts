@@ -85,6 +85,7 @@ export const SIMPLE_MORE_NAV_HREFS = [
  * Character home (`/characters/[id]`) is included; `/character` (the generator) is not.
  */
 export const ROLEPLAY_FOCUS_HREFS = [
+  '/play',
   '/roleplay',
   '/fitting',
   '/day',
@@ -111,6 +112,7 @@ export function isRoleplayFocusPath(pathname: string | null | undefined): boolea
   }
   const path = pathname.split('?')[0] || '/';
   return (
+    path === '/play' ||
     path === '/roleplay' ||
     path === '/fitting' ||
     path === '/day' ||

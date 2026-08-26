@@ -16,7 +16,7 @@ export type ClothingCategory =
   | 'headwear'
   | 'traditional';
 
-const WARDROBE_CATEGORIES: ClothingCategory[] = [
+export const WARDROBE_CATEGORIES: ClothingCategory[] = [
   'outfit',
   'top',
   'bottom',

@@ -10,6 +10,7 @@ import {
 } from './browser-storage';
 import type { CharacterFilmCut } from './character-film';
 import type { CharacterIdentityBundle } from './character-identity-bundle';
+import type { LookPack } from './look-pack';
 import {
   applyCharacterIdentityBundle,
   buildCharacterIdentityBundle,
@@ -23,6 +24,14 @@ export const CHARACTERS_KEY = 'comfy-prompt-characters-v1';
 export const CHARACTERS_UPDATED_EVENT = 'prompt-studio-characters-updated';
 export const MAX_CHARACTERS = 48;
 export const MAX_LOOKS = 24;
+export const MAX_LOOK_PACKS = 16;
+
+export type CharacterLookPack = {
+  id: string;
+  name: string;
+  savedAt: number;
+  pack: LookPack;
+};
 
 export type CharacterRecord = {
   id: string;
@@ -72,6 +81,8 @@ export type CharacterRecord = {
   notes?: string;
   /** Watch/cut list for assembling a film from this character's clips and stills. */
   filmCut?: CharacterFilmCut;
+  /** Named Moodboard look packs saved on this character. */
+  lookPacks?: CharacterLookPack[];
 };
 
 export type CharacterLook = {
@@ -159,6 +170,100 @@ function newLookId(): string {
     return `look-${crypto.randomUUID()}`;
   }
   return `look-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function newLookPackId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `lp-${crypto.randomUUID()}`;
+  }
+  return `lp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function normalizeLookPacks(input: CharacterLookPack[] | undefined): CharacterLookPack[] {
+  const next: CharacterLookPack[] = [];
+  for (const entry of input ?? []) {
+    if (!entry?.id || !entry.pack || entry.pack.version !== 1) {
+      continue;
+    }
+    const name = readName(entry.name) || 'Look pack';
+    next.push({
+      id: entry.id.trim(),
+      name,
+      savedAt: typeof entry.savedAt === 'number' ? entry.savedAt : Date.now(),
+      pack: {
+        ...entry.pack,
+        source: entry.pack.source === 'saved' ? 'saved' : 'moodboard',
+        characterId: entry.pack.characterId?.trim() || undefined,
+      },
+    });
+  }
+  return next.sort((left, right) => right.savedAt - left.savedAt).slice(0, MAX_LOOK_PACKS);
+}
+
+export function lookPacksOf(character: CharacterRecord): CharacterLookPack[] {
+  return normalizeLookPacks(character.lookPacks);
+}
+
+export function getCharacterLookPack(
+  characterId: string,
+  lookPackId: string
+): CharacterLookPack | undefined {
+  const character = getCharacter(characterId);
+  if (!character) {
+    return undefined;
+  }
+  const id = lookPackId.trim();
+  return lookPacksOf(character).find(entry => entry.id === id);
+}
+
+export function addCharacterLookPack(
+  characterId: string,
+  name: string,
+  pack: LookPack
+): CharacterRecord | undefined {
+  const character = getCharacter(characterId);
+  if (!character || pack.version !== 1) {
+    return character;
+  }
+  const label = readName(name) || 'Look pack';
+  const saved: LookPack = {
+    ...pack,
+    source: 'saved',
+    characterId: character.id,
+    savedAt: Date.now(),
+  };
+  const entry: CharacterLookPack = {
+    id: newLookPackId(),
+    name: label,
+    savedAt: saved.savedAt,
+    pack: saved,
+  };
+  const existing = lookPacksOf(character);
+  upsertCharacter({
+    ...character,
+    looks: looksOf(character),
+    lookPacks: [entry, ...existing.filter(item => item.name !== label)].slice(0, MAX_LOOK_PACKS),
+    updatedAt: Date.now(),
+  });
+  return getCharacter(characterId);
+}
+
+export function removeCharacterLookPack(
+  characterId: string,
+  lookPackId: string
+): CharacterRecord | undefined {
+  const character = getCharacter(characterId);
+  const id = lookPackId.trim();
+  if (!character || !id) {
+    return character;
+  }
+  upsertCharacter({
+    ...character,
+    looks: looksOf(character),
+    lookPacks: lookPacksOf(character).filter(entry => entry.id !== id),
+    updatedAt: Date.now(),
+  });
+  return getCharacter(characterId);
 }
 
 export function characterHomeHref(id: string): string {
@@ -256,6 +361,7 @@ export function normalizeCharacterRecord(character: CharacterRecord): CharacterR
       ...character,
       loraLibraryIds: uniqueIds(character.loraLibraryIds),
       looks,
+      lookPacks: normalizeLookPacks(character.lookPacks),
       activeLookId: current.id,
     },
     current
@@ -605,6 +711,7 @@ function mergeCharacterUpdate(prev: CharacterRecord, incoming: CharacterRecord):
       loraLibraryIds: incoming.loraLibraryIds ?? prev.loraLibraryIds,
       loraTriggerPhrases: incoming.loraTriggerPhrases ?? prev.loraTriggerPhrases,
       filmCut: incoming.filmCut ?? prev.filmCut,
+      lookPacks: incoming.lookPacks ?? prev.lookPacks,
     });
   }
 
@@ -625,6 +732,7 @@ function mergeCharacterUpdate(prev: CharacterRecord, incoming: CharacterRecord):
     loraLibraryIds: incoming.loraLibraryIds ?? prev.loraLibraryIds,
     loraTriggerPhrases: incoming.loraTriggerPhrases ?? prev.loraTriggerPhrases,
     filmCut: incoming.filmCut ?? prev.filmCut,
+    lookPacks: incoming.lookPacks ?? prev.lookPacks,
   });
 }
 

@@ -2,9 +2,12 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   applyLookPackToDaySlots,
+  applyLookPackToRoleplaySettings,
   buildLookPackFromMoodboard,
+  inferRoleplayToneFromLookPack,
   lookPackDayHref,
   lookPackFittingHref,
+  lookPackRoleplayHref,
   lookPackNotes,
   normalizeLookPack,
 } from './look-pack';
@@ -52,5 +55,28 @@ describe('look-pack', () => {
     assert.equal(slots[0]?.location, 'sunlit kitchen');
     assert.match(slots[0]?.sceneHints ?? '', /cozy morning/);
     assert.equal(slots[0]?.wardrobeId, 'kit-linen');
+  });
+
+  it('lookPackRoleplayHref and roleplay settings mapping', () => {
+    const pack = buildLookPackFromMoodboard({
+      characterId: 'char-1',
+      wardrobeId: 'kit-a',
+      tiles: [
+        { id: 't1', role: 'location', notes: 'rainy street' },
+        { id: 't2', role: 'mood', notes: 'noir mystery' },
+      ],
+    });
+    assert.match(lookPackRoleplayHref(pack), /from=look/);
+    assert.match(lookPackRoleplayHref(pack), /character=char-1/);
+    const applied = applyLookPackToRoleplaySettings(pack);
+    assert.equal(applied.tool.setting, 'rainy street');
+    assert.equal(applied.shared.lockedWardrobeId, 'kit-a');
+    assert.equal(inferRoleplayToneFromLookPack(pack), 'noir');
+  });
+
+  it('normalizeLookPack accepts saved source', () => {
+    const pack = buildLookPackFromMoodboard({ tiles: [{ id: 't1', role: 'mood', notes: 'calm' }] });
+    const saved = normalizeLookPack({ ...pack, source: 'saved' });
+    assert.equal(saved?.source, 'saved');
   });
 });

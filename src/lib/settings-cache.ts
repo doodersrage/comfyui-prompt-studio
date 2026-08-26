@@ -954,6 +954,16 @@ export type FittingToolCache = {
   referenceOriginalFilename?: string;
   /** Optional freeform notes layered onto the outfit edit instruction. */
   notes?: string;
+  /** Filter full-catalog wardrobe kits by clothing type. */
+  wardrobeCategoryFilter?: import('./wardrobe-catalog-ui').WardrobeCategoryFilter;
+  /** Lazy draft try-on thumbs keyed by wardrobeId::lookId. */
+  kitPreviews?: Record<string, import('./fitting-kit-previews').FittingKitPreview>;
+  /** Auto-queue draft previews for the swipe deck when a plate is ready. */
+  autoKitPreviews?: boolean;
+  /** White cut-out plate used only for draft kit previews (sidecar; main ref unchanged). */
+  previewPlateFilename?: string;
+  previewPlateUrl?: string;
+  previewPlateSourceKey?: string;
 };
 
 /** Day Planner — time-of-day slots with wardrobe + scene beats for one character. */
@@ -962,6 +972,8 @@ export type DayToolCache = {
   /** Completed / in-flight stills for the day reel and Cut film. */
   stills?: import('./day-planner').DaySlotStill[];
   notes?: string;
+  /** Filter slot wardrobe kits by clothing type. */
+  wardrobeCategoryFilter?: import('./wardrobe-catalog-ui').WardrobeCategoryFilter;
 };
 
 /** Moodboard → Scene — reference tiles merged into one scene prompt. */
@@ -1353,6 +1365,8 @@ export const DEFAULT_ROLEPLAY_TOOL_CACHE: RoleplayToolCache = {
 export const DEFAULT_FITTING_TOOL_CACHE: FittingToolCache = {
   isolateSubject: true,
   notes: '',
+  autoKitPreviews: false,
+  kitPreviews: {},
 };
 
 export const DEFAULT_DAY_TOOL_CACHE: DayToolCache = {

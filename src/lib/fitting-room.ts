@@ -1,5 +1,29 @@
 import type { CharacterRecord } from '@/lib/character-os';
 import { activeLook } from '@/lib/character-os';
+import { buildSinglePersonUserDirective } from '@/lib/single-person';
+
+export type FittingCompareTryOn = {
+  promptId: string;
+  wardrobeId: string;
+  wardrobeLabel?: string;
+  imageUrl?: string;
+  galleryEntryId?: string;
+};
+
+export const FITTING_COMPARE_LIMIT = 4;
+
+/** Append a try-on to the compare strip (newest first, capped). */
+export function pushFittingCompareTryOn(
+  current: FittingCompareTryOn[] | undefined,
+  entry: FittingCompareTryOn
+): FittingCompareTryOn[] {
+  const id = entry.promptId.trim();
+  if (!id) {
+    return current ?? [];
+  }
+  const without = (current ?? []).filter(item => item.promptId !== id);
+  return [{ ...entry, promptId: id }, ...without].slice(0, FITTING_COMPARE_LIMIT);
+}
 
 export type FittingPlate = {
   filename?: string;
@@ -68,16 +92,13 @@ export type FittingSwipeKit = {
   group?: string;
 };
 
-const SWIPE_DECK_LIMIT = 24;
-
 /**
- * Curated kit deck for Fitting swipe — non-empty catalog options, preferred kit first,
- * outfit-group kits favored when present.
+ * Curated kit deck for Fitting swipe — non-empty catalog options in stable order
+ * (outfit-group kits first, then label) so Prev/Next do not jump when selection changes.
  */
 export function buildFittingSwipeDeck(
   options: Array<{ value: string; label: string; group?: string }>,
-  preferredId?: string,
-  limit = SWIPE_DECK_LIMIT
+  limit?: number
 ): FittingSwipeKit[] {
   const kits: FittingSwipeKit[] = [];
   const seen = new Set<string>();
@@ -97,16 +118,7 @@ export function buildFittingSwipeDeck(
     return [];
   }
 
-  const preferred = preferredId?.trim();
   const outfitFirst = [...kits].sort((left, right) => {
-    if (preferred) {
-      if (left.id === preferred) {
-        return -1;
-      }
-      if (right.id === preferred) {
-        return 1;
-      }
-    }
     const leftOutfit = /outfit/i.test(left.group ?? '') ? 0 : 1;
     const rightOutfit = /outfit/i.test(right.group ?? '') ? 0 : 1;
     if (leftOutfit !== rightOutfit) {
@@ -115,16 +127,31 @@ export function buildFittingSwipeDeck(
     return left.label.localeCompare(right.label);
   });
 
-  return outfitFirst.slice(0, Math.max(1, limit));
+  return limit && limit > 0 ? outfitFirst.slice(0, limit) : outfitFirst;
 }
 
 export function fittingSwipeIndex(deck: FittingSwipeKit[], wardrobeId?: string): number {
   const id = wardrobeId?.trim();
   if (!id || deck.length === 0) {
-    return 0;
+    return -1;
   }
   const index = deck.findIndex(kit => kit.id === id);
-  return index >= 0 ? index : 0;
+  return index;
+}
+
+/** Wardrobe id used for swipe navigation — falls back to first deck kit when lock is outside the deck. */
+export function resolveFittingDeckWardrobeId(
+  deck: FittingSwipeKit[],
+  wardrobeId?: string
+): string | undefined {
+  if (deck.length === 0) {
+    return undefined;
+  }
+  const id = wardrobeId?.trim();
+  if (id && deck.some(kit => kit.id === id)) {
+    return id;
+  }
+  return deck[0]?.id;
 }
 
 export function fittingSwipeNeighbor(
@@ -135,9 +162,48 @@ export function fittingSwipeNeighbor(
   if (deck.length === 0) {
     return null;
   }
-  const current = fittingSwipeIndex(deck, wardrobeId);
-  const next = (current + delta + deck.length) % deck.length;
+  const currentId = resolveFittingDeckWardrobeId(deck, wardrobeId);
+  const current = fittingSwipeIndex(deck, currentId);
+  const base = current >= 0 ? current : 0;
+  const next = (base + delta + deck.length) % deck.length;
   return deck[next] ?? null;
+}
+
+export type FittingPreviewPlate = {
+  filename: string;
+  imageUrl: string;
+};
+
+/** Stable key for preview-plate cache invalidation when the fitting reference changes. */
+export function fittingPreviewPlateSourceKey(input: {
+  referenceImageFilename?: string;
+  referenceOriginalFilename?: string;
+  referenceImageUrl?: string;
+}): string {
+  return [
+    input.referenceImageFilename?.trim(),
+    input.referenceOriginalFilename?.trim(),
+    input.referenceImageUrl?.trim(),
+  ]
+    .filter(Boolean)
+    .join('|');
+}
+
+/** Resolve a white-background plate for draft previews (sidecar cache only). */
+export function resolveFittingKitPreviewPlate(input: {
+  previewPlateFilename?: string;
+  previewPlateUrl?: string;
+  previewPlateSourceKey?: string;
+  sourceKey: string;
+}): FittingPreviewPlate | null {
+  const cachedFilename = input.previewPlateFilename?.trim();
+  if (cachedFilename && input.previewPlateSourceKey?.trim() === input.sourceKey.trim()) {
+    return {
+      filename: cachedFilename,
+      imageUrl: input.previewPlateUrl?.trim() || '',
+    };
+  }
+  return null;
 }
 
 /** Img2img instruction: keep identity, swap wardrobe to the locked kit. */
@@ -167,4 +233,20 @@ export function buildFittingOutfitPrompt(input: {
   ]
     .filter(Boolean)
     .join('\n');
+}
+
+/**
+ * Tighter instruction for draft swipe thumbs — identity comes from the plate only;
+ * no character hints, notes, or scene flavor that can spawn weapons/props/backgrounds.
+ */
+export function buildFittingKitPreviewPrompt(input: { outfitLabel: string }): string {
+  const outfit = input.outfitLabel.trim();
+  return [
+    buildSinglePersonUserDirective(),
+    `Replace all clothing, armor, footwear, and accessories with: ${outfit}.`,
+    'Remove every garment, weapon, prop, mask, and handheld item from the reference photo unless the new outfit explicitly includes them.',
+    'Same person, face, hair, skin tone, body shape, and pose as the reference photo.',
+    'Plain white studio background. One person only — no duplicates, panels, or extra figures.',
+    'Empty hands unless the new outfit explicitly includes handheld items.',
+  ].join(' ');
 }

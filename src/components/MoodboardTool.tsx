@@ -28,7 +28,7 @@ import { useGalleryHandoff } from '@/hooks/useGalleryHandoff';
 import { usePromptResultActions } from '@/hooks/usePromptResultActions';
 import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
-import { applyCharacterRecord, getCharacter } from '@/lib/character-os';
+import { applyCharacterRecord, addCharacterLookPack, getCharacter } from '@/lib/character-os';
 import { getComfyModelDefinition } from '@/lib/comfy-models/client';
 import { loadComfyUiSettings } from '@/lib/comfyui-settings';
 import { galleryPickPath } from '@/lib/gallery-handoff';
@@ -37,10 +37,13 @@ import { collectIsolateSourceUrls, loadImageBlobFromUrls } from '@/lib/isolate-s
 import { sharedLlmRequestBody } from '@/lib/llm-request-options';
 import {
   buildLookPackFromMoodboard,
+  loadLookPack,
   lookPackDayHref,
   lookPackFittingHref,
+  lookPackRoleplayHref,
   saveLookPack,
 } from '@/lib/look-pack';
+import { playCampaignHref } from '@/lib/play-campaign';
 import {
   MOODBOARD_TEMPLATE_OPTIONS,
   MOODBOARD_TILE_ROLES,
@@ -437,12 +440,44 @@ export default function MoodboardTool() {
     router.push(lookPackDayHref(pack));
   }, [extractLookPack, router]);
 
+  const sendLookToRoleplay = useCallback(async () => {
+    const pack = await extractLookPack();
+    if (!pack) {
+      return;
+    }
+    router.push(lookPackRoleplayHref(pack));
+  }, [extractLookPack, router]);
+
+  const saveLookPackToCast = useCallback(async () => {
+    const pack = await extractLookPack();
+    if (!pack || !character) {
+      if (!character) {
+        setError('Pick a Cast character before saving a look pack.');
+      }
+      return;
+    }
+    const defaultName = `Look ${new Date().toLocaleDateString()}`;
+    const name =
+      typeof window !== 'undefined'
+        ? window.prompt('Name this look pack on Cast', defaultName)?.trim() || defaultName
+        : defaultName;
+    addCharacterLookPack(character.id, name, pack);
+    setLookStatus(`Saved "${name}" on ${character.name}.`);
+  }, [character, extractLookPack]);
+
   const goRoleplay = useCallback(() => {
     if (character) {
       saveSharedSettings({
         ...loadSettingsCache().shared,
         ...applyCharacterRecord(character),
       });
+      const staged = loadLookPack();
+      if (staged) {
+        router.push(lookPackRoleplayHref({ ...staged, characterId: character.id }));
+        return;
+      }
+      router.push(`/roleplay?character=${encodeURIComponent(character.id)}`);
+      return;
     }
     router.push('/roleplay');
   }, [character, router]);
@@ -688,8 +723,27 @@ export default function MoodboardTool() {
         >
           Use in Day
         </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={busy || extracting}
+          onClick={() => void sendLookToRoleplay()}
+        >
+          Use in Roleplay
+        </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={busy || extracting || !character}
+          onClick={() => void saveLookPackToCast()}
+        >
+          Save on Cast
+        </Button>
         {character ? (
           <>
+            <ButtonLink href={playCampaignHref(character.id)} size="sm" variant="ghost">
+              Play campaign
+            </ButtonLink>
             <ButtonLink
               href={`/day?character=${encodeURIComponent(character.id)}`}
               size="sm"

@@ -1,0 +1,11 @@
+import { Suspense } from 'react';
+import PlayCampaignWizard from '@/components/PlayCampaignWizard';
+import { ToolPageSkeleton } from '@/components/ui/ViewState';
+
+export default function PlayCampaignPage() {
+  return (
+    <Suspense fallback={<ToolPageSkeleton label="Loading Play campaign" />}>
+      <PlayCampaignWizard />
+    </Suspense>
+  );
+}

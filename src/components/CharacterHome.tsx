@@ -24,9 +24,11 @@ import {
   getCharacter,
   getCharactersSnapshot,
   getServerCharactersSnapshot,
+  lookPacksOf,
   looksOf,
   forgetCharacterRecord,
   removeLook,
+  removeCharacterLookPack,
   subscribeCharacters,
   toggleLookKeeper,
 } from '@/lib/character-os';
@@ -50,6 +52,8 @@ import {
   resolveRoleplayContinueFromCharacter,
 } from '@/lib/roleplay-library';
 import { loadSettingsCache, saveSharedSettings, saveToolSettings } from '@/lib/settings-cache';
+import { lookPackDayHref, lookPackFittingHref, saveLookPack } from '@/lib/look-pack';
+import { playCampaignHref } from '@/lib/play-campaign';
 import { continueClipActionLabel } from '@/lib/video-clip-mode';
 import { loadEngineSettings } from '@/lib/engine-settings';
 import { FieldError } from '@/components/ui/Field';
@@ -93,6 +97,7 @@ export default function CharacterHome({ characterId }: CharacterHomeProps) {
   }, []);
 
   const looks = character ? looksOf(character) : [];
+  const savedLookPacks = character ? lookPacksOf(character) : [];
   const currentLook = character ? activeLook(character) : undefined;
   const entries = useMemo(
     () => filterComfyGalleryEntries(gallery, { characterId }),
@@ -172,6 +177,9 @@ export default function CharacterHome({ characterId }: CharacterHomeProps) {
       }
     >
       <ToolActionRow>
+        <Button size="sm" variant="primary" onClick={() => go(playCampaignHref(character.id))}>
+          Play campaign
+        </Button>
         <Button size="sm" variant="primary" onClick={() => go('/character')}>
           Generate
         </Button>
@@ -225,6 +233,55 @@ export default function CharacterHome({ characterId }: CharacterHomeProps) {
           Remove from cast
         </Button>
       </ToolActionRow>
+
+      {savedLookPacks.length > 0 ? (
+        <ToolSection
+          title="Saved look packs"
+          description="Reuse Moodboard vibes without re-running vision extract."
+        >
+          <ul className="ui-list">
+            {savedLookPacks.map(entry => (
+              <li key={entry.id} className="ui-list-row items-center">
+                <div className="ui-list-primary min-w-0">
+                  <p className="type-heading">{entry.name}</p>
+                  <p className="type-caption text-[var(--text-muted)]">
+                    {new Date(entry.savedAt).toLocaleDateString()}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      saveLookPack(entry.pack);
+                      go(lookPackFittingHref(entry.pack));
+                    }}
+                  >
+                    Fitting
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      saveLookPack(entry.pack);
+                      go(lookPackDayHref(entry.pack));
+                    }}
+                  >
+                    Day
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => removeCharacterLookPack(character.id, entry.id)}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </ToolSection>
+      ) : null}
 
       <ToolSection
         title="Looks"

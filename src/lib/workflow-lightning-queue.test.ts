@@ -1022,6 +1022,18 @@ describe("lightning queue precision and sampling", () => {
     assert.equal(oversizedLatent.inputs.width, 1328);
     assert.equal(oversizedLatent.inputs.height, 1328);
 
+    const lockedTiny = forceLightningLatentSizeInWorkflow(
+      workflow,
+      { width: 256, height: 384, lockLatentSize: true },
+      "qwen-image-edit-2511-lightning-8",
+    );
+    const tinyLatent = lockedTiny["120"] as {
+      class_type: string;
+      inputs: { width: number; height: number };
+    };
+    assert.equal(tinyLatent.inputs.width, 256);
+    assert.equal(tinyLatent.inputs.height, 384);
+
     const prepared = prepareLightningWorkflowForQueue(
       workflow,
       "qwen-image-edit-2511-lightning-8",

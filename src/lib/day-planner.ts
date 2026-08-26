@@ -17,12 +17,18 @@ export type DaySlot = {
 
 export type DaySlotStillStatus = 'queued' | 'running' | 'completed' | 'error';
 
+export type DaySlotClipStatus = 'queued' | 'running' | 'completed' | 'error';
+
 /** Per-slot still tracked for the day-in-the-life reel / Cut film. */
 export type DaySlotStill = {
   slotId: DaySlotId;
   promptId?: string;
   imageUrl?: string;
   status?: DaySlotStillStatus;
+  /** Optional I2V clip for this slot (motion reel). */
+  clipPromptId?: string;
+  clipUrl?: string;
+  clipStatus?: DaySlotClipStatus;
 };
 
 export const DEFAULT_DAY_SLOTS: DaySlot[] = [
@@ -101,6 +107,13 @@ function readStillStatus(value: unknown): DaySlotStillStatus | undefined {
   return undefined;
 }
 
+function readClipStatus(value: unknown): DaySlotClipStatus | undefined {
+  if (value === 'queued' || value === 'running' || value === 'completed' || value === 'error') {
+    return value;
+  }
+  return undefined;
+}
+
 export function normalizeDaySlotStills(input?: DaySlotStill[] | null): DaySlotStill[] {
   const bySlot = new Map<DaySlotId, DaySlotStill>();
   for (const still of input ?? []) {
@@ -112,6 +125,9 @@ export function normalizeDaySlotStills(input?: DaySlotStill[] | null): DaySlotSt
       promptId: readText(still.promptId, 160) || undefined,
       imageUrl: readText(still.imageUrl, 2048) || undefined,
       status: readStillStatus(still.status),
+      clipPromptId: readText(still.clipPromptId, 160) || undefined,
+      clipUrl: readText(still.clipUrl, 2048) || undefined,
+      clipStatus: readClipStatus(still.clipStatus),
     });
   }
   return DEFAULT_DAY_SLOTS.map(slot => bySlot.get(slot.id) ?? { slotId: slot.id });
@@ -130,17 +146,61 @@ export function upsertDaySlotStill(
           promptId: patch.promptId?.trim() || still.promptId,
           imageUrl: patch.imageUrl?.trim() || still.imageUrl,
           status: patch.status ?? still.status,
+          clipPromptId: patch.clipPromptId?.trim() || still.clipPromptId,
+          clipUrl: patch.clipUrl?.trim() || still.clipUrl,
+          clipStatus: patch.clipStatus ?? still.clipStatus,
         }
       : still
   );
   return next;
 }
 
-export type DayGalleryStill = {
+export type DayGalleryEntry = {
   promptId: string;
   status?: string;
   imageUrl?: string | null;
+  isClip?: boolean;
 };
+
+/** Merge gallery poll results into day slot stills by promptId (stills + clips). */
+export function mergeDaySlotStills(
+  stills: DaySlotStill[] | null | undefined,
+  gallery: DayGalleryEntry[]
+): { stills: DaySlotStill[]; changed: boolean } {
+  const byPromptId = new Map(
+    gallery.map(entry => [entry.promptId.trim(), entry] as const).filter(([id]) => Boolean(id))
+  );
+  let changed = false;
+  const next = normalizeDaySlotStills(stills).map(still => {
+    let updated = still;
+    const stillId = still.promptId?.trim();
+    if (stillId) {
+      const match = byPromptId.get(stillId);
+      if (match && !match.isClip) {
+        const imageUrl = match.imageUrl?.trim() || still.imageUrl;
+        const status = stillStatusFromGallery(match.status);
+        if (still.imageUrl !== imageUrl || still.status !== status) {
+          changed = true;
+          updated = { ...updated, imageUrl, status };
+        }
+      }
+    }
+    const clipId = still.clipPromptId?.trim();
+    if (clipId) {
+      const match = byPromptId.get(clipId);
+      if (match) {
+        const clipUrl = match.imageUrl?.trim() || still.clipUrl;
+        const clipStatus = stillStatusFromGallery(match.status);
+        if (still.clipUrl !== clipUrl || still.clipStatus !== clipStatus) {
+          changed = true;
+          updated = { ...updated, clipUrl, clipStatus };
+        }
+      }
+    }
+    return updated;
+  });
+  return { stills: next, changed };
+}
 
 function stillStatusFromGallery(status: string | undefined): DaySlotStillStatus {
   if (status === 'completed') {
@@ -155,36 +215,7 @@ function stillStatusFromGallery(status: string | undefined): DaySlotStillStatus 
   return 'queued';
 }
 
-/** Merge gallery poll results into day slot stills by promptId. */
-export function mergeDaySlotStills(
-  stills: DaySlotStill[] | null | undefined,
-  gallery: DayGalleryStill[]
-): { stills: DaySlotStill[]; changed: boolean } {
-  const byPromptId = new Map(
-    gallery.map(entry => [entry.promptId.trim(), entry] as const).filter(([id]) => Boolean(id))
-  );
-  let changed = false;
-  const next = normalizeDaySlotStills(stills).map(still => {
-    const id = still.promptId?.trim();
-    if (!id) {
-      return still;
-    }
-    const match = byPromptId.get(id);
-    if (!match) {
-      return still;
-    }
-    const imageUrl = match.imageUrl?.trim() || still.imageUrl;
-    const status = stillStatusFromGallery(match.status);
-    if (still.imageUrl === imageUrl && still.status === status) {
-      return still;
-    }
-    changed = true;
-    return { ...still, imageUrl, status };
-  });
-  return { stills: next, changed };
-}
-
-/** Watch / Cut film playlist from completed day stills (Morning → Night). */
+/** Watch / Cut film playlist — prefers completed clips, else stills (Morning → Night). */
 export function dayWatchPlaylist(
   stills: DaySlotStill[] | null | undefined,
   slots: DaySlot[] = DEFAULT_DAY_SLOTS,
@@ -195,6 +226,16 @@ export function dayWatchPlaylist(
   const shots: FilmPlaylistShot[] = [];
   for (const slot of normalizeDaySlots(slots)) {
     const still = bySlot.get(slot.id);
+    const clipUrl = still?.clipStatus === 'completed' ? still.clipUrl?.trim() : '';
+    if (clipUrl) {
+      shots.push({
+        entryId: still?.clipPromptId?.trim() || `${slot.id}-clip`,
+        title: slot.label,
+        url: clipUrl,
+        kind: 'clip',
+      });
+      continue;
+    }
     const url = still?.status === 'completed' ? still.imageUrl?.trim() : '';
     if (!url) {
       continue;
@@ -208,6 +249,22 @@ export function dayWatchPlaylist(
     });
   }
   return shots;
+}
+
+/** Motion prompt subject for a day slot I2V clip. */
+export function buildDaySlotMotionSubject(slot: DaySlot, characterName?: string): string {
+  const name = characterName?.trim() || 'the character';
+  const hints = slot.sceneHints?.trim();
+  const location = slot.location?.trim();
+  return [
+    `${name} during ${slot.label.toLowerCase()}`,
+    location ? `at ${location}` : null,
+    hints ? hints : null,
+    'subtle natural motion, cinematic',
+  ]
+    .filter(Boolean)
+    .join(', ')
+    .slice(0, 320);
 }
 
 /** Seed empty slot wardrobe ids from a Fitting / look-pack wardrobe lock. */

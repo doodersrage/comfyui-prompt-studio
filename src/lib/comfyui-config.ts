@@ -188,7 +188,15 @@ export type WorkflowParamValues = {
   videoFrames?: string | number;
   /** Video output frame rate — feeds {{VIDEO_FPS}}. */
   videoFps?: string | number;
+  /** Skip Lightning native ladder upsnap — use exact queue width/height (Fitting draft thumbs). */
+  lockLatentSize?: boolean | string;
 };
+
+export function isLockLatentSizeParams(
+  params?: Pick<WorkflowParamValues, 'lockLatentSize'>
+): boolean {
+  return params?.lockLatentSize === true || String(params?.lockLatentSize ?? '').trim() === 'true';
+}
 
 export type CustomWorkflowToken = {
   token: string;
@@ -438,22 +446,34 @@ export function resolveQueueParams(
   if (merged.videoFps != null && merged.videoFps.toString().trim() !== '') {
     result.videoFps = merged.videoFps;
   }
+  if (isLockLatentSizeParams(merged)) {
+    result.lockLatentSize = merged.lockLatentSize;
+    if (merged.width?.toString().trim()) {
+      result.width = merged.width.toString().trim();
+    }
+    if (merged.height?.toString().trim()) {
+      result.height = merged.height.toString().trim();
+    }
+  }
 
   if (model) {
     const hasInputImage = Boolean(
       result.inputImageFilename?.toString().trim() ||
       result.inputImageFilenames?.some(name => Boolean(name?.toString().trim()))
     );
-    const aligned = ensureLightningNativeResolutionParams(result, model, orientation, sizeTier, {
-      // Compose/Refine/img2img: never rewrite client figure AR back to native
-      // square — that horizontally squashes portrait selfies into 1328².
-      preserveInputAspect: hasInputImage,
-    });
-    if (aligned.width != null) {
-      result.width = aligned.width.toString();
-    }
-    if (aligned.height != null) {
-      result.height = aligned.height.toString();
+    const lockExact = isLockLatentSizeParams(merged) || isLockLatentSizeParams(result);
+    if (!lockExact) {
+      const aligned = ensureLightningNativeResolutionParams(result, model, orientation, sizeTier, {
+        // Compose/Refine/img2img: never rewrite client figure AR back to native
+        // square — that horizontally squashes portrait selfies into 1328².
+        preserveInputAspect: hasInputImage,
+      });
+      if (aligned.width != null) {
+        result.width = aligned.width.toString();
+      }
+      if (aligned.height != null) {
+        result.height = aligned.height.toString();
+      }
     }
     const samplerAligned = ensureDistilledSamplerParams(result, model, presetTier);
     if (samplerAligned.steps != null) {

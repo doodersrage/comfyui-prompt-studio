@@ -41,8 +41,33 @@ test('figurePixelSize overrides handoff W×H for Compose Lightning I2I', async (
     figurePixelSize: { width: 682, height: 1024 },
   });
 
-  assert.equal(params.width, 1056);
-  assert.equal(params.height, 1584);
+  assert.equal(params.width, '1056');
+  assert.equal(params.height, '1584');
+});
+
+test('lockLatentSize keeps exact fitting preview dimensions on Lightning edit I2I', async () => {
+  const { resolveQueueParams } = await import('./queue-params-settings');
+
+  const params = resolveQueueParams({
+    model: 'qwen-image-edit-2511-lightning-8',
+    tool: 'fitting',
+    qualityProfile: 'draft',
+    resolutionSizeTier: 'small',
+    resolutionOrientation: 'portrait-23',
+    preserveInputAspect: false,
+    inputImageFilename: 'fig.png',
+    figurePixelSize: { width: 682, height: 1024 },
+    base: {
+      width: '256',
+      height: '384',
+      lockLatentSize: 'true',
+      seed: '1',
+    },
+  });
+
+  assert.equal(params.width, '256');
+  assert.equal(params.height, '384');
+  assert.equal(params.lockLatentSize, 'true');
 });
 
 test('Klein Distilled Compose/Refine snaps figure pixels to native portrait', async () => {
@@ -57,7 +82,7 @@ test('Klein Distilled Compose/Refine snaps figure pixels to native portrait', as
       figurePixelSize: { width: 682, height: 1024 },
     });
 
-    assert.equal(params.width, 896, tool);
-    assert.equal(params.height, 1152, tool);
+    assert.equal(params.width, '896', tool);
+    assert.equal(params.height, '1152', tool);
   }
 });
