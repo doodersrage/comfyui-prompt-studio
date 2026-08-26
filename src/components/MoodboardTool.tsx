@@ -34,6 +34,13 @@ import { loadComfyUiSettings } from '@/lib/comfyui-settings';
 import { galleryPickPath } from '@/lib/gallery-handoff';
 import { resolveFittingPlateFromCharacter } from '@/lib/fitting-room';
 import { collectIsolateSourceUrls, loadImageBlobFromUrls } from '@/lib/isolate-subject';
+import { sharedLlmRequestBody } from '@/lib/llm-request-options';
+import {
+  buildLookPackFromMoodboard,
+  lookPackDayHref,
+  lookPackFittingHref,
+  saveLookPack,
+} from '@/lib/look-pack';
 import {
   MOODBOARD_TEMPLATE_OPTIONS,
   MOODBOARD_TILE_ROLES,
@@ -62,8 +69,8 @@ const MAX_TILES = 4;
 export default function MoodboardTool() {
   const router = useRouter();
   const description = useToolPageDescription(
-    'Stack up to four reference tiles — mood, lighting, location, style — then queue one scene still.',
-    'Moodboard → Scene — reference tiles merged into one prompt.'
+    'Stack reference tiles, extract a look pack for Fitting / Day, or queue one scene still.',
+    'Moodboard → look pack or scene still.'
   );
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
     'moodboard',
@@ -74,6 +81,8 @@ export default function MoodboardTool() {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [extracting, setExtracting] = useState(false);
+  const [lookStatus, setLookStatus] = useState<string | null>(null);
   const [activeTileId, setActiveTileId] = useState<string | null>(null);
   const [uploadingTileId, setUploadingTileId] = useState<string | null>(null);
   const deepLinkHandled = useRef(false);
@@ -315,6 +324,119 @@ export default function MoodboardTool() {
     }
   }, [buildPrompt]);
 
+  const blobToDataUrl = useCallback(async (blob: Blob): Promise<string> => {
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result ?? ''));
+      reader.onerror = () => reject(new Error('Could not read image data.'));
+      reader.readAsDataURL(blob);
+    });
+  }, []);
+
+  const extractLookPack = useCallback(async () => {
+    setExtracting(true);
+    setError(null);
+    setLookStatus(null);
+    try {
+      if (tiles.length === 0 && !toolSettings.instruction?.trim()) {
+        throw new Error('Add at least one tile or a scene instruction before extracting a look.');
+      }
+
+      let vibePrompt = '';
+      const imageTiles = tiles.filter(tile => tile.imageUrl?.trim() || tile.imageFilename?.trim());
+      if (imageTiles.length > 0) {
+        setLookStatus('Reading reference tiles…');
+        const comfyUrl = loadComfyUiSettings().apiUrl?.trim() || undefined;
+        const images = await Promise.all(
+          imageTiles.slice(0, 4).map(async tile => {
+            const blob = await loadImageBlobFromUrls(
+              collectIsolateSourceUrls({
+                imageUrl: tile.imageUrl,
+                filename: tile.imageFilename,
+                comfyUrl,
+              })
+            );
+            return {
+              image: await blobToDataUrl(blob),
+              mimeType: blob.type || 'image/jpeg',
+              role: tile.role,
+              focus: 'style' as const,
+            };
+          })
+        );
+        const response = await fetch('/api/image-prompt/multi', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            images,
+            model: shared.model,
+            detail: shared.detail,
+            descriptionPreset: 'standard',
+            extraHints: toolSettings.instruction?.trim() || undefined,
+            ...sharedLlmRequestBody(shared),
+          }),
+        });
+        const data = (await response.json()) as { prompt?: string; error?: string };
+        if (!response.ok || !data.prompt?.trim()) {
+          throw new Error(data.error ?? 'Could not extract a look from the board.');
+        }
+        vibePrompt = data.prompt.trim();
+      } else {
+        vibePrompt = synthesizeMoodboardPrompt({
+          tiles,
+          templateId,
+          characterName: character?.name,
+          characterDescriptor: character?.descriptor || character?.hints,
+          instruction: toolSettings.instruction,
+        });
+      }
+
+      const pack = buildLookPackFromMoodboard({
+        tiles,
+        templateId,
+        characterId: character?.id ?? shared.activeCharacterId,
+        instruction: toolSettings.instruction,
+        vibePrompt,
+        wardrobeId: shared.lockedWardrobeId,
+      });
+      saveLookPack(pack);
+      setOutput(vibePrompt);
+      setLookStatus('Look pack ready — send it to Fitting or Day.');
+      return pack;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not extract look pack.');
+      return null;
+    } finally {
+      setExtracting(false);
+    }
+  }, [
+    blobToDataUrl,
+    character?.descriptor,
+    character?.hints,
+    character?.id,
+    character?.name,
+    shared,
+    templateId,
+    tiles,
+    toolSettings.instruction,
+  ]);
+
+  const sendLookToFitting = useCallback(async () => {
+    const pack = await extractLookPack();
+    if (!pack) {
+      return;
+    }
+    router.push(lookPackFittingHref(pack));
+  }, [extractLookPack, router]);
+
+  const sendLookToDay = useCallback(async () => {
+    const pack = await extractLookPack();
+    if (!pack) {
+      return;
+    }
+    router.push(lookPackDayHref(pack));
+  }, [extractLookPack, router]);
+
   const goRoleplay = useCallback(() => {
     if (character) {
       saveSharedSettings({
@@ -509,7 +631,8 @@ export default function MoodboardTool() {
               />
             ) : (
               <p className="type-caption mt-2 text-[var(--text-muted)]">
-                Optional reference still — text notes work for MVP; images annotate the prompt.
+                Optional reference still — used when extracting a look pack via vision; text notes
+                always feed the scene prompt.
               </p>
             )}
           </>
@@ -530,34 +653,64 @@ export default function MoodboardTool() {
       </ToolSection>
 
       <ToolActionRow>
-        <Button size="sm" variant="secondary" disabled={busy} onClick={previewPrompt}>
+        <Button size="sm" variant="secondary" disabled={busy || extracting} onClick={previewPrompt}>
           Preview prompt
         </Button>
-        <Button size="sm" variant="primary" disabled={busy} onClick={() => void queueScene()}>
+        <Button
+          size="sm"
+          variant="primary"
+          disabled={busy || extracting}
+          onClick={() => void queueScene()}
+        >
           {busy ? 'Queueing…' : 'Queue scene'}
+        </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={busy || extracting}
+          onClick={() => void extractLookPack()}
+        >
+          {extracting ? 'Extracting…' : 'Extract look'}
+        </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={busy || extracting}
+          onClick={() => void sendLookToFitting()}
+        >
+          Use in Fitting
+        </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={busy || extracting}
+          onClick={() => void sendLookToDay()}
+        >
+          Use in Day
         </Button>
         {character ? (
           <>
             <ButtonLink
               href={`/day?character=${encodeURIComponent(character.id)}`}
               size="sm"
-              variant="secondary"
+              variant="ghost"
             >
               Plan a day
             </ButtonLink>
             <ButtonLink
               href={`/fitting?character=${encodeURIComponent(character.id)}`}
               size="sm"
-              variant="secondary"
+              variant="ghost"
             >
               Try on in Fitting
             </ButtonLink>
           </>
         ) : null}
-        <Button size="sm" variant="secondary" disabled={busy} onClick={goRoleplay}>
+        <Button size="sm" variant="secondary" disabled={busy || extracting} onClick={goRoleplay}>
           Continue in Roleplay
         </Button>
       </ToolActionRow>
+      {lookStatus ? <p className="type-caption text-[var(--text-muted)]">{lookStatus}</p> : null}
       {error ? <FieldError>{error}</FieldError> : null}
 
       <ScenePromptResultPanel

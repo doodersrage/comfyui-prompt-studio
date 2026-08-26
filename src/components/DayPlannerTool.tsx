@@ -4,6 +4,7 @@ import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import CharacterOsPicker from '@/components/CharacterOsPicker';
+import FilmWatchPlayer from '@/components/FilmWatchPlayer';
 import SharedToolControls from '@/components/SharedToolControls';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
 import ScenePromptResultPanel from '@/components/scene-tool/ScenePromptResultPanel';
@@ -28,7 +29,13 @@ import { usePromptResultActions } from '@/hooks/usePromptResultActions';
 import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { parseCharacterHints } from '@/lib/character-hints';
-import { applyCharacterRecord, getCharacter } from '@/lib/character-os';
+import {
+  assembleAndStampFilm,
+  downloadFilmBlob,
+  stampAssembledFilm,
+} from '@/lib/character-film-assemble';
+import { filmDownloadFilename } from '@/lib/character-film';
+import { applyCharacterRecord, getCharacter, upsertCharacter } from '@/lib/character-os';
 import { subjectGenderToClothingGender } from '@/lib/clothing-gender';
 import {
   fetchClothingLabels,
@@ -37,12 +44,23 @@ import {
 } from '@/lib/clothing-catalog-client';
 import { getComfyModelDefinition } from '@/lib/comfy-models/client';
 import {
+  COMFYUI_GALLERY_UPDATED_EVENT,
+  galleryEntryPrimaryViewUrl,
+  loadComfyGallery,
+} from '@/lib/comfyui-gallery';
+import {
   buildDaySlotPrompt,
+  dayWatchPlaylist,
+  mergeDaySlotStills,
+  normalizeDaySlotStills,
   normalizeDaySlots,
+  seedDaySlotsWardrobe,
+  upsertDaySlotStill,
   type DaySlot,
   type DaySlotId,
 } from '@/lib/day-planner';
 import { resolveFittingPlateFromCharacter } from '@/lib/fitting-room';
+import { applyLookPackToDaySlots, loadLookPack, lookPackNotes } from '@/lib/look-pack';
 import { getReformatTargetModel } from '@/lib/reformat-target';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
 import { buildRoleplayQueueStillOptions } from '@/lib/roleplay-play-core';
@@ -62,8 +80,8 @@ type ClothingOption = { value: string; label: string; group?: string };
 export default function DayPlannerTool() {
   const router = useRouter();
   const description = useToolPageDescription(
-    'Plan morning through night — wardrobe, setting, and beats per slot, then queue stills.',
-    'Plan a character day — four slots → scene stills.'
+    'Plan morning through night, queue stills, then Cut a day-in-the-life reel.',
+    'Character day — four slots → stills → Cut film.'
   );
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
     'day',
@@ -76,9 +94,17 @@ export default function DayPlannerTool() {
   const [busy, setBusy] = useState(false);
   const [activeSlotId, setActiveSlotId] = useState<DaySlotId>('morning');
   const [wardrobeLabels, setWardrobeLabels] = useState<Record<string, string>>({});
+  const [assemblingFilm, setAssemblingFilm] = useState(false);
+  const [filmStatus, setFilmStatus] = useState<string | null>(null);
+  const [filmNeedsCast, setFilmNeedsCast] = useState(false);
+  const assembledFilmRef = useRef<{ filename: string; data: Uint8Array } | null>(null);
   const deepLinkHandled = useRef(false);
+  const stillsRef = useRef(normalizeDaySlotStills(toolSettings.stills));
 
   const slots = useMemo(() => normalizeDaySlots(toolSettings.slots), [toolSettings.slots]);
+  const stills = useMemo(() => normalizeDaySlotStills(toolSettings.stills), [toolSettings.stills]);
+  stillsRef.current = stills;
+  const watchPlaylist = useMemo(() => dayWatchPlaylist(stills, slots), [slots, stills]);
   const activeSlot = slots.find(slot => slot.id === activeSlotId) ?? slots[0]!;
   const character = getCharacter(shared.activeCharacterId);
   const selectedModel = getComfyModelDefinition(shared.model);
@@ -130,22 +156,48 @@ export default function DayPlannerTool() {
       return;
     }
     deepLinkHandled.current = true;
-    const characterId = new URLSearchParams(window.location.search).get('character')?.trim();
-    if (!characterId) {
-      return;
+    const params = new URLSearchParams(window.location.search);
+    const characterId = params.get('character')?.trim();
+    const wardrobeId = params.get('wardrobe')?.trim();
+    const fromLook = params.get('from')?.trim() === 'look';
+
+    if (characterId) {
+      const record = getCharacter(characterId);
+      if (record) {
+        try {
+          updateShared(applyCharacterRecord(record));
+        } catch (err) {
+          scheduleAfterCommit(() =>
+            setError(err instanceof Error ? err.message : 'Could not apply that character.')
+          );
+        }
+      }
     }
-    const record = getCharacter(characterId);
-    if (!record) {
-      return;
+    if (wardrobeId) {
+      updateShared({ lockedWardrobeId: wardrobeId });
+      updateToolSettings({
+        slots: seedDaySlotsWardrobe(toolSettings.slots, wardrobeId),
+      });
     }
-    try {
-      updateShared(applyCharacterRecord(record));
-    } catch (err) {
-      scheduleAfterCommit(() =>
-        setError(err instanceof Error ? err.message : 'Could not apply that character.')
-      );
+    if (fromLook) {
+      const pack = loadLookPack({ clear: true });
+      if (pack) {
+        if (pack.wardrobeId?.trim() && !wardrobeId) {
+          updateShared({ lockedWardrobeId: pack.wardrobeId.trim() });
+        }
+        const nextSlots = applyLookPackToDaySlots(
+          seedDaySlotsWardrobe(toolSettings.slots, pack.wardrobeId || wardrobeId),
+          pack
+        );
+        const notes = lookPackNotes(pack);
+        updateToolSettings({
+          slots: nextSlots,
+          notes: notes || toolSettings.notes,
+        });
+        scheduleAfterCommit(() => setFilmStatus('Applied Moodboard look pack to day slots.'));
+      }
     }
-  }, [mounted, updateShared]);
+  }, [mounted, toolSettings.notes, toolSettings.slots, updateShared, updateToolSettings]);
 
   useEffect(() => {
     let cancelled = false;
@@ -163,43 +215,64 @@ export default function DayPlannerTool() {
 
   useEffect(() => {
     const ids = [
-      ...new Set(slots.map(slot => slot.wardrobeId?.trim()).filter(Boolean)),
-    ] as string[];
+      ...new Set(slots.map(slot => slot.wardrobeId?.trim()).filter(Boolean) as string[]),
+    ];
     if (ids.length === 0) {
-      scheduleAfterCommit(() => setWardrobeLabels({}));
-      return;
-    }
-    const cached: Record<string, string> = {};
-    const pending: string[] = [];
-    for (const id of ids) {
-      const label = getCachedClothingLabel(id);
-      if (label) {
-        cached[id] = label;
-      } else {
-        pending.push(id);
-      }
-    }
-    if (Object.keys(cached).length > 0) {
-      scheduleAfterCommit(() => setWardrobeLabels(previous => ({ ...previous, ...cached })));
-    }
-    if (pending.length === 0) {
       return;
     }
     let cancelled = false;
-    void fetchClothingLabels(pending).then(labels => {
+    void fetchClothingLabels(ids).then(labels => {
       if (cancelled) {
         return;
       }
-      const next: Record<string, string> = {};
-      for (const id of pending) {
-        next[id] = labels.get(id) ?? id;
-      }
-      setWardrobeLabels(previous => ({ ...previous, ...next }));
+      setWardrobeLabels(previous => {
+        const next = { ...previous };
+        for (const [id, label] of labels) {
+          if (label) {
+            next[id] = label;
+          }
+        }
+        return next;
+      });
     });
+    for (const id of ids) {
+      const cached = getCachedClothingLabel(id);
+      if (cached) {
+        setWardrobeLabels(previous =>
+          previous[id] === cached ? previous : { ...previous, [id]: cached }
+        );
+      }
+    }
     return () => {
       cancelled = true;
     };
   }, [slots]);
+
+  useEffect(() => {
+    const sync = () => {
+      const current = stillsRef.current;
+      const wanted = new Set(
+        current.map(still => still.promptId?.trim()).filter(Boolean) as string[]
+      );
+      if (wanted.size === 0) {
+        return;
+      }
+      const gallery = loadComfyGallery()
+        .filter(entry => wanted.has(entry.promptId))
+        .map(entry => ({
+          promptId: entry.promptId,
+          status: entry.status,
+          imageUrl: galleryEntryPrimaryViewUrl(entry),
+        }));
+      const merged = mergeDaySlotStills(current, gallery);
+      if (merged.changed) {
+        updateToolSettings({ stills: merged.stills });
+      }
+    };
+    window.addEventListener(COMFYUI_GALLERY_UPDATED_EVENT, sync);
+    sync();
+    return () => window.removeEventListener(COMFYUI_GALLERY_UPDATED_EVENT, sync);
+  }, [updateToolSettings]);
 
   const wardrobeLabelFor = useCallback(
     (wardrobeId?: string) => {
@@ -260,13 +333,27 @@ export default function DayPlannerTool() {
               identityKind: shared.identityKind,
             })
           : undefined;
-        await actions.sendComfyUi(finalized, undefined, undefined, {
+        const promptId = await actions.sendComfyUi(finalized, undefined, undefined, {
           ...(queueOptions ?? {}),
           characterId: shared.activeCharacterId,
           lookId: shared.activeLookId ?? character?.activeLookId,
         });
+        updateToolSettings({
+          stills: upsertDaySlotStill(stillsRef.current, {
+            slotId: slot.id,
+            promptId: typeof promptId === 'string' ? promptId : undefined,
+            status: promptId ? 'queued' : 'error',
+            imageUrl: undefined,
+          }),
+        });
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Could not queue that slot.');
+        updateToolSettings({
+          stills: upsertDaySlotStill(stillsRef.current, {
+            slotId: slot.id,
+            status: 'error',
+          }),
+        });
       } finally {
         setBusy(false);
       }
@@ -281,6 +368,7 @@ export default function DayPlannerTool() {
       shared.activeLookId,
       shared.identityKind,
       shared.ipAdapterStrength,
+      updateToolSettings,
     ]
   );
 
@@ -289,6 +377,86 @@ export default function DayPlannerTool() {
       await queueSlot(slot);
     }
   }, [queueSlot, slots]);
+
+  const cutDayFilm = useCallback(async () => {
+    const shots = dayWatchPlaylist(stillsRef.current, slots);
+    if (shots.length === 0) {
+      setError('Queue and wait for at least one completed slot still before cutting a film.');
+      return;
+    }
+    const name = character?.name?.trim() || 'day';
+    setAssemblingFilm(true);
+    setError(null);
+    setFilmNeedsCast(false);
+    setFilmStatus('Checking shots…');
+    try {
+      const result = await assembleAndStampFilm({
+        shots,
+        characterId: character?.id ?? '',
+        characterName: name,
+        lookId: character?.activeLookId ?? shared.activeLookId,
+        onProgress: progress => setFilmStatus(progress.label),
+      });
+      downloadFilmBlob(result.blob, result.filename);
+      assembledFilmRef.current = {
+        filename: result.filename,
+        data: new Uint8Array(await result.blob.arrayBuffer()),
+      };
+      if (character && result.persisted) {
+        setFilmNeedsCast(false);
+        setFilmStatus(`Saved ${result.filename} to ${character.name} and started the download.`);
+      } else {
+        setFilmNeedsCast(true);
+        setFilmStatus(
+          character
+            ? `Downloaded ${result.filename}. Save to Cast to stamp a studio copy.`
+            : `Downloaded ${result.filename} unstamped. Save to Cast to attach this film.`
+        );
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not assemble the film.');
+      setFilmStatus(null);
+    } finally {
+      setAssemblingFilm(false);
+    }
+  }, [character, shared.activeLookId, slots]);
+
+  const saveFilmToCast = useCallback(() => {
+    if (!character) {
+      setError('Pick a Cast character before saving the day film.');
+      return;
+    }
+    const film = assembledFilmRef.current;
+    upsertCharacter({
+      ...character,
+      name: character.name,
+    });
+    const next = getCharacter(character.id) ?? character;
+    saveSharedSettings({
+      ...loadSettingsCache().shared,
+      ...applyCharacterRecord(next),
+    });
+    if (!film) {
+      setFilmNeedsCast(false);
+      setFilmStatus(`Saved ${next.name} to Cast.`);
+      return;
+    }
+    void (async () => {
+      const stamped = await stampAssembledFilm({
+        blob: new Blob([film.data.slice()]),
+        filename: film.filename || filmDownloadFilename(next.name),
+        characterId: next.id,
+        characterName: next.name,
+        lookId: next.activeLookId,
+      });
+      setFilmNeedsCast(false);
+      setFilmStatus(
+        stamped.persisted
+          ? `Saved ${next.name} to Cast and stamped ${film.filename}.`
+          : `Saved ${next.name} to Cast. Studio storage could not keep the film.`
+      );
+    })();
+  }, [character]);
 
   const goRoleplay = useCallback(() => {
     if (character) {
@@ -303,6 +471,9 @@ export default function DayPlannerTool() {
   if (!mounted) {
     return null;
   }
+
+  const completedShotCount = watchPlaylist.length;
+  const fittingWardrobe = (activeSlot.wardrobeId || shared.lockedWardrobeId || '').trim();
 
   return (
     <ToolLayout
@@ -363,16 +534,28 @@ export default function DayPlannerTool() {
         description="Morning → night. Pick kit, setting, and beat per slot."
       >
         <div className="flex flex-wrap gap-2">
-          {slots.map(slot => (
-            <ChipButton
-              key={slot.id}
-              active={activeSlotId === slot.id}
-              disabled={busy}
-              onClick={() => setActiveSlotId(slot.id)}
-            >
-              {slot.label}
-            </ChipButton>
-          ))}
+          {slots.map(slot => {
+            const still = stills.find(entry => entry.slotId === slot.id);
+            const status =
+              still?.status === 'completed'
+                ? ' · ready'
+                : still?.status === 'queued' || still?.status === 'running'
+                  ? ' · queued'
+                  : still?.status === 'error'
+                    ? ' · failed'
+                    : '';
+            return (
+              <ChipButton
+                key={slot.id}
+                active={activeSlotId === slot.id}
+                disabled={busy}
+                onClick={() => setActiveSlotId(slot.id)}
+              >
+                {slot.label}
+                {status}
+              </ChipButton>
+            );
+          })}
         </div>
         <FieldDivider />
         <label className="space-y-2">
@@ -458,11 +641,53 @@ export default function DayPlannerTool() {
         />
       </ToolSection>
 
+      <ToolSection
+        title="Day reel"
+        description="Completed slot stills play Morning → Night. Cut film uses the same playlist."
+      >
+        <FilmWatchPlayer
+          shots={watchPlaylist}
+          emptyLabel="Queue slot stills and wait for gallery completion to preview the day reel."
+        />
+        <ToolActionRow>
+          <Button
+            size="sm"
+            variant="primary"
+            disabled={busy || assemblingFilm || completedShotCount === 0}
+            onClick={() => void cutDayFilm()}
+          >
+            {assemblingFilm ? 'Cutting…' : 'Cut film'}
+          </Button>
+          {filmNeedsCast ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={busy || assemblingFilm}
+              onClick={saveFilmToCast}
+            >
+              Save film to Cast
+            </Button>
+          ) : null}
+          {character && completedShotCount > 0 ? (
+            <ButtonLink
+              href={`/gallery?character=${encodeURIComponent(character.id)}`}
+              size="sm"
+              variant="ghost"
+            >
+              Open in Gallery
+            </ButtonLink>
+          ) : null}
+        </ToolActionRow>
+        {filmStatus ? <p className="type-caption text-[var(--text-muted)]">{filmStatus}</p> : null}
+      </ToolSection>
+
       <ToolActionRow>
         {character ? (
           <>
             <ButtonLink
-              href={`/fitting?character=${encodeURIComponent(character.id)}`}
+              href={`/fitting?character=${encodeURIComponent(character.id)}${
+                fittingWardrobe ? `&wardrobe=${encodeURIComponent(fittingWardrobe)}` : ''
+              }`}
               size="sm"
               variant="secondary"
             >

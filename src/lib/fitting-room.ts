@@ -62,6 +62,84 @@ export function resolveFittingPlateFromCharacter(
   };
 }
 
+export type FittingSwipeKit = {
+  id: string;
+  label: string;
+  group?: string;
+};
+
+const SWIPE_DECK_LIMIT = 24;
+
+/**
+ * Curated kit deck for Fitting swipe — non-empty catalog options, preferred kit first,
+ * outfit-group kits favored when present.
+ */
+export function buildFittingSwipeDeck(
+  options: Array<{ value: string; label: string; group?: string }>,
+  preferredId?: string,
+  limit = SWIPE_DECK_LIMIT
+): FittingSwipeKit[] {
+  const kits: FittingSwipeKit[] = [];
+  const seen = new Set<string>();
+  for (const option of options) {
+    const id = option.value?.trim();
+    if (!id || seen.has(id)) {
+      continue;
+    }
+    seen.add(id);
+    kits.push({
+      id,
+      label: option.label?.trim() || id,
+      group: option.group?.trim() || undefined,
+    });
+  }
+  if (kits.length === 0) {
+    return [];
+  }
+
+  const preferred = preferredId?.trim();
+  const outfitFirst = [...kits].sort((left, right) => {
+    if (preferred) {
+      if (left.id === preferred) {
+        return -1;
+      }
+      if (right.id === preferred) {
+        return 1;
+      }
+    }
+    const leftOutfit = /outfit/i.test(left.group ?? '') ? 0 : 1;
+    const rightOutfit = /outfit/i.test(right.group ?? '') ? 0 : 1;
+    if (leftOutfit !== rightOutfit) {
+      return leftOutfit - rightOutfit;
+    }
+    return left.label.localeCompare(right.label);
+  });
+
+  return outfitFirst.slice(0, Math.max(1, limit));
+}
+
+export function fittingSwipeIndex(deck: FittingSwipeKit[], wardrobeId?: string): number {
+  const id = wardrobeId?.trim();
+  if (!id || deck.length === 0) {
+    return 0;
+  }
+  const index = deck.findIndex(kit => kit.id === id);
+  return index >= 0 ? index : 0;
+}
+
+export function fittingSwipeNeighbor(
+  deck: FittingSwipeKit[],
+  wardrobeId: string | undefined,
+  delta: number
+): FittingSwipeKit | null {
+  if (deck.length === 0) {
+    return null;
+  }
+  const current = fittingSwipeIndex(deck, wardrobeId);
+  const next = (current + delta + deck.length) % deck.length;
+  return deck[next] ?? null;
+}
+
 /** Img2img instruction: keep identity, swap wardrobe to the locked kit. */
 export function buildFittingOutfitPrompt(input: {
   outfitLabel: string;

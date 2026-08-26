@@ -44,7 +44,12 @@ import {
 } from '@/lib/clothing-catalog-client';
 import { getComfyModelDefinition } from '@/lib/comfy-models/client';
 import { loadComfyUiSettings } from '@/lib/comfyui-settings';
-import { buildFittingOutfitPrompt, resolveFittingPlateFromCharacter } from '@/lib/fitting-room';
+import {
+  buildFittingOutfitPrompt,
+  buildFittingSwipeDeck,
+  fittingSwipeNeighbor,
+  resolveFittingPlateFromCharacter,
+} from '@/lib/fitting-room';
 import { galleryPickPath } from '@/lib/gallery-handoff';
 import {
   cacheBustIdentityMediaUrl,
@@ -58,6 +63,7 @@ import {
   ISOLATE_QUEUE_BLOCKED_MESSAGE,
   loadImageBlobFromUrls,
 } from '@/lib/isolate-subject';
+import { loadLookPack, lookPackNotes } from '@/lib/look-pack';
 import { resolveQueueInputImage } from '@/lib/queue-input-image';
 import { getReformatTargetModel } from '@/lib/reformat-target';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
@@ -77,8 +83,8 @@ type ClothingOption = { value: string; label: string; group?: string };
 export default function FittingRoomTool() {
   const router = useRouter();
   const description = useToolPageDescription(
-    'Lock a Cast plate, pick a catalog kit, queue an outfit try-on still.',
-    'Try outfits on a Cast character — plate + wardrobe kit → img2img still.'
+    'Lock a Cast plate, swipe catalog kits, queue outfit try-on stills.',
+    'Try outfits on a Cast character — swipe kits on a locked plate.'
   );
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
     'fitting',
@@ -120,6 +126,18 @@ export default function FittingRoomTool() {
   const [wardrobeLoadedKey, setWardrobeLoadedKey] = useState<string | null>(null);
   const wardrobeOptionsKey = `wardrobeCatalog:${clothingGender}`;
   const wardrobeReady = wardrobeLoadedKey === wardrobeOptionsKey;
+
+  const swipeDeck = useMemo(
+    () => buildFittingSwipeDeck(wardrobeOptions, shared.lockedWardrobeId),
+    [shared.lockedWardrobeId, wardrobeOptions]
+  );
+  const activeSwipeKit = useMemo(() => {
+    const id = shared.lockedWardrobeId?.trim();
+    if (!id) {
+      return swipeDeck[0] ?? null;
+    }
+    return swipeDeck.find(kit => kit.id === id) ?? swipeDeck[0] ?? null;
+  }, [shared.lockedWardrobeId, swipeDeck]);
 
   useSeedToolDraft(mounted, {
     toolKey: TOOL_ID,
@@ -344,6 +362,7 @@ export default function FittingRoomTool() {
     const params = new URLSearchParams(window.location.search);
     const characterId = params.get('character')?.trim();
     const wardrobeId = params.get('wardrobe')?.trim();
+    const fromLook = params.get('from')?.trim() === 'look';
 
     if (characterId) {
       const record = getCharacter(characterId);
@@ -381,7 +400,20 @@ export default function FittingRoomTool() {
     if (wardrobeId) {
       updateShared({ lockedWardrobeId: wardrobeId });
     }
-  }, [applyReference, mounted, updateShared]);
+    if (fromLook) {
+      const pack = loadLookPack({ clear: true });
+      if (pack) {
+        if (pack.wardrobeId?.trim() && !wardrobeId) {
+          updateShared({ lockedWardrobeId: pack.wardrobeId.trim() });
+        }
+        const notes = lookPackNotes(pack);
+        if (notes) {
+          updateToolSettings({ notes });
+        }
+        scheduleAfterCommit(() => setSaveStatus('Applied Moodboard look pack.'));
+      }
+    }
+  }, [applyReference, mounted, updateShared, updateToolSettings]);
 
   useEffect(() => {
     if (!mounted || hasReference || !shared.activeCharacterId) {
@@ -482,7 +514,7 @@ export default function FittingRoomTool() {
     toolSettings.referenceIsolated,
   ]);
 
-  const queueTryOn = useCallback(async () => {
+  const queueTryOn = useCallback(async (): Promise<boolean> => {
     setBusy(true);
     setError(null);
     setCopied(false);
@@ -511,8 +543,10 @@ export default function FittingRoomTool() {
         characterId: shared.activeCharacterId,
         lookId: shared.activeLookId ?? character?.activeLookId,
       });
+      return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not queue the try-on.');
+      return false;
     } finally {
       setBusy(false);
     }
@@ -530,6 +564,30 @@ export default function FittingRoomTool() {
     shared.lockedWardrobeId,
     toolSettings.referenceIsolated,
   ]);
+
+  const selectKit = useCallback(
+    (wardrobeId: string) => {
+      updateShared({ lockedWardrobeId: wardrobeId.trim() || undefined });
+    },
+    [updateShared]
+  );
+
+  const swipeKit = useCallback(
+    (delta: number) => {
+      const next = fittingSwipeNeighbor(swipeDeck, shared.lockedWardrobeId, delta);
+      if (next) {
+        selectKit(next.id);
+      }
+    },
+    [selectKit, shared.lockedWardrobeId, swipeDeck]
+  );
+
+  const queueTryOnAndSwipe = useCallback(async () => {
+    const ok = await queueTryOn();
+    if (ok) {
+      swipeKit(1);
+    }
+  }, [queueTryOn, swipeKit]);
 
   const saveKitToCast = useCallback(() => {
     setSaveStatus(null);
@@ -743,17 +801,55 @@ export default function FittingRoomTool() {
 
       <ToolSection
         title="Wardrobe kit"
-        description="Catalog outfit locked for this try-on and Cast."
+        description="Swipe kits on the locked plate, or pick any catalog outfit."
       >
-        <label className="space-y-2">
-          <FieldLabel>Outfit</FieldLabel>
+        {swipeDeck.length > 0 ? (
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={!wardrobeReady || busy || swipeDeck.length < 2}
+                onClick={() => swipeKit(-1)}
+              >
+                Prev
+              </Button>
+              <span className="type-caption min-w-0 flex-1 text-[var(--text-muted)]">
+                {activeSwipeKit
+                  ? `${activeSwipeKit.label}${activeSwipeKit.group ? ` · ${activeSwipeKit.group}` : ''}`
+                  : 'Pick a kit to swipe'}
+              </span>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={!wardrobeReady || busy || swipeDeck.length < 2}
+                onClick={() => swipeKit(1)}
+              >
+                Next
+              </Button>
+            </div>
+            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+              {swipeDeck.map(kit => (
+                <ChipButton
+                  key={kit.id}
+                  active={shared.lockedWardrobeId === kit.id}
+                  disabled={busy}
+                  onClick={() => selectKit(kit.id)}
+                >
+                  {kit.label}
+                </ChipButton>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        <label className="mt-3 space-y-2">
+          <FieldLabel>Full catalog</FieldLabel>
           <SelectInput
             value={shared.lockedWardrobeId ?? ''}
             disabled={!wardrobeReady || busy}
             className={accentFocusClass(ACCENT)}
             onChange={event => {
-              const value = event.target.value.trim();
-              updateShared({ lockedWardrobeId: value || undefined });
+              selectKit(event.target.value);
             }}
           >
             {wardrobeOptions
@@ -796,6 +892,14 @@ export default function FittingRoomTool() {
         >
           {busy ? 'Queueing…' : 'Queue try-on'}
         </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={queueBlocked || swipeDeck.length < 2}
+          onClick={() => void queueTryOnAndSwipe()}
+        >
+          Queue & next
+        </Button>
         <Button size="sm" variant="secondary" disabled={busy} onClick={saveKitToCast}>
           Save kit to Cast
         </Button>
@@ -805,7 +909,11 @@ export default function FittingRoomTool() {
         {character ? (
           <>
             <ButtonLink
-              href={`/day?character=${encodeURIComponent(character.id)}`}
+              href={`/day?character=${encodeURIComponent(character.id)}${
+                shared.lockedWardrobeId?.trim()
+                  ? `&wardrobe=${encodeURIComponent(shared.lockedWardrobeId.trim())}`
+                  : ''
+              }`}
               size="sm"
               variant="secondary"
             >

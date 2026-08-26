@@ -959,6 +959,8 @@ export type FittingToolCache = {
 /** Day Planner — time-of-day slots with wardrobe + scene beats for one character. */
 export type DayToolCache = {
   slots?: import('./day-planner').DaySlot[];
+  /** Completed / in-flight stills for the day reel and Cut film. */
+  stills?: import('./day-planner').DaySlotStill[];
   notes?: string;
 };
 
