@@ -118,6 +118,9 @@ export function useRoleplayFilmActions(input: {
       ...loadSettingsCache().shared,
       ...applyCharacterRecord(created),
     });
+    void import('@/lib/local-observability').then(({ noteSaveToCastMetric }) => {
+      noteSaveToCastMetric();
+    });
     const film = assembledFilmRef.current;
     if (!film) {
       setFilmNeedsCast(false);

@@ -168,3 +168,39 @@ export function resolveCampaignLookPackId(input: {
   const fromSaved = input.savedLookPackId?.trim();
   return fromSaved || undefined;
 }
+
+/**
+ * Advance (or set) campaign resume step for desk handoffs.
+ * Skips when a different character owns the saved campaign.
+ * Default is monotonic — never moves resume backward.
+ */
+export function bumpPlayCampaignStep(input: {
+  characterId: string;
+  stepId: PlayCampaignStepId;
+  lookPackId?: string;
+  /** When true, set absolute stepIndex (wizard Restart). */
+  absolute?: boolean;
+}): PlayCampaignState | null {
+  const characterId = input.characterId.trim();
+  if (!characterId) {
+    return null;
+  }
+  const stepIndex = PLAY_CAMPAIGN_STEPS.findIndex(entry => entry.id === input.stepId);
+  if (stepIndex < 0) {
+    return null;
+  }
+  const saved = loadPlayCampaignState();
+  if (saved && saved.characterId !== characterId) {
+    return null;
+  }
+  const nextIndex = input.absolute ? stepIndex : Math.max(saved?.stepIndex ?? 0, stepIndex);
+  const next: PlayCampaignState = {
+    version: 1,
+    characterId,
+    lookPackId: input.lookPackId?.trim() || saved?.lookPackId,
+    stepIndex: nextIndex,
+    updatedAt: Date.now(),
+  };
+  savePlayCampaignState(next);
+  return next;
+}

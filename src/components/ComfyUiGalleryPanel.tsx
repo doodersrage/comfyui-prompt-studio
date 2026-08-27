@@ -52,7 +52,11 @@ import {
   GALLERY_CAP_KEEPER_MIN_RATING,
   previewGalleryCapEviction,
 } from '@/lib/gallery-cap';
-import { galleryDerivedKindChipLabel, galleryDerivedKindLabel } from '@/lib/gallery-derived-kind';
+import {
+  galleryDerivedKindChipLabel,
+  galleryDerivedKindLabel,
+  GALLERY_DERIVED_KIND_FILTERS,
+} from '@/lib/gallery-derived-kind';
 import {
   applyGalleryPromptAndStackToSession,
   applyGalleryStackToSession,
@@ -1879,20 +1883,11 @@ export default function ComfyUiGalleryPanel({
         </div>
       ) : (
         <div className="flex flex-wrap gap-2">
-          {(
-            [
-              'upscale',
-              'refine',
-              'soft-pass',
-              'variation',
-              'moire-clean',
-              'face-detail',
-              'controlnet',
-            ] as const
-          ).map(kind => (
+          {GALLERY_DERIVED_KIND_FILTERS.map(kind => (
             <button
               key={kind}
               type="button"
+              data-testid={`gallery-derived-kind-${kind}`}
               onClick={() =>
                 setFilter(previous => ({
                   ...previous,

@@ -117,7 +117,8 @@ export default function SettingsDataTab({
                 {metrics.firstFilmCut}/{metrics.firstPlayCampaign || 0}
               </dd>
               <p className="mt-1 text-xs text-[var(--text-muted)]">
-                film cuts · campaign starts (local)
+                film cuts · campaign starts · keep {metrics.keepTryOn} · steps{' '}
+                {metrics.campaignStep} · save-to-cast {metrics.saveToCast}
               </p>
             </div>
             <div className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[color-mix(in_oklab,var(--surface)_88%,transparent)] p-3">

@@ -212,12 +212,6 @@ describe('roleplay library', () => {
 
   it('continues from Cast when the library session still exists', () => {
     withMockLocalStorage(() => {
-      const foreign = resolveRoleplayContinueFromCharacter('char-manual');
-      assert.equal(foreign.ok, false);
-      if (!foreign.ok) {
-        assert.equal(foreign.reason, 'not-roleplay-character');
-      }
-
       const saved = persistRoleplayLibraryFromCache(sampleCache());
       assert.ok(saved);
       const ok = resolveRoleplayContinueFromCharacter(`char-rp-${saved.session.id}`);
@@ -252,6 +246,26 @@ describe('roleplay library', () => {
       assert.equal(stillMissing.ok, false);
       if (!stillMissing.ok) {
         assert.equal(stillMissing.reason, 'session-missing');
+      }
+    });
+  });
+
+  it('continues from Play/Fitting Cast characters that are not char-rp', () => {
+    withMockLocalStorage(() => {
+      upsertCharacter({
+        id: 'char-play-manual',
+        name: 'Play Cast',
+        version: 1,
+        updatedAt: Date.now(),
+        descriptor: 'linen coat, morning light',
+        characterName: 'Play Cast',
+      });
+      const ok = resolveRoleplayContinueFromCharacter('char-play-manual');
+      assert.equal(ok.ok, true);
+      if (ok.ok) {
+        assert.equal(ok.session.id, 'cast-char-play-manual');
+        assert.equal(ok.cache.bio?.name, 'Play Cast');
+        assert.match(ok.cache.bio?.look ?? '', /linen/);
       }
     });
   });

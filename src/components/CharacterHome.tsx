@@ -65,7 +65,7 @@ import { continueClipActionLabel } from '@/lib/video-clip-mode';
 import { loadEngineSettings } from '@/lib/engine-settings';
 import { FieldError } from '@/components/ui/Field';
 
-type MediaTab = 'all' | 'stills' | 'clips' | 'keepers';
+type MediaTab = 'all' | 'stills' | 'clips' | 'films' | 'keepers';
 
 type CharacterHomeProps = {
   characterId: string;
@@ -126,23 +126,41 @@ export default function CharacterHome({ characterId }: CharacterHomeProps) {
         .find(
           entry =>
             entry.status === 'completed' &&
-            isGalleryClipEntry({ ...entry, mediaKind: galleryEntryPrimaryMediaKind(entry) })
+            isGalleryClipEntry({ ...entry, mediaKind: galleryEntryPrimaryMediaKind(entry) }) &&
+            !isAssembledFilmEntry(entry)
         ),
+    [entries]
+  );
+  const filmEntries = useMemo(
+    () => entries.filter(entry => isAssembledFilmEntry(entry)),
+    [entries]
+  );
+  const clipEntries = useMemo(
+    () =>
+      entries.filter(entry => {
+        const kind = galleryEntryPrimaryMediaKind(entry);
+        return isGalleryClipEntry({ ...entry, mediaKind: kind }) && !isAssembledFilmEntry(entry);
+      }),
+    [entries]
+  );
+  const stillEntries = useMemo(
+    () =>
+      entries.filter(entry => {
+        const kind = galleryEntryPrimaryMediaKind(entry);
+        return !isGalleryClipEntry({ ...entry, mediaKind: kind });
+      }),
     [entries]
   );
   const visible =
     mediaTab === 'keepers'
       ? keepers
-      : entries.filter(entry => {
-          const kind = galleryEntryPrimaryMediaKind(entry);
-          if (mediaTab === 'stills') {
-            return !isGalleryClipEntry({ ...entry, mediaKind: kind });
-          }
-          if (mediaTab === 'clips') {
-            return isGalleryClipEntry({ ...entry, mediaKind: kind });
-          }
-          return true;
-        });
+      : mediaTab === 'films'
+        ? filmEntries
+        : mediaTab === 'stills'
+          ? stillEntries
+          : mediaTab === 'clips'
+            ? clipEntries
+            : entries;
 
   const persistApply = (next = character) => {
     if (!next) {
@@ -439,7 +457,9 @@ export default function CharacterHome({ characterId }: CharacterHomeProps) {
         description={
           mediaTab === 'clips'
             ? 'Playable reel. Continue extends a Fal clip or queues last-frame I2V.'
-            : 'Jobs stamped with this character.'
+            : mediaTab === 'films'
+              ? 'Assembled Day / Roleplay films stamped on this character.'
+              : 'Jobs stamped with this character.'
         }
       >
         <SegmentedControl
@@ -450,36 +470,43 @@ export default function CharacterHome({ characterId }: CharacterHomeProps) {
             { value: 'all', label: `All (${entries.length})` },
             {
               value: 'stills',
-              label: `Stills (${entries.filter(entry => !isGalleryClipEntry({ ...entry, mediaKind: galleryEntryPrimaryMediaKind(entry) })).length})`,
+              label: `Stills (${stillEntries.length})`,
             },
             {
               value: 'clips',
-              label: `Clips (${entries.filter(entry => isGalleryClipEntry({ ...entry, mediaKind: galleryEntryPrimaryMediaKind(entry) })).length})`,
+              label: `Clips (${clipEntries.length})`,
+            },
+            {
+              value: 'films',
+              label: `Films (${filmEntries.length})`,
             },
             { value: 'keepers', label: `Keepers (${keepers.length})` },
           ]}
         />
-        {mediaTab === 'clips' && lastClip ? (
+        {mediaTab === 'clips' || mediaTab === 'films' || mediaTab === 'all' ? (
           <ToolActionRow>
-            <Button
-              size="sm"
-              variant="primary"
-              onClick={() => {
-                persistApply();
-                saveGalleryHandoff(buildGalleryHandoff(lastClip, 'video'));
-                router.push(galleryHandoffPath('video'));
-              }}
-            >
-              {continueClipActionLabel({
-                parentUrl: galleryEntryPrimaryViewUrl(lastClip),
-                engine: loadEngineSettings().engine,
-              }) === 'Extend clip'
-                ? 'Extend reel'
-                : 'Continue reel'}
-            </Button>
+            {mediaTab !== 'films' && lastClip ? (
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={() => {
+                  persistApply();
+                  saveGalleryHandoff(buildGalleryHandoff(lastClip, 'video'));
+                  router.push(galleryHandoffPath('video'));
+                }}
+              >
+                {continueClipActionLabel({
+                  parentUrl: galleryEntryPrimaryViewUrl(lastClip),
+                  engine: loadEngineSettings().engine,
+                }) === 'Extend clip'
+                  ? 'Extend reel'
+                  : 'Continue reel'}
+              </Button>
+            ) : null}
             <Button
               size="sm"
               variant="secondary"
+              data-testid="cast-continue-roleplay"
               onClick={() => {
                 persistApply();
                 const result = resolveRoleplayContinueFromCharacter(character.id);

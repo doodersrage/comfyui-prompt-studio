@@ -22,6 +22,12 @@ export type LocalObservabilityCounters = {
   firstPlayCampaign: number;
   /** Anonymous Play funnel: Cut film events. */
   firstFilmCut: number;
+  /** Fitting Keep try-on events. */
+  keepTryOn: number;
+  /** Play campaign step advances (desk handoffs + wizard). */
+  campaignStep: number;
+  /** Save film to Cast (not Cut download alone). */
+  saveToCast: number;
   firstQueueSetupStepFails: Partial<Record<FirstQueueSetupStepId, number>>;
   lastFailureMessage?: string;
   lastFailureHref?: string;
@@ -44,6 +50,9 @@ const DEFAULT_COUNTERS: LocalObservabilityCounters = {
   firstQueueSetupCompleted: 0,
   firstPlayCampaign: 0,
   firstFilmCut: 0,
+  keepTryOn: 0,
+  campaignStep: 0,
+  saveToCast: 0,
   firstQueueSetupStepFails: {},
 };
 
@@ -77,6 +86,9 @@ export function loadLocalObservability(): LocalObservabilityCounters {
     firstQueueSetupCompleted: Math.max(0, Number(raw?.firstQueueSetupCompleted) || 0),
     firstPlayCampaign: Math.max(0, Number(raw?.firstPlayCampaign) || 0),
     firstFilmCut: Math.max(0, Number(raw?.firstFilmCut) || 0),
+    keepTryOn: Math.max(0, Number(raw?.keepTryOn) || 0),
+    campaignStep: Math.max(0, Number(raw?.campaignStep) || 0),
+    saveToCast: Math.max(0, Number(raw?.saveToCast) || 0),
     firstQueueSetupStepFails: normalizeStepFails(raw?.firstQueueSetupStepFails),
     ...(typeof raw?.lastFailureMessage === 'string' && raw.lastFailureMessage.trim()
       ? { lastFailureMessage: raw.lastFailureMessage.trim().slice(0, 400) }
@@ -133,6 +145,9 @@ export function incrementLocalObservability(
     | 'firstQueueSetupCompleted'
     | 'firstPlayCampaign'
     | 'firstFilmCut'
+    | 'keepTryOn'
+    | 'campaignStep'
+    | 'saveToCast'
   >
 ): LocalObservabilityCounters {
   if (typeof window === 'undefined') {
@@ -220,6 +235,18 @@ export function noteFirstPlayCampaignMetric(): void {
 
 export function noteFirstFilmCutMetric(): void {
   incrementLocalObservability('firstFilmCut');
+}
+
+export function noteKeepTryOnMetric(): void {
+  incrementLocalObservability('keepTryOn');
+}
+
+export function noteCampaignStepMetric(): void {
+  incrementLocalObservability('campaignStep');
+}
+
+export function noteSaveToCastMetric(): void {
+  incrementLocalObservability('saveToCast');
 }
 
 /** Record which setup step is currently blocking (and bump its fail counter). */

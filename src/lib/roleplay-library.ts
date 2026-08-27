@@ -378,15 +378,28 @@ export type RoleplayContinueFromCast =
       message: string;
     };
 
+/** Stable Roleplay library session id for a Cast character id. */
+export function roleplayLibraryIdForCharacter(characterId: string): string | null {
+  const key = characterId.trim();
+  if (!key) {
+    return null;
+  }
+  if (key.startsWith('char-rp-')) {
+    const sessionId = key.slice('char-rp-'.length).trim();
+    return sessionId || null;
+  }
+  return `cast-${key}`;
+}
+
 /** Rebuild a Roleplay library session from Cast fields when the library entry aged out. */
 export function synthesizeRoleplaySessionFromCharacter(
   characterId: string
 ): RoleplayLibrarySession | null {
   const key = characterId.trim();
-  if (!key.startsWith('char-rp-')) {
+  if (!key) {
     return null;
   }
-  const sessionId = key.slice('char-rp-'.length).trim();
+  const sessionId = roleplayLibraryIdForCharacter(key);
   if (!sessionId) {
     return null;
   }
@@ -396,14 +409,18 @@ export function synthesizeRoleplaySessionFromCharacter(
   }
   const name =
     character.characterName?.trim() || character.bio?.name?.trim() || character.name?.trim() || '';
-  const look = character.bio?.look?.trim() || character.descriptor?.trim() || 'a character';
+  const look =
+    character.bio?.look?.trim() ||
+    character.descriptor?.trim() ||
+    character.looks?.[0]?.descriptor?.trim() ||
+    'a character';
   if (!name) {
     return null;
   }
   const bio = {
     name,
     look,
-    personality: character.bio?.personality?.trim() || '',
+    personality: character.bio?.personality?.trim() || 'to be discovered',
     ...(character.bio?.catchphrase?.trim()
       ? { catchphrase: character.bio.catchphrase.trim() }
       : {}),
@@ -444,31 +461,33 @@ export function synthesizeRoleplaySessionFromCharacter(
   });
 }
 
-/** Continue in Roleplay from a Cast character — synthesize from Cast when the library session is gone. */
+/** Continue in Roleplay from any Cast character — synthesize from Cast when the library session is gone. */
 export function resolveRoleplayContinueFromCharacter(
   characterId: string
 ): RoleplayContinueFromCast {
   const key = characterId.trim();
-  if (!key.startsWith('char-rp-')) {
+  if (!key) {
     return {
       ok: false,
       reason: 'not-roleplay-character',
-      message:
-        'This Cast entry was not started from Roleplay. Open Roleplay and Save to Cast, or continue from Library.',
+      message: 'Pick a Cast character before continuing in Roleplay.',
     };
   }
-  const sessionId = key.slice('char-rp-'.length).trim();
-  if (!sessionId) {
+  const character = getCharacter(key);
+  if (!character) {
     return {
       ok: false,
-      reason: 'not-roleplay-character',
+      reason: 'session-missing',
       message:
-        'This Cast entry was not started from Roleplay. Open Roleplay and Save to Cast, or continue from Library.',
+        'That Cast character is not in this browser. Open Cast to pick another, or start Roleplay fresh.',
     };
   }
-  const session = getRoleplayLibrarySession(sessionId);
-  if (session) {
-    return { ok: true, session, cache: applyRoleplayLibrarySession(session) };
+  const sessionId = roleplayLibraryIdForCharacter(key);
+  if (sessionId) {
+    const session = getRoleplayLibrarySession(sessionId);
+    if (session) {
+      return { ok: true, session, cache: applyRoleplayLibrarySession(session) };
+    }
   }
   const synthesized = synthesizeRoleplaySessionFromCharacter(key);
   if (synthesized) {
@@ -479,7 +498,7 @@ export function resolveRoleplayContinueFromCharacter(
     ok: false,
     reason: 'session-missing',
     message:
-      'Roleplay session not found — it may have been deleted or aged out of the library (max 24). Open Roleplay to start again, or pick a shelved session from Library.',
+      'Not enough Cast bio to continue in Roleplay. Add a look or descriptor on Cast, or open Roleplay and write a bio.',
   };
 }
 

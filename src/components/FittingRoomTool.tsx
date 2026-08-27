@@ -109,6 +109,7 @@ import {
   lookPackRoleplayHref,
   saveLookPack,
 } from '@/lib/look-pack';
+import { bumpPlayCampaignStep } from '@/lib/play-campaign';
 import { seedDaySlotsWardrobe } from '@/lib/day-planner';
 import { resolveQueueInputImage } from '@/lib/queue-input-image';
 import { getReformatTargetModel } from '@/lib/reformat-target';
@@ -994,6 +995,13 @@ export default function FittingRoomTool() {
         wardrobeId: wardrobeId || nextPack.wardrobeId,
       });
       setContinueDayHref(dayHref);
+      bumpPlayCampaignStep({ characterId, stepId: 'day', lookPackId: undefined });
+      void import('@/lib/local-observability').then(
+        ({ noteKeepTryOnMetric, noteCampaignStepMetric }) => {
+          noteKeepTryOnMetric();
+          noteCampaignStepMetric();
+        }
+      );
       setSaveStatus(
         `Kept ${tryOn.wardrobeLabel || tryOn.wardrobeId || 'try-on'} as a Cast keeper · Day slots seeded.`
       );
@@ -1079,6 +1087,10 @@ export default function FittingRoomTool() {
       saveSharedSettings({
         ...loadSettingsCache().shared,
         ...applyCharacterRecord(character),
+      });
+      bumpPlayCampaignStep({ characterId: character.id, stepId: 'roleplay' });
+      void import('@/lib/local-observability').then(({ noteCampaignStepMetric }) => {
+        noteCampaignStepMetric();
       });
       const pack = loadLookPack();
       if (pack) {
@@ -1636,6 +1648,15 @@ export default function FittingRoomTool() {
                 size="sm"
                 variant="secondary"
                 data-testid="fitting-plan-day"
+                onClick={() => {
+                  if (!character) {
+                    return;
+                  }
+                  bumpPlayCampaignStep({ characterId: character.id, stepId: 'day' });
+                  void import('@/lib/local-observability').then(({ noteCampaignStepMetric }) => {
+                    noteCampaignStepMetric();
+                  });
+                }}
               >
                 Plan a day
               </ButtonLink>

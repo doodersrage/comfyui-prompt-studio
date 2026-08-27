@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { resolveCampaignLookPackId } from './play-campaign';
+import { resetBrowserStorageCache } from './browser-storage';
+import {
+  bumpPlayCampaignStep,
+  loadPlayCampaignState,
+  PLAY_CAMPAIGN_KEY,
+  resolveCampaignLookPackId,
+} from './play-campaign';
 
 describe('play campaign helpers', () => {
   it('resolveCampaignLookPackId prefers query over saved', () => {
@@ -20,6 +26,41 @@ describe('play campaign helpers', () => {
 
   it('resolveCampaignLookPackId returns undefined when empty', () => {
     assert.equal(resolveCampaignLookPackId({}), undefined);
-    assert.equal(resolveCampaignLookPackId({ queryLookPackId: '  ', savedLookPackId: '' }), undefined);
+    assert.equal(
+      resolveCampaignLookPackId({ queryLookPackId: '  ', savedLookPackId: '' }),
+      undefined
+    );
+  });
+
+  it('bumpPlayCampaignStep advances monotonically and skips other characters', () => {
+    const storage = new Map<string, string>();
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: {
+        localStorage: {
+          getItem: (key: string) => storage.get(key) ?? null,
+          setItem: (key: string, value: string) => storage.set(key, value),
+          removeItem: (key: string) => storage.delete(key),
+        },
+        sessionStorage: {
+          getItem: (key: string) => storage.get(`s:${key}`) ?? null,
+          setItem: (key: string, value: string) => storage.set(`s:${key}`, value),
+          removeItem: (key: string) => storage.delete(`s:${key}`),
+        },
+        dispatchEvent: () => true,
+      },
+    });
+    resetBrowserStorageCache();
+
+    const first = bumpPlayCampaignStep({ characterId: 'char-a', stepId: 'fitting' });
+    assert.equal(first?.stepIndex, 2);
+    const back = bumpPlayCampaignStep({ characterId: 'char-a', stepId: 'moodboard' });
+    assert.equal(back?.stepIndex, 2);
+    const day = bumpPlayCampaignStep({ characterId: 'char-a', stepId: 'day' });
+    assert.equal(day?.stepIndex, 3);
+    const skipped = bumpPlayCampaignStep({ characterId: 'char-b', stepId: 'roleplay' });
+    assert.equal(skipped, null);
+    assert.equal(loadPlayCampaignState()?.characterId, 'char-a');
+    assert.ok(storage.has(PLAY_CAMPAIGN_KEY) || loadPlayCampaignState()?.stepIndex === 3);
   });
 });

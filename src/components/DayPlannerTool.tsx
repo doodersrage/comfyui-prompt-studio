@@ -81,6 +81,7 @@ import {
   lookPackRoleplayHref,
   saveLookPack,
 } from '@/lib/look-pack';
+import { bumpPlayCampaignStep } from '@/lib/play-campaign';
 import { getReformatTargetModel } from '@/lib/reformat-target';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
 import { buildRoleplayQueueStillOptions } from '@/lib/roleplay-play-core';
@@ -604,6 +605,9 @@ export default function DayPlannerTool() {
       ...loadSettingsCache().shared,
       ...applyCharacterRecord(next),
     });
+    void import('@/lib/local-observability').then(({ noteSaveToCastMetric }) => {
+      noteSaveToCastMetric();
+    });
     if (!film) {
       setFilmNeedsCast(false);
       setFilmStatus(`Saved ${next.name} to Cast.`);
@@ -631,6 +635,10 @@ export default function DayPlannerTool() {
       saveSharedSettings({
         ...loadSettingsCache().shared,
         ...applyCharacterRecord(character),
+      });
+      bumpPlayCampaignStep({ characterId: character.id, stepId: 'roleplay' });
+      void import('@/lib/local-observability').then(({ noteCampaignStepMetric }) => {
+        noteCampaignStepMetric();
       });
       const pack = loadLookPack();
       if (pack) {

@@ -247,6 +247,9 @@ export default function PlayCampaignWizard({ initialCharacterId }: PlayCampaignW
       });
       if (stepId !== 'character') {
         markOnboardingFirstPlayCampaign();
+        void import('@/lib/local-observability').then(({ noteCampaignStepMetric }) => {
+          noteCampaignStepMetric();
+        });
       }
       const handoff = pack ?? activeLookPack;
       if (handoff && stepId !== 'character' && stepId !== 'moodboard') {
