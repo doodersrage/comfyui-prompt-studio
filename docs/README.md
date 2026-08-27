@@ -51,7 +51,7 @@ Quick jumps inside [features.md](features.md):
 | [Releases](releasing.md) | Cut `vX.Y.Z` GitHub Releases and GHCR images |
 | [Plugin iframe host](plugin-iframe-host.md) | postMessage protocol + example HTML for iframe tools |
 | [Performance & scripts](performance/guide.md) | npm scripts, build, Prettier, monitoring checklist |
-| [Diffusers engine](../services/diffusers-engine/README.md) | Optional FastAPI txt2img sidecar |
+| [Diffusers engine](../services/diffusers-engine/README.md) | Optional FastAPI stills-only sidecar (not Play film) |
 
 ## In the repo
 

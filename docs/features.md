@@ -37,7 +37,7 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 
 ## Scene tools & catalogs {#scene-tools}
 
-- **Mobile Studio** — `/m` (Add to Home Screen via `manifest-mobile.json`): **phone companion** for Capture (isolate on white → character plate), Queue, Gallery ratings, and Play stills (Roleplay From photo). **Desk** (`/dashboard` and desktop shell) keeps Fitting, Day, Moodboard, and Cut film / Save to Cast. Header desk bridge links Campaign / Day / Fitting; `/m/play` can Cut film via the shared assembler and deep-links back to desk Day / Play campaign, but the full film loop is designed for Desk.
+- **Mobile Studio** — `/m` (Add to Home Screen via `manifest-mobile.json`): **phone companion** for **Capture → Queue → Rate → Desk Continue**. Capture isolates a plate, Queue watches jobs, Gallery rates stills, Play queues Roleplay stills from photo. **Desk** (`/dashboard` and desktop shell) keeps Fitting, Day, Moodboard, and the designed Cut film / Save to Cast loop. Header desk bridge links Campaign / Day / Fitting. Cut on `/m/play` is optional parity via the shared assembler — not the primary path.
 - **Play workspace** — sidebar footer / Profile → Appearance: Cast, Fitting Room, Day Planner, Roleplay, Gallery, and Queue (Play mode label in workspace picker). Roleplay routes use a lean rail. Moodboard lives under Scene nav and ⌘K. Default for a film-first loop; Simple remains the first-run default.
 - **Simple Essentials** — Dashboard, Generate, Cast, Roleplay, Gallery, and Queue; Studio, Video, Refine, Compose, Inpaint, Fitting, Day, Moodboard, and the rest sit under More tools (⌘K finds everything).
 - **Gallery collections** — bulk **Collect** (favorite/rate), **Group** (named batches), and **Project** (campaign scope); tags are under Project in full mode only.
@@ -210,7 +210,7 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 - **Vision scan on still tools** — Inpaint, Outpaint, Compose (Image 1), ControlNet, and Roleplay From photo share **Scan with vision** next to Choose from Gallery.
 - **Tool-locked model pickers** — Video stays on WAN / Hunyuan / LTX; Inpaint / Outpaint / Compose / Refine / From photo stay on edit/img2img. Show all is hidden on video/audio/mesh.
 - **Workspace first paint** — saved Simple / Play / Studio / Full is read from a cookie so chrome matches on load instead of flashing Simple.
-- **Mobile Cut film** — `/m/play` Cut film and Save to Cast use the same assembler as desktop Roleplay, with the same Cast / Gallery deep-links and Campaign complete CTA after a successful cut.
+- **Mobile Cut film** — `/m/play` can optionally Cut film and Save to Cast with the same assembler as desktop Roleplay (Cast / Gallery deep-links and Campaign complete CTA). Designed path remains **Desk Continue** for Fitting / Day / full Cut.
 - **ControlNet prompt builder** — `/controlnet` tool for depth/pose/canny/normal/lineart conditioning text
 - **ControlNet from image** — upload reference for vision-assisted structure extraction on `/controlnet`
 - **ControlNet gallery lineage** — gallery → ControlNet handoffs keep parent entry + source image; derivatives filter as ControlNet
@@ -260,7 +260,7 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 - **Plugin registry** — `/plugins` **Sidebar bookmarks**: custom localStorage **nav bookmarks** (href-only; not a runnable plugin runtime)
 - **Plugin iframe host** — `/plugins` **Runtime plugins**: installable manifests embed tools at `/plugins/[id]` with queue / apply-prompt / apply-model / apply-quality / pick-gallery (`docs/plugin-iframe-host.md`). Choose runtime when you need iframe or queue hooks; choose bookmarks for simple deep links.
 - **Queue failure playbooks** — missing-node and loader failures deep-link toast CTAs to Settings sections
-- **Simple first-success** — first completed render in Simple mode advances onboarding and nudges Gallery review; checklist then offers **Start a Play campaign** (`/play`) after the first still
+- **Simple first-success** — first completed render in Simple mode advances onboarding and nudges Gallery review; checklist offers **Open Play workspace** from first-queue-success onward (earlier than campaign-only), and Simple Essentials includes `/play`
 - **CLI** — `npm run prompt:cli -- duo --hints "..."` over the HTTP API
 
 ## Automation & integrations {#automation}
@@ -292,7 +292,7 @@ Jump to: [Prompt generation](#prompt-generation) · [Scene tools](#scene-tools) 
 - **Gallery group management** — Groups rail plus rename/delete for custom groups
 - **Semantic search inline** — Match chip sits next to gallery search (non-lean)
 - **First-success tray nudge** — first lean-mode completed render uses notification + celebrate even when toasts are muted
-- **Visual polish** — restrained button/chip motion (no lift/glow), solid docks instead of stacked glass bars, quieter gallery overlays and menu labels, ToolBadge without pill chrome, Settings jump via select
+- **Visual polish** — restrained button/chip motion (no lift/glow), solid docks instead of stacked glass bars, quieter gallery overlays and menu labels, ToolBadge without pill chrome, Settings jump via select. Default (comfortable) density tightened toward studio tooling; Play campaign active steps use real accent tokens; Dashboard elevates Play as the primary path when not resuming a draft.
 - **First-run queue deep link** — post-Heal checklist and `/?source=random&autogen=1&autoqueue=1` auto-generate + queue a random scene
 - **Dashboard output actions** — Re-queue, Refine, Roleplay, Edit, Hints on recent stills
 - **Command palette context** — active project, recent gallery outputs, Heal & ready action

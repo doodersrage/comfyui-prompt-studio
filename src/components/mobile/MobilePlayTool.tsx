@@ -829,8 +829,25 @@ export default function MobilePlayTool() {
       />
 
       <div className="space-y-2">
+        <p className="type-caption text-[var(--text-muted)]">
+          Phone companion path: Capture → Queue → Rate → continue the film loop on desk.
+        </p>
+        <Link
+          href="/day"
+          className="ui-btn-secondary w-full justify-center text-center text-sm"
+          data-testid="mobile-continue-desk-day"
+        >
+          Continue Day on desk
+        </Link>
+        <Link
+          href="/play"
+          className="ui-btn-secondary w-full justify-center text-center text-sm"
+          data-testid="mobile-continue-desk-play"
+        >
+          Play campaign on desk
+        </Link>
         <Button
-          variant="secondary"
+          variant="ghost"
           loading={assemblingFilm}
           loadingLabel="Cutting film"
           disabled={story.length === 0 || assemblingFilm || bioLoading}
@@ -839,6 +856,9 @@ export default function MobilePlayTool() {
         >
           Cut film
         </Button>
+        <p className="type-caption text-center text-[var(--text-muted)]">
+          Optional on phone · full Fitting / Day / Cut loop on desk
+        </p>
         {filmNeedsCast ? (
           <Button
             variant="ghost"
@@ -883,20 +903,6 @@ export default function MobilePlayTool() {
           </Link>
         ) : null}
         {filmStatus ? <p className="type-caption text-[var(--text-muted)]">{filmStatus}</p> : null}
-        <Link
-          href="/day"
-          className="ui-btn-secondary w-full justify-center text-center text-sm"
-          data-testid="mobile-continue-desk-day"
-        >
-          Continue Day on desk
-        </Link>
-        <Link
-          href="/play"
-          className="ui-btn-ghost w-full justify-center text-center text-sm"
-          data-testid="mobile-continue-desk-play"
-        >
-          Play campaign on desk
-        </Link>
       </div>
 
       <FieldError>{error || filmError}</FieldError>

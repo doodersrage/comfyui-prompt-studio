@@ -86,7 +86,7 @@ export default function PlayFilmMetricsCard() {
       description="Time and conversion from campaign start to Cut film / Save to Cast."
       data-testid="play-film-metrics"
     >
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-[var(--group-gap)] sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Campaign → first film" value={value} detail={detail} />
         <StatCard
           label="First film cut"
@@ -105,12 +105,12 @@ export default function PlayFilmMetricsCard() {
         />
       </div>
       {(rates.dayShare != null || rates.roleplayShare != null || rates.maxStep > 0) && (
-        <p className="mt-3 type-caption text-[var(--text-muted)]" data-testid="play-funnel-source">
+        <p className="mt-2 type-caption text-[var(--text-muted)]" data-testid="play-funnel-source">
           Day {formatRate(rates.dayShare)} · Roleplay {formatRate(rates.roleplayShare)} · max step{' '}
           {rates.maxStep}
         </p>
       )}
-      <div className="mt-3">
+      <div className="mt-2">
         <ButtonLink href="/play" size="sm" variant="secondary">
           Open Play campaign
         </ButtonLink>

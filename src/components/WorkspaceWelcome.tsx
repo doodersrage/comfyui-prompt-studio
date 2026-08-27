@@ -202,7 +202,7 @@ export default function WorkspaceWelcome() {
               {setupMessage ??
                 (generateCta.href.startsWith('/roleplay')
                   ? 'Open Roleplay to start a story loop, or Generate anytime from All tools.'
-                  : 'Open Generate for a first image (Random surprise needs no keywords), then rate it in Gallery.')}
+                  : 'Queue a first still (Random surprise needs no keywords), then start a Play campaign for Moodboard → film.')}
             </p>
             <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
               <Button type="button" variant="ghost" size="sm" onClick={() => setPhase(null)}>
@@ -210,12 +210,15 @@ export default function WorkspaceWelcome() {
               </Button>
               {generateCta.href.startsWith('/roleplay') ? null : (
                 <ButtonLink
-                  href="/roleplay"
+                  href="/play"
                   variant="secondary"
                   size="sm"
-                  onClick={() => setPhase(null)}
+                  onClick={() => {
+                    saveWorkspaceMode('play');
+                    setPhase(null);
+                  }}
                 >
-                  Open Roleplay
+                  Start Play campaign
                 </ButtonLink>
               )}
               {generateCta.href.startsWith('/roleplay') ? null : (

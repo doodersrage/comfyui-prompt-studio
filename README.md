@@ -1,6 +1,6 @@
 # Prompt Studio
 
-A Next.js app that turns topics or keywords into model-specific prompts for image and video workflows (ComfyUI primary for generate / Lightning / specialty graphs; Diffusers optional for experimental txt2img; Fal and Replicate for cloud stills + clips; Grok and Gemini for stills plus native video; ChatGPT stills only), and reformats existing drafts for any supported architecture.
+A Next.js app that turns topics or keywords into model-specific prompts for image and video workflows (ComfyUI primary for generate / Lightning / specialty graphs; Diffusers optional for experimental stills — txt2img/img2img only, not Play film; Fal and Replicate for cloud stills + clips; Grok and Gemini for stills plus native video; ChatGPT stills only), and reformats existing drafts for any supported architecture.
 
 **Docs:** [doodersrage.github.io/llm-prompt-studio](https://doodersrage.github.io/llm-prompt-studio/) · [source](docs/README.md)
 

@@ -59,6 +59,7 @@ export const WORKSPACE_MODE_OPTIONS: {
 export const SIMPLE_NAV_HREFS = [
   '/dashboard',
   '/',
+  '/play',
   '/characters',
   '/roleplay',
   '/gallery',

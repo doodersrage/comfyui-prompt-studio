@@ -124,11 +124,10 @@ import {
   saveSharedSettings,
   saveToolSettings,
 } from '@/lib/settings-cache';
+import { EMPTY_WARDROBE_OPTIONS, type FittingClothingOption } from '@/lib/fitting-clothing-options';
 
 const ACCENT = 'rose' as const;
 const TOOL_ID = 'fitting' as const;
-
-type ClothingOption = { value: string; label: string; group?: string };
 
 export default function FittingRoomTool() {
   const router = useRouter();
@@ -188,9 +187,8 @@ export default function FittingRoomTool() {
     [character?.descriptor, character?.hints]
   );
 
-  const [wardrobeOptions, setWardrobeOptions] = useState<ClothingOption[]>([
-    { value: '', label: 'Pick a kit…' },
-  ]);
+  const [wardrobeOptions, setWardrobeOptions] =
+    useState<FittingClothingOption[]>(EMPTY_WARDROBE_OPTIONS);
   const [wardrobeLoadedKey, setWardrobeLoadedKey] = useState<string | null>(null);
   const wardrobeOptionsKey = `wardrobeCatalog:${clothingGender}`;
   const wardrobeReady = wardrobeLoadedKey === wardrobeOptionsKey;
@@ -1143,7 +1141,7 @@ export default function FittingRoomTool() {
   })();
 
   const wardrobeGroups = useMemo(() => {
-    const groups = new Map<string, ClothingOption[]>();
+    const groups = new Map<string, FittingClothingOption[]>();
     for (const option of filteredWardrobeOptions) {
       if (!option.group) {
         continue;

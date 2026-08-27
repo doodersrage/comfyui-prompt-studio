@@ -337,7 +337,19 @@ export default function PlayCampaignWizard({ initialCharacterId }: PlayCampaignW
               Active: {character.name}
               {activeLookPack ? ' · look pack staged' : ''}
             </p>
-          ) : null}
+          ) : (
+            <div
+              className="mt-3 flex flex-wrap items-center gap-2"
+              data-testid="play-campaign-create-character"
+            >
+              <p className="type-caption text-[var(--text-muted)]">
+                Pick a Cast character above, or create one before Moodboard.
+              </p>
+              <ButtonLink href="/characters" size="sm" variant="secondary">
+                Open Cast
+              </ButtonLink>
+            </div>
+          )}
         </ToolSection>
 
         <ToolSection
@@ -537,8 +549,8 @@ export default function PlayCampaignWizard({ initialCharacterId }: PlayCampaignW
           description="Each step carries character + look pack when staged."
           data-testid="play-campaign-steps"
         >
-          <ol className="space-y-3">
-            {PLAY_CAMPAIGN_STEPS.map(step => {
+          <ol className="space-y-2">
+            {PLAY_CAMPAIGN_STEPS.map((step, index) => {
               const isActive = step.id === activeStep;
               return (
                 <li
@@ -546,12 +558,15 @@ export default function PlayCampaignWizard({ initialCharacterId }: PlayCampaignW
                   data-testid={`play-campaign-step-${step.id}`}
                   className={`rounded-[var(--radius-md)] border px-3 py-3 ${
                     isActive
-                      ? 'border-[var(--accent-amber)] bg-[var(--surface-raised)]'
+                      ? 'border-[var(--accent-border)] bg-[var(--accent-muted)] shadow-[inset_3px_0_0_0_var(--accent)]'
                       : 'border-[var(--border-subtle)]'
                   }`}
                 >
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0">
+                      <p className="type-overline mb-1 text-[var(--text-muted)]">
+                        Step {index + 1}
+                      </p>
                       <p className="type-heading">{step.label}</p>
                       <p className="type-caption text-[var(--text-muted)]">{step.description}</p>
                     </div>
@@ -599,16 +614,18 @@ export default function PlayCampaignWizard({ initialCharacterId }: PlayCampaignW
         <div className="flex flex-wrap gap-2">
           {campaignComplete ? (
             <>
-              <p
-                className="w-full type-caption text-[var(--text-secondary)]"
+              <div
+                className="w-full rounded-[var(--radius-md)] border border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] px-3 py-2.5"
                 data-testid="play-campaign-complete"
               >
-                Campaign complete
-                {savedCampaign?.completedAt
-                  ? ` · ${new Date(savedCampaign.completedAt).toLocaleString()}`
-                  : ''}{' '}
-                — film cut. Watch it on Cast or start another loop.
-              </p>
+                <p className="type-caption text-[var(--tint-success-text)]">
+                  Campaign complete
+                  {savedCampaign?.completedAt
+                    ? ` · ${new Date(savedCampaign.completedAt).toLocaleString()}`
+                    : ''}{' '}
+                  — film cut. Watch it on Cast or start another loop.
+                </p>
+              </div>
               {characterId ? (
                 <ButtonLink
                   href={`/characters/${encodeURIComponent(characterId)}?media=films`}

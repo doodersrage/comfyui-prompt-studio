@@ -11,10 +11,10 @@ export type MobileStudioTab = {
 };
 
 export const MOBILE_STUDIO_TABS: MobileStudioTab[] = [
-  { id: 'capture', href: '/m', label: 'Capture', hint: 'Shoot a plate' },
-  { id: 'queue', href: '/m/queue', label: 'Queue', hint: 'Live jobs' },
+  { id: 'capture', href: '/m', label: 'Capture', hint: 'Plate for desk' },
+  { id: 'queue', href: '/m/queue', label: 'Queue', hint: 'Watch jobs' },
   { id: 'gallery', href: '/m/gallery', label: 'Gallery', hint: 'Rate stills' },
-  { id: 'play', href: '/m/play', label: 'Play', hint: 'Roleplay from plate' },
+  { id: 'play', href: '/m/play', label: 'Play', hint: 'Stills only · Cut on desk' },
 ];
 
 export type CharacterPlate = {

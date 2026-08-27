@@ -1,9 +1,10 @@
 # Diffusers engine (Prompt Studio)
 
-Optional **txt2img** FastAPI service for Prompt Studio. **ComfyUI is the primary generate path** (Lightning bf16, Dynamic VRAM, Final/Max enrich). Use this engine only when Settings → Inference engine is set to Diffusers, or `PROMPT_ENGINE=diffusers`.
+Optional **stills-only** FastAPI companion for Prompt Studio (txt2img + limited img2img/inpaint). **ComfyUI is the primary generate path** (Lightning bf16, Dynamic VRAM, Final/Max enrich, Play film). Use this engine only when Settings → Inference engine is set to Diffusers, or `PROMPT_ENGINE=diffusers`.
 
 ### Scope / non-goals (parked)
 
+- **Not** for Play film, ControlNet, FaceDetailer, specialty enrich, or Video tool clips — switch to ComfyUI or Fal / Replicate / Grok / Gemini.
 - On 24GB cards, Qwen Image 2512 **Lightning quality + speed belong to Comfy** (bf16 + Dynamic VRAM / `comfy-aimdo`). Diffusers either uses fp8+layerwise (faster, more grain/moiré) or full bf16 group-offload (slow / OOM-prone).
 - Do **not** expect Comfy Dynamic VRAM parity here; that requires Comfy’s faulting ops, not mmap alone.
 - Opt-in full bf16: `DIFFUSERS_QWEN_LIGHTNING_BF16=1` (experimental; expect group-offload thrash on 24GB).

@@ -243,7 +243,7 @@ export default function SettingsComfyUiTab({
       <ToolSection
         id="settings-comfyui-inference-engine"
         title="Inference engine"
-        description="ComfyUI is the default generate path (Qwen Lightning bf16, Final/Max enrich, specialty graphs). Diffusers is optional local txt2img. Fal and Replicate queue stills and clips. Grok and Gemini queue stills plus native video. ChatGPT stays stills. Cloud engines have no workflows, LoRAs, or live latents."
+        description="ComfyUI is the default generate path (Qwen Lightning bf16, Final/Max enrich, specialty graphs, Play film). Diffusers is optional local stills only (txt2img/img2img). Fal and Replicate queue stills and clips. Grok and Gemini queue stills plus native video. ChatGPT stays stills. Cloud engines have no workflows, LoRAs, or live latents."
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1">
@@ -261,7 +261,7 @@ export default function SettingsComfyUiTab({
               className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 text-sm text-[var(--text-primary)] shadow-inner transition focus-visible:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
             >
               <option value="comfyui">ComfyUI (primary generate)</option>
-              <option value="diffusers">Diffusers (optional / experimental)</option>
+              <option value="diffusers">Diffusers (stills only · experimental)</option>
               {CLOUD_ENGINE_OPTIONS.map(option => (
                 <option key={option.id} value={option.id}>
                   {option.label}
@@ -567,8 +567,8 @@ export default function SettingsComfyUiTab({
           })}
         </div>
         <p className="text-xs text-[var(--text-muted)]">
-          Default Generate uses ComfyUI (Dynamic VRAM / bf16 Lightning). Diffusers remains available
-          for experiments — run{' '}
+          Default Generate uses ComfyUI (Dynamic VRAM / bf16 Lightning, Play film). Diffusers
+          remains available for stills-only experiments — run{' '}
           <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
             cd services/diffusers-engine && ./run.sh
           </code>{' '}

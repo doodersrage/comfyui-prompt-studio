@@ -11,7 +11,7 @@ When exposing beyond localhost:
 1. Set `PROMPT_AUTH_ENABLED=true` (or create users under `PROMPT_DATA_DIR/auth/`) and sign in — default admin username/password come from `PROMPT_ADMIN_USERNAME` / `PROMPT_ADMIN_PASSWORD` (defaults: `admin` / `admin`; change immediately).
 2. Set `PROMPT_API_TOKEN` — cross-origin and non-browser clients must send `Authorization: Bearer <token>` (same-origin UI still works). ComfyUI nodes read the same token from `PROMPT_API_TOKEN`. Service tokens bypass user login but should be kept secret.
 3. Set `COMFYUI_ALLOW_CLIENT_URL=false` so callers cannot override the ComfyUI base URL (SSRF). Prefer `COMFYUI_ALLOWED_HOSTS` for a hostname allowlist.
-4. Prefer binding to loopback (`127.0.0.1`) — `docker-compose.yml` already does this.
+4. Prefer binding to loopback (`127.0.0.1`) — default `docker-compose.yml` already does this. To publish beyond LAN use `docker compose --profile exposed up` (requires `PROMPT_SESSION_SECRET`, `PROMPT_ADMIN_PASSWORD`, `PROMPT_API_TOKEN`, and `PROMPT_API_URL`). Do not document or run `0.0.0.0` binds without auth.
 5. Webhook dispatch blocks private/metadata URLs unless `WEBHOOK_ALLOW_PRIVATE=true`.
 6. Set `PROMPT_API_URL` to the public origin so invite and reset emails are not `http://127.0.0.1:47832`.
 
@@ -19,6 +19,8 @@ When exposing beyond localhost:
 
 Before exposing Prompt Studio beyond a trusted LAN:
 
+- [ ] Do not publish compose ports without `--profile exposed` (auth + secrets required)
+- [ ] Confirm Settings → Overview shows Auth = accounts on
 - [ ] Set strong `PROMPT_ADMIN_PASSWORD` and rotate after first login
 - [ ] Set `PROMPT_SESSION_SECRET` (long random string; do not reuse API tokens)
 - [ ] Enable `PROMPT_AUTH_ENABLED=true` and create non-admin users with blocked features as needed
@@ -63,6 +65,18 @@ docker run --rm -p 127.0.0.1:47832:47832 \
 
 On Linux, add `--add-host=host.docker.internal:host-gateway` if Ollama runs on the host. Override `PORT` only if you map a different host port.
 
+**Publish beyond LAN (auth required):**
+
+```bash
+export PROMPT_SESSION_SECRET="$(openssl rand -hex 32)"
+export PROMPT_ADMIN_PASSWORD='change-me'
+export PROMPT_API_TOKEN="$(openssl rand -hex 24)"
+export PROMPT_API_URL='https://studio.example.com'
+docker compose --profile exposed up -d
+```
+
+Default `docker compose up` stays on `127.0.0.1` with auth off. Do not publish `0.0.0.0` without the `exposed` profile (or equivalent auth env).
+
 ## LLM configuration
 
 The generator calls any **OpenAI-compatible** chat completions API. Configure via `.env.local`:
@@ -81,7 +95,7 @@ The generator calls any **OpenAI-compatible** chat completions API. Configure vi
 | `PROMPT_DESKTOP` / `NEXT_PUBLIC_PROMPT_DESKTOP` | `false`                 | Set by the Tauri shell / desktop Next build. First launch opens Settings → ComfyUI connection.                                                                                         |
 | `LLM_VISION_MODEL`                     | _(empty)_                        | Vision-capable model for Image → Prompt, Refine critique, gallery tags. Falls back to `LLM_MODEL` (text-only will fail vision tools)                                                   |
 | `LLM_EMBED_MODEL`                      | _(empty)_                        | Optional embedding model for semantic search (`OLLAMA_EMBED_MODEL` also accepted). Settings → LLM can override per session                                                             |
-| `PROMPT_ENGINE`                        | `comfyui`                        | `comfyui` (default), `diffusers`, `fal`, `replicate`, `openai`, `gemini`, or `grok`. Fal/Replicate/Grok/Gemini queue clips; ChatGPT stays stills. Runway is not an engine.              |
+| `PROMPT_ENGINE`                        | `comfyui`                        | `comfyui` (default), `diffusers` (stills-only experimental), `fal`, `replicate`, `openai`, `gemini`, or `grok`. Fal/Replicate/Grok/Gemini queue clips; ChatGPT and Diffusers stay stills. Runway is not an engine. |
 | `FAL_KEY`                              | _(empty)_                        | Fal API key when Settings → Inference engine is Fal (`FAL_API_KEY` also accepted). Browser Settings key overrides per request.                                                         |
 | `FAL_MODEL`                            | `fal-ai/flux/schnell`            | Default Fal txt2img model id                                                                                                                                                           |
 | `REPLICATE_API_TOKEN`                  | _(empty)_                        | Replicate token when Settings → Inference engine is Replicate (`REPLICATE_API_KEY` also accepted).                                                                                     |

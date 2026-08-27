@@ -49,12 +49,12 @@ export const ONBOARDING_STEPS: Omit<OnboardingStep, 'done'>[] = [
   },
   {
     id: 'first-play-campaign',
-    label: 'Start a Play campaign (Moodboard → Day film)',
+    label: 'Start a Play campaign on /play (Moodboard → Fitting → Day)',
     href: '/play',
   },
   {
     id: 'first-film-cut',
-    label: 'Cut your first Play film (Day or Roleplay)',
+    label: 'Cut your first Play film on desk (Day or Roleplay)',
     href: '/play',
   },
   {

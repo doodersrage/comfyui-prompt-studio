@@ -67,14 +67,14 @@
   --space-10: 2.5rem;
   --space-12: 3rem;
 
-  --card-padding: 2rem;
-  --card-padding-lg: 2.25rem;
+  --card-padding: 1.65rem;
+  --card-padding-lg: 1.85rem;
   --input-padding-x: var(--space-4);
-  --input-padding-y: 0.75rem;
+  --input-padding-y: 0.7rem;
 
-  --group-gap: 1.25rem;
-  --block-gap: 2.5rem;
-  --section-gap: 3rem;
+  --group-gap: 1rem;
+  --block-gap: 1.75rem;
+  --section-gap: 2rem;
 
   --sidebar-width: 17.5rem;
   --page-gutter: var(--space-6);
@@ -111,10 +111,10 @@
 /* ─── Typography hierarchy ──────────────────────────────────────────────── */
 .type-display {
   font-family: var(--font-display), var(--font-geist-sans), Georgia, serif;
-  font-size: clamp(1.875rem, 4vw, 2.35rem);
-  line-height: 1.12;
-  font-weight: 560;
-  letter-spacing: -0.03em;
+  font-size: clamp(1.7rem, 3.6vw, 2.1rem);
+  line-height: 1.15;
+  font-weight: 540;
+  letter-spacing: -0.025em;
   font-optical-sizing: auto;
   color: var(--text-primary);
 }
@@ -167,7 +167,7 @@
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-tertiary);
+  color: var(--text-muted);
 }
 
 .type-code {
@@ -571,16 +571,16 @@ html[data-ambient='vivid'] .ambient-bg__orb {
 }
 
 html[data-density='comfortable'] {
-  --card-padding: 2rem;
-  --card-padding-lg: 2.25rem;
-  --group-gap: 1.25rem;
-  --block-gap: 2.5rem;
-  --section-gap: 3rem;
+  --card-padding: 1.65rem;
+  --card-padding-lg: 1.85rem;
+  --group-gap: 1rem;
+  --block-gap: 1.75rem;
+  --section-gap: 2rem;
   --page-gutter: var(--space-6);
   --sidebar-width: 17.5rem;
-  --type-display-size: clamp(1.95rem, 4.2vw, 2.45rem);
+  --type-display-size: clamp(1.7rem, 3.6vw, 2.1rem);
   --type-body-size: 0.9375rem;
-  --gallery-gap: 1rem;
+  --gallery-gap: 0.85rem;
 }
 
 html[data-density='compact'] {
@@ -953,8 +953,8 @@ html[data-theme='light'] .ui-media-card:hover {
 .ui-tool-header {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  padding-bottom: var(--space-6);
+  gap: var(--space-2);
+  padding-bottom: var(--space-4);
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -962,6 +962,7 @@ html[data-theme='light'] .ui-media-card:hover {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+  margin-bottom: 0.1rem;
 }
 
 .ui-tool-header-row {
@@ -996,7 +997,7 @@ html[data-theme='light'] .ui-media-card:hover {
 
 .ui-continue-card {
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   background:
     linear-gradient(135deg, rgb(56 189 248 / 0.05), transparent 42%),
     color-mix(in oklab, var(--bg-elevated) 78%, transparent);
@@ -1315,7 +1316,7 @@ html[data-theme='light'] .ui-media-card:hover {
 
 .ui-segmented-item:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px var(--accent-ring);
+  box-shadow: 0 0 0 3px var(--accent-ring);
 }
 
 .ui-segmented-item[data-active='true'] {
@@ -1943,9 +1944,7 @@ html[data-theme='light'] .ui-welcome-card {
 
 .ui-focus-ring:focus-visible {
   outline: none;
-  box-shadow:
-    0 0 0 2px var(--accent-ring),
-    0 0 0 4px color-mix(in oklab, var(--bg-base) 70%, transparent);
+  box-shadow: 0 0 0 3px var(--accent-ring);
 }
 
 /* Stronger default focus for interactive elements without a dedicated class */

@@ -261,7 +261,7 @@ export function engineUsesComfyGraph(id: EngineId | undefined): boolean {
 
 export function engineDisplayName(id: EngineId | undefined): string {
   if (id === 'diffusers') {
-    return 'Diffusers';
+    return 'Diffusers (stills only)';
   }
   return cloudEngineOption(id)?.shortLabel ?? 'ComfyUI';
 }

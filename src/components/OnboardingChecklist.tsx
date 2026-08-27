@@ -127,10 +127,15 @@ export default function OnboardingChecklist() {
         </p>
       ) : null}
 
-      {isSimple && (nextOpen?.id === 'first-play-campaign' || nextOpen?.id === 'first-film-cut') ? (
+      {isSimple &&
+      (nextOpen?.id === 'first-queue-success' ||
+        nextOpen?.id === 'review-gallery' ||
+        nextOpen?.id === 'first-play-campaign' ||
+        nextOpen?.id === 'first-film-cut' ||
+        nextOpen?.id === 'watch-first-film') ? (
         <div className="mt-3 flex flex-wrap items-center gap-2" data-testid="play-workspace-nudge">
           <p className="type-caption text-[var(--text-muted)]">
-            Play tools are clearer in the Play workspace.
+            After your first still, switch to Play for Moodboard → Fitting → Day → film.
           </p>
           <Button
             size="sm"

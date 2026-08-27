@@ -28,6 +28,7 @@ import GalleryEntryPreview from '@/components/ui/GalleryEntryPreview';
 import { usePromptHistory } from '@/hooks/usePromptHistory';
 import { useHubPageDescription, useToolSectionDescription } from '@/hooks/useToolPageDescription';
 import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
+import { saveWorkspaceMode } from '@/lib/workspace-mode';
 import OnboardingChecklist from '@/components/OnboardingChecklist';
 import PlayFilmMetricsCard from '@/components/PlayFilmMetricsCard';
 import ConnectionHealthChip from '@/components/ConnectionHealthChip';
@@ -113,15 +114,17 @@ export default function HomeDashboard() {
       title="Dashboard"
       description={description}
     >
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <ConnectionHealthChip />
+      <div className="flex flex-col gap-[var(--group-gap)]">
+        <div className="flex flex-wrap items-center gap-3">
+          <ConnectionHealthChip />
+        </div>
+        <OnboardingChecklist />
+        <PlayFilmMetricsCard />
       </div>
-      <OnboardingChecklist />
-      <PlayFilmMetricsCard />
 
       {showContinue ? (
         <ToolSection title="Pick up where you left off">
-          <div className="ui-continue-card flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="ui-continue-card flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0 space-y-1">
               {draft ? (
                 <>
@@ -144,7 +147,7 @@ export default function HomeDashboard() {
                 </ButtonLink>
               ) : null}
               {lastRoute && lastRoute !== draft?.href ? (
-                <ButtonLink href={lastRoute} size="sm">
+                <ButtonLink href={lastRoute} size="sm" variant="secondary">
                   Open {labelForRoute(lastRoute)}
                 </ButtonLink>
               ) : null}
@@ -165,34 +168,46 @@ export default function HomeDashboard() {
         </ToolSection>
       ) : null}
 
-      <ToolSection>
+      <ToolSection title="Studio" description="One primary path — Play campaign — then core tools.">
         <ToolActionRow>
-          <ButtonLink href="/" variant="primary" size="sm">
+          <ButtonLink
+            href="/play"
+            variant={showContinue ? 'secondary' : 'primary'}
+            size="sm"
+            onClick={() => {
+              if (isSimple) {
+                saveWorkspaceMode('play');
+              }
+            }}
+          >
+            Open Play campaign
+          </ButtonLink>
+          <ButtonLink href="/" size="sm" variant="secondary">
             Generate
           </ButtonLink>
-          <ButtonLink href="/gallery" size="sm">
+          <ButtonLink href="/gallery" size="sm" variant="secondary">
             Gallery
           </ButtonLink>
-          <ButtonLink href="/queue" size="sm">
+          <ButtonLink href="/queue" size="sm" variant="secondary">
             Queue
           </ButtonLink>
           {isSimple ? (
-            <ButtonLink href="/settings" size="sm">
+            <ButtonLink href="/settings" size="sm" variant="ghost">
               Settings
             </ButtonLink>
           ) : (
             <>
-              <ButtonLink href="/studio" size="sm">
+              <ButtonLink href="/studio" size="sm" variant="ghost">
                 Studio
               </ButtonLink>
-              <ButtonLink href="/settings" size="sm">
+              <ButtonLink href="/settings" size="sm" variant="ghost">
                 Settings
               </ButtonLink>
             </>
           )}
         </ToolActionRow>
         {!isSimple ? (
-          <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 type-caption text-[var(--text-muted)]">
+          <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 type-caption text-[var(--text-muted)]">
             <span>More:</span>
             <Link
               href="/topics"
@@ -222,7 +237,7 @@ export default function HomeDashboard() {
         ) : null}
 
         <div
-          className={`mt-6 grid gap-3 ${isSimple ? 'sm:grid-cols-2' : 'sm:grid-cols-2 lg:grid-cols-4'}`}
+          className={`mt-4 grid gap-[var(--group-gap)] ${isSimple ? 'sm:grid-cols-2' : 'sm:grid-cols-2 lg:grid-cols-4'}`}
         >
           <StatCard label="Pending ComfyUI" value={String(pending.length)} />
           {!isSimple ? <StatCard label="History entries" value={String(entries.length)} /> : null}

@@ -111,6 +111,7 @@ import {
 } from '@/lib/experiment-winners';
 import { loadGalleryDensity, saveGalleryDensity, type GalleryDensity } from '@/lib/gallery-density';
 import { toastBulkQueueSummary } from '@/lib/app-toast';
+import { buildLightboxStateFromPlaylist } from '@/lib/gallery-lightbox-state';
 import {
   buildGalleryLightboxPlaylist,
   galleryEntryHeroPreviewUrl,
@@ -892,21 +893,11 @@ export default function ComfyUiGalleryPanel({
 
   const applyPlaylistState = useCallback(
     (index: number, extras?: { playing?: boolean; fullscreen?: boolean }) => {
-      if (lightboxPlaylist.images.length === 0) {
+      const next = buildLightboxStateFromPlaylist(lightboxPlaylist, index);
+      if (!next) {
         return;
       }
-      const safeIndex = Math.min(Math.max(index, 0), lightboxPlaylist.images.length - 1);
-      setLightbox({
-        images: lightboxPlaylist.images,
-        thumbImages: lightboxPlaylist.thumbImages,
-        originalImages: lightboxPlaylist.originalImages,
-        downloadUrls: lightboxPlaylist.downloadUrls,
-        downloadFilenames: lightboxPlaylist.downloadFilenames,
-        titles: lightboxPlaylist.titles,
-        mediaKinds: lightboxPlaylist.mediaKinds,
-        index: safeIndex,
-        title: lightboxPlaylist.titles[safeIndex],
-      });
+      setLightbox(next);
       if (extras?.playing != null) {
         setSlideshowPlaying(extras.playing);
       }
@@ -922,21 +913,7 @@ export default function ComfyUiGalleryPanel({
     if (!lightbox) {
       return null;
     }
-    if (lightboxPlaylist.images.length === 0) {
-      return null;
-    }
-    const safeIndex = Math.min(Math.max(lightbox.index, 0), lightboxPlaylist.images.length - 1);
-    return {
-      images: lightboxPlaylist.images,
-      thumbImages: lightboxPlaylist.thumbImages,
-      originalImages: lightboxPlaylist.originalImages,
-      downloadUrls: lightboxPlaylist.downloadUrls,
-      downloadFilenames: lightboxPlaylist.downloadFilenames,
-      titles: lightboxPlaylist.titles,
-      mediaKinds: lightboxPlaylist.mediaKinds,
-      index: safeIndex,
-      title: lightboxPlaylist.titles[safeIndex],
-    };
+    return buildLightboxStateFromPlaylist(lightboxPlaylist, lightbox.index);
   }, [lightbox, lightboxPlaylist]);
 
   useEffect(() => {

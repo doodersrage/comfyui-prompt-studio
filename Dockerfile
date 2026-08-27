@@ -28,6 +28,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=47832
+# Auth is runtime-only — do not bake PROMPT_AUTH_ENABLED into the image.
+# For non-LAN publish use compose --profile exposed or pass -e PROMPT_AUTH_ENABLED=true.
 ENV HOSTNAME=0.0.0.0
 
 RUN addgroup --system --gid 1001 nodejs \

@@ -7,6 +7,7 @@ import SharedToolControls from '@/components/SharedToolControls';
 import RoleplayBibleEditor from '@/components/RoleplayBibleEditor';
 import RoleplayLibraryPanel from '@/components/RoleplayLibraryPanel';
 import RoleplayStoryReel from '@/components/RoleplayStoryReel';
+import RoleplayFilmCutActions from '@/components/RoleplayFilmCutActions';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { useGalleryHandoff } from '@/hooks/useGalleryHandoff';
@@ -1838,7 +1839,16 @@ export default function RoleplayTool() {
             : ''}
           .
         </p>
-        <div className="flex flex-wrap gap-2">
+        <RoleplayFilmCutActions
+          assemblingFilm={assemblingFilm}
+          busy={busy}
+          storyEmpty={story.length === 0}
+          filmNeedsCast={filmNeedsCast}
+          filmCharacterId={filmCharacterId}
+          filmStatus={filmStatus}
+          onCutFilm={() => void cutRoleplayFilm()}
+          onSaveToCast={saveFilmToCast}
+        >
           <Button
             variant="secondary"
             loading={exporting}
@@ -1848,62 +1858,7 @@ export default function RoleplayTool() {
           >
             Download story + stills + clips
           </Button>
-          <Button
-            variant="secondary"
-            loading={assemblingFilm}
-            loadingLabel="Cutting film"
-            disabled={story.length === 0 || (busy && !assemblingFilm)}
-            onClick={() => void cutRoleplayFilm()}
-          >
-            Cut film
-          </Button>
-          {filmNeedsCast ? (
-            <Button
-              variant="ghost"
-              disabled={busy}
-              onClick={saveFilmToCast}
-              data-testid="roleplay-save-film-cast"
-            >
-              Save to Cast
-            </Button>
-          ) : null}
-          {filmCharacterId && filmStatus && !assemblingFilm ? (
-            <ButtonLink
-              href={`/characters/${encodeURIComponent(filmCharacterId)}?media=films`}
-              size="sm"
-              variant="ghost"
-              data-testid="roleplay-open-cast-film"
-              onClick={() => {
-                void import('@/lib/onboarding-hooks').then(({ markOnboardingWatchFirstFilm }) => {
-                  markOnboardingWatchFirstFilm();
-                });
-              }}
-            >
-              Open on Cast
-            </ButtonLink>
-          ) : null}
-          {filmCharacterId && filmStatus && !assemblingFilm ? (
-            <ButtonLink
-              href={`/gallery?character=${encodeURIComponent(filmCharacterId)}&derivedKind=film`}
-              size="sm"
-              variant="ghost"
-              data-testid="roleplay-open-gallery"
-            >
-              Open in Gallery
-            </ButtonLink>
-          ) : null}
-          {filmCharacterId && filmStatus && !assemblingFilm ? (
-            <ButtonLink
-              href={`/play?character=${encodeURIComponent(filmCharacterId)}`}
-              size="sm"
-              variant="secondary"
-              data-testid="roleplay-campaign-complete"
-            >
-              Campaign complete — Open Play
-            </ButtonLink>
-          ) : null}
-        </div>
-        {filmStatus ? <p className="type-caption text-[var(--text-muted)]">{filmStatus}</p> : null}
+        </RoleplayFilmCutActions>
         <RoleplayStoryReel
           story={story}
           busy={busy}

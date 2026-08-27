@@ -568,13 +568,9 @@ export default function VideoPromptTool() {
     if (!output.trim()) {
       return;
     }
-    if (
-      !engineCanQueueClips(inferenceEngine) &&
-      inferenceEngine !== 'comfyui' &&
-      inferenceEngine !== 'diffusers'
-    ) {
+    if (!engineCanQueueClips(inferenceEngine) && inferenceEngine !== 'comfyui') {
       setError(
-        `${engineDisplayName(inferenceEngine)} cannot queue clips. Switch the inference engine to Fal, Replicate, Grok, Gemini, or local WAN.`
+        `${engineDisplayName(inferenceEngine)} cannot queue clips. Switch the inference engine to Fal, Replicate, Grok, Gemini, or local WAN (ComfyUI).`
       );
       return;
     }
@@ -881,12 +877,10 @@ export default function VideoPromptTool() {
                 ? 'Needs a first frame. Scan with vision fills Subject and Motion from that still. Local WAN / Hunyuan / LTX wire I2V nodes; Fal uses the I2V model in Settings.'
                 : 'No still required. Local graphs stay T2V; Fal uses the T2V model in Settings.'}
           </p>
-          {!engineCanQueueClips(inferenceEngine) &&
-          inferenceEngine !== 'comfyui' &&
-          inferenceEngine !== 'diffusers' ? (
+          {!engineCanQueueClips(inferenceEngine) && inferenceEngine !== 'comfyui' ? (
             <p className="text-xs text-[var(--tint-warning-text)]">
               {engineDisplayName(inferenceEngine)} cannot queue clips. Switch Settings → Inference
-              engine to Fal, Replicate, or local WAN.
+              engine to Fal, Replicate, Grok, Gemini, or local WAN (ComfyUI).
             </p>
           ) : null}
         </div>
