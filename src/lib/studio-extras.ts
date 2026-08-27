@@ -116,6 +116,13 @@ import {
 } from './ambient-settings';
 import { loadUiDensity, saveUiDensity, type UiDensity } from './density-settings';
 import { loadCalmUi, saveCalmUi } from './calm-settings';
+import {
+  clearPlayCampaignState,
+  loadPlayCampaignState,
+  savePlayCampaignState,
+  type PlayCampaignState,
+} from './play-campaign';
+import { loadPlayMetrics, savePlayMetrics, type PlayMetrics } from './play-metrics';
 
 const ONBOARDING_KEY = 'comfy-onboarding-v2';
 const COLLAPSIBLE_KEY = 'comfy-collapsible-open-v1';
@@ -181,6 +188,8 @@ export type StudioExtrasPayload = {
   ambientIntensity?: AmbientIntensity;
   uiDensity?: UiDensity;
   calmUi?: boolean;
+  playMetrics?: PlayMetrics;
+  playCampaignState?: PlayCampaignState | null;
 };
 
 export function collectStudioExtras(): StudioExtrasPayload {
@@ -242,6 +251,8 @@ export function collectStudioExtras(): StudioExtrasPayload {
     ambientIntensity: loadAmbientIntensity(),
     uiDensity: loadUiDensity(),
     calmUi: loadCalmUi(),
+    playMetrics: loadPlayMetrics(),
+    playCampaignState: loadPlayCampaignState(),
   };
 }
 
@@ -417,6 +428,16 @@ export function applyStudioExtras(payload: StudioExtrasPayload | null | undefine
     }
     if (typeof payload.calmUi === 'boolean') {
       saveCalmUi(payload.calmUi);
+    }
+    if (payload.playMetrics) {
+      savePlayMetrics(payload.playMetrics);
+    }
+    if ('playCampaignState' in payload) {
+      if (payload.playCampaignState) {
+        savePlayCampaignState(payload.playCampaignState);
+      } else {
+        clearPlayCampaignState();
+      }
     }
   });
 }

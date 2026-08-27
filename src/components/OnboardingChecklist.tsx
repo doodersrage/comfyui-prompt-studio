@@ -138,7 +138,7 @@ export default function OnboardingChecklist() {
             data-testid="play-workspace-nudge-cta"
             onClick={() => {
               saveWorkspaceMode('play');
-              router.push(nextOpen?.href || '/play');
+              router.push('/play');
             }}
           >
             Open Play workspace

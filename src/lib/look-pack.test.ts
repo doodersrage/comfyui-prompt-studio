@@ -7,6 +7,7 @@ import {
   applyLookPackToRoleplaySettings,
   buildLookPackFromMoodboard,
   buildPortableLookPack,
+  buildPortableLookPackShareLink,
   decodePortableLookPackShareToken,
   inferRoleplayToneFromLookPack,
   lookPackDayHref,
@@ -14,6 +15,7 @@ import {
   lookPackNotes,
   lookPackPlayCampaignHref,
   lookPackPortableShareHref,
+  LOOK_PACK_SHARE_MAX_TOKEN_CHARS,
   lookPackRoleplayHref,
   normalizeLookPack,
   normalizePortableLookPack,
@@ -162,5 +164,19 @@ describe('look-pack', () => {
     assert.match(decoded?.pack.locationNotes ?? '', /rooftop/);
     const fromHash = readPortableLookPackFromHash(`#lookpack=${token}`);
     assert.equal(fromHash?.id, 'lp-share');
+  });
+
+  it('flags portable share links that exceed URL size limits', () => {
+    const pack = buildLookPackFromMoodboard({
+      characterId: 'char-big',
+      tiles: Array.from({ length: 48 }, (_, index) => ({
+        id: `t${index}`,
+        role: 'mood' as const,
+        notes: 'z'.repeat(320),
+      })),
+    });
+    const built = buildPortableLookPackShareLink({ pack, name: 'Huge pack' });
+    assert.equal(built.tooLarge, built.tokenChars > LOOK_PACK_SHARE_MAX_TOKEN_CHARS);
+    assert.ok(built.tooLarge);
   });
 });

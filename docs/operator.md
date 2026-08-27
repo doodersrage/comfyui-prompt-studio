@@ -53,6 +53,18 @@ Recent releases tightened first-run and day-to-day polish:
 - **Simple Essentials** — Studio history moved under More; Fitting / Day / Moodboard preferred near the top of More.
 - **Play happy path** — Play workspace sidebar lists Campaign + Moodboard before Fitting/Day; lean chrome collapses draft-preview and animate extras until you open them.
 
+### Play campaign walkthrough
+
+Use **Play campaign** (`/play`) for a guided film loop on one Cast character:
+
+1. Pick or create a Cast character on `/play`.
+2. **Moodboard** — extract a look pack, or import/share JSON or a `#lookpack=` portable link.
+3. **Fitting → Day → Roleplay** — each step carries the staged look pack; **Continue** resumes where you left off (step + saved look pack id sync with studio backup).
+4. **Cut film** in Day or Roleplay closes the loop; the Dashboard **Play film loop** card shows time from first campaign start to first cut.
+5. **Share** — **Copy share link** for cross-machine handoff; large packs should use **Export JSON** instead.
+
+If resume shows a character mismatch, use **Switch to resume character** or restart at Moodboard.
+
 If vision tools fail, `LLM_VISION_MODEL` is unset or the model is text-only. Settings → LLM can override the session text model; the vision model still comes from env (or the LLM panel override when present).
 
 ---

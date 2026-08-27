@@ -6,6 +6,8 @@ import {
   mergeStudioExtras,
   type StudioExtrasPayload,
 } from './studio-extras';
+import type { PlayCampaignState } from './play-campaign';
+import type { PlayMetrics } from './play-metrics';
 
 describe('studio-extras merge', () => {
   it('prefers the newer updatedAt snapshot', () => {
@@ -78,5 +80,29 @@ describe('studio-extras merge', () => {
     const merged = mergeStudioExtras(local, server);
     assert.equal(merged.sessionRecipes?.length, 1);
     assert.equal(merged.comfyWorkflowFiles?.length, 1);
+  });
+
+  it('carries play metrics and campaign state through merge', () => {
+    const playMetrics: PlayMetrics = {
+      version: 1,
+      firstPlayCampaignAt: 100,
+      firstFilmCutAt: 200,
+    };
+    const playCampaignState: PlayCampaignState = {
+      version: 1,
+      characterId: 'char-1',
+      lookPackId: 'lp-1',
+      stepIndex: 2,
+      updatedAt: 300,
+    };
+    const local: StudioExtrasPayload = { updatedAt: 1 };
+    const server: StudioExtrasPayload = {
+      updatedAt: 2,
+      playMetrics,
+      playCampaignState,
+    };
+    const merged = mergeStudioExtras(local, server);
+    assert.equal(merged.playMetrics?.firstPlayCampaignAt, 100);
+    assert.equal(merged.playCampaignState?.lookPackId, 'lp-1');
   });
 });

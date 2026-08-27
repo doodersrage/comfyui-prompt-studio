@@ -7,6 +7,8 @@ import { readBrowserValue, writeBrowserValue } from './browser-storage';
 
 export const PLAY_METRICS_KEY = 'comfy-play-metrics-v1';
 
+export const PLAY_METRICS_UPDATED_EVENT = 'play-metrics-updated';
+
 export type PlayMetrics = {
   version: 1;
   /** First time the user left Play campaign into a step past Cast. */
@@ -40,6 +42,7 @@ export function savePlayMetrics(metrics: PlayMetrics): void {
     return;
   }
   writeBrowserValue(PLAY_METRICS_KEY, normalizePlayMetrics(metrics));
+  window.dispatchEvent(new Event(PLAY_METRICS_UPDATED_EVENT));
 }
 
 /** Returns true the first time campaign start is recorded. */

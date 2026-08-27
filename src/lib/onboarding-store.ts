@@ -55,7 +55,7 @@ export const ONBOARDING_STEPS: Omit<OnboardingStep, 'done'>[] = [
   {
     id: 'first-film-cut',
     label: 'Cut your first Play film (Day or Roleplay)',
-    href: '/day',
+    href: '/play',
   },
   {
     id: 'llm-health',

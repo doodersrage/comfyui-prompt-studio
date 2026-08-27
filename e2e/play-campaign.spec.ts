@@ -219,3 +219,100 @@ test('portable look pack share hash is accepted on /play', async ({ page }) => {
     timeout: 30_000,
   });
 });
+
+test('play campaign resume restores lookPack query from saved campaign', async ({ page }) => {
+  await page.addInitScript(() => {
+    const pack = {
+      version: 1,
+      source: 'saved',
+      characterId: 'e2e-resume-char',
+      locationNotes: 'resume kitchen',
+      savedAt: Date.now(),
+    };
+    window.localStorage.setItem(
+      'comfy-prompt-characters-v1',
+      JSON.stringify({
+        version: 1,
+        characters: [
+          {
+            id: 'e2e-resume-char',
+            name: 'E2E Resume',
+            version: 1,
+            updatedAt: Date.now(),
+            lookPacks: [{ id: 'lp-resume', name: 'Resume pack', savedAt: Date.now(), pack }],
+          },
+        ],
+        removedIds: [],
+      })
+    );
+    window.sessionStorage.setItem(
+      'play-campaign-v1',
+      JSON.stringify({
+        version: 1,
+        characterId: 'e2e-resume-char',
+        lookPackId: 'lp-resume',
+        stepIndex: 2,
+        updatedAt: Date.now(),
+      })
+    );
+  });
+  await gotoStable(page, '/play?character=e2e-resume-char');
+  await dismissBlockingOverlays(page);
+  await expect(page).toHaveURL(/lookPack=lp-resume/, { timeout: 30_000 });
+  await expect(page.getByText(/look pack staged/i)).toBeVisible({ timeout: 30_000 });
+});
+
+test('play campaign shows mismatch when saved character differs', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.sessionStorage.setItem(
+      'play-campaign-v1',
+      JSON.stringify({
+        version: 1,
+        characterId: 'e2e-other-char',
+        stepIndex: 2,
+        updatedAt: Date.now(),
+      })
+    );
+  });
+  await gotoStable(page, '/play?character=e2e-resume-char');
+  await dismissBlockingOverlays(page);
+  await expect(page.getByTestId('play-campaign-resume-mismatch')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('play-campaign-continue')).toHaveCount(0);
+});
+
+test('play metrics card appears on dashboard when metrics exist', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      'comfy-play-metrics-v1',
+      JSON.stringify({
+        version: 1,
+        firstPlayCampaignAt: Date.now() - 86_400_000,
+        firstFilmCutAt: Date.now(),
+      })
+    );
+  });
+  await gotoStable(page, '/dashboard');
+  await dismissBlockingOverlays(page);
+  await expect(page.getByTestId('play-film-metrics')).toBeVisible({ timeout: 30_000 });
+});
+
+test('copy share link button copies portable hash url', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.addInitScript(() => {
+    const pack = {
+      version: 1,
+      source: 'moodboard',
+      locationNotes: 'copy rooftop',
+      savedAt: Date.now(),
+    };
+    window.sessionStorage.setItem('moodboard-look-pack-v1', JSON.stringify(pack));
+  });
+  await gotoStable(page, '/play');
+  await dismissBlockingOverlays(page);
+  const copyBtn = page.getByTestId('play-campaign-share-copy');
+  await expect(copyBtn).toBeVisible({ timeout: 30_000 });
+  await copyBtn.click();
+  await expect(page.getByText(/Share link copied/i)).toBeVisible({ timeout: 10_000 });
+  const clipboard = await page.evaluate(() => navigator.clipboard.readText());
+  expect(clipboard).toMatch(/#lookpack=/);
+});

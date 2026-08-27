@@ -48,7 +48,7 @@ describe("onboarding-store", () => {
     );
     assert.equal(
       ONBOARDING_STEPS.find((step) => step.id === "first-film-cut")?.href,
-      "/day",
+      "/play",
     );
   });
 

@@ -143,3 +143,28 @@ export function playCampaignHref(characterId: string, lookPackId?: string): stri
   }
   return `/play?${params.toString()}`;
 }
+
+export function clearPlayCampaignState(): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  writeBrowserValue(PLAY_CAMPAIGN_KEY, null);
+  try {
+    window.sessionStorage.removeItem(PLAY_CAMPAIGN_KEY);
+  } catch {
+    /* private mode */
+  }
+}
+
+/** Prefer query look pack id, then durable campaign resume id. */
+export function resolveCampaignLookPackId(input: {
+  queryLookPackId?: string;
+  savedLookPackId?: string;
+}): string | undefined {
+  const fromQuery = input.queryLookPackId?.trim();
+  if (fromQuery) {
+    return fromQuery;
+  }
+  const fromSaved = input.savedLookPackId?.trim();
+  return fromSaved || undefined;
+}

@@ -19,7 +19,8 @@ import {
   clearLookPackShareHash,
   downloadLookPackFile,
   loadLookPack,
-  lookPackPortableShareHref,
+  buildPortableLookPackShareLink,
+  copyPortableLookPackShareLink,
   parseLookPackFile,
   readPortableLookPackFromHash,
   saveLookPack,
@@ -29,6 +30,8 @@ import { markOnboardingFirstPlayCampaign } from '@/lib/onboarding-hooks';
 import {
   loadPlayCampaignState,
   PLAY_CAMPAIGN_STEPS,
+  playCampaignHref,
+  resolveCampaignLookPackId,
   savePlayCampaignState,
   stagePlayCampaignHandoff,
   type PlayCampaignStepId,
@@ -55,6 +58,7 @@ export default function PlayCampaignWizard({ initialCharacterId }: PlayCampaignW
     DEFAULT_ROLEPLAY_TOOL_CACHE
   );
   const [status, setStatus] = useState<string | null>(null);
+  const [shareCopyStatus, setShareCopyStatus] = useState<string | null>(null);
   const [stepOverride, setStepOverride] = useState<PlayCampaignStepId | null>(null);
   const lookPackFileRef = useRef<HTMLInputElement | null>(null);
 
@@ -68,40 +72,62 @@ export default function PlayCampaignWizard({ initialCharacterId }: PlayCampaignW
   ).trim();
   const character = characterId ? getCharacter(characterId) : undefined;
 
-  const restoredStep = useMemo((): PlayCampaignStepId | null => {
-    if (!mounted || !characterId) {
+  const durableCampaign = useMemo(() => {
+    if (!mounted) {
       return null;
     }
     const saved = loadPlayCampaignState();
-    if (saved && saved.characterId === characterId) {
-      return PLAY_CAMPAIGN_STEPS[saved.stepIndex]?.id ?? 'character';
-    }
-    return null;
-  }, [characterId, mounted]);
-
-  const activeStep = stepOverride ?? restoredStep ?? 'character';
-
-  const savedCampaign = useMemo(() => {
-    if (!mounted || !characterId) {
-      return null;
-    }
-    const saved = loadPlayCampaignState();
-    if (!saved || saved.characterId !== characterId || saved.stepIndex <= 0) {
+    if (!saved || saved.stepIndex <= 0) {
       return null;
     }
     return saved;
-  }, [characterId, mounted]);
+  }, [mounted]);
+
+  const campaignCharacterMismatch = Boolean(
+    durableCampaign && characterId && durableCampaign.characterId !== characterId
+  );
+
+  const savedCampaign =
+    durableCampaign && characterId && durableCampaign.characterId === characterId
+      ? durableCampaign
+      : null;
+
+  const effectiveLookPackId =
+    resolveCampaignLookPackId({
+      queryLookPackId,
+      savedLookPackId: savedCampaign?.lookPackId ?? durableCampaign?.lookPackId,
+    }) ?? '';
+
+  const restoredStep = useMemo((): PlayCampaignStepId | null => {
+    if (!mounted || !savedCampaign) {
+      return null;
+    }
+    return PLAY_CAMPAIGN_STEPS[savedCampaign.stepIndex]?.id ?? 'character';
+  }, [mounted, savedCampaign]);
+
+  const activeStep = stepOverride ?? restoredStep ?? 'character';
 
   const resumeStep = savedCampaign ? (PLAY_CAMPAIGN_STEPS[savedCampaign.stepIndex] ?? null) : null;
 
   const savedLookPacks = useMemo(() => (character ? lookPacksOf(character) : []), [character]);
 
   const activeLookPack = useMemo((): LookPack | null => {
-    if (queryLookPackId && character) {
-      return getCharacterLookPack(character.id, queryLookPackId)?.pack ?? null;
+    if (effectiveLookPackId && character) {
+      return getCharacterLookPack(character.id, effectiveLookPackId)?.pack ?? null;
     }
     return loadLookPack() ?? null;
-  }, [character, queryLookPackId]);
+  }, [character, effectiveLookPackId]);
+
+  const portableShareLink = useMemo(() => {
+    if (!activeLookPack) {
+      return null;
+    }
+    return buildPortableLookPackShareLink({
+      pack: activeLookPack,
+      name: character?.name,
+      id: effectiveLookPackId || undefined,
+    });
+  }, [activeLookPack, character?.name, effectiveLookPackId]);
 
   const persistCharacter = useCallback(
     (id: string) => {
@@ -187,6 +213,23 @@ export default function PlayCampaignWizard({ initialCharacterId }: PlayCampaignW
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted]);
 
+  // Resume: restore saved look pack into session + URL when campaign has lookPackId.
+  useEffect(() => {
+    if (!mounted || !savedCampaign || !character) {
+      return;
+    }
+    const packId = savedCampaign.lookPackId;
+    if (!packId || queryLookPackId) {
+      return;
+    }
+    const saved = getCharacterLookPack(character.id, packId);
+    if (!saved) {
+      return;
+    }
+    saveLookPack({ ...saved.pack, characterId: character.id, source: 'saved' });
+    router.replace(playCampaignHref(character.id, packId));
+  }, [mounted, savedCampaign, character, queryLookPackId, router]);
+
   const goToStep = useCallback(
     (stepId: PlayCampaignStepId, pack?: LookPack | null) => {
       if (!characterId) {
@@ -198,7 +241,7 @@ export default function PlayCampaignWizard({ initialCharacterId }: PlayCampaignW
       savePlayCampaignState({
         version: 1,
         characterId,
-        lookPackId: queryLookPackId || undefined,
+        lookPackId: effectiveLookPackId || undefined,
         stepIndex: stepIndex >= 0 ? stepIndex : 0,
         updatedAt: Date.now(),
       });
@@ -215,7 +258,7 @@ export default function PlayCampaignWizard({ initialCharacterId }: PlayCampaignW
       }
       router.push(step.href({ characterId, pack: handoff }));
     },
-    [activeLookPack, characterId, persistCharacter, queryLookPackId, router]
+    [activeLookPack, characterId, effectiveLookPackId, persistCharacter, router]
   );
 
   const applySavedLookPack = useCallback(
@@ -367,8 +410,8 @@ export default function PlayCampaignWizard({ initialCharacterId }: PlayCampaignW
                 if (!activeLookPack) {
                   return;
                 }
-                const saved = queryLookPackId
-                  ? getCharacterLookPack(characterId, queryLookPackId)
+                const saved = effectiveLookPackId
+                  ? getCharacterLookPack(characterId, effectiveLookPackId)
                   : undefined;
                 downloadLookPackFile({
                   pack: activeLookPack,
@@ -383,21 +426,46 @@ export default function PlayCampaignWizard({ initialCharacterId }: PlayCampaignW
             <Button size="sm" variant="secondary" onClick={() => lookPackFileRef.current?.click()}>
               Import JSON
             </Button>
-            {activeLookPack ? (
-              <ButtonLink
-                href={lookPackPortableShareHref({
-                  pack: activeLookPack,
-                  name: character?.name,
-                  id: queryLookPackId || undefined,
-                })}
-                size="sm"
-                variant="ghost"
-                data-testid="play-campaign-share-link"
-              >
-                Portable share link
-              </ButtonLink>
+            {activeLookPack && portableShareLink ? (
+              <>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={portableShareLink.tooLarge}
+                  data-testid="play-campaign-share-copy"
+                  onClick={() => {
+                    void copyPortableLookPackShareLink({
+                      pack: activeLookPack,
+                      name: character?.name,
+                      id: effectiveLookPackId || undefined,
+                    }).then(result => {
+                      if (result.tooLarge) {
+                        setShareCopyStatus('Pack too large for a URL — use Export JSON instead.');
+                        return;
+                      }
+                      setShareCopyStatus(
+                        result.ok ? 'Share link copied.' : (result.error ?? 'Could not copy link.')
+                      );
+                    });
+                  }}
+                >
+                  Copy share link
+                </Button>
+                {portableShareLink.tooLarge ? (
+                  <p
+                    className="type-caption w-full text-[var(--text-muted)]"
+                    data-testid="play-campaign-share-too-large"
+                  >
+                    Pack too large for a URL ({portableShareLink.tokenChars} chars) — use Export
+                    JSON.
+                  </p>
+                ) : null}
+              </>
             ) : null}
           </div>
+          {shareCopyStatus ? (
+            <p className="type-caption mt-2 text-[var(--text-muted)]">{shareCopyStatus}</p>
+          ) : null}
         </ToolSection>
 
         {savedLookPacks.length > 0 ? (
@@ -489,6 +557,23 @@ export default function PlayCampaignWizard({ initialCharacterId }: PlayCampaignW
         </ToolSection>
 
         {status ? <p className="type-caption text-[var(--text-muted)]">{status}</p> : null}
+
+        {durableCampaign && campaignCharacterMismatch ? (
+          <p
+            className="type-caption text-[var(--text-muted)]"
+            data-testid="play-campaign-resume-mismatch"
+          >
+            Saved campaign is for another Cast character.{' '}
+            <ButtonLink
+              href={playCampaignHref(durableCampaign.characterId, durableCampaign.lookPackId)}
+              size="sm"
+              variant="ghost"
+            >
+              Switch to resume character
+            </ButtonLink>{' '}
+            or restart below.
+          </p>
+        ) : null}
 
         <div className="flex flex-wrap gap-2">
           {resumeStep ? (

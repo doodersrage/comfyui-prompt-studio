@@ -382,6 +382,15 @@ export async function parseLookPackFile(file: File): Promise<PortableLookPack | 
 /** Hash fragment key for cross-machine portable look-pack share links. */
 export const LOOK_PACK_SHARE_HASH_KEY = 'lookpack';
 
+/** Rough max base64url token length for `#lookpack=` (browser URL limits). */
+export const LOOK_PACK_SHARE_MAX_TOKEN_CHARS = 12_000;
+
+export type PortableLookPackShareLink = {
+  href: string;
+  tokenChars: number;
+  tooLarge: boolean;
+};
+
 function toBase64Url(bytes: Uint8Array): string {
   let binary = '';
   for (const byte of bytes) {
@@ -447,14 +456,53 @@ export function decodePortableLookPackShareToken(token: string): PortableLookPac
 }
 
 /** Cross-machine Play share URL embedding the full portable look pack in the hash. */
+export function buildPortableLookPackShareLink(input: {
+  pack: LookPack;
+  name?: string;
+  id?: string;
+}): PortableLookPackShareLink {
+  const portable = buildPortableLookPack(input);
+  const token = encodePortableLookPackShareToken(portable);
+  return {
+    href: `/play#${LOOK_PACK_SHARE_HASH_KEY}=${token}`,
+    tokenChars: token.length,
+    tooLarge: token.length > LOOK_PACK_SHARE_MAX_TOKEN_CHARS,
+  };
+}
+
 export function lookPackPortableShareHref(input: {
   pack: LookPack;
   name?: string;
   id?: string;
 }): string {
-  const portable = buildPortableLookPack(input);
-  const token = encodePortableLookPackShareToken(portable);
-  return `/play#${LOOK_PACK_SHARE_HASH_KEY}=${token}`;
+  return buildPortableLookPackShareLink(input).href;
+}
+
+export async function copyPortableLookPackShareLink(input: {
+  pack: LookPack;
+  name?: string;
+  id?: string;
+  origin?: string;
+}): Promise<{ ok: boolean; tooLarge: boolean; href: string; error?: string }> {
+  const built = buildPortableLookPackShareLink(input);
+  if (built.tooLarge) {
+    return { ok: false, tooLarge: true, href: built.href };
+  }
+  const absolute =
+    typeof window !== 'undefined'
+      ? `${input.origin ?? window.location.origin}${built.href}`
+      : built.href;
+  try {
+    await navigator.clipboard.writeText(absolute);
+    return { ok: true, tooLarge: false, href: absolute };
+  } catch (err) {
+    return {
+      ok: false,
+      tooLarge: false,
+      href: absolute,
+      error: err instanceof Error ? err.message : 'Could not copy link.',
+    };
+  }
 }
 
 /** Read a portable look pack from a location hash (`#lookpack=…`). */

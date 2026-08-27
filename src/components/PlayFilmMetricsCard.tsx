@@ -8,6 +8,7 @@ import {
   daysFromCampaignStartToFirstFilmCut,
   firstFilmCutWithinDays,
   loadPlayMetrics,
+  PLAY_METRICS_UPDATED_EVENT,
   type PlayMetrics,
 } from '@/lib/play-metrics';
 
@@ -30,7 +31,11 @@ export default function PlayFilmMetricsCard() {
     };
     refresh();
     window.addEventListener('focus', refresh);
-    return () => window.removeEventListener('focus', refresh);
+    window.addEventListener(PLAY_METRICS_UPDATED_EVENT, refresh);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener(PLAY_METRICS_UPDATED_EVENT, refresh);
+    };
   }, []);
 
   if (!metrics.firstPlayCampaignAt && !metrics.firstFilmCutAt) {
