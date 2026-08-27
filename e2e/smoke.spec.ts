@@ -110,7 +110,6 @@ test('settings comfyui loader maps section loads', async ({ page }) => {
   // Loader maps live under workflow-patching (not the top of the ComfyUI tab).
   await gotoStable(page, '/settings?tab=comfyui&section=workflow-patching');
   await openComfyUiSettingsTab(page);
-  await revealFullSettings(page);
   const patching = page.locator('#settings-comfyui-workflow-patching');
   await expect(patching.getByText(/Checkpoint map/i)).toBeVisible({ timeout: 30_000 });
   await expect(patching.getByRole('button', { name: /Merge suggested loader maps/i })).toBeVisible({
