@@ -28,6 +28,7 @@ import {
 } from '@/lib/look-pack';
 import { markOnboardingFirstPlayCampaign } from '@/lib/onboarding-hooks';
 import {
+  clearPlayCampaignState,
   loadPlayCampaignState,
   PLAY_CAMPAIGN_STEPS,
   playCampaignHref,
@@ -108,6 +109,7 @@ export default function PlayCampaignWizard({ initialCharacterId }: PlayCampaignW
   const activeStep = stepOverride ?? restoredStep ?? 'character';
 
   const resumeStep = savedCampaign ? (PLAY_CAMPAIGN_STEPS[savedCampaign.stepIndex] ?? null) : null;
+  const campaignComplete = Boolean(savedCampaign?.completedAt);
 
   const savedLookPacks = useMemo(() => (character ? lookPacksOf(character) : []), [character]);
 
@@ -266,6 +268,19 @@ export default function PlayCampaignWizard({ initialCharacterId }: PlayCampaignW
     },
     [activeLookPack, characterId, effectiveLookPackId, persistCharacter, router]
   );
+
+  const startNewCampaign = useCallback(() => {
+    if (!characterId) {
+      setStatus('Pick a Cast character first.');
+      return;
+    }
+    void import('@/lib/onboarding-hooks').then(({ markOnboardingWatchFirstFilm }) => {
+      markOnboardingWatchFirstFilm();
+    });
+    clearPlayCampaignState();
+    setStepOverride(null);
+    goToStep('moodboard', activeLookPack);
+  }, [activeLookPack, characterId, goToStep]);
 
   const applySavedLookPack = useCallback(
     (lookPackId: string) => {
@@ -582,26 +597,69 @@ export default function PlayCampaignWizard({ initialCharacterId }: PlayCampaignW
         ) : null}
 
         <div className="flex flex-wrap gap-2">
-          {resumeStep ? (
-            <Button
-              size="sm"
-              variant="primary"
-              disabled={!characterId}
-              data-testid="play-campaign-continue"
-              onClick={() => goToStep(resumeStep.id, activeLookPack)}
-            >
-              Continue at {resumeStep.label}
-            </Button>
-          ) : null}
-          <Button
-            size="sm"
-            variant={resumeStep ? 'secondary' : 'primary'}
-            disabled={!characterId}
-            data-testid="play-campaign-start-moodboard"
-            onClick={() => goToStep('moodboard', activeLookPack)}
-          >
-            {resumeStep ? 'Restart at Moodboard' : 'Start at Moodboard'}
-          </Button>
+          {campaignComplete ? (
+            <>
+              <p
+                className="w-full type-caption text-[var(--text-secondary)]"
+                data-testid="play-campaign-complete"
+              >
+                Campaign complete
+                {savedCampaign?.completedAt
+                  ? ` · ${new Date(savedCampaign.completedAt).toLocaleString()}`
+                  : ''}{' '}
+                — film cut. Watch it on Cast or start another loop.
+              </p>
+              {characterId ? (
+                <ButtonLink
+                  href={`/characters/${encodeURIComponent(characterId)}?media=films`}
+                  size="sm"
+                  variant="primary"
+                  data-testid="play-campaign-open-cast-film"
+                  onClick={() => {
+                    void import('@/lib/onboarding-hooks').then(
+                      ({ markOnboardingWatchFirstFilm }) => {
+                        markOnboardingWatchFirstFilm();
+                      }
+                    );
+                  }}
+                >
+                  Open film on Cast
+                </ButtonLink>
+              ) : null}
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={!characterId}
+                data-testid="play-campaign-start-new"
+                onClick={startNewCampaign}
+              >
+                Start new campaign
+              </Button>
+            </>
+          ) : (
+            <>
+              {resumeStep ? (
+                <Button
+                  size="sm"
+                  variant="primary"
+                  disabled={!characterId}
+                  data-testid="play-campaign-continue"
+                  onClick={() => goToStep(resumeStep.id, activeLookPack)}
+                >
+                  Continue at {resumeStep.label}
+                </Button>
+              ) : null}
+              <Button
+                size="sm"
+                variant={resumeStep ? 'secondary' : 'primary'}
+                disabled={!characterId}
+                data-testid="play-campaign-start-moodboard"
+                onClick={() => goToStep('moodboard', activeLookPack)}
+              >
+                {resumeStep ? 'Restart at Moodboard' : 'Start at Moodboard'}
+              </Button>
+            </>
+          )}
           <ButtonLink href="/characters" size="sm" variant="ghost">
             Cast roster
           </ButtonLink>

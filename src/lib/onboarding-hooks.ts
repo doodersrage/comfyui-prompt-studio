@@ -56,6 +56,11 @@ export function markOnboardingFirstFilmCut(): boolean {
   return markOnboardingStepDone('first-film-cut');
 }
 
+/** Opened Cast Films (or started another campaign) after the first cut. */
+export function markOnboardingWatchFirstFilm(): boolean {
+  return markOnboardingStepDone('watch-first-film');
+}
+
 export function markOnboardingDiscoverPalette(): void {
   markOnboardingStepDone('discover-palette');
 }

@@ -639,6 +639,8 @@ test('day cut film with mocked MediaRecorder shows Save to Cast', async ({ page 
   if ((await gallery.count()) > 0) {
     await expect(gallery).toHaveAttribute('href', /derivedKind=film/);
   }
+  await expect(page.getByTestId('day-campaign-complete')).toBeVisible();
+  await expect(page.getByTestId('day-campaign-complete')).toHaveAttribute('href', /\/play/);
 });
 
 test('roleplay cut film with mocked MediaRecorder shows Cast deep-links', async ({ page }) => {
@@ -736,6 +738,138 @@ test('roleplay cut film with mocked MediaRecorder shows Cast deep-links', async 
   );
   await expect(page.getByTestId('roleplay-campaign-complete')).toBeVisible();
   await expect(page.getByTestId('roleplay-campaign-complete')).toHaveAttribute('href', /\/play/);
+});
+
+test('mobile play cut film with mocked MediaRecorder shows Cast deep-links', async ({ page }) => {
+  const tinyPng =
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+
+  await page.addInitScript(({ png }) => {
+    class FakeMediaRecorder {
+      state = 'inactive';
+      ondataavailable: ((event: { data: Blob }) => void) | null = null;
+      onstop: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      static isTypeSupported() {
+        return true;
+      }
+      start() {
+        this.state = 'recording';
+        queueMicrotask(() => {
+          this.ondataavailable?.({
+            data: new Blob([new Uint8Array([0, 0, 0, 1])], { type: 'video/webm' }),
+          });
+        });
+      }
+      stop() {
+        this.state = 'inactive';
+        queueMicrotask(() => this.onstop?.());
+      }
+      requestData() {}
+    }
+    // @ts-expect-error test shim
+    window.MediaRecorder = FakeMediaRecorder;
+    HTMLCanvasElement.prototype.captureStream = function captureStream() {
+      return {
+        getTracks: () => [{ stop() {}, kind: 'video', enabled: true }],
+      } as unknown as MediaStream;
+    };
+
+    window.localStorage.setItem(
+      'comfy-prompt-characters-v1',
+      JSON.stringify({
+        version: 1,
+        characters: [
+          {
+            id: 'e2e-m-cut',
+            name: 'Mobile Cut',
+            version: 1,
+            updatedAt: Date.now(),
+            descriptor: 'mobile cut look',
+          },
+        ],
+        removedIds: [],
+      })
+    );
+    window.localStorage.setItem(
+      'comfy-prompt-tool-settings-v1',
+      JSON.stringify({
+        shared: { activeCharacterId: 'e2e-m-cut' },
+        tools: {
+          roleplay: {
+            characterName: 'Mobile Cut',
+            story: [
+              {
+                id: 'beat-m1',
+                at: Date.now(),
+                kind: 'plot',
+                title: 'Opening',
+                prompt: 'A mobile opening beat',
+                stillStatus: 'completed',
+                imageUrl: png,
+              },
+            ],
+          },
+        },
+      })
+    );
+  }, { png: tinyPng });
+
+  page.on('download', download => {
+    void download.cancel().catch(() => undefined);
+  });
+
+  await gotoStable(page, '/m/play');
+  await dismissBlockingOverlays(page);
+  const cutBtn = page.getByRole('button', { name: /Cut film/i });
+  await expect(cutBtn).toBeVisible({ timeout: 30_000 });
+  await expect(cutBtn).toBeEnabled({ timeout: 10_000 });
+  await cutBtn.click();
+  await expect(page.getByTestId('roleplay-open-cast-film')).toBeVisible({
+    timeout: 45_000,
+  });
+  await expect(page.getByTestId('roleplay-open-cast-film')).toHaveAttribute('href', /media=films/);
+  await expect(page.getByTestId('roleplay-campaign-complete')).toBeVisible();
+  await expect(page.getByTestId('roleplay-campaign-complete')).toHaveAttribute('href', /\/play/);
+});
+
+test('play campaign shows complete state after durable completedAt', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      'comfy-prompt-characters-v1',
+      JSON.stringify({
+        version: 1,
+        characters: [
+          {
+            id: 'e2e-complete',
+            name: 'Complete Cast',
+            version: 1,
+            updatedAt: Date.now(),
+            descriptor: 'done look',
+          },
+        ],
+        removedIds: [],
+      })
+    );
+    window.localStorage.setItem(
+      'play-campaign-v1',
+      JSON.stringify({
+        version: 1,
+        characterId: 'e2e-complete',
+        stepIndex: 4,
+        completedAt: Date.now() - 60_000,
+        updatedAt: Date.now(),
+      })
+    );
+  });
+  await gotoStable(page, '/play?character=e2e-complete');
+  await dismissBlockingOverlays(page);
+  await expect(page.getByTestId('play-campaign-complete')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('play-campaign-open-cast-film')).toHaveAttribute(
+    'href',
+    /media=films/
+  );
+  await expect(page.getByTestId('play-campaign-start-new')).toBeVisible();
 });
 
 test('cast media=films deep-link opens Films tab and Film studio', async ({ page }) => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { FieldError, FieldLabel } from '@/components/ui/Field';
 import { ToolActionRow, ToolSection } from '@/components/ui/ToolPageShell';
@@ -67,6 +67,14 @@ export default function CharacterFilmStudio({
     () => entries.filter(entry => entry.status === 'completed' && isAssembledFilmEntry(entry)),
     [entries]
   );
+  useEffect(() => {
+    if (films.length === 0) {
+      return;
+    }
+    void import('@/lib/onboarding-hooks').then(({ markOnboardingWatchFirstFilm }) => {
+      markOnboardingWatchFirstFilm();
+    });
+  }, [films.length]);
   const unusedStills = useMemo(
     () =>
       refs.filter(

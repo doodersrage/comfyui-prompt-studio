@@ -29,7 +29,9 @@ export async function gotoStable(
 
 /** Expand Settings essentials so advanced ComfyUI sections are in the DOM. */
 export async function revealFullSettings(page: Page): Promise<void> {
-  await expect(page.getByRole('heading', { name: /Settings & Health/i })).toBeVisible({
+  // Prefer the settings shell nav — the page title can remount during tab switches.
+  const shell = page.getByRole('navigation', { name: /Settings sections/i });
+  await expect(shell.or(page.getByRole('heading', { name: /Settings & Health/i }))).toBeVisible({
     timeout: 30_000,
   });
   // Sidebar control is in the parent Settings shell (available before the ComfyUI tab hydrates).
@@ -63,5 +65,11 @@ export async function openComfyUiSettingsTab(page: Page): Promise<void> {
   if ((await tab.getAttribute('aria-current')) === 'page') {
     return;
   }
-  await tab.click();
+  await tab.click({ force: true }).catch(async () => {
+    await tab.click();
+  });
+  // Tab remount can detach the button mid-click — wait for shell to settle.
+  await expect(page.getByRole('navigation', { name: /Settings sections/i })).toBeVisible({
+    timeout: 15_000,
+  });
 }

@@ -950,6 +950,11 @@ export default function DayPlannerTool() {
               size="sm"
               variant="ghost"
               data-testid="day-open-cast-film"
+              onClick={() => {
+                void import('@/lib/onboarding-hooks').then(({ markOnboardingWatchFirstFilm }) => {
+                  markOnboardingWatchFirstFilm();
+                });
+              }}
             >
               Open on Cast
             </ButtonLink>
@@ -966,6 +971,16 @@ export default function DayPlannerTool() {
               data-testid="day-open-gallery"
             >
               Open in Gallery
+            </ButtonLink>
+          ) : null}
+          {character && filmStatus && !assemblingFilm ? (
+            <ButtonLink
+              href={`/play?character=${encodeURIComponent(character.id)}`}
+              size="sm"
+              variant="secondary"
+              data-testid="day-campaign-complete"
+            >
+              Campaign complete — Open Play
             </ButtonLink>
           ) : null}
         </ToolActionRow>

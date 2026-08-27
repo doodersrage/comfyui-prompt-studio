@@ -855,6 +855,11 @@ export default function MobilePlayTool() {
             href={`/characters/${encodeURIComponent(filmCharacterId)}?media=films`}
             className="ui-btn-ghost w-full justify-center text-center text-sm"
             data-testid="roleplay-open-cast-film"
+            onClick={() => {
+              void import('@/lib/onboarding-hooks').then(({ markOnboardingWatchFirstFilm }) => {
+                markOnboardingWatchFirstFilm();
+              });
+            }}
           >
             Open on Cast
           </Link>

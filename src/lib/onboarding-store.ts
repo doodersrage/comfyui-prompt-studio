@@ -58,6 +58,11 @@ export const ONBOARDING_STEPS: Omit<OnboardingStep, 'done'>[] = [
     href: '/play',
   },
   {
+    id: 'watch-first-film',
+    label: 'Watch your film on Cast (or start another campaign)',
+    href: '/play',
+  },
+  {
     id: 'llm-health',
     label: 'Confirm LLM connection in Settings (optional for first image)',
     href: settingsTabHref('llm'),
@@ -81,6 +86,7 @@ const CORE_STEP_IDS = new Set([
   'review-gallery',
   'first-play-campaign',
   'first-film-cut',
+  'watch-first-film',
   'llm-health',
 ]);
 

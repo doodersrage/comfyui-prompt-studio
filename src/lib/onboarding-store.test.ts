@@ -21,6 +21,7 @@ describe("onboarding-store", () => {
         "review-gallery",
         "first-play-campaign",
         "first-film-cut",
+        "watch-first-film",
         "llm-health",
       ],
     );
@@ -48,6 +49,10 @@ describe("onboarding-store", () => {
     );
     assert.equal(
       ONBOARDING_STEPS.find((step) => step.id === "first-film-cut")?.href,
+      "/play",
+    );
+    assert.equal(
+      ONBOARDING_STEPS.find((step) => step.id === "watch-first-film")?.href,
       "/play",
     );
   });

@@ -37,9 +37,6 @@ test('queue page loads', async ({ page }) => {
 test('settings connection first-run hub loads', async ({ page }) => {
   await gotoStable(page, '/settings?tab=comfyui&section=connection');
   await openComfyUiSettingsTab(page);
-  await expect(page.getByRole('heading', { name: /Settings & Health/i })).toBeVisible({
-    timeout: 30_000,
-  });
   const connection = page.locator('#settings-comfyui-connection');
   await expect(connection.getByRole('button', { name: /Heal & ready/i })).toBeVisible({
     timeout: 30_000,
