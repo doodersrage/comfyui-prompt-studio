@@ -5,6 +5,11 @@ import { ButtonLink } from '@/components/ui/Button';
 import { StatCard, ToolSection } from '@/components/ui/ToolPageShell';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import {
+  loadLocalObservability,
+  summarizePlayFunnel,
+  type LocalObservabilityCounters,
+} from '@/lib/local-observability';
+import {
   daysFromCampaignStartToFirstFilmCut,
   firstFilmCutWithinDays,
   loadPlayMetrics,
@@ -22,12 +27,23 @@ function formatDays(days: number): string {
   return `${days.toFixed(days < 10 ? 1 : 0)} days`;
 }
 
+function formatRate(rate: number | null): string {
+  if (rate == null) {
+    return '—';
+  }
+  return `${Math.round(rate * 100)}%`;
+}
+
 export default function PlayFilmMetricsCard() {
   const [metrics, setMetrics] = useState<PlayMetrics>({ version: 1 });
+  const [funnel, setFunnel] = useState<LocalObservabilityCounters | null>(null);
 
   useEffect(() => {
     const refresh = () => {
-      scheduleAfterCommit(() => setMetrics(loadPlayMetrics()));
+      scheduleAfterCommit(() => {
+        setMetrics(loadPlayMetrics());
+        setFunnel(loadLocalObservability());
+      });
     };
     refresh();
     window.addEventListener('focus', refresh);
@@ -38,7 +54,15 @@ export default function PlayFilmMetricsCard() {
     };
   }, []);
 
-  if (!metrics.firstPlayCampaignAt && !metrics.firstFilmCutAt) {
+  const rates = summarizePlayFunnel(funnel ?? undefined);
+  const hasTiming = Boolean(metrics.firstPlayCampaignAt || metrics.firstFilmCutAt);
+  const hasFunnel =
+    (funnel?.firstPlayCampaign || 0) > 0 ||
+    (funnel?.firstFilmCut || 0) > 0 ||
+    (funnel?.keepTryOn || 0) > 0 ||
+    (funnel?.saveToCast || 0) > 0;
+
+  if (!hasTiming && !hasFunnel) {
     return null;
   }
 
@@ -56,10 +80,10 @@ export default function PlayFilmMetricsCard() {
   return (
     <ToolSection
       title="Play film loop"
-      description="Time from first campaign start to first Cut film."
+      description="Time and conversion from campaign start to Cut film / Save to Cast."
       data-testid="play-film-metrics"
     >
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Campaign → first film" value={value} detail={detail} />
         <StatCard
           label="First film cut"
@@ -69,6 +93,12 @@ export default function PlayFilmMetricsCard() {
               ? new Date(metrics.firstFilmCutAt).toLocaleString()
               : 'Open Day or Roleplay and Cut film.'
           }
+        />
+        <StatCard label="Cut rate" value={formatRate(rates.cutRate)} detail={rates.headline} />
+        <StatCard
+          label="Save-to-Cast rate"
+          value={formatRate(rates.saveRate)}
+          detail={`Keep→cut ${formatRate(rates.keepToCutRate)} · ${funnel?.saveToCast ?? 0} saves`}
         />
       </div>
       <div className="mt-3">

@@ -8,6 +8,7 @@ import {
   LOCAL_OBSERVABILITY_KEY,
   noteQueueFailureMetric,
   summarizeLocalReliability,
+  summarizePlayFunnel,
 } from './local-observability';
 
 describe('local-observability', () => {
@@ -47,5 +48,30 @@ describe('local-observability', () => {
     const spark = failureSparklineSeries(afterFail, { buckets: 7 });
     assert.equal(spark.length, 7);
     assert.ok(spark.reduce((sum, value) => sum + value, 0) >= 1);
+  });
+
+  it('summarizes play funnel conversion rates', () => {
+    const storage = new Map<string, string>();
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: {
+        localStorage: {
+          getItem: (key: string) => storage.get(key) ?? null,
+          setItem: (key: string, value: string) => storage.set(key, value),
+          removeItem: (key: string) => storage.delete(key),
+        },
+        dispatchEvent: () => true,
+      },
+    });
+    resetBrowserStorageCache();
+    incrementLocalObservability('firstPlayCampaign');
+    incrementLocalObservability('firstPlayCampaign');
+    incrementLocalObservability('firstFilmCut');
+    incrementLocalObservability('saveToCast');
+    incrementLocalObservability('keepTryOn');
+    const rates = summarizePlayFunnel();
+    assert.equal(rates.cutRate, 0.5);
+    assert.equal(rates.saveRate, 1);
+    assert.equal(rates.keepToCutRate, 1);
   });
 });

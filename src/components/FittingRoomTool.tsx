@@ -110,7 +110,7 @@ import {
   saveLookPack,
 } from '@/lib/look-pack';
 import { bumpPlayCampaignStep } from '@/lib/play-campaign';
-import { seedDaySlotsWardrobe } from '@/lib/day-planner';
+import { seedDaySlotsFromKeeperWardrobes } from '@/lib/day-planner';
 import { resolveQueueInputImage } from '@/lib/queue-input-image';
 import { getReformatTargetModel } from '@/lib/reformat-target';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
@@ -952,7 +952,7 @@ export default function FittingRoomTool() {
         setError('Pick a Cast character with a look before keeping a try-on.');
         return;
       }
-      toggleLookKeeper(characterId, lookId, entryId);
+      const updated = toggleLookKeeper(characterId, lookId, entryId);
       const wardrobeId = tryOn.wardrobeId?.trim();
       if (wardrobeId) {
         updateShared({ lockedWardrobeId: wardrobeId });
@@ -975,9 +975,25 @@ export default function FittingRoomTool() {
         savedAt: Date.now(),
       };
       saveLookPack(nextPack);
+      const look = updated ? activeLook(updated) : undefined;
+      const keeperIds = new Set(look?.keeperEntryIds ?? [entryId]);
+      const keeperWardrobes = [
+        ...new Set(
+          compareTryOns
+            .filter(entry => entry.galleryEntryId && keeperIds.has(entry.galleryEntryId))
+            .map(entry => entry.wardrobeId?.trim())
+            .filter((id): id is string => Boolean(id))
+        ),
+      ];
+      if (wardrobeId && !keeperWardrobes.includes(wardrobeId)) {
+        keeperWardrobes.push(wardrobeId);
+      }
       const daySettings = loadToolSettings('day', DEFAULT_DAY_TOOL_CACHE);
       const seededSlots = applyLookPackToDaySlots(
-        seedDaySlotsWardrobe(daySettings.slots, wardrobeId || nextPack.wardrobeId),
+        seedDaySlotsFromKeeperWardrobes(
+          daySettings.slots,
+          keeperWardrobes.length > 0 ? keeperWardrobes : [wardrobeId || nextPack.wardrobeId || '']
+        ),
         nextPack
       );
       saveToolSettings('day', {
@@ -1002,13 +1018,17 @@ export default function FittingRoomTool() {
           noteCampaignStepMetric();
         }
       );
+      const kitCount = keeperWardrobes.length || 1;
       setSaveStatus(
-        `Kept ${tryOn.wardrobeLabel || tryOn.wardrobeId || 'try-on'} as a Cast keeper · Day slots seeded.`
+        kitCount > 1
+          ? `Kept ${tryOn.wardrobeLabel || tryOn.wardrobeId || 'try-on'} · ${kitCount} keeper kits mapped to Day slots.`
+          : `Kept ${tryOn.wardrobeLabel || tryOn.wardrobeId || 'try-on'} as a Cast keeper · Day slots seeded.`
       );
       setError(null);
     },
     [
       character?.activeLookId,
+      compareTryOns,
       shared.activeCharacterId,
       shared.activeLookId,
       toolSettings.notes,

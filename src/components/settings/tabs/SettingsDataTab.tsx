@@ -19,6 +19,7 @@ import {
   failureSparklineSeries,
   loadLocalObservability,
   summarizeLocalReliability,
+  summarizePlayFunnel,
 } from '@/lib/local-observability';
 import { resetFirstQueueSetupModal } from '@/lib/first-queue-setup';
 import { Button, ButtonLink } from '@/components/ui/Button';
@@ -86,6 +87,7 @@ export default function SettingsDataTab({
 }: SettingsDataTabProps) {
   const metrics = loadLocalObservability();
   const reliability = summarizeLocalReliability(metrics);
+  const playFunnel = summarizePlayFunnel(metrics);
   const maxBytes = normalizeGalleryWorkflowMaxBytes(sharedSettings.galleryWorkflowMaxBytes);
   const maxMb = maxBytes <= 0 ? 0 : Math.round((maxBytes / (1024 * 1024)) * 10) / 10;
 
@@ -114,11 +116,11 @@ export default function SettingsDataTab({
                 className="mt-1 text-lg text-[var(--text-primary)]"
                 data-testid="settings-play-funnel"
               >
-                {metrics.firstFilmCut}/{metrics.firstPlayCampaign || 0}
+                {formatRate(playFunnel.cutRate)} cut · {formatRate(playFunnel.saveRate)} save
               </dd>
               <p className="mt-1 text-xs text-[var(--text-muted)]">
-                film cuts · campaign starts · keep {metrics.keepTryOn} · steps{' '}
-                {metrics.campaignStep} · save-to-cast {metrics.saveToCast}
+                {metrics.firstFilmCut}/{metrics.firstPlayCampaign || 0} cuts/starts · keep{' '}
+                {metrics.keepTryOn} · save-to-cast {metrics.saveToCast}
               </p>
             </div>
             <div className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[color-mix(in_oklab,var(--surface)_88%,transparent)] p-3">

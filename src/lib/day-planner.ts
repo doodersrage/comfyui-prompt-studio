@@ -288,3 +288,26 @@ export function seedDaySlotsWardrobe(
     wardrobeId: slot.wardrobeId?.trim() || id,
   }));
 }
+
+/**
+ * Map multiple Fitting keeper kits onto morning→night.
+ * First N keepers fill slots in order; remaining empty slots inherit the last keeper.
+ */
+export function seedDaySlotsFromKeeperWardrobes(
+  slots: DaySlot[] | null | undefined,
+  wardrobeIds: string[]
+): DaySlot[] {
+  const ids = [...new Set(wardrobeIds.map(id => id.trim()).filter(Boolean))];
+  const normalized = normalizeDaySlots(slots);
+  if (ids.length === 0) {
+    return normalized;
+  }
+  if (ids.length === 1) {
+    return seedDaySlotsWardrobe(normalized, ids[0]);
+  }
+  const last = ids[ids.length - 1]!;
+  return normalized.map((slot, index) => ({
+    ...slot,
+    wardrobeId: ids[index] ?? slot.wardrobeId?.trim() ?? last,
+  }));
+}

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Button, ButtonLink } from '@/components/ui/Button';
-import { FieldLabel } from '@/components/ui/Field';
+import { FieldError, FieldLabel } from '@/components/ui/Field';
 import { ToolActionRow, ToolSection } from '@/components/ui/ToolPageShell';
 import FilmWatchPlayer from '@/components/FilmWatchPlayer';
 import {
@@ -76,6 +76,7 @@ export default function CharacterFilmStudio({
   );
   const [stillPick, setStillPick] = useState('');
   const [status, setStatus] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [assembling, setAssembling] = useState(false);
 
   const persistCut = (next: CharacterFilmCut) => {
@@ -84,16 +85,46 @@ export default function CharacterFilmStudio({
 
   const latestFilm = films[0];
   const latestFilmUrl = latestFilm ? galleryEntryPrimaryViewUrl(latestFilm) : null;
+  const emptyCut = cut.items.length === 0 && playlist.length === 0;
 
   return (
     <ToolSection
+      id="character-film-studio"
       title="Film"
       description="Watch the reel in order, cut keepers, then assemble one movie stamped on this character."
+      data-testid="character-film-studio"
     >
       <FilmWatchPlayer
         shots={playlist}
         emptyLabel="Queue clips or add stills to the cut, then watch them in order."
       />
+
+      {emptyCut && films.length === 0 ? (
+        <div
+          className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-muted)] px-3 py-3"
+          data-testid="character-film-studio-empty"
+        >
+          <p className="type-caption text-[var(--text-muted)]">
+            No film cut yet. Queue Day slots or Roleplay beats, or open Day / Roleplay and Cut film.
+          </p>
+          <ToolActionRow>
+            <ButtonLink
+              href={`/day?character=${encodeURIComponent(characterId)}`}
+              size="sm"
+              variant="secondary"
+            >
+              Plan a day
+            </ButtonLink>
+            <ButtonLink
+              href={`/roleplay?character=${encodeURIComponent(characterId)}`}
+              size="sm"
+              variant="ghost"
+            >
+              Open Roleplay
+            </ButtonLink>
+          </ToolActionRow>
+        </div>
+      ) : null}
 
       {films.length > 0 ? (
         <div className="space-y-2">
@@ -116,9 +147,9 @@ export default function CharacterFilmStudio({
                       return response.blob();
                     })
                     .then(blob => downloadFilmBlob(blob, name))
-                    .catch(error => {
-                      setStatus(
-                        error instanceof Error ? error.message : 'Could not download that film.'
+                    .catch(err => {
+                      setError(
+                        err instanceof Error ? err.message : 'Could not download that film.'
                       );
                     });
                 }}
@@ -130,6 +161,7 @@ export default function CharacterFilmStudio({
               href={`/gallery?character=${encodeURIComponent(characterId)}&derivedKind=film`}
               size="sm"
               variant="ghost"
+              data-testid="character-film-gallery-link"
             >
               Open films in Gallery
             </ButtonLink>
@@ -283,8 +315,10 @@ export default function CharacterFilmStudio({
           loading={assembling}
           loadingLabel="Assembling"
           disabled={playlist.length === 0 || assembling}
+          data-testid="character-film-assemble"
           onClick={() => {
             setAssembling(true);
+            setError(null);
             setStatus('Recording the cut…');
             void assembleAndStampFilm({
               shots: playlist,
@@ -301,8 +335,9 @@ export default function CharacterFilmStudio({
                     : `Downloaded ${result.filename}. Studio storage could not keep a copy.`
                 );
               })
-              .catch(error => {
-                setStatus(error instanceof Error ? error.message : 'Could not assemble the film.');
+              .catch(err => {
+                setStatus(null);
+                setError(err instanceof Error ? err.message : 'Could not assemble the film.');
               })
               .finally(() => setAssembling(false));
           }}
@@ -310,7 +345,16 @@ export default function CharacterFilmStudio({
           Assemble film
         </Button>
       </ToolActionRow>
-      {status ? <p className="type-caption text-[var(--text-muted)]">{status}</p> : null}
+      {status ? (
+        <p className="type-caption text-[var(--text-muted)]" data-testid="character-film-status">
+          {status}
+        </p>
+      ) : null}
+      {error ? (
+        <div data-testid="character-film-error">
+          <FieldError>{error}</FieldError>
+        </div>
+      ) : null}
     </ToolSection>
   );
 }

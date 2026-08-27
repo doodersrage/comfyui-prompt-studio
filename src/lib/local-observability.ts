@@ -335,3 +335,34 @@ export function summarizeLocalReliability(counters = loadLocalObservability()): 
 
   return { replayHitRate, playbookClickRate, setupCompletionRate, headline };
 }
+
+/** Play funnel conversion rates from anonymous local counters. */
+export function summarizePlayFunnel(counters = loadLocalObservability()): {
+  cutRate: number | null;
+  saveRate: number | null;
+  keepToCutRate: number | null;
+  headline: string;
+} {
+  const starts = counters.firstPlayCampaign || 0;
+  const cuts = counters.firstFilmCut || 0;
+  const keeps = counters.keepTryOn || 0;
+  const saves = counters.saveToCast || 0;
+  const cutRate = starts > 0 ? Math.min(1, cuts / starts) : null;
+  const saveRate = cuts > 0 ? Math.min(1, saves / cuts) : null;
+  const keepToCutRate = keeps > 0 ? Math.min(1, cuts / keeps) : null;
+
+  let headline = 'No Play funnel events yet.';
+  if (cutRate != null && cutRate >= 0.5) {
+    headline = 'Strong campaign → film conversion.';
+  } else if (starts > 0 && cuts === 0) {
+    headline = 'Campaign started — Cut film in Day or Roleplay to close the loop.';
+  } else if (cuts > 0 && saves === 0) {
+    headline = 'Film cut — Save to Cast to stamp a studio copy.';
+  } else if (keeps > 0 && cuts === 0) {
+    headline = 'Keepers saved — Continue in Day and Cut film.';
+  } else if (cuts > 0) {
+    headline = `${cuts} film cut${cuts === 1 ? '' : 's'} · ${saves} save${saves === 1 ? '' : 's'} to Cast.`;
+  }
+
+  return { cutRate, saveRate, keepToCutRate, headline };
+}

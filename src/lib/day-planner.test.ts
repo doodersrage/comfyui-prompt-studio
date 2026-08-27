@@ -7,6 +7,7 @@ import {
   DEFAULT_DAY_SLOTS,
   mergeDaySlotStills,
   normalizeDaySlots,
+  seedDaySlotsFromKeeperWardrobes,
   seedDaySlotsWardrobe,
   upsertDaySlotStill,
 } from './day-planner';
@@ -133,5 +134,17 @@ describe('day-planner', () => {
     );
     assert.equal(seeded[0]?.wardrobeId, 'keep-me');
     assert.equal(seeded[1]?.wardrobeId, 'new-kit');
+  });
+
+  it('seedDaySlotsFromKeeperWardrobes maps kits onto morning→night', () => {
+    const seeded = seedDaySlotsFromKeeperWardrobes(DEFAULT_DAY_SLOTS, [
+      'kit-a',
+      'kit-b',
+      'kit-c',
+    ]);
+    assert.equal(seeded[0]?.wardrobeId, 'kit-a');
+    assert.equal(seeded[1]?.wardrobeId, 'kit-b');
+    assert.equal(seeded[2]?.wardrobeId, 'kit-c');
+    assert.equal(seeded[3]?.wardrobeId, 'kit-c');
   });
 });

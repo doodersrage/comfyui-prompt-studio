@@ -938,7 +938,7 @@ export default function DayPlannerTool() {
           ) : null}
           {character && filmStatus && !assemblingFilm ? (
             <ButtonLink
-              href={`/characters/${encodeURIComponent(character.id)}`}
+              href={`/characters/${encodeURIComponent(character.id)}?media=films`}
               size="sm"
               variant="ghost"
               data-testid="day-open-cast-film"
@@ -948,9 +948,14 @@ export default function DayPlannerTool() {
           ) : null}
           {character && completedShotCount > 0 ? (
             <ButtonLink
-              href={`/gallery?character=${encodeURIComponent(character.id)}`}
+              href={
+                filmStatus
+                  ? `/gallery?character=${encodeURIComponent(character.id)}&derivedKind=film`
+                  : `/gallery?character=${encodeURIComponent(character.id)}`
+              }
               size="sm"
               variant="ghost"
+              data-testid="day-open-gallery"
             >
               Open in Gallery
             </ButtonLink>

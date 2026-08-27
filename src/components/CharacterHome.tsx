@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import CharacterFilmStudio from '@/components/CharacterFilmStudio';
 import CharacterLoraFlywheel from '@/components/CharacterLoraFlywheel';
 import { Button, ButtonLink } from '@/components/ui/Button';
@@ -47,6 +47,7 @@ import { unstampForeignCharacterGalleryEntries } from '@/lib/gallery-character-s
 import { buildGalleryHandoff, galleryHandoffPath, saveGalleryHandoff } from '@/lib/gallery-handoff';
 import { isGalleryClipEntry } from '@/lib/roleplay-film';
 import GalleryEntryPreview from '@/components/ui/GalleryEntryPreview';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import { selectCharacterKeepers } from '@/lib/gallery-lora-dataset-export';
 import {
   deleteRoleplayLibrarySession,
@@ -87,6 +88,7 @@ function subscribeGallery(onStoreChange: () => void): () => void {
 
 export default function CharacterHome({ characterId }: CharacterHomeProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const characters = useSyncExternalStore(
     subscribeCharacters,
     getCharactersSnapshot,
@@ -98,6 +100,19 @@ export default function CharacterHome({ characterId }: CharacterHomeProps) {
   const [continueError, setContinueError] = useState<string | null>(null);
   const [lookPackStatus, setLookPackStatus] = useState<string | null>(null);
   const lookPackFileRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    const media = searchParams.get('media')?.trim().toLowerCase();
+    if (
+      media === 'all' ||
+      media === 'stills' ||
+      media === 'clips' ||
+      media === 'films' ||
+      media === 'keepers'
+    ) {
+      scheduleAfterCommit(() => setMediaTab(media));
+    }
+  }, [searchParams]);
 
   const character = characters.find(entry => entry.id === characterId) ?? getCharacter(characterId);
 
@@ -461,6 +476,7 @@ export default function CharacterHome({ characterId }: CharacterHomeProps) {
               ? 'Assembled Day / Roleplay films stamped on this character.'
               : 'Jobs stamped with this character.'
         }
+        data-testid="cast-media"
       >
         <SegmentedControl
           aria-label="Character media"
@@ -485,6 +501,16 @@ export default function CharacterHome({ characterId }: CharacterHomeProps) {
         />
         {mediaTab === 'clips' || mediaTab === 'films' || mediaTab === 'all' ? (
           <ToolActionRow>
+            {mediaTab === 'films' ? (
+              <ButtonLink
+                href="#character-film-studio"
+                size="sm"
+                variant="secondary"
+                data-testid="cast-open-film-studio"
+              >
+                Open Film studio
+              </ButtonLink>
+            ) : null}
             {mediaTab !== 'films' && lastClip ? (
               <Button
                 size="sm"
