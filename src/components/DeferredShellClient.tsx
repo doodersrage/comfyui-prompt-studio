@@ -3,8 +3,9 @@
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 import SystemTrayCelebrateOverlay from '@/components/SystemTrayCelebrateOverlay';
+import CommandPaletteEager from '@/components/CommandPalette';
 
-const CommandPalette = dynamic(() => import('@/components/CommandPalette'), {
+const CommandPaletteLazy = dynamic(() => import('@/components/CommandPalette'), {
   ssr: false,
 });
 
@@ -51,6 +52,7 @@ export default function DeferredShellClient() {
   const [toastReady, setToastReady] = useState(playwright);
   const [shellReady, setShellReady] = useState(playwright);
   const [batchEnabled, setBatchEnabled] = useState(false);
+  const CommandPalette = playwright ? CommandPaletteEager : CommandPaletteLazy;
 
   useEffect(() => {
     let cancelled = false;
