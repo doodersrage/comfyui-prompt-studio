@@ -101,9 +101,9 @@ import {
   loadImageBlobFromUrls,
 } from '@/lib/isolate-subject';
 import {
+  applyLookPackToFittingState,
   loadLookPack,
   lookPackDayHref,
-  lookPackNotes,
   lookPackRoleplayHref,
   saveLookPack,
 } from '@/lib/look-pack';
@@ -512,12 +512,12 @@ export default function FittingRoomTool() {
       // Keep the session pack for Day / Roleplay handoffs; Roleplay clears on apply.
       const pack = loadLookPack();
       if (pack) {
-        if (pack.wardrobeId?.trim() && !wardrobeId) {
-          updateShared({ lockedWardrobeId: pack.wardrobeId.trim() });
+        const applied = applyLookPackToFittingState(pack);
+        if (applied.shared.lockedWardrobeId && !wardrobeId) {
+          updateShared({ lockedWardrobeId: applied.shared.lockedWardrobeId });
         }
-        const notes = lookPackNotes(pack);
-        if (notes) {
-          updateToolSettings({ notes });
+        if (applied.tool.notes) {
+          updateToolSettings({ notes: applied.tool.notes });
         }
         scheduleAfterCommit(() => setSaveStatus('Applied Moodboard look pack.'));
       }

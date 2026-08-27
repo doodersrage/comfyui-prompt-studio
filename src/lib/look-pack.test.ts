@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   applyLookPackToDaySlots,
+  applyLookPackToFittingState,
   applyLookPackToRoleplaySettings,
   buildLookPackFromMoodboard,
   buildPortableLookPack,
@@ -82,6 +83,40 @@ describe('look-pack', () => {
     const pack = buildLookPackFromMoodboard({ tiles: [{ id: 't1', role: 'mood', notes: 'calm' }] });
     const saved = normalizeLookPack({ ...pack, source: 'saved' });
     assert.equal(saved?.source, 'saved');
+  });
+
+  it('from=look handoff contracts seed Fitting, Day, and Roleplay the same way', () => {
+    const pack = buildLookPackFromMoodboard({
+      characterId: 'char-1',
+      wardrobeId: 'kit-linen',
+      instruction: 'golden hour soft light',
+      tiles: [
+        { id: 't1', role: 'location', notes: 'sunlit kitchen' },
+        { id: 't2', role: 'mood', notes: 'cozy morning' },
+        { id: 't3', role: 'lighting', notes: 'rim light' },
+      ],
+    });
+
+    assert.match(lookPackFittingHref(pack), /from=look/);
+    assert.match(lookPackFittingHref(pack), /character=char-1/);
+    assert.match(lookPackFittingHref(pack), /wardrobe=kit-linen/);
+    assert.match(lookPackDayHref(pack), /from=look/);
+    assert.match(lookPackDayHref(pack), /character=char-1/);
+    assert.match(lookPackRoleplayHref(pack), /from=look/);
+
+    const fitting = applyLookPackToFittingState(pack);
+    assert.equal(fitting.shared.lockedWardrobeId, 'kit-linen');
+    assert.match(fitting.tool.notes ?? '', /golden hour|cozy morning|rim light/);
+
+    const slots = applyLookPackToDaySlots(DEFAULT_DAY_SLOTS, pack);
+    assert.equal(slots[0]?.location, 'sunlit kitchen');
+    assert.equal(slots[0]?.wardrobeId, 'kit-linen');
+    assert.match(slots[0]?.sceneHints ?? '', /cozy morning/);
+
+    const roleplay = applyLookPackToRoleplaySettings(pack);
+    assert.equal(roleplay.tool.setting, 'sunlit kitchen');
+    assert.equal(roleplay.shared.lockedWardrobeId, 'kit-linen');
+    assert.equal(inferRoleplayToneFromLookPack(pack), 'cozy');
   });
 
   it('portable look pack round-trips for share/import', () => {

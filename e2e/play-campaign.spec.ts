@@ -91,5 +91,27 @@ test('plugins page separates runtime plugins from bookmarks', async ({ page }) =
   });
   await expect(page.getByRole('heading', { name: /^Runtime plugins$/i })).toBeVisible();
   await expect(page.getByRole('heading', { name: /^Sidebar bookmarks$/i })).toBeVisible();
+  const advanced = page.locator('summary', { hasText: /Advanced: manage bookmarks/i });
+  await expect(advanced).toBeVisible();
+  await advanced.click();
+  await expect(page.getByRole('heading', { name: /Add custom bookmark/i })).toBeVisible();
   await expect(page.getByRole('heading', { name: /Custom bookmarks \(JSON\)/i })).toBeVisible();
+});
+
+test('play campaign continue CTA appears when campaign state exists', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.sessionStorage.setItem(
+      'play-campaign-v1',
+      JSON.stringify({
+        version: 1,
+        characterId: 'e2e-resume-char',
+        stepIndex: 2,
+        updatedAt: Date.now(),
+      })
+    );
+  });
+  await gotoStable(page, '/play?character=e2e-resume-char');
+  await dismissBlockingOverlays(page);
+  await expect(page.getByTestId('play-campaign-continue')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('play-campaign-start-moodboard')).toContainText(/Restart/i);
 });

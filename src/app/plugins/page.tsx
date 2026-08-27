@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { CollapsibleSection } from '@/components/ui/CollapsibleSection';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { FieldLabel, MonoTextArea, SelectInput, TextInput } from '@/components/ui/Field';
 import { ToolBadge, ToolLayout, ToolSection } from '@/components/ui/ToolPageShell';
@@ -454,112 +455,119 @@ export default function PluginsPage() {
         </ul>
       </ToolSection>
 
-      <ToolSection
-        title="Add custom bookmark"
-        description="Registers an in-app path in the sidebar. Use Runtime plugins above when you need an iframe or queue hook."
+      <CollapsibleSection
+        title="Advanced: manage bookmarks"
+        summary="Add sidebar shortcuts or edit the custom bookmark JSON. Prefer Runtime plugins above for iframe tools or queue hooks."
+        defaultOpen={false}
+        persistKey="plugins-bookmarks-advanced"
       >
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="block space-y-1.5">
-            <FieldLabel>Id</FieldLabel>
-            <TextInput
-              value={form.id}
-              onChange={event => setForm(prev => ({ ...prev, id: event.target.value }))}
-              placeholder="my-tool"
-            />
-          </label>
-          <label className="block space-y-1.5">
-            <FieldLabel>Label</FieldLabel>
-            <TextInput
-              value={form.label}
-              onChange={event => setForm(prev => ({ ...prev, label: event.target.value }))}
-              placeholder="My tool"
-            />
-          </label>
-          <label className="block space-y-1.5 sm:col-span-2">
-            <FieldLabel>Description</FieldLabel>
-            <TextInput
-              value={form.description}
-              onChange={event => setForm(prev => ({ ...prev, description: event.target.value }))}
-              placeholder="Short note shown in the list"
-            />
-          </label>
-          <label className="block space-y-1.5">
-            <FieldLabel>Href</FieldLabel>
-            <TextInput
-              value={form.href}
-              onChange={event => setForm(prev => ({ ...prev, href: event.target.value }))}
-              placeholder="/lint"
-            />
-          </label>
-          <label className="block space-y-1.5">
-            <FieldLabel>Category</FieldLabel>
-            <SelectInput
-              value={form.category}
-              onChange={event =>
-                setForm(prev => ({
-                  ...prev,
-                  category: event.target.value as ToolPlugin['category'],
-                }))
-              }
-            >
-              <option value="plugin">plugin</option>
-              <option value="prompt">prompt</option>
-              <option value="scene">scene</option>
-              <option value="tools">tools</option>
-              <option value="video">video</option>
-            </SelectInput>
-          </label>
-        </div>
-        {formError ? (
-          <p className="type-caption text-[var(--tint-danger-text)]">{formError}</p>
-        ) : null}
-        <Button type="button" variant="primary" size="sm" className="mt-3" onClick={addFromForm}>
-          Add bookmark
-        </Button>
-      </ToolSection>
-
-      <ToolSection title="Custom bookmarks (JSON)">
-        <p className="type-caption">
-          Advanced: edit the full custom bookmark array. Each item needs id, label, description,
-          href, and category. See{' '}
-          <code className="ui-inline-code">examples/custom-plugin.example.json</code>. This is not a
-          runtime manifest.
-        </p>
-        <Button
-          variant="secondary"
-          size="sm"
-          className="mb-3"
-          onClick={() => {
-            setCustomJson(
-              JSON.stringify(
-                [
-                  {
-                    id: 'my-custom-tool',
-                    label: 'My custom tool',
-                    description: 'Example plugin entry — change href to your route.',
-                    href: '/lint',
-                    category: 'plugin',
-                    enabled: true,
-                  },
-                ],
-                null,
-                2
-              )
-            );
-          }}
+        <ToolSection
+          title="Add custom bookmark"
+          description="Registers an in-app path in the sidebar. Use Runtime plugins when you need an iframe or queue hook."
         >
-          Load example
-        </Button>
-        <MonoTextArea
-          value={customJson}
-          onChange={event => setCustomJson(event.target.value)}
-          rows={10}
-          spellCheck={false}
-        />
-        <Button type="button" variant="secondary" size="sm" className="mt-3" onClick={saveCustom}>
-          Save JSON
-        </Button>
-      </ToolSection>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block space-y-1.5">
+              <FieldLabel>Id</FieldLabel>
+              <TextInput
+                value={form.id}
+                onChange={event => setForm(prev => ({ ...prev, id: event.target.value }))}
+                placeholder="my-tool"
+              />
+            </label>
+            <label className="block space-y-1.5">
+              <FieldLabel>Label</FieldLabel>
+              <TextInput
+                value={form.label}
+                onChange={event => setForm(prev => ({ ...prev, label: event.target.value }))}
+                placeholder="My tool"
+              />
+            </label>
+            <label className="block space-y-1.5 sm:col-span-2">
+              <FieldLabel>Description</FieldLabel>
+              <TextInput
+                value={form.description}
+                onChange={event => setForm(prev => ({ ...prev, description: event.target.value }))}
+                placeholder="Short note shown in the list"
+              />
+            </label>
+            <label className="block space-y-1.5">
+              <FieldLabel>Href</FieldLabel>
+              <TextInput
+                value={form.href}
+                onChange={event => setForm(prev => ({ ...prev, href: event.target.value }))}
+                placeholder="/lint"
+              />
+            </label>
+            <label className="block space-y-1.5">
+              <FieldLabel>Category</FieldLabel>
+              <SelectInput
+                value={form.category}
+                onChange={event =>
+                  setForm(prev => ({
+                    ...prev,
+                    category: event.target.value as ToolPlugin['category'],
+                  }))
+                }
+              >
+                <option value="plugin">plugin</option>
+                <option value="prompt">prompt</option>
+                <option value="scene">scene</option>
+                <option value="tools">tools</option>
+                <option value="video">video</option>
+              </SelectInput>
+            </label>
+          </div>
+          {formError ? (
+            <p className="type-caption text-[var(--tint-danger-text)]">{formError}</p>
+          ) : null}
+          <Button type="button" variant="primary" size="sm" className="mt-3" onClick={addFromForm}>
+            Add bookmark
+          </Button>
+        </ToolSection>
+
+        <ToolSection title="Custom bookmarks (JSON)">
+          <p className="type-caption">
+            Advanced: edit the full custom bookmark array. Each item needs id, label, description,
+            href, and category. See{' '}
+            <code className="ui-inline-code">examples/custom-plugin.example.json</code>. This is not
+            a runtime manifest.
+          </p>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="mb-3"
+            onClick={() => {
+              setCustomJson(
+                JSON.stringify(
+                  [
+                    {
+                      id: 'my-custom-tool',
+                      label: 'My custom tool',
+                      description: 'Example plugin entry — change href to your route.',
+                      href: '/lint',
+                      category: 'plugin',
+                      enabled: true,
+                    },
+                  ],
+                  null,
+                  2
+                )
+              );
+            }}
+          >
+            Load example
+          </Button>
+          <MonoTextArea
+            value={customJson}
+            onChange={event => setCustomJson(event.target.value)}
+            rows={10}
+            spellCheck={false}
+          />
+          <Button type="button" variant="secondary" size="sm" className="mt-3" onClick={saveCustom}>
+            Save JSON
+          </Button>
+        </ToolSection>
+      </CollapsibleSection>
     </ToolLayout>
   );
 }

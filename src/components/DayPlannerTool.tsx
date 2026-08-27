@@ -39,7 +39,10 @@ import {
 } from '@/lib/character-film-assemble';
 import { filmDownloadFilename } from '@/lib/character-film';
 import { applyCharacterRecord, getCharacter, upsertCharacter } from '@/lib/character-os';
-import { markOnboardingFirstPlayCampaign } from '@/lib/onboarding-hooks';
+import {
+  markOnboardingFirstFilmCut,
+  markOnboardingFirstPlayCampaign,
+} from '@/lib/onboarding-hooks';
 import { subjectGenderToClothingGender } from '@/lib/clothing-gender';
 import {
   fetchClothingLabels,
@@ -577,6 +580,7 @@ export default function DayPlannerTool() {
         );
       }
       markOnboardingFirstPlayCampaign();
+      markOnboardingFirstFilmCut();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not assemble the film.');
       setFilmStatus(null);

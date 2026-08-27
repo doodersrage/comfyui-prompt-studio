@@ -9,9 +9,11 @@ import { useCachedSettings } from '@/hooks/useCachedSettings';
 import {
   addCharacterLookPack,
   applyCharacterRecord,
+  characterFromShared,
   getCharacter,
   getCharacterLookPack,
   lookPacksOf,
+  upsertCharacter,
 } from '@/lib/character-os';
 import {
   downloadLookPackFile,
@@ -75,6 +77,19 @@ export default function PlayCampaignWizard({ initialCharacterId }: PlayCampaignW
   }, [characterId, mounted]);
 
   const activeStep = stepOverride ?? restoredStep ?? 'character';
+
+  const savedCampaign = useMemo(() => {
+    if (!mounted || !characterId) {
+      return null;
+    }
+    const saved = loadPlayCampaignState();
+    if (!saved || saved.characterId !== characterId || saved.stepIndex <= 0) {
+      return null;
+    }
+    return saved;
+  }, [characterId, mounted]);
+
+  const resumeStep = savedCampaign ? (PLAY_CAMPAIGN_STEPS[savedCampaign.stepIndex] ?? null) : null;
 
   const savedLookPacks = useMemo(() => (character ? lookPacksOf(character) : []), [character]);
 
@@ -191,7 +206,7 @@ export default function PlayCampaignWizard({ initialCharacterId }: PlayCampaignW
 
         <ToolSection
           title="Share look pack"
-          description="Export JSON to another machine, or import a pack onto this Cast character."
+          description="Export JSON to another machine, or import a pack onto this Cast character (creates Cast when none is selected)."
         >
           <input
             ref={lookPackFileRef}
@@ -211,8 +226,47 @@ export default function PlayCampaignWizard({ initialCharacterId }: PlayCampaignW
                   return;
                 }
                 if (!character) {
-                  saveLookPack(portable.pack);
-                  setStatus('Look pack staged in this session — pick a Cast character to save it.');
+                  const defaultName =
+                    portable.name?.trim() || portable.pack.characterId?.trim() || 'Imported look';
+                  const name =
+                    typeof window !== 'undefined'
+                      ? window
+                          .prompt('Name the new Cast character for this look pack', defaultName)
+                          ?.trim() || defaultName
+                      : defaultName;
+                  const createdList = upsertCharacter(
+                    characterFromShared(loadSettingsCache().shared, { name })
+                  );
+                  const record = createdList.at(-1) ?? getCharacter(createdList[0]?.id ?? '');
+                  if (!record) {
+                    saveLookPack(portable.pack);
+                    setStatus('Look pack staged — could not create a Cast character.');
+                    return;
+                  }
+                  const withPack = addCharacterLookPack(
+                    record.id,
+                    portable.name || 'Imported look',
+                    {
+                      ...portable.pack,
+                      characterId: record.id,
+                      source: 'saved',
+                    }
+                  );
+                  const entry = withPack ? lookPacksOf(withPack)[0] : undefined;
+                  persistCharacter(record.id);
+                  saveLookPack({
+                    ...portable.pack,
+                    characterId: record.id,
+                    source: 'saved',
+                  });
+                  if (entry) {
+                    router.replace(
+                      `/play?character=${encodeURIComponent(record.id)}&lookPack=${encodeURIComponent(entry.id)}`
+                    );
+                  } else {
+                    router.replace(`/play?character=${encodeURIComponent(record.id)}`);
+                  }
+                  setStatus(`Created Cast "${record.name}" and imported the look pack.`);
                   return;
                 }
                 const saved = addCharacterLookPack(
@@ -363,14 +417,25 @@ export default function PlayCampaignWizard({ initialCharacterId }: PlayCampaignW
         {status ? <p className="type-caption text-[var(--text-muted)]">{status}</p> : null}
 
         <div className="flex flex-wrap gap-2">
+          {resumeStep ? (
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={!characterId}
+              data-testid="play-campaign-continue"
+              onClick={() => goToStep(resumeStep.id, activeLookPack)}
+            >
+              Continue at {resumeStep.label}
+            </Button>
+          ) : null}
           <Button
             size="sm"
-            variant="primary"
+            variant={resumeStep ? 'secondary' : 'primary'}
             disabled={!characterId}
             data-testid="play-campaign-start-moodboard"
             onClick={() => goToStep('moodboard', activeLookPack)}
           >
-            Start at Moodboard
+            {resumeStep ? 'Restart at Moodboard' : 'Start at Moodboard'}
           </Button>
           <ButtonLink href="/characters" size="sm" variant="ghost">
             Cast roster

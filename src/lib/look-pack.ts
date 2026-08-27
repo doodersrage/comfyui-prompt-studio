@@ -172,6 +172,22 @@ export function lookPackNotes(pack: LookPack): string {
     .slice(0, 1200);
 }
 
+/** Seed Fitting shared + tool notes from a look pack (`?from=look` handoff). */
+export function applyLookPackToFittingState(pack: LookPack): {
+  shared: { lockedWardrobeId?: string };
+  tool: { notes?: string };
+} {
+  const notes = lookPackNotes(pack).slice(0, 1200) || undefined;
+  return {
+    shared: {
+      ...(pack.wardrobeId?.trim() ? { lockedWardrobeId: pack.wardrobeId.trim() } : {}),
+    },
+    tool: {
+      ...(notes ? { notes } : {}),
+    },
+  };
+}
+
 export function lookPackFittingHref(pack: LookPack): string {
   const params = new URLSearchParams();
   params.set('from', 'look');

@@ -14,7 +14,10 @@ import {
   loadCharacters,
   upsertCharacterFromRoleplaySession,
 } from '@/lib/character-os';
-import { markOnboardingFirstPlayCampaign } from '@/lib/onboarding-hooks';
+import {
+  markOnboardingFirstFilmCut,
+  markOnboardingFirstPlayCampaign,
+} from '@/lib/onboarding-hooks';
 import { snapshotRoleplaySession } from '@/lib/roleplay-library';
 import {
   loadSettingsCache,
@@ -78,6 +81,7 @@ export function useRoleplayFilmActions(input: {
         );
       }
       markOnboardingFirstPlayCampaign();
+      markOnboardingFirstFilmCut();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not assemble the film.');
       setFilmStatus(null);

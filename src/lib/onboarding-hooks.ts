@@ -36,7 +36,18 @@ export function markOnboardingGalleryReview(): void {
 
 /** First Moodboard → Day / Roleplay film loop after a still lands. */
 export function markOnboardingFirstPlayCampaign(): boolean {
+  void import('./play-metrics').then(({ recordFirstPlayCampaignStart }) => {
+    recordFirstPlayCampaignStart();
+  });
   return markOnboardingStepDone('first-play-campaign');
+}
+
+/** First successful Cut film in Day or Roleplay (Play success metric). */
+export function markOnboardingFirstFilmCut(): boolean {
+  void import('./play-metrics').then(({ recordFirstFilmCut }) => {
+    recordFirstFilmCut();
+  });
+  return markOnboardingStepDone('first-film-cut');
 }
 
 export function markOnboardingDiscoverPalette(): void {

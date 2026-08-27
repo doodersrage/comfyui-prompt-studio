@@ -52,8 +52,8 @@ services/**/.venv/
 
 .cursor/
 
-# prettier cache
-.prettiercache
+.pnpm-store/
+**/.pnpm-store/
 
 # desktop (Tauri) build artifacts
 /desktop/src-tauri/target/
