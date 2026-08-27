@@ -65,9 +65,20 @@ test('command palette lists heal and gallery continue items', async ({ page }) =
   await seedGalleryFixture(page);
   await gotoStable(page, '/dashboard');
   await dismissBlockingOverlays(page);
-  await page.keyboard.press('Control+K');
   const dialog = page.getByRole('dialog', { name: /Command palette/i });
-  await expect(dialog).toBeVisible({ timeout: 15_000 });
+  // Dynamic CommandPalette may mount after first paint — retry until the listener is live.
+  await expect
+    .poll(
+      async () => {
+        if (await dialog.isVisible().catch(() => false)) {
+          return true;
+        }
+        await page.keyboard.press('Control+K');
+        return dialog.isVisible().catch(() => false);
+      },
+      { timeout: 20_000, intervals: [200, 400, 800] }
+    )
+    .toBeTruthy();
   await expect(dialog.getByText(/Heal & ready/i)).toBeVisible();
   await page.keyboard.press('Escape');
 });
@@ -99,9 +110,11 @@ test('settings comfyui loader maps section loads', async ({ page }) => {
   // Loader maps live under workflow-patching (not the top of the ComfyUI tab).
   await gotoStable(page, '/settings?tab=comfyui&section=workflow-patching');
   await openComfyUiSettingsTab(page);
-  await expect(page.getByText(/Checkpoint map/i)).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole('button', { name: /Merge suggested loader maps/i })).toBeVisible({
-    timeout: 15_000,
+  await revealFullSettings(page);
+  const patching = page.locator('#settings-comfyui-workflow-patching');
+  await expect(patching.getByText(/Checkpoint map/i)).toBeVisible({ timeout: 30_000 });
+  await expect(patching.getByRole('button', { name: /Merge suggested loader maps/i })).toBeVisible({
+    timeout: 30_000,
   });
 });
 
