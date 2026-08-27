@@ -55,6 +55,11 @@ function readText(value: unknown, max = 320): string {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
 }
 
+/** Cap length without trimming — used for in-progress label/notes typing. */
+function readEditableText(value: unknown, max: number): string {
+  return typeof value === 'string' ? value.slice(0, max) : '';
+}
+
 export function normalizeMoodboardTemplateId(value: unknown): MoodboardTemplateId {
   if (
     value === 'scene-blend' ||
@@ -77,8 +82,10 @@ export function normalizeMoodboardTiles(input?: MoodboardTile[] | null): Moodboa
     next.push({
       id: tile.id,
       role,
-      label: readText(tile.label, 80) || undefined,
-      notes: readText(tile.notes, 320) || undefined,
+      // Do not trim label/notes here — persistTiles runs on every keystroke and
+      // trimming would eat Space (and mid-edit trailing whitespace).
+      label: readEditableText(tile.label, 80) || undefined,
+      notes: readEditableText(tile.notes, 320) || undefined,
       imageUrl: readText(tile.imageUrl, 2048) || undefined,
       imageFilename: readText(tile.imageFilename, 240) || undefined,
     });

@@ -23,6 +23,19 @@ describe('moodboard-scene', () => {
     assert.equal(tiles.length, 4);
   });
 
+  it('normalizeMoodboardTiles keeps spaces in label and notes while typing', () => {
+    const tiles = normalizeMoodboardTiles([
+      {
+        id: 't1',
+        role: 'mood',
+        label: 'rainy neon ',
+        notes: 'soft rim light ',
+      },
+    ]);
+    assert.equal(tiles[0]?.label, 'rainy neon ');
+    assert.equal(tiles[0]?.notes, 'soft rim light ');
+  });
+
   it('synthesizeMoodboardPrompt merges tiles and instruction', () => {
     const prompt = synthesizeMoodboardPrompt({
       templateId: 'lighting-mood',
