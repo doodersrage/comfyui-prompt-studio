@@ -25,7 +25,9 @@ test.describe('Settings automation', () => {
   test('vision-rank checkbox toggles when best-of-N is set', async ({ page }) => {
     await gotoStable(page, '/settings?tab=automation');
     await revealFullSettings(page);
-    const scheduled = page.locator('section').filter({ hasText: 'Scheduled batch' });
+    const scheduled = page
+      .locator('section')
+      .filter({ has: page.getByRole('heading', { name: 'Scheduled batch', exact: true }) });
     await expect(scheduled.getByRole('heading', { name: 'Scheduled batch' })).toBeVisible();
     const bestOfN = scheduled.getByLabel(/Best-of-N ranking/i);
     await bestOfN.selectOption('3');
