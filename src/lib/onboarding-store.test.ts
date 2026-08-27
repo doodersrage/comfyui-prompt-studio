@@ -19,6 +19,7 @@ describe("onboarding-store", () => {
         "first-queue",
         "first-queue-success",
         "review-gallery",
+        "first-play-campaign",
         "llm-health",
       ],
     );
@@ -39,6 +40,10 @@ describe("onboarding-store", () => {
     assert.equal(
       ONBOARDING_STEPS.find((step) => step.id === "system-workflows")?.href,
       "/settings?tab=comfyui&section=connection",
+    );
+    assert.equal(
+      ONBOARDING_STEPS.find((step) => step.id === "first-play-campaign")?.href,
+      "/play",
     );
   });
 

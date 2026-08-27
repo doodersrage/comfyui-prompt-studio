@@ -201,12 +201,15 @@ export default function PluginsPage() {
       accent="brand"
       badge={<ToolBadge accent="brand">Tools</ToolBadge>}
       title="Plugins"
-      description="Install runtime manifests, manage queue-preflight hooks, and keep nav bookmarks for custom tools."
+      description="Two surfaces: installable runtime manifests (iframe tools + queue hooks), and sidebar bookmarks (href-only — not a plugin runtime)."
     >
-      <ToolSection title="Installed plugins">
+      <ToolSection
+        title="Runtime plugins"
+        description="Manifest JSON → nav entries, queue preflight hooks, and optional iframe tools at /plugins/[id]. Bookmarks never receive postMessage."
+      >
         <p className="type-caption">
-          Import a JSON manifest to register nav entries, queue hooks, and optional iframe tools.
-          See <code className="ui-inline-code">examples/queue-rewrite-plugin.json</code>.
+          See <code className="ui-inline-code">examples/queue-rewrite-plugin.json</code> and{' '}
+          <code className="ui-inline-code">docs/plugin-iframe-host.md</code>.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <input
@@ -431,14 +434,17 @@ export default function PluginsPage() {
         </Button>
       </ToolSection>
 
-      <ToolSection title="Registered tools">
+      <ToolSection
+        title="Sidebar bookmarks"
+        description="Href-only shortcuts in the tool list. Not a runnable plugin — no iframe host, no queue hooks."
+      >
         <ul className="ui-list">
           {plugins.map(plugin => (
             <li key={plugin.id} className="ui-list-row items-start">
               <div className="ui-list-primary min-w-0 space-y-1">
                 <p className="type-heading">{plugin.label}</p>
                 <p className="type-caption">{plugin.description}</p>
-                <p className="type-overline">{plugin.category}</p>
+                <p className="type-overline">{plugin.category} · bookmark</p>
               </div>
               <ButtonLink href={plugin.href} size="sm" variant="accent-outline">
                 Open
@@ -448,7 +454,10 @@ export default function PluginsPage() {
         </ul>
       </ToolSection>
 
-      <ToolSection title="Add custom bookmark">
+      <ToolSection
+        title="Add custom bookmark"
+        description="Registers an in-app path in the sidebar. Use Runtime plugins above when you need an iframe or queue hook."
+      >
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block space-y-1.5">
             <FieldLabel>Id</FieldLabel>
@@ -509,11 +518,12 @@ export default function PluginsPage() {
         </Button>
       </ToolSection>
 
-      <ToolSection title="Custom plugins (JSON)">
+      <ToolSection title="Custom bookmarks (JSON)">
         <p className="type-caption">
           Advanced: edit the full custom bookmark array. Each item needs id, label, description,
           href, and category. See{' '}
-          <code className="ui-inline-code">examples/custom-plugin.example.json</code>.
+          <code className="ui-inline-code">examples/custom-plugin.example.json</code>. This is not a
+          runtime manifest.
         </p>
         <Button
           variant="secondary"

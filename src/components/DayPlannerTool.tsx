@@ -18,6 +18,7 @@ import {
   TextArea,
 } from '@/components/ui/Field';
 import {
+  CollapsibleSection,
   ToolActionRow,
   ToolBadge,
   ToolLayout,
@@ -25,6 +26,8 @@ import {
   accentFocusClass,
 } from '@/components/ui/ToolPageShell';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
+import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
+import { isLeanWorkspaceMode } from '@/lib/workspace-mode';
 import { usePromptResultActions } from '@/hooks/usePromptResultActions';
 import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
@@ -36,6 +39,7 @@ import {
 } from '@/lib/character-film-assemble';
 import { filmDownloadFilename } from '@/lib/character-film';
 import { applyCharacterRecord, getCharacter, upsertCharacter } from '@/lib/character-os';
+import { markOnboardingFirstPlayCampaign } from '@/lib/onboarding-hooks';
 import { subjectGenderToClothingGender } from '@/lib/clothing-gender';
 import {
   fetchClothingLabels,
@@ -96,6 +100,8 @@ type ClothingOption = { value: string; label: string; group?: string };
 
 export default function DayPlannerTool() {
   const router = useRouter();
+  const workspaceMode = useWorkspaceMode();
+  const leanChrome = isLeanWorkspaceMode(workspaceMode);
   const description = useToolPageDescription(
     'Plan morning through night, queue stills, then Cut a day-in-the-life reel.',
     'Character day — four slots → stills → Cut film.'
@@ -570,6 +576,7 @@ export default function DayPlannerTool() {
             : `Downloaded ${result.filename} unstamped. Save to Cast to attach this film.`
         );
       }
+      markOnboardingFirstPlayCampaign();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not assemble the film.');
       setFilmStatus(null);
@@ -671,6 +678,7 @@ export default function DayPlannerTool() {
       <ToolSection
         title="Character"
         description="Same Character OS id as Cast, Fitting, and Roleplay."
+        data-testid="day-character"
       >
         <CharacterOsPicker
           shared={shared}
@@ -698,6 +706,7 @@ export default function DayPlannerTool() {
       <ToolSection
         title="Day slots"
         description="Morning → night. Pick kit, setting, and beat per slot."
+        data-testid="day-slots"
       >
         <div className="flex flex-wrap gap-2">
           {slots.map(slot => {
@@ -824,6 +833,7 @@ export default function DayPlannerTool() {
             size="sm"
             variant="primary"
             disabled={busy}
+            data-testid="day-slot-queue"
             onClick={() => void queueSlot(activeSlot)}
           >
             {busy ? 'Queueing…' : `Queue ${activeSlot.label.toLowerCase()}`}
@@ -831,26 +841,40 @@ export default function DayPlannerTool() {
           <Button size="sm" variant="secondary" disabled={busy} onClick={() => void queueAll()}>
             Queue all slots
           </Button>
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled={busy}
-            onClick={() => void animateSlot(activeSlot)}
-          >
-            Animate slot
-          </Button>
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled={busy}
-            onClick={() => void animateAllClips()}
-          >
-            Animate all
-          </Button>
         </ToolActionRow>
+        <CollapsibleSection
+          title="Animate clips"
+          summary="Turn completed stills into I2V clips for the day reel."
+          defaultOpen={!leanChrome}
+          persistKey="day-animate"
+        >
+          <ToolActionRow>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={busy}
+              onClick={() => void animateSlot(activeSlot)}
+            >
+              Animate slot
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={busy}
+              onClick={() => void animateAllClips()}
+            >
+              Animate all
+            </Button>
+          </ToolActionRow>
+        </CollapsibleSection>
       </ToolSection>
 
-      <ToolSection title="Day notes" description="Optional notes layered onto every slot prompt.">
+      <CollapsibleSection
+        title="Day notes"
+        summary="Optional notes layered onto every slot prompt."
+        defaultOpen={!leanChrome}
+        persistKey="day-notes"
+      >
         <TextArea
           rows={2}
           value={toolSettings.notes ?? ''}
@@ -858,11 +882,12 @@ export default function DayPlannerTool() {
           placeholder="e.g. cozy autumn day, light rain in the evening"
           onChange={event => updateToolSettings({ notes: event.target.value })}
         />
-      </ToolSection>
+      </CollapsibleSection>
 
       <ToolSection
         title="Day reel"
         description="Completed clips play first; otherwise stills. Cut film uses the same playlist."
+        data-testid="day-reel"
       >
         <FilmWatchPlayer
           shots={watchPlaylist}

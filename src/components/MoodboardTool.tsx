@@ -37,12 +37,14 @@ import { collectIsolateSourceUrls, loadImageBlobFromUrls } from '@/lib/isolate-s
 import { sharedLlmRequestBody } from '@/lib/llm-request-options';
 import {
   buildLookPackFromMoodboard,
+  downloadLookPackFile,
   loadLookPack,
   lookPackDayHref,
   lookPackFittingHref,
   lookPackRoleplayHref,
   saveLookPack,
 } from '@/lib/look-pack';
+import { markOnboardingFirstPlayCampaign } from '@/lib/onboarding-hooks';
 import { playCampaignHref } from '@/lib/play-campaign';
 import {
   MOODBOARD_TEMPLATE_OPTIONS,
@@ -429,6 +431,7 @@ export default function MoodboardTool() {
     if (!pack) {
       return;
     }
+    markOnboardingFirstPlayCampaign();
     router.push(lookPackFittingHref(pack));
   }, [extractLookPack, router]);
 
@@ -437,6 +440,7 @@ export default function MoodboardTool() {
     if (!pack) {
       return;
     }
+    markOnboardingFirstPlayCampaign();
     router.push(lookPackDayHref(pack));
   }, [extractLookPack, router]);
 
@@ -463,6 +467,7 @@ export default function MoodboardTool() {
         : defaultName;
     addCharacterLookPack(character.id, name, pack);
     setLookStatus(`Saved "${name}" on ${character.name}.`);
+    markOnboardingFirstPlayCampaign();
   }, [character, extractLookPack]);
 
   const goRoleplay = useCallback(() => {
@@ -516,6 +521,7 @@ export default function MoodboardTool() {
       <ToolSection
         title="Character (optional)"
         description="Attach a Cast character for subject notes and identity lock when a plate exists."
+        data-testid="moodboard-character"
       >
         <CharacterOsPicker
           shared={shared}
@@ -554,6 +560,7 @@ export default function MoodboardTool() {
       <ToolSection
         title="Reference tiles"
         description={`Up to ${MAX_TILES} tiles — role, notes, and optional still per tile.`}
+        data-testid="moodboard-tiles"
       >
         {tiles.length === 0 ? (
           <p className="type-caption text-[var(--text-muted)]">
@@ -703,6 +710,7 @@ export default function MoodboardTool() {
           size="sm"
           variant="secondary"
           disabled={busy || extracting}
+          data-testid="moodboard-extract-look"
           onClick={() => void extractLookPack()}
         >
           {extracting ? 'Extracting…' : 'Extract look'}
@@ -738,6 +746,25 @@ export default function MoodboardTool() {
           onClick={() => void saveLookPackToCast()}
         >
           Save on Cast
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={busy || extracting}
+          onClick={() => {
+            const pack = loadLookPack();
+            if (!pack) {
+              setLookStatus('Extract a look first.');
+              return;
+            }
+            downloadLookPackFile({
+              pack,
+              name: character?.name ? `${character.name} look` : 'look-pack',
+            });
+            setLookStatus('Downloaded look pack JSON.');
+          }}
+        >
+          Export JSON
         </Button>
         {character ? (
           <>

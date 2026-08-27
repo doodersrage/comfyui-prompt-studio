@@ -4,12 +4,16 @@ import {
   applyLookPackToDaySlots,
   applyLookPackToRoleplaySettings,
   buildLookPackFromMoodboard,
+  buildPortableLookPack,
   inferRoleplayToneFromLookPack,
   lookPackDayHref,
   lookPackFittingHref,
+  lookPackPlayCampaignHref,
   lookPackRoleplayHref,
   lookPackNotes,
   normalizeLookPack,
+  normalizePortableLookPack,
+  PORTABLE_LOOK_PACK_KIND,
 } from './look-pack';
 import { DEFAULT_DAY_SLOTS } from './day-planner';
 
@@ -78,5 +82,25 @@ describe('look-pack', () => {
     const pack = buildLookPackFromMoodboard({ tiles: [{ id: 't1', role: 'mood', notes: 'calm' }] });
     const saved = normalizeLookPack({ ...pack, source: 'saved' });
     assert.equal(saved?.source, 'saved');
+  });
+
+  it('portable look pack round-trips for share/import', () => {
+    const pack = buildLookPackFromMoodboard({
+      characterId: 'char-1',
+      wardrobeId: 'kit-a',
+      tiles: [{ id: 't1', role: 'mood', notes: 'noir alley' }],
+    });
+    const portable = buildPortableLookPack({ pack, name: 'Night look', id: 'lp-1' });
+    assert.equal(portable.kind, PORTABLE_LOOK_PACK_KIND);
+    assert.equal(portable.version, 1);
+    assert.equal(portable.name, 'Night look');
+    const restored = normalizePortableLookPack(JSON.parse(JSON.stringify(portable)));
+    assert.equal(restored?.pack.characterId, 'char-1');
+    assert.equal(restored?.pack.wardrobeId, 'kit-a');
+    assert.match(restored?.pack.moodNotes ?? '', /noir/);
+    assert.equal(normalizePortableLookPack({ version: 1, kind: 'other' }), null);
+    const bare = normalizePortableLookPack(pack);
+    assert.equal(bare?.pack.version, 1);
+    assert.match(lookPackPlayCampaignHref('char-1', 'lp-1'), /lookPack=lp-1/);
   });
 });

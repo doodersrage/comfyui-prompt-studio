@@ -164,6 +164,7 @@ describe("workspace-mode", () => {
     assert.equal(isRoleplayFocusPath("/fitting"), true);
     assert.equal(isRoleplayFocusPath("/day"), true);
     assert.equal(isRoleplayFocusPath("/moodboard"), true);
+    assert.equal(isRoleplayFocusPath("/play"), true);
     assert.equal(isRoleplayFocusPath("/characters"), true);
     assert.equal(isRoleplayFocusPath("/characters/kai"), true);
     assert.equal(isRoleplayFocusPath("/character"), false);
@@ -183,6 +184,8 @@ describe("workspace-mode", () => {
         const hrefs = groups[0]!.links.map((link) => link.href);
         assert.deepEqual(hrefs, [
           "/characters",
+          "/play",
+          "/moodboard",
           "/fitting",
           "/day",
           "/roleplay",
@@ -207,6 +210,8 @@ describe("workspace-mode", () => {
     const hrefs = groups[0]!.links.map((link) => link.href);
     assert.deepEqual(hrefs, [
       "/characters",
+      "/play",
+      "/moodboard",
       "/fitting",
       "/day",
       "/roleplay",

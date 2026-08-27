@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import CharacterFilmStudio from '@/components/CharacterFilmStudio';
@@ -20,6 +20,7 @@ import {
   activateLook,
   activeLook,
   addLookFromShared,
+  addCharacterLookPack,
   applyCharacterRecord,
   getCharacter,
   getCharactersSnapshot,
@@ -52,7 +53,13 @@ import {
   resolveRoleplayContinueFromCharacter,
 } from '@/lib/roleplay-library';
 import { loadSettingsCache, saveSharedSettings, saveToolSettings } from '@/lib/settings-cache';
-import { lookPackDayHref, lookPackFittingHref, saveLookPack } from '@/lib/look-pack';
+import {
+  downloadLookPackFile,
+  lookPackDayHref,
+  lookPackFittingHref,
+  parseLookPackFile,
+  saveLookPack,
+} from '@/lib/look-pack';
 import { playCampaignHref } from '@/lib/play-campaign';
 import { continueClipActionLabel } from '@/lib/video-clip-mode';
 import { loadEngineSettings } from '@/lib/engine-settings';
@@ -89,6 +96,8 @@ export default function CharacterHome({ characterId }: CharacterHomeProps) {
   const [lookName, setLookName] = useState('');
   const [mediaTab, setMediaTab] = useState<MediaTab>('all');
   const [continueError, setContinueError] = useState<string | null>(null);
+  const [lookPackStatus, setLookPackStatus] = useState<string | null>(null);
+  const lookPackFileRef = useRef<HTMLInputElement | null>(null);
 
   const character = characters.find(entry => entry.id === characterId) ?? getCharacter(characterId);
 
@@ -234,52 +243,103 @@ export default function CharacterHome({ characterId }: CharacterHomeProps) {
         </Button>
       </ToolActionRow>
 
-      {savedLookPacks.length > 0 ? (
+      {character ? (
         <ToolSection
           title="Saved look packs"
-          description="Reuse Moodboard vibes without re-running vision extract."
+          description="Reuse Moodboard vibes without re-running vision extract. Export JSON to share a look."
         >
-          <ul className="ui-list">
-            {savedLookPacks.map(entry => (
-              <li key={entry.id} className="ui-list-row items-center">
-                <div className="ui-list-primary min-w-0">
-                  <p className="type-heading">{entry.name}</p>
-                  <p className="type-caption text-[var(--text-muted)]">
-                    {new Date(entry.savedAt).toLocaleDateString()}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => {
-                      saveLookPack(entry.pack);
-                      go(lookPackFittingHref(entry.pack));
-                    }}
-                  >
-                    Fitting
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => {
-                      saveLookPack(entry.pack);
-                      go(lookPackDayHref(entry.pack));
-                    }}
-                  >
-                    Day
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => removeCharacterLookPack(character.id, entry.id)}
-                  >
-                    Remove
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <input
+            ref={lookPackFileRef}
+            type="file"
+            accept="application/json,.json"
+            className="sr-only"
+            onChange={event => {
+              const file = event.target.files?.[0];
+              event.target.value = '';
+              if (!file || !character) {
+                return;
+              }
+              void parseLookPackFile(file).then(portable => {
+                if (!portable) {
+                  setLookPackStatus('That file is not a Prompt Studio look pack.');
+                  return;
+                }
+                addCharacterLookPack(character.id, portable.name || 'Imported look', portable.pack);
+                setLookPackStatus(`Imported "${portable.name || 'look pack'}".`);
+              });
+            }}
+          />
+          <div className="mb-3 flex flex-wrap gap-2">
+            <Button size="sm" variant="secondary" onClick={() => lookPackFileRef.current?.click()}>
+              Import look pack
+            </Button>
+            <ButtonLink href={playCampaignHref(character.id)} size="sm" variant="ghost">
+              Play campaign
+            </ButtonLink>
+          </div>
+          {lookPackStatus ? (
+            <p className="type-caption mb-3 text-[var(--text-muted)]">{lookPackStatus}</p>
+          ) : null}
+          {savedLookPacks.length === 0 ? (
+            <p className="type-caption text-[var(--text-muted)]">
+              No saved packs yet — extract a look on Moodboard and Save on Cast, or import JSON.
+            </p>
+          ) : (
+            <ul className="ui-list">
+              {savedLookPacks.map(entry => (
+                <li key={entry.id} className="ui-list-row items-center">
+                  <div className="ui-list-primary min-w-0">
+                    <p className="type-heading">{entry.name}</p>
+                    <p className="type-caption text-[var(--text-muted)]">
+                      {new Date(entry.savedAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => {
+                        saveLookPack(entry.pack);
+                        go(lookPackFittingHref(entry.pack));
+                      }}
+                    >
+                      Fitting
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => {
+                        saveLookPack(entry.pack);
+                        go(lookPackDayHref(entry.pack));
+                      }}
+                    >
+                      Day
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() =>
+                        downloadLookPackFile({
+                          pack: entry.pack,
+                          name: entry.name,
+                          id: entry.id,
+                        })
+                      }
+                    >
+                      Export
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => removeCharacterLookPack(character.id, entry.id)}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </ToolSection>
       ) : null}
 

@@ -17,6 +17,7 @@ import {
   TextArea,
 } from '@/components/ui/Field';
 import {
+  CollapsibleSection,
   ToolActionRow,
   ToolBadge,
   ToolLayout,
@@ -24,6 +25,8 @@ import {
   accentFocusClass,
 } from '@/components/ui/ToolPageShell';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
+import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
+import { isLeanWorkspaceMode } from '@/lib/workspace-mode';
 import { useGalleryHandoff } from '@/hooks/useGalleryHandoff';
 import { usePromptResultActions } from '@/hooks/usePromptResultActions';
 import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
@@ -122,6 +125,8 @@ type ClothingOption = { value: string; label: string; group?: string };
 
 export default function FittingRoomTool() {
   const router = useRouter();
+  const workspaceMode = useWorkspaceMode();
+  const leanChrome = isLeanWorkspaceMode(workspaceMode);
   const description = useToolPageDescription(
     'Lock a Cast plate, swipe catalog kits with draft thumbs, queue outfit try-on stills.',
     'Try outfits on a Cast character — swipe kits on a locked plate with draft previews.'
@@ -1119,6 +1124,7 @@ export default function FittingRoomTool() {
       <ToolSection
         title="Character"
         description="Same Character OS id as Cast and Roleplay — try-ons stamp that record."
+        data-testid="fitting-character"
       >
         <CharacterOsPicker
           shared={shared}
@@ -1136,6 +1142,7 @@ export default function FittingRoomTool() {
       <ToolSection
         title="Plate"
         description="Identity still for img2img. Isolate on white so the photo’s clothes and scene do not leak."
+        data-testid="fitting-plate"
       >
         <div className="flex flex-wrap gap-2">
           <ChipButton
@@ -1222,6 +1229,7 @@ export default function FittingRoomTool() {
       <ToolSection
         title="Wardrobe kit"
         description="Filter by clothing type, swipe kits on the locked plate, or pick from the catalog."
+        data-testid="fitting-kit-strip"
       >
         <label className="space-y-2">
           <FieldLabel>Clothing type</FieldLabel>
@@ -1331,130 +1339,187 @@ export default function FittingRoomTool() {
                 );
               })}
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <ChipButton
-                active={autoKitPreviews}
-                disabled={busy || !hasReference}
-                onClick={() => updateToolSettings({ autoKitPreviews: !autoKitPreviews })}
-              >
-                Auto draft previews
-              </ChipButton>
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={
-                  busy ||
-                  !hasReference ||
-                  !activeLookId ||
-                  !previewModel ||
-                  swipeDeck.length === 0 ||
-                  (isolateSubject && toolSettings.referenceIsolated !== true)
-                }
-                onClick={() => void fillKitPreviews()}
-              >
-                Preview kits
-              </Button>
-              {completedPreviewCount > 0 || inFlightPreviewCount > 0 ? (
-                <span className="type-caption text-[var(--text-muted)]">
-                  {completedPreviewCount} preview{completedPreviewCount === 1 ? '' : 's'}
-                  {inFlightPreviewCount > 0 ? ` · ${inFlightPreviewCount} rendering` : ''}
-                </span>
+            <CollapsibleSection
+              title="Draft previews & catalog"
+              summary="Auto draft thumbs, full catalog pick, and optional notes."
+              defaultOpen={!leanChrome}
+              persistKey="fitting-kit-advanced"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <ChipButton
+                  active={autoKitPreviews}
+                  disabled={busy || !hasReference}
+                  onClick={() => updateToolSettings({ autoKitPreviews: !autoKitPreviews })}
+                >
+                  Auto draft previews
+                </ChipButton>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={
+                    busy ||
+                    !hasReference ||
+                    !activeLookId ||
+                    !previewModel ||
+                    swipeDeck.length === 0 ||
+                    (isolateSubject && toolSettings.referenceIsolated !== true)
+                  }
+                  onClick={() => void fillKitPreviews()}
+                >
+                  Preview kits
+                </Button>
+                {completedPreviewCount > 0 || inFlightPreviewCount > 0 ? (
+                  <span className="type-caption text-[var(--text-muted)]">
+                    {completedPreviewCount} preview{completedPreviewCount === 1 ? '' : 's'}
+                    {inFlightPreviewCount > 0 ? ` · ${inFlightPreviewCount} rendering` : ''}
+                  </span>
+                ) : null}
+              </div>
+              {previewStatus ? (
+                <p className="type-caption text-[var(--text-muted)]">{previewStatus}</p>
+              ) : hasReference && autoKitPreviews ? (
+                <p className="type-caption text-[var(--text-muted)]">
+                  Draft previews use {previewModelLabel ?? 'a fast edit model'} · 4-step draft ·
+                  256×384 (3 at a time). Queue try-on keeps your sidebar model and settings.
+                </p>
+              ) : previewModelLabel ? (
+                <p className="type-caption text-[var(--text-muted)]">
+                  Preview kits: {previewModelLabel} · 4-step draft · 256×384 · 3 concurrent. Queue
+                  try-on uses {selectedModel?.label ?? shared.model}.
+                </p>
               ) : null}
-            </div>
-            {previewStatus ? (
-              <p className="type-caption text-[var(--text-muted)]">{previewStatus}</p>
-            ) : hasReference && autoKitPreviews ? (
-              <p className="type-caption text-[var(--text-muted)]">
-                Draft previews use {previewModelLabel ?? 'a fast edit model'} · 4-step draft ·
-                256×384 (3 at a time). Queue try-on keeps your sidebar model and settings.
-              </p>
-            ) : previewModelLabel ? (
-              <p className="type-caption text-[var(--text-muted)]">
-                Preview kits: {previewModelLabel} · 4-step draft · 256×384 · 3 concurrent. Queue
-                try-on uses {selectedModel?.label ?? shared.model}.
-              </p>
-            ) : null}
+              <label className="mt-3 space-y-2">
+                <FieldLabel>Full catalog</FieldLabel>
+                <SelectInput
+                  value={shared.lockedWardrobeId ?? ''}
+                  disabled={!wardrobeReady || busy}
+                  className={accentFocusClass(ACCENT)}
+                  onChange={event => {
+                    selectKit(event.target.value);
+                  }}
+                >
+                  {filteredWardrobeOptions
+                    .filter(option => !option.group)
+                    .map(option => (
+                      <option key={option.value || 'default'} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  {[...wardrobeGroups.entries()].map(([group, groupOptions]) => (
+                    <optgroup key={group} label={group}>
+                      {groupOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </SelectInput>
+              </label>
+              <label className="mt-3 space-y-2">
+                <FieldLabel>Notes (optional)</FieldLabel>
+                <TextArea
+                  rows={2}
+                  value={toolSettings.notes ?? ''}
+                  className={accentFocusClass(ACCENT)}
+                  placeholder="e.g. slightly oversized blazer, sneakers untied"
+                  onChange={event => updateToolSettings({ notes: event.target.value })}
+                />
+              </label>
+            </CollapsibleSection>
           </div>
         ) : null}
-        <label className="mt-3 space-y-2">
-          <FieldLabel>Full catalog</FieldLabel>
-          <SelectInput
-            value={shared.lockedWardrobeId ?? ''}
-            disabled={!wardrobeReady || busy}
-            className={accentFocusClass(ACCENT)}
-            onChange={event => {
-              selectKit(event.target.value);
-            }}
-          >
-            {filteredWardrobeOptions
-              .filter(option => !option.group)
-              .map(option => (
-                <option key={option.value || 'default'} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            {[...wardrobeGroups.entries()].map(([group, groupOptions]) => (
-              <optgroup key={group} label={group}>
-                {groupOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
+        {swipeDeck.length === 0 ? (
+          <>
+            <label className="mt-3 space-y-2">
+              <FieldLabel>Full catalog</FieldLabel>
+              <SelectInput
+                value={shared.lockedWardrobeId ?? ''}
+                disabled={!wardrobeReady || busy}
+                className={accentFocusClass(ACCENT)}
+                onChange={event => {
+                  selectKit(event.target.value);
+                }}
+              >
+                {filteredWardrobeOptions
+                  .filter(option => !option.group)
+                  .map(option => (
+                    <option key={option.value || 'default'} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                {[...wardrobeGroups.entries()].map(([group, groupOptions]) => (
+                  <optgroup key={group} label={group}>
+                    {groupOptions.map(option => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
-              </optgroup>
-            ))}
-          </SelectInput>
-        </label>
-        <FieldDivider />
-        <label className="space-y-2">
-          <FieldLabel>Notes (optional)</FieldLabel>
-          <TextArea
-            rows={2}
-            value={toolSettings.notes ?? ''}
-            className={accentFocusClass(ACCENT)}
-            placeholder="e.g. slightly oversized blazer, sneakers untied"
-            onChange={event => updateToolSettings({ notes: event.target.value })}
-          />
-        </label>
+              </SelectInput>
+            </label>
+            <FieldDivider />
+            <label className="space-y-2">
+              <FieldLabel>Notes (optional)</FieldLabel>
+              <TextArea
+                rows={2}
+                value={toolSettings.notes ?? ''}
+                className={accentFocusClass(ACCENT)}
+                placeholder="e.g. slightly oversized blazer, sneakers untied"
+                onChange={event => updateToolSettings({ notes: event.target.value })}
+              />
+            </label>
+          </>
+        ) : null}
       </ToolSection>
 
       {compareTryOns.length > 0 ? (
         <ToolSection
           title="Compare try-ons"
           description="Keep a winner as a Cast keeper, or skip to the next kit."
+          data-testid="fitting-compare"
         >
-          <div className="flex gap-3 overflow-x-auto pb-1">
-            {compareTryOns.map(tryOn => (
-              <figure
-                key={tryOn.promptId}
-                className="min-w-[7.5rem] shrink-0 rounded-[var(--radius-md)] border border-[var(--border-subtle)] p-2"
-              >
-                {tryOn.imageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={tryOn.imageUrl}
-                    alt={tryOn.wardrobeLabel || tryOn.wardrobeId || 'Try-on'}
-                    className="mb-2 h-28 w-full rounded object-cover"
-                  />
-                ) : null}
-                <figcaption className="type-caption truncate text-[var(--text-muted)]">
-                  {tryOn.wardrobeLabel || tryOn.wardrobeId || 'Try-on'}
-                </figcaption>
-                <div className="mt-2 flex flex-wrap gap-1">
-                  <Button
-                    size="sm"
-                    variant="primary"
-                    disabled={busy}
-                    onClick={() => keepTryOn(tryOn)}
-                  >
-                    Keep
-                  </Button>
-                  <Button size="sm" variant="ghost" disabled={busy} onClick={skipKit}>
-                    Skip
-                  </Button>
-                </div>
-              </figure>
-            ))}
-          </div>
+          <CollapsibleSection
+            title="Recent try-ons"
+            summary="Side-by-side Keep / Skip for the last completed kits."
+            defaultOpen={!leanChrome}
+            persistKey="fitting-compare"
+          >
+            <div className="flex gap-3 overflow-x-auto pb-1">
+              {compareTryOns.map(tryOn => (
+                <figure
+                  key={tryOn.promptId}
+                  className="min-w-[7.5rem] shrink-0 rounded-[var(--radius-md)] border border-[var(--border-subtle)] p-2"
+                >
+                  {tryOn.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={tryOn.imageUrl}
+                      alt={tryOn.wardrobeLabel || tryOn.wardrobeId || 'Try-on'}
+                      className="mb-2 h-28 w-full rounded object-cover"
+                    />
+                  ) : null}
+                  <figcaption className="type-caption truncate text-[var(--text-muted)]">
+                    {tryOn.wardrobeLabel || tryOn.wardrobeId || 'Try-on'}
+                  </figcaption>
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      disabled={busy}
+                      onClick={() => keepTryOn(tryOn)}
+                    >
+                      Keep
+                    </Button>
+                    <Button size="sm" variant="ghost" disabled={busy} onClick={skipKit}>
+                      Skip
+                    </Button>
+                  </div>
+                </figure>
+              ))}
+            </div>
+          </CollapsibleSection>
         </ToolSection>
       ) : null}
 

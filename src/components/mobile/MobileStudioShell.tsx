@@ -31,13 +31,18 @@ export default function MobileStudioShell({ children }: { children: ReactNode })
           <div className="min-w-0">
             <p className="type-brand type-heading truncate tracking-tight">Mobile Studio</p>
             <p className="type-caption text-[var(--text-muted)]">
-              {MOBILE_STUDIO_TABS.find(entry => entry.id === tab)?.hint ?? 'Phone companion'}
+              {MOBILE_STUDIO_TABS.find(entry => entry.id === tab)?.hint ??
+                'Phone companion — Capture, Queue, Gallery, Play stills'}
               <span className="mx-1 text-[var(--border-strong)]">·</span>
               <ReportBugLink className="text-[var(--text-muted)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]" />
             </p>
           </div>
         </div>
-        <Link href="/dashboard" className="ui-btn-secondary shrink-0 px-3 py-2 text-xs">
+        <Link
+          href="/dashboard"
+          className="ui-btn-secondary shrink-0 px-3 py-2 text-xs"
+          title="Desk app — Fitting, Day, Moodboard, Cut film"
+        >
           Desk
         </Link>
       </header>

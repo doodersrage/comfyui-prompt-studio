@@ -40,7 +40,8 @@ export const WORKSPACE_MODE_OPTIONS: {
   {
     id: 'play',
     label: 'Play',
-    description: 'Cast, Fitting, Day, Roleplay, Gallery, and Queue — lean chrome for story loops.',
+    description:
+      'Campaign, Moodboard, Fitting, Day, Roleplay, Gallery, and Queue — lean chrome for story loops.',
   },
   {
     id: 'studio',
@@ -96,6 +97,8 @@ export const ROLEPLAY_FOCUS_HREFS = [
 /** Destinations listed in the Play sidebar (All tools is appended separately). */
 export const ROLEPLAY_FOCUS_NAV_HREFS = [
   '/characters',
+  '/play',
+  '/moodboard',
   '/fitting',
   '/day',
   '/roleplay',

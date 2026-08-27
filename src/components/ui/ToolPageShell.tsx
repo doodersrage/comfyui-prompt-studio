@@ -118,6 +118,7 @@ export const ToolSection = memo(function ToolSection({
   description,
   variant = 'primary',
   id,
+  'data-testid': testId,
 }: {
   children: ReactNode;
   className?: string;
@@ -126,10 +127,12 @@ export const ToolSection = memo(function ToolSection({
   description?: string;
   variant?: ToolSectionVariant;
   id?: string;
+  'data-testid'?: string;
 }) {
   return (
     <section
       id={id}
+      data-testid={testId}
       className={`${id ? 'scroll-mt-28 ' : ''}${sectionSurfaceClasses[variant]} ${padded ? 'p-[var(--card-padding)] sm:p-[var(--card-padding-lg)]' : ''} ${className}`.trim()}
     >
       {title ? (

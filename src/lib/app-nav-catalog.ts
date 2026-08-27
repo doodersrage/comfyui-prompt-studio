@@ -20,7 +20,7 @@ export const APP_NAV_GROUPS: AppNavGroup[] = [
       {
         href: '/m',
         label: 'Mobile Studio',
-        description: 'Phone capture, queue, gallery, and play',
+        description: 'Phone companion — capture, queue, rate, Play stills (desk for film tools)',
       },
     ],
   },
@@ -46,6 +46,11 @@ export const APP_NAV_GROUPS: AppNavGroup[] = [
         href: '/character',
         label: 'Character',
         description: 'Person, pet, fantasy, or environment — switch on the page',
+      },
+      {
+        href: '/play',
+        label: 'Play campaign',
+        description: 'Guided Moodboard → Fitting → Day → Roleplay loop',
       },
       {
         href: '/roleplay',
@@ -109,7 +114,7 @@ export const APP_NAV_GROUPS: AppNavGroup[] = [
       { href: '/studio', label: 'Studio', description: 'History, presets, and compare' },
       { href: '/gallery', label: 'Gallery', description: 'ComfyUI outputs' },
       { href: '/variations', label: 'Variations', description: 'Grid queue and matrix sweeps' },
-      { href: '/plugins', label: 'Plugins', description: 'Tool registry' },
+      { href: '/plugins', label: 'Plugins', description: 'Runtime manifests and nav bookmarks' },
     ],
   },
 ];

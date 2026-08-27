@@ -271,6 +271,98 @@ export function lookPackPlayCampaignHref(characterId: string, lookPackId?: strin
   return `/play?${params.toString()}`;
 }
 
+/** Portable JSON for share / import (Cast look packs + session packs). */
+export const PORTABLE_LOOK_PACK_KIND = 'prompt-studio-look-pack' as const;
+
+export type PortableLookPack = {
+  version: 1;
+  kind: typeof PORTABLE_LOOK_PACK_KIND;
+  name?: string;
+  id?: string;
+  pack: LookPack;
+};
+
+export function buildPortableLookPack(input: {
+  pack: LookPack;
+  name?: string;
+  id?: string;
+}): PortableLookPack {
+  return {
+    version: 1,
+    kind: PORTABLE_LOOK_PACK_KIND,
+    name: readText(input.name, 120) || undefined,
+    id: readText(input.id, 120) || undefined,
+    pack: {
+      ...input.pack,
+      source: input.pack.source === 'saved' ? 'saved' : 'moodboard',
+    },
+  };
+}
+
+export function normalizePortableLookPack(value: unknown): PortableLookPack | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const raw = value as Partial<PortableLookPack> & { pack?: unknown };
+  if (raw.version !== 1 || raw.kind !== PORTABLE_LOOK_PACK_KIND) {
+    // Accept a bare LookPack for convenience (export from older sessions).
+    const bare = normalizeLookPack(value);
+    if (bare) {
+      return buildPortableLookPack({ pack: bare });
+    }
+    return null;
+  }
+  const pack = normalizeLookPack(raw.pack);
+  if (!pack) {
+    return null;
+  }
+  return buildPortableLookPack({
+    pack,
+    name: raw.name,
+    id: raw.id,
+  });
+}
+
+function triggerLookPackDownload(blob: Blob, filename: string): void {
+  if (typeof document === 'undefined') {
+    return;
+  }
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+function slugLookPackFilenamePart(value: string): string {
+  return (
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 48) || 'look'
+  );
+}
+
+/** Download a portable look-pack JSON file for sharing across machines. */
+export function downloadLookPackFile(input: { pack: LookPack; name?: string; id?: string }): void {
+  const portable = buildPortableLookPack(input);
+  const label = portable.name || portable.pack.characterId || 'look-pack';
+  const blob = new Blob([JSON.stringify(portable, null, 2)], { type: 'application/json' });
+  triggerLookPackDownload(blob, `look-pack-${slugLookPackFilenamePart(label)}.json`);
+}
+
+export async function parseLookPackFile(file: File): Promise<PortableLookPack | null> {
+  try {
+    const text = await file.text();
+    return normalizePortableLookPack(JSON.parse(text) as unknown);
+  } catch {
+    return null;
+  }
+}
+
 /** Seed every Day slot location / beat from a look pack (wardrobe only when empty). */
 export function applyLookPackToDaySlots(slots: DaySlot[], pack: LookPack): DaySlot[] {
   const location = pack.locationNotes?.trim();

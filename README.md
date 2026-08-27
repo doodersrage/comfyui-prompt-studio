@@ -37,7 +37,7 @@ Use **Simple / Studio / Full** from the sidebar footer or **Profile → Appearan
 | Mode                 | Sidebar                         | Shared controls                  | Studio tabs                                     |
 | -------------------- | ------------------------------- | -------------------------------- | ----------------------------------------------- |
 | **Simple** (default) | Essentials + More tools         | Advanced collapsed               | History, Compare, Templates, Presets, Analytics |
-| **Play**             | Cast, Fitting, Day, Roleplay, Gallery, Queue  | Lean Roleplay rail               | Same as Simple                                  |
+| **Play**             | Campaign, Moodboard, Fitting, Day, Roleplay, Gallery, Queue | Lean Roleplay rail               | Same as Simple                                  |
 | **Studio**           | Edit / Media / Library groups   | Collapsed advanced sections      | All tabs                                        |
 | **Full**             | Same as Studio, groups expanded | Quality sections open by default | All tabs                                        |
 

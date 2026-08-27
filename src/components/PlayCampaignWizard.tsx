@@ -1,18 +1,26 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { ToolBadge, ToolLayout, ToolSection } from '@/components/ui/ToolPageShell';
 import CharacterOsPicker from '@/components/CharacterOsPicker';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import {
+  addCharacterLookPack,
   applyCharacterRecord,
   getCharacter,
   getCharacterLookPack,
   lookPacksOf,
 } from '@/lib/character-os';
-import { loadLookPack, saveLookPack, type LookPack } from '@/lib/look-pack';
+import {
+  downloadLookPackFile,
+  loadLookPack,
+  parseLookPackFile,
+  saveLookPack,
+  type LookPack,
+} from '@/lib/look-pack';
+import { markOnboardingFirstPlayCampaign } from '@/lib/onboarding-hooks';
 import {
   loadPlayCampaignState,
   PLAY_CAMPAIGN_STEPS,
@@ -43,6 +51,7 @@ export default function PlayCampaignWizard({ initialCharacterId }: PlayCampaignW
   );
   const [status, setStatus] = useState<string | null>(null);
   const [stepOverride, setStepOverride] = useState<PlayCampaignStepId | null>(null);
+  const lookPackFileRef = useRef<HTMLInputElement | null>(null);
 
   const queryCharacterId = searchParams.get('character')?.trim() || '';
   const queryLookPackId = searchParams.get('lookPack')?.trim() || '';
@@ -106,6 +115,9 @@ export default function PlayCampaignWizard({ initialCharacterId }: PlayCampaignW
         stepIndex: stepIndex >= 0 ? stepIndex : 0,
         updatedAt: Date.now(),
       });
+      if (stepId !== 'character') {
+        markOnboardingFirstPlayCampaign();
+      }
       const handoff = pack ?? activeLookPack;
       if (handoff && stepId !== 'character' && stepId !== 'moodboard') {
         stagePlayCampaignHandoff({ ...handoff, characterId });
@@ -143,113 +155,228 @@ export default function PlayCampaignWizard({ initialCharacterId }: PlayCampaignW
   }
 
   return (
-    <ToolLayout
-      accent={ACCENT}
-      badge={<ToolBadge accent={ACCENT}>Play campaign</ToolBadge>}
-      title="Play campaign"
-      description="One guided loop: Moodboard vibe → Fitting try-ons → Day reel → Roleplay story."
-    >
-      <ToolSection title="Character" description="The campaign stays tied to one Cast record.">
-        <CharacterOsPicker
-          shared={shared}
-          hints={character?.hints}
-          onApply={patch => {
-            try {
-              updateShared(patch);
-              if (patch.activeCharacterId) {
-                persistCharacter(patch.activeCharacterId);
-              }
-            } catch (err) {
-              setStatus(err instanceof Error ? err.message : 'Could not apply that character.');
-            }
-          }}
-        />
-        {character ? (
-          <p className="type-caption mt-2 text-[var(--text-muted)]">
-            Active: {character.name}
-            {activeLookPack ? ' · look pack staged' : ''}
-          </p>
-        ) : null}
-      </ToolSection>
-
-      {savedLookPacks.length > 0 ? (
+    <div data-testid="play-campaign">
+      <ToolLayout
+        accent={ACCENT}
+        badge={<ToolBadge accent={ACCENT}>Play campaign</ToolBadge>}
+        title="Play campaign"
+        description="One guided loop: Moodboard vibe → Fitting try-ons → Day reel → Roleplay story."
+      >
         <ToolSection
-          title="Saved look packs"
-          description="Reuse a vibe without re-running Moodboard vision."
+          title="Character"
+          description="The campaign stays tied to one Cast record."
+          data-testid="play-campaign-character"
         >
-          <ul className="ui-list">
-            {savedLookPacks.map(entry => (
-              <li key={entry.id} className="ui-list-row items-center">
-                <div className="ui-list-primary min-w-0">
-                  <p className="type-heading">{entry.name}</p>
-                  <p className="type-caption text-[var(--text-muted)]">
-                    {new Date(entry.savedAt).toLocaleDateString()}
-                  </p>
-                </div>
-                <Button size="sm" variant="secondary" onClick={() => applySavedLookPack(entry.id)}>
-                  Load
-                </Button>
-              </li>
-            ))}
-          </ul>
+          <CharacterOsPicker
+            shared={shared}
+            hints={character?.hints}
+            onApply={patch => {
+              try {
+                updateShared(patch);
+                if (patch.activeCharacterId) {
+                  persistCharacter(patch.activeCharacterId);
+                }
+              } catch (err) {
+                setStatus(err instanceof Error ? err.message : 'Could not apply that character.');
+              }
+            }}
+          />
+          {character ? (
+            <p className="type-caption mt-2 text-[var(--text-muted)]">
+              Active: {character.name}
+              {activeLookPack ? ' · look pack staged' : ''}
+            </p>
+          ) : null}
         </ToolSection>
-      ) : null}
 
-      <ToolSection title="Steps" description="Each step carries character + look pack when staged.">
-        <ol className="space-y-3">
-          {PLAY_CAMPAIGN_STEPS.map(step => {
-            const isActive = step.id === activeStep;
-            return (
-              <li
-                key={step.id}
-                className={`rounded-[var(--radius-md)] border px-3 py-3 ${
-                  isActive
-                    ? 'border-[var(--accent-amber)] bg-[var(--surface-raised)]'
-                    : 'border-[var(--border-subtle)]'
-                }`}
-              >
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="type-heading">{step.label}</p>
-                    <p className="type-caption text-[var(--text-muted)]">{step.description}</p>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant={isActive ? 'primary' : 'secondary'}
-                    disabled={!characterId && step.id !== 'character'}
-                    onClick={() => {
-                      setStepOverride(step.id);
-                      if (step.id === 'character' && characterId) {
-                        router.push(`/characters/${encodeURIComponent(characterId)}`);
-                        return;
-                      }
-                      goToStep(step.id, activeLookPack);
-                    }}
-                  >
-                    Open
-                  </Button>
-                </div>
-              </li>
-            );
-          })}
-        </ol>
-      </ToolSection>
-
-      {status ? <p className="type-caption text-[var(--text-muted)]">{status}</p> : null}
-
-      <div className="flex flex-wrap gap-2">
-        <Button
-          size="sm"
-          variant="primary"
-          disabled={!characterId}
-          onClick={() => goToStep('moodboard', activeLookPack)}
+        <ToolSection
+          title="Share look pack"
+          description="Export JSON to another machine, or import a pack onto this Cast character."
         >
-          Start at Moodboard
-        </Button>
-        <ButtonLink href="/characters" size="sm" variant="ghost">
-          Cast roster
-        </ButtonLink>
-      </div>
-    </ToolLayout>
+          <input
+            ref={lookPackFileRef}
+            type="file"
+            accept="application/json,.json"
+            className="sr-only"
+            data-testid="play-look-pack-import"
+            onChange={event => {
+              const file = event.target.files?.[0];
+              event.target.value = '';
+              if (!file) {
+                return;
+              }
+              void parseLookPackFile(file).then(portable => {
+                if (!portable) {
+                  setStatus('That file is not a Prompt Studio look pack.');
+                  return;
+                }
+                if (!character) {
+                  saveLookPack(portable.pack);
+                  setStatus('Look pack staged in this session — pick a Cast character to save it.');
+                  return;
+                }
+                const saved = addCharacterLookPack(
+                  character.id,
+                  portable.name || 'Imported look',
+                  portable.pack
+                );
+                const entry = saved ? lookPacksOf(saved)[0] : undefined;
+                saveLookPack({ ...portable.pack, characterId: character.id, source: 'saved' });
+                if (entry) {
+                  router.replace(
+                    `/play?character=${encodeURIComponent(character.id)}&lookPack=${encodeURIComponent(entry.id)}`
+                  );
+                }
+                setStatus(`Imported "${portable.name || 'look pack'}" onto ${character.name}.`);
+              });
+            }}
+          />
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={!activeLookPack}
+              data-testid="play-look-pack-export"
+              onClick={() => {
+                if (!activeLookPack) {
+                  return;
+                }
+                const saved = queryLookPackId
+                  ? getCharacterLookPack(characterId, queryLookPackId)
+                  : undefined;
+                downloadLookPackFile({
+                  pack: activeLookPack,
+                  name: saved?.name || character?.name || 'look-pack',
+                  id: saved?.id,
+                });
+                setStatus('Downloaded look pack JSON.');
+              }}
+            >
+              Export JSON
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => lookPackFileRef.current?.click()}>
+              Import JSON
+            </Button>
+            {characterId && activeLookPack ? (
+              <ButtonLink
+                href={`/play?character=${encodeURIComponent(characterId)}${
+                  queryLookPackId ? `&lookPack=${encodeURIComponent(queryLookPackId)}` : ''
+                }`}
+                size="sm"
+                variant="ghost"
+                data-testid="play-campaign-share-link"
+              >
+                Campaign link
+              </ButtonLink>
+            ) : null}
+          </div>
+        </ToolSection>
+
+        {savedLookPacks.length > 0 ? (
+          <ToolSection
+            title="Saved look packs"
+            description="Reuse a vibe without re-running Moodboard vision."
+            data-testid="play-campaign-look-packs"
+          >
+            <ul className="ui-list">
+              {savedLookPacks.map(entry => (
+                <li key={entry.id} className="ui-list-row items-center">
+                  <div className="ui-list-primary min-w-0">
+                    <p className="type-heading">{entry.name}</p>
+                    <p className="type-caption text-[var(--text-muted)]">
+                      {new Date(entry.savedAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => applySavedLookPack(entry.id)}
+                    >
+                      Load
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() =>
+                        downloadLookPackFile({
+                          pack: entry.pack,
+                          name: entry.name,
+                          id: entry.id,
+                        })
+                      }
+                    >
+                      Export
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </ToolSection>
+        ) : null}
+
+        <ToolSection
+          title="Steps"
+          description="Each step carries character + look pack when staged."
+          data-testid="play-campaign-steps"
+        >
+          <ol className="space-y-3">
+            {PLAY_CAMPAIGN_STEPS.map(step => {
+              const isActive = step.id === activeStep;
+              return (
+                <li
+                  key={step.id}
+                  data-testid={`play-campaign-step-${step.id}`}
+                  className={`rounded-[var(--radius-md)] border px-3 py-3 ${
+                    isActive
+                      ? 'border-[var(--accent-amber)] bg-[var(--surface-raised)]'
+                      : 'border-[var(--border-subtle)]'
+                  }`}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="type-heading">{step.label}</p>
+                      <p className="type-caption text-[var(--text-muted)]">{step.description}</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant={isActive ? 'primary' : 'secondary'}
+                      disabled={!characterId && step.id !== 'character'}
+                      onClick={() => {
+                        setStepOverride(step.id);
+                        if (step.id === 'character' && characterId) {
+                          router.push(`/characters/${encodeURIComponent(characterId)}`);
+                          return;
+                        }
+                        goToStep(step.id, activeLookPack);
+                      }}
+                    >
+                      Open
+                    </Button>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        </ToolSection>
+
+        {status ? <p className="type-caption text-[var(--text-muted)]">{status}</p> : null}
+
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant="primary"
+            disabled={!characterId}
+            data-testid="play-campaign-start-moodboard"
+            onClick={() => goToStep('moodboard', activeLookPack)}
+          >
+            Start at Moodboard
+          </Button>
+          <ButtonLink href="/characters" size="sm" variant="ghost">
+            Cast roster
+          </ButtonLink>
+        </div>
+      </ToolLayout>
+    </div>
   );
 }

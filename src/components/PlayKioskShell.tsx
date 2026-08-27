@@ -14,11 +14,11 @@ import { accentForPath } from '@/lib/tool-theme';
 
 const PLAY_KIOSK_TABS: { href: string; label: string }[] = [
   { href: '/characters', label: 'Cast' },
-  { href: '/fitting', label: 'Fitting' },
+  { href: '/play', label: 'Campaign' },
+  { href: '/moodboard', label: 'Mood' },
   { href: '/day', label: 'Day' },
   { href: '/roleplay', label: 'Roleplay' },
   { href: '/gallery', label: 'Gallery' },
-  { href: '/queue', label: 'Queue' },
 ];
 
 function tabIsActive(href: string, pathname: string): boolean {
@@ -47,7 +47,7 @@ export default function PlayKioskShell() {
           <div className="min-w-0">
             <p className="type-brand type-heading truncate tracking-tight">Play</p>
             <p className="type-caption text-[var(--text-muted)]">
-              Cast · Fitting · Day · Roleplay · Gallery · Queue
+              Cast · Campaign · Moodboard · Day · Roleplay · Gallery
               <span className="mx-1 text-[var(--border-strong)]">·</span>
               <ReportBugLink className="text-[var(--text-muted)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]" />
             </p>

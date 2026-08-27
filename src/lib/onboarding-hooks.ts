@@ -34,6 +34,11 @@ export function markOnboardingGalleryReview(): void {
   markOnboardingStepDone('review-gallery');
 }
 
+/** First Moodboard → Day / Roleplay film loop after a still lands. */
+export function markOnboardingFirstPlayCampaign(): boolean {
+  return markOnboardingStepDone('first-play-campaign');
+}
+
 export function markOnboardingDiscoverPalette(): void {
   markOnboardingStepDone('discover-palette');
 }

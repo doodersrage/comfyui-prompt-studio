@@ -48,8 +48,10 @@ Recent releases tightened first-run and day-to-day polish:
 - **Dashboard outputs** — recent stills expose Re-queue, Refine, Roleplay, Edit, and Hints on hover.
 - **Command palette** (`Ctrl+K`) — Continue section lists active project, recent gallery outputs, and **Heal & ready**.
 - **Mobile gallery** — layout, density, and min-rating filters collapse to selects on narrow viewports; Mobile Studio header/tab bar uses solid surfaces instead of glass blur.
+- **Phone companion** — `/m` is Capture → Queue → Gallery → Play stills. Use **Desk** for Fitting, Day, Moodboard, and the full Cut film loop. Add to Home Screen via the mobile manifest when you want a phone-sized dock.
 - **Vision uploads** — Scan with vision and Image → Prompt send JSON data URLs (avoids intermittent multipart FormData parse failures).
 - **Simple Essentials** — Studio history moved under More; Fitting / Day / Moodboard preferred near the top of More.
+- **Play happy path** — Play workspace sidebar lists Campaign + Moodboard before Fitting/Day; lean chrome collapses draft-preview and animate extras until you open them.
 
 If vision tools fail, `LLM_VISION_MODEL` is unset or the model is text-only. Settings → LLM can override the session text model; the vision model still comes from env (or the LLM panel override when present).
 

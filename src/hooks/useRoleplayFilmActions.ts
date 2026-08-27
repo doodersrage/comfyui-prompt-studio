@@ -14,6 +14,7 @@ import {
   loadCharacters,
   upsertCharacterFromRoleplaySession,
 } from '@/lib/character-os';
+import { markOnboardingFirstPlayCampaign } from '@/lib/onboarding-hooks';
 import { snapshotRoleplaySession } from '@/lib/roleplay-library';
 import {
   loadSettingsCache,
@@ -76,6 +77,7 @@ export function useRoleplayFilmActions(input: {
             : `Downloaded ${result.filename} unstamped. Save to Cast to attach this film to a character.`
         );
       }
+      markOnboardingFirstPlayCampaign();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not assemble the film.');
       setFilmStatus(null);
