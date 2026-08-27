@@ -1,20 +1,23 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  PORTABLE_LOOK_PACK_KIND,
   applyLookPackToDaySlots,
   applyLookPackToFittingState,
   applyLookPackToRoleplaySettings,
   buildLookPackFromMoodboard,
   buildPortableLookPack,
+  decodePortableLookPackShareToken,
   inferRoleplayToneFromLookPack,
   lookPackDayHref,
   lookPackFittingHref,
-  lookPackPlayCampaignHref,
-  lookPackRoleplayHref,
   lookPackNotes,
+  lookPackPlayCampaignHref,
+  lookPackPortableShareHref,
+  lookPackRoleplayHref,
   normalizeLookPack,
   normalizePortableLookPack,
-  PORTABLE_LOOK_PACK_KIND,
+  readPortableLookPackFromHash,
 } from './look-pack';
 import { DEFAULT_DAY_SLOTS } from './day-planner';
 
@@ -137,5 +140,27 @@ describe('look-pack', () => {
     const bare = normalizePortableLookPack(pack);
     assert.equal(bare?.pack.version, 1);
     assert.match(lookPackPlayCampaignHref('char-1', 'lp-1'), /lookPack=lp-1/);
+  });
+
+  it('portable share hash tokens round-trip across machines', () => {
+    const pack = buildLookPackFromMoodboard({
+      characterId: 'char-share',
+      wardrobeId: 'kit-share',
+      tiles: [{ id: 't1', role: 'location', notes: 'shared rooftop' }],
+    });
+    const portable = buildPortableLookPack({ pack, name: 'Share look', id: 'lp-share' });
+    const href = lookPackPortableShareHref({
+      pack: portable.pack,
+      name: portable.name,
+      id: portable.id,
+    });
+    assert.match(href, /#lookpack=/);
+    const token = href.split('#lookpack=')[1] ?? '';
+    const decoded = decodePortableLookPackShareToken(token);
+    assert.equal(decoded?.name, 'Share look');
+    assert.equal(decoded?.pack.wardrobeId, 'kit-share');
+    assert.match(decoded?.pack.locationNotes ?? '', /rooftop/);
+    const fromHash = readPortableLookPackFromHash(`#lookpack=${token}`);
+    assert.equal(fromHash?.id, 'lp-share');
   });
 });

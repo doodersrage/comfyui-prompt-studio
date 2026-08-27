@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { ToolBadge, ToolLayout, ToolSection } from '@/components/ui/ToolPageShell';
@@ -16,9 +16,12 @@ import {
   upsertCharacter,
 } from '@/lib/character-os';
 import {
+  clearLookPackShareHash,
   downloadLookPackFile,
   loadLookPack,
+  lookPackPortableShareHref,
   parseLookPackFile,
+  readPortableLookPackFromHash,
   saveLookPack,
   type LookPack,
 } from '@/lib/look-pack';
@@ -114,6 +117,75 @@ export default function PlayCampaignWizard({ initialCharacterId }: PlayCampaignW
     },
     [updateShared]
   );
+
+  // Cross-machine share: ingest `#lookpack=` portable payload once on mount.
+  useEffect(() => {
+    if (!mounted) {
+      return;
+    }
+    const portable = readPortableLookPackFromHash();
+    if (!portable) {
+      return;
+    }
+    clearLookPackShareHash();
+    scheduleAfterCommit(() => {
+      if (!character) {
+        const defaultName =
+          portable.name?.trim() || portable.pack.characterId?.trim() || 'Imported look';
+        const name =
+          typeof window !== 'undefined'
+            ? window
+                .prompt('Name the new Cast character for this look pack', defaultName)
+                ?.trim() || defaultName
+            : defaultName;
+        const createdList = upsertCharacter(
+          characterFromShared(loadSettingsCache().shared, { name })
+        );
+        const record = createdList.at(-1) ?? getCharacter(createdList[0]?.id ?? '');
+        if (!record) {
+          saveLookPack(portable.pack);
+          setStatus('Look pack staged — could not create a Cast character.');
+          return;
+        }
+        const withPack = addCharacterLookPack(record.id, portable.name || 'Imported look', {
+          ...portable.pack,
+          characterId: record.id,
+          source: 'saved',
+        });
+        const entry = withPack ? lookPacksOf(withPack)[0] : undefined;
+        persistCharacter(record.id);
+        saveLookPack({
+          ...portable.pack,
+          characterId: record.id,
+          source: 'saved',
+        });
+        if (entry) {
+          router.replace(
+            `/play?character=${encodeURIComponent(record.id)}&lookPack=${encodeURIComponent(entry.id)}`
+          );
+        } else {
+          router.replace(`/play?character=${encodeURIComponent(record.id)}`);
+        }
+        setStatus(`Created Cast "${record.name}" from share link.`);
+        return;
+      }
+      const saved = addCharacterLookPack(character.id, portable.name || 'Shared look', {
+        ...portable.pack,
+        characterId: character.id,
+        source: 'saved',
+      });
+      const entry = saved ? lookPacksOf(saved)[0] : undefined;
+      saveLookPack({ ...portable.pack, characterId: character.id, source: 'saved' });
+      if (entry) {
+        router.replace(
+          `/play?character=${encodeURIComponent(character.id)}&lookPack=${encodeURIComponent(entry.id)}`
+        );
+      }
+      setStatus(`Imported shared look pack onto ${character.name}.`);
+    });
+    // One-shot hash ingest.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted]);
 
   const goToStep = useCallback(
     (stepId: PlayCampaignStepId, pack?: LookPack | null) => {
@@ -311,16 +383,18 @@ export default function PlayCampaignWizard({ initialCharacterId }: PlayCampaignW
             <Button size="sm" variant="secondary" onClick={() => lookPackFileRef.current?.click()}>
               Import JSON
             </Button>
-            {characterId && activeLookPack ? (
+            {activeLookPack ? (
               <ButtonLink
-                href={`/play?character=${encodeURIComponent(characterId)}${
-                  queryLookPackId ? `&lookPack=${encodeURIComponent(queryLookPackId)}` : ''
-                }`}
+                href={lookPackPortableShareHref({
+                  pack: activeLookPack,
+                  name: character?.name,
+                  id: queryLookPackId || undefined,
+                })}
                 size="sm"
                 variant="ghost"
                 data-testid="play-campaign-share-link"
               >
-                Campaign link
+                Portable share link
               </ButtonLink>
             ) : null}
           </div>

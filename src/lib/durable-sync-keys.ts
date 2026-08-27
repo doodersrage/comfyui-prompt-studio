@@ -53,6 +53,8 @@ export const DURABLE_BROWSER_SYNC_KEYS = new Set([
   'tool-plugin-registry-v1',
   'plugin-queue-hooks-v1',
   'comfy-onboarding-v2',
+  'comfy-play-metrics-v1',
+  'play-campaign-v1',
   'comfy-workspace-mode-v1',
   'comfy-workspace-mode-chosen-v1',
   'comfy-nav-expanded-groups-v1',

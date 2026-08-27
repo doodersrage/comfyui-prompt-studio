@@ -29,6 +29,7 @@ import { usePromptHistory } from '@/hooks/usePromptHistory';
 import { useHubPageDescription, useToolSectionDescription } from '@/hooks/useToolPageDescription';
 import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
 import OnboardingChecklist from '@/components/OnboardingChecklist';
+import PlayFilmMetricsCard from '@/components/PlayFilmMetricsCard';
 import ConnectionHealthChip from '@/components/ConnectionHealthChip';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { ToolPageSkeleton } from '@/components/ui/ViewState';
@@ -116,6 +117,7 @@ export default function HomeDashboard() {
         <ConnectionHealthChip />
       </div>
       <OnboardingChecklist />
+      <PlayFilmMetricsCard />
 
       {showContinue ? (
         <ToolSection title="Pick up where you left off">

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { canAccessNavFeature, useAllowedFeatures, useAuth } from '@/hooks/useAuth';
 import {
   dismissOnboarding,
@@ -16,6 +17,7 @@ import {
 import { Button } from '@/components/ui/Button';
 import { settingsTabHref } from '@/lib/settings-nav';
 import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
+import { saveWorkspaceMode } from '@/lib/workspace-mode';
 
 function StepRow({ step }: { step: OnboardingStep }) {
   const body = (
@@ -50,6 +52,7 @@ function StepRow({ step }: { step: OnboardingStep }) {
 
 export default function OnboardingChecklist() {
   const auth = useAuth();
+  const router = useRouter();
   const workspaceMode = useWorkspaceMode();
   const isSimple = workspaceMode === 'simple';
   const allowedFeatures = useAllowedFeatures();
@@ -122,6 +125,25 @@ export default function OnboardingChecklist() {
             {nextOpen.label}
           </Link>
         </p>
+      ) : null}
+
+      {isSimple && (nextOpen?.id === 'first-play-campaign' || nextOpen?.id === 'first-film-cut') ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2" data-testid="play-workspace-nudge">
+          <p className="type-caption text-[var(--text-muted)]">
+            Play tools are clearer in the Play workspace.
+          </p>
+          <Button
+            size="sm"
+            variant="secondary"
+            data-testid="play-workspace-nudge-cta"
+            onClick={() => {
+              saveWorkspaceMode('play');
+              router.push(nextOpen?.href || '/play');
+            }}
+          >
+            Open Play workspace
+          </Button>
+        </div>
       ) : null}
       <ul className="mt-3 space-y-2">
         {core.map(step => (

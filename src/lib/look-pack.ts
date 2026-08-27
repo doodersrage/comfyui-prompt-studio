@@ -379,6 +379,114 @@ export async function parseLookPackFile(file: File): Promise<PortableLookPack | 
   }
 }
 
+/** Hash fragment key for cross-machine portable look-pack share links. */
+export const LOOK_PACK_SHARE_HASH_KEY = 'lookpack';
+
+function toBase64Url(bytes: Uint8Array): string {
+  let binary = '';
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  const base64 =
+    typeof btoa === 'function' ? btoa(binary) : Buffer.from(binary, 'binary').toString('base64');
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function fromBase64Url(token: string): Uint8Array | null {
+  try {
+    const padded = token.replace(/-/g, '+').replace(/_/g, '/');
+    const pad = padded.length % 4 === 0 ? '' : '='.repeat(4 - (padded.length % 4));
+    const base64 = padded + pad;
+    const binary =
+      typeof atob === 'function' ? atob(base64) : Buffer.from(base64, 'base64').toString('binary');
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
+  } catch {
+    return null;
+  }
+}
+
+/** Encode a portable look pack for `/play#lookpack=…` share URLs. */
+export function encodePortableLookPackShareToken(portable: PortableLookPack): string {
+  const normalized =
+    normalizePortableLookPack(portable) ??
+    buildPortableLookPack({
+      pack: portable.pack,
+      name: portable.name,
+      id: portable.id,
+    });
+  const json = JSON.stringify(normalized);
+  if (typeof TextEncoder !== 'undefined') {
+    return toBase64Url(new TextEncoder().encode(json));
+  }
+  return toBase64Url(Uint8Array.from(Buffer.from(json, 'utf8')));
+}
+
+/** Decode a `#lookpack=` share token (or raw base64url payload). */
+export function decodePortableLookPackShareToken(token: string): PortableLookPack | null {
+  const raw = token.trim();
+  if (!raw) {
+    return null;
+  }
+  const bytes = fromBase64Url(raw);
+  if (!bytes) {
+    return null;
+  }
+  try {
+    const json =
+      typeof TextDecoder !== 'undefined'
+        ? new TextDecoder().decode(bytes)
+        : Buffer.from(bytes).toString('utf8');
+    return normalizePortableLookPack(JSON.parse(json) as unknown);
+  } catch {
+    return null;
+  }
+}
+
+/** Cross-machine Play share URL embedding the full portable look pack in the hash. */
+export function lookPackPortableShareHref(input: {
+  pack: LookPack;
+  name?: string;
+  id?: string;
+}): string {
+  const portable = buildPortableLookPack(input);
+  const token = encodePortableLookPackShareToken(portable);
+  return `/play#${LOOK_PACK_SHARE_HASH_KEY}=${token}`;
+}
+
+/** Read a portable look pack from a location hash (`#lookpack=…`). */
+export function readPortableLookPackFromHash(
+  hash: string = typeof window !== 'undefined' ? window.location.hash : ''
+): PortableLookPack | null {
+  const raw = hash.startsWith('#') ? hash.slice(1) : hash;
+  if (!raw) {
+    return null;
+  }
+  const params = new URLSearchParams(raw);
+  const token = params.get(LOOK_PACK_SHARE_HASH_KEY)?.trim();
+  if (!token) {
+    // Also accept bare `#lookpack=<token>` without URLSearchParams edge cases.
+    const prefix = `${LOOK_PACK_SHARE_HASH_KEY}=`;
+    if (raw.startsWith(prefix)) {
+      return decodePortableLookPackShareToken(raw.slice(prefix.length));
+    }
+    return null;
+  }
+  return decodePortableLookPackShareToken(token);
+}
+
+/** Clear the look-pack share hash without a navigation. */
+export function clearLookPackShareHash(): void {
+  if (typeof window === 'undefined' || typeof window.history?.replaceState !== 'function') {
+    return;
+  }
+  const { pathname, search } = window.location;
+  window.history.replaceState(null, '', `${pathname}${search}`);
+}
+
 /** Seed every Day slot location / beat from a look pack (wardrobe only when empty). */
 export function applyLookPackToDaySlots(slots: DaySlot[], pack: LookPack): DaySlot[] {
   const location = pack.locationNotes?.trim();

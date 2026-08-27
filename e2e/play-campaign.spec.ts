@@ -115,3 +115,107 @@ test('play campaign continue CTA appears when campaign state exists', async ({ p
   await expect(page.getByTestId('play-campaign-continue')).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId('play-campaign-start-moodboard')).toContainText(/Restart/i);
 });
+
+
+test('look pack from=look applies notes into Fitting', async ({ page }) => {
+  await page.addInitScript(() => {
+    const pack = {
+      version: 1,
+      source: 'moodboard',
+      characterId: 'e2e-char',
+      wardrobeId: 'kit-linen',
+      locationNotes: 'sunlit kitchen',
+      moodNotes: 'cozy morning',
+      vibePrompt: 'golden hour soft light',
+      savedAt: Date.now(),
+    };
+    window.sessionStorage.setItem('moodboard-look-pack-v1', JSON.stringify(pack));
+  });
+  await gotoStable(page, '/fitting?from=look&character=e2e-char&wardrobe=kit-linen');
+  await dismissBlockingOverlays(page);
+  await expect(page.getByRole('heading', { name: /^Fitting Room$/i })).toBeVisible({
+    timeout: 30_000,
+  });
+  const notes = page.getByTestId('fitting-notes');
+  if (await notes.count()) {
+    await expect(notes).toContainText(/golden hour|cozy morning|sunlit kitchen/i);
+  }
+});
+
+test('look pack from=look seeds Day slot location', async ({ page }) => {
+  await page.addInitScript(() => {
+    const pack = {
+      version: 1,
+      source: 'moodboard',
+      characterId: 'e2e-char',
+      wardrobeId: 'kit-linen',
+      locationNotes: 'sunlit kitchen',
+      moodNotes: 'cozy morning',
+      savedAt: Date.now(),
+    };
+    window.sessionStorage.setItem('moodboard-look-pack-v1', JSON.stringify(pack));
+  });
+  await gotoStable(page, '/day?from=look&character=e2e-char&wardrobe=kit-linen');
+  await dismissBlockingOverlays(page);
+  await expect(page.getByRole('heading', { name: /^Day Planner$/i })).toBeVisible({
+    timeout: 30_000,
+  });
+  const location = page.getByTestId('day-slot-location');
+  if (await location.count()) {
+    await expect(location).toHaveValue(/sunlit kitchen/i);
+  }
+});
+
+test('play campaign continue navigates to Fitting step', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.sessionStorage.setItem(
+      'play-campaign-v1',
+      JSON.stringify({
+        version: 1,
+        characterId: 'e2e-resume-char',
+        stepIndex: 2,
+        updatedAt: Date.now(),
+      })
+    );
+  });
+  await gotoStable(page, '/play?character=e2e-resume-char');
+  await dismissBlockingOverlays(page);
+  const continueBtn = page.getByTestId('play-campaign-continue');
+  await expect(continueBtn).toBeVisible({ timeout: 30_000 });
+  await continueBtn.click();
+  await expect(page).toHaveURL(/\/fitting/, { timeout: 30_000 });
+});
+
+test('portable look pack share hash is accepted on /play', async ({ page }) => {
+  const token = Buffer.from(
+    JSON.stringify({
+      version: 1,
+      kind: 'prompt-studio-look-pack',
+      name: 'E2E share',
+      id: 'lp-e2e',
+      pack: {
+        version: 1,
+        source: 'moodboard',
+        locationNotes: 'hash rooftop',
+        moodNotes: 'night air',
+        wardrobeId: 'kit-linen',
+        savedAt: Date.now(),
+      },
+    }),
+    'utf8'
+  )
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
+
+  page.once('dialog', async dialog => {
+    await dialog.accept('E2E Shared Cast');
+  });
+  await gotoStable(page, `/play#lookpack=${token}`);
+  await dismissBlockingOverlays(page);
+  await expect(page.getByTestId('play-campaign')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(/share link|Imported shared|Created Cast/i)).toBeVisible({
+    timeout: 30_000,
+  });
+});

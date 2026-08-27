@@ -101,21 +101,27 @@ import {
   loadImageBlobFromUrls,
 } from '@/lib/isolate-subject';
 import {
+  applyLookPackToDaySlots,
   applyLookPackToFittingState,
   loadLookPack,
   lookPackDayHref,
+  lookPackNotes,
   lookPackRoleplayHref,
   saveLookPack,
 } from '@/lib/look-pack';
+import { seedDaySlotsWardrobe } from '@/lib/day-planner';
 import { resolveQueueInputImage } from '@/lib/queue-input-image';
 import { getReformatTargetModel } from '@/lib/reformat-target';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
 import { buildRoleplayQueueStillOptions } from '@/lib/roleplay-play-core';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import {
+  DEFAULT_DAY_TOOL_CACHE,
   DEFAULT_FITTING_TOOL_CACHE,
   loadSettingsCache,
+  loadToolSettings,
   saveSharedSettings,
+  saveToolSettings,
 } from '@/lib/settings-cache';
 
 const ACCENT = 'rose' as const;
@@ -945,12 +951,54 @@ export default function FittingRoomTool() {
         return;
       }
       toggleLookKeeper(characterId, lookId, entryId);
+      const wardrobeId = tryOn.wardrobeId?.trim();
+      if (wardrobeId) {
+        updateShared({ lockedWardrobeId: wardrobeId });
+      }
+      const existing = loadLookPack();
+      const nextPack = {
+        version: 1 as const,
+        source: (existing?.source === 'saved' ? 'saved' : 'moodboard') as 'moodboard' | 'saved',
+        characterId,
+        templateId: existing?.templateId,
+        paletteNotes: existing?.paletteNotes,
+        lightingNotes: existing?.lightingNotes,
+        locationNotes: existing?.locationNotes,
+        styleNotes: existing?.styleNotes,
+        moodNotes: existing?.moodNotes,
+        wardrobeId: wardrobeId || existing?.wardrobeId,
+        instruction: existing?.instruction,
+        vibePrompt: existing?.vibePrompt,
+        tileSummaries: existing?.tileSummaries,
+        savedAt: Date.now(),
+      };
+      saveLookPack(nextPack);
+      const daySettings = loadToolSettings('day', DEFAULT_DAY_TOOL_CACHE);
+      const seededSlots = applyLookPackToDaySlots(
+        seedDaySlotsWardrobe(daySettings.slots, wardrobeId || nextPack.wardrobeId),
+        nextPack
+      );
+      saveToolSettings('day', {
+        ...daySettings,
+        slots: seededSlots,
+        notes:
+          daySettings.notes?.trim() ||
+          toolSettings.notes?.trim() ||
+          lookPackNotes(nextPack) ||
+          daySettings.notes,
+      });
       setSaveStatus(
-        `Kept ${tryOn.wardrobeLabel || tryOn.wardrobeId || 'try-on'} as a Cast keeper.`
+        `Kept ${tryOn.wardrobeLabel || tryOn.wardrobeId || 'try-on'} as a Cast keeper · Day slots seeded.`
       );
       setError(null);
     },
-    [character?.activeLookId, shared.activeCharacterId, shared.activeLookId]
+    [
+      character?.activeLookId,
+      shared.activeCharacterId,
+      shared.activeLookId,
+      toolSettings.notes,
+      updateShared,
+    ]
   );
 
   const selectKit = useCallback(
@@ -1419,6 +1467,7 @@ export default function FittingRoomTool() {
               <label className="mt-3 space-y-2">
                 <FieldLabel>Notes (optional)</FieldLabel>
                 <TextArea
+                  data-testid="fitting-notes"
                   rows={2}
                   value={toolSettings.notes ?? ''}
                   className={accentFocusClass(ACCENT)}

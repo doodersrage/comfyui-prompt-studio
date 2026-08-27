@@ -816,6 +816,7 @@ export default function DayPlannerTool() {
           </SelectInput>
           <TextArea
             rows={2}
+            data-testid="day-slot-location"
             value={activeSlot.location ?? ''}
             className={accentFocusClass(ACCENT)}
             placeholder="e.g. sunlit café terrace, rainy commute, rooftop at dusk"

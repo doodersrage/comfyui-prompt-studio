@@ -3,6 +3,7 @@
  * State travels via session look pack + query params.
  */
 
+import { readBrowserValue, writeBrowserValue } from './browser-storage';
 import type { LookPack } from './look-pack';
 import {
   lookPackDayHref,
@@ -66,36 +67,63 @@ export type PlayCampaignState = {
   updatedAt: number;
 };
 
+function normalizePlayCampaignState(value: unknown): PlayCampaignState | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const parsed = value as Partial<PlayCampaignState>;
+  if (parsed.version !== 1 || !parsed.characterId?.trim()) {
+    return null;
+  }
+  return {
+    version: 1,
+    characterId: parsed.characterId.trim(),
+    lookPackId: parsed.lookPackId?.trim() || undefined,
+    stepIndex:
+      typeof parsed.stepIndex === 'number'
+        ? Math.max(0, Math.min(PLAY_CAMPAIGN_STEPS.length - 1, parsed.stepIndex))
+        : 0,
+    updatedAt: typeof parsed.updatedAt === 'number' ? parsed.updatedAt : Date.now(),
+  };
+}
+
 export function savePlayCampaignState(state: PlayCampaignState): void {
   if (typeof window === 'undefined') {
     return;
   }
-  window.sessionStorage.setItem(PLAY_CAMPAIGN_KEY, JSON.stringify(state));
+  const normalized = normalizePlayCampaignState(state);
+  if (!normalized) {
+    return;
+  }
+  writeBrowserValue(PLAY_CAMPAIGN_KEY, normalized);
+  // Mirror to sessionStorage so same-tab e2e seeds and in-flight handoffs keep working.
+  try {
+    window.sessionStorage.setItem(PLAY_CAMPAIGN_KEY, JSON.stringify(normalized));
+  } catch {
+    /* private mode */
+  }
 }
 
 export function loadPlayCampaignState(): PlayCampaignState | null {
   if (typeof window === 'undefined') {
     return null;
   }
+  const durable = normalizePlayCampaignState(readBrowserValue(PLAY_CAMPAIGN_KEY));
+  if (durable) {
+    return durable;
+  }
   try {
     const raw = window.sessionStorage.getItem(PLAY_CAMPAIGN_KEY);
     if (!raw) {
       return null;
     }
-    const parsed = JSON.parse(raw) as Partial<PlayCampaignState>;
-    if (parsed.version !== 1 || !parsed.characterId?.trim()) {
+    const migrated = normalizePlayCampaignState(JSON.parse(raw) as unknown);
+    if (!migrated) {
+      window.sessionStorage.removeItem(PLAY_CAMPAIGN_KEY);
       return null;
     }
-    return {
-      version: 1,
-      characterId: parsed.characterId.trim(),
-      lookPackId: parsed.lookPackId?.trim() || undefined,
-      stepIndex:
-        typeof parsed.stepIndex === 'number'
-          ? Math.max(0, Math.min(PLAY_CAMPAIGN_STEPS.length - 1, parsed.stepIndex))
-          : 0,
-      updatedAt: typeof parsed.updatedAt === 'number' ? parsed.updatedAt : Date.now(),
-    };
+    writeBrowserValue(PLAY_CAMPAIGN_KEY, migrated);
+    return migrated;
   } catch {
     window.sessionStorage.removeItem(PLAY_CAMPAIGN_KEY);
     return null;
