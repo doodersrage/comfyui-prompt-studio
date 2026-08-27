@@ -247,9 +247,12 @@ export default function PlayCampaignWizard({ initialCharacterId }: PlayCampaignW
       });
       if (stepId !== 'character') {
         markOnboardingFirstPlayCampaign();
-        void import('@/lib/local-observability').then(({ noteCampaignStepMetric }) => {
-          noteCampaignStepMetric();
-        });
+        void import('@/lib/local-observability').then(
+          ({ noteCampaignStepMetric, noteCampaignMaxStepMetric }) => {
+            noteCampaignStepMetric();
+            noteCampaignMaxStepMetric(stepIndex >= 0 ? stepIndex : 0);
+          }
+        );
       }
       const handoff = pack ?? activeLookPack;
       if (handoff && stepId !== 'character' && stepId !== 'moodboard') {

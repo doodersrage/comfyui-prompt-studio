@@ -6,6 +6,8 @@ import {
   incrementLocalObservability,
   loadLocalObservability,
   LOCAL_OBSERVABILITY_KEY,
+  noteCampaignMaxStepMetric,
+  noteFilmCutSourceMetric,
   noteQueueFailureMetric,
   summarizeLocalReliability,
   summarizePlayFunnel,
@@ -69,9 +71,16 @@ describe('local-observability', () => {
     incrementLocalObservability('firstFilmCut');
     incrementLocalObservability('saveToCast');
     incrementLocalObservability('keepTryOn');
+    noteFilmCutSourceMetric('day');
+    noteFilmCutSourceMetric('roleplay');
+    noteCampaignMaxStepMetric(3);
+    noteCampaignMaxStepMetric(2);
     const rates = summarizePlayFunnel();
     assert.equal(rates.cutRate, 0.5);
     assert.equal(rates.saveRate, 1);
     assert.equal(rates.keepToCutRate, 1);
+    assert.equal(rates.dayShare, 0.5);
+    assert.equal(rates.roleplayShare, 0.5);
+    assert.equal(rates.maxStep, 3);
   });
 });

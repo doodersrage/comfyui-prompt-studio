@@ -64,6 +64,8 @@ export type PlayCampaignState = {
   characterId: string;
   lookPackId?: string;
   stepIndex: number;
+  /** Set when Day/Roleplay Cut film closes the campaign loop. */
+  completedAt?: number;
   updatedAt: number;
 };
 
@@ -83,6 +85,7 @@ function normalizePlayCampaignState(value: unknown): PlayCampaignState | null {
       typeof parsed.stepIndex === 'number'
         ? Math.max(0, Math.min(PLAY_CAMPAIGN_STEPS.length - 1, parsed.stepIndex))
         : 0,
+    completedAt: typeof parsed.completedAt === 'number' ? parsed.completedAt : undefined,
     updatedAt: typeof parsed.updatedAt === 'number' ? parsed.updatedAt : Date.now(),
   };
 }
@@ -199,8 +202,44 @@ export function bumpPlayCampaignStep(input: {
     characterId,
     lookPackId: input.lookPackId?.trim() || saved?.lookPackId,
     stepIndex: nextIndex,
+    completedAt: saved?.completedAt,
     updatedAt: Date.now(),
   };
   savePlayCampaignState(next);
+  void import('./local-observability').then(
+    ({ noteCampaignStepMetric, noteCampaignMaxStepMetric }) => {
+      noteCampaignStepMetric();
+      noteCampaignMaxStepMetric(nextIndex);
+    }
+  );
+  return next;
+}
+
+/** Mark the Play campaign loop complete after a successful Cut film. */
+export function completePlayCampaign(input: {
+  characterId: string;
+  lookPackId?: string;
+}): PlayCampaignState | null {
+  const characterId = input.characterId.trim();
+  if (!characterId) {
+    return null;
+  }
+  const saved = loadPlayCampaignState();
+  if (saved && saved.characterId !== characterId) {
+    return null;
+  }
+  const roleplayIndex = PLAY_CAMPAIGN_STEPS.findIndex(entry => entry.id === 'roleplay');
+  const next: PlayCampaignState = {
+    version: 1,
+    characterId,
+    lookPackId: input.lookPackId?.trim() || saved?.lookPackId,
+    stepIndex: roleplayIndex >= 0 ? roleplayIndex : PLAY_CAMPAIGN_STEPS.length - 1,
+    completedAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+  savePlayCampaignState(next);
+  void import('./local-observability').then(({ noteCampaignMaxStepMetric }) => {
+    noteCampaignMaxStepMetric(next.stepIndex);
+  });
   return next;
 }

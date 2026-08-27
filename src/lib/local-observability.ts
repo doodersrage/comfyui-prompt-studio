@@ -26,8 +26,14 @@ export type LocalObservabilityCounters = {
   keepTryOn: number;
   /** Play campaign step advances (desk handoffs + wizard). */
   campaignStep: number;
-  /** Save film to Cast (not Cut download alone). */
+  /** Highest campaign stepIndex reached (0–4). */
+  campaignMaxStep: number;
+  /** Save film to Cast (button or Cut auto-stamp). */
   saveToCast: number;
+  /** Cut film events from Day Planner. */
+  filmCutDay: number;
+  /** Cut film events from Roleplay / mobile play. */
+  filmCutRoleplay: number;
   firstQueueSetupStepFails: Partial<Record<FirstQueueSetupStepId, number>>;
   lastFailureMessage?: string;
   lastFailureHref?: string;
@@ -52,7 +58,10 @@ const DEFAULT_COUNTERS: LocalObservabilityCounters = {
   firstFilmCut: 0,
   keepTryOn: 0,
   campaignStep: 0,
+  campaignMaxStep: 0,
   saveToCast: 0,
+  filmCutDay: 0,
+  filmCutRoleplay: 0,
   firstQueueSetupStepFails: {},
 };
 
@@ -88,7 +97,10 @@ export function loadLocalObservability(): LocalObservabilityCounters {
     firstFilmCut: Math.max(0, Number(raw?.firstFilmCut) || 0),
     keepTryOn: Math.max(0, Number(raw?.keepTryOn) || 0),
     campaignStep: Math.max(0, Number(raw?.campaignStep) || 0),
+    campaignMaxStep: Math.max(0, Number(raw?.campaignMaxStep) || 0),
     saveToCast: Math.max(0, Number(raw?.saveToCast) || 0),
+    filmCutDay: Math.max(0, Number(raw?.filmCutDay) || 0),
+    filmCutRoleplay: Math.max(0, Number(raw?.filmCutRoleplay) || 0),
     firstQueueSetupStepFails: normalizeStepFails(raw?.firstQueueSetupStepFails),
     ...(typeof raw?.lastFailureMessage === 'string' && raw.lastFailureMessage.trim()
       ? { lastFailureMessage: raw.lastFailureMessage.trim().slice(0, 400) }
@@ -148,6 +160,8 @@ export function incrementLocalObservability(
     | 'keepTryOn'
     | 'campaignStep'
     | 'saveToCast'
+    | 'filmCutDay'
+    | 'filmCutRoleplay'
   >
 ): LocalObservabilityCounters {
   if (typeof window === 'undefined') {
@@ -249,6 +263,26 @@ export function noteSaveToCastMetric(): void {
   incrementLocalObservability('saveToCast');
 }
 
+export function noteFilmCutSourceMetric(source: 'day' | 'roleplay'): void {
+  incrementLocalObservability(source === 'day' ? 'filmCutDay' : 'filmCutRoleplay');
+}
+
+export function noteCampaignMaxStepMetric(stepIndex: number): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  const base = loadLocalObservability();
+  const nextMax = Math.max(base.campaignMaxStep ?? 0, Math.max(0, Math.floor(stepIndex)));
+  if (nextMax === (base.campaignMaxStep ?? 0)) {
+    return;
+  }
+  persist({
+    ...base,
+    campaignMaxStep: nextMax,
+    updatedAt: Date.now(),
+  });
+}
+
 /** Record which setup step is currently blocking (and bump its fail counter). */
 export function noteFirstQueueSetupBlockedStep(
   step: FirstQueueSetupStepId
@@ -341,15 +375,24 @@ export function summarizePlayFunnel(counters = loadLocalObservability()): {
   cutRate: number | null;
   saveRate: number | null;
   keepToCutRate: number | null;
+  dayShare: number | null;
+  roleplayShare: number | null;
+  maxStep: number;
   headline: string;
 } {
   const starts = counters.firstPlayCampaign || 0;
   const cuts = counters.firstFilmCut || 0;
   const keeps = counters.keepTryOn || 0;
   const saves = counters.saveToCast || 0;
+  const dayCuts = counters.filmCutDay || 0;
+  const roleplayCuts = counters.filmCutRoleplay || 0;
+  const sourced = dayCuts + roleplayCuts;
   const cutRate = starts > 0 ? Math.min(1, cuts / starts) : null;
   const saveRate = cuts > 0 ? Math.min(1, saves / cuts) : null;
   const keepToCutRate = keeps > 0 ? Math.min(1, cuts / keeps) : null;
+  const dayShare = sourced > 0 ? dayCuts / sourced : null;
+  const roleplayShare = sourced > 0 ? roleplayCuts / sourced : null;
+  const maxStep = Math.max(0, counters.campaignMaxStep || 0);
 
   let headline = 'No Play funnel events yet.';
   if (cutRate != null && cutRate >= 0.5) {
@@ -360,9 +403,11 @@ export function summarizePlayFunnel(counters = loadLocalObservability()): {
     headline = 'Film cut — Save to Cast to stamp a studio copy.';
   } else if (keeps > 0 && cuts === 0) {
     headline = 'Keepers saved — Continue in Day and Cut film.';
+  } else if (sourced > 0) {
+    headline = `${dayCuts} Day · ${roleplayCuts} Roleplay cuts · max step ${maxStep}.`;
   } else if (cuts > 0) {
     headline = `${cuts} film cut${cuts === 1 ? '' : 's'} · ${saves} save${saves === 1 ? '' : 's'} to Cast.`;
   }
 
-  return { cutRate, saveRate, keepToCutRate, headline };
+  return { cutRate, saveRate, keepToCutRate, dayShare, roleplayShare, maxStep, headline };
 }

@@ -18,6 +18,7 @@ import {
   markOnboardingFirstFilmCut,
   markOnboardingFirstPlayCampaign,
 } from '@/lib/onboarding-hooks';
+import { completePlayCampaign } from '@/lib/play-campaign';
 import {
   persistRoleplayLibraryFromCache,
   snapshotRoleplaySession,
@@ -38,6 +39,7 @@ export function useRoleplayFilmActions(input: {
   const [assemblingFilm, setAssemblingFilm] = useState(false);
   const [filmStatus, setFilmStatus] = useState<string | null>(null);
   const [filmNeedsCast, setFilmNeedsCast] = useState(false);
+  const [filmCharacterId, setFilmCharacterId] = useState<string | null>(null);
   const assembledFilmRef = useRef<{ filename: string; data: Uint8Array } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -77,6 +79,9 @@ export function useRoleplayFilmActions(input: {
         filename: result.filename,
         data: new Uint8Array(await result.blob.arrayBuffer()),
       };
+      if (character) {
+        setFilmCharacterId(character.id);
+      }
       if (character && result.persisted) {
         setFilmNeedsCast(false);
         setFilmStatus(`Saved ${result.filename} to ${character.name} and started the download.`);
@@ -90,6 +95,17 @@ export function useRoleplayFilmActions(input: {
       }
       markOnboardingFirstPlayCampaign();
       markOnboardingFirstFilmCut();
+      void import('@/lib/local-observability').then(
+        ({ noteFilmCutSourceMetric, noteSaveToCastMetric }) => {
+          noteFilmCutSourceMetric('roleplay');
+          if (character && result.persisted) {
+            noteSaveToCastMetric();
+          }
+        }
+      );
+      if (character) {
+        completePlayCampaign({ characterId: character.id });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not assemble the film.');
       setFilmStatus(null);
@@ -118,6 +134,7 @@ export function useRoleplayFilmActions(input: {
       ...loadSettingsCache().shared,
       ...applyCharacterRecord(created),
     });
+    setFilmCharacterId(created.id);
     void import('@/lib/local-observability').then(({ noteSaveToCastMetric }) => {
       noteSaveToCastMetric();
     });
@@ -148,6 +165,7 @@ export function useRoleplayFilmActions(input: {
     assemblingFilm,
     filmStatus,
     filmNeedsCast,
+    filmCharacterId,
     cutRoleplayFilm,
     saveFilmToCast,
     filmError: error,

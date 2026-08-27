@@ -113,12 +113,19 @@ export default function MobilePlayTool() {
   useEffect(() => {
     storyRef.current = story;
   }, [story]);
-  const { assemblingFilm, filmStatus, filmNeedsCast, cutRoleplayFilm, saveFilmToCast, filmError } =
-    useRoleplayFilmActions({
-      toolSettings,
-      storyRef,
-      bioName: bio?.name,
-    });
+  const {
+    assemblingFilm,
+    filmStatus,
+    filmNeedsCast,
+    filmCharacterId,
+    cutRoleplayFilm,
+    saveFilmToCast,
+    filmError,
+  } = useRoleplayFilmActions({
+    toolSettings,
+    storyRef,
+    bioName: bio?.name,
+  });
 
   useEffect(() => {
     if (!mounted) {
@@ -838,9 +845,37 @@ export default function MobilePlayTool() {
             disabled={bioLoading || assemblingFilm}
             onClick={saveFilmToCast}
             className="w-full justify-center"
+            data-testid="roleplay-save-film-cast"
           >
             Save to Cast
           </Button>
+        ) : null}
+        {filmCharacterId && filmStatus && !assemblingFilm ? (
+          <Link
+            href={`/characters/${encodeURIComponent(filmCharacterId)}?media=films`}
+            className="ui-btn-ghost w-full justify-center text-center text-sm"
+            data-testid="roleplay-open-cast-film"
+          >
+            Open on Cast
+          </Link>
+        ) : null}
+        {filmCharacterId && filmStatus && !assemblingFilm ? (
+          <Link
+            href={`/gallery?character=${encodeURIComponent(filmCharacterId)}&derivedKind=film`}
+            className="ui-btn-ghost w-full justify-center text-center text-sm"
+            data-testid="roleplay-open-gallery"
+          >
+            Open in Gallery
+          </Link>
+        ) : null}
+        {filmCharacterId && filmStatus && !assemblingFilm ? (
+          <Link
+            href={`/play?character=${encodeURIComponent(filmCharacterId)}`}
+            className="ui-btn-secondary w-full justify-center text-center text-sm"
+            data-testid="roleplay-campaign-complete"
+          >
+            Campaign complete — Open Play
+          </Link>
         ) : null}
         {filmStatus ? <p className="type-caption text-[var(--text-muted)]">{filmStatus}</p> : null}
         <Link

@@ -121,6 +121,9 @@ export default function SettingsDataTab({
               <p className="mt-1 text-xs text-[var(--text-muted)]">
                 {metrics.firstFilmCut}/{metrics.firstPlayCampaign || 0} cuts/starts · keep{' '}
                 {metrics.keepTryOn} · save-to-cast {metrics.saveToCast}
+                {playFunnel.maxStep > 0 || playFunnel.dayShare != null
+                  ? ` · Day ${formatRate(playFunnel.dayShare)} / Roleplay ${formatRate(playFunnel.roleplayShare)} · max step ${playFunnel.maxStep}`
+                  : ''}
               </p>
             </div>
             <div className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[color-mix(in_oklab,var(--surface)_88%,transparent)] p-3">

@@ -1012,12 +1012,9 @@ export default function FittingRoomTool() {
       });
       setContinueDayHref(dayHref);
       bumpPlayCampaignStep({ characterId, stepId: 'day', lookPackId: undefined });
-      void import('@/lib/local-observability').then(
-        ({ noteKeepTryOnMetric, noteCampaignStepMetric }) => {
-          noteKeepTryOnMetric();
-          noteCampaignStepMetric();
-        }
-      );
+      void import('@/lib/local-observability').then(({ noteKeepTryOnMetric }) => {
+        noteKeepTryOnMetric();
+      });
       const kitCount = keeperWardrobes.length || 1;
       setSaveStatus(
         kitCount > 1
@@ -1109,9 +1106,6 @@ export default function FittingRoomTool() {
         ...applyCharacterRecord(character),
       });
       bumpPlayCampaignStep({ characterId: character.id, stepId: 'roleplay' });
-      void import('@/lib/local-observability').then(({ noteCampaignStepMetric }) => {
-        noteCampaignStepMetric();
-      });
       const pack = loadLookPack();
       if (pack) {
         const staged = { ...pack, characterId: character.id };
@@ -1673,9 +1667,6 @@ export default function FittingRoomTool() {
                     return;
                   }
                   bumpPlayCampaignStep({ characterId: character.id, stepId: 'day' });
-                  void import('@/lib/local-observability').then(({ noteCampaignStepMetric }) => {
-                    noteCampaignStepMetric();
-                  });
                 }}
               >
                 Plan a day

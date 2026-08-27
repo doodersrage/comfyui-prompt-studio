@@ -81,7 +81,7 @@ import {
   lookPackRoleplayHref,
   saveLookPack,
 } from '@/lib/look-pack';
-import { bumpPlayCampaignStep } from '@/lib/play-campaign';
+import { bumpPlayCampaignStep, completePlayCampaign } from '@/lib/play-campaign';
 import { getReformatTargetModel } from '@/lib/reformat-target';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
 import { buildRoleplayQueueStillOptions } from '@/lib/roleplay-play-core';
@@ -582,6 +582,17 @@ export default function DayPlannerTool() {
       }
       markOnboardingFirstPlayCampaign();
       markOnboardingFirstFilmCut();
+      void import('@/lib/local-observability').then(
+        ({ noteFilmCutSourceMetric, noteSaveToCastMetric }) => {
+          noteFilmCutSourceMetric('day');
+          if (character && result.persisted) {
+            noteSaveToCastMetric();
+          }
+        }
+      );
+      if (character) {
+        completePlayCampaign({ characterId: character.id });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not assemble the film.');
       setFilmStatus(null);
@@ -637,9 +648,6 @@ export default function DayPlannerTool() {
         ...applyCharacterRecord(character),
       });
       bumpPlayCampaignStep({ characterId: character.id, stepId: 'roleplay' });
-      void import('@/lib/local-observability').then(({ noteCampaignStepMetric }) => {
-        noteCampaignStepMetric();
-      });
       const pack = loadLookPack();
       if (pack) {
         const staged = { ...pack, characterId: character.id };

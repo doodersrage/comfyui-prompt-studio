@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import { resetBrowserStorageCache } from './browser-storage';
 import {
   bumpPlayCampaignStep,
+  completePlayCampaign,
   loadPlayCampaignState,
   PLAY_CAMPAIGN_KEY,
   resolveCampaignLookPackId,
@@ -62,5 +63,33 @@ describe('play campaign helpers', () => {
     assert.equal(skipped, null);
     assert.equal(loadPlayCampaignState()?.characterId, 'char-a');
     assert.ok(storage.has(PLAY_CAMPAIGN_KEY) || loadPlayCampaignState()?.stepIndex === 3);
+  });
+
+  it('completePlayCampaign sets roleplay step and completedAt', () => {
+    const storage = new Map<string, string>();
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: {
+        localStorage: {
+          getItem: (key: string) => storage.get(key) ?? null,
+          setItem: (key: string, value: string) => storage.set(key, value),
+          removeItem: (key: string) => storage.delete(key),
+        },
+        sessionStorage: {
+          getItem: (key: string) => storage.get(`s:${key}`) ?? null,
+          setItem: (key: string, value: string) => storage.set(`s:${key}`, value),
+          removeItem: (key: string) => storage.delete(`s:${key}`),
+        },
+        dispatchEvent: () => true,
+      },
+    });
+    resetBrowserStorageCache();
+
+    bumpPlayCampaignStep({ characterId: 'char-z', stepId: 'day' });
+    const done = completePlayCampaign({ characterId: 'char-z' });
+    assert.equal(done?.stepIndex, 4);
+    assert.ok(typeof done?.completedAt === 'number' && done.completedAt > 0);
+    assert.equal(loadPlayCampaignState()?.completedAt, done?.completedAt);
+    assert.equal(completePlayCampaign({ characterId: 'other' }), null);
   });
 });

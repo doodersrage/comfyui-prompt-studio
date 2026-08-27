@@ -631,17 +631,111 @@ test('day cut film with mocked MediaRecorder shows Save to Cast', async ({ page 
   await expect(cutBtn).toBeVisible({ timeout: 30_000 });
   await expect(cutBtn).toBeEnabled({ timeout: 10_000 });
   await cutBtn.click();
-  await expect(page.getByTestId('day-save-film-cast').or(page.getByTestId('day-open-cast-film'))).toBeVisible({
+  await expect(page.getByTestId('day-open-cast-film')).toBeVisible({
     timeout: 45_000,
   });
-  const openCast = page.getByTestId('day-open-cast-film');
-  if ((await openCast.count()) > 0) {
-    await expect(openCast).toHaveAttribute('href', /media=films/);
-  }
+  await expect(page.getByTestId('day-open-cast-film')).toHaveAttribute('href', /media=films/);
   const gallery = page.getByTestId('day-open-gallery');
   if ((await gallery.count()) > 0) {
     await expect(gallery).toHaveAttribute('href', /derivedKind=film/);
   }
+});
+
+test('roleplay cut film with mocked MediaRecorder shows Cast deep-links', async ({ page }) => {
+  const tinyPng =
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+
+  await page.addInitScript(({ png }) => {
+    class FakeMediaRecorder {
+      state = 'inactive';
+      ondataavailable: ((event: { data: Blob }) => void) | null = null;
+      onstop: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      static isTypeSupported() {
+        return true;
+      }
+      start() {
+        this.state = 'recording';
+        queueMicrotask(() => {
+          this.ondataavailable?.({
+            data: new Blob([new Uint8Array([0, 0, 0, 1])], { type: 'video/webm' }),
+          });
+        });
+      }
+      stop() {
+        this.state = 'inactive';
+        queueMicrotask(() => this.onstop?.());
+      }
+      requestData() {}
+    }
+    // @ts-expect-error test shim
+    window.MediaRecorder = FakeMediaRecorder;
+    HTMLCanvasElement.prototype.captureStream = function captureStream() {
+      return {
+        getTracks: () => [{ stop() {}, kind: 'video', enabled: true }],
+      } as unknown as MediaStream;
+    };
+
+    window.localStorage.setItem(
+      'comfy-prompt-characters-v1',
+      JSON.stringify({
+        version: 1,
+        characters: [
+          {
+            id: 'e2e-rp-cut',
+            name: 'RP Cut',
+            version: 1,
+            updatedAt: Date.now(),
+            descriptor: 'roleplay cut look',
+          },
+        ],
+        removedIds: [],
+      })
+    );
+    window.localStorage.setItem(
+      'comfy-prompt-tool-settings-v1',
+      JSON.stringify({
+        shared: { activeCharacterId: 'e2e-rp-cut' },
+        tools: {
+          roleplay: {
+            characterName: 'RP Cut',
+            story: [
+              {
+                id: 'beat-1',
+                at: Date.now(),
+                kind: 'plot',
+                title: 'Opening',
+                prompt: 'A quiet opening beat',
+                stillStatus: 'completed',
+                imageUrl: png,
+              },
+            ],
+          },
+        },
+      })
+    );
+  }, { png: tinyPng });
+
+  page.on('download', download => {
+    void download.cancel().catch(() => undefined);
+  });
+
+  await gotoStable(page, '/roleplay?character=e2e-rp-cut');
+  await dismissBlockingOverlays(page);
+  const cutBtn = page.getByRole('button', { name: /Cut film/i });
+  await expect(cutBtn).toBeVisible({ timeout: 30_000 });
+  await expect(cutBtn).toBeEnabled({ timeout: 10_000 });
+  await cutBtn.click();
+  await expect(page.getByTestId('roleplay-open-cast-film')).toBeVisible({
+    timeout: 45_000,
+  });
+  await expect(page.getByTestId('roleplay-open-cast-film')).toHaveAttribute('href', /media=films/);
+  await expect(page.getByTestId('roleplay-open-gallery')).toHaveAttribute(
+    'href',
+    /derivedKind=film/
+  );
+  await expect(page.getByTestId('roleplay-campaign-complete')).toBeVisible();
+  await expect(page.getByTestId('roleplay-campaign-complete')).toHaveAttribute('href', /\/play/);
 });
 
 test('cast media=films deep-link opens Films tab and Film studio', async ({ page }) => {

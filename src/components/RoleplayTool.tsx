@@ -187,6 +187,7 @@ export default function RoleplayTool() {
     assemblingFilm,
     filmStatus,
     filmNeedsCast,
+    filmCharacterId,
     cutRoleplayFilm,
     saveFilmToCast,
     filmError,
@@ -1857,9 +1858,44 @@ export default function RoleplayTool() {
             Cut film
           </Button>
           {filmNeedsCast ? (
-            <Button variant="ghost" disabled={busy} onClick={saveFilmToCast}>
+            <Button
+              variant="ghost"
+              disabled={busy}
+              onClick={saveFilmToCast}
+              data-testid="roleplay-save-film-cast"
+            >
               Save to Cast
             </Button>
+          ) : null}
+          {filmCharacterId && filmStatus && !assemblingFilm ? (
+            <ButtonLink
+              href={`/characters/${encodeURIComponent(filmCharacterId)}?media=films`}
+              size="sm"
+              variant="ghost"
+              data-testid="roleplay-open-cast-film"
+            >
+              Open on Cast
+            </ButtonLink>
+          ) : null}
+          {filmCharacterId && filmStatus && !assemblingFilm ? (
+            <ButtonLink
+              href={`/gallery?character=${encodeURIComponent(filmCharacterId)}&derivedKind=film`}
+              size="sm"
+              variant="ghost"
+              data-testid="roleplay-open-gallery"
+            >
+              Open in Gallery
+            </ButtonLink>
+          ) : null}
+          {filmCharacterId && filmStatus && !assemblingFilm ? (
+            <ButtonLink
+              href={`/play?character=${encodeURIComponent(filmCharacterId)}`}
+              size="sm"
+              variant="secondary"
+              data-testid="roleplay-campaign-complete"
+            >
+              Campaign complete — Open Play
+            </ButtonLink>
           ) : null}
         </div>
         {filmStatus ? <p className="type-caption text-[var(--text-muted)]">{filmStatus}</p> : null}

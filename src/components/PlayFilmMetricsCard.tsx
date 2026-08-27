@@ -60,7 +60,10 @@ export default function PlayFilmMetricsCard() {
     (funnel?.firstPlayCampaign || 0) > 0 ||
     (funnel?.firstFilmCut || 0) > 0 ||
     (funnel?.keepTryOn || 0) > 0 ||
-    (funnel?.saveToCast || 0) > 0;
+    (funnel?.saveToCast || 0) > 0 ||
+    (funnel?.filmCutDay || 0) > 0 ||
+    (funnel?.filmCutRoleplay || 0) > 0 ||
+    (funnel?.campaignMaxStep || 0) > 0;
 
   if (!hasTiming && !hasFunnel) {
     return null;
@@ -101,6 +104,12 @@ export default function PlayFilmMetricsCard() {
           detail={`Keep→cut ${formatRate(rates.keepToCutRate)} · ${funnel?.saveToCast ?? 0} saves`}
         />
       </div>
+      {(rates.dayShare != null || rates.roleplayShare != null || rates.maxStep > 0) && (
+        <p className="mt-3 type-caption text-[var(--text-muted)]" data-testid="play-funnel-source">
+          Day {formatRate(rates.dayShare)} · Roleplay {formatRate(rates.roleplayShare)} · max step{' '}
+          {rates.maxStep}
+        </p>
+      )}
       <div className="mt-3">
         <ButtonLink href="/play" size="sm" variant="secondary">
           Open Play campaign

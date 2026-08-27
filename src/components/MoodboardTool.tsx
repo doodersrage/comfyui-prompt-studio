@@ -434,9 +434,6 @@ export default function MoodboardTool() {
     markOnboardingFirstPlayCampaign();
     if (pack.characterId) {
       bumpPlayCampaignStep({ characterId: pack.characterId, stepId: 'fitting' });
-      void import('@/lib/local-observability').then(({ noteCampaignStepMetric }) => {
-        noteCampaignStepMetric();
-      });
     }
     router.push(lookPackFittingHref(pack));
   }, [extractLookPack, router]);
@@ -449,9 +446,6 @@ export default function MoodboardTool() {
     markOnboardingFirstPlayCampaign();
     if (pack.characterId) {
       bumpPlayCampaignStep({ characterId: pack.characterId, stepId: 'day' });
-      void import('@/lib/local-observability').then(({ noteCampaignStepMetric }) => {
-        noteCampaignStepMetric();
-      });
     }
     router.push(lookPackDayHref(pack));
   }, [extractLookPack, router]);
@@ -463,9 +457,6 @@ export default function MoodboardTool() {
     }
     if (pack.characterId) {
       bumpPlayCampaignStep({ characterId: pack.characterId, stepId: 'roleplay' });
-      void import('@/lib/local-observability').then(({ noteCampaignStepMetric }) => {
-        noteCampaignStepMetric();
-      });
     }
     router.push(lookPackRoleplayHref(pack));
   }, [extractLookPack, router]);
