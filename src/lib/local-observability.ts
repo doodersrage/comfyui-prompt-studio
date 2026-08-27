@@ -18,6 +18,10 @@ export type LocalObservabilityCounters = {
   firstQueueSetupShown: number;
   firstQueueSetupDismissed: number;
   firstQueueSetupCompleted: number;
+  /** Anonymous Play funnel: campaign start events. */
+  firstPlayCampaign: number;
+  /** Anonymous Play funnel: Cut film events. */
+  firstFilmCut: number;
   firstQueueSetupStepFails: Partial<Record<FirstQueueSetupStepId, number>>;
   lastFailureMessage?: string;
   lastFailureHref?: string;
@@ -38,6 +42,8 @@ const DEFAULT_COUNTERS: LocalObservabilityCounters = {
   firstQueueSetupShown: 0,
   firstQueueSetupDismissed: 0,
   firstQueueSetupCompleted: 0,
+  firstPlayCampaign: 0,
+  firstFilmCut: 0,
   firstQueueSetupStepFails: {},
 };
 
@@ -69,6 +75,8 @@ export function loadLocalObservability(): LocalObservabilityCounters {
     firstQueueSetupShown: Math.max(0, Number(raw?.firstQueueSetupShown) || 0),
     firstQueueSetupDismissed: Math.max(0, Number(raw?.firstQueueSetupDismissed) || 0),
     firstQueueSetupCompleted: Math.max(0, Number(raw?.firstQueueSetupCompleted) || 0),
+    firstPlayCampaign: Math.max(0, Number(raw?.firstPlayCampaign) || 0),
+    firstFilmCut: Math.max(0, Number(raw?.firstFilmCut) || 0),
     firstQueueSetupStepFails: normalizeStepFails(raw?.firstQueueSetupStepFails),
     ...(typeof raw?.lastFailureMessage === 'string' && raw.lastFailureMessage.trim()
       ? { lastFailureMessage: raw.lastFailureMessage.trim().slice(0, 400) }
@@ -123,6 +131,8 @@ export function incrementLocalObservability(
     | 'firstQueueSetupShown'
     | 'firstQueueSetupDismissed'
     | 'firstQueueSetupCompleted'
+    | 'firstPlayCampaign'
+    | 'firstFilmCut'
   >
 ): LocalObservabilityCounters {
   if (typeof window === 'undefined') {
@@ -204,6 +214,14 @@ export function noteFirstQueueSetupCompletedMetric(): void {
   incrementLocalObservability('firstQueueSetupCompleted');
 }
 
+export function noteFirstPlayCampaignMetric(): void {
+  incrementLocalObservability('firstPlayCampaign');
+}
+
+export function noteFirstFilmCutMetric(): void {
+  incrementLocalObservability('firstFilmCut');
+}
+
 /** Record which setup step is currently blocking (and bump its fail counter). */
 export function noteFirstQueueSetupBlockedStep(
   step: FirstQueueSetupStepId
@@ -280,6 +298,12 @@ export function summarizeLocalReliability(counters = loadLocalObservability()): 
     headline = `${replays} exact replay${replays === 1 ? '' : 's'} used.`;
   } else if (successes > 0) {
     headline = `${successes} first-queue success event${successes === 1 ? '' : 's'}.`;
+  } else if ((counters.firstFilmCut || 0) > 0) {
+    const cuts = counters.firstFilmCut || 0;
+    headline = `${cuts} Play film cut${cuts === 1 ? '' : 's'} recorded.`;
+  } else if ((counters.firstPlayCampaign || 0) > 0) {
+    const starts = counters.firstPlayCampaign || 0;
+    headline = `${starts} Play campaign start${starts === 1 ? '' : 's'} recorded.`;
   }
 
   return { replayHitRate, playbookClickRate, setupCompletionRate, headline };

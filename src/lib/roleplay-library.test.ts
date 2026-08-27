@@ -15,6 +15,7 @@ import {
   startNewRoleplaySession,
   upsertRoleplayLibrarySession,
 } from './roleplay-library';
+import { upsertCharacter } from './character-os';
 import type { RoleplayToolCache } from './settings-cache';
 
 function withMockLocalStorage(run: () => void): void {
@@ -209,15 +210,8 @@ describe('roleplay library', () => {
     });
   });
 
-  it('continues from Cast only when the library session still exists', () => {
+  it('continues from Cast when the library session still exists', () => {
     withMockLocalStorage(() => {
-      const missing = resolveRoleplayContinueFromCharacter('char-rp-gone');
-      assert.equal(missing.ok, false);
-      if (!missing.ok) {
-        assert.equal(missing.reason, 'session-missing');
-        assert.match(missing.message, /not found/i);
-      }
-
       const foreign = resolveRoleplayContinueFromCharacter('char-manual');
       assert.equal(foreign.ok, false);
       if (!foreign.ok) {
@@ -231,6 +225,33 @@ describe('roleplay library', () => {
       if (ok.ok) {
         assert.equal(ok.session.id, saved.session.id);
         assert.equal(ok.cache.bio?.name, 'Alex Quill');
+      }
+    });
+  });
+
+  it('synthesizes continue from Cast when the library session is gone', () => {
+    withMockLocalStorage(() => {
+      upsertCharacter({
+        id: 'char-rp-gone',
+        name: 'Gone Session',
+        version: 1,
+        updatedAt: Date.now(),
+        bio: { name: 'Gone Session', look: 'silver hair', personality: 'quiet' },
+        characterName: 'Gone Session',
+        tone: 'noir',
+      });
+      const recovered = resolveRoleplayContinueFromCharacter('char-rp-gone');
+      assert.equal(recovered.ok, true);
+      if (recovered.ok) {
+        assert.equal(recovered.session.id, 'gone');
+        assert.equal(recovered.cache.bio?.name, 'Gone Session');
+        assert.match(recovered.cache.bio?.look ?? '', /silver/);
+      }
+
+      const stillMissing = resolveRoleplayContinueFromCharacter('char-rp-no-cast');
+      assert.equal(stillMissing.ok, false);
+      if (!stillMissing.ok) {
+        assert.equal(stillMissing.reason, 'session-missing');
       }
     });
   });

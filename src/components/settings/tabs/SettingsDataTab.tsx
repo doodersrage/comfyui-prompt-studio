@@ -109,6 +109,18 @@ export default function SettingsDataTab({
               </p>
             </div>
             <div className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[color-mix(in_oklab,var(--surface)_88%,transparent)] p-3">
+              <dt className="text-xs text-[var(--text-muted)]">Play film funnel</dt>
+              <dd
+                className="mt-1 text-lg text-[var(--text-primary)]"
+                data-testid="settings-play-funnel"
+              >
+                {metrics.firstFilmCut}/{metrics.firstPlayCampaign || 0}
+              </dd>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">
+                film cuts · campaign starts (local)
+              </p>
+            </div>
+            <div className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[color-mix(in_oklab,var(--surface)_88%,transparent)] p-3">
               <dt className="text-xs text-[var(--text-muted)]">Playbook CTA rate</dt>
               <dd className="mt-1 text-lg text-[var(--text-primary)]">
                 {formatRate(reliability.playbookClickRate)}

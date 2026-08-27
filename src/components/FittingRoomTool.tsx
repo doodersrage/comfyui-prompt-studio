@@ -152,6 +152,7 @@ export default function FittingRoomTool() {
   const [lockedWardrobeLabel, setLockedWardrobeLabel] = useState<string | undefined>();
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [compareTryOns, setCompareTryOns] = useState<FittingCompareTryOn[]>([]);
+  const [continueDayHref, setContinueDayHref] = useState<string | null>(null);
   const [previewStatus, setPreviewStatus] = useState<string | null>(null);
   const pendingTryOnRef = useRef<{
     promptId: string;
@@ -987,6 +988,12 @@ export default function FittingRoomTool() {
           lookPackNotes(nextPack) ||
           daySettings.notes,
       });
+      const dayHref = lookPackDayHref({
+        ...nextPack,
+        characterId,
+        wardrobeId: wardrobeId || nextPack.wardrobeId,
+      });
+      setContinueDayHref(dayHref);
       setSaveStatus(
         `Kept ${tryOn.wardrobeLabel || tryOn.wardrobeId || 'try-on'} as a Cast keeper · Day slots seeded.`
       );
@@ -1557,6 +1564,7 @@ export default function FittingRoomTool() {
                       size="sm"
                       variant="primary"
                       disabled={busy}
+                      data-testid="fitting-keep"
                       onClick={() => keepTryOn(tryOn)}
                     >
                       Keep
@@ -1568,11 +1576,28 @@ export default function FittingRoomTool() {
                 </figure>
               ))}
             </div>
+            {continueDayHref ? (
+              <div className="mt-3">
+                <ButtonLink href={continueDayHref} size="sm" variant="primary">
+                  Continue in Day
+                </ButtonLink>
+              </div>
+            ) : null}
           </CollapsibleSection>
         </ToolSection>
       ) : null}
 
       <ToolActionRow>
+        {continueDayHref ? (
+          <ButtonLink
+            href={continueDayHref}
+            size="sm"
+            variant="primary"
+            data-testid="fitting-continue-day"
+          >
+            Continue in Day
+          </ButtonLink>
+        ) : null}
         <Button
           size="sm"
           variant="secondary"
@@ -1605,9 +1630,16 @@ export default function FittingRoomTool() {
         </Button>
         {character ? (
           <>
-            <ButtonLink href={dayPlannerHref} size="sm" variant="secondary">
-              Plan a day
-            </ButtonLink>
+            {!continueDayHref ? (
+              <ButtonLink
+                href={dayPlannerHref}
+                size="sm"
+                variant="secondary"
+                data-testid="fitting-plan-day"
+              >
+                Plan a day
+              </ButtonLink>
+            ) : null}
             <ButtonLink
               href={`/moodboard?character=${encodeURIComponent(character.id)}`}
               size="sm"

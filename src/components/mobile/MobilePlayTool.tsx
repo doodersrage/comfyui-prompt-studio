@@ -843,6 +843,20 @@ export default function MobilePlayTool() {
           </Button>
         ) : null}
         {filmStatus ? <p className="type-caption text-[var(--text-muted)]">{filmStatus}</p> : null}
+        <Link
+          href="/day"
+          className="ui-btn-secondary w-full justify-center text-center text-sm"
+          data-testid="mobile-continue-desk-day"
+        >
+          Continue Day on desk
+        </Link>
+        <Link
+          href="/play"
+          className="ui-btn-ghost w-full justify-center text-center text-sm"
+          data-testid="mobile-continue-desk-play"
+        >
+          Play campaign on desk
+        </Link>
       </div>
 
       <FieldError>{error || filmError}</FieldError>

@@ -913,9 +913,30 @@ export default function DayPlannerTool() {
               variant="secondary"
               disabled={busy || assemblingFilm}
               onClick={saveFilmToCast}
+              data-testid="day-save-film-cast"
             >
               Save film to Cast
             </Button>
+          ) : null}
+          {filmNeedsCast && !character ? (
+            <ButtonLink
+              href="/characters"
+              size="sm"
+              variant="secondary"
+              data-testid="day-pick-cast"
+            >
+              Pick Cast character
+            </ButtonLink>
+          ) : null}
+          {character && filmStatus && !assemblingFilm ? (
+            <ButtonLink
+              href={`/characters/${encodeURIComponent(character.id)}`}
+              size="sm"
+              variant="ghost"
+              data-testid="day-open-cast-film"
+            >
+              Open on Cast
+            </ButtonLink>
           ) : null}
           {character && completedShotCount > 0 ? (
             <ButtonLink

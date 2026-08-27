@@ -18,7 +18,11 @@ import {
   markOnboardingFirstFilmCut,
   markOnboardingFirstPlayCampaign,
 } from '@/lib/onboarding-hooks';
-import { snapshotRoleplaySession } from '@/lib/roleplay-library';
+import {
+  persistRoleplayLibraryFromCache,
+  snapshotRoleplaySession,
+  upsertRoleplayLibrarySession,
+} from '@/lib/roleplay-library';
 import {
   loadSettingsCache,
   saveSharedSettings,
@@ -46,12 +50,16 @@ export function useRoleplayFilmActions(input: {
     const name = input.toolSettings.characterName?.trim() || input.bioName?.trim() || 'roleplay';
     const session = snapshotRoleplaySession(input.toolSettings);
     const fromSession = session ? characterFromRoleplaySession(session) : null;
-    const character =
+    let character =
       (fromSession ? getCharacter(fromSession.id) : undefined) ||
       loadCharacters().find(entry => {
         const labels = [entry.name, entry.characterName].map(value => value?.trim().toLowerCase());
         return labels.includes(name.toLowerCase());
       });
+    if (!character && session) {
+      character = upsertCharacterFromRoleplaySession(session);
+      upsertRoleplayLibrarySession(session);
+    }
     setAssemblingFilm(true);
     setError(null);
     setFilmNeedsCast(false);
@@ -91,12 +99,17 @@ export function useRoleplayFilmActions(input: {
   }, [input.bioName, input.storyRef, input.toolSettings]);
 
   const saveFilmToCast = useCallback(() => {
-    const session = snapshotRoleplaySession(input.toolSettings);
-    if (!session) {
+    const persisted = persistRoleplayLibraryFromCache(input.toolSettings);
+    if (!persisted) {
       setError('Name the character and add a beat before saving to Cast.');
       return;
     }
-    const created = upsertCharacterFromRoleplaySession(session);
+    const created =
+      getCharacter(
+        persisted.session.id.startsWith('char-')
+          ? persisted.session.id
+          : `char-rp-${persisted.session.id}`
+      ) ?? upsertCharacterFromRoleplaySession(persisted.session);
     if (!created) {
       setError('Name the character before saving to Cast.');
       return;

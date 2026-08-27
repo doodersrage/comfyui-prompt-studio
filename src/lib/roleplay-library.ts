@@ -1,5 +1,5 @@
 import { readBrowserValue, writeBrowserValue } from './browser-storage';
-import { upsertCharacterFromRoleplaySession } from './character-os';
+import { getCharacter, upsertCharacterFromRoleplaySession } from './character-os';
 import {
   DEFAULT_ROLEPLAY_TOOL_CACHE,
   loadToolSettings,
@@ -378,7 +378,73 @@ export type RoleplayContinueFromCast =
       message: string;
     };
 
-/** Continue in Roleplay from a Cast character — honest when the library session is gone. */
+/** Rebuild a Roleplay library session from Cast fields when the library entry aged out. */
+export function synthesizeRoleplaySessionFromCharacter(
+  characterId: string
+): RoleplayLibrarySession | null {
+  const key = characterId.trim();
+  if (!key.startsWith('char-rp-')) {
+    return null;
+  }
+  const sessionId = key.slice('char-rp-'.length).trim();
+  if (!sessionId) {
+    return null;
+  }
+  const character = getCharacter(key);
+  if (!character) {
+    return null;
+  }
+  const name =
+    character.characterName?.trim() || character.bio?.name?.trim() || character.name?.trim() || '';
+  const look = character.bio?.look?.trim() || character.descriptor?.trim() || 'a character';
+  if (!name) {
+    return null;
+  }
+  const bio = {
+    name,
+    look,
+    personality: character.bio?.personality?.trim() || '',
+    ...(character.bio?.catchphrase?.trim()
+      ? { catchphrase: character.bio.catchphrase.trim() }
+      : {}),
+  };
+  const cache: RoleplayToolCache = {
+    ...DEFAULT_ROLEPLAY_TOOL_CACHE,
+    activeSessionId: sessionId,
+    characterName: name,
+    bio,
+    personaId: character.personaId || DEFAULT_ROLEPLAY_TOOL_CACHE.personaId,
+    customPersona: character.customPersona,
+    setting: character.setting,
+    tone: character.tone ?? DEFAULT_ROLEPLAY_TOOL_CACHE.tone,
+    content: character.content ?? DEFAULT_ROLEPLAY_TOOL_CACHE.content,
+    playAs: character.playAs ?? DEFAULT_ROLEPLAY_TOOL_CACHE.playAs,
+    referenceImageUrl:
+      character.reference?.isolatedUrl ||
+      character.ipAdapter?.imageUrl ||
+      character.reference?.originalUrl,
+    referenceImageFilename:
+      character.reference?.isolatedFilename || character.ipAdapter?.imageFilename,
+    referenceOriginalUrl: character.reference?.originalUrl,
+    referenceOriginalFilename: character.reference?.originalFilename,
+    isolateSubject: character.reference?.isolateSubject,
+    referenceIsolated: character.reference?.isolated,
+  };
+  const snapshot = normalizeRoleplayLibrarySnapshot(cache);
+  if (!snapshot || !roleplaySessionHasProgress(snapshot)) {
+    return null;
+  }
+  const now = Date.now();
+  return normalizeRoleplayLibrarySession({
+    id: sessionId,
+    createdAt: character.updatedAt || now,
+    updatedAt: now,
+    title: roleplaySessionTitle(snapshot),
+    snapshot: { ...snapshot, activeSessionId: sessionId },
+  });
+}
+
+/** Continue in Roleplay from a Cast character — synthesize from Cast when the library session is gone. */
 export function resolveRoleplayContinueFromCharacter(
   characterId: string
 ): RoleplayContinueFromCast {
@@ -401,15 +467,20 @@ export function resolveRoleplayContinueFromCharacter(
     };
   }
   const session = getRoleplayLibrarySession(sessionId);
-  if (!session) {
-    return {
-      ok: false,
-      reason: 'session-missing',
-      message:
-        'Roleplay session not found — it may have been deleted or aged out of the library (max 24). Open Roleplay to start again, or pick a shelved session from Library.',
-    };
+  if (session) {
+    return { ok: true, session, cache: applyRoleplayLibrarySession(session) };
   }
-  return { ok: true, session, cache: applyRoleplayLibrarySession(session) };
+  const synthesized = synthesizeRoleplaySessionFromCharacter(key);
+  if (synthesized) {
+    const saved = upsertRoleplayLibrarySession(synthesized);
+    return { ok: true, session: saved, cache: applyRoleplayLibrarySession(saved) };
+  }
+  return {
+    ok: false,
+    reason: 'session-missing',
+    message:
+      'Roleplay session not found — it may have been deleted or aged out of the library (max 24). Open Roleplay to start again, or pick a shelved session from Library.',
+  };
 }
 
 /** Library plus the live Roleplay draft so Cast sees a bio that has not flushed yet. */

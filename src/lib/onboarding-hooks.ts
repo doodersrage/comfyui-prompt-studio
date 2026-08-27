@@ -39,6 +39,9 @@ export function markOnboardingFirstPlayCampaign(): boolean {
   void import('./play-metrics').then(({ recordFirstPlayCampaignStart }) => {
     recordFirstPlayCampaignStart();
   });
+  void import('./local-observability').then(({ noteFirstPlayCampaignMetric }) => {
+    noteFirstPlayCampaignMetric();
+  });
   return markOnboardingStepDone('first-play-campaign');
 }
 
@@ -46,6 +49,9 @@ export function markOnboardingFirstPlayCampaign(): boolean {
 export function markOnboardingFirstFilmCut(): boolean {
   void import('./play-metrics').then(({ recordFirstFilmCut }) => {
     recordFirstFilmCut();
+  });
+  void import('./local-observability').then(({ noteFirstFilmCutMetric }) => {
+    noteFirstFilmCutMetric();
   });
   return markOnboardingStepDone('first-film-cut');
 }

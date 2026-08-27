@@ -8,7 +8,19 @@ import ReportBugLink from '@/components/ReportBugLink';
 import { canAccessNavFeature, useAuth } from '@/hooks/useAuth';
 import { featureForPath } from '@/lib/auth/features';
 import { MOBILE_STUDIO_TABS, mobileStudioTabFromPath } from '@/lib/mobile-studio';
+import { loadSettingsCache } from '@/lib/settings-cache';
 import { accentForPath } from '@/lib/tool-theme';
+
+function deskBridgeHrefs(): { play: string; day: string; fitting: string } {
+  const characterId =
+    typeof window !== 'undefined' ? loadSettingsCache().shared.activeCharacterId?.trim() || '' : '';
+  const q = characterId ? `?character=${encodeURIComponent(characterId)}` : '';
+  return {
+    play: characterId ? `/play${q}` : '/play',
+    day: characterId ? `/day${q}` : '/day',
+    fitting: characterId ? `/fitting${q}` : '/fitting',
+  };
+}
 
 export default function MobileStudioShell({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? '/m';
@@ -19,6 +31,7 @@ export default function MobileStudioShell({ children }: { children: ReactNode })
   const tabs = MOBILE_STUDIO_TABS.filter(entry =>
     canAccessNavFeature(allowed, featureForPath(entry.href))
   );
+  const desk = deskBridgeHrefs();
 
   return (
     <div
@@ -38,13 +51,40 @@ export default function MobileStudioShell({ children }: { children: ReactNode })
             </p>
           </div>
         </div>
-        <Link
-          href="/dashboard"
-          className="ui-btn-secondary shrink-0 px-3 py-2 text-xs"
-          title="Desk app — Fitting, Day, Moodboard, Cut film"
-        >
-          Desk
-        </Link>
+        <div className="flex shrink-0 flex-col items-end gap-1" data-testid="mobile-desk-bridge">
+          <Link
+            href="/dashboard"
+            className="ui-btn-secondary shrink-0 px-3 py-2 text-xs"
+            title="Desk app — Fitting, Day, Moodboard, Cut film"
+          >
+            Desk
+          </Link>
+          <div className="flex flex-wrap justify-end gap-1">
+            <Link
+              href={desk.play}
+              className="type-caption text-[var(--text-muted)] underline-offset-2 transition hover:text-[var(--text-primary)] hover:underline"
+              data-testid="mobile-desk-play"
+            >
+              Campaign
+            </Link>
+            <span className="type-caption text-[var(--border-strong)]">·</span>
+            <Link
+              href={desk.day}
+              className="type-caption text-[var(--text-muted)] underline-offset-2 transition hover:text-[var(--text-primary)] hover:underline"
+              data-testid="mobile-desk-day"
+            >
+              Day
+            </Link>
+            <span className="type-caption text-[var(--border-strong)]">·</span>
+            <Link
+              href={desk.fitting}
+              className="type-caption text-[var(--text-muted)] underline-offset-2 transition hover:text-[var(--text-primary)] hover:underline"
+              data-testid="mobile-desk-fitting"
+            >
+              Fitting
+            </Link>
+          </div>
+        </div>
       </header>
       <main className="mx-auto w-full max-w-lg flex-1 px-4 py-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))]">
         {children}
