@@ -19,6 +19,41 @@ describe('day-planner', () => {
     assert.equal(slots[1]?.id, 'afternoon');
   });
 
+  it('normalizeDaySlots keeps spaces in Setting and Beat while typing', () => {
+    const slots = normalizeDaySlots([
+      {
+        id: 'morning',
+        label: 'Morning',
+        location: 'sunny kitchen ',
+        sceneHints: 'quiet breakfast ',
+      },
+    ]);
+    assert.equal(slots[0]?.location, 'sunny kitchen ');
+    assert.equal(slots[0]?.sceneHints, 'quiet breakfast ');
+  });
+
+  it('upsertDaySlotStill clears imageUrl when re-queued', () => {
+    const queued = upsertDaySlotStill(
+      [
+        {
+          slotId: 'morning',
+          promptId: 'old',
+          status: 'completed',
+          imageUrl: 'https://example.com/old.jpg',
+        },
+      ],
+      {
+        slotId: 'morning',
+        promptId: 'new',
+        status: 'queued',
+        imageUrl: undefined,
+      }
+    );
+    assert.equal(queued[0]?.promptId, 'new');
+    assert.equal(queued[0]?.imageUrl, undefined);
+    assert.equal(queued[0]?.status, 'queued');
+  });
+
   it('buildDaySlotPrompt includes slot label and beat', () => {
     const slot = DEFAULT_DAY_SLOTS[0]!;
     const prompt = buildDaySlotPrompt({

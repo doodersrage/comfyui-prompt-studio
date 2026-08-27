@@ -90,6 +90,7 @@ describe('fitting-kit-previews', () => {
       width: String(FITTING_KIT_PREVIEW_WIDTH),
       height: String(FITTING_KIT_PREVIEW_HEIGHT),
       lockLatentSize: 'true',
+      preserveInputAspect: 'false',
       steps: '4',
       cfg: '1',
     });

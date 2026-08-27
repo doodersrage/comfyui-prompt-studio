@@ -97,7 +97,13 @@ import {
   ISOLATE_QUEUE_BLOCKED_MESSAGE,
   loadImageBlobFromUrls,
 } from '@/lib/isolate-subject';
-import { loadLookPack, lookPackNotes } from '@/lib/look-pack';
+import {
+  loadLookPack,
+  lookPackDayHref,
+  lookPackNotes,
+  lookPackRoleplayHref,
+  saveLookPack,
+} from '@/lib/look-pack';
 import { resolveQueueInputImage } from '@/lib/queue-input-image';
 import { getReformatTargetModel } from '@/lib/reformat-target';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
@@ -498,7 +504,8 @@ export default function FittingRoomTool() {
       updateShared({ lockedWardrobeId: wardrobeId });
     }
     if (fromLook) {
-      const pack = loadLookPack({ clear: true });
+      // Keep the session pack for Day / Roleplay handoffs; Roleplay clears on apply.
+      const pack = loadLookPack();
       if (pack) {
         if (pack.wardrobeId?.trim() && !wardrobeId) {
           updateShared({ lockedWardrobeId: pack.wardrobeId.trim() });
@@ -1013,9 +1020,41 @@ export default function FittingRoomTool() {
         ...loadSettingsCache().shared,
         ...applyCharacterRecord(character),
       });
+      const pack = loadLookPack();
+      if (pack) {
+        const staged = { ...pack, characterId: character.id };
+        saveLookPack(staged);
+        router.push(lookPackRoleplayHref(staged));
+        return;
+      }
+      router.push(`/roleplay?character=${encodeURIComponent(character.id)}`);
+      return;
     }
     router.push('/roleplay');
   }, [character, router]);
+
+  const dayPlannerHref = (() => {
+    if (typeof window === 'undefined') {
+      return character ? `/day?character=${encodeURIComponent(character.id)}` : '/day';
+    }
+    const pack = loadLookPack();
+    if (pack && character) {
+      return lookPackDayHref({
+        ...pack,
+        characterId: character.id,
+        wardrobeId: shared.lockedWardrobeId?.trim() || pack.wardrobeId,
+      });
+    }
+    if (!character) {
+      return '/day';
+    }
+    const params = new URLSearchParams();
+    params.set('character', character.id);
+    if (shared.lockedWardrobeId?.trim()) {
+      params.set('wardrobe', shared.lockedWardrobeId.trim());
+    }
+    return `/day?${params.toString()}`;
+  })();
 
   const wardrobeGroups = useMemo(() => {
     const groups = new Map<string, ClothingOption[]>();
@@ -1452,15 +1491,7 @@ export default function FittingRoomTool() {
         </Button>
         {character ? (
           <>
-            <ButtonLink
-              href={`/day?character=${encodeURIComponent(character.id)}${
-                shared.lockedWardrobeId?.trim()
-                  ? `&wardrobe=${encodeURIComponent(shared.lockedWardrobeId.trim())}`
-                  : ''
-              }`}
-              size="sm"
-              variant="secondary"
-            >
+            <ButtonLink href={dayPlannerHref} size="sm" variant="secondary">
               Plan a day
             </ButtonLink>
             <ButtonLink

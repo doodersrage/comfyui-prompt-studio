@@ -2629,6 +2629,23 @@ describe("comfyui runtime queue params", () => {
     assert.equal(params.lockLatentSize, "true");
   });
 
+  it("comfyui-config resolveQueueParams honors preserveInputAspect false without lock", async () => {
+    const { resolveQueueParams } = await import("./comfyui-config");
+    const params = resolveQueueParams(
+      { queueQualityProfile: "draft", queueParams: { steps: "4", cfg: "1" } },
+      {
+        width: "256",
+        height: "384",
+        preserveInputAspect: "false",
+        inputImageFilename: "fig.png",
+        seed: "1",
+      },
+      { model: "qwen-image-edit-2511-lightning-8", preserveInputAspect: false },
+    );
+    assert.equal(params.width, "256");
+    assert.equal(params.height, "384");
+  });
+
   it("injects native lightning latent size even when workflow JSON still says 1024", async () => {
     const {
       injectPromptsWithFallbacks,

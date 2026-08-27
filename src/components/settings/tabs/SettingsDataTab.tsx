@@ -271,7 +271,7 @@ export default function SettingsDataTab({
           value={sharedSettings.activeCharacterDescriptor ?? ''}
           onChange={event =>
             updateSharedSettings({
-              activeCharacterDescriptor: event.target.value.trim() || undefined,
+              activeCharacterDescriptor: event.target.value || undefined,
             })
           }
           placeholder="e.g. athletic woman, mid-20s, short copper hair, green eyes"

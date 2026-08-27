@@ -281,6 +281,10 @@ export function resolveQueueParams(
     merged.lockLatentSize = base?.lockLatentSize ?? 'true';
   }
 
+  if (base?.preserveInputAspect != null && String(base.preserveInputAspect).trim() !== '') {
+    merged.preserveInputAspect = base.preserveInputAspect;
+  }
+
   // Video frame count / fps aren't part of the manual override UI — always
   // forward from base (queueParamsBase) regardless of settings.enabled.
   if (base?.videoFrames != null && base.videoFrames.toString().trim() !== '') {
@@ -460,8 +464,8 @@ export function resolveQueueParams(
               orientation,
               sizeTier
             );
-      merged.width = latent.width;
-      merged.height = latent.height;
+      merged.width = String(latent.width);
+      merged.height = String(latent.height);
     }
 
     const userDenoiseOverride = resolveUserSamplerDenoiseOverride(

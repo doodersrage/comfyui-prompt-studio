@@ -44,6 +44,11 @@ function readText(value: unknown, max = 240): string {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
 }
 
+/** Cap length without trimming — used for in-progress Setting / Beat typing. */
+function readEditableText(value: unknown, max: number): string {
+  return typeof value === 'string' ? value.slice(0, max) : '';
+}
+
 /** Merge persisted slots with defaults so all four day parts always exist. */
 export function normalizeDaySlots(input?: DaySlot[] | null): DaySlot[] {
   const byId = new Map<DaySlotId, DaySlot>();
@@ -56,8 +61,9 @@ export function normalizeDaySlots(input?: DaySlot[] | null): DaySlot[] {
       label:
         readText(slot.label, 40) || DEFAULT_DAY_SLOTS.find(entry => entry.id === slot.id)!.label,
       wardrobeId: readText(slot.wardrobeId, 120) || undefined,
-      location: readText(slot.location, 160) || undefined,
-      sceneHints: readText(slot.sceneHints, 320) || undefined,
+      // Do not trim location/sceneHints here — updateSlot runs on every keystroke.
+      location: readEditableText(slot.location, 160) || undefined,
+      sceneHints: readEditableText(slot.sceneHints, 320) || undefined,
     });
   }
   return DEFAULT_DAY_SLOTS.map(defaultSlot => ({
@@ -143,11 +149,12 @@ export function upsertDaySlotStill(
           ...still,
           ...patch,
           slotId: patch.slotId,
-          promptId: patch.promptId?.trim() || still.promptId,
-          imageUrl: patch.imageUrl?.trim() || still.imageUrl,
+          promptId: 'promptId' in patch ? patch.promptId?.trim() || undefined : still.promptId,
+          imageUrl: 'imageUrl' in patch ? patch.imageUrl?.trim() || undefined : still.imageUrl,
           status: patch.status ?? still.status,
-          clipPromptId: patch.clipPromptId?.trim() || still.clipPromptId,
-          clipUrl: patch.clipUrl?.trim() || still.clipUrl,
+          clipPromptId:
+            'clipPromptId' in patch ? patch.clipPromptId?.trim() || undefined : still.clipPromptId,
+          clipUrl: 'clipUrl' in patch ? patch.clipUrl?.trim() || undefined : still.clipUrl,
           clipStatus: patch.clipStatus ?? still.clipStatus,
         }
       : still

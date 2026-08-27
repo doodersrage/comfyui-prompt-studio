@@ -190,12 +190,31 @@ export type WorkflowParamValues = {
   videoFps?: string | number;
   /** Skip Lightning native ladder upsnap — use exact queue width/height (Fitting draft thumbs). */
   lockLatentSize?: boolean | string;
+  /**
+   * When false, keep explicit W×H instead of snapping img2img refs to the Lightning
+   * compose ladder (Fitting draft thumbs). Defaults to true when an input image is set.
+   */
+  preserveInputAspect?: boolean | string;
 };
 
 export function isLockLatentSizeParams(
   params?: Pick<WorkflowParamValues, 'lockLatentSize'>
 ): boolean {
   return params?.lockLatentSize === true || String(params?.lockLatentSize ?? '').trim() === 'true';
+}
+
+export function resolvePreserveInputAspectParam(
+  params: Pick<WorkflowParamValues, 'preserveInputAspect'> | undefined,
+  fallback: boolean
+): boolean {
+  const raw = params?.preserveInputAspect;
+  if (raw === false || String(raw ?? '').trim() === 'false') {
+    return false;
+  }
+  if (raw === true || String(raw ?? '').trim() === 'true') {
+    return true;
+  }
+  return fallback;
 }
 
 export type CustomWorkflowToken = {
@@ -361,7 +380,7 @@ export function resolvePlaceholderTokens(
 export function resolveQueueParams(
   runtime?: ComfyUiRuntimeConfig,
   override?: WorkflowParamValues,
-  options?: { model?: string }
+  options?: { model?: string; preserveInputAspect?: boolean }
 ): WorkflowParamValues {
   const merged = {
     ...(runtime?.queueParams ?? {}),
@@ -463,16 +482,30 @@ export function resolveQueueParams(
     );
     const lockExact = isLockLatentSizeParams(merged) || isLockLatentSizeParams(result);
     if (!lockExact) {
-      const aligned = ensureLightningNativeResolutionParams(result, model, orientation, sizeTier, {
-        // Compose/Refine/img2img: never rewrite client figure AR back to native
-        // square — that horizontally squashes portrait selfies into 1328².
-        preserveInputAspect: hasInputImage,
-      });
-      if (aligned.width != null) {
-        result.width = aligned.width.toString();
-      }
-      if (aligned.height != null) {
-        result.height = aligned.height.toString();
+      const preserveAspect = resolvePreserveInputAspectParam(
+        merged,
+        options?.preserveInputAspect ?? hasInputImage
+      );
+      // Img2img with an explicit preserveInputAspect=false (Fitting draft thumbs):
+      // keep the client W×H. Otherwise run Lightning native alignment.
+      if (preserveAspect || !hasInputImage) {
+        const aligned = ensureLightningNativeResolutionParams(
+          result,
+          model,
+          orientation,
+          sizeTier,
+          {
+            // Compose/Refine/img2img: never rewrite client figure AR back to native
+            // square — that horizontally squashes portrait selfies into 1328².
+            preserveInputAspect: preserveAspect,
+          }
+        );
+        if (aligned.width != null) {
+          result.width = aligned.width.toString();
+        }
+        if (aligned.height != null) {
+          result.height = aligned.height.toString();
+        }
       }
     }
     const samplerAligned = ensureDistilledSamplerParams(result, model, presetTier);

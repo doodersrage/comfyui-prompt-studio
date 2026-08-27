@@ -213,7 +213,8 @@ export default function DayPlannerTool() {
       });
     }
     if (fromLook) {
-      const pack = loadLookPack({ clear: true });
+      // Keep the session pack for Roleplay handoff; Roleplay clears on apply.
+      const pack = loadLookPack();
       if (pack) {
         if (pack.wardrobeId?.trim() && !wardrobeId) {
           updateShared({ lockedWardrobeId: pack.wardrobeId.trim() });
@@ -343,8 +344,11 @@ export default function DayPlannerTool() {
   );
 
   const queueSlot = useCallback(
-    async (slot: DaySlot) => {
-      setBusy(true);
+    async (slot: DaySlot, options?: { manageBusy?: boolean }) => {
+      const manageBusy = options?.manageBusy !== false;
+      if (manageBusy) {
+        setBusy(true);
+      }
       setError(null);
       setCopied(false);
       setActiveSlotId(slot.id);
@@ -392,7 +396,9 @@ export default function DayPlannerTool() {
           }),
         });
       } finally {
-        setBusy(false);
+        if (manageBusy) {
+          setBusy(false);
+        }
       }
     },
     [
@@ -410,20 +416,29 @@ export default function DayPlannerTool() {
   );
 
   const queueAll = useCallback(async () => {
-    for (const slot of slots) {
-      await queueSlot(slot);
+    setBusy(true);
+    setError(null);
+    try {
+      for (const slot of slots) {
+        await queueSlot(slot, { manageBusy: false });
+      }
+    } finally {
+      setBusy(false);
     }
   }, [queueSlot, slots]);
 
   const animateSlot = useCallback(
-    async (slot: DaySlot) => {
+    async (slot: DaySlot, options?: { manageBusy?: boolean }) => {
+      const manageBusy = options?.manageBusy !== false;
       const still = stillsRef.current.find(entry => entry.slotId === slot.id);
       const imageUrl = still?.status === 'completed' ? still.imageUrl?.trim() : '';
       if (!imageUrl) {
         setError(`Queue and wait for the ${slot.label.toLowerCase()} still before animating.`);
         return;
       }
-      setBusy(true);
+      if (manageBusy) {
+        setBusy(true);
+      }
       setError(null);
       setActiveSlotId(slot.id);
       actions.resetStatuses();
@@ -489,7 +504,9 @@ export default function DayPlannerTool() {
           }),
         });
       } finally {
-        setBusy(false);
+        if (manageBusy) {
+          setBusy(false);
+        }
       }
     },
     [
@@ -503,12 +520,18 @@ export default function DayPlannerTool() {
   );
 
   const animateAllClips = useCallback(async () => {
-    for (const slot of slots) {
-      const still = stillsRef.current.find(entry => entry.slotId === slot.id);
-      if (still?.status !== 'completed' || still.clipStatus === 'completed') {
-        continue;
+    setBusy(true);
+    setError(null);
+    try {
+      for (const slot of slots) {
+        const still = stillsRef.current.find(entry => entry.slotId === slot.id);
+        if (still?.status !== 'completed' || still.clipStatus === 'completed') {
+          continue;
+        }
+        await animateSlot(slot, { manageBusy: false });
       }
-      await animateSlot(slot);
+    } finally {
+      setBusy(false);
     }
   }, [animateSlot, slots]);
 

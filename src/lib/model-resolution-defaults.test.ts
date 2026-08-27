@@ -402,8 +402,8 @@ describe("model resolution defaults", () => {
         inputImageFilename: "fig.png",
         figurePixelSize: { width: 682, height: 1024 },
       });
-      assert.equal(params.width, 896, tool);
-      assert.equal(params.height, 1152, tool);
+      assert.equal(params.width, '896', tool);
+      assert.equal(params.height, '1152', tool);
     }
   });
 
