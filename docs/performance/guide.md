@@ -78,7 +78,9 @@ Turbopack may warn about dynamic `fs` access in ComfyUI cache routes — expecte
 | --- | --- |
 | Production build | &lt; ~30s on CI hardware |
 | Full Prettier pass | &lt; ~2s with warm cache |
-| JS bundle budget | ~150 KB per chunk (monitor with `analyze`) |
+| JS bundle budget | ~150 KB gzip guidance per route chunk (`npm run analyze`); optional `size-limit.json` watches `.next/static/chunks/**/*.js` after build |
+
+Clothing UI labels live in `clothing-catalog-fields.ts` so Fitting/Day (`wardrobe-catalog-ui`) do not pull the multi‑MB catalog batches into the client graph. Full catalog remains server/API via `clothing-catalog.ts` + `/api/catalog`.
 
 ---
 
@@ -87,6 +89,7 @@ Turbopack may warn about dynamic `fs` access in ComfyUI cache routes — expecte
 ```bash
 npm run perf:monitor    # scripts/performance-monitor.mjs — build time, bundle, file stats
 npm run perf:test       # scripts/performance-test.mjs — formatting & timing scenarios
+npm run compose:validate-exposed  # smoke-check docker-compose exposed auth profile
 ```
 
 Use React DevTools Profiler and Chrome Performance tab for runtime UI issues. Gallery list virtualization uses `@tanstack/react-virtual`.

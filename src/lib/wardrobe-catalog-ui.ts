@@ -1,4 +1,4 @@
-import { categoryLabel } from './clothing-catalog';
+import { categoryLabel } from './clothing-catalog-fields';
 import { WARDROBE_CATEGORIES, type ClothingCategory } from './clothing-catalog-fields';
 
 export type WardrobeCategoryFilter = 'all' | ClothingCategory;

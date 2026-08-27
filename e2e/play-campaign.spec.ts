@@ -900,3 +900,44 @@ test('cast media=films deep-link opens Films tab and Film studio', async ({ page
   await expect(page.getByTestId('cast-open-film-studio')).toBeVisible();
   await expect(page.getByTestId('character-film-studio-empty')).toBeVisible();
 });
+
+test('play campaign empty cast offers Open Cast CTA', async ({ page }) => {
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem('comfy-workspace-mode-v1', 'play');
+      localStorage.setItem('comfy-workspace-mode-chosen-v1', '1');
+      localStorage.removeItem('comfy-settings-cache-v1');
+    } catch {
+      // ignore
+    }
+  });
+  await gotoStable(page, '/play');
+  await dismissBlockingOverlays(page);
+  await expect(page.getByTestId('play-campaign')).toBeVisible({ timeout: 30_000 });
+  const create = page.getByTestId('play-campaign-create-character');
+  if (await create.isVisible().catch(() => false)) {
+    await expect(create.getByRole('link', { name: /Open Cast/i })).toBeVisible();
+  } else {
+    // Character already selected from prior storage — Cast picker still present.
+    await expect(page.getByTestId('play-campaign-character')).toBeVisible();
+  }
+});
+
+test('dashboard elevates Open Play campaign as primary studio path', async ({ page }) => {
+  await gotoStable(page, '/dashboard');
+  await dismissBlockingOverlays(page);
+  await expect(page.getByRole('heading', { name: /^Dashboard$/i })).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(page.getByRole('link', { name: /Open Play campaign/i }).first()).toBeVisible();
+});
+
+test('mobile studio companion copy leads Capture→Queue→Rate→Desk', async ({ page }) => {
+  await gotoStable(page, '/m');
+  await dismissBlockingOverlays(page);
+  await expect(page.getByText(/Plate for desk|Capture → Queue → Rate → Desk Continue/i).first()).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(page.getByTestId('mobile-desk-bridge')).toBeVisible();
+  await expect(page.getByRole('link', { name: /^Desk$/i })).toBeVisible();
+});

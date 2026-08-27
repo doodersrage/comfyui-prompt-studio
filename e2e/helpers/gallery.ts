@@ -86,3 +86,52 @@ export async function seedGalleryLightboxFixtures(page: Page): Promise<void> {
     }
   }, entries);
 }
+
+const FAILED_FIXTURE = {
+  id: 'e2e-gallery-failed',
+  promptId: 'e2e-prompt-failed',
+  prompt: 'e2e failed job fixture',
+  model: 'qwen-image-2512',
+  tool: 'generate',
+  comfyUrl: 'http://127.0.0.1:8188',
+  status: 'error',
+  statusMessage: 'Workflow node type “FaceDetailer” is not installed in ComfyUI',
+  queuedAt: Date.now(),
+  images: [] as { filename: string; subfolder: string; type: string }[],
+};
+
+/** Seed a failed gallery entry so recovery / one-click fix chrome can render. */
+export async function seedFailedGalleryFixture(
+  page: Page,
+  overrides?: Partial<typeof FAILED_FIXTURE>
+): Promise<void> {
+  await ensureStudioWorkspace(page);
+  const entry = { ...FAILED_FIXTURE, ...overrides };
+  await page.addInitScript(item => {
+    try {
+      const raw = localStorage.getItem('comfyui-gallery-v1');
+      const existing = raw ? (JSON.parse(raw) as unknown[]) : [];
+      const list = Array.isArray(existing) ? existing.filter(Boolean) : [];
+      localStorage.setItem(
+        'comfyui-gallery-v1',
+        JSON.stringify([item, ...list.filter(e => (e as { id?: string }).id !== item.id)])
+      );
+    } catch {
+      // ignore
+    }
+  }, entry);
+  await page.evaluate(item => {
+    try {
+      const raw = localStorage.getItem('comfyui-gallery-v1');
+      const existing = raw ? (JSON.parse(raw) as unknown[]) : [];
+      const list = Array.isArray(existing) ? existing.filter(Boolean) : [];
+      localStorage.setItem(
+        'comfyui-gallery-v1',
+        JSON.stringify([item, ...list.filter(e => (e as { id?: string }).id !== item.id)])
+      );
+      window.dispatchEvent(new Event('comfyui-gallery-updated'));
+    } catch {
+      // ignore
+    }
+  }, entry);
+}

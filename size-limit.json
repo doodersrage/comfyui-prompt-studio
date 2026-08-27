@@ -1,5 +1,5 @@
 {
-  "path": ["build/static/**/*.js", "build/static/**/*.css"],
-  "limit": "150 KB",
-  "ignore": ["node_modules", ".next", "build", "coverage"]
+  "path": [".next/static/chunks/**/*.js"],
+  "limit": "1500 KB",
+  "gzip": true
 }

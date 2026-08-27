@@ -3,26 +3,20 @@
 import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import CharacterOsPicker from '@/components/CharacterOsPicker';
+import FittingCharacterSection from '@/components/fitting/FittingCharacterSection';
+import FittingPlateSection from '@/components/fitting/FittingPlateSection';
+import FittingWardrobeKitSection from '@/components/fitting/FittingWardrobeKitSection';
 import SharedToolControls from '@/components/SharedToolControls';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
 import ScenePromptResultPanel from '@/components/scene-tool/ScenePromptResultPanel';
 import { Button, ButtonLink } from '@/components/ui/Button';
-import {
-  ChipButton,
-  FieldDivider,
-  FieldError,
-  FieldLabel,
-  SelectInput,
-  TextArea,
-} from '@/components/ui/Field';
+import { FieldError } from '@/components/ui/Field';
 import {
   CollapsibleSection,
   ToolActionRow,
   ToolBadge,
   ToolLayout,
   ToolSection,
-  accentFocusClass,
 } from '@/components/ui/ToolPageShell';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
@@ -83,14 +77,11 @@ import {
   countWardrobeOptionsForFilter,
   filterWardrobeSelectOptions,
   normalizeWardrobeCategoryFilter,
-  wardrobeCategoryFilterOptions,
 } from '@/lib/wardrobe-catalog-ui';
 import { getComfyModelDefinition } from '@/lib/comfy-models/client';
 import { loadComfyUiSettings } from '@/lib/comfyui-settings';
-import { galleryPickPath } from '@/lib/gallery-handoff';
 import {
   cacheBustIdentityMediaUrl,
-  IDENTITY_MEDIA_URL,
   isIdentityMediaUrl,
   persistIdentityImage,
 } from '@/lib/gallery-media-client';
@@ -1200,359 +1191,68 @@ export default function FittingRoomTool() {
     >
       <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.fitting} />
 
-      <ToolSection
-        title="Character"
-        description="Same Character OS id as Cast and Roleplay — try-ons stamp that record."
-        data-testid="fitting-character"
-      >
-        <CharacterOsPicker
-          shared={shared}
-          hints={character?.hints}
-          onApply={patch => {
-            try {
-              updateShared(patch);
-            } catch (err) {
-              setError(err instanceof Error ? err.message : 'Could not apply that character.');
-            }
-          }}
-        />
-      </ToolSection>
+      <FittingCharacterSection
+        shared={shared}
+        characterHints={character?.hints}
+        onApply={patch => updateShared(patch)}
+        onError={message => setError(message)}
+      />
 
-      <ToolSection
-        title="Plate"
-        description="Identity still for img2img. Isolate on white so the photo’s clothes and scene do not leak."
-        data-testid="fitting-plate"
-      >
-        <div className="flex flex-wrap gap-2">
-          <ChipButton
-            active={isolateSubject}
-            disabled={busy || referenceUploading}
-            onClick={() => {
-              const next = !isolateSubject;
-              if (!next) {
-                updateToolSettings({
-                  isolateSubject: false,
-                  referenceIsolated: false,
-                  referenceImageFilename: referenceOriginalFilename || referenceImageFilename,
-                  referenceImageUrl: referenceOriginalUrl || referenceImageUrl,
-                });
-                if (referenceOriginalUrl || referenceImageUrl) {
-                  setReferencePreviewUrl(
-                    cacheBustIdentityMediaUrl(referenceOriginalUrl || referenceImageUrl)
-                  );
-                }
-                setIsolateStatus(null);
-                return;
-              }
-              updateToolSettings({ isolateSubject: next });
-              const originalUrl = referenceOriginalUrl || referenceImageUrl;
-              const originalFilename = referenceOriginalFilename || referenceImageFilename;
-              if (!originalUrl && !originalFilename) {
-                return;
-              }
-              void applyReference({
-                imageUrl: originalUrl || IDENTITY_MEDIA_URL,
-                filename: originalFilename || 'fitting-ref.png',
-                isolate: next,
-              }).catch(err => {
-                setError(err instanceof Error ? err.message : 'Could not update the reference.');
-              });
-            }}
-          >
-            Isolate on white
-          </ChipButton>
-        </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <input
-            type="file"
-            accept="image/*"
-            disabled={busy || referenceUploading}
-            className="ui-file-input block min-w-0 flex-1"
-            onChange={event => {
-              const file = event.target.files?.[0];
-              event.target.value = '';
-              if (!file) {
-                return;
-              }
-              void applyReference({ file }).catch(err => {
-                setError(err instanceof Error ? err.message : 'Could not upload that photo.');
-              });
-            }}
-          />
-          <ButtonLink href={galleryPickPath('fitting')} variant="secondary" size="sm">
-            Choose from Gallery
-          </ButtonLink>
-          {hasReference ? (
-            <Button variant="ghost" size="sm" disabled={busy} onClick={clearReference}>
-              Clear
-            </Button>
-          ) : null}
-        </div>
-        {isolateStatus ? (
-          <p className="type-caption mt-2 text-[var(--text-muted)]">{isolateStatus}</p>
-        ) : null}
-        {referencePreviewUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={referencePreviewUrl}
-            alt="Fitting plate"
-            className="mt-3 max-h-64 rounded-[var(--radius-md)] border border-[var(--border-subtle)] object-contain"
-          />
-        ) : (
-          <p className="type-caption mt-2 text-[var(--text-muted)]">
-            No plate yet — open a Cast character with a look, or upload / pick from Gallery.
-          </p>
-        )}
-      </ToolSection>
+      <FittingPlateSection
+        busy={busy}
+        referenceUploading={referenceUploading}
+        isolateSubject={isolateSubject}
+        hasReference={hasReference}
+        isolateStatus={isolateStatus}
+        referencePreviewUrl={referencePreviewUrl}
+        referenceImageFilename={referenceImageFilename}
+        referenceImageUrl={referenceImageUrl}
+        referenceOriginalFilename={referenceOriginalFilename}
+        referenceOriginalUrl={referenceOriginalUrl}
+        onUpdateToolSettings={patch => updateToolSettings(patch)}
+        onSetReferencePreviewUrl={setReferencePreviewUrl}
+        onSetIsolateStatus={setIsolateStatus}
+        onApplyReference={applyReference}
+        onClearReference={clearReference}
+        onError={message => setError(message)}
+      />
 
-      <ToolSection
-        title="Wardrobe kit"
-        description="Filter by clothing type, swipe kits on the locked plate, or pick from the catalog."
-        data-testid="fitting-kit-strip"
-      >
-        <label className="space-y-2">
-          <FieldLabel>Clothing type</FieldLabel>
-          <SelectInput
-            value={wardrobeCategoryFilter}
-            disabled={!wardrobeReady || busy}
-            className={accentFocusClass(ACCENT)}
-            onChange={event =>
-              updateToolSettings({
-                wardrobeCategoryFilter: normalizeWardrobeCategoryFilter(event.target.value),
-              })
-            }
-          >
-            {wardrobeCategoryFilterOptions().map(option => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-                {option.value !== 'all' && wardrobeReady
-                  ? ` (${countWardrobeOptionsForFilter(wardrobeOptions, option.value)})`
-                  : option.value === 'all' && wardrobeReady
-                    ? ` (${countWardrobeOptionsForFilter(wardrobeOptions, 'all')})`
-                    : ''}
-              </option>
-            ))}
-          </SelectInput>
-          {wardrobeReady && wardrobeCategoryFilter !== 'all' ? (
-            <p className="type-caption text-[var(--text-muted)]">
-              Showing {wardrobeKitCount} kit{wardrobeKitCount === 1 ? '' : 's'} in this type.
-            </p>
-          ) : null}
-        </label>
-        <FieldDivider />
-        {swipeDeck.length > 0 ? (
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={!wardrobeReady || busy || swipeDeck.length < 2}
-                onClick={() => swipeKit(-1)}
-              >
-                Prev
-              </Button>
-              <span className="type-caption min-w-0 flex-1 text-center text-[var(--text-muted)]">
-                {activeSwipeKit ? (
-                  <>
-                    <span className="block truncate">
-                      {activeSwipeKit.label}
-                      {activeSwipeKit.group ? ` · ${activeSwipeKit.group}` : ''}
-                    </span>
-                    {swipeDeck.length > 1 ? (
-                      <span className="mt-0.5 block text-[var(--text-muted)]">
-                        {deckSelectionIndex + 1} / {swipeDeck.length}
-                      </span>
-                    ) : null}
-                  </>
-                ) : (
-                  'Pick a kit to swipe'
-                )}
-              </span>
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={!wardrobeReady || busy || swipeDeck.length < 2}
-                onClick={() => swipeKit(1)}
-              >
-                Next
-              </Button>
-            </div>
-            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-              {swipeDeck.map(kit => {
-                const preview = activeLookId
-                  ? getFittingKitPreview(kitPreviews, kit.id, activeLookId)
-                  : undefined;
-                const thumb = preview?.status === 'completed' ? preview.imageUrl?.trim() : '';
-                const pending = preview?.status === 'queued' || preview?.status === 'running';
-                const selected = deckSelectionId === kit.id;
-                return (
-                  <button
-                    key={kit.id}
-                    ref={selected ? activeThumbRef : undefined}
-                    type="button"
-                    data-active={selected ? 'true' : 'false'}
-                    disabled={busy}
-                    title={kit.label}
-                    aria-label={kit.label}
-                    aria-current={selected ? 'true' : undefined}
-                    onClick={() => selectKit(kit.id)}
-                    className={`shrink-0 rounded-md border p-1 transition ${
-                      selected
-                        ? 'border-[var(--accent-border)] bg-[var(--accent-muted)] shadow-[0_0_0_1px_var(--accent-border)]'
-                        : 'border-[var(--border-default)] bg-transparent hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]'
-                    }`}
-                  >
-                    {thumb ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={thumb} alt="" className="block h-20 w-16 rounded object-cover" />
-                    ) : (
-                      <span
-                        className={`flex h-20 w-16 items-center justify-center rounded border border-[var(--border-subtle)] type-caption ${
-                          pending ? 'text-[var(--text-muted)]' : 'text-[var(--text-muted)]'
-                        }`}
-                      >
-                        {pending ? '…' : '—'}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-            <CollapsibleSection
-              title="Draft previews & catalog"
-              summary="Auto draft thumbs, full catalog pick, and optional notes."
-              defaultOpen={!leanChrome}
-              persistKey="fitting-kit-advanced"
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <ChipButton
-                  active={autoKitPreviews}
-                  disabled={busy || !hasReference}
-                  onClick={() => updateToolSettings({ autoKitPreviews: !autoKitPreviews })}
-                >
-                  Auto draft previews
-                </ChipButton>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled={
-                    busy ||
-                    !hasReference ||
-                    !activeLookId ||
-                    !previewModel ||
-                    swipeDeck.length === 0 ||
-                    (isolateSubject && toolSettings.referenceIsolated !== true)
-                  }
-                  onClick={() => void fillKitPreviews()}
-                >
-                  Preview kits
-                </Button>
-                {completedPreviewCount > 0 || inFlightPreviewCount > 0 ? (
-                  <span className="type-caption text-[var(--text-muted)]">
-                    {completedPreviewCount} preview{completedPreviewCount === 1 ? '' : 's'}
-                    {inFlightPreviewCount > 0 ? ` · ${inFlightPreviewCount} rendering` : ''}
-                  </span>
-                ) : null}
-              </div>
-              {previewStatus ? (
-                <p className="type-caption text-[var(--text-muted)]">{previewStatus}</p>
-              ) : hasReference && autoKitPreviews ? (
-                <p className="type-caption text-[var(--text-muted)]">
-                  Draft previews use {previewModelLabel ?? 'a fast edit model'} · 4-step draft ·
-                  256×384 (3 at a time). Queue try-on keeps your sidebar model and settings.
-                </p>
-              ) : previewModelLabel ? (
-                <p className="type-caption text-[var(--text-muted)]">
-                  Preview kits: {previewModelLabel} · 4-step draft · 256×384 · 3 concurrent. Queue
-                  try-on uses {selectedModel?.label ?? shared.model}.
-                </p>
-              ) : null}
-              <label className="mt-3 space-y-2">
-                <FieldLabel>Full catalog</FieldLabel>
-                <SelectInput
-                  value={shared.lockedWardrobeId ?? ''}
-                  disabled={!wardrobeReady || busy}
-                  className={accentFocusClass(ACCENT)}
-                  onChange={event => {
-                    selectKit(event.target.value);
-                  }}
-                >
-                  {filteredWardrobeOptions
-                    .filter(option => !option.group)
-                    .map(option => (
-                      <option key={option.value || 'default'} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  {[...wardrobeGroups.entries()].map(([group, groupOptions]) => (
-                    <optgroup key={group} label={group}>
-                      {groupOptions.map(option => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </SelectInput>
-              </label>
-              <label className="mt-3 space-y-2">
-                <FieldLabel>Notes (optional)</FieldLabel>
-                <TextArea
-                  data-testid="fitting-notes"
-                  rows={2}
-                  value={toolSettings.notes ?? ''}
-                  className={accentFocusClass(ACCENT)}
-                  placeholder="e.g. slightly oversized blazer, sneakers untied"
-                  onChange={event => updateToolSettings({ notes: event.target.value })}
-                />
-              </label>
-            </CollapsibleSection>
-          </div>
-        ) : null}
-        {swipeDeck.length === 0 ? (
-          <>
-            <label className="mt-3 space-y-2">
-              <FieldLabel>Full catalog</FieldLabel>
-              <SelectInput
-                value={shared.lockedWardrobeId ?? ''}
-                disabled={!wardrobeReady || busy}
-                className={accentFocusClass(ACCENT)}
-                onChange={event => {
-                  selectKit(event.target.value);
-                }}
-              >
-                {filteredWardrobeOptions
-                  .filter(option => !option.group)
-                  .map(option => (
-                    <option key={option.value || 'default'} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                {[...wardrobeGroups.entries()].map(([group, groupOptions]) => (
-                  <optgroup key={group} label={group}>
-                    {groupOptions.map(option => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </SelectInput>
-            </label>
-            <FieldDivider />
-            <label className="space-y-2">
-              <FieldLabel>Notes (optional)</FieldLabel>
-              <TextArea
-                rows={2}
-                value={toolSettings.notes ?? ''}
-                className={accentFocusClass(ACCENT)}
-                placeholder="e.g. slightly oversized blazer, sneakers untied"
-                onChange={event => updateToolSettings({ notes: event.target.value })}
-              />
-            </label>
-          </>
-        ) : null}
-      </ToolSection>
+      <FittingWardrobeKitSection
+        busy={busy}
+        leanChrome={leanChrome}
+        wardrobeReady={wardrobeReady}
+        wardrobeCategoryFilter={wardrobeCategoryFilter}
+        wardrobeOptions={wardrobeOptions}
+        wardrobeKitCount={wardrobeKitCount}
+        filteredWardrobeOptions={filteredWardrobeOptions}
+        wardrobeGroups={wardrobeGroups}
+        swipeDeck={swipeDeck}
+        activeSwipeKit={activeSwipeKit}
+        deckSelectionId={deckSelectionId}
+        deckSelectionIndex={deckSelectionIndex}
+        activeThumbRef={activeThumbRef}
+        activeLookId={activeLookId}
+        kitPreviews={kitPreviews}
+        autoKitPreviews={autoKitPreviews}
+        hasReference={hasReference}
+        isolateSubject={isolateSubject}
+        referenceIsolated={toolSettings.referenceIsolated === true}
+        previewModel={previewModel}
+        previewModelLabel={previewModelLabel}
+        selectedModelLabel={selectedModel?.label}
+        sharedModel={shared.model}
+        lockedWardrobeId={shared.lockedWardrobeId}
+        notes={toolSettings.notes ?? ''}
+        completedPreviewCount={completedPreviewCount}
+        inFlightPreviewCount={inFlightPreviewCount}
+        previewStatus={previewStatus}
+        onCategoryFilterChange={filter => updateToolSettings({ wardrobeCategoryFilter: filter })}
+        onSwipeKit={swipeKit}
+        onSelectKit={selectKit}
+        onToggleAutoKitPreviews={() => updateToolSettings({ autoKitPreviews: !autoKitPreviews })}
+        onFillKitPreviews={() => void fillKitPreviews()}
+        onNotesChange={value => updateToolSettings({ notes: value })}
+      />
 
       {compareTryOns.length > 0 ? (
         <ToolSection

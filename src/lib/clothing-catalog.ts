@@ -1,5 +1,6 @@
 import { ALL_CLOTHING_CATALOG_ENTRIES } from './clothing-catalog-batches';
 import { CLOTHING_CATALOG_FANTASY } from './clothing-catalog-fantasy';
+import { categoryLabel } from './clothing-catalog-fields';
 import {
   getAthleticSportProfile,
   labelMatchesAnyPattern,
@@ -308,45 +309,6 @@ export function getClothingSelectOptions(
   }
 
   return options;
-}
-
-export function categoryLabel(category: ClothingCategory): string {
-  switch (category) {
-    case 'outfit':
-      return 'Full outfits';
-    case 'top':
-      return 'Tops';
-    case 'bottom':
-      return 'Bottoms';
-    case 'outerwear':
-      return 'Outerwear';
-    case 'footwear':
-      return 'Footwear';
-    case 'accessory':
-      return 'Accessories';
-    case 'swimwear':
-      return 'Swimwear';
-    case 'intimate':
-      return 'Intimates & loungewear';
-    case 'hosiery':
-      return 'Hosiery';
-    case 'formalwear':
-      return 'Formal & dressy';
-    case 'dressy-accessory':
-      return 'Dressy accessories';
-    case 'sleepwear':
-      return 'Sleepwear & robes';
-    case 'underwear':
-      return 'Underwear & base layers';
-    case 'socks':
-      return 'Socks & legwear';
-    case 'headwear':
-      return 'Headwear';
-    case 'traditional':
-      return 'Traditional & cultural';
-    default:
-      return category;
-  }
 }
 
 export function normalizeClothingCatalogId(
@@ -2173,6 +2135,7 @@ export function hasWardrobeCatalogSelection(options: {
 
 export {
   CLOTHING_CATALOG_FIELD_KEYS,
+  categoryLabel,
   getClothingCatalogFieldCategories,
   type ClothingCatalogFieldKey,
 } from './clothing-catalog-fields';
