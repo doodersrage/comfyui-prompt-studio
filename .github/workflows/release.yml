@@ -83,6 +83,7 @@ jobs:
           git add package.json package-lock.json
           git commit -m "Release v${VERSION}"
           git tag "v${VERSION}"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
           git push origin "HEAD:${GITHUB_REF_NAME}"
           git push origin "v${VERSION}"
 

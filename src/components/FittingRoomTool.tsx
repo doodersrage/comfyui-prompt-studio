@@ -14,6 +14,7 @@ import ScenePromptResultPanel from '@/components/scene-tool/ScenePromptResultPan
 import { FieldError } from '@/components/ui/Field';
 import { ToolBadge, ToolLayout } from '@/components/ui/ToolPageShell';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
+import { useFittingRoomQueue } from '@/hooks/useFittingRoomQueue';
 import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
 import { isLeanWorkspaceMode } from '@/lib/workspace-mode';
 import { useGalleryHandoff } from '@/hooks/useGalleryHandoff';
@@ -26,7 +27,6 @@ import {
   applyCharacterRecord,
   characterFromShared,
   getCharacter,
-  toggleLookKeeper,
   upsertCharacter,
 } from '@/lib/character-os';
 import { subjectGenderToClothingGender } from '@/lib/clothing-gender';
@@ -36,37 +36,19 @@ import {
   getCachedClothingLabel,
 } from '@/lib/clothing-catalog-client';
 import {
-  COMFYUI_GALLERY_UPDATED_EVENT,
-  galleryEntryPrimaryThumbUrl,
-  galleryEntryPrimaryViewUrl,
-  loadComfyGallery,
-} from '@/lib/comfyui-gallery';
-import {
-  buildFittingKitPreviewPrompt,
-  buildFittingOutfitPrompt,
   buildFittingSwipeDeck,
   fittingSwipeIndex,
   fittingSwipeNeighbor,
-  pushFittingCompareTryOn,
   resolveFittingDeckWardrobeId,
   resolveFittingPlateFromCharacter,
-  type FittingCompareTryOn,
 } from '@/lib/fitting-room';
 import {
   countInFlightFittingKitPreviews,
-  FITTING_KIT_PREVIEW_CONCURRENCY,
-  FITTING_KIT_PREVIEW_MAX,
-  FITTING_KIT_PREVIEW_HEIGHT,
-  FITTING_KIT_PREVIEW_PROMPT_VERSION,
-  FITTING_KIT_PREVIEW_WIDTH,
   fittingKitPreviewQueueParams,
   fittingKitPreviewQueueResolveOptions,
-  fittingKitsNeedingPreview,
   getFittingKitPreview,
-  mergeFittingKitPreviewsFromGallery,
   normalizeFittingKitPreviews,
   resolveFittingKitPreviewModel,
-  upsertFittingKitPreview,
 } from '@/lib/fitting-kit-previews';
 import {
   countWardrobeOptionsForFilter,
@@ -87,28 +69,20 @@ import {
   loadImageBlobFromUrls,
 } from '@/lib/isolate-subject';
 import {
-  applyLookPackToDaySlots,
   applyLookPackToFittingState,
   loadLookPack,
   lookPackDayHref,
-  lookPackNotes,
   lookPackRoleplayHref,
   saveLookPack,
 } from '@/lib/look-pack';
 import { bumpPlayCampaignStep } from '@/lib/play-campaign';
-import { seedDaySlotsFromKeeperWardrobes } from '@/lib/day-planner';
 import { resolveQueueInputImage } from '@/lib/queue-input-image';
 import { getReformatTargetModel } from '@/lib/reformat-target';
-import { rememberDraftFields } from '@/lib/remember-draft-fields';
-import { buildRoleplayQueueStillOptions } from '@/lib/roleplay-play-core';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import {
-  DEFAULT_DAY_TOOL_CACHE,
   DEFAULT_FITTING_TOOL_CACHE,
   loadSettingsCache,
-  loadToolSettings,
   saveSharedSettings,
-  saveToolSettings,
 } from '@/lib/settings-cache';
 import { EMPTY_WARDROBE_OPTIONS, type FittingClothingOption } from '@/lib/fitting-clothing-options';
 
@@ -131,22 +105,12 @@ export default function FittingRoomTool() {
   const [output, setOutput] = useState('');
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
   const [referenceUploading, setReferenceUploading] = useState(false);
   const [isolateStatus, setIsolateStatus] = useState<string | null>(null);
   const [referencePreviewUrl, setReferencePreviewUrl] = useState<string | null>(null);
   const [lockedWardrobeLabel, setLockedWardrobeLabel] = useState<string | undefined>();
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
-  const [compareTryOns, setCompareTryOns] = useState<FittingCompareTryOn[]>([]);
   const [continueDayHref, setContinueDayHref] = useState<string | null>(null);
-  const [previewStatus, setPreviewStatus] = useState<string | null>(null);
-  const pendingTryOnRef = useRef<{
-    promptId: string;
-    wardrobeId: string;
-    wardrobeLabel?: string;
-  } | null>(null);
-  const previewQueueBusyRef = useRef(false);
-  const kitPreviewsRef = useRef(normalizeFittingKitPreviews(toolSettings.kitPreviews));
   const isolateGenRef = useRef(0);
   const deepLinkHandled = useRef(false);
 
@@ -156,7 +120,6 @@ export default function FittingRoomTool() {
     () => normalizeFittingKitPreviews(toolSettings.kitPreviews),
     [toolSettings.kitPreviews]
   );
-  kitPreviewsRef.current = kitPreviews;
   const referenceImageFilename = toolSettings.referenceImageFilename?.trim() || '';
   const referenceImageUrl = toolSettings.referenceImageUrl?.trim() || '';
   const referenceOriginalFilename = toolSettings.referenceOriginalFilename?.trim() || '';
@@ -589,317 +552,60 @@ export default function FittingRoomTool() {
     scheduleAfterCommit(() => setReferencePreviewUrl(cacheBustIdentityMediaUrl(referenceImageUrl)));
   }, [referenceImageUrl]);
 
-  const buildPrompt = useCallback(() => {
-    const outfitLabel = lockedWardrobeLabel?.trim() || shared.lockedWardrobeId?.trim() || '';
-    if (!outfitLabel) {
-      throw new Error('Pick a wardrobe kit first.');
-    }
-    if (!hasReference) {
-      throw new Error('Add a plate — Cast look, upload, or Gallery still.');
-    }
-    return buildFittingOutfitPrompt({
-      outfitLabel,
-      characterName: character?.name,
-      characterDescriptor: character?.descriptor || character?.hints,
-      notes: toolSettings.notes,
-      isolated: toolSettings.referenceIsolated === true,
-    });
-  }, [
-    character?.descriptor,
-    character?.hints,
-    character?.name,
-    hasReference,
-    lockedWardrobeLabel,
-    shared.lockedWardrobeId,
-    toolSettings.notes,
-    toolSettings.referenceIsolated,
-  ]);
+  const selectKit = useCallback(
+    (wardrobeId: string) => {
+      updateShared({ lockedWardrobeId: wardrobeId.trim() || undefined });
+    },
+    [updateShared]
+  );
 
-  const queueTryOn = useCallback(async (): Promise<boolean> => {
-    setBusy(true);
-    setError(null);
-    setCopied(false);
-    actions.resetStatuses();
-    try {
-      const prompt = buildPrompt();
-      const finalized = await actions.finalizePrompt(prompt, character?.name || 'Fitting');
-      setOutput(finalized);
-      rememberDraftFields({
-        toolKey: TOOL_ID,
-        label: 'Fitting Room',
-        href: '/fitting',
-        fields: [character?.name ?? '', shared.lockedWardrobeId ?? '', finalized],
-      });
-      const queueOptions = buildRoleplayQueueStillOptions({
-        photoMode: true,
-        isolateSubject,
-        referenceIsolated: toolSettings.referenceIsolated === true,
-        filename: referenceImageFilename,
-        imageUrl: referenceImageUrl,
-        identityLockStrength: shared.ipAdapterStrength,
-        identityKind: shared.identityKind,
-      });
-      const promptId = await actions.sendComfyUi(finalized, undefined, undefined, {
-        ...(queueOptions ?? {}),
-        characterId: shared.activeCharacterId,
-        lookId: shared.activeLookId ?? character?.activeLookId,
-      });
-      if (typeof promptId === 'string' && promptId.trim()) {
-        pendingTryOnRef.current = {
-          promptId: promptId.trim(),
-          wardrobeId: shared.lockedWardrobeId?.trim() || '',
-          wardrobeLabel: lockedWardrobeLabel,
-        };
+  const swipeKit = useCallback(
+    (delta: number) => {
+      const next = fittingSwipeNeighbor(swipeDeck, shared.lockedWardrobeId, delta);
+      if (next) {
+        selectKit(next.id);
       }
-      return true;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not queue the try-on.');
-      return false;
-    } finally {
-      setBusy(false);
-    }
-  }, [
+    },
+    [selectKit, shared.lockedWardrobeId, swipeDeck]
+  );
+
+  const {
+    busy,
+    compareTryOns,
+    previewStatus,
+    queueTryOn,
+    fillKitPreviews,
+    keepTryOn,
+    queueTryOnAndSwipe,
+  } = useFittingRoomQueue({
+    mounted,
     actions,
-    buildPrompt,
+    shared,
+    toolSettings,
+    updateShared,
+    updateToolSettings,
     character,
+    hasReference,
     isolateSubject,
     referenceImageFilename,
     referenceImageUrl,
-    shared.activeCharacterId,
-    shared.activeLookId,
-    shared.identityKind,
-    shared.ipAdapterStrength,
-    shared.lockedWardrobeId,
     lockedWardrobeLabel,
-    toolSettings.referenceIsolated,
-  ]);
-
-  useEffect(() => {
-    const syncGallery = () => {
-      const pending = pendingTryOnRef.current;
-      if (pending?.promptId) {
-        const entry = loadComfyGallery().find(item => item.promptId === pending.promptId);
-        if (entry?.status === 'completed') {
-          const imageUrl = galleryEntryPrimaryViewUrl(entry);
-          if (imageUrl) {
-            pendingTryOnRef.current = null;
-            setCompareTryOns(current =>
-              pushFittingCompareTryOn(current, {
-                promptId: pending.promptId,
-                wardrobeId: pending.wardrobeId,
-                wardrobeLabel: pending.wardrobeLabel,
-                imageUrl,
-                galleryEntryId: entry.id,
-              })
-            );
-          }
-        }
-      }
-
-      const currentPreviews = kitPreviewsRef.current;
-      const wanted = new Set(
-        Object.values(currentPreviews)
-          .map(entry => entry.promptId?.trim())
-          .filter(Boolean) as string[]
-      );
-      if (wanted.size === 0) {
-        return;
-      }
-      const gallery = loadComfyGallery()
-        .filter(entry => wanted.has(entry.promptId))
-        .map(entry => ({
-          promptId: entry.promptId,
-          status: entry.status,
-          imageUrl: galleryEntryPrimaryThumbUrl(entry) || galleryEntryPrimaryViewUrl(entry),
-        }));
-      const merged = mergeFittingKitPreviewsFromGallery(currentPreviews, gallery);
-      if (merged.changed) {
-        updateToolSettings({ kitPreviews: merged.previews });
-      }
-    };
-    window.addEventListener(COMFYUI_GALLERY_UPDATED_EVENT, syncGallery);
-    syncGallery();
-    return () => window.removeEventListener(COMFYUI_GALLERY_UPDATED_EVENT, syncGallery);
-  }, [updateToolSettings]);
-
-  const queueKitPreview = useCallback(
-    async (wardrobeId: string, wardrobeLabel: string) => {
-      const lookId = (shared.activeLookId ?? character?.activeLookId ?? '').trim();
-      if (!lookId || !hasReference || !wardrobeId.trim()) {
-        return false;
-      }
-      if (isolateSubject && toolSettings.referenceIsolated !== true) {
-        return false;
-      }
-      const existing = getFittingKitPreview(kitPreviewsRef.current, wardrobeId, lookId);
-      if (
-        (existing?.status === 'completed' &&
-          existing.imageUrl?.trim() &&
-          (existing.promptVersion ?? 0) >= FITTING_KIT_PREVIEW_PROMPT_VERSION) ||
-        existing?.status === 'queued' ||
-        existing?.status === 'running'
-      ) {
-        return false;
-      }
-
-      try {
-        if (!previewModel) {
-          setError(
-            'Install Boogu Edit Turbo or Qwen Edit Lightning 4 for fast kit previews. Queue try-on still uses your sidebar model.'
-          );
-          return false;
-        }
-        const prompt = buildFittingKitPreviewPrompt({
-          outfitLabel: wardrobeLabel.trim() || wardrobeId,
-        });
-        const queueOptions = buildRoleplayQueueStillOptions({
-          photoMode: true,
-          isolateSubject,
-          referenceIsolated: toolSettings.referenceIsolated === true,
-          filename: referenceImageFilename,
-          imageUrl: referenceImageUrl,
-          identityLockStrength: shared.ipAdapterStrength,
-          identityKind: shared.identityKind,
-        });
-        const promptId = await actions.sendComfyUi(prompt, undefined, undefined, {
-          ...(queueOptions ?? {}),
-          identityLock: false,
-          queueModel: previewModel,
-          qualityProfile: 'draft',
-          queueParamsBase: previewQueueParams,
-          ...previewQueueResolveOptions,
-          figurePixelSize: {
-            width: FITTING_KIT_PREVIEW_WIDTH,
-            height: FITTING_KIT_PREVIEW_HEIGHT,
-          },
-          draftPreviewLite: true,
-          queueHints: '',
-          characterId: shared.activeCharacterId,
-          lookId,
-        });
-        const next = upsertFittingKitPreview(kitPreviewsRef.current, {
-          wardrobeId,
-          lookId,
-          promptId: typeof promptId === 'string' ? promptId.trim() : undefined,
-          status: promptId ? 'queued' : 'error',
-          updatedAt: Date.now(),
-          promptVersion: FITTING_KIT_PREVIEW_PROMPT_VERSION,
-        });
-        kitPreviewsRef.current = next;
-        updateToolSettings({ kitPreviews: next });
-        return Boolean(promptId);
-      } catch {
-        const next = upsertFittingKitPreview(kitPreviewsRef.current, {
-          wardrobeId,
-          lookId,
-          status: 'error',
-          updatedAt: Date.now(),
-        });
-        kitPreviewsRef.current = next;
-        updateToolSettings({ kitPreviews: next });
-        return false;
-      }
-    },
-    [
-      actions,
-      character?.activeLookId,
-      hasReference,
-      isolateSubject,
-      previewModel,
-      previewQueueParams,
-      previewQueueResolveOptions,
-      referenceImageFilename,
-      referenceImageUrl,
-      shared.activeCharacterId,
-      shared.activeLookId,
-      shared.identityKind,
-      shared.ipAdapterStrength,
-      toolSettings.referenceIsolated,
-      updateToolSettings,
-    ]
-  );
-
-  const fillKitPreviews = useCallback(async () => {
-    const lookId = (shared.activeLookId ?? character?.activeLookId ?? '').trim();
-    if (
-      !lookId ||
-      !hasReference ||
-      !previewModel ||
-      previewQueueBusyRef.current ||
-      (isolateSubject && toolSettings.referenceIsolated !== true)
-    ) {
-      return;
-    }
-    const needed = fittingKitsNeedingPreview(
-      swipeDeck,
-      kitPreviewsRef.current,
-      lookId,
-      FITTING_KIT_PREVIEW_MAX,
-      deckSelectionId
-    );
-    if (needed.length === 0) {
-      return;
-    }
-    const slots =
-      FITTING_KIT_PREVIEW_CONCURRENCY -
-      countInFlightFittingKitPreviews(kitPreviewsRef.current, lookId);
-    if (slots <= 0) {
-      return;
-    }
-
-    previewQueueBusyRef.current = true;
-    setPreviewStatus('Queueing draft kit previews…');
-    try {
-      const batch = needed.slice(0, slots);
-      for (const wardrobeId of batch) {
-        const kit = swipeDeck.find(entry => entry.id === wardrobeId);
-        const label = kit?.label || getCachedClothingLabel(wardrobeId) || wardrobeId;
-        await queueKitPreview(wardrobeId, label);
-      }
-      const remaining = fittingKitsNeedingPreview(
-        swipeDeck,
-        kitPreviewsRef.current,
-        lookId,
-        FITTING_KIT_PREVIEW_MAX,
-        deckSelectionId
-      ).length;
-      setPreviewStatus(
-        remaining > 0
-          ? `Draft previews: ${FITTING_KIT_PREVIEW_MAX - remaining}/${FITTING_KIT_PREVIEW_MAX} queued near selection…`
-          : 'Draft previews queued — thumbs fill as jobs finish.'
-      );
-    } finally {
-      previewQueueBusyRef.current = false;
-    }
-  }, [
-    character?.activeLookId,
+    swipeDeck,
     deckSelectionId,
-    hasReference,
-    isolateSubject,
-    previewModel,
-    queueKitPreview,
-    shared.activeLookId,
-    swipeDeck,
-    toolSettings.referenceIsolated,
-  ]);
-
-  useEffect(() => {
-    if (!mounted || !autoKitPreviews) {
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      void fillKitPreviews();
-    }, 600);
-    return () => window.clearTimeout(timer);
-  }, [
     activeLookId,
+    kitPreviews,
     autoKitPreviews,
-    fillKitPreviews,
-    hasReference,
     inFlightPreviewCount,
-    mounted,
-    swipeDeck,
-  ]);
+    previewModel,
+    previewQueueParams,
+    previewQueueResolveOptions,
+    swipeKit,
+    setOutput,
+    setError,
+    setCopied,
+    setSaveStatus,
+    setContinueDayHref,
+  });
 
   useEffect(() => {
     if (prevCategoryFilterRef.current === wardrobeCategoryFilter) {
@@ -927,124 +633,10 @@ export default function FittingRoomTool() {
     });
   }, [deckSelectionId]);
 
-  const keepTryOn = useCallback(
-    (tryOn: FittingCompareTryOn) => {
-      const characterId = shared.activeCharacterId?.trim();
-      const lookId = shared.activeLookId ?? character?.activeLookId;
-      const entryId = tryOn.galleryEntryId?.trim();
-      if (!characterId || !lookId || !entryId) {
-        setError('Pick a Cast character with a look before keeping a try-on.');
-        return;
-      }
-      const updated = toggleLookKeeper(characterId, lookId, entryId);
-      const wardrobeId = tryOn.wardrobeId?.trim();
-      if (wardrobeId) {
-        updateShared({ lockedWardrobeId: wardrobeId });
-      }
-      const existing = loadLookPack();
-      const nextPack = {
-        version: 1 as const,
-        source: (existing?.source === 'saved' ? 'saved' : 'moodboard') as 'moodboard' | 'saved',
-        characterId,
-        templateId: existing?.templateId,
-        paletteNotes: existing?.paletteNotes,
-        lightingNotes: existing?.lightingNotes,
-        locationNotes: existing?.locationNotes,
-        styleNotes: existing?.styleNotes,
-        moodNotes: existing?.moodNotes,
-        wardrobeId: wardrobeId || existing?.wardrobeId,
-        instruction: existing?.instruction,
-        vibePrompt: existing?.vibePrompt,
-        tileSummaries: existing?.tileSummaries,
-        savedAt: Date.now(),
-      };
-      saveLookPack(nextPack);
-      const look = updated ? activeLook(updated) : undefined;
-      const keeperIds = new Set(look?.keeperEntryIds ?? [entryId]);
-      const keeperWardrobes = [
-        ...new Set(
-          compareTryOns
-            .filter(entry => entry.galleryEntryId && keeperIds.has(entry.galleryEntryId))
-            .map(entry => entry.wardrobeId?.trim())
-            .filter((id): id is string => Boolean(id))
-        ),
-      ];
-      if (wardrobeId && !keeperWardrobes.includes(wardrobeId)) {
-        keeperWardrobes.push(wardrobeId);
-      }
-      const daySettings = loadToolSettings('day', DEFAULT_DAY_TOOL_CACHE);
-      const seededSlots = applyLookPackToDaySlots(
-        seedDaySlotsFromKeeperWardrobes(
-          daySettings.slots,
-          keeperWardrobes.length > 0 ? keeperWardrobes : [wardrobeId || nextPack.wardrobeId || '']
-        ),
-        nextPack
-      );
-      saveToolSettings('day', {
-        ...daySettings,
-        slots: seededSlots,
-        notes:
-          daySettings.notes?.trim() ||
-          toolSettings.notes?.trim() ||
-          lookPackNotes(nextPack) ||
-          daySettings.notes,
-      });
-      const dayHref = lookPackDayHref({
-        ...nextPack,
-        characterId,
-        wardrobeId: wardrobeId || nextPack.wardrobeId,
-      });
-      setContinueDayHref(dayHref);
-      bumpPlayCampaignStep({ characterId, stepId: 'day', lookPackId: undefined });
-      void import('@/lib/local-observability').then(({ noteKeepTryOnMetric }) => {
-        noteKeepTryOnMetric();
-      });
-      const kitCount = keeperWardrobes.length || 1;
-      setSaveStatus(
-        kitCount > 1
-          ? `Kept ${tryOn.wardrobeLabel || tryOn.wardrobeId || 'try-on'} · ${kitCount} keeper kits mapped to Day slots.`
-          : `Kept ${tryOn.wardrobeLabel || tryOn.wardrobeId || 'try-on'} as a Cast keeper · Day slots seeded.`
-      );
-      setError(null);
-    },
-    [
-      character?.activeLookId,
-      compareTryOns,
-      shared.activeCharacterId,
-      shared.activeLookId,
-      toolSettings.notes,
-      updateShared,
-    ]
-  );
-
-  const selectKit = useCallback(
-    (wardrobeId: string) => {
-      updateShared({ lockedWardrobeId: wardrobeId.trim() || undefined });
-    },
-    [updateShared]
-  );
-
-  const swipeKit = useCallback(
-    (delta: number) => {
-      const next = fittingSwipeNeighbor(swipeDeck, shared.lockedWardrobeId, delta);
-      if (next) {
-        selectKit(next.id);
-      }
-    },
-    [selectKit, shared.lockedWardrobeId, swipeDeck]
-  );
-
   const skipKit = useCallback(() => {
     swipeKit(1);
     setSaveStatus('Skipped to next kit.');
   }, [swipeKit]);
-
-  const queueTryOnAndSwipe = useCallback(async () => {
-    const ok = await queueTryOn();
-    if (ok) {
-      swipeKit(1);
-    }
-  }, [queueTryOn, swipeKit]);
 
   const saveKitToCast = useCallback(() => {
     setSaveStatus(null);
