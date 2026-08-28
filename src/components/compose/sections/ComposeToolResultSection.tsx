@@ -1,0 +1,135 @@
+'use client';
+
+import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
+import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
+import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
+import EditToolRecipeStrip from '@/components/EditToolRecipeStrip';
+import { continueEditResultProps } from '@/lib/continue-edit-result-props';
+import { getReformatTargetLabel } from '@/lib/reformat-target';
+import type { useComposeToolOrchestration } from '@/hooks/useComposeToolOrchestration';
+
+type ComposeToolViewModel = ReturnType<typeof useComposeToolOrchestration>;
+
+type ComposeToolResultSectionProps = ComposeToolViewModel;
+
+export function ComposeToolResultSection({
+  shared,
+  toolSettings,
+  updateShared,
+  updateToolSettings,
+  slots,
+  maskPreviewUrl,
+  showMaskEditor,
+  setShowMaskEditor,
+  output,
+  setOutput,
+  error,
+  copied,
+  isolating,
+  scanning,
+  isolateStatus,
+  instruction,
+  setInstruction,
+  mode,
+  setMode,
+  isolateSubject,
+  scanWithVision,
+  actions,
+  selectedModel,
+  filledCount,
+  cloudComposeSingleRef,
+  onMaskChange,
+  assignFigure,
+  identityLock,
+  identityLockStrength,
+  identityKind,
+  identityLockHint,
+  regionalSlots,
+  queueImageOptions,
+  assertReadyToQueue,
+  applyTemplate,
+  copyOutput,
+  templateGroups,
+  fig1Preview,
+  templateMinFigures,
+  booguEditModel,
+  zImageModel,
+  showPoseUnlockHint,
+}: ComposeToolResultSectionProps) {
+  return (
+    <>
+      <EnhancedPromptResult
+        output={output}
+        onOutputChange={setOutput}
+        provider={output ? 'llm' : null}
+        comfyNode={selectedModel.comfyNode}
+        readinessModel={shared.model}
+        readinessDetail={shared.detail}
+        copied={copied}
+        onCopy={() => void copyOutput()}
+        diagnostics={actions.diagnostics}
+        onSaveHistory={() =>
+          actions.saveHistory({
+            prompt: output,
+            hints: instruction,
+          })
+        }
+        onSendComfyUi={() => {
+          if (!assertReadyToQueue()) {
+            return;
+          }
+          void actions.sendComfyUi(output, undefined, undefined, queueImageOptions);
+        }}
+        {...promptResultPreviewProps(actions, output)}
+        {...continueEditResultProps(actions, output, { queueImageOptions })}
+        onFixPrompt={() => void actions.fixPrompt(output, setOutput, instruction)}
+        onCopyPair={() => void actions.copyPromptPair(output)}
+        onCompact={() => void actions.compactPrompt(output, setOutput)}
+        onReformat={() => void actions.reformatForModel(output, setOutput)}
+        reformatTargetLabel={getReformatTargetLabel(shared.model)}
+        onRunPipeline={() => {
+          if (!assertReadyToQueue()) {
+            return;
+          }
+          void actions.runExportPipeline(output, setOutput, {
+            queueComfyUi: true,
+            ...queueImageOptions,
+          });
+        }}
+        onExportSidecar={() =>
+          void actions.exportSidecar(output, { comfyNode: selectedModel.comfyNode })
+        }
+        fixStatus={actions.fixStatus}
+        compactStatus={actions.compactStatus}
+        reformatStatus={actions.reformatStatus}
+        pipelineStatus={actions.pipelineStatus}
+        comfyUiStatus={actions.comfyUiStatus}
+        comfyUiJob={actions.comfyUiJob}
+        comfyUiPreviewUrl={actions.comfyUiPreviewUrl}
+        historySaved={actions.historySaved}
+        pairCopied={actions.pairCopied}
+      />
+      <MobileStickyQueueBar
+        disabled={!output.trim()}
+        label="Queue Compose"
+        status={actions.comfyUiStatus}
+        primaryGenerate
+        onQueue={() => {
+          if (!assertReadyToQueue()) {
+            return;
+          }
+          void actions.sendComfyUi(output, undefined, undefined, queueImageOptions);
+        }}
+      >
+        <div className="mb-2">
+          <EditToolRecipeStrip
+            toolId="compose"
+            shared={shared}
+            onApplied={next => updateShared(next)}
+            compact
+          />
+        </div>
+      </MobileStickyQueueBar>
+    </>
+  );
+}

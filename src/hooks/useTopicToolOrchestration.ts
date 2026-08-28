@@ -1,15 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import BatchLintGatePanel from '@/components/BatchLintGatePanel';
-import BatchReadinessPanel, {
-  applyReadinessFilterToPrompts,
-} from '@/components/BatchReadinessPanel';
-import BatchQueueProgress, { type BatchQueueProgressState } from '@/components/BatchQueueProgress';
-import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
-import SharedToolControls from '@/components/SharedToolControls';
+import type { BatchQueueProgressState } from '@/components/BatchQueueProgress';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
 import { useRecentClothing } from '@/hooks/useRecentClothing';
@@ -19,14 +12,8 @@ import { sharedLlmRequestBody } from '@/lib/llm-request-options';
 import { avoidedTokensRequestBody } from '@/lib/avoided-tokens';
 import { resolveQueueNegativePrompt } from '@/lib/queue-negative';
 import { DEFAULT_TOPIC_TOOL_CACHE } from '@/lib/settings-cache';
-import { rememberDraftFields } from '@/lib/remember-draft-fields';
 import { runWorkflowPreflight } from '@/lib/workflow-preflight';
-import {
-  batchFixPrompts,
-  filterBatchByLintIndexes,
-  runBatchLintGate,
-  type BatchLintSummary,
-} from '@/lib/batch-lint-gate';
+import { runBatchLintGate, type BatchLintSummary } from '@/lib/batch-lint-gate';
 import {
   buildTopicsVariationsHandoff,
   loadTopicsVariationsHandoff,
@@ -36,38 +23,15 @@ import {
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import type { BatchFromTopicsItem } from '@/lib/batch-from-topics';
 import type { TopicGenerateResult } from '@/lib/specialized/types';
-import { topicVarietyLabel } from '@/lib/tool-ui-labels';
 import { resolveRuntimeForQueue } from '@/lib/comfyui-runtime-for-model';
 import { resolveQueueParams } from '@/lib/queue-params-settings';
 import { registerComfyGalleryJob } from '@/lib/comfyui-gallery-client';
 import { scheduleComfyGalleryPoll } from '@/lib/comfyui-gallery-poller';
 import { postComfyUiPrompt } from '@/lib/comfyui-queue-request';
-import ToolSetupBanner from '@/components/ToolSetupBanner';
-import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
-import { useToolPageDescription } from '@/hooks/useToolPageDescription';
-import {
-  ToolBadge,
-  CollapsibleSection,
-  ToolBlockGroup,
-  ToolContentPanel,
-  ToolLayout,
-  ToolMetaPanel,
-  ToolSection,
-  accentButtonClass,
-  accentFocusClass,
-  accentRingClass,
-} from '@/components/ui/ToolPageShell';
-import { FieldDivider, FieldError, FieldLabel, TextArea } from '@/components/ui/Field';
-import { Button, PrimaryButton } from '@/components/ui/Button';
-import {
-  HistoryHintSeedPanel,
-  resolveSceneHintsForGeneration,
-} from '@/components/scene-tool/HistoryHintSeedPanel';
+import { resolveSceneHintsForGeneration } from '@/components/scene-tool/HistoryHintSeedPanel';
 import { normalizeHistorySeedScope, normalizeSceneHintSource } from '@/lib/scene-hint-source';
 import { countHistorySeedCandidates } from '@/lib/history-hint-seed';
 import { scoreBatchReadiness } from '@/lib/batch-readiness';
-
-const ACCENT = 'brand' as const;
 
 export function useTopicToolOrchestration() {
   const router = useRouter();
