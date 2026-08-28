@@ -3,8 +3,10 @@
 import dynamic from 'next/dynamic';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState, useCallback, useRef, useLayoutEffect } from 'react';
-import { useGalleryBrowseState, useGalleryBrowsePageClamp } from '@/hooks/useGalleryBrowseState';
+import { useGalleryBrowseState } from '@/hooks/useGalleryBrowseState';
+import { useGalleryDisplayPlan } from '@/hooks/useGalleryDisplayPlan';
 import { useGalleryPanelActions } from '@/hooks/useGalleryPanelActions';
+import { useGalleryPanelRecovery } from '@/hooks/useGalleryPanelRecovery';
 import ImageLightbox, { type ImageLightboxSlideChrome } from '@/components/ui/ImageLightbox';
 import {
   startRefineFromGalleryEntry,
@@ -33,18 +35,12 @@ import GalleryReviewTouchBar from '@/components/gallery/GalleryReviewTouchBar';
 import GalleryPanelSkeleton from '@/components/gallery/GalleryPanelSkeleton';
 import GalleryPaginator from '@/components/gallery/GalleryPaginator';
 import GalleryDuplicateClustersPanel from '@/components/gallery/GalleryDuplicateClustersPanel';
+import GalleryDerivedKindChips from '@/components/gallery/GalleryDerivedKindChips';
 import GalleryVisionInbox from '@/components/gallery/GalleryVisionInbox';
 import GalleryCapCleanupWizard from '@/components/gallery/GalleryCapCleanupWizard';
 import StatusToastStrip from '@/components/ui/StatusToastStrip';
-import {
-  assessGalleryCapWarning,
-  GALLERY_CAP_KEEPER_MIN_RATING,
-  previewGalleryCapEviction,
-} from '@/lib/gallery-cap';
-import {
-  galleryDerivedKindChipLabel,
-  GALLERY_DERIVED_KIND_FILTERS,
-} from '@/lib/gallery-derived-kind';
+import { assessGalleryCapWarning } from '@/lib/gallery-cap';
+import { duplicateDropIds } from '@/lib/gallery-duplicate-clusters';
 import { MAX_GALLERY_ENTRIES } from '@/lib/comfyui-gallery-storage-meta';
 import { useGalleryReview } from '@/hooks/useGalleryReview';
 import { useGallerySelection } from '@/hooks/useGallerySelection';
@@ -58,22 +54,7 @@ import { type ParamExperimentAxis } from '@/lib/param-experiment-queue';
 import { useHeldMaxCount } from '@/hooks/useHeldMaxJobs';
 import { suggestRatingMutations } from '@/lib/rating-prompt-mutations';
 import { loadActiveProjectId, loadPromptProjects } from '@/lib/prompt-projects';
-import {
-  downloadGalleryImage,
-  downloadGalleryImagesSequential,
-  downloadGallerySidecarBundle,
-} from '@/lib/comfyui-gallery-export';
-import {
-  buildGalleryLineageGroups,
-  galleryLineageGroupingEnabled,
-} from '@/lib/gallery-lineage-groups';
-import { groupGalleryExperiments } from '@/lib/experiment-groups';
-import { groupGalleryQueueRuns } from '@/lib/gallery-queue-runs';
-import {
-  normalizeExperimentGroupAnchors,
-  paginateGalleryEntriesWithGroups,
-} from '@/lib/gallery-display-rows';
-import { clusterGalleryDuplicates, duplicateDropIds } from '@/lib/gallery-duplicate-clusters';
+import { downloadGalleryImage } from '@/lib/comfyui-gallery-export';
 import {
   clearExperimentWinner,
   loadExperimentWinners,
@@ -87,16 +68,12 @@ import {
   galleryEntryPrimaryViewUrl,
   galleryEntryStripThumbUrls,
   galleryEntryViewUrls,
-  GALLERY_PAGE_SIZE_ALL,
   GALLERY_SLIDESHOW_INTERVAL_OPTIONS,
   GALLERY_SLIDESHOW_TRANSITION_OPTIONS,
-  resolveGalleryPageSize,
   resolveGalleryLightboxEntry,
-  sortGalleryEntries,
   isGalleryStoreReady,
   type ComfyGalleryEntry,
   type GallerySlideshowIntervalMs,
-  type GallerySlideshowTransition,
 } from '@/lib/comfyui-gallery';
 import { galleryPickActionLabel, parseGalleryPickTarget } from '@/lib/gallery-handoff';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
@@ -288,11 +265,41 @@ export default function ComfyUiGalleryPanel({
   );
   const activeJobs = galleryStats.pending + galleryStats.running;
 
-  const filteredSource = showFilters ? filteredEntries : entries;
-  const sortedSource = useMemo(
-    () => (paginationEnabled ? sortGalleryEntries(filteredSource, sort) : filteredSource),
-    [filteredSource, paginationEnabled, sort]
-  );
+  const {
+    sortedSource,
+    experimentGroups,
+    visibleEntries,
+    totalPages,
+    currentPage,
+    totalFiltered,
+    effectivePageSize,
+    showPagination,
+    lineageGroups,
+    duplicateClusters,
+    duplicateEntriesById,
+    capEvictionPreview,
+    showVisionInbox,
+    visionInboxQueue,
+    galleryCardGridClass,
+    galleryVirtualGridClass,
+  } = useGalleryDisplayPlan({
+    showFilters,
+    filteredEntries,
+    entries,
+    filter,
+    paginationEnabled,
+    sort,
+    page,
+    pageSize,
+    limit,
+    pageClamp,
+    layout,
+    density,
+    compact,
+    capWizardOpen,
+    visionInboxOpen,
+    visionInboxSkipIds,
+  });
 
   const {
     lightbox,
@@ -350,123 +357,10 @@ export default function ComfyUiGalleryPanel({
     };
   }, [storeReady, entries.length]);
 
-  const experimentGroups = useMemo(() => {
-    // Group across the full filtered/sorted set, not just the current page's
-    // `visibleEntries`. Grouping on the paginated slice made membership (and
-    // whether a group even qualifies as an "experiment") depend on which
-    // page happened to be showing, so groups would flicker, split, or
-    // reappear with stale membership as the user paginated. `sortedSource`
-    // is stable across pages; buildGalleryDisplayRows anchors each group's
-    // block to a single page (the page holding its newest member) and
-    // renders the group's full entry list there, so a group whose members
-    // straddle a page boundary shows once, complete, instead of appearing
-    // again on the next page with a leftover subset of its entries.
-    // `pagination` below plans page boundaries around these same groups (see
-    // paginateGalleryEntriesWithGroups) so a group's true size is accounted
-    // for up front, instead of a flat index slice accidentally handing a
-    // later page's entries to an earlier page's group and leaving it empty.
-    const experiments = groupGalleryExperiments(sortedSource);
-    const claimed = new Set(experiments.flatMap(group => group.entries.map(entry => entry.id)));
-    const runs = groupGalleryQueueRuns(sortedSource).filter(
-      group => !group.entries.some(entry => claimed.has(entry.id))
-    );
-    // See normalizeExperimentGroupAnchors's doc comment: groupGalleryQueueRuns orders its
-    // entries oldest-first, which breaks the entries[0]-is-the-anchor assumption both
-    // buildGalleryDisplayRows and paginateGalleryEntriesWithGroups rely on.
-    return normalizeExperimentGroupAnchors([...experiments, ...runs], sortedSource);
-  }, [sortedSource]);
-
-  const pagination = useMemo(() => {
-    if (!paginationEnabled) {
-      const items = limit ? sortedSource.slice(0, limit) : sortedSource;
-      return {
-        items,
-        page: 1,
-        totalPages: 1,
-        totalItems: sortedSource.length,
-      };
-    }
-
-    if (pageSize === GALLERY_PAGE_SIZE_ALL) {
-      return {
-        items: sortedSource,
-        page: 1,
-        totalPages: 1,
-        totalItems: sortedSource.length,
-      };
-    }
-
-    const effectivePageSize = resolveGalleryPageSize(pageSize, sortedSource.length);
-    return paginateGalleryEntriesWithGroups(
-      sortedSource,
-      experimentGroups,
-      page,
-      effectivePageSize
-    );
-  }, [sortedSource, experimentGroups, limit, page, pageSize, paginationEnabled]);
-
-  const visibleEntries = pagination.items;
-  const totalPages = pagination.totalPages;
-  const currentPage = pagination.page;
-
-  useGalleryBrowsePageClamp(pageClamp, totalPages, sortedSource.length);
-
-  const totalFiltered = pagination.totalItems;
-  const effectivePageSize = resolveGalleryPageSize(pageSize, totalFiltered);
-  const showPagination =
-    paginationEnabled && pageSize !== GALLERY_PAGE_SIZE_ALL && totalFiltered > effectivePageSize;
-  const lineageGrouping = galleryLineageGroupingEnabled(filter);
-  const lineageGroups = useMemo(
-    () => (lineageGrouping ? buildGalleryLineageGroups(visibleEntries) : null),
-    [lineageGrouping, visibleEntries]
-  );
-  const duplicateClusters = useMemo(
-    () => (showFilters && filter.duplicatesOnly ? clusterGalleryDuplicates(entries) : []),
-    [entries, filter.duplicatesOnly, showFilters]
-  );
-  // Rebuilding this Map from `entries` (up to MAX_GALLERY_ENTRIES) was previously
-  // done inline in JSX, so it ran on every render of the panel while the
-  // duplicates view was open, not just when `entries` actually changed.
-  const duplicateEntriesById = useMemo(
-    () =>
-      showFilters && filter.duplicatesOnly && duplicateClusters.length > 0
-        ? new Map(entries.map(entry => [entry.id, entry]))
-        : null,
-    [entries, filter.duplicatesOnly, showFilters, duplicateClusters.length]
-  );
-  const capEvictionPreview = useMemo(
-    () => (capWizardOpen ? previewGalleryCapEviction(entries, MAX_GALLERY_ENTRIES) : []),
-    [capWizardOpen, entries]
-  );
-  const showVisionInbox = showFilters && (filter.needsVisionReview || visionInboxOpen);
-  // Same issue as duplicateEntriesById: this filter over the full entries list
-  // was inline in JSX and re-ran on every render while the inbox was open,
-  // including renders triggered by unrelated state (e.g. hover/lightbox).
-  const visionInboxQueue = useMemo(
-    () =>
-      showVisionInbox
-        ? entries.filter(
-            entry =>
-              entry.status === 'completed' &&
-              entry.images.length > 0 &&
-              !(entry.visionTags?.length ?? 0) &&
-              !visionInboxSkipIds.has(entry.id)
-          )
-        : [],
-    [showVisionInbox, entries, visionInboxSkipIds]
-  );
-  const galleryCardGridClass =
-    layout === 'dense' || density === 'compact'
-      ? 'grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7'
-      : compact
-        ? 'grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4'
-        : 'grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4';
-  const galleryVirtualGridClass =
-    layout === 'dense' || density === 'compact'
-      ? 'grid gap-2'
-      : compact
-        ? 'grid gap-4'
-        : 'grid gap-6';
+  const { retryFailedEntries, exportCapKeepers } = useGalleryPanelRecovery({
+    entries,
+    setRequeueStatus,
+  });
 
   const {
     selectedIds,
@@ -522,61 +416,6 @@ export default function ComfyUiGalleryPanel({
       return next;
     });
   }, []);
-
-  const retryFailedEntries = useCallback(
-    (targets: ComfyGalleryEntry[], mode: 'same' | 'new' | 'exact' = 'same') => {
-      const failed = targets.filter(entry => entry.status === 'error');
-      if (failed.length === 0) {
-        return;
-      }
-      setRequeueStatus(`Retrying ${failed.length} failed job(s)…`);
-      void import('@/lib/comfyui-requeue')
-        .then(({ requeueComfyJobs }) =>
-          requeueComfyJobs(
-            failed.map(entry => {
-              const canExact = Boolean(entry.hasStoredWorkflow || entry.workflowJson);
-              const exactGraph = mode === 'exact' && canExact;
-              return {
-                prompt: entry.prompt,
-                negativePrompt: entry.negativePrompt,
-                tool: entry.tool,
-                model: entry.model,
-                queueParams: entry.queueParams,
-                workflowJson: entry.workflowJson,
-                newSeed: mode === 'new',
-                exactGraph,
-                parentGalleryEntryId: entry.id,
-                derivedKind: 'variation' as const,
-              };
-            }),
-            setRequeueStatus
-          )
-        )
-        .then(({ queued, failed: failCount }) => {
-          toastBulkQueueSummary({
-            label: 'Failed retry finished',
-            queued,
-            failed: failCount,
-          });
-        });
-    },
-    [setRequeueStatus]
-  );
-
-  const exportCapKeepers = useCallback(() => {
-    const keepers = entries.filter(
-      entry => Boolean(entry.favorite) || (entry.reviewRating ?? 0) >= GALLERY_CAP_KEEPER_MIN_RATING
-    );
-    if (keepers.length === 0) {
-      setRequeueStatus('No keepers yet — favorite or rate ≥4★ first.');
-      return;
-    }
-    downloadGallerySidecarBundle(keepers);
-    setRequeueStatus(`Exporting ${keepers.length} keeper image(s)…`);
-    void downloadGalleryImagesSequential(keepers).then(count => {
-      setRequeueStatus(`Exported ${count} keeper image(s) + sidecars.`);
-    });
-  }, [entries]);
 
   const onDownloadImage = useCallback(async (displayIndex: number) => {
     const resolved = resolveGalleryLightboxEntry(lightboxEntriesRef.current, displayIndex);
@@ -1069,54 +908,7 @@ export default function ComfyUiGalleryPanel({
           </button>
         </div>
       ) : null}
-      {filter.derivativeOfEntryId || filter.focusEntryId || filter.derivedKind ? (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--accent-border)] bg-[var(--accent-muted)] px-3 py-2 text-xs text-[var(--accent-text)]">
-          <span>
-            {filter.focusEntryId
-              ? 'Lineage filter: showing source entry'
-              : filter.derivativeOfEntryId
-                ? 'Lineage filter: showing derived outputs'
-                : `Lineage filter: ${filter.derivedKind} only`}
-          </span>
-          <button
-            type="button"
-            onClick={() =>
-              setFilter(previous => ({
-                ...previous,
-                derivativeOfEntryId: undefined,
-                focusEntryId: undefined,
-                derivedKind: undefined,
-              }))
-            }
-            className="rounded-lg border border-[var(--accent-border)] px-2 py-0.5 text-[11px] transition hover:border-[var(--accent-border)] hover:text-[var(--accent-text)]"
-          >
-            Clear lineage filter
-          </button>
-        </div>
-      ) : (
-        <div className="flex flex-wrap gap-2">
-          {GALLERY_DERIVED_KIND_FILTERS.map(kind => (
-            <button
-              key={kind}
-              type="button"
-              data-testid={`gallery-derived-kind-${kind}`}
-              onClick={() =>
-                setFilter(previous => ({
-                  ...previous,
-                  derivedKind: previous.derivedKind === kind ? undefined : kind,
-                }))
-              }
-              className={`rounded-full border px-2.5 py-0.5 text-[11px] transition ${
-                filter.derivedKind === kind
-                  ? 'border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)]'
-                  : 'border-[var(--border-subtle)] bg-[var(--bg-base)]/40 text-[var(--text-muted)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]'
-              }`}
-            >
-              {galleryDerivedKindChipLabel(kind)}
-            </button>
-          ))}
-        </div>
-      )}
+      <GalleryDerivedKindChips filter={filter} setFilter={setFilter} />
 
       {compareOpen ? (
         <GalleryCompareModal
