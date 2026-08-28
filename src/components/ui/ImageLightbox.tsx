@@ -1,19 +1,17 @@
 'use client';
 
-import { useCallback, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
+import {
+  useCallback,
+  useMemo,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/Button';
-import { isStillLightboxKind } from '@/lib/comfyui-outputs';
-import ImageLightboxFilmstrip from '@/components/ui/image-lightbox/ImageLightboxFilmstrip';
+import ImageLightboxBottomChrome from '@/components/ui/image-lightbox/ImageLightboxBottomChrome';
 import ImageLightboxHelpOverlay from '@/components/ui/image-lightbox/ImageLightboxHelpOverlay';
-import ImageLightboxHistogramPanel from '@/components/ui/image-lightbox/ImageLightboxHistogramPanel';
 import ImageLightboxImageStage from '@/components/ui/image-lightbox/ImageLightboxImageStage';
-import ImageLightboxJobBadge from '@/components/ui/image-lightbox/ImageLightboxJobBadge';
-import ImageLightboxMetaPanel from '@/components/ui/image-lightbox/ImageLightboxMetaPanel';
 import ImageLightboxSideNav from '@/components/ui/image-lightbox/ImageLightboxSideNav';
-import ImageLightboxSlideChromeBar from '@/components/ui/image-lightbox/ImageLightboxSlideChrome';
-import ImageLightboxSlideshowControls from '@/components/ui/image-lightbox/ImageLightboxSlideshowControls';
-import ImageLightboxTutorialTip from '@/components/ui/image-lightbox/ImageLightboxTutorialTip';
 import { resolveTransitionClasses } from '@/components/ui/image-lightbox/imageLightboxTransitions';
 import { useImageLightboxKeyboard } from '@/components/ui/image-lightbox/useImageLightboxKeyboard';
 import { useImageLightboxPresentation } from '@/components/ui/image-lightbox/useImageLightboxPresentation';
@@ -179,6 +177,75 @@ export default function ImageLightbox({
     [applyZoom, resetZoom, setPan, setFitMode]
   );
 
+  const slideChromeBar = useMemo(
+    () => ({
+      chromeCompact,
+      actionsOpen,
+      metaOpen,
+      helpOpen,
+      moreOpen,
+      baOpen,
+      dualMode,
+      fitMode,
+      histogramOpen,
+      preferFullRes,
+      fullResLoading,
+      hasDistinctFullRes,
+      currentMediaKind: presentation.currentKind,
+      imagesLength: images.length,
+      index,
+      onMetaOpenChange: setMetaOpen,
+      onActionsOpenChange: setActionsOpen,
+      onChromeCompactChange: setChromeCompact,
+      onHelpOpenChange: setHelpOpen,
+      onMoreOpenChange: setMoreOpen,
+      onBaOpenChange: setBaOpen,
+      onDualModeChange: setDualMode,
+      onDualIndexChange: setDualIndex,
+      onFitModeChange: setFitMode,
+      onHistogramOpenChange: setHistogramOpen,
+      onPreferFullResChange: setPreferFullRes,
+      onFullResLoadingChange: setFullResLoading,
+      onCurrentImageLoadedChange: setCurrentImageLoaded,
+      onLoadHistogram: () => {
+        void loadHistogram();
+      },
+      onApplyZoomPreset: applyZoomPreset,
+    }),
+    [
+      actionsOpen,
+      applyZoomPreset,
+      baOpen,
+      chromeCompact,
+      dualMode,
+      fitMode,
+      fullResLoading,
+      hasDistinctFullRes,
+      helpOpen,
+      histogramOpen,
+      images.length,
+      index,
+      loadHistogram,
+      metaOpen,
+      moreOpen,
+      preferFullRes,
+      presentation.currentKind,
+      setActionsOpen,
+      setBaOpen,
+      setChromeCompact,
+      setCurrentImageLoaded,
+      setDualIndex,
+      setDualMode,
+      setFitMode,
+      setFullResLoading,
+      setHelpOpen,
+      setHistogramOpen,
+      setMetaOpen,
+      setMoreOpen,
+      setPreferFullRes,
+    ]
+  );
+
   useImageLightboxKeyboard({
     open,
     index,
@@ -216,7 +283,7 @@ export default function ImageLightbox({
     setCurrentImageLoaded,
   });
 
-  if (!mounted || !open || !currentUrl) {
+  if (!mounted || !open || !currentUrl || !state) {
     return null;
   }
 
@@ -229,10 +296,53 @@ export default function ImageLightbox({
     : 'relative mx-auto flex h-full max-h-full max-w-full items-center justify-center bg-[var(--bg-subtle)]';
   const currentMediaKind = presentation.currentKind;
   const previousMediaKind =
-    previousIndex !== null ? (state?.mediaKinds?.[previousIndex] ?? 'image') : 'image';
+    previousIndex !== null ? (state.mediaKinds?.[previousIndex] ?? 'image') : 'image';
 
   const stopStagePointer = (event: ReactPointerEvent<HTMLElement>) => {
     event.stopPropagation();
+  };
+
+  const bottomChromeProps = {
+    state,
+    images,
+    index,
+    displayIndex,
+    dualMode,
+    dualIndex,
+    onGoToIndex: goToIndex,
+    onDualIndexChange: setDualIndex,
+    tutorialVisible,
+    helpOpen,
+    onShowShortcuts: () => setHelpOpen(true),
+    onDismissTutorial: () => setTutorialVisible(false),
+    slideChrome,
+    histogramOpen,
+    histogramLoading,
+    histogramError,
+    histogram,
+    onHistogramClose: () => setHistogramOpen(false),
+    metaOpen,
+    noteDraft,
+    onNoteDraftChange: setNoteDraft,
+    preferFullRes,
+    hasDistinctFullRes,
+    fullResLoading,
+    copyFlash,
+    flashCopy,
+    slideshowEnabled,
+    slideshow,
+    transition,
+    transitionOptions,
+    isFullscreen,
+    onPauseSlideshow: pauseSlideshow,
+    onToggleFullscreen: toggleFullscreenPresentation,
+    slideChromeBar,
+    currentOriginalUrl,
+    currentDownloadUrl,
+    onDownloadImage,
+    currentMediaKind,
+    canGoPrevious,
+    canGoNext,
   };
 
   const renderImageStage = (stageClassName: string) => (
@@ -258,8 +368,8 @@ export default function ImageLightbox({
       previousMediaKind={previousMediaKind}
       enterClass={enterClass}
       exitClass={exitClass}
-      mediaKinds={state?.mediaKinds}
-      thumbImages={state?.thumbImages}
+      mediaKinds={state.mediaKinds}
+      thumbImages={state.thumbImages}
       fitMode={fitMode}
       pan={pan}
       dragging={dragging}
@@ -269,7 +379,7 @@ export default function ImageLightbox({
       slideChrome={slideChrome}
       currentImageLoaded={currentImageLoaded}
       preferFullRes={preferFullRes}
-      downloadFilename={state?.downloadFilenames?.[displayIndex]}
+      downloadFilename={state.downloadFilenames?.[displayIndex]}
       htmlVideoFailed={htmlVideoFailed}
       onHtmlVideoFailedChange={setHtmlVideoFailed}
       onCurrentImageLoadedChange={setCurrentImageLoaded}
@@ -286,7 +396,7 @@ export default function ImageLightbox({
         className="fixed inset-0 z-[120] flex flex-col bg-black text-white"
         role="dialog"
         aria-modal="true"
-        aria-label={state?.title ?? 'Fullscreen slideshow'}
+        aria-label={state.title ?? 'Fullscreen slideshow'}
         style={
           {
             '--lightbox-transition-duration': `${transitionMs}ms`,
@@ -336,132 +446,7 @@ export default function ImageLightbox({
           />
         </div>
 
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[3] bg-gradient-to-t from-black/85 via-black/45 to-transparent px-4 pb-4 pt-12 sm:px-6">
-          <div className="pointer-events-auto flex max-h-[min(48vh,30rem)] flex-col gap-2">
-            <div className="sticky top-0 z-[1] shrink-0 bg-gradient-to-b from-black/70 to-transparent pb-1">
-              {state ? (
-                <ImageLightboxFilmstrip
-                  compact
-                  images={images}
-                  index={index}
-                  state={state}
-                  dualMode={dualMode}
-                  dualIndex={dualIndex}
-                  onGoToIndex={goToIndex}
-                  onDualIndexChange={setDualIndex}
-                />
-              ) : null}
-            </div>
-            <div className="min-h-0 space-y-2 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
-              <ImageLightboxTutorialTip
-                compact
-                tutorialVisible={tutorialVisible}
-                helpOpen={helpOpen}
-                onShowShortcuts={() => setHelpOpen(true)}
-                onDismiss={() => setTutorialVisible(false)}
-              />
-              <ImageLightboxJobBadge compact job={slideChrome?.job} />
-              <ImageLightboxHistogramPanel
-                compact
-                histogramOpen={histogramOpen}
-                histogramLoading={histogramLoading}
-                histogramError={histogramError}
-                histogram={histogram}
-                onClose={() => setHistogramOpen(false)}
-              />
-              <ImageLightboxMetaPanel
-                compact
-                metaOpen={metaOpen}
-                meta={slideChrome?.meta}
-                onNoteChange={slideChrome?.onNoteChange}
-                onCopyPrompt={slideChrome?.onCopyPrompt}
-                onCopyNegative={slideChrome?.onCopyNegative}
-                note={slideChrome?.note}
-                noteDraft={noteDraft}
-                onNoteDraftChange={setNoteDraft}
-                preferFullRes={preferFullRes}
-                hasDistinctFullRes={hasDistinctFullRes}
-                fullResLoading={fullResLoading}
-                copyFlash={copyFlash}
-                flashCopy={flashCopy}
-              />
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <ImageLightboxSlideshowControls
-                    compact
-                    slideshowEnabled={slideshowEnabled}
-                    slideshow={slideshow}
-                    transition={transition}
-                    transitionOptions={transitionOptions}
-                    isFullscreen={isFullscreen}
-                    onPauseSlideshow={pauseSlideshow}
-                    onToggleFullscreen={toggleFullscreenPresentation}
-                  />
-                  {/* Zoom presets touch zoomRef inside click handlers only. */}
-                  {}
-                  <ImageLightboxSlideChromeBar
-                    compact
-                    slideChrome={slideChrome}
-                    chromeCompact={chromeCompact}
-                    actionsOpen={actionsOpen}
-                    metaOpen={metaOpen}
-                    helpOpen={helpOpen}
-                    moreOpen={moreOpen}
-                    baOpen={baOpen}
-                    dualMode={dualMode}
-                    fitMode={fitMode}
-                    histogramOpen={histogramOpen}
-                    preferFullRes={preferFullRes}
-                    fullResLoading={fullResLoading}
-                    hasDistinctFullRes={hasDistinctFullRes}
-                    currentMediaKind={currentMediaKind}
-                    imagesLength={images.length}
-                    index={index}
-                    onMetaOpenChange={setMetaOpen}
-                    onActionsOpenChange={setActionsOpen}
-                    onChromeCompactChange={setChromeCompact}
-                    onHelpOpenChange={setHelpOpen}
-                    onMoreOpenChange={setMoreOpen}
-                    onBaOpenChange={setBaOpen}
-                    onDualModeChange={setDualMode}
-                    onDualIndexChange={setDualIndex}
-                    onFitModeChange={setFitMode}
-                    onHistogramOpenChange={setHistogramOpen}
-                    onPreferFullResChange={setPreferFullRes}
-                    onFullResLoadingChange={setFullResLoading}
-                    onCurrentImageLoadedChange={setCurrentImageLoaded}
-                    onLoadHistogram={() => {
-                      void loadHistogram();
-                    }}
-                    onApplyZoomPreset={applyZoomPreset}
-                  />
-                </div>
-                <div className="flex flex-wrap items-center gap-3">
-                  {currentOriginalUrl ? (
-                    <a
-                      href={currentOriginalUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="type-caption text-white/70 underline-offset-4 transition-colors hover:text-white hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-                    >
-                      Open original
-                    </a>
-                  ) : null}
-                  {onDownloadImage && currentDownloadUrl ? (
-                    <Button
-                      variant="secondary"
-                      className="!min-h-9 px-3 type-caption"
-                      onClick={() => void onDownloadImage(displayIndex)}
-                    >
-                      Download (D)
-                    </Button>
-                  ) : null}
-                  <p className="type-caption text-white/45">Press ? for shortcuts</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <ImageLightboxBottomChrome compact {...bottomChromeProps} />
       </div>,
       document.body
     );
@@ -473,12 +458,11 @@ export default function ImageLightbox({
       className="fixed inset-0 z-[120] flex items-center justify-center p-2 sm:p-4"
       role="dialog"
       aria-modal="true"
-      aria-label={state?.title ?? 'Image preview'}
+      aria-label={state.title ?? 'Image preview'}
       data-testid="image-lightbox"
       style={
         {
           '--lightbox-transition-duration': `${transitionMs}ms`,
-          // Stage is flex-sized; image fills remaining space above chrome.
           '--lightbox-image-max-h': '100%',
         } as CSSProperties
       }
@@ -538,156 +522,7 @@ export default function ImageLightbox({
           />
         </div>
 
-        <div className="flex max-h-[min(46vh,28rem)] shrink-0 flex-col gap-2 pb-0.5">
-          <div className="sticky top-0 z-[1] shrink-0 border-b border-[var(--border-subtle)]/50 bg-[var(--bg-base)]/90 pb-1.5 backdrop-blur-md">
-            {state ? (
-              <ImageLightboxFilmstrip
-                images={images}
-                index={index}
-                state={state}
-                dualMode={dualMode}
-                dualIndex={dualIndex}
-                onGoToIndex={goToIndex}
-                onDualIndexChange={setDualIndex}
-              />
-            ) : null}
-          </div>
-          <div className="flex min-h-0 flex-col gap-2 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
-            <ImageLightboxTutorialTip
-              tutorialVisible={tutorialVisible}
-              helpOpen={helpOpen}
-              onShowShortcuts={() => setHelpOpen(true)}
-              onDismiss={() => setTutorialVisible(false)}
-            />
-            <ImageLightboxJobBadge job={slideChrome?.job} />
-            <ImageLightboxHistogramPanel
-              histogramOpen={histogramOpen}
-              histogramLoading={histogramLoading}
-              histogramError={histogramError}
-              histogram={histogram}
-              onClose={() => setHistogramOpen(false)}
-            />
-            <ImageLightboxMetaPanel
-              metaOpen={metaOpen}
-              meta={slideChrome?.meta}
-              onNoteChange={slideChrome?.onNoteChange}
-              onCopyPrompt={slideChrome?.onCopyPrompt}
-              onCopyNegative={slideChrome?.onCopyNegative}
-              note={slideChrome?.note}
-              noteDraft={noteDraft}
-              onNoteDraftChange={setNoteDraft}
-              preferFullRes={preferFullRes}
-              hasDistinctFullRes={hasDistinctFullRes}
-              fullResLoading={fullResLoading}
-              copyFlash={copyFlash}
-              flashCopy={flashCopy}
-            />
-
-            <div className="flex shrink-0 flex-col gap-2">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                {images.length > 1 ? (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <ImageLightboxSlideshowControls
-                      slideshowEnabled={slideshowEnabled}
-                      slideshow={slideshow}
-                      transition={transition}
-                      transitionOptions={transitionOptions}
-                      isFullscreen={isFullscreen}
-                      onPauseSlideshow={pauseSlideshow}
-                      onToggleFullscreen={toggleFullscreenPresentation}
-                    />
-                    <Button
-                      variant="secondary"
-                      className="!min-h-9 px-3 type-caption"
-                      disabled={!canGoPrevious}
-                      onClick={() => goToIndex(index - 1, true)}
-                    >
-                      Previous
-                    </Button>
-                    <p className="type-caption text-[var(--text-tertiary)]">
-                      Image {index + 1} of {images.length}
-                      {dualMode && dualIndex != null ? ` · pair ${dualIndex + 1}` : ''}
-                      {preferFullRes ? ' · full-res' : ''}
-                      {fullResLoading ? ' · loading…' : ''}
-                    </p>
-                    <Button
-                      variant="secondary"
-                      className="!min-h-9 px-3 type-caption"
-                      disabled={!canGoNext}
-                      onClick={() => goToIndex(index + 1, true)}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                ) : (
-                  <span />
-                )}
-                <div className="flex flex-wrap gap-2">
-                  {currentOriginalUrl ? (
-                    <a
-                      href={currentOriginalUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="ui-btn-ghost !min-h-9 px-4 type-caption focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-                    >
-                      Open original
-                    </a>
-                  ) : null}
-                  {onDownloadImage && currentDownloadUrl ? (
-                    <Button
-                      variant="secondary"
-                      className="!min-h-9 px-3 type-caption focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-                      onClick={() => void onDownloadImage(displayIndex)}
-                    >
-                      Download (D)
-                    </Button>
-                  ) : null}
-                </div>
-              </div>
-              {slideChrome || isStillLightboxKind(currentMediaKind) ? (
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  {}
-                  <ImageLightboxSlideChromeBar
-                    slideChrome={slideChrome}
-                    chromeCompact={chromeCompact}
-                    actionsOpen={actionsOpen}
-                    metaOpen={metaOpen}
-                    helpOpen={helpOpen}
-                    moreOpen={moreOpen}
-                    baOpen={baOpen}
-                    dualMode={dualMode}
-                    fitMode={fitMode}
-                    histogramOpen={histogramOpen}
-                    preferFullRes={preferFullRes}
-                    fullResLoading={fullResLoading}
-                    hasDistinctFullRes={hasDistinctFullRes}
-                    currentMediaKind={currentMediaKind}
-                    imagesLength={images.length}
-                    index={index}
-                    onMetaOpenChange={setMetaOpen}
-                    onActionsOpenChange={setActionsOpen}
-                    onChromeCompactChange={setChromeCompact}
-                    onHelpOpenChange={setHelpOpen}
-                    onMoreOpenChange={setMoreOpen}
-                    onBaOpenChange={setBaOpen}
-                    onDualModeChange={setDualMode}
-                    onDualIndexChange={setDualIndex}
-                    onFitModeChange={setFitMode}
-                    onHistogramOpenChange={setHistogramOpen}
-                    onPreferFullResChange={setPreferFullRes}
-                    onFullResLoadingChange={setFullResLoading}
-                    onCurrentImageLoadedChange={setCurrentImageLoaded}
-                    onLoadHistogram={() => {
-                      void loadHistogram();
-                    }}
-                    onApplyZoomPreset={applyZoomPreset}
-                  />
-                  <p className="type-caption text-[var(--text-muted)]">Press ? for shortcuts</p>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        </div>
+        <ImageLightboxBottomChrome {...bottomChromeProps} />
       </div>
     </div>,
     document.body
