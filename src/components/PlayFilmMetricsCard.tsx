@@ -9,11 +9,13 @@ import {
   summarizePlayFunnel,
   type LocalObservabilityCounters,
 } from '@/lib/local-observability';
+import { loadPlayCampaignState, PLAY_CAMPAIGN_STEPS } from '@/lib/play-campaign';
 import {
   daysFromCampaignStartToFirstFilmCut,
   firstFilmCutWithinDays,
   loadPlayMetrics,
   PLAY_METRICS_UPDATED_EVENT,
+  resolveNextPlayAction,
   type PlayMetrics,
 } from '@/lib/play-metrics';
 
@@ -37,12 +39,19 @@ function formatRate(rate: number | null): string {
 export default function PlayFilmMetricsCard() {
   const [metrics, setMetrics] = useState<PlayMetrics>({ version: 1 });
   const [funnel, setFunnel] = useState<LocalObservabilityCounters | null>(null);
+  const [campaignStep, setCampaignStep] = useState<{
+    characterId: string;
+    lookPackId?: string;
+    stepIndex: number;
+    completedAt?: number;
+  } | null>(null);
 
   useEffect(() => {
     const refresh = () => {
       scheduleAfterCommit(() => {
         setMetrics(loadPlayMetrics());
         setFunnel(loadLocalObservability());
+        setCampaignStep(loadPlayCampaignState());
       });
     };
     refresh();
@@ -64,10 +73,21 @@ export default function PlayFilmMetricsCard() {
     (funnel?.filmCutDay || 0) > 0 ||
     (funnel?.filmCutRoleplay || 0) > 0 ||
     (funnel?.campaignMaxStep || 0) > 0;
+  const hasCampaign = Boolean(campaignStep?.characterId);
+  const empty = !hasTiming && !hasFunnel && !hasCampaign;
 
-  if (!hasTiming && !hasFunnel) {
-    return null;
-  }
+  const next = resolveNextPlayAction({
+    metrics,
+    funnel,
+    campaign: campaignStep,
+  });
+
+  const currentIndex = Math.max(
+    campaignStep?.stepIndex ?? -1,
+    (funnel?.campaignMaxStep || 0) > 0 ? (funnel?.campaignMaxStep || 1) - 1 : -1,
+    0
+  );
+  const completed = Boolean(campaignStep?.completedAt);
 
   const days = daysFromCampaignStartToFirstFilmCut(metrics);
   const withinWeek = firstFilmCutWithinDays(7, metrics);
@@ -75,7 +95,7 @@ export default function PlayFilmMetricsCard() {
     days === null ? (metrics.firstPlayCampaignAt ? 'Campaign started' : '—') : formatDays(days);
   const detail =
     days === null
-      ? 'Cut a Day or Roleplay film to close the loop.'
+      ? next.reason
       : withinWeek
         ? 'First film cut within a week of starting Play.'
         : 'First film cut after the first Play campaign.';
@@ -86,34 +106,88 @@ export default function PlayFilmMetricsCard() {
       description="Time and conversion from campaign start to Cut film / Save to Cast."
       data-testid="play-film-metrics"
     >
-      <div className="grid gap-[var(--group-gap)] sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Campaign → first film" value={value} detail={detail} />
-        <StatCard
-          label="First film cut"
-          value={metrics.firstFilmCutAt ? 'Done' : 'Not yet'}
-          detail={
-            metrics.firstFilmCutAt
-              ? new Date(metrics.firstFilmCutAt).toLocaleString()
-              : 'Open Day or Roleplay and Cut film.'
-          }
-        />
-        <StatCard label="Cut rate" value={formatRate(rates.cutRate)} detail={rates.headline} />
-        <StatCard
-          label="Save-to-Cast rate"
-          value={formatRate(rates.saveRate)}
-          detail={`Keep→cut ${formatRate(rates.keepToCutRate)} · ${funnel?.saveToCast ?? 0} saves`}
-        />
-      </div>
+      {empty ? (
+        <p className="type-caption text-[var(--text-muted)]" data-testid="play-metrics-empty">
+          No Play funnel events yet. Heal & ready, queue a still, then start a campaign.
+        </p>
+      ) : (
+        <div className="grid gap-[var(--group-gap)] sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard label="Campaign → first film" value={value} detail={detail} />
+          <StatCard
+            label="First film cut"
+            value={metrics.firstFilmCutAt ? 'Done' : 'Not yet'}
+            detail={
+              metrics.firstFilmCutAt
+                ? new Date(metrics.firstFilmCutAt).toLocaleString()
+                : 'Open Day or Roleplay and Cut film.'
+            }
+          />
+          <StatCard label="Cut rate" value={formatRate(rates.cutRate)} detail={rates.headline} />
+          <StatCard
+            label="Save-to-Cast rate"
+            value={formatRate(rates.saveRate)}
+            detail={`Keep→cut ${formatRate(rates.keepToCutRate)} · ${funnel?.saveToCast ?? 0} saves`}
+          />
+        </div>
+      )}
+
+      <ol
+        className="mt-3 flex flex-wrap gap-2"
+        data-testid="play-funnel-steps"
+        aria-label="Play campaign steps"
+      >
+        {PLAY_CAMPAIGN_STEPS.map((step, index) => {
+          const done = completed || index < currentIndex;
+          const stall = !completed && index === currentIndex && (hasCampaign || hasFunnel);
+          return (
+            <li
+              key={step.id}
+              data-testid={`play-funnel-step-${step.id}`}
+              data-active={stall ? 'true' : 'false'}
+              data-done={done ? 'true' : 'false'}
+              className={`rounded-[var(--radius-md)] border px-2.5 py-1.5 type-caption ${
+                stall
+                  ? 'border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)]'
+                  : done
+                    ? 'border-[var(--tint-success-border)] text-[var(--tint-success-text)]'
+                    : 'border-[var(--border-subtle)] text-[var(--text-muted)]'
+              }`}
+            >
+              {index + 1}. {step.label}
+            </li>
+          );
+        })}
+      </ol>
+
       {(rates.dayShare != null || rates.roleplayShare != null || rates.maxStep > 0) && (
         <p className="mt-2 type-caption text-[var(--text-muted)]" data-testid="play-funnel-source">
           Day {formatRate(rates.dayShare)} · Roleplay {formatRate(rates.roleplayShare)} · max step{' '}
           {rates.maxStep}
         </p>
       )}
-      <div className="mt-2">
-        <ButtonLink href="/play" size="sm" variant="secondary">
-          Open Play campaign
+
+      <p className="mt-2 type-caption text-[var(--text-secondary)]" data-testid="play-next-reason">
+        {next.reason}
+      </p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <ButtonLink href={next.href} size="sm" variant="primary" data-testid="play-next-cta">
+          {next.label}
         </ButtonLink>
+        {next.href !== '/play' ? (
+          <ButtonLink href="/play" size="sm" variant="secondary">
+            Open Play campaign
+          </ButtonLink>
+        ) : null}
+        {empty ? (
+          <ButtonLink
+            href="/settings?tab=comfyui&section=connection"
+            size="sm"
+            variant="ghost"
+            data-testid="play-metrics-heal"
+          >
+            Heal & ready
+          </ButtonLink>
+        ) : null}
       </div>
     </ToolSection>
   );

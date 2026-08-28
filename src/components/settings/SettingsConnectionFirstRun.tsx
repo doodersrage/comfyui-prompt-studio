@@ -50,8 +50,10 @@ export default function SettingsConnectionFirstRun({
           </ButtonLink>
         </div>
       </div>
-      {healBusy && healProgress ? (
-        <p className="mt-2 type-caption text-[var(--accent-text)]">{healProgress}</p>
+      {healProgress ? (
+        <p className="mt-2 type-caption text-[var(--accent-text)]" data-testid="heal-status">
+          {healProgress}
+        </p>
       ) : null}
       <ul className="mt-3 grid gap-1.5 sm:grid-cols-2">
         <li className="flex items-start gap-2 text-xs text-[var(--text-secondary)]">

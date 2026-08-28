@@ -108,8 +108,10 @@ export default function SettingsOverviewTab({
               Heal & ready
             </Button>
           </div>
-          {healBusy && healProgress ? (
-            <p className="mt-2 type-caption text-[var(--accent-text)]">{healProgress}</p>
+          {healProgress ? (
+            <p className="mt-2 type-caption text-[var(--accent-text)]" data-testid="heal-status">
+              {healProgress}
+            </p>
           ) : null}
           {health ? (
             <ul className="mt-3 grid gap-1.5 sm:grid-cols-2">

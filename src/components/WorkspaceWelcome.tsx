@@ -167,7 +167,10 @@ export default function WorkspaceWelcome() {
               and checks LLM + Comfy health. You can skip and finish later from Settings → Overview.
             </p>
             {setupMessage ? (
-              <p className="mt-3 rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-muted)] px-3 py-2 type-caption text-[var(--text-muted)]">
+              <p
+                className="mt-3 rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-muted)] px-3 py-2 type-caption text-[var(--text-muted)]"
+                data-testid="welcome-heal-status"
+              >
                 {setupMessage}
               </p>
             ) : null}

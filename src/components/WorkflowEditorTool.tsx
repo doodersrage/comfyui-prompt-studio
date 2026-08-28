@@ -331,144 +331,155 @@ export default function WorkflowEditorTool() {
   }, [actions, buildWorkflowFromGraph, onSaveLibrary]);
 
   return (
-    <ToolLayout
-      accent={ACCENT}
-      badge={<ToolBadge accent={ACCENT}>{TOOL_SETUP_LABELS.workflowEditor}</ToolBadge>}
-      title="Node graph editor"
-      description={description}
-    >
-      <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.workflowEditor} />
-      <ToolSection title="Source">
-        <div className="flex flex-wrap gap-2">
-          <select
-            className="ui-input min-h-10 min-w-[220px]"
-            value={selectedId}
-            onChange={event => setSelectedId(event.target.value)}
-          >
-            <option value="">Library workflow…</option>
-            {library.map(file => (
-              <option key={file.id} value={file.id}>
-                {file.name}
-              </option>
-            ))}
-          </select>
-          <Button type="button" variant="secondary" onClick={onLoadLibrary}>
-            Open
-          </Button>
-          <Button type="button" variant="secondary" onClick={onLoadJson}>
-            Parse JSON
-          </Button>
-          <Button type="button" variant="secondary" onClick={onSaveLibrary}>
-            Save to library
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={onOptimize}
-            disabled={nodes.length === 0 || busyAction === 'optimize'}
-          >
-            Optimize
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={onSetActive}
-            disabled={nodes.length === 0}
-          >
-            Set active
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => void onDryRun()}
-            disabled={nodes.length === 0 || busyAction === 'dry-run'}
-          >
-            Dry-run
-          </Button>
-          <PrimaryButton type="button" onClick={() => void onQueue()} disabled={nodes.length === 0}>
-            Queue
-          </PrimaryButton>
-        </div>
-        <FieldLabel>Workflow JSON</FieldLabel>
-        <TextArea
-          rows={4}
-          value={rawJson}
-          onChange={event => setRawJson(event.target.value)}
-          className="font-mono text-xs"
-          placeholder="Paste Comfy API-format workflow JSON…"
-        />
-        {status ? <p className="text-xs text-[var(--text-muted)]">{status}</p> : null}
-      </ToolSection>
+    <div data-testid="workflow-editor">
+      <ToolLayout
+        accent={ACCENT}
+        badge={<ToolBadge accent={ACCENT}>{TOOL_SETUP_LABELS.workflowEditor}</ToolBadge>}
+        title="Node graph editor"
+        description={description}
+      >
+        <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.workflowEditor} />
+        <ToolSection title="Source">
+          <div className="flex flex-wrap gap-2">
+            <select
+              className="ui-input min-h-10 min-w-[220px]"
+              value={selectedId}
+              onChange={event => setSelectedId(event.target.value)}
+            >
+              <option value="">Library workflow…</option>
+              {library.map(file => (
+                <option key={file.id} value={file.id}>
+                  {file.name}
+                </option>
+              ))}
+            </select>
+            <Button type="button" variant="secondary" onClick={onLoadLibrary}>
+              Open
+            </Button>
+            <Button type="button" variant="secondary" onClick={onLoadJson}>
+              Parse JSON
+            </Button>
+            <Button type="button" variant="secondary" onClick={onSaveLibrary}>
+              Save to library
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onOptimize}
+              disabled={nodes.length === 0 || busyAction === 'optimize'}
+            >
+              Optimize
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onSetActive}
+              disabled={nodes.length === 0}
+            >
+              Set active
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => void onDryRun()}
+              disabled={nodes.length === 0 || busyAction === 'dry-run'}
+            >
+              Dry-run
+            </Button>
+            <PrimaryButton
+              type="button"
+              onClick={() => void onQueue()}
+              disabled={nodes.length === 0}
+              data-testid="workflow-editor-queue"
+            >
+              Queue
+            </PrimaryButton>
+          </div>
+          <FieldLabel>Workflow JSON</FieldLabel>
+          <TextArea
+            rows={4}
+            value={rawJson}
+            onChange={event => setRawJson(event.target.value)}
+            className="font-mono text-xs"
+            placeholder="Paste Comfy API-format workflow JSON…"
+          />
+          {status ? (
+            <p className="text-xs text-[var(--text-muted)]" data-testid="workflow-editor-status">
+              {status}
+            </p>
+          ) : null}
+        </ToolSection>
 
-      <ToolSection title="Graph">
-        <div className="ui-workflow-canvas h-[480px]">
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            nodeTypes={nodeTypes}
-            onNodeClick={(_, node) => setSelectedNodeId(node.id)}
-            fitView
-            colorMode={flowTheme}
-          >
-            <Background
-              gap={18}
-              color={flowTheme === 'light' ? 'rgb(15 23 42 / 0.12)' : 'rgb(255 255 255 / 0.08)'}
-            />
-            <Controls className="!overflow-hidden !rounded-xl !border ![border-color:var(--border-subtle)] ![background:var(--bg-elevated)]" />
-            <MiniMap
-              pannable
-              zoomable
-              className="!overflow-hidden !rounded-xl !border ![border-color:var(--border-subtle)]"
-              maskColor={flowTheme === 'light' ? 'rgb(243 244 248 / 0.7)' : 'rgb(12 12 16 / 0.7)'}
-              nodeColor={() => 'var(--accent)'}
-            />
-          </ReactFlow>
-        </div>
-      </ToolSection>
-
-      {selectedRf ? (
-        <ToolSection title={`Edit · ${selectedRf.data.title}`}>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {listEditableWidgets(selectedRf.data.inputs).map(widget => (
-              <label key={widget.key} className="space-y-1 text-xs text-[var(--text-muted)]">
-                {widget.key}
-                <TextInput
-                  value={String(widget.value)}
-                  onChange={event => {
-                    const raw = event.target.value;
-                    const asNum = Number(raw);
-                    const nextValue =
-                      typeof widget.value === 'number' && Number.isFinite(asNum)
-                        ? asNum
-                        : typeof widget.value === 'boolean'
-                          ? raw === 'true'
-                          : raw;
-                    setNodes(
-                      current =>
-                        updateWorkflowNodeWidget(
-                          current as WorkflowRfNode[],
-                          selectedRf.id,
-                          widget.key,
-                          nextValue
-                        ) as Node[]
-                    );
-                  }}
-                />
-              </label>
-            ))}
+        <ToolSection title="Graph">
+          <div className="ui-workflow-canvas h-[480px]">
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              nodeTypes={nodeTypes}
+              onNodeClick={(_, node) => setSelectedNodeId(node.id)}
+              fitView
+              colorMode={flowTheme}
+            >
+              <Background
+                gap={18}
+                color={flowTheme === 'light' ? 'rgb(15 23 42 / 0.12)' : 'rgb(255 255 255 / 0.08)'}
+              />
+              <Controls className="!overflow-hidden !rounded-xl !border ![border-color:var(--border-subtle)] ![background:var(--bg-elevated)]" />
+              <MiniMap
+                pannable
+                zoomable
+                className="!overflow-hidden !rounded-xl !border ![border-color:var(--border-subtle)]"
+                maskColor={flowTheme === 'light' ? 'rgb(243 244 248 / 0.7)' : 'rgb(12 12 16 / 0.7)'}
+                nodeColor={() => 'var(--accent)'}
+              />
+            </ReactFlow>
           </div>
         </ToolSection>
-      ) : null}
-      <MobileStickyQueueBar
-        disabled={nodes.length === 0}
-        label="Queue workflow"
-        status={actions.comfyUiStatus ?? status}
-        primaryGenerate
-        onQueue={() => void onQueue()}
-      />
-    </ToolLayout>
+
+        {selectedRf ? (
+          <ToolSection title={`Edit · ${selectedRf.data.title}`}>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {listEditableWidgets(selectedRf.data.inputs).map(widget => (
+                <label key={widget.key} className="space-y-1 text-xs text-[var(--text-muted)]">
+                  {widget.key}
+                  <TextInput
+                    value={String(widget.value)}
+                    onChange={event => {
+                      const raw = event.target.value;
+                      const asNum = Number(raw);
+                      const nextValue =
+                        typeof widget.value === 'number' && Number.isFinite(asNum)
+                          ? asNum
+                          : typeof widget.value === 'boolean'
+                            ? raw === 'true'
+                            : raw;
+                      setNodes(
+                        current =>
+                          updateWorkflowNodeWidget(
+                            current as WorkflowRfNode[],
+                            selectedRf.id,
+                            widget.key,
+                            nextValue
+                          ) as Node[]
+                      );
+                    }}
+                  />
+                </label>
+              ))}
+            </div>
+          </ToolSection>
+        ) : null}
+        <MobileStickyQueueBar
+          disabled={nodes.length === 0}
+          label="Queue workflow"
+          status={actions.comfyUiStatus ?? status}
+          primaryGenerate
+          onQueue={() => void onQueue()}
+        />
+      </ToolLayout>
+    </div>
   );
 }

@@ -597,13 +597,15 @@ export default function SettingsTool() {
       setModelUpscaleMapText(texts.upscale);
       setModelControlNetMapText(texts.controlNet);
       setStatus(result.message);
+      setHealProgress(result.message);
       setWorkflowHealthRefresh(n => n + 1);
       await refreshHealth();
     } catch (err) {
-      setStatus(err instanceof Error ? err.message : 'Heal & ready failed.');
+      const message = err instanceof Error ? err.message : 'Heal & ready failed.';
+      setStatus(message);
+      setHealProgress(message);
     } finally {
       setHealBusy(false);
-      setHealProgress(null);
     }
   }, [refreshHealth, settings.apiUrl, settings.useServerDefaults, updateSharedSettings]);
 

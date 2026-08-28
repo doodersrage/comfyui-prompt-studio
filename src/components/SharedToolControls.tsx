@@ -19,12 +19,10 @@ import {
   filterModelsForQueueTool,
   isSceneGenerationModel,
   resolvePreferredImg2imgModel,
-  resolveTxt2iCounterpartForGenerate,
   shouldUseSceneGenerationModel,
   toolIgnoresSystemWorkflowSnap,
 } from '@/lib/queue-tool-model';
 import {
-  isBooguEditModel,
   isComposeCapableModel,
   isEditCapableModel,
   isImg2imgCapableModel,
@@ -44,8 +42,6 @@ import { normalizeAnatomyGuardMode, type AnatomyGuardMode } from '@/lib/anatomy-
 import {
   normalizeQueueQualityProfile,
   formatQueueQualityProfileHint,
-  formatQueueQualityProfileLabel,
-  QUEUE_QUALITY_PROFILE_OPTIONS,
   type QueueQualityProfile,
 } from '@/lib/queue-quality-profile';
 import { normalizeRenderRealismMode, type RenderRealismMode } from '@/lib/render-realism';
@@ -59,7 +55,6 @@ import {
   saveSharedSettings,
 } from '@/lib/settings-cache';
 import {
-  applySessionRecipeShared,
   latestGenerateLookRecipe,
   SESSION_RECIPES_UPDATED_EVENT,
   type SessionRecipe,
@@ -77,15 +72,12 @@ import { scanAndAdaptSystemWorkflowInventory } from '@/lib/comfyui-runtime-for-m
 import { loadComfyWorkflowFiles } from '@/lib/comfyui-workflow-files';
 import { accentRingClass } from '@/lib/tool-theme';
 import { CollapsibleSection } from '@/components/ui/ToolPageShell';
-import { ChipButton, FieldLabel } from '@/components/ui/Field';
-import { Button } from '@/components/ui/Button';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import { isBrowserStorageReady, whenBrowserStorageReady } from '@/lib/browser-storage';
 import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
 import { workspaceControlsDefaultOpen } from '@/lib/workspace-mode';
 import { resolveModelStackFamily } from '@/lib/workflow-stack-fingerprint';
-import { modelSupportsSessionIdentityLock } from '@/lib/compose-identity-lock';
 import { isQwenLightningModel } from '@/lib/model-sampling-patch';
 import {
   resolveEffectiveSessionLoraStrengthOverrides,
@@ -99,39 +91,20 @@ import {
   DIFFUSERS_DEFAULT_MODEL,
   resolveStudioModelForDiffusersAsset,
 } from '@/lib/diffusers-defaults';
-import DiffusersSamplingReadout from '@/components/DiffusersSamplingReadout';
 import SharedAdvancedSections from '@/components/shared-tool-controls/SharedAdvancedSections';
 import SharedIdentitySurface from '@/components/shared-tool-controls/SharedIdentitySurface';
+import SharedModelSurface from '@/components/shared-tool-controls/SharedModelSurface';
+import SharedPrimaryControls from '@/components/shared-tool-controls/SharedPrimaryControls';
+import SharedQueueQualityBlock from '@/components/shared-tool-controls/SharedQueueQualityBlock';
 import type { SharedToolControlsProps } from '@/components/shared-tool-controls/types';
 import { SUGGESTED_MODEL_CHECKPOINT_MAP } from '@/lib/model-checkpoint-map';
 import {
   normalizeSessionLoraStrengthOverrides,
   type SessionLoraStrengthOverrides,
 } from '@/lib/lora-stack';
-import { engineDisplayName, isCloudEngine } from '@/lib/engine/capabilities';
-import { resolveCloudTxt2ImgModel } from '@/lib/engine-settings';
-import CharacterOsPicker from '@/components/CharacterOsPicker';
+import { isCloudEngine } from '@/lib/engine/capabilities';
 
-const ModelSelector = dynamic(() => import('@/components/ModelSelector'), {
-  ssr: false,
-  loading: () => <div className="h-10 animate-pulse rounded-xl bg-[var(--surface-muted)]/60" />,
-});
-const DiffusersCheckpointSelector = dynamic(
-  () => import('@/components/DiffusersCheckpointSelector'),
-  {
-    ssr: false,
-    loading: () => <div className="h-10 animate-pulse rounded-xl bg-[var(--surface-muted)]/60" />,
-  }
-);
 const ComfyWorkflowSelector = dynamic(() => import('@/components/ComfyWorkflowSelector'), {
-  ssr: false,
-  loading: () => null,
-});
-const QueueRecipesPanel = dynamic(() => import('@/components/QueueRecipesPanel'), {
-  ssr: false,
-  loading: () => null,
-});
-const DiffusersQueueHint = dynamic(() => import('@/components/DiffusersQueueHint'), {
   ssr: false,
   loading: () => null,
 });
@@ -1187,289 +1160,61 @@ export default function SharedToolControls({
 
   return (
     <div className="ui-sidebar-dense ui-field-stack space-y-5">
-      <div className="space-y-3">
-        <FieldLabel
-          hint={
-            cloudEngine
-              ? `${engineDisplayName(shared.inferenceEngine)} ignores Comfy workflows, LoRAs, and live latents. Image 1 is sent as img2img when present.`
-              : shared.inferenceEngine === 'diffusers'
-                ? 'Optional Diffusers inventory (experimental). Prefer ComfyUI for Lightning quality/speed on 24GB.'
-                : systemPathActive
-                  ? undefined
-                  : shared.autoSelectWorkflowForModel !== false
-                    ? 'Choosing a model auto-selects its mapped ComfyUI workflow below (when configured).'
-                    : 'Shared across tools and remembered between page reloads.'
-          }
-        >
-          {cloudEngine
-            ? `${engineDisplayName(shared.inferenceEngine)} model`
-            : shared.inferenceEngine === 'diffusers'
-              ? 'Diffusers model (Qwen / Flux)'
-              : systemPathActive
-                ? 'Model'
-                : 'Target model'}
-        </FieldLabel>
-        {cloudEngine ? (
-          <div className="space-y-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)]/40 px-3 py-2.5">
-            <p className="text-sm text-[var(--text-primary)]">
-              {resolveCloudTxt2ImgModel(shared.inferenceEngine)}
-            </p>
-            <p className="text-xs leading-relaxed text-[var(--text-muted)]">
-              Cloud txt2img via {engineDisplayName(shared.inferenceEngine)}. Change the key and
-              model in{' '}
-              <a
-                href="/settings?tab=comfyui&section=inference-engine"
-                className="text-[var(--text-secondary)] underline-offset-2 hover:underline"
-              >
-                Settings → Inference engine
-              </a>
-              .
-            </p>
-          </div>
-        ) : shared.inferenceEngine === 'diffusers' && !roleplayVariant ? (
-          <DiffusersCheckpointSelector
-            value={diffusersSelectedAssetId}
-            onChange={handleDiffusersAssetChange}
-          />
-        ) : (
-          <ModelSelector
-            value={shared.model}
-            allowedModels={
-              pickerModels.length < COMFY_IMAGE_MODELS.length ? pickerModels : undefined
-            }
-            filterHint={modelFilterHint}
-            onShowAllModels={
-              categoryLocked || showAllModelsOverride || supportedModels.source === 'disabled'
-                ? undefined
-                : handleShowAllModels
-            }
-            onChange={handleModelChange}
-          />
-        )}
-        {!roleplayVariant && toolId !== 'audio' && toolId !== 'mesh' ? (
-          <CharacterOsPicker
-            shared={shared}
-            hints={recommendFromText}
-            onApply={patch => {
-              if (onSharedSettingsChange) {
-                onSharedSettingsChange(patch);
-              } else {
-                saveSharedSettings({
-                  ...loadSettingsCache().shared,
-                  ...patch,
-                });
-              }
-              if (patch.model && onModelChange) {
-                onModelChange(patch.model as ComfyImageModel);
-              }
-            }}
-          />
-        ) : null}
-        {shared.inferenceEngine === 'diffusers' && !roleplayVariant ? (
-          <DiffusersQueueHint workflowJson={selectedWorkflowJson} />
-        ) : null}
-        {!roleplayVariant &&
-        !cloudEngine &&
-        toolId === 'generate' &&
-        /qwen-image-edit-2511-lightning/i.test(shared.model) ? (
-          <div className="space-y-2 rounded-xl border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-3 py-2.5">
-            <p className="text-xs leading-relaxed text-[var(--tint-warning-text)]">
-              Edit-2511 Lightning on Generate runs as T2I (reference images disconnected). For clean
-              scene generation prefer{' '}
-              <span className="font-medium text-[var(--tint-warning-text)]">
-                Qwen-Image-2512 Lightning
-              </span>
-              ; keep Edit Lightning for Refine / img2img.
-            </p>
-            <Button
-              type="button"
-              variant="secondary"
-              className="h-8 px-3 text-xs"
-              onClick={() => handleModelChange(resolveTxt2iCounterpartForGenerate(shared.model))}
-            >
-              Switch to{' '}
-              {getComfyModelDefinition(resolveTxt2iCounterpartForGenerate(shared.model)).label}
-            </Button>
-          </div>
-        ) : null}
-        {!roleplayVariant && toolId === 'generate' && isBooguEditModel(shared.model) ? (
-          <div className="space-y-2 rounded-xl border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-3 py-2.5">
-            <p className="text-xs leading-relaxed text-[var(--tint-warning-text)]">
-              Boogu Edit is instruction TI2I only — upload a reference on{' '}
-              <span className="font-medium text-[var(--tint-warning-text)]">Refine</span>,{' '}
-              <span className="font-medium text-[var(--tint-warning-text)]">Compose</span>, or{' '}
-              <span className="font-medium text-[var(--tint-warning-text)]">Image → Prompt</span>{' '}
-              instead of Generate.
-            </p>
-          </div>
-        ) : null}
-      </div>
+      <SharedModelSurface
+        shared={shared}
+        cloudEngine={cloudEngine}
+        systemPathActive={systemPathActive}
+        roleplayVariant={roleplayVariant}
+        toolId={toolId}
+        diffusersSelectedAssetId={diffusersSelectedAssetId}
+        onDiffusersAssetChange={handleDiffusersAssetChange}
+        pickerModels={pickerModels}
+        modelFilterHint={modelFilterHint}
+        categoryLocked={categoryLocked}
+        showAllModelsOverride={showAllModelsOverride}
+        supportedModelsSource={supportedModels.source}
+        onShowAllModels={handleShowAllModels}
+        onModelChange={handleModelChange}
+        onCharacterModelChange={onModelChange}
+        recommendFromText={recommendFromText}
+        onSharedSettingsChange={onSharedSettingsChange}
+        selectedWorkflowJson={selectedWorkflowJson}
+      />
 
-      {!roleplayVariant ? (
-        <div className="space-y-3">
-          <FieldLabel
-            hint={
-              detailHelp ??
-              `Limits for ${selectedModel.label}: up to ${activeLimits.maxSentences} sentences, ~${activeLimits.maxChars} chars.`
-            }
-          >
-            Prompt detail
-          </FieldLabel>
-          <div className="flex flex-wrap gap-2">
-            {(
-              [
-                { label: 'Concise', value: 'concise' },
-                { label: 'Balanced', value: 'balanced' },
-                { label: 'Rich', value: 'rich' },
-              ] as const
-            ).map(preset => (
-              <ChipButton
-                key={preset.value}
-                active={shared.detail === preset.value}
-                onClick={() => onDetailChange(preset.value)}
-              >
-                {preset.label}
-              </ChipButton>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      {!roleplayVariant ? (
-        <div className="space-y-2">
-          <FieldLabel hint="How long the render takes and how much polish it gets.">
-            Quality
-          </FieldLabel>
-          <div className="flex flex-wrap gap-2">
-            {QUEUE_QUALITY_PROFILE_OPTIONS.filter(option => option.id !== 'followSettings').map(
-              option => (
-                <ChipButton
-                  key={option.id}
-                  active={queueQualityProfile === option.id}
-                  onClick={() => handleQueueQualityProfileChange(option.id)}
-                >
-                  {option.label}
-                </ChipButton>
-              )
-            )}
-          </div>
-          {systemPathActive && systemQualityHint ? (
-            <p className="text-xs leading-relaxed text-[var(--text-muted)]">{systemQualityHint}</p>
-          ) : null}
-        </div>
-      ) : null}
-
-      {lastLookRecipe && !roleplayVariant ? (
-        <div className="space-y-1.5">
-          <FieldLabel hint="Newest saved look from a 4–5★ still. Applies the same session stack on every image tool.">
-            Last look
-          </FieldLabel>
-          <ChipButton
-            active={false}
-            title={lastLookRecipe.label}
-            onClick={() => {
-              const recipe = latestGenerateLookRecipe() ?? lastLookRecipe;
-              const next = applySessionRecipeShared(loadSettingsCache().shared, recipe);
-              saveSharedSettings(next, { notify: true });
-              handleRecipesApplied(next);
-            }}
-          >
-            <span data-testid="last-generate-look" className="truncate">
-              {lastLookRecipe.label}
-            </span>
-          </ChipButton>
-        </div>
-      ) : null}
-
-      {modelSupportsSessionIdentityLock(shared.model) &&
-      toolId !== 'video' &&
-      toolId !== 'compose' &&
-      shared.ipAdapterImageFilename?.trim() ? (
-        <div className="flex flex-wrap items-center gap-2">
-          {shared.ipAdapterImageUrl?.trim() ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={shared.ipAdapterImageUrl}
-              alt=""
-              className="h-8 w-8 rounded-lg object-cover"
-            />
-          ) : null}
-          <span className="type-caption rounded-[var(--radius-full)] border border-[var(--accent-border)] bg-[var(--accent-muted)] px-2.5 py-1 text-[var(--accent-text)]">
-            Face locked
-          </span>
-          <Button
-            variant="ghost"
-            className="!min-h-8 px-2 type-caption"
-            onClick={() => {
-              const patch = {
-                ipAdapterImageFilename: '',
-                ipAdapterImageFilenames: [] as string[],
-                ipAdapterImageUrl: '',
-                ipAdapterComfyUrl: '',
-              };
-              if (onSharedSettingsChange) {
-                onSharedSettingsChange(patch);
-              } else {
-                saveSharedSettings({
-                  ...loadSettingsCache().shared,
-                  ...patch,
-                });
-              }
-            }}
-          >
-            Clear
-          </Button>
-        </div>
-      ) : null}
+      <SharedPrimaryControls
+        roleplayVariant={roleplayVariant}
+        shared={shared}
+        detailHelp={detailHelp}
+        modelLabel={selectedModel.label}
+        activeLimits={activeLimits}
+        onDetailChange={onDetailChange}
+        queueQualityProfile={queueQualityProfile}
+        onQueueQualityProfileChange={handleQueueQualityProfileChange}
+        systemPathActive={systemPathActive}
+        systemQualityHint={systemQualityHint}
+        lastLookRecipe={lastLookRecipe}
+        onRecipesApplied={handleRecipesApplied}
+        toolId={toolId}
+        onSharedSettingsChange={onSharedSettingsChange}
+      />
 
       {(() => {
-        const queueQualityBlock = cloudEngine ? (
-          <p className="text-xs leading-relaxed text-[var(--text-muted)]">
-            Cloud engines use the prompt and size from this tool. Draft/Final/Max do not patch a
-            Comfy graph.
-          </p>
-        ) : systemPathActive ? (
-          <div className="space-y-2">
-            <p
-              data-testid="queue-seed-quality-clarity"
-              className="rounded-lg border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/40 px-2.5 py-1.5 text-[11px] leading-relaxed text-[var(--text-secondary)]"
-            >
-              Queue uses{' '}
-              <span className="font-medium text-[var(--text-primary)]">
-                {formatQueueQualityProfileLabel(queueQualityProfile)}
-              </span>
-              {' · '}
-              {lockedVariationSeed?.trim()
-                ? `pinned seed ${lockedVariationSeed.trim().slice(0, 24)}${lockedVariationSeed.trim().length > 24 ? '…' : ''}`
-                : 'new seed each send'}
-            </p>
-            {systemWorkflowChoice ? (
-              <p className="text-xs leading-relaxed text-[var(--text-muted)]">
-                Graph:{' '}
-                <span className="text-[var(--text-secondary)]">{systemWorkflowChoice.display}</span>
-              </p>
-            ) : null}
-            {roleplayVariant ? null : (
-              <QueueRecipesPanel
-                toolId={toolId}
-                shared={recipesShared}
-                qualityProfile={queueQualityProfile}
-                orientation={resolutionOrientation}
-                sizeTier={resolutionSizeTier}
-                systemWorkflowSource={systemWorkflowChoice?.source}
-                onApplied={handleRecipesApplied}
-              />
-            )}
-            {shared.inferenceEngine === 'diffusers' && !roleplayVariant ? (
-              <DiffusersSamplingReadout
-                model={shared.model}
-                checkpointMap={shared.modelCheckpointMap}
-                toolId={toolId ?? 'generate'}
-                workshopCrop={shared.diffusersWorkshopCrop ?? 'auto'}
-              />
-            ) : null}
-          </div>
-        ) : null;
+        const queueQualityBlock = (
+          <SharedQueueQualityBlock
+            cloudEngine={cloudEngine}
+            systemPathActive={systemPathActive}
+            roleplayVariant={roleplayVariant}
+            queueQualityProfile={queueQualityProfile}
+            lockedVariationSeed={lockedVariationSeed}
+            systemWorkflowChoice={systemWorkflowChoice}
+            toolId={toolId}
+            shared={shared}
+            recipesShared={recipesShared}
+            resolutionOrientation={resolutionOrientation}
+            resolutionSizeTier={resolutionSizeTier}
+            onRecipesApplied={handleRecipesApplied}
+          />
+        );
 
         const workflowBlock =
           !roleplayVariant &&

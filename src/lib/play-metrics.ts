@@ -92,3 +92,103 @@ export function firstFilmCutWithinDays(
   }
   return days <= withinDays;
 }
+
+export type PlayNextAction = {
+  label: string;
+  href: string;
+  reason: string;
+};
+
+type FunnelLike = {
+  firstPlayCampaign?: number;
+  firstFilmCut?: number;
+  keepTryOn?: number;
+  saveToCast?: number;
+  campaignMaxStep?: number;
+};
+
+type CampaignLike = {
+  characterId: string;
+  lookPackId?: string;
+  stepIndex: number;
+  completedAt?: number;
+} | null;
+
+/**
+ * Next CTA for Dashboard Play metrics — prefers live campaign step, then funnel stall heuristics.
+ */
+export function resolveNextPlayAction(input: {
+  metrics?: PlayMetrics;
+  funnel?: FunnelLike | null;
+  campaign?: CampaignLike;
+}): PlayNextAction {
+  const funnel = input.funnel ?? {};
+  const campaign = input.campaign ?? null;
+  const starts = funnel.firstPlayCampaign || 0;
+  const cuts = funnel.firstFilmCut || 0;
+  const keeps = funnel.keepTryOn || 0;
+  const saves = funnel.saveToCast || 0;
+
+  if (campaign?.completedAt && cuts > 0 && saves === 0) {
+    return {
+      label: 'Save film to Cast',
+      href: `/characters/${encodeURIComponent(campaign.characterId)}?media=films`,
+      reason: 'Film cut — stamp a Cast copy to close the loop.',
+    };
+  }
+
+  if (campaign && !campaign.completedAt && campaign.characterId.trim()) {
+    // Dynamic import avoided — caller passes campaign; step hrefs live in play-campaign.
+    const stepIndex = Math.max(0, Math.min(campaign.stepIndex, 4));
+    const stepIds = ['character', 'moodboard', 'fitting', 'day', 'roleplay'] as const;
+    const id = stepIds[stepIndex] ?? 'moodboard';
+    const characterId = campaign.characterId.trim();
+    const hrefById: Record<(typeof stepIds)[number], string> = {
+      character: `/characters/${encodeURIComponent(characterId)}`,
+      moodboard: `/moodboard?character=${encodeURIComponent(characterId)}`,
+      fitting: `/fitting?character=${encodeURIComponent(characterId)}`,
+      day: `/day?character=${encodeURIComponent(characterId)}`,
+      roleplay: `/roleplay?character=${encodeURIComponent(characterId)}`,
+    };
+    const labels: Record<(typeof stepIds)[number], string> = {
+      character: 'Open Cast',
+      moodboard: 'Continue Moodboard',
+      fitting: 'Continue Fitting',
+      day: 'Continue Day · Cut film',
+      roleplay: 'Continue Roleplay · Cut film',
+    };
+    return {
+      label: labels[id],
+      href: hrefById[id],
+      reason: 'Resume your active Play campaign at the current step.',
+    };
+  }
+
+  if (starts > 0 && cuts === 0) {
+    return {
+      label: 'Cut film in Day',
+      href: '/day',
+      reason: 'Campaign started — Cut film in Day or Roleplay to close the loop.',
+    };
+  }
+  if (keeps > 0 && cuts === 0) {
+    return {
+      label: 'Continue in Day',
+      href: '/day',
+      reason: 'Keepers saved — Continue in Day and Cut film.',
+    };
+  }
+  if (cuts > 0 && saves === 0) {
+    return {
+      label: 'Open Cast films',
+      href: '/characters',
+      reason: 'Film cut — Save to Cast to stamp a studio copy.',
+    };
+  }
+
+  return {
+    label: 'Open Play campaign',
+    href: '/play',
+    reason: 'Start Moodboard → Fitting → Day → film.',
+  };
+}

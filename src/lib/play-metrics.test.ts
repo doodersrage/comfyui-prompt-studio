@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
   daysFromCampaignStartToFirstFilmCut,
   firstFilmCutWithinDays,
+  resolveNextPlayAction,
   type PlayMetrics,
 } from './play-metrics';
 
@@ -25,5 +26,26 @@ describe('play-metrics', () => {
       firstFilmCutWithinDays(7, { version: 1, firstPlayCampaignAt: Date.now() }),
       null
     );
+  });
+
+  it('resolves next Play action from funnel stalls', () => {
+    assert.equal(resolveNextPlayAction({}).href, '/play');
+    assert.equal(
+      resolveNextPlayAction({ funnel: { firstPlayCampaign: 2, firstFilmCut: 0 } }).href,
+      '/day'
+    );
+    assert.equal(
+      resolveNextPlayAction({ funnel: { keepTryOn: 3, firstFilmCut: 0 } }).label,
+      'Continue in Day'
+    );
+    assert.equal(
+      resolveNextPlayAction({ funnel: { firstFilmCut: 1, saveToCast: 0 } }).href,
+      '/characters'
+    );
+    const resume = resolveNextPlayAction({
+      campaign: { characterId: 'c1', stepIndex: 2 },
+    });
+    assert.equal(resume.href, '/fitting?character=c1');
+    assert.match(resume.label, /Fitting/i);
   });
 });
