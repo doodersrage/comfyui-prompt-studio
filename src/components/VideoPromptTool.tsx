@@ -1,7 +1,5 @@
 'use client';
 
-import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
-
 import { useCallback, useEffect, useState } from 'react';
 import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
 import EditToolRecipeStrip from '@/components/EditToolRecipeStrip';
@@ -14,32 +12,19 @@ import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
 import { usePromptResultActions } from '@/hooks/usePromptResultActions';
 import { useVideoPromptInitImage, isFetchableImageRef } from '@/hooks/useVideoPromptInitImage';
 import { useVideoPromptQueue } from '@/hooks/useVideoPromptQueue';
-import VideoPromptInitImageSection from '@/components/video/VideoPromptInitImageSection';
-import VideoPromptScaffoldSection from '@/components/video/VideoPromptScaffoldSection';
-import VideoPromptClipModeSection, {
-  VideoPromptPromptFieldsSection,
-  VideoPromptTimingFieldsSection,
-} from '@/components/video/VideoPromptFormSections';
+import { useVideoPromptFieldSetters } from '@/hooks/useVideoPromptFieldSetters';
+import { useVideoWorkflowScaffold } from '@/hooks/useVideoWorkflowScaffold';
+import VideoPromptFormPanel from '@/components/video/VideoPromptFormPanel';
 import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
 import { continueEditResultProps } from '@/lib/continue-edit-result-props';
 import { getReformatTargetLabel } from '@/lib/reformat-target';
-import { rememberDraftFields } from '@/lib/remember-draft-fields';
-import { DEFAULT_VIDEO_TOOL_CACHE, loadSettingsCache } from '@/lib/settings-cache';
+import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
+import { DEFAULT_VIDEO_TOOL_CACHE } from '@/lib/settings-cache';
 import { normalizeHistorySeedScope, normalizeSceneHintSource } from '@/lib/scene-hint-source';
 import { isVideoModel, resolvePreferredVideoModel } from '@/lib/queue-tool-model';
-import type { ComfyImageModel } from '@/lib/comfy-models/client';
-import { ensureVideoWorkflowScaffold } from '@/lib/ensure-video-workflow';
-import { fetchComfyObjectInfoCached } from '@/lib/comfyui-object-info-cache';
-import {
-  ToolBadge,
-  ToolLayout,
-  ToolSection,
-  accentButtonClass,
-  accentFocusClass,
-} from '@/components/ui/ToolPageShell';
+import { ToolBadge, ToolLayout, accentFocusClass } from '@/components/ui/ToolPageShell';
 import { inferVideoClipMode, type VideoClipMode } from '@/lib/video-clip-mode';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
-import { PrimaryButton } from '@/components/ui/Button';
 
 const ACCENT = 'brand' as const;
 
@@ -66,68 +51,31 @@ export default function VideoPromptTool() {
   const [workflowStatus, setWorkflowStatus] = useState<string | null>(null);
   const [output, setOutput] = useState('');
   const [error, setError] = useState<string | null>(null);
+
   const setClipMode = useCallback(
     (mode: VideoClipMode) => updateToolSettings({ clipMode: mode }),
     [updateToolSettings]
   );
 
-  const rememberVideoDraft = useCallback(
-    (next: { subject?: string; motion?: string; camera?: string; style?: string }) => {
-      rememberDraftFields({
-        toolKey: 'video',
-        label: 'Video',
-        href: '/video',
-        fields: [
-          next.subject ?? subject,
-          next.motion ?? motion,
-          next.camera ?? camera,
-          next.style ?? style,
-        ],
-      });
-    },
-    [camera, motion, style, subject]
-  );
-
-  const setSubject = useCallback(
-    (value: string) => {
-      updateToolSettings({ subject: value });
-      rememberVideoDraft({ subject: value });
-    },
-    [rememberVideoDraft, updateToolSettings]
-  );
-  const setMotion = useCallback(
-    (value: string) => {
-      updateToolSettings({ motion: value });
-      rememberVideoDraft({ motion: value });
-    },
-    [rememberVideoDraft, updateToolSettings]
-  );
-  const setCamera = useCallback(
-    (value: string) => {
-      updateToolSettings({ camera: value });
-      rememberVideoDraft({ camera: value });
-    },
-    [rememberVideoDraft, updateToolSettings]
-  );
-  const setStyle = useCallback(
-    (value: string) => {
-      updateToolSettings({ style: value });
-      rememberVideoDraft({ style: value });
-    },
-    [rememberVideoDraft, updateToolSettings]
-  );
-  const setDurationSec = useCallback(
-    (value: number) => updateToolSettings({ durationSec: value }),
-    [updateToolSettings]
-  );
-  const setInitImageUrl = useCallback(
-    (value: string) => updateToolSettings({ initImageUrl: value }),
-    [updateToolSettings]
-  );
-  const setParentVideoUrl = useCallback(
-    (value: string) => updateToolSettings({ parentVideoUrl: value }),
-    [updateToolSettings]
-  );
+  const {
+    setSubject,
+    setMotion,
+    setCamera,
+    setStyle,
+    setDurationSec,
+    setInitImageUrl,
+    setParentVideoUrl,
+    setFrames,
+    setFps,
+    setVideoModel,
+  } = useVideoPromptFieldSetters({
+    subject,
+    motion,
+    camera,
+    style,
+    updateToolSettings,
+    updateShared,
+  });
 
   const {
     file,
@@ -161,15 +109,6 @@ export default function VideoPromptTool() {
     hasInitImage,
   });
 
-  const setFrames = useCallback(
-    (value: number | undefined) => updateToolSettings({ frames: value }),
-    [updateToolSettings]
-  );
-  const setFps = useCallback(
-    (value: number | undefined) => updateToolSettings({ fps: value }),
-    [updateToolSettings]
-  );
-
   useSeedToolDraft(mounted, {
     toolKey: 'video',
     label: 'Video',
@@ -182,19 +121,6 @@ export default function VideoPromptTool() {
     sharedModel: shared.model,
   });
 
-  const setVideoModel = useCallback(
-    (model: ComfyImageModel) => {
-      updateShared({ model });
-      if (isVideoModel(model)) {
-        updateToolSettings({ model });
-      }
-    },
-    [updateShared, updateToolSettings]
-  );
-
-  // Video prompts/workflows only make sense against WAN/Hunyuan video
-  // checkpoints. Restore the last Video-tool model (tool cache) instead of
-  // always snapping to wan-video when another tool left a still-image model.
   useEffect(() => {
     if (!mounted) {
       return;
@@ -222,61 +148,13 @@ export default function VideoPromptTool() {
     updateToolSettings,
   ]);
 
-  // Create + assign a video scaffold when none is mapped yet.
-  // Apply the sharedPatch (workflow/checkpoint maps) without clobbering the
-  // user's last-selected video model or workflow picker.
-  useEffect(() => {
-    if (!mounted) {
-      return;
-    }
-    let cancelled = false;
-    void (async () => {
-      try {
-        const model = resolvePreferredVideoModel({
-          toolModel: toolSettings.model,
-          sharedModel: shared.model,
-        });
-        const objectInfo = await fetchComfyObjectInfoCached();
-        if (cancelled) {
-          return;
-        }
-        // Re-read after the network wait — user may have changed model.
-        const latestShared = loadSettingsCache().shared.model;
-        const ensureModel = resolvePreferredVideoModel({
-          toolModel: toolSettings.model,
-          sharedModel: latestShared,
-          fallback: model,
-        });
-        const result = ensureVideoWorkflowScaffold(ensureModel, {
-          inventory: objectInfo?.models ?? null,
-        });
-        if (cancelled) {
-          return;
-        }
-        updateShared(result.sharedPatch);
-        const parts = [
-          result.created
-            ? `Created and assigned “${result.workflow.name}” for ${result.model}.`
-            : `Using workflow “${result.workflow.name}” for ${result.model}.`,
-          result.checkpointNote,
-        ].filter(Boolean);
-        setWorkflowStatus(parts.join(' '));
-      } catch (ensureError) {
-        if (!cancelled) {
-          setWorkflowStatus(
-            ensureError instanceof Error
-              ? ensureError.message
-              : 'Could not create WAN video workflow scaffold.'
-          );
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // Intentionally once after settings hydrate.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mounted]);
+  useVideoWorkflowScaffold({
+    mounted,
+    toolModel: toolSettings.model,
+    sharedModel: shared.model,
+    updateShared,
+    setWorkflowStatus,
+  });
 
   const actions = usePromptResultActions({
     tool: 'video',
@@ -354,86 +232,54 @@ export default function VideoPromptTool() {
         }}
         accentFocusClassName={accentFocusClass(ACCENT)}
       />
-      <ToolSection>
-        {workflowStatus ? (
-          <p className="mb-3 rounded-xl border border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] px-3 py-2 text-xs text-[var(--tint-success-text)]">
-            {workflowStatus}
-          </p>
-        ) : null}
-        <VideoPromptScaffoldSection
-          model={shared.model}
-          onSharedPatch={updateShared}
-          onStatus={setWorkflowStatus}
-        />
-        <VideoPromptPromptFieldsSection
-          accentFocusClassName={accentFocusClass(ACCENT)}
-          subject={subject}
-          motion={motion}
-          camera={camera}
-          style={style}
-          durationSec={durationSec}
-          falDurationPicker={
-            shared.inferenceEngine === 'fal' || shared.inferenceEngine === 'replicate'
+      <VideoPromptFormPanel
+        mounted={mounted}
+        shared={shared}
+        workflowStatus={workflowStatus}
+        subject={subject}
+        motion={motion}
+        camera={camera}
+        style={style}
+        durationSec={durationSec}
+        clipMode={clipMode}
+        inferenceEngine={inferenceEngine}
+        parentVideoUrl={parentVideoUrl}
+        frames={frames}
+        fps={fps}
+        file={file}
+        previewUrl={previewUrl}
+        pastedInitValue={pastedInitValue}
+        hasInitImage={hasInitImage}
+        scanning={scanning}
+        loading={loading}
+        error={error}
+        onSharedPatch={updateShared}
+        onWorkflowStatus={setWorkflowStatus}
+        onSubjectChange={setSubject}
+        onMotionChange={setMotion}
+        onCameraChange={setCamera}
+        onStyleChange={setStyle}
+        onDurationSecChange={setDurationSec}
+        onClipModeChange={setClipMode}
+        onParentVideoUrlChange={setParentVideoUrl}
+        onInitFileChange={onInitFileChange}
+        onScanInitWithVision={() => void scanInitWithVision()}
+        onClearInitImage={clearInitImage}
+        onPastedInitChange={value => {
+          setInitImageUrl(value);
+          if (!file) {
+            setPreviewUrl(current => {
+              revokePreviewIfBlob(current);
+              return isFetchableImageRef(value) ? value.trim() : null;
+            });
           }
-          onSubjectChange={setSubject}
-          onMotionChange={setMotion}
-          onCameraChange={setCamera}
-          onStyleChange={setStyle}
-          onDurationSecChange={setDurationSec}
-        />
-
-        <VideoPromptClipModeSection
-          clipMode={clipMode}
-          inferenceEngine={inferenceEngine}
-          parentVideoUrl={parentVideoUrl}
-          onClipModeChange={setClipMode}
-          onParentVideoUrlChange={setParentVideoUrl}
-        />
-
-        <VideoPromptInitImageSection
-          clipMode={clipMode}
-          file={file}
-          previewUrl={previewUrl}
-          pastedInitValue={pastedInitValue}
-          hasInitImage={hasInitImage}
-          scanning={scanning}
-          loading={loading}
-          onInitFileChange={onInitFileChange}
-          onScanInitWithVision={() => void scanInitWithVision()}
-          onClearInitImage={clearInitImage}
-          onPastedInitChange={value => {
-            setInitImageUrl(value);
-            if (!file) {
-              setPreviewUrl(current => {
-                revokePreviewIfBlob(current);
-                return isFetchableImageRef(value) ? value.trim() : null;
-              });
-            }
-          }}
-          revokePreviewIfBlob={revokePreviewIfBlob}
-          setPreviewUrl={setPreviewUrl}
-        />
-
-        <VideoPromptTimingFieldsSection
-          frames={frames}
-          fps={fps}
-          onFramesChange={setFrames}
-          onFpsChange={setFps}
-        />
-
-        <PrimaryButton
-          accentClassName={accentButtonClass(ACCENT)}
-          data-action="primary-generate"
-          onClick={() => void generate()}
-          disabled={!mounted || !subject.trim() || scanning}
-          loading={loading}
-          loadingLabel="Building video prompt"
-          className="mt-4"
-        >
-          Build video prompt
-        </PrimaryButton>
-        {error ? <p className="mt-2 text-sm ui-status-danger">{error}</p> : null}
-      </ToolSection>
+        }}
+        revokePreviewIfBlob={revokePreviewIfBlob}
+        setPreviewUrl={setPreviewUrl}
+        onFramesChange={setFrames}
+        onFpsChange={setFps}
+        onGenerate={() => void generate()}
+      />
 
       {output ? (
         <EnhancedPromptResult

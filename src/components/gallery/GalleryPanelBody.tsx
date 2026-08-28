@@ -3,24 +3,19 @@
 import type { Dispatch, ReactNode, RefObject, SetStateAction } from 'react';
 import ImageLightbox from '@/components/ui/ImageLightbox';
 import type { GalleryComparePanelProps } from '@/components/GalleryComparePanel';
-import GalleryDisplayGrid from '@/components/gallery/GalleryDisplayGrid';
-import GalleryEmptyPanel from '@/components/gallery/GalleryEmptyPanel';
 import { GALLERY_UPLOAD_ACCEPT } from '@/components/gallery/GalleryUploadButton';
-import GalleryFiltersBar from '@/components/gallery/GalleryFiltersBar';
-import GalleryFailedRecoveryBanner from '@/components/gallery/GalleryFailedRecoveryBanner';
-import GalleryReviewBanner from '@/components/gallery/GalleryReviewBanner';
 import GalleryPanelBulkSection from '@/components/gallery/GalleryPanelBulkSection';
-import GalleryStatsBar from '@/components/gallery/GalleryStatsBar';
+import GalleryPanelFiltersSection from '@/components/gallery/GalleryPanelFiltersSection';
+import GalleryPanelGridSection from '@/components/gallery/GalleryPanelGridSection';
 import GalleryPanelReviewSlot from '@/components/gallery/GalleryPanelReviewSlot';
 import GalleryPanelCapSection from '@/components/gallery/GalleryPanelCapSection';
 import GalleryPanelModalsSlot from '@/components/gallery/GalleryPanelModalsSlot';
-import GalleryPaginator from '@/components/gallery/GalleryPaginator';
 import GalleryDuplicateClustersPanel from '@/components/gallery/GalleryDuplicateClustersPanel';
 import GalleryDerivedKindChips from '@/components/gallery/GalleryDerivedKindChips';
 import GalleryVisionInbox from '@/components/gallery/GalleryVisionInbox';
 import { GalleryPanelHeader, GalleryPickDock } from '@/components/gallery/GalleryPanelChrome';
 import StatusToastStrip from '@/components/ui/StatusToastStrip';
-import type { LoraDatasetExportUiOptions } from '@/lib/lora-dataset-export-ui';
+import { useGalleryLoraExportConfirm } from '@/hooks/useGalleryLoraExportConfirm';
 import type { GalleryBulkExperimentHandlers } from '@/hooks/useGalleryPanelActions';
 import type { GalleryHandoffPayload } from '@/lib/gallery-handoff';
 import type {
@@ -302,6 +297,14 @@ export default function GalleryPanelBody(props: GalleryPanelBodyProps) {
     setFavorites,
   } = props;
 
+  const { onLoraExportCancel, onLoraExportConfirm } = useGalleryLoraExportConfirm({
+    loraExportScope,
+    selectedEntries,
+    entries,
+    setLoraExportOpen,
+    setRequeueStatus,
+  });
+
   return (
     <section
       className="space-y-6"
@@ -455,100 +458,54 @@ export default function GalleryPanelBody(props: GalleryPanelBodyProps) {
         />
       ) : null}
 
-      {showFilters && entries.length > 0 ? (
-        <GalleryStatsBar
-          stats={galleryStats}
-          filter={filter}
-          activeJobs={header.activeJobs}
-          heldMaxJobs={heldMaxCount}
-          activeProjectId={activeProjectId}
-          projectFilterActive={projectFilterId === 'active'}
-          onProjectFilter={setProjectFilterId}
-          onRefreshPending={() => void refreshPending()}
-          onQuickFilter={patch => setFilter(previous => ({ ...previous, ...patch }))}
-        />
-      ) : null}
-
-      {showFilters && (
-        <GalleryFiltersBar
-          lean={leanGallery}
-          filter={filter}
-          setFilter={setFilter}
-          tools={tools}
-          models={models}
-          userTags={userTags}
-          customGroups={customGroups}
-          onRenameCustomGroup={(from, to) => {
-            const changed = renameCustomGroup(from, to);
-            if (changed > 0) {
-              setRequeueStatus(`Renamed group to ${to.trim()} (${changed} items)`);
-            }
-          }}
-          onDeleteCustomGroup={name => {
-            const changed = deleteCustomGroup(name);
-            if (changed > 0) {
-              setRequeueStatus(`Cleared group “${name}” from ${changed} items`);
-            }
-          }}
-          projects={projects}
-          projectFilterId={projectFilterId}
-          setProjectFilterId={setProjectFilterId}
-          sort={sort}
-          setSort={setSort}
-          pageSize={pageSize}
-          setPageSize={setPageSize}
-          paginationEnabled={paginationEnabled}
-          embeddingSearchActive={embeddingSearchActive}
-          embeddingSearchLoading={embeddingSearchLoading}
-          similarSearchLoading={similarSearchLoading}
-          embeddingSearchUnavailable={embeddingSearchUnavailable}
-          layout={layout}
-          setLayout={setLayout}
-          density={density}
-          setDensity={setDensity}
-          totalFiltered={totalFiltered}
-          totalEntries={entries.length}
-          currentPage={currentPage}
-          totalPages={totalPages}
-          showPagination={showPagination}
-          slideshowAvailable={lightbox.playlistLength > 1}
-          onStartSlideshow={startSlideshow}
-          onStartFullscreenSlideshow={startFullscreenSlideshow}
-        />
-      )}
-
-      {filter.status === 'error' ? (
-        <GalleryFailedRecoveryBanner
-          failedEntries={visibleEntries.filter(entry => entry.status === 'error')}
-          selectedFailedCount={selectedEntries.filter(entry => entry.status === 'error').length}
-          onRetrySelected={mode =>
-            retryFailedEntries(
-              selectedEntries.filter(entry => entry.status === 'error'),
-              mode
-            )
-          }
-          onRetryAllVisible={mode =>
-            retryFailedEntries(
-              visibleEntries.filter(entry => entry.status === 'error'),
-              mode
-            )
-          }
-          onRetryCluster={(clusterEntries, mode) => retryFailedEntries(clusterEntries, mode)}
-          onClearFailedFilter={() => setFilter(previous => ({ ...previous, status: 'all' }))}
-        />
-      ) : null}
-
-      {filter.reviewMode && !pickFor ? <GalleryReviewBanner filter={filter} /> : null}
-
-      {showPagination && (
-        <GalleryPaginator
-          page={currentPage}
-          totalPages={totalPages}
-          totalItems={totalFiltered}
-          pageSize={effectivePageSize}
-          onPageChange={setPage}
-        />
-      )}
+      <GalleryPanelFiltersSection
+        showFilters={showFilters}
+        leanGallery={leanGallery}
+        pickFor={pickFor}
+        filter={filter}
+        setFilter={setFilter}
+        entries={entries}
+        galleryStats={galleryStats}
+        activeJobs={header.activeJobs}
+        heldMaxCount={heldMaxCount}
+        activeProjectId={activeProjectId}
+        projectFilterId={projectFilterId}
+        setProjectFilterId={setProjectFilterId}
+        refreshPending={refreshPending}
+        tools={tools}
+        models={models}
+        userTags={userTags}
+        customGroups={customGroups}
+        renameCustomGroup={renameCustomGroup}
+        deleteCustomGroup={deleteCustomGroup}
+        setRequeueStatus={setRequeueStatus}
+        projects={projects}
+        sort={sort}
+        setSort={setSort}
+        pageSize={pageSize}
+        setPageSize={setPageSize}
+        paginationEnabled={paginationEnabled}
+        embeddingSearchActive={embeddingSearchActive}
+        embeddingSearchLoading={embeddingSearchLoading}
+        similarSearchLoading={similarSearchLoading}
+        embeddingSearchUnavailable={embeddingSearchUnavailable}
+        layout={layout}
+        setLayout={setLayout}
+        density={density}
+        setDensity={setDensity}
+        totalFiltered={totalFiltered}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        showPagination={showPagination}
+        slideshowAvailable={lightbox.playlistLength > 1}
+        startSlideshow={startSlideshow}
+        startFullscreenSlideshow={startFullscreenSlideshow}
+        visibleEntries={visibleEntries}
+        selectedEntries={selectedEntries}
+        retryFailedEntries={retryFailedEntries}
+        setPage={setPage}
+        effectivePageSize={effectivePageSize}
+      />
 
       <GalleryPanelBulkSection
         leanGallery={leanGallery}
@@ -592,75 +549,36 @@ export default function GalleryPanelBody(props: GalleryPanelBodyProps) {
         loraExportScope={loraExportScope}
         selectedEntriesForExport={selectedEntries}
         allEntries={entries}
-        onLoraExportCancel={() => setLoraExportOpen(false)}
-        onLoraExportConfirm={(options: LoraDatasetExportUiOptions) => {
-          setLoraExportOpen(false);
-          setRequeueStatus('Building LoRA dataset export…');
-          void import('@/lib/gallery-lora-dataset-export')
-            .then(({ downloadLoraDatasetZip, selectLoraDatasetEntries }) => {
-              const source = loraExportScope === 'selected' ? selectedEntries : entries;
-              return downloadLoraDatasetZip(
-                selectLoraDatasetEntries(
-                  source,
-                  loraExportScope === 'selected'
-                    ? { selectedIds: selectedEntries.map(entry => entry.id) }
-                    : undefined
-                ),
-                options
-              );
-            })
-            .then(({ count }) => {
-              setRequeueStatus(
-                count > 0
-                  ? `LoRA dataset exported (${count} image/caption pairs, ${options.captionMode}).`
-                  : loraExportScope === 'selected'
-                    ? 'No eligible images found for the LoRA dataset export.'
-                    : 'No favorited or 4–5★ entries found for the LoRA dataset export.'
-              );
-            });
-        }}
+        onLoraExportCancel={onLoraExportCancel}
+        onLoraExportConfirm={onLoraExportConfirm}
       />
 
-      {visibleEntries.length === 0 ? (
-        <GalleryEmptyPanel
-          filtered={entries.length > 0}
-          onClearFilters={clearGalleryFilters}
-          onUpload={() => uploadInputRef.current?.click()}
-        />
-      ) : (
-        <GalleryDisplayGrid
-          visibleEntries={visibleEntries}
-          lineageGroups={lineageGroups}
-          collapsedLineageGroups={collapsedLineageGroups}
-          onToggleLineageGroup={toggleLineageGroup}
-          experimentGroups={experimentGroups}
-          collapsedExperimentGroups={collapsedExperimentGroups}
-          onToggleExperimentGroup={toggleExperimentGroup}
-          experimentWinners={experimentWinners}
-          onCrownExperiment={experimentGridHandlers.onCrownExperiment}
-          onCompareExperiment={experimentGridHandlers.onCompareExperiment}
-          onRequeueExperiment={experimentGridHandlers.onRequeueExperiment}
-          onWinnerUpscale={experimentGridHandlers.onWinnerUpscale}
-          onWinnerRefine={experimentGridHandlers.onWinnerRefine}
-          onWinnerContinue={experimentGridHandlers.onWinnerContinue}
-          layout={layout}
-          density={density}
-          compact={compact}
-          gridClassName={galleryCardGridClass}
-          virtualGridClassName={galleryVirtualGridClass}
-          renderCard={renderGalleryCard}
-        />
-      )}
-
-      {showPagination && visibleEntries.length > 0 && (
-        <GalleryPaginator
-          page={currentPage}
-          totalPages={totalPages}
-          totalItems={totalFiltered}
-          pageSize={effectivePageSize}
-          onPageChange={setPage}
-        />
-      )}
+      <GalleryPanelGridSection
+        visibleEntries={visibleEntries}
+        entriesLength={entries.length}
+        clearGalleryFilters={clearGalleryFilters}
+        onUpload={() => uploadInputRef.current?.click()}
+        lineageGroups={lineageGroups}
+        collapsedLineageGroups={collapsedLineageGroups}
+        toggleLineageGroup={toggleLineageGroup}
+        experimentGroups={experimentGroups}
+        collapsedExperimentGroups={collapsedExperimentGroups}
+        toggleExperimentGroup={toggleExperimentGroup}
+        experimentWinners={experimentWinners}
+        experimentGridHandlers={experimentGridHandlers}
+        layout={layout}
+        density={density}
+        compact={compact}
+        galleryCardGridClass={galleryCardGridClass}
+        galleryVirtualGridClass={galleryVirtualGridClass}
+        renderGalleryCard={renderGalleryCard}
+        showPagination={showPagination}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalFiltered={totalFiltered}
+        effectivePageSize={effectivePageSize}
+        setPage={setPage}
+      />
 
       {filter.reviewMode && reviewFocusEntry ? (
         <GalleryPanelReviewSlot
