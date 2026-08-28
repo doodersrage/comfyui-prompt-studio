@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
   FIRST_RUN_GENERATE_HREF,
   FIRST_RUN_QUEUE_HREF,
+  resolveStudioEmptyCta,
   resolveWelcomeLandingCta,
 } from './empty-cta';
 
@@ -19,6 +20,13 @@ describe('empty-cta', () => {
     assert.deepEqual(resolveWelcomeLandingCta(), {
       label: 'Open Generate',
       href: FIRST_RUN_GENERATE_HREF,
+    });
+  });
+
+  it('studio empty CTA defaults to Generate when SSR / no window', () => {
+    assert.deepEqual(resolveStudioEmptyCta(), {
+      label: 'Open Generate',
+      href: '/',
     });
   });
 });

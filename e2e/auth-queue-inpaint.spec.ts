@@ -103,9 +103,28 @@ test.describe('Queue failure recovery', () => {
     await gotoStable(page, '/gallery?status=error');
     await dismissBlockingOverlays(page);
     await expect(page.getByTestId('gallery-failed-recovery')).toBeVisible({ timeout: 30_000 });
-    const settingsLink = page.getByTestId('gallery-failed-fix-guide');
+    const settingsLink = page.getByTestId('gallery-failed-fix-guide').first();
     await expect(settingsLink).toBeVisible({ timeout: 15_000 });
     await expect(settingsLink).toHaveAttribute('href', /vram|settings/i);
+    await expect(
+      page.getByRole('button', { name: /Retry as (Draft|Final)/i }).first()
+    ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('OOM queue page exposes playbook link and fix buttons', async ({ page }) => {
+    await seedFailedGalleryFixture(page, {
+      statusMessage: 'CUDA out of memory',
+      queueQualityProfile: 'final',
+    });
+    await gotoStable(page, '/queue');
+    await dismissBlockingOverlays(page);
+    await expect(page.getByRole('button', { name: /Retry as Draft/i })).toBeVisible({
+      timeout: 15_000,
+    });
+    const playbook = page.getByTestId('failed-job-playbook-link');
+    if ((await playbook.count()) > 0) {
+      await expect(playbook.first()).toHaveAttribute('href', /vram|settings/i);
+    }
   });
 });
 

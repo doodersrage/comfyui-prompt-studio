@@ -4,7 +4,7 @@ import BrandBars from '@/components/BrandBars';
 import BrandStudioIllustration from '@/components/BrandStudioIllustration';
 import { ButtonLink } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/ViewState';
-import { resolveGenerateEmptyCta } from '@/lib/empty-cta';
+import { resolveStudioEmptyCta } from '@/lib/empty-cta';
 
 type GalleryEmptyPanelProps = {
   filtered: boolean;
@@ -31,7 +31,7 @@ export default function GalleryEmptyPanel({
     );
   }
 
-  const generateCta = resolveGenerateEmptyCta();
+  const generateCta = resolveStudioEmptyCta();
 
   return (
     <div className="ui-brand-empty relative space-y-4 overflow-hidden">

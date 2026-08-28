@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { replaceGalleryIdb } from './idb';
 
 const FIXTURE = {
   id: 'e2e-gallery-fixture',
@@ -106,32 +107,15 @@ export async function seedFailedGalleryFixture(
   overrides?: Partial<typeof FAILED_FIXTURE>
 ): Promise<void> {
   await ensureStudioWorkspace(page);
-  const entry = { ...FAILED_FIXTURE, ...overrides };
-  await page.addInitScript(item => {
-    try {
-      const raw = localStorage.getItem('comfyui-gallery-v1');
-      const existing = raw ? (JSON.parse(raw) as unknown[]) : [];
-      const list = Array.isArray(existing) ? existing.filter(Boolean) : [];
-      localStorage.setItem(
-        'comfyui-gallery-v1',
-        JSON.stringify([item, ...list.filter(e => (e as { id?: string }).id !== item.id)])
-      );
-    } catch {
-      // ignore
-    }
-  }, entry);
-  await page.evaluate(item => {
-    try {
-      const raw = localStorage.getItem('comfyui-gallery-v1');
-      const existing = raw ? (JSON.parse(raw) as unknown[]) : [];
-      const list = Array.isArray(existing) ? existing.filter(Boolean) : [];
-      localStorage.setItem(
-        'comfyui-gallery-v1',
-        JSON.stringify([item, ...list.filter(e => (e as { id?: string }).id !== item.id)])
-      );
-      window.dispatchEvent(new Event('comfyui-gallery-updated'));
-    } catch {
-      // ignore
-    }
-  }, entry);
+  const entry = {
+    ...FAILED_FIXTURE,
+    ...overrides,
+    id: overrides?.id ?? `e2e-gallery-failed-${Date.now()}`,
+    promptId: overrides?.promptId ?? `e2e-prompt-failed-${Date.now()}`,
+  };
+  // Open the app first so Dexie creates object stores, then replace gallery rows.
+  if (!page.url().includes('127.0.0.1') && !page.url().includes('localhost')) {
+    await page.goto('/');
+  }
+  await replaceGalleryIdb(page, [entry]);
 }

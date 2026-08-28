@@ -32,6 +32,7 @@ import { saveWorkspaceMode } from '@/lib/workspace-mode';
 import ConnectionHealthChip from '@/components/ConnectionHealthChip';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { ToolPageSkeleton } from '@/components/ui/ViewState';
+import { resolveStudioEmptyCta } from '@/lib/empty-cta';
 import {
   StatCard,
   ToolActionRow,
@@ -107,6 +108,7 @@ export default function HomeDashboard() {
         .slice(0, isSimple ? 4 : 6),
     [gallery, isSimple]
   );
+  const studioEmptyCta = resolveStudioEmptyCta();
   const activeProject = projects.find(project => project.id === activeProjectId);
   const showContinue =
     Boolean(draft) ||
@@ -366,7 +368,27 @@ export default function HomeDashboard() {
             </ButtonLink>
           </div>
         </ToolSection>
-      ) : null}
+      ) : (
+        <ToolSection
+          title="Recent outputs"
+          description="Queue a still or resume Play to fill this strip."
+          data-testid="dashboard-recent-empty"
+        >
+          <div className="flex flex-wrap gap-2">
+            <ButtonLink
+              href={studioEmptyCta.href}
+              size="sm"
+              variant="primary"
+              data-testid="dashboard-recent-empty-cta"
+            >
+              {studioEmptyCta.label}
+            </ButtonLink>
+            <ButtonLink href="/gallery" size="sm" variant="secondary">
+              Open gallery
+            </ButtonLink>
+          </div>
+        </ToolSection>
+      )}
     </ToolLayout>
   );
 }

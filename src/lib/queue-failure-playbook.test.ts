@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { resolveQueueFailureHref, resolveQueueFailurePlaybook } from './queue-failure-playbook';
+import {
+  resolveQueueFailureGuideLabel,
+  resolveQueueFailureHref,
+  resolveQueueFailurePlaybook,
+} from './queue-failure-playbook';
 
 describe('resolveQueueFailureHref', () => {
   it('routes missing custom nodes to workflow map', () => {
@@ -81,6 +85,32 @@ describe('resolveQueueFailureHref', () => {
     assert.match(
       resolveQueueFailureHref('Replicate API key is required') ?? '',
       /inference-engine/i
+    );
+  });
+
+  it('routes IndexedDB quota and unresolved placeholder tokens', () => {
+    assert.match(
+      resolveQueueFailureHref('Browser storage IndexedDB quota exceeded') ?? '',
+      /data|settings/i
+    );
+    assert.match(
+      resolveQueueFailureHref('Unresolved placeholder token {{prompt}} missing in workflow') ?? '',
+      /workflow-map|comfyui/i
+    );
+  });
+});
+
+describe('resolveQueueFailureGuideLabel', () => {
+  it('labels common playbook routes', () => {
+    assert.equal(resolveQueueFailureGuideLabel('/inpaint'), 'Open Inpaint');
+    assert.equal(resolveQueueFailureGuideLabel('/queue'), 'Open Queue');
+    assert.equal(
+      resolveQueueFailureGuideLabel('/settings?tab=comfyui&section=vram-guard'),
+      'VRAM settings'
+    );
+    assert.equal(
+      resolveQueueFailureGuideLabel('/settings?tab=comfyui&section=workflow-map'),
+      'Workflow map'
     );
   });
 });

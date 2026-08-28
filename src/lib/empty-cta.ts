@@ -58,6 +58,30 @@ export function resolveGenerateEmptyCta(
 }
 
 /**
+ * Studio empty states (Gallery, Queue, Dashboard): resume Play when the funnel
+ * has progress; otherwise fall back to Generate empty CTA.
+ */
+export function resolveStudioEmptyCta(
+  fallback: EmptyCta = { label: 'Open Generate', href: '/' }
+): EmptyCta {
+  if (typeof window === 'undefined') {
+    return resolveGenerateEmptyCta(fallback);
+  }
+  const metrics = loadPlayMetrics();
+  const campaign = loadPlayCampaignState();
+  const funnel = loadLocalObservability();
+  const hasPlayProgress =
+    Boolean(metrics.firstPlayCampaignAt) ||
+    Boolean(campaign?.characterId) ||
+    (funnel.firstPlayCampaign || 0) > 0 ||
+    (funnel.firstFilmCut || 0) > 0;
+  if (hasPlayProgress) {
+    return resolveWelcomeLandingCta();
+  }
+  return resolveGenerateEmptyCta(fallback);
+}
+
+/**
  * Post-welcome primary CTA.
  * Return visits with Play progress resume the funnel; Play workspace opens `/play`;
  * otherwise first-run Generate random surprise.

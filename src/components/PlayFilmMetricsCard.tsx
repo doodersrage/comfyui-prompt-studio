@@ -176,42 +176,27 @@ export default function PlayFilmMetricsCard() {
           }`;
           const label = `${index + 1}. ${step.label}`;
           const stepHref =
-            characterId && (isActiveStep || isStallStep)
+            characterId && step.href
               ? step.href({ characterId })
               : resolvePlayFunnelStepHref(
                   isStallStep && stall!.stepId === 'cut' ? 'cut' : step.id,
                   characterId || undefined
                 );
 
-          if (isHighlighted) {
-            return (
-              <li key={step.id}>
-                <ButtonLink
-                  href={stepHref}
-                  size="sm"
-                  variant="ghost"
-                  data-testid={`play-funnel-step-${step.id}`}
-                  data-active={isActiveStep ? 'true' : 'false'}
-                  data-stall={isStallStep ? 'true' : 'false'}
-                  data-done={done ? 'true' : 'false'}
-                  className={`${chipClass} no-underline hover:no-underline`}
-                >
-                  {label}
-                </ButtonLink>
-              </li>
-            );
-          }
-
           return (
-            <li
-              key={step.id}
-              data-testid={`play-funnel-step-${step.id}`}
-              data-active="false"
-              data-stall="false"
-              data-done={done ? 'true' : 'false'}
-              className={chipClass}
-            >
-              {label}
+            <li key={step.id}>
+              <ButtonLink
+                href={stepHref}
+                size="sm"
+                variant="ghost"
+                data-testid={`play-funnel-step-${step.id}`}
+                data-active={isActiveStep ? 'true' : 'false'}
+                data-stall={isStallStep ? 'true' : 'false'}
+                data-done={done ? 'true' : 'false'}
+                className={`${chipClass} no-underline hover:no-underline`}
+              >
+                {label}
+              </ButtonLink>
             </li>
           );
         })}
@@ -237,8 +222,17 @@ export default function PlayFilmMetricsCard() {
               : ''}
             . {stall.reason}
           </p>
-          <ButtonLink href={next.href} size="sm" variant="primary" data-testid="play-stall-cta">
-            {next.label}
+          <ButtonLink
+            href={resolvePlayFunnelStepHref(stall.stepId, characterId || undefined)}
+            size="sm"
+            variant="primary"
+            data-testid="play-stall-cta"
+          >
+            {stall.stepId === 'cut'
+              ? 'Cut film in Day'
+              : stall.stepId === 'character'
+                ? 'Open Cast'
+                : `Continue ${stall.stepLabel}`}
           </ButtonLink>
         </div>
       ) : null}

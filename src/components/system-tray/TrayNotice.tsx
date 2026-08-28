@@ -5,6 +5,7 @@ import {
   NOTICE_TONE_CLASS,
   type TrayNoticeTone,
 } from '@/components/system-tray/tray-notice-styles';
+import { resolveQueueFailureGuideLabel } from '@/lib/queue-failure-playbook';
 
 export function TrayNotice({
   text,
@@ -21,6 +22,8 @@ export function TrayNotice({
   actionEvent?: string;
   onDismiss: () => void;
 }) {
+  const hrefLabel = href && !href.startsWith('http') ? resolveQueueFailureGuideLabel(href) : 'Open';
+
   return (
     <div role="status" className={`pointer-events-auto ui-tray-notice ${NOTICE_TONE_CLASS[tone]}`}>
       <div className="flex items-start gap-3">
@@ -41,7 +44,11 @@ export function TrayNotice({
               href={href}
               className="type-caption text-[var(--accent-text)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
               onClick={() => {
-                if (/settings|workflow-map|model-assets|lora|connection/i.test(href)) {
+                if (
+                  /settings|workflow-map|model-assets|lora|connection|vram|inference-engine|data/i.test(
+                    href
+                  )
+                ) {
                   void import('@/lib/local-observability').then(
                     ({ notePlaybookCtaClickMetric }) => {
                       notePlaybookCtaClickMetric();
@@ -59,7 +66,7 @@ export function TrayNotice({
                         return;
                       }
                       pushSystemTrayMessage({
-                        text: 'Settings opened — retry the last failed queue when ready.',
+                        text: `${hrefLabel} opened — retry the last failed queue when ready.`,
                         tone: 'info',
                         actionLabel: 'Retry',
                         actionEvent: RETRY_LAST_FAILED_QUEUE_EVENT,
@@ -71,7 +78,7 @@ export function TrayNotice({
                 onDismiss();
               }}
             >
-              Open
+              {hrefLabel}
             </Link>
           ) : null}
           {actionLabel && actionEvent ? (

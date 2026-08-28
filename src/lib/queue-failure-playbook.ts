@@ -88,6 +88,45 @@ export function resolveQueueFailureHref(message: string): string | undefined {
   return undefined;
 }
 
+/** Short label for gallery/queue playbook deep-link buttons. */
+export function resolveQueueFailureGuideLabel(href: string): string {
+  const path = href.trim();
+  if (!path) {
+    return 'Open fix guide';
+  }
+  if (/vram/i.test(path)) {
+    return 'VRAM settings';
+  }
+  if (/\/inpaint/i.test(path)) {
+    return 'Open Inpaint';
+  }
+  if (path === '/queue' || path.startsWith('/queue?')) {
+    return 'Open Queue';
+  }
+  if (/workflow-map/i.test(path)) {
+    return 'Workflow map';
+  }
+  if (/lora/i.test(path)) {
+    return 'LoRA library';
+  }
+  if (/model-assets/i.test(path)) {
+    return 'Model assets';
+  }
+  if (/inference-engine/i.test(path)) {
+    return 'Inference engine';
+  }
+  if (/connection/i.test(path)) {
+    return 'Connection';
+  }
+  if (/[?&]tab=data\b|\/settings.*data/i.test(path)) {
+    return 'Data & storage';
+  }
+  if (/settings/i.test(path)) {
+    return 'Open settings';
+  }
+  return 'Open fix guide';
+}
+
 /** Prefer structured issue hrefs; fall back to message heuristics. */
 export function resolveQueueFailurePlaybook(
   issues: WorkflowPreflightIssue[] | undefined,

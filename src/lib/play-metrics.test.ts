@@ -99,4 +99,25 @@ describe('play-metrics', () => {
     assert.equal(resolvePlayFunnelStepHref('character'), '/characters');
     assert.equal(resolvePlayFunnelStepHref('moodboard', 'c1'), '/moodboard?character=c1');
   });
+
+  it('aligns stall CTA href with stall step (not bare next-action fallback)', () => {
+    const fittingStall = resolvePlayFunnelStall({
+      metrics: { version: 1, firstPlayCampaignAt: Date.now() - 120_000 },
+      funnel: { firstPlayCampaign: 1, campaignMaxStep: 3 },
+      campaign: { characterId: 'c1', stepIndex: 2 },
+    });
+    assert.equal(fittingStall?.stepId, 'fitting');
+    assert.equal(
+      resolvePlayFunnelStepHref(fittingStall!.stepId, 'c1'),
+      '/fitting?character=c1'
+    );
+
+    const cutStall = resolvePlayFunnelStall({
+      metrics: { version: 1, firstPlayCampaignAt: Date.now() - 60_000 },
+      funnel: { keepTryOn: 1, firstFilmCut: 0, campaignMaxStep: 4 },
+      campaign: { characterId: 'c1', stepIndex: 3 },
+    });
+    assert.equal(cutStall?.stepId, 'cut');
+    assert.equal(resolvePlayFunnelStepHref(cutStall!.stepId, 'c1'), '/day?character=c1');
+  });
 });

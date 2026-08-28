@@ -1,12 +1,16 @@
 'use client';
 
-import { Button } from '@/components/ui/Button';
+import { Button, ButtonLink } from '@/components/ui/Button';
 import type { ComfyGalleryEntry } from '@/lib/comfyui-gallery';
 import {
   applyQueueFailureFix,
   resolveQueueFailureFixes,
   type QueueFailureFixKind,
 } from '@/lib/queue-failure-fix';
+import {
+  resolveQueueFailureGuideLabel,
+  resolveQueueFailureHref,
+} from '@/lib/queue-failure-playbook';
 
 export default function FailedJobFixButtons({
   entry,
@@ -20,7 +24,8 @@ export default function FailedJobFixButtons({
   onDone?: () => void;
 }) {
   const fixes = resolveQueueFailureFixes(entry, poolUrls);
-  if (fixes.length === 0) {
+  const playbookHref = resolveQueueFailureHref(entry.statusMessage ?? '');
+  if (fixes.length === 0 && !playbookHref) {
     return null;
   }
 
@@ -34,12 +39,23 @@ export default function FailedJobFixButtons({
 
   return (
     <div className="flex flex-wrap gap-1.5">
+      {playbookHref ? (
+        <ButtonLink
+          href={playbookHref}
+          size="sm"
+          variant="ghost"
+          data-testid="failed-job-playbook-link"
+        >
+          {resolveQueueFailureGuideLabel(playbookHref)}
+        </ButtonLink>
+      ) : null}
       {fixes.map(fix => (
         <Button
           key={fix.kind}
           size="sm"
           variant="secondary"
           title={fix.reason}
+          data-testid={`failed-job-fix-${fix.kind}`}
           onClick={() => void runFix(fix.kind)}
         >
           {fix.label}

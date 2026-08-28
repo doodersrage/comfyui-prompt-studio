@@ -4,7 +4,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import type { ComfyGalleryEntry } from '@/lib/comfyui-gallery';
 import { applyQueueFailureFix, resolveQueueFailureFixes } from '@/lib/queue-failure-fix';
-import { resolveQueueFailureHref } from '@/lib/queue-failure-playbook';
+import {
+  resolveQueueFailureGuideLabel,
+  resolveQueueFailureHref,
+} from '@/lib/queue-failure-playbook';
 import {
   loadLastFailedQueue,
   requestRetryLastFailedQueue,
@@ -159,7 +162,7 @@ export default function GalleryFailedRecoveryBanner({
               <div className="flex flex-wrap items-center gap-1.5">
                 {(() => {
                   const settingsHref = resolveQueueFailureHref(cluster.label);
-                  if (!settingsHref || !/settings|vram/i.test(settingsHref)) {
+                  if (!settingsHref) {
                     return null;
                   }
                   return (
@@ -169,7 +172,7 @@ export default function GalleryFailedRecoveryBanner({
                       variant="ghost"
                       data-testid="gallery-failed-fix-guide"
                     >
-                      {settingsHref.includes('vram') ? 'VRAM settings' : 'Open settings'}
+                      {resolveQueueFailureGuideLabel(settingsHref)}
                     </ButtonLink>
                   );
                 })()}
@@ -180,6 +183,7 @@ export default function GalleryFailedRecoveryBanner({
                     variant="secondary"
                     size="sm"
                     title={fix.reason}
+                    data-testid={`failed-job-fix-${fix.kind}`}
                     onClick={() => {
                       void Promise.all(
                         cluster.entries.map(entry => applyQueueFailureFix(entry, fix.kind))
