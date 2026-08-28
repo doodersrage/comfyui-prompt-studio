@@ -318,7 +318,177 @@ test.describe('Play dogfood glue', () => {
     await expect(page.getByTestId('play-stall-cta')).toBeVisible();
     const stallHref = await page.getByTestId('play-stall-cta').getAttribute('href');
     expect(stallHref).toMatch(/\/day/);
+  });
+
+  test('glued first-film funnel: stall CTA → Day cut → Save to Cast', async ({ page }) => {
+    const characterId = 'e2e-first-film';
+    const lookPackId = 'lp-first-film';
+    const tinyPng =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+
+    await page.addInitScript(
+      ({ id, packId, png }) => {
+        const pack = {
+          version: 1,
+          source: 'moodboard',
+          characterId: id,
+          wardrobeId: 'kit-linen',
+          locationNotes: 'sunlit kitchen',
+          moodNotes: 'cozy morning',
+          savedAt: Date.now(),
+        };
+        window.sessionStorage.setItem('moodboard-look-pack-v1', JSON.stringify(pack));
+        window.localStorage.setItem(
+          'comfy-prompt-characters-v1',
+          JSON.stringify({
+            version: 1,
+            characters: [
+              {
+                id,
+                name: 'First Film',
+                version: 1,
+                updatedAt: Date.now(),
+                descriptor: 'sunlit kitchen coat',
+                lookPacks: [{ id: packId, name: 'Funnel pack', savedAt: Date.now(), pack }],
+              },
+            ],
+            removedIds: [],
+          })
+        );
+        window.localStorage.setItem(
+          'comfy-prompt-tool-settings-v1',
+          JSON.stringify({
+            shared: { activeCharacterId: id },
+            tools: {
+              day: {
+                notes: '',
+                stills: [{ slotId: 'morning', status: 'completed', imageUrl: png }],
+              },
+            },
+          })
+        );
+        window.localStorage.setItem(
+          'comfy-play-metrics-v1',
+          JSON.stringify({ version: 1, firstPlayCampaignAt: Date.now() - 120_000 })
+        );
+        window.localStorage.setItem(
+          'comfy-local-observability-v1',
+          JSON.stringify({
+            version: 1,
+            firstPlayCampaign: 1,
+            firstFilmCut: 0,
+            keepTryOn: 1,
+            saveToCast: 0,
+            campaignMaxStep: 3,
+          })
+        );
+        window.localStorage.setItem(
+          'play-campaign-v1',
+          JSON.stringify({
+            version: 1,
+            characterId: id,
+            lookPackId: packId,
+            stepIndex: 3,
+            updatedAt: Date.now(),
+          })
+        );
+
+        class FakeMediaRecorder {
+          state = 'inactive';
+          ondataavailable: ((event: { data: Blob }) => void) | null = null;
+          onstop: (() => void) | null = null;
+          onerror: (() => void) | null = null;
+          static isTypeSupported() {
+            return true;
+          }
+          start() {
+            this.state = 'recording';
+            queueMicrotask(() => {
+              this.ondataavailable?.({
+                data: new Blob([new Uint8Array([0, 0, 0, 1])], { type: 'video/webm' }),
+              });
+            });
+          }
+          stop() {
+            this.state = 'inactive';
+            queueMicrotask(() => this.onstop?.());
+          }
+          requestData() {}
+        }
+        // @ts-expect-error test shim
+        window.MediaRecorder = FakeMediaRecorder;
+        HTMLCanvasElement.prototype.captureStream = function captureStream() {
+          return {
+            getTracks: () => [{ stop() {}, kind: 'video', enabled: true }],
+          } as unknown as MediaStream;
+        };
+      },
+      { id: characterId, packId: lookPackId, png: tinyPng }
+    );
+
+    page.on('download', download => {
+      void download.cancel().catch(() => undefined);
+    });
+
+    await gotoStable(page, '/dashboard');
+    await dismissBlockingOverlays(page);
+    await expect(page.getByTestId('play-film-metrics')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('play-funnel-stall')).toBeVisible();
+    await expect(page.getByTestId('play-funnel-stall')).toHaveAttribute('data-stall-step', 'cut');
+    await expect(page.getByTestId('play-stall-cta')).toBeVisible();
     await page.getByTestId('play-stall-cta').click();
     await expect(page).toHaveURL(/\/day/, { timeout: 30_000 });
+
+    const cutBtn = page.getByRole('button', { name: /Cut film/i });
+    await expect(cutBtn).toBeVisible({ timeout: 30_000 });
+    await expect(cutBtn).toBeEnabled({ timeout: 10_000 });
+    await cutBtn.click();
+    await expect(page.getByTestId('day-open-cast-film')).toBeVisible({ timeout: 45_000 });
+    await expect(page.getByTestId('day-open-cast-film')).toHaveAttribute('href', /media=films/);
+
+    await page.evaluate(
+      ({ id }) => {
+        window.localStorage.setItem(
+          'comfy-play-metrics-v1',
+          JSON.stringify({
+            version: 1,
+            firstPlayCampaignAt: Date.now() - 120_000,
+            firstFilmCutAt: Date.now(),
+          })
+        );
+        window.localStorage.setItem(
+          'comfy-local-observability-v1',
+          JSON.stringify({
+            version: 1,
+            firstPlayCampaign: 1,
+            firstFilmCut: 1,
+            keepTryOn: 1,
+            saveToCast: 0,
+            campaignMaxStep: 4,
+          })
+        );
+        window.localStorage.setItem(
+          'play-campaign-v1',
+          JSON.stringify({
+            version: 1,
+            characterId: id,
+            stepIndex: 4,
+            completedAt: Date.now(),
+            updatedAt: Date.now(),
+          })
+        );
+        window.dispatchEvent(new Event('play-metrics-updated'));
+      },
+      { id: characterId }
+    );
+
+    await gotoStable(page, '/dashboard');
+    await dismissBlockingOverlays(page);
+    await expect(page.getByTestId('play-next-cta')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('play-next-cta')).toContainText(/Save film to Cast/i);
+    await expect(page.getByTestId('play-next-cta')).toHaveAttribute(
+      'href',
+      `/characters/${characterId}?media=films`
+    );
   });
 });

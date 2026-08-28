@@ -29,7 +29,6 @@ import { usePromptHistory } from '@/hooks/usePromptHistory';
 import { useHubPageDescription, useToolSectionDescription } from '@/hooks/useToolPageDescription';
 import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
 import { saveWorkspaceMode } from '@/lib/workspace-mode';
-import OnboardingChecklist from '@/components/OnboardingChecklist';
 import ConnectionHealthChip from '@/components/ConnectionHealthChip';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { ToolPageSkeleton } from '@/components/ui/ViewState';
@@ -43,6 +42,10 @@ import {
 
 const QueueOrchestrationPanel = dynamic(() => import('@/components/QueueOrchestrationPanel'), {
   loading: () => <ToolPageSkeleton label="Loading queue" />,
+});
+
+const OnboardingChecklist = dynamic(() => import('@/components/OnboardingChecklist'), {
+  loading: () => <ToolPageSkeleton label="Loading checklist" />,
 });
 
 const PlayFilmMetricsCard = dynamic(() => import('@/components/PlayFilmMetricsCard'), {

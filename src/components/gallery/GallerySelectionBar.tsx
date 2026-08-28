@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 import type { ComfyGalleryEntry } from '@/lib/comfyui-gallery';
 import type { PromptProject } from '@/lib/prompt-projects';
 import type { ParamExperimentAxis } from '@/lib/param-experiment-queue';
@@ -13,8 +13,9 @@ import {
 import { isQwenRapidAioModel } from '@/lib/model-denoise-defaults';
 import { isQwenLightningModel } from '@/lib/model-sampling-patch';
 import { countGalleryStitchableVideos } from '@/lib/gallery-video-stitch';
+import GallerySelectionBarBulkMenus from '@/components/gallery/GallerySelectionBarBulkMenus';
 
-type GallerySelectionBarProps = {
+export type GallerySelectionBarProps = {
   selectedCount: number;
   selectedEntries: ComfyGalleryEntry[];
   projects: PromptProject[];
@@ -60,70 +61,8 @@ type GallerySelectionBarProps = {
   onBulkRefine: () => void;
   onBulkMoireCleanFinal: () => void;
   onBulkMoireCleanMax: () => void;
-  /** Simple workspace — compare, export essentials, and organize only. */
   lean?: boolean;
 };
-
-function ActionMenu(props: { label: string; children: ReactNode; disabled?: boolean }) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    const onPointerDown = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener('pointerdown', onPointerDown);
-    return () => document.removeEventListener('pointerdown', onPointerDown);
-  }, [open]);
-
-  const menuTone =
-    'border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]';
-
-  if (props.disabled) {
-    return (
-      <button
-        type="button"
-        disabled
-        className={`ui-btn-ghost ui-btn-sm text-xs opacity-35 rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-muted)]`}
-      >
-        {props.label}
-      </button>
-    );
-  }
-
-  return (
-    <div ref={rootRef} className="relative">
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-haspopup="menu"
-        className={`ui-btn-ghost ui-btn-sm text-xs rounded-[var(--radius-md)] border border-[var(--border-subtle)] transition ${menuTone} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]`}
-        onClick={() => setOpen(value => !value)}
-      >
-        {props.label}
-      </button>
-      {open ? <div className="ui-menu left-0">{props.children}</div> : null}
-    </div>
-  );
-}
-
-function MenuItem(props: { label: string; onClick: () => void; disabled?: boolean }) {
-  return (
-    <button
-      type="button"
-      disabled={props.disabled}
-      onClick={props.onClick}
-      className={`ui-menu-item rounded-xl border-[var(--border-subtle)]/60 bg-[var(--bg-elevated)] text-[11px] transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-muted)] hover:text-[var(--accent-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]`}
-    >
-      {props.label}
-    </button>
-  );
-}
 
 export default function GallerySelectionBar(props: GallerySelectionBarProps) {
   const [groupDraft, setGroupDraft] = useState('');
@@ -171,7 +110,7 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
   const stitchableCount = countGalleryStitchableVideos(props.selectedEntries);
   const stitchReady = stitchableCount >= 2;
   const upscaleFinalLabel = queueCapabilities.allRapid
-    ? 'Bulk Flux polish → Final' // rapid moiré blur only
+    ? 'Bulk Flux polish → Final'
     : 'Bulk upscale → Final (~1.25× Lanczos)';
   const upscaleMaxLabel = queueCapabilities.allRapid
     ? 'Bulk Flux polish → Max (blur + resample)'
@@ -217,256 +156,18 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
           {`Stitch clips (${stitchableCount})`}
         </button>
 
-        <ActionMenu label="Export" disabled={props.selectedCount === 0}>
-          <MenuItem
-            label={
-              stitchReady
-                ? `Stitch clips into one video (${stitchableCount})`
-                : 'Stitch clips into one video'
-            }
-            disabled={!stitchReady}
-            onClick={props.onStitchVideos}
-          />
-          <MenuItem label="Sidecars" onClick={props.onExportSidecars} />
-          <MenuItem label="Images" onClick={props.onDownloadImages} />
-          {!props.lean ? <MenuItem label="ZIP bundle" onClick={props.onExportZip} /> : null}
-          {!props.lean ? (
-            <MenuItem label="Export LoRA dataset" onClick={props.onExportLoraDataset} />
-          ) : null}
-          {!props.lean ? <MenuItem label="CSV" onClick={props.onExportCsv} /> : null}
-          {!props.lean ? <MenuItem label="JSONL" onClick={props.onExportJsonl} /> : null}
-          {!props.lean ? (
-            <>
-              <MenuItem
-                label="Compare JSON"
-                disabled={!compareReady}
-                onClick={props.onExportCompareJson}
-              />
-              <MenuItem
-                label="Compare HTML"
-                disabled={!compareReady}
-                onClick={props.onExportCompareHtml}
-              />
-            </>
-          ) : null}
-        </ActionMenu>
-
-        <ActionMenu label="Queue" disabled={props.selectedCount === 0}>
-          {queueCapabilities.canUpscale || queueCapabilities.canMoire ? (
-            <>
-              <MenuItem
-                label={upscaleFinalLabel}
-                disabled={
-                  queueCapabilities.allRapid
-                    ? !queueCapabilities.canMoireFinal
-                    : !queueCapabilities.canUpscaleFinal
-                }
-                onClick={
-                  queueCapabilities.allRapid
-                    ? props.onBulkMoireCleanFinal
-                    : props.onBulkUpscaleFinal
-                }
-              />
-              <MenuItem
-                label={upscaleMaxLabel}
-                disabled={
-                  queueCapabilities.allRapid
-                    ? !queueCapabilities.canMoireMax
-                    : !queueCapabilities.canUpscaleMax
-                }
-                onClick={
-                  queueCapabilities.allRapid ? props.onBulkMoireCleanMax : props.onBulkUpscaleMax
-                }
-              />
-            </>
-          ) : null}
-          {queueCapabilities.canRefine ? (
-            <MenuItem label="Bulk refine → low-denoise second pass" onClick={props.onBulkRefine} />
-          ) : null}
-          {queueCapabilities.canMoire && !queueCapabilities.allRapid ? (
-            <>
-              <MenuItem
-                label="Bulk Flux polish → Final (blur only)"
-                onClick={props.onBulkMoireCleanFinal}
-              />
-              <MenuItem
-                label="Bulk Flux polish → Max (blur + resample)"
-                onClick={props.onBulkMoireCleanMax}
-              />
-            </>
-          ) : null}
-          {queueCapabilities.allLightning ? (
-            <MenuItem
-              label="Bulk variation → Lightning (new seeds + Final quality)"
-              onClick={props.onBulkRequeue}
-            />
-          ) : (
-            <MenuItem label="Bulk new variation (randomized seeds)" onClick={props.onBulkRequeue} />
-          )}
-          {!props.lean ? (
-            <>
-              <MenuItem
-                label="Seed experiment → perturb seed"
-                onClick={props.onSeedExperiment}
-                disabled={!singleSelected}
-              />
-              <MenuItem
-                label={`Param experiment → sweep ${props.paramAxis}`}
-                onClick={props.onParamExperiment}
-                disabled={!singleSelected}
-              />
-              <MenuItem
-                label="Param grid (CFG×steps) → matrix"
-                onClick={props.onParamGrid}
-                disabled={!singleSelected}
-              />
-              <MenuItem
-                label="Mutate crowned winner → text diff prompt"
-                onClick={props.onMutateWinner}
-                disabled={!singleSelected}
-              />
-              <MenuItem
-                label="Negative A/B → toggle prompt"
-                onClick={props.onNegativeAb}
-                disabled={!singleSelected}
-              />
-            </>
-          ) : null}
-        </ActionMenu>
-
-        {!props.lean ? (
-          <ActionMenu label="Send" disabled={!singleSelected}>
-            <MenuItem label="Open in Variations" onClick={props.onVariations} />
-            <MenuItem label="Open in Topics" onClick={props.onTopics} />
-            <MenuItem label="Find similar" onClick={props.onFindSimilar} />
-            {props.onFindVisualSimilar ? (
-              <MenuItem label="Looks like this" onClick={props.onFindVisualSimilar} />
-            ) : null}
-            {props.canClearSimilar ? (
-              <MenuItem label="Clear similar filter" onClick={props.onClearSimilar} />
-            ) : null}
-          </ActionMenu>
-        ) : null}
-
-        <ActionMenu label="Collect">
-          <MenuItem label="Favorite" onClick={() => props.onFavorite(true)} />
-          <MenuItem label="Unfavorite" onClick={() => props.onFavorite(false)} />
-          {[5, 4, 3, 2, 1].map(rating => (
-            <MenuItem
-              key={rating}
-              label={`Rate ${rating}★`}
-              onClick={() => props.onRate(rating as NonNullable<ComfyGalleryEntry['reviewRating']>)}
-            />
-          ))}
-        </ActionMenu>
-
-        {props.onAssignCustomGroup ? (
-          <ActionMenu label="Group">
-            <form
-              className="flex flex-col gap-1 px-2 py-2"
-              onSubmit={event => {
-                event.preventDefault();
-                const name = groupDraft.trim();
-                if (!name) {
-                  return;
-                }
-                props.onAssignCustomGroup?.(name);
-                setGroupDraft('');
-              }}
-            >
-              <input
-                value={groupDraft}
-                onChange={event => setGroupDraft(event.target.value)}
-                placeholder="New group name"
-                aria-label="Gallery group name"
-                data-testid="gallery-group-name-input"
-                maxLength={80}
-                className="ui-input w-full px-2 py-1 text-[11px]"
-              />
-              <button
-                type="submit"
-                disabled={!groupDraft.trim()}
-                data-testid="gallery-group-assign"
-                className="ui-menu-item rounded-xl border-[var(--border-subtle)]/60 bg-[var(--bg-elevated)] text-[11px] transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-muted)] hover:text-[var(--accent-text)] disabled:opacity-40"
-              >
-                Assign to group
-              </button>
-            </form>
-            {(props.customGroups ?? []).slice(0, 12).map(name => (
-              <MenuItem
-                key={`group-${name}`}
-                label={name}
-                onClick={() => props.onAssignCustomGroup?.(name)}
-              />
-            ))}
-            {props.onClearCustomGroup ? (
-              <MenuItem
-                label="Remove from group"
-                disabled={!props.selectedEntries.some(entry => Boolean(entry.customGroup?.trim()))}
-                onClick={props.onClearCustomGroup}
-              />
-            ) : null}
-            {props.onRenameCustomGroup && (props.customGroups?.length ?? 0) > 0 ? (
-              <MenuItem
-                label="Rename group…"
-                onClick={() => {
-                  const from =
-                    props.selectedEntries.find(entry => entry.customGroup?.trim())?.customGroup ??
-                    props.customGroups?.[0];
-                  if (!from) {
-                    return;
-                  }
-                  const next = window.prompt(`Rename group “${from}”`, from);
-                  if (next?.trim() && next.trim() !== from) {
-                    props.onRenameCustomGroup?.(from, next.trim());
-                  }
-                }}
-              />
-            ) : null}
-            {props.onDeleteCustomGroup && (props.customGroups?.length ?? 0) > 0 ? (
-              <MenuItem
-                label="Delete group…"
-                onClick={() => {
-                  const name =
-                    props.selectedEntries.find(entry => entry.customGroup?.trim())?.customGroup ??
-                    props.customGroups?.[0];
-                  if (!name) {
-                    return;
-                  }
-                  if (
-                    window.confirm(
-                      `Remove group “${name}” from all gallery items? Files stay; only the label is cleared.`
-                    )
-                  ) {
-                    props.onDeleteCustomGroup?.(name);
-                  }
-                }}
-              />
-            ) : null}
-          </ActionMenu>
-        ) : null}
-
-        <ActionMenu label="Project">
-          <MenuItem label="Assign active project" onClick={props.onAssignActiveProject} />
-          {props.projects.map(project => (
-            <MenuItem
-              key={project.id}
-              label={project.name}
-              onClick={() => props.onAssignProject(project.id)}
-            />
-          ))}
-          {!props.lean && props.onApplyUserTag ? (
-            <MenuItem
-              label="Add tag…"
-              onClick={() => {
-                const tag = window.prompt('Tag to apply to selected stills');
-                if (tag?.trim()) {
-                  props.onApplyUserTag?.(tag.trim());
-                }
-              }}
-            />
-          ) : null}
-        </ActionMenu>
+        <GallerySelectionBarBulkMenus
+          {...props}
+          groupDraft={groupDraft}
+          onGroupDraftChange={setGroupDraft}
+          compareReady={compareReady}
+          stitchReady={stitchReady}
+          stitchableCount={stitchableCount}
+          queueCapabilities={queueCapabilities}
+          upscaleFinalLabel={upscaleFinalLabel}
+          upscaleMaxLabel={upscaleMaxLabel}
+          singleSelected={singleSelected}
+        />
 
         <button
           type="button"
