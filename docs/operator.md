@@ -55,6 +55,8 @@ Recent releases tightened first-run and day-to-day polish:
 
 ### Play campaign walkthrough
 
+See the dedicated **[Play campaign guide](play-guide.md)** for step-by-step Moodboard → Cut → Cast, metrics, and share/resume.
+
 Use **Play campaign** (`/play`) for a guided film loop on one Cast character:
 
 1. Pick or create a Cast character on `/play`.

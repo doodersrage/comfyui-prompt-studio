@@ -1,0 +1,264 @@
+/* Prompt Studio docs — aligned with app brand (teal → sky → peach on dark studio chrome) */
+
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root,
+[data-md-color-scheme='default'] {
+  --ps-teal: #5eead4;
+  --ps-sky: #38bdf8;
+  --ps-peach: #f0ab7c;
+  --ps-accent: #5b7fc4;
+  --ps-accent-soft: rgb(91 127 196 / 0.14);
+  --ps-ink: #0b0f14;
+  --ps-panel: #121820;
+  --ps-muted: #8b9cb3;
+}
+
+[data-md-color-scheme='slate'] {
+  --ps-teal: #5eead4;
+  --ps-sky: #38bdf8;
+  --ps-peach: #f0ab7c;
+  --ps-accent: #9eb6e0;
+  --ps-accent-soft: rgb(158 182 224 / 0.12);
+  --ps-ink: #0b0f14;
+  --ps-panel: #121820;
+  --ps-muted: #94a3b8;
+}
+
+[data-md-color-scheme='default'] {
+  --md-primary-fg-color: #4a6cb0;
+  --md-primary-fg-color--light: #5b7fc4;
+  --md-primary-fg-color--dark: #3d5f9a;
+  --md-accent-fg-color: #d97706;
+}
+
+[data-md-color-scheme='slate'] {
+  --md-primary-fg-color: #5b7fc4;
+  --md-primary-fg-color--light: #6d8fd0;
+  --md-primary-fg-color--dark: #4a6cb0;
+  --md-accent-fg-color: #f0ab7c;
+}
+
+.md-typeset {
+  font-feature-settings: 'kern', 'liga', 'calt';
+}
+
+.md-typeset h1,
+.md-typeset h2,
+.md-header__title {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.md-typeset h1 {
+  font-size: clamp(1.85rem, 3vw, 2.35rem);
+}
+
+.md-typeset code,
+.md-typeset pre code {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+/* Hero (home) */
+.ps-hero {
+  position: relative;
+  overflow: hidden;
+  margin: 0 0 2rem;
+  padding: 2.25rem 2rem 2rem;
+  border-radius: 1rem;
+  border: 1px solid rgb(94 234 212 / 0.18);
+  background:
+    radial-gradient(ellipse 80% 60% at 10% 0%, rgb(56 189 248 / 0.18), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 90% 100%, rgb(240 171 124 / 0.12), transparent 50%),
+    linear-gradient(145deg, #0f141c 0%, #121820 45%, #0b0f14 100%);
+  color: #e8edf5;
+}
+
+.ps-hero__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.75rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid rgb(94 234 212 / 0.25);
+  background: rgb(94 234 212 / 0.08);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ps-teal);
+}
+
+.ps-hero__title {
+  margin: 0 0 0.65rem;
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: clamp(2rem, 4vw, 2.75rem);
+  font-weight: 600;
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+  background: linear-gradient(120deg, #f8fafc 0%, var(--ps-teal) 45%, var(--ps-sky) 75%, var(--ps-peach) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.ps-hero__lead {
+  max-width: 42rem;
+  margin: 0 0 1.35rem;
+  font-size: 1.05rem;
+  line-height: 1.55;
+  color: #c5d0de;
+}
+
+.ps-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-bottom: 1.25rem;
+}
+
+.ps-hero__actions a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.55rem 1rem;
+  border-radius: 0.55rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-decoration: none !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ps-hero__actions a:hover {
+  transform: translateY(-1px);
+}
+
+.ps-hero__actions .ps-btn-primary {
+  background: linear-gradient(135deg, var(--ps-sky), var(--ps-accent));
+  color: #0b0f14 !important;
+  box-shadow: 0 8px 24px rgb(56 189 248 / 0.25);
+}
+
+.ps-hero__actions .ps-btn-secondary {
+  border: 1px solid rgb(158 182 224 / 0.35);
+  background: rgb(18 24 32 / 0.85);
+  color: #e8edf5 !important;
+}
+
+.ps-hero__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 1.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.82rem;
+  color: var(--ps-muted);
+}
+
+.ps-hero__meta strong {
+  color: #e2e8f0;
+  font-weight: 600;
+}
+
+/* Material grid cards — polish */
+.grid.cards > ul > li {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.75rem;
+  background: linear-gradient(
+    180deg,
+    var(--md-default-bg-color) 0%,
+    color-mix(in oklab, var(--md-default-bg-color) 92%, var(--md-primary-fg-color)) 100%
+  );
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.04);
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.grid.cards > ul > li:hover {
+  border-color: color-mix(in oklab, var(--md-primary-fg-color) 35%, transparent);
+  transform: translateY(-2px);
+}
+
+.grid.cards > ul > li > hr {
+  margin: 0.75rem 0;
+  border: none;
+  border-top: 1px solid var(--md-default-fg-color--lightest);
+}
+
+.grid.cards .twemoji.lg,
+.grid.cards .lg.emoji {
+  font-size: 1.75rem;
+}
+
+/* Path pills on home */
+.ps-paths {
+  display: grid;
+  gap: 1rem;
+  margin: 1.5rem 0 2rem;
+}
+
+@media (min-width: 768px) {
+  .ps-paths {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.ps-path {
+  padding: 1rem 1.1rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  background: var(--md-code-bg-color);
+}
+
+.ps-path h3 {
+  margin: 0 0 0.35rem;
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 1.05rem;
+}
+
+.ps-path p {
+  margin: 0 0 0.65rem;
+  font-size: 0.88rem;
+  color: var(--md-default-fg-color--light);
+}
+
+.ps-path ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.85rem;
+}
+
+/* Tables — softer headers */
+.md-typeset table:not([class]) th {
+  background: var(--ps-accent-soft);
+  font-weight: 600;
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+}
+
+.md-typeset table:not([class]) tr:hover td {
+  background: color-mix(in oklab, var(--md-default-bg-color) 94%, var(--md-primary-fg-color));
+}
+
+/* Admonitions — left accent like app panels */
+.md-typeset .admonition,
+.md-typeset details {
+  border-radius: 0.65rem;
+  border-left-width: 4px;
+}
+
+/* Header / tabs */
+.md-header {
+  background: color-mix(in oklab, var(--md-primary-fg-color) 88%, #0b0f14);
+}
+
+.md-tabs {
+  background: color-mix(in oklab, var(--md-primary-fg-color) 72%, #0b0f14);
+}
+
+/* Search highlight */
+.md-search-result__meta {
+  font-size: 0.72rem;
+}

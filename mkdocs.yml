@@ -1,53 +1,96 @@
 site_name: Prompt Studio
-site_description: Documentation for Prompt Studio
+site_description: Documentation for Prompt Studio — prompts, ComfyUI, Gallery, and the Play film loop
 site_url: https://doodersrage.github.io/llm-prompt-studio/
 repo_url: https://github.com/doodersrage/llm-prompt-studio
+repo_name: doodersrage/llm-prompt-studio
 edit_uri: edit/main/docs/
+copyright: Copyright &copy; 2026 Robert McDowell · MIT
 
 docs_dir: docs
 site_dir: site
 
 theme:
   name: material
+  logo: assets/brand-mark.svg
+  favicon: assets/icon.svg
+  icon:
+    repo: fontawesome/brands/github
+  font:
+    text: Inter
+    code: JetBrains Mono
   palette:
-    - scheme: slate
-      primary: deep purple
+    - media: '(prefers-color-scheme: dark)'
+      scheme: slate
+      primary: custom
       accent: amber
       toggle:
         icon: material/brightness-4
-        name: Light mode
-    - scheme: default
-      primary: deep purple
+        name: Switch to light mode
+    - media: '(prefers-color-scheme: light)'
+      scheme: default
+      primary: custom
       accent: amber
       toggle:
         icon: material/brightness-7
-        name: Dark mode
+        name: Switch to dark mode
   features:
     - navigation.tabs
+    - navigation.tabs.sticky
     - navigation.sections
     - navigation.top
+    - navigation.footer
+    - navigation.indexes
+    - toc.follow
     - search.suggest
     - search.highlight
+    - search.share
     - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+
+plugins:
+  - search
 
 markdown_extensions:
   - attr_list
+  - md_in_html
   - tables
+  - footnotes
   - toc:
       permalink: true
+      toc_depth: 3
   - admonition
+  - pymdownx.details
   - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+extra_css:
+  - stylesheets/extra.css
+
+extra_javascript:
+  - javascript/extra.js
 
 nav:
   - Home: README.md
   - Getting started:
       - Operator guide: operator.md
+      - Play campaign: play-guide.md
+      - Quick reference: quick-reference.md
       - Configuration: configuration.md
       - Desktop app: desktop.md
       - Prompt limits: prompt-limits.md
       - Prompt examples: prompt-examples.md
   - Using the app:
       - Features: features.md
+      - Troubleshooting: troubleshooting.md
       - Workflow takeover: workflow-takeover.md
       - HTTP API: http-api.md
       - Data catalogs: data-catalogs.md
@@ -65,3 +108,4 @@ extra:
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/doodersrage/llm-prompt-studio
+  generator: false
