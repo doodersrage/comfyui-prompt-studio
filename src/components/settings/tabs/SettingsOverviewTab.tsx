@@ -103,14 +103,15 @@ export default function SettingsOverviewTab({
               size="sm"
               loading={healBusy}
               loadingLabel="Healing…"
+              data-testid="heal-and-ready"
               onClick={() => void handleHealAndReady()}
             >
               Heal & ready
             </Button>
           </div>
-          {healProgress ? (
+          {healBusy || healProgress ? (
             <p className="mt-2 type-caption text-[var(--accent-text)]" data-testid="heal-status">
-              {healProgress}
+              {healProgress || 'Healing…'}
             </p>
           ) : null}
           {health ? (

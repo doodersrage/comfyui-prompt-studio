@@ -33,6 +33,7 @@ Before exposing Prompt Studio beyond a trusted LAN:
 - [ ] Export a studio backup JSON after the first real session (Settings → Overview)
 - [ ] Run `npm run lint`, `npm test`, and `npm run test:e2e` before deploy (CI runs these on push)
 - [ ] For Playwright with auth enabled locally, credentials load from `.env.local` (`PROMPT_ADMIN_*`) or set `PROMPT_E2E_USERNAME` / `PROMPT_E2E_PASSWORD`
+- [ ] Hard auth lane: `PROMPT_AUTH_ENABLED=true` plus `npm run test:e2e:ops:auth` (`PROMPT_E2E_AUTH=1` fails closed if login is disabled or credentials fail)
 
 **Batch tools:** Topics and Variations show per-row readiness scores; toggle **Ready only** before queueing. Workflow library **Apply bindings** injects `{{POSITIVE}}` / `{{NEGATIVE}}` placeholders from suggested node maps. Gallery **Tag untagged** backfills vision tags on completed entries.
 

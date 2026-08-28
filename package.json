@@ -48,6 +48,7 @@
     "test:e2e:gallery": "playwright test e2e/gallery-exact-replay.spec.ts e2e/gallery-interaction.spec.ts e2e/gallery-lightbox.spec.ts",
     "test:e2e:play": "playwright test e2e/play-campaign.spec.ts",
     "test:e2e:ops": "playwright test e2e/auth-queue-inpaint.spec.ts e2e/workflow-heal-auth.spec.ts --workers=1",
+    "test:e2e:ops:auth": "PROMPT_E2E_AUTH=1 playwright test e2e/auth-queue-inpaint.spec.ts e2e/workflow-heal-auth.spec.ts --workers=1",
     "compose:validate-exposed": "node scripts/validate-compose-exposed.mjs",
     "desktop:dev": "node desktop/scripts/dev.mjs",
     "desktop:stage": "node desktop/scripts/stage-standalone.mjs",

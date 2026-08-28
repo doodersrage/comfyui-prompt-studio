@@ -37,6 +37,7 @@ export default function SettingsConnectionFirstRun({
             size="sm"
             loading={healBusy}
             loadingLabel="Healing…"
+            data-testid="heal-and-ready"
             onClick={() => void onHealAndReady()}
           >
             Heal & ready
@@ -50,9 +51,9 @@ export default function SettingsConnectionFirstRun({
           </ButtonLink>
         </div>
       </div>
-      {healProgress ? (
+      {healBusy || healProgress ? (
         <p className="mt-2 type-caption text-[var(--accent-text)]" data-testid="heal-status">
-          {healProgress}
+          {healProgress || 'Healing…'}
         </p>
       ) : null}
       <ul className="mt-3 grid gap-1.5 sm:grid-cols-2">

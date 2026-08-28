@@ -38,9 +38,13 @@ test('settings connection first-run hub loads', async ({ page }) => {
   await gotoStable(page, '/settings?tab=comfyui&section=connection');
   await openComfyUiSettingsTab(page);
   const connection = page.locator('#settings-comfyui-connection');
-  await expect(connection.getByRole('button', { name: /Heal & ready/i })).toBeVisible({
-    timeout: 30_000,
-  });
+  await expect(connection).toBeVisible({ timeout: 30_000 });
+  await connection.scrollIntoViewIfNeeded();
+  // Dynamic ComfyUI tab can finish after the shell — wait for the first-run CTA.
+  const heal = connection.getByTestId('heal-and-ready').or(
+    connection.getByRole('button', { name: /Heal & ready|Healing/i })
+  );
+  await expect(heal.first()).toBeVisible({ timeout: 45_000 });
   await expect(connection.getByRole('link', { name: 'Open Generate', exact: true })).toHaveAttribute(
     'href',
     '/?source=random',

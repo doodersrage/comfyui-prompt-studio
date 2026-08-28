@@ -30,130 +30,33 @@ import GalleryKindPreview from '@/components/ui/GalleryKindPreview';
 import { prefetchGalleryImageUrl } from '@/lib/gallery-image-prefetch';
 import {
   loadGalleryLightboxUiPreferences,
-  markGalleryLightboxTutorialSeen,
   saveGalleryLightboxUiPreferences,
   type GalleryLightboxFit,
 } from '@/lib/gallery-lightbox-prefs';
-import {
-  computeLightboxHistogram,
-  normalizeHistogramChannel,
-  type LightboxHistogram,
-} from '@/lib/lightbox-histogram';
+import { computeLightboxHistogram, type LightboxHistogram } from '@/lib/lightbox-histogram';
+import { chromeBtn } from '@/components/ui/image-lightbox/chromeBtn';
+import ImageLightboxHistogramPanel from '@/components/ui/image-lightbox/ImageLightboxHistogramPanel';
+import ImageLightboxJobBadge from '@/components/ui/image-lightbox/ImageLightboxJobBadge';
+import ImageLightboxMetaPanel from '@/components/ui/image-lightbox/ImageLightboxMetaPanel';
+import ImageLightboxSlideChromeBar from '@/components/ui/image-lightbox/ImageLightboxSlideChrome';
+import ImageLightboxTutorialTip from '@/components/ui/image-lightbox/ImageLightboxTutorialTip';
 import {
   resolveSlideDirection,
   resolveTransitionClasses,
 } from '@/components/ui/image-lightbox/imageLightboxTransitions';
+import type {
+  ImageLightboxSlideChrome,
+  ImageLightboxSlideshowOptions,
+  ImageLightboxState,
+} from '@/components/ui/image-lightbox/types';
 
-export type ImageLightboxState = {
-  images: string[];
-  index: number;
-  title?: string;
-  /** Optional per-image titles; falls back to `title` when omitted. */
-  titles?: string[];
-  /** Full-res URLs parallel to `images` — used by "Open original". */
-  originalImages?: string[];
-  /** Download-ready Comfy view URLs (with width param) parallel to `images`. */
-  downloadUrls?: string[];
-  /** Per-slide filenames for naming the downloaded file; falls back to promptId slice. */
-  downloadFilenames?: string[];
-  /** Grid-thumb URLs parallel to `images` — blur-up while mid-res loads. */
-  thumbImages?: string[];
-  /** Per-slide media kind (image vs. video/animated), parallel to `images`. */
-  mediaKinds?: ComfyOutputMediaKind[];
-};
-
-export type ImageLightboxSlideshowOptions = {
-  playing: boolean;
-  intervalMs: number;
-  intervalOptions?: readonly number[];
-  transition: GallerySlideshowTransition;
-  transitionOptions?: readonly GallerySlideshowTransition[];
-  onPlayingChange: (playing: boolean) => void;
-  onIntervalChange?: (intervalMs: number) => void;
-  onTransitionChange?: (transition: GallerySlideshowTransition) => void;
-  /** Immersive presentation: image fills the viewport (optionally via browser fullscreen). */
-  fullscreen?: boolean;
-  onFullscreenChange?: (fullscreen: boolean) => void;
-};
-
-export type ImageLightboxSlideMeta = {
-  model?: string;
-  seed?: string;
-  cfg?: string;
-  steps?: string;
-  width?: string;
-  height?: string;
-  tool?: string;
-  prompt?: string;
-  negativePrompt?: string;
-  derivedKind?: string;
-  host?: string;
-};
-
-export type ImageLightboxJobChrome = {
-  status: 'pending' | 'running' | 'completed' | 'error';
-  label: string;
-  percent?: number | null;
-};
-
-/** Per-slide review / iterate actions for the current lightbox index. */
-export type ImageLightboxSlideChrome = {
-  rating?: 1 | 2 | 3 | 4 | 5 | null;
-  favorite?: boolean;
-  onRate?: (rating: 1 | 2 | 3 | 4 | 5) => void;
-  onToggleFavorite?: () => void;
-  onImprove?: () => void;
-  onCompose?: () => void;
-  onInpaint?: () => void;
-  onExactRequeue?: () => void;
-  onUseStack?: () => void;
-  onUsePromptStack?: () => void;
-  onUseFace?: () => void;
-  onSaveLook?: () => void;
-  onRequeue?: () => void;
-  onRequeueNewSeed?: () => void;
-  onRequeueSeedPlusOne?: () => void;
-  onRetryStickyHost?: () => void;
-  showImprove?: boolean;
-  showCompose?: boolean;
-  showInpaint?: boolean;
-  showExact?: boolean;
-  showUseStack?: boolean;
-  showUsePromptStack?: boolean;
-  showUseFace?: boolean;
-  showSaveLook?: boolean;
-  showRequeue?: boolean;
-  showSeedVariation?: boolean;
-  /** Seed / model / prompt details for the Details (M) panel. */
-  meta?: ImageLightboxSlideMeta | null;
-  note?: string;
-  onNoteChange?: (note: string) => void;
-  onCopyPrompt?: () => void;
-  onCopyNegative?: () => void;
-  onAddToCompare?: () => void;
-  compareSelected?: boolean;
-  compareCount?: number;
-  onOpenCompare?: () => void;
-  onRemove?: () => void;
-  onShowParent?: () => void;
-  onShowDerivatives?: () => void;
-  onJumpToSibling?: () => void;
-  hasParent?: boolean;
-  hasDerivatives?: boolean;
-  hasSibling?: boolean;
-  /** Parent/before image URL for wipe compare. */
-  beforeAfterUrl?: string;
-  beforeAfterLabel?: string;
-  job?: ImageLightboxJobChrome | null;
-  onOutpaint?: () => void;
-  onControlNet?: () => void;
-  onVideo?: () => void;
-  onReeditRefine?: () => void;
-  onReeditCompose?: () => void;
-  showOutpaint?: boolean;
-  showControlNet?: boolean;
-  showVideo?: boolean;
-};
+export type {
+  ImageLightboxState,
+  ImageLightboxSlideshowOptions,
+  ImageLightboxSlideMeta,
+  ImageLightboxJobChrome,
+  ImageLightboxSlideChrome,
+} from '@/components/ui/image-lightbox/types';
 
 type ImageLightboxProps = {
   state: ImageLightboxState | null;
@@ -1209,211 +1112,6 @@ export default function ImageLightbox({
     );
   };
 
-  const chromeBtn = (compact: boolean) =>
-    `${compact ? '!min-h-8 !text-white hover:!bg-white/10' : '!min-h-9'} px-2.5 type-caption`;
-
-  const renderMetaPanel = (compact = false) => {
-    const meta = slideChrome?.meta;
-    if (!metaOpen || (!meta && !slideChrome?.onNoteChange)) {
-      return null;
-    }
-    const dims =
-      meta?.width && meta?.height
-        ? `${meta.width}×${meta.height}`
-        : meta?.width || meta?.height || undefined;
-    const chips = meta
-      ? ([
-          meta.tool ? `Tool ${meta.tool}` : null,
-          meta.model ? `Model ${meta.model}` : null,
-          meta.seed != null && meta.seed !== '' ? `Seed ${meta.seed}` : null,
-          meta.cfg != null && meta.cfg !== '' ? `CFG ${meta.cfg}` : null,
-          meta.steps != null && meta.steps !== '' ? `Steps ${meta.steps}` : null,
-          dims ? dims : null,
-          meta.derivedKind ? meta.derivedKind : null,
-          meta.host ? `Host ${meta.host}` : null,
-          preferFullRes ? 'Viewing full-res' : hasDistinctFullRes ? 'Viewing mid-res' : null,
-          fullResLoading ? 'Loading full-res…' : null,
-        ].filter(Boolean) as string[])
-      : [];
-
-    return (
-      <div
-        className="ui-lightbox-panel max-h-[40vh] space-y-2 overflow-y-auto p-3"
-        data-immersive={compact ? 'true' : undefined}
-      >
-        {chips.length > 0 ? (
-          <div className="flex flex-wrap gap-1.5">
-            {chips.map(chip => (
-              <span
-                key={chip}
-                className={`rounded-md px-2 py-0.5 text-[11px] ${
-                  compact
-                    ? 'bg-white/10 text-white/80'
-                    : 'bg-[var(--bg-muted)] text-[var(--text-muted)]'
-                }`}
-              >
-                {chip}
-              </span>
-            ))}
-          </div>
-        ) : null}
-        {meta?.prompt ? (
-          <div className="space-y-1">
-            <div className="flex items-center justify-between gap-2">
-              <p
-                className={`type-overline ${compact ? 'text-white/45' : 'text-[var(--text-tertiary)]'}`}
-              >
-                Prompt
-              </p>
-              {slideChrome?.onCopyPrompt ? (
-                <Button
-                  variant={compact ? 'ghost' : 'secondary'}
-                  className={chromeBtn(compact)}
-                  onClick={() => {
-                    slideChrome.onCopyPrompt?.();
-                    flashCopy('Prompt copied');
-                  }}
-                >
-                  Copy
-                </Button>
-              ) : null}
-            </div>
-            <p
-              className={`max-h-28 overflow-y-auto whitespace-pre-wrap text-[12px] leading-relaxed ${
-                compact ? 'text-white/85' : 'text-[var(--text-secondary)]'
-              }`}
-            >
-              {meta.prompt}
-            </p>
-          </div>
-        ) : null}
-        {meta?.negativePrompt ? (
-          <div className="space-y-1">
-            <div className="flex items-center justify-between gap-2">
-              <p
-                className={`type-overline ${compact ? 'text-white/45' : 'text-[var(--text-tertiary)]'}`}
-              >
-                Negative
-              </p>
-              {slideChrome?.onCopyNegative ? (
-                <Button
-                  variant={compact ? 'ghost' : 'secondary'}
-                  className={chromeBtn(compact)}
-                  onClick={() => {
-                    slideChrome.onCopyNegative?.();
-                    flashCopy('Negative copied');
-                  }}
-                >
-                  Copy
-                </Button>
-              ) : null}
-            </div>
-            <p
-              className={`max-h-20 overflow-y-auto whitespace-pre-wrap text-[12px] leading-relaxed ${
-                compact ? 'text-white/70' : 'text-[var(--text-muted)]'
-              }`}
-            >
-              {meta.negativePrompt}
-            </p>
-          </div>
-        ) : null}
-        {slideChrome?.onNoteChange ? (
-          <div className="space-y-1">
-            <p
-              className={`type-overline ${compact ? 'text-white/45' : 'text-[var(--text-tertiary)]'}`}
-            >
-              Review note
-            </p>
-            <textarea
-              value={noteDraft}
-              onChange={event => setNoteDraft(event.target.value)}
-              onBlur={() => {
-                if ((slideChrome.note ?? '') !== noteDraft.trim()) {
-                  slideChrome.onNoteChange?.(noteDraft);
-                }
-              }}
-              rows={3}
-              placeholder="Quick note for this output…"
-              className={`w-full resize-y rounded-lg border px-2.5 py-2 text-[12px] leading-relaxed outline-none transition focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] ${
-                compact
-                  ? 'border-white/15 bg-black/40 text-white placeholder:text-white/35'
-                  : 'border-[var(--border-subtle)] bg-[var(--bg-subtle)] text-[var(--text-secondary)] placeholder:text-[var(--text-muted)]'
-              }`}
-            />
-          </div>
-        ) : null}
-        {copyFlash ? (
-          <p
-            className={`type-caption ${compact ? 'text-[var(--tint-success-text)]' : 'text-[var(--tint-success-text)]/90'}`}
-          >
-            {copyFlash}
-          </p>
-        ) : null}
-      </div>
-    );
-  };
-
-  const renderHistogramPanel = (compact = false) => {
-    if (!histogramOpen) {
-      return null;
-    }
-    const channelClass = (color: string) => (compact ? `${color}/80` : color);
-    return (
-      <div
-        className="ui-lightbox-panel space-y-2 p-3"
-        data-immersive={compact ? 'true' : undefined}
-      >
-        <div className="flex items-center justify-between gap-2">
-          <p className="type-overline">Color peek</p>
-          <Button
-            variant={compact ? 'ghost' : 'secondary'}
-            className={chromeBtn(compact)}
-            onClick={() => setHistogramOpen(false)}
-          >
-            Close
-          </Button>
-        </div>
-        {histogramLoading ? (
-          <p className="type-caption">Sampling…</p>
-        ) : histogramError ? (
-          <p className="type-caption text-[var(--tint-danger-text)]">{histogramError}</p>
-        ) : histogram ? (
-          <>
-            <p className="type-caption">
-              Exposure {histogram.exposure} · luma {(histogram.meanLuma * 100).toFixed(0)}%
-            </p>
-            {(
-              [
-                ['R', histogram.r, 'bg-rose-400'],
-                ['G', histogram.g, 'bg-emerald-400'],
-                ['B', histogram.b, 'bg-sky-400'],
-              ] as const
-            ).map(([label, values, bar]) => {
-              const normalized = normalizeHistogramChannel(values);
-              return (
-                <div key={label} className="flex items-end gap-0.5">
-                  <span className="w-3 shrink-0 text-[10px] opacity-70">{label}</span>
-                  <div className="flex h-8 flex-1 items-end gap-px">
-                    {normalized.map((value, bucket) => (
-                      <div
-                        key={`${label}-${bucket}`}
-                        className={`min-w-[2px] flex-1 rounded-sm ${channelClass(bar)}`}
-                        style={{
-                          height: `${Math.max(6, value * 100)}%`,
-                          opacity: 0.35 + value * 0.65,
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </>
-        ) : null}
-      </div>
-    );
-  };
-
   const renderHelpOverlay = (compact = false) => {
     if (!helpOpen) {
       return null;
@@ -1468,486 +1166,6 @@ export default function ImageLightbox({
             </li>
           ))}
         </ul>
-      </div>
-    );
-  };
-
-  const iconActionClass = (compactUi: boolean) =>
-    `${chromeBtn(compactUi)} !min-h-8 !min-w-8 justify-center px-1.5 font-medium tracking-tight`;
-
-  const renderIconAction = (
-    compactUi: boolean,
-    opts: {
-      label: string;
-      title: string;
-      onClick: () => void;
-      pressed?: boolean;
-      testId?: string;
-    }
-  ) => (
-    <Button
-      key={opts.title}
-      variant={compactUi ? 'ghost' : 'secondary'}
-      className={iconActionClass(compactUi)}
-      onClick={opts.onClick}
-      title={opts.title}
-      aria-label={opts.title}
-      aria-pressed={opts.pressed}
-      data-testid={opts.testId}
-    >
-      {opts.label}
-    </Button>
-  );
-
-  const renderSlideChrome = (compact = false) => {
-    const showExtended = !chromeCompact || actionsOpen;
-    const primary = (
-      <>
-        {slideChrome?.onRate
-          ? ([1, 2, 3, 4, 5] as const).map(rating => (
-              <button
-                key={rating}
-                type="button"
-                onClick={() => slideChrome.onRate?.(rating)}
-                data-testid={`lightbox-rate-${rating}`}
-                aria-label={`${rating}★`}
-                title={`Rate ${rating}`}
-                className={`rounded-md px-1.5 py-0.5 text-[11px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] ${
-                  compact
-                    ? slideChrome.rating === rating
-                      ? 'bg-[var(--accent-muted)] text-white ring-white/40'
-                      : 'bg-white/10 text-white/75 hover:bg-white/20'
-                    : slideChrome.rating === rating
-                      ? 'bg-[var(--accent-muted)] text-[var(--accent-text)] ring-[var(--accent-ring)]'
-                      : 'bg-[var(--bg-muted)] text-[var(--text-muted)] hover:bg-[var(--bg-hover)]'
-                }`}
-              >
-                {rating}★
-              </button>
-            ))
-          : null}
-        {slideChrome?.onToggleFavorite ? (
-          <Button
-            variant={compact ? 'ghost' : 'secondary'}
-            className={chromeBtn(compact)}
-            onClick={() => slideChrome.onToggleFavorite?.()}
-          >
-            {slideChrome.favorite ? '★ Fav' : '☆ Fav'}
-          </Button>
-        ) : null}
-        {slideChrome?.meta || slideChrome?.onNoteChange ? (
-          <Button
-            variant={compact ? 'ghost' : 'secondary'}
-            className={chromeBtn(compact)}
-            onClick={() => setMetaOpen(previous => !previous)}
-            aria-pressed={metaOpen}
-          >
-            {metaOpen ? 'Hide details' : 'Details'}
-          </Button>
-        ) : null}
-        <Button
-          variant={compact ? 'ghost' : 'secondary'}
-          className={chromeBtn(compact)}
-          onClick={() => {
-            if (chromeCompact) {
-              setActionsOpen(previous => !previous);
-            } else {
-              setChromeCompact(true);
-              setActionsOpen(true);
-            }
-          }}
-          aria-expanded={showExtended}
-          data-testid="lightbox-actions-toggle"
-        >
-          {chromeCompact ? (actionsOpen ? 'Hide actions' : 'Actions') : 'Compact'}
-        </Button>
-        <Button
-          variant={compact ? 'ghost' : 'secondary'}
-          className={chromeBtn(compact)}
-          onClick={() => setHelpOpen(previous => !previous)}
-          aria-pressed={helpOpen}
-        >
-          ?
-        </Button>
-      </>
-    );
-
-    const extended = showExtended ? (
-      <div
-        className="flex flex-wrap items-center gap-1"
-        data-testid="lightbox-actions-rail"
-        role="toolbar"
-        aria-label="Lightbox actions"
-      >
-        {slideChrome?.showImprove !== false && slideChrome?.onImprove
-          ? renderIconAction(compact, {
-              label: '↑',
-              title: 'Improve (I)',
-              onClick: () => slideChrome.onImprove?.(),
-              testId: 'lightbox-action-improve',
-            })
-          : null}
-        {slideChrome?.showCompose !== false && slideChrome?.onCompose
-          ? renderIconAction(compact, {
-              label: 'C',
-              title: 'Compose (C)',
-              onClick: () => slideChrome.onCompose?.(),
-              testId: 'lightbox-action-compose',
-            })
-          : null}
-        {slideChrome?.showInpaint !== false && slideChrome?.onInpaint
-          ? renderIconAction(compact, {
-              label: '✂',
-              title: 'Inpaint',
-              onClick: () => slideChrome.onInpaint?.(),
-            })
-          : null}
-        {slideChrome?.showExact && slideChrome?.onExactRequeue
-          ? renderIconAction(compact, {
-              label: 'Exact',
-              title: 'Exact requeue',
-              onClick: () => slideChrome.onExactRequeue?.(),
-            })
-          : null}
-        {slideChrome?.showUseStack !== false && slideChrome?.onUseStack
-          ? renderIconAction(compact, {
-              label: 'Stack',
-              title: 'Use this stack (U)',
-              onClick: () => slideChrome.onUseStack?.(),
-              testId: 'lightbox-action-use-stack',
-            })
-          : null}
-        {slideChrome?.showUsePromptStack !== false && slideChrome?.onUsePromptStack
-          ? renderIconAction(compact, {
-              label: 'Prompt+',
-              title: 'Prompt + stack',
-              onClick: () => slideChrome.onUsePromptStack?.(),
-              testId: 'lightbox-action-use-prompt-stack',
-            })
-          : null}
-        {slideChrome?.showUseFace !== false && slideChrome?.onUseFace
-          ? renderIconAction(compact, {
-              label: 'Lock',
-              title: 'Lock this face (L)',
-              onClick: () => slideChrome.onUseFace?.(),
-              testId: 'lightbox-action-use-face',
-            })
-          : null}
-        {slideChrome?.showSaveLook && slideChrome?.onSaveLook
-          ? renderIconAction(compact, {
-              label: 'Look',
-              title: 'Save look from this still',
-              onClick: () => slideChrome.onSaveLook?.(),
-              testId: 'lightbox-action-save-look',
-            })
-          : null}
-        {slideChrome?.showRequeue !== false && slideChrome?.onRequeue
-          ? renderIconAction(compact, {
-              label: '↻',
-              title: 'Requeue same seed',
-              onClick: () => slideChrome.onRequeue?.(),
-            })
-          : null}
-        {slideChrome?.onRetryStickyHost
-          ? renderIconAction(compact, {
-              label: '⌖',
-              title: slideChrome.meta?.host
-                ? `Retry on ${slideChrome.meta.host}`
-                : 'Retry on this host',
-              onClick: () => slideChrome.onRetryStickyHost?.(),
-            })
-          : null}
-        {slideChrome?.showSeedVariation !== false && slideChrome?.onRequeueNewSeed
-          ? renderIconAction(compact, {
-              label: '🎲',
-              title: 'Requeue with new seed',
-              onClick: () => slideChrome.onRequeueNewSeed?.(),
-              testId: 'lightbox-action-new-seed',
-            })
-          : null}
-        {slideChrome?.showSeedVariation !== false && slideChrome?.onRequeueSeedPlusOne
-          ? renderIconAction(compact, {
-              label: '+1',
-              title: 'Requeue with seed +1',
-              onClick: () => slideChrome.onRequeueSeedPlusOne?.(),
-            })
-          : null}
-        {slideChrome?.onAddToCompare
-          ? renderIconAction(compact, {
-              label: '⧉',
-              title: slideChrome.compareSelected ? 'Remove from compare (A)' : 'Add to compare (A)',
-              onClick: () => slideChrome.onAddToCompare?.(),
-              pressed: Boolean(slideChrome.compareSelected),
-            })
-          : null}
-        {slideChrome?.onOpenCompare &&
-        (slideChrome.compareCount ?? 0) >= 2 &&
-        (slideChrome.compareCount ?? 0) <= 4
-          ? renderIconAction(compact, {
-              label: 'Cmp',
-              title: 'Open compare',
-              onClick: () => slideChrome.onOpenCompare?.(),
-            })
-          : null}
-        {slideChrome?.onShowParent
-          ? renderIconAction(compact, {
-              label: '↖',
-              title: 'Parent (P)',
-              onClick: () => slideChrome.onShowParent?.(),
-            })
-          : null}
-        {slideChrome?.onShowDerivatives
-          ? renderIconAction(compact, {
-              label: '↘',
-              title: 'Derivatives (G)',
-              onClick: () => slideChrome.onShowDerivatives?.(),
-            })
-          : null}
-        {slideChrome?.onJumpToSibling
-          ? renderIconAction(compact, {
-              label: '⇄',
-              title: 'Sibling (S)',
-              onClick: () => slideChrome.onJumpToSibling?.(),
-            })
-          : null}
-        {slideChrome?.onRemove
-          ? renderIconAction(compact, {
-              label: '⌫',
-              title: 'Remove (Delete)',
-              onClick: () => slideChrome.onRemove?.(),
-            })
-          : null}
-        {slideChrome?.beforeAfterUrl && isStillLightboxKind(currentMediaKind)
-          ? renderIconAction(compact, {
-              label: 'B/A',
-              title: baOpen ? 'Exit before/after (X)' : 'Before/after wipe (X)',
-              onClick: () => {
-                setBaOpen(previous => !previous);
-                setDualMode(false);
-              },
-              pressed: baOpen,
-            })
-          : null}
-        {images.length > 1
-          ? renderIconAction(compact, {
-              label: '‖',
-              title: dualMode ? 'Exit pair mode (Y)' : 'Side-by-side pair (Y)',
-              onClick: () => {
-                setDualMode(previous => {
-                  const next = !previous;
-                  if (!next) {
-                    setDualIndex(null);
-                  } else {
-                    setBaOpen(false);
-                    const fallback = index < images.length - 1 ? index + 1 : Math.max(0, index - 1);
-                    setDualIndex(current =>
-                      current != null && current !== index ? current : fallback
-                    );
-                  }
-                  return next;
-                });
-              },
-              pressed: dualMode,
-            })
-          : null}
-        {renderIconAction(compact, {
-          label: fitMode === 'actual' ? '1:1' : fitMode === 'cover' ? 'Fill' : 'Fit',
-          title: 'Cycle fit mode (V)',
-          onClick: () =>
-            setFitMode(previous =>
-              previous === 'contain' ? 'cover' : previous === 'cover' ? 'actual' : 'contain'
-            ),
-        })}
-        {isStillLightboxKind(currentMediaKind)
-          ? renderIconAction(compact, {
-              label: '⊡',
-              title: 'Zoom fit',
-              onClick: () => applyZoomPreset('fit'),
-            })
-          : null}
-        {isStillLightboxKind(currentMediaKind)
-          ? renderIconAction(compact, {
-              label: '2×',
-              title: 'Zoom 2× center',
-              onClick: () => applyZoomPreset('center'),
-            })
-          : null}
-        {isStillLightboxKind(currentMediaKind)
-          ? renderIconAction(compact, {
-              label: '☺',
-              title: 'Face-zone zoom',
-              onClick: () => applyZoomPreset('face'),
-            })
-          : null}
-        {isStillLightboxKind(currentMediaKind)
-          ? renderIconAction(compact, {
-              label: '🎨',
-              title: histogramOpen ? 'Hide colors (H)' : 'Color histogram (H)',
-              onClick: () => {
-                if (histogramOpen) {
-                  setHistogramOpen(false);
-                } else {
-                  void loadHistogram();
-                }
-              },
-              pressed: histogramOpen,
-              testId: 'lightbox-action-colors',
-            })
-          : null}
-        {hasDistinctFullRes
-          ? renderIconAction(compact, {
-              label: preferFullRes ? (fullResLoading ? '…' : 'Mid') : 'Full',
-              title: preferFullRes ? 'Show mid-res (O)' : 'Show full-res (O)',
-              onClick: () => {
-                setPreferFullRes(previous => {
-                  const next = !previous;
-                  if (next) {
-                    setFullResLoading(true);
-                    setCurrentImageLoaded(false);
-                  }
-                  return next;
-                });
-              },
-              pressed: preferFullRes,
-            })
-          : null}
-        {renderIconAction(compact, {
-          label: chromeCompact ? 'Pin' : 'Unpin',
-          title: chromeCompact ? 'Pin actions open' : 'Collapse actions by default',
-          onClick: () => {
-            setChromeCompact(previous => !previous);
-            setActionsOpen(true);
-          },
-        })}
-        {slideChrome?.onOutpaint ||
-        slideChrome?.onControlNet ||
-        slideChrome?.onVideo ||
-        slideChrome?.onReeditRefine ||
-        slideChrome?.onReeditCompose ? (
-          <div className="relative">
-            {renderIconAction(compact, {
-              label: '⋯',
-              title: 'More handoffs',
-              onClick: () => setMoreOpen(previous => !previous),
-              pressed: moreOpen,
-              testId: 'lightbox-action-more',
-            })}
-            {moreOpen ? (
-              <div
-                className="ui-lightbox-panel absolute bottom-full left-0 z-40 mb-1.5 min-w-[11rem] p-1.5"
-                data-immersive={compact ? 'true' : undefined}
-              >
-                {[
-                  slideChrome.showOutpaint !== false && slideChrome.onOutpaint
-                    ? { label: 'Outpaint', run: slideChrome.onOutpaint }
-                    : null,
-                  slideChrome.showControlNet !== false && slideChrome.onControlNet
-                    ? { label: 'ControlNet', run: slideChrome.onControlNet }
-                    : null,
-                  slideChrome.showVideo !== false && slideChrome.onVideo
-                    ? { label: 'Video', run: slideChrome.onVideo }
-                    : null,
-                  slideChrome.onReeditRefine
-                    ? { label: 'Re-edit · Refine', run: slideChrome.onReeditRefine }
-                    : null,
-                  slideChrome.onReeditCompose
-                    ? { label: 'Re-edit · Compose', run: slideChrome.onReeditCompose }
-                    : null,
-                ]
-                  .filter(Boolean)
-                  .map(item => (
-                    <button
-                      key={item!.label}
-                      type="button"
-                      className={`block w-full rounded-lg px-2.5 py-1.5 text-left text-[12px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] ${
-                        compact
-                          ? 'text-white/85 hover:bg-white/10'
-                          : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
-                      }`}
-                      onClick={() => {
-                        setMoreOpen(false);
-                        item!.run();
-                      }}
-                    >
-                      {item!.label}
-                    </button>
-                  ))}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
-    ) : null;
-
-    return (
-      <div className="flex flex-col gap-1.5">
-        <div className="flex flex-wrap items-center gap-1.5">{primary}</div>
-        {extended ? <div className="flex flex-wrap items-center gap-1.5">{extended}</div> : null}
-      </div>
-    );
-  };
-
-  const renderJobBadge = (compact = false) => {
-    const job = slideChrome?.job;
-    if (!job || (job.status !== 'pending' && job.status !== 'running' && job.status !== 'error')) {
-      return null;
-    }
-    return (
-      <div
-        className="ui-lightbox-pill flex items-center gap-2"
-        data-immersive={compact ? 'true' : undefined}
-      >
-        <span
-          className={`h-2 w-2 rounded-full ${
-            job.status === 'error'
-              ? 'bg-rose-400'
-              : job.status === 'running'
-                ? 'animate-pulse bg-amber-300'
-                : 'bg-sky-300'
-          }`}
-        />
-        <span>{job.label}</span>
-        {job.percent != null ? (
-          <span className={compact ? 'text-white/55' : 'text-[var(--text-muted)]'}>
-            {job.percent}%
-          </span>
-        ) : null}
-      </div>
-    );
-  };
-
-  const renderTutorialTip = (compact = false) => {
-    if (!tutorialVisible || helpOpen) {
-      return null;
-    }
-    return (
-      <div
-        className="ui-lightbox-panel flex flex-wrap items-center justify-between gap-3 px-3 py-2 text-[12px]"
-        data-immersive={compact ? 'true' : undefined}
-      >
-        <p>
-          Tip: press <span className="font-medium">?</span> for lightbox shortcuts (zoom, rate,
-          compose, before/after…).
-        </p>
-        <div className="flex gap-1.5">
-          <Button
-            variant={compact ? 'ghost' : 'secondary'}
-            className={chromeBtn(compact)}
-            onClick={() => setHelpOpen(true)}
-          >
-            Show shortcuts
-          </Button>
-          <Button
-            variant={compact ? 'ghost' : 'secondary'}
-            className={chromeBtn(compact)}
-            onClick={() => {
-              setTutorialVisible(false);
-              markGalleryLightboxTutorialSeen();
-            }}
-          >
-            Got it
-          </Button>
-        </div>
       </div>
     );
   };
@@ -2297,16 +1515,79 @@ export default function ImageLightbox({
               {renderFilmstrip(true)}
             </div>
             <div className="min-h-0 space-y-2 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
-              {renderTutorialTip(true)}
-              {renderJobBadge(true)}
-              {renderHistogramPanel(true)}
-              {renderMetaPanel(true)}
+              <ImageLightboxTutorialTip
+                compact
+                tutorialVisible={tutorialVisible}
+                helpOpen={helpOpen}
+                onShowShortcuts={() => setHelpOpen(true)}
+                onDismiss={() => setTutorialVisible(false)}
+              />
+              <ImageLightboxJobBadge compact job={slideChrome?.job} />
+              <ImageLightboxHistogramPanel
+                compact
+                histogramOpen={histogramOpen}
+                histogramLoading={histogramLoading}
+                histogramError={histogramError}
+                histogram={histogram}
+                onClose={() => setHistogramOpen(false)}
+              />
+              <ImageLightboxMetaPanel
+                compact
+                metaOpen={metaOpen}
+                meta={slideChrome?.meta}
+                onNoteChange={slideChrome?.onNoteChange}
+                onCopyPrompt={slideChrome?.onCopyPrompt}
+                onCopyNegative={slideChrome?.onCopyNegative}
+                note={slideChrome?.note}
+                noteDraft={noteDraft}
+                onNoteDraftChange={setNoteDraft}
+                preferFullRes={preferFullRes}
+                hasDistinctFullRes={hasDistinctFullRes}
+                fullResLoading={fullResLoading}
+                copyFlash={copyFlash}
+                flashCopy={flashCopy}
+              />
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
                   {renderSlideshowControls(true)}
                   {/* Zoom presets touch zoomRef inside click handlers only. */}
-                  {/* eslint-disable-next-line react-hooks/refs -- action handlers, not render reads */}
-                  {renderSlideChrome(true)}
+                  {}
+                  <ImageLightboxSlideChromeBar
+                    compact
+                    slideChrome={slideChrome}
+                    chromeCompact={chromeCompact}
+                    actionsOpen={actionsOpen}
+                    metaOpen={metaOpen}
+                    helpOpen={helpOpen}
+                    moreOpen={moreOpen}
+                    baOpen={baOpen}
+                    dualMode={dualMode}
+                    fitMode={fitMode}
+                    histogramOpen={histogramOpen}
+                    preferFullRes={preferFullRes}
+                    fullResLoading={fullResLoading}
+                    hasDistinctFullRes={hasDistinctFullRes}
+                    currentMediaKind={currentMediaKind}
+                    imagesLength={images.length}
+                    index={index}
+                    onMetaOpenChange={setMetaOpen}
+                    onActionsOpenChange={setActionsOpen}
+                    onChromeCompactChange={setChromeCompact}
+                    onHelpOpenChange={setHelpOpen}
+                    onMoreOpenChange={setMoreOpen}
+                    onBaOpenChange={setBaOpen}
+                    onDualModeChange={setDualMode}
+                    onDualIndexChange={setDualIndex}
+                    onFitModeChange={setFitMode}
+                    onHistogramOpenChange={setHistogramOpen}
+                    onPreferFullResChange={setPreferFullRes}
+                    onFullResLoadingChange={setFullResLoading}
+                    onCurrentImageLoadedChange={setCurrentImageLoaded}
+                    onLoadHistogram={() => {
+                      void loadHistogram();
+                    }}
+                    onApplyZoomPreset={applyZoomPreset}
+                  />
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                   {currentOriginalUrl ? (
@@ -2406,10 +1687,35 @@ export default function ImageLightbox({
             {renderFilmstrip(false)}
           </div>
           <div className="flex min-h-0 flex-col gap-2 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
-            {renderTutorialTip(false)}
-            {renderJobBadge(false)}
-            {renderHistogramPanel(false)}
-            {renderMetaPanel(false)}
+            <ImageLightboxTutorialTip
+              tutorialVisible={tutorialVisible}
+              helpOpen={helpOpen}
+              onShowShortcuts={() => setHelpOpen(true)}
+              onDismiss={() => setTutorialVisible(false)}
+            />
+            <ImageLightboxJobBadge job={slideChrome?.job} />
+            <ImageLightboxHistogramPanel
+              histogramOpen={histogramOpen}
+              histogramLoading={histogramLoading}
+              histogramError={histogramError}
+              histogram={histogram}
+              onClose={() => setHistogramOpen(false)}
+            />
+            <ImageLightboxMetaPanel
+              metaOpen={metaOpen}
+              meta={slideChrome?.meta}
+              onNoteChange={slideChrome?.onNoteChange}
+              onCopyPrompt={slideChrome?.onCopyPrompt}
+              onCopyNegative={slideChrome?.onCopyNegative}
+              note={slideChrome?.note}
+              noteDraft={noteDraft}
+              onNoteDraftChange={setNoteDraft}
+              preferFullRes={preferFullRes}
+              hasDistinctFullRes={hasDistinctFullRes}
+              fullResLoading={fullResLoading}
+              copyFlash={copyFlash}
+              flashCopy={flashCopy}
+            />
 
             <div className="flex shrink-0 flex-col gap-2">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -2466,8 +1772,42 @@ export default function ImageLightbox({
               </div>
               {slideChrome || isStillLightboxKind(currentMediaKind) ? (
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  {/* eslint-disable-next-line react-hooks/refs -- action handlers, not render reads */}
-                  {renderSlideChrome(false)}
+                  {}
+                  <ImageLightboxSlideChromeBar
+                    slideChrome={slideChrome}
+                    chromeCompact={chromeCompact}
+                    actionsOpen={actionsOpen}
+                    metaOpen={metaOpen}
+                    helpOpen={helpOpen}
+                    moreOpen={moreOpen}
+                    baOpen={baOpen}
+                    dualMode={dualMode}
+                    fitMode={fitMode}
+                    histogramOpen={histogramOpen}
+                    preferFullRes={preferFullRes}
+                    fullResLoading={fullResLoading}
+                    hasDistinctFullRes={hasDistinctFullRes}
+                    currentMediaKind={currentMediaKind}
+                    imagesLength={images.length}
+                    index={index}
+                    onMetaOpenChange={setMetaOpen}
+                    onActionsOpenChange={setActionsOpen}
+                    onChromeCompactChange={setChromeCompact}
+                    onHelpOpenChange={setHelpOpen}
+                    onMoreOpenChange={setMoreOpen}
+                    onBaOpenChange={setBaOpen}
+                    onDualModeChange={setDualMode}
+                    onDualIndexChange={setDualIndex}
+                    onFitModeChange={setFitMode}
+                    onHistogramOpenChange={setHistogramOpen}
+                    onPreferFullResChange={setPreferFullRes}
+                    onFullResLoadingChange={setFullResLoading}
+                    onCurrentImageLoadedChange={setCurrentImageLoaded}
+                    onLoadHistogram={() => {
+                      void loadHistogram();
+                    }}
+                    onApplyZoomPreset={applyZoomPreset}
+                  />
                   <p className="type-caption text-[var(--text-muted)]">Press ? for shortcuts</p>
                 </div>
               ) : null}

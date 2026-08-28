@@ -4,10 +4,10 @@ import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SharedToolControls from '@/components/SharedToolControls';
-import RoleplayBibleEditor from '@/components/RoleplayBibleEditor';
 import RoleplayLibraryPanel from '@/components/RoleplayLibraryPanel';
 import RoleplayBeatOutputSection from '@/components/roleplay/RoleplayBeatOutputSection';
 import RoleplayBioSection from '@/components/roleplay/RoleplayBioSection';
+import RoleplayCastSection from '@/components/roleplay/RoleplayCastSection';
 import RoleplayStorySection from '@/components/roleplay/RoleplayStorySection';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
@@ -45,7 +45,6 @@ import {
   isIdentityMediaUrl,
   persistIdentityImage,
 } from '@/lib/gallery-media-client';
-import { galleryPickPath } from '@/lib/gallery-handoff';
 import {
   collectIsolateSourceUrls,
   isolateSubjectOnWhite,
@@ -57,16 +56,12 @@ import {
   CUSTOM_ROLEPLAY_PERSONA_ID,
   ROLEPLAY_ARCHETYPES,
   ROLEPLAY_CONTENT,
-  ROLEPLAY_PLAY_AS,
-  ROLEPLAY_SETTING_PRESETS,
   ROLEPLAY_TONES,
   appendRoleplayStoryBeat,
   beginRoleplayClipRetryPatch,
   beginRoleplayStillRetryPatch,
   canRetryRoleplayStill,
-  applyRoleplayCharacterName,
   getRoleplayArchetype,
-  MAX_ROLEPLAY_CHARACTER_NAME,
   formatRoleplayStoryProgress,
   lastCompletedRoleplayStillUrl,
   lastRoleplayPlotBeat,
@@ -82,7 +77,6 @@ import {
   roleplayStillQueueResultPatch,
   roleplayStillTakes,
   roleplayStoryPhase,
-  rollRoleplaySetting,
   selectRoleplayClipTakePatch,
   selectRoleplayStillTakePatch,
   type RoleplayBio,
@@ -117,16 +111,9 @@ import {
   snapshotRoleplaySession,
   type RoleplayLibrarySession,
 } from '@/lib/roleplay-library';
-import { ChipButton, TextArea, TextInput } from '@/components/ui/Field';
-import { Button, ButtonLink } from '@/components/ui/Button';
-import VisionScanButton from '@/components/VisionScanButton';
+import { Button } from '@/components/ui/Button';
 import { resolveLocalImageFile, scanStillWithVision } from '@/lib/vision-still-scan-client';
-import {
-  ToolBadge,
-  ToolLayout,
-  ToolSection,
-  accentFocusClass,
-} from '@/components/ui/ToolPageShell';
+import { ToolBadge, ToolLayout, ToolSection } from '@/components/ui/ToolPageShell';
 
 const ACCENT = 'amber' as const;
 const TOOL_ID = 'roleplay';
@@ -1398,397 +1385,47 @@ export default function RoleplayTool() {
     >
       <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.roleplay} />
 
-      <ToolSection title="Cast yourself">
-        <p className="text-sm text-[var(--text-muted)]">
-          Pick a part — raccoon pirate, sentient toaster, bad-at-haunting ghost — or type your own.
-          Optional: play as yourself from a photo, or lock an existing generated still.
-        </p>
-        <div className="flex flex-wrap gap-1.5">
-          {ROLEPLAY_ARCHETYPES.map(entry => (
-            <ChipButton
-              key={entry.id}
-              active={personaId === entry.id}
-              disabled={busy}
-              onClick={() => {
-                if (personaId === entry.id) {
-                  return;
-                }
-                shelfAndStartNew({ personaId: entry.id, customPersona: undefined });
-              }}
-            >
-              {entry.label}
-            </ChipButton>
-          ))}
-          <ChipButton
-            active={personaId === CUSTOM_ROLEPLAY_PERSONA_ID}
-            disabled={busy}
-            onClick={() => {
-              if (personaId === CUSTOM_ROLEPLAY_PERSONA_ID) {
-                return;
-              }
-              shelfAndStartNew({ personaId: CUSTOM_ROLEPLAY_PERSONA_ID });
-            }}
-          >
-            Custom…
-          </ChipButton>
-          <ChipButton
-            active={ownBibleOpen}
-            disabled={busy}
-            onClick={() => setOwnBibleOpen(open => !open)}
-          >
-            Your bible
-          </ChipButton>
-        </div>
-        {ownBibleOpen && !bio ? (
-          <div className="rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-muted)]/30 p-3">
-            <p className="mb-3 text-sm text-[var(--text-muted)]">
-              Write or paste a character bible. No LLM rewrite — this is the person who walks into
-              the story.
-            </p>
-            <RoleplayBibleEditor
-              characterName={toolSettings.characterName}
-              disabled={busy}
-              accentClass={accentFocusClass(ACCENT)}
-              onApply={nextBio => void applyOwnBible(nextBio)}
-            />
-          </div>
-        ) : null}
-        {personaId === CUSTOM_ROLEPLAY_PERSONA_ID ? (
-          <TextArea
-            value={toolSettings.customPersona ?? ''}
-            disabled={busy}
-            placeholder="e.g. a shy lighthouse that wants to be a DJ"
-            onChange={event => updateToolSettings({ customPersona: event.target.value })}
-            className={accentFocusClass(ACCENT)}
-            rows={2}
-          />
-        ) : null}
-        <label className="block space-y-1.5 text-sm">
-          <span className="type-caption text-[var(--text-muted)]">Character name</span>
-          <TextInput
-            name="roleplay-character-lock"
-            autoComplete="off"
-            autoCorrect="off"
-            spellCheck={false}
-            value={toolSettings.characterName ?? ''}
-            disabled={busy}
-            maxLength={MAX_ROLEPLAY_CHARACTER_NAME}
-            placeholder="Leave blank to let the writer name them"
-            onChange={event => {
-              const characterName = event.target.value;
-              updateToolSettings({
-                characterName,
-                bio: bio ? applyRoleplayCharacterName(bio, characterName) : bio,
-              });
-            }}
-            className={accentFocusClass(ACCENT)}
-          />
-        </label>
-        <div className="space-y-2">
-          <p className="type-caption text-[var(--text-muted)]">Play as</p>
-          <div className="flex flex-wrap gap-1.5">
-            {ROLEPLAY_PLAY_AS.map(entry => (
-              <ChipButton
-                key={entry.id}
-                active={playAs === entry.id}
-                disabled={busy}
-                title={entry.hint}
-                onClick={() => {
-                  if (entry.id === 'text') {
-                    clearReference();
-                    return;
-                  }
-                  updateToolSettings({ playAs: 'photo' });
-                }}
-              >
-                {entry.label}
-              </ChipButton>
-            ))}
-          </div>
-          {playAs === 'photo' ? (
-            <div className="space-y-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-muted)]/40 p-3">
-              <p className="text-xs text-[var(--text-muted)]">
-                Every still queues img2img from this reference so you stay the same person. Isolate
-                on white (default) cuts the subject out so the model does not keep the photo&apos;s
-                street or room. Scene and part clothing replace the photo&apos;s outfit — face,
-                hair, and body stay. Pair with Setting to place them somewhere new.
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                <ChipButton
-                  active={isolateSubject}
-                  disabled={busy}
-                  title="Cut the subject out and place them on a white backdrop before queueing. First use downloads a small on-device model."
-                  onClick={() => {
-                    const next = !isolateSubject;
-                    if (!next && (referenceOriginalFilename || referenceOriginalUrl)) {
-                      updateToolSettings({
-                        isolateSubject: false,
-                        referenceIsolated: false,
-                        referenceImageFilename: referenceOriginalFilename || referenceImageFilename,
-                        referenceImageUrl: referenceOriginalUrl || referenceImageUrl,
-                      });
-                      if (referenceOriginalUrl || referenceImageUrl) {
-                        setReferencePreviewUrl(
-                          cacheBustIdentityMediaUrl(referenceOriginalUrl || referenceImageUrl)
-                        );
-                      }
-                      setIsolateStatus(null);
-                      return;
-                    }
-                    updateToolSettings({ isolateSubject: next });
-                    const originalUrl = referenceOriginalUrl || referenceImageUrl;
-                    const originalFilename = referenceOriginalFilename || referenceImageFilename;
-                    if (!originalUrl && !originalFilename) {
-                      return;
-                    }
-                    void applyReference({
-                      imageUrl: originalUrl || IDENTITY_MEDIA_URL,
-                      filename: originalFilename || 'roleplay-ref.png',
-                      isolate: next,
-                    }).catch(err => {
-                      setError(
-                        err instanceof Error ? err.message : 'Could not update the reference.'
-                      );
-                    });
-                  }}
-                >
-                  Isolate on white
-                </ChipButton>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <input
-                  type="file"
-                  accept="image/*"
-                  disabled={busy}
-                  className="ui-file-input block min-w-0 flex-1"
-                  onChange={event => {
-                    const file = event.target.files?.[0];
-                    event.target.value = '';
-                    if (!file) {
-                      return;
-                    }
-                    void applyReference({ file }).catch(err => {
-                      setError(err instanceof Error ? err.message : 'Could not upload that photo.');
-                    });
-                  }}
-                />
-                <ButtonLink href={galleryPickPath('roleplay')} variant="secondary" size="sm">
-                  Choose from Gallery
-                </ButtonLink>
-                <VisionScanButton
-                  disabled={!hasReferenceImage || busy}
-                  scanning={scanning}
-                  onClick={() => void scanWithVision()}
-                />
-                {lastStill ? (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={busy}
-                    onClick={() => {
-                      void applyReference({
-                        imageUrl: lastStill.url,
-                        filename: `roleplay-${lastStill.title}.png`,
-                      }).catch(err => {
-                        setError(err instanceof Error ? err.message : 'Could not use that still.');
-                      });
-                    }}
-                  >
-                    Use last still
-                  </Button>
-                ) : null}
-                {hasReferenceImage ? (
-                  <Button variant="ghost" size="sm" disabled={busy} onClick={clearReference}>
-                    Clear
-                  </Button>
-                ) : null}
-              </div>
-              {displayReferenceUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element -- session blob / comfy preview
-                <img
-                  key={displayReferenceUrl}
-                  src={displayReferenceUrl}
-                  alt="Roleplay reference"
-                  className="h-24 w-24 rounded-lg border border-[var(--border-subtle)] bg-white object-contain"
-                />
-              ) : null}
-              {referenceUploading ? (
-                <p className="text-xs text-[var(--text-muted)]">
-                  {isolateStatus ?? 'Uploading reference…'}
-                </p>
-              ) : isolateStatus ? (
-                <p className="text-xs text-[var(--text-muted)]">{isolateStatus}</p>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-        <div className="space-y-2">
-          <p className="type-caption text-[var(--text-muted)]">Tone</p>
-          <div className="flex flex-wrap gap-1.5">
-            {ROLEPLAY_TONES.map(entry => (
-              <ChipButton
-                key={entry.id}
-                active={tone === entry.id}
-                disabled={busy}
-                title={entry.hint}
-                onClick={() => updateToolSettings({ tone: entry.id, content })}
-              >
-                {entry.label}
-              </ChipButton>
-            ))}
-          </div>
-        </div>
-        <div className="space-y-2">
-          <p className="type-caption text-[var(--text-muted)]">Content</p>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="type-caption w-12 shrink-0 text-[var(--text-muted)]">SFW</span>
-            {ROLEPLAY_CONTENT.filter(entry => entry.group === 'sfw').map(entry => (
-              <ChipButton
-                key={entry.id}
-                active={content === entry.id}
-                disabled={busy}
-                title={entry.hint}
-                onClick={() => updateToolSettings({ content: entry.id, tone })}
-              >
-                {entry.label}
-              </ChipButton>
-            ))}
-          </div>
-          {adultEnabled ? (
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="type-caption w-12 shrink-0 text-[var(--text-muted)]">Adult</span>
-              {ROLEPLAY_CONTENT.filter(entry => entry.group === 'adult').map(entry => (
-                <ChipButton
-                  key={entry.id}
-                  active={content === entry.id}
-                  disabled={busy}
-                  title={entry.hint}
-                  onClick={() => updateToolSettings({ content: entry.id, tone })}
-                >
-                  {entry.label}
-                </ChipButton>
-              ))}
-            </div>
-          ) : null}
-          <ChipButton
-            active={toolSettings.allowGore === true}
-            disabled={busy}
-            title="Horror stills: blood, wounds, viscera. Stacks with any rating."
-            onClick={() =>
-              updateToolSettings({
-                allowGore: toolSettings.allowGore !== true,
-                tone,
-                content,
-              })
-            }
-          >
-            Gore
-          </ChipButton>
-        </div>
-        <div className="space-y-2">
-          <p className="type-caption text-[var(--text-muted)]">Setting</p>
-          <p className="text-xs text-[var(--text-muted)]">
-            {playAs === 'photo'
-              ? 'Stills replace the photo background with this place. Leave blank to invent a new scene per beat. Write a new bio or roll scenes after changing it.'
-              : 'Opening beats and stills happen here. Leave blank to let the story pick places. Write a new bio or roll scenes after changing it.'}
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {ROLEPLAY_SETTING_PRESETS.map(entry => (
-              <ChipButton
-                key={entry.id}
-                active={(toolSettings.setting ?? '').trim() === entry.setting}
-                disabled={busy}
-                title={entry.setting}
-                onClick={() =>
-                  updateToolSettings({
-                    setting:
-                      (toolSettings.setting ?? '').trim() === entry.setting ? '' : entry.setting,
-                  })
-                }
-              >
-                {entry.label}
-              </ChipButton>
-            ))}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <TextInput
-              value={toolSettings.setting ?? ''}
-              disabled={busy}
-              placeholder="e.g. flooded cathedral, your kitchen, a moonlit pier"
-              onChange={event => updateToolSettings({ setting: event.target.value })}
-              className={`min-w-0 flex-1 ${accentFocusClass(ACCENT)}`}
-            />
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={busy}
-              onClick={() =>
-                updateToolSettings({ setting: rollRoleplaySetting(toolSettings.setting) })
-              }
-            >
-              Roll
-            </Button>
-            {(toolSettings.setting ?? '').trim() ? (
-              <Button
-                type="button"
-                variant="ghost"
-                disabled={busy}
-                onClick={() => updateToolSettings({ setting: '' })}
-              >
-                Clear
-              </Button>
-            ) : null}
-          </div>
-        </div>
-        <label className="block space-y-1.5 text-sm">
-          <span className="type-caption text-[var(--text-muted)]">Optional notes</span>
-          <TextArea
-            value={toolSettings.extraHints ?? ''}
-            disabled={busy}
-            placeholder="Must include a yellow umbrella. Allergic to plot armor."
-            onChange={event => updateToolSettings({ extraHints: event.target.value })}
-            className={accentFocusClass(ACCENT)}
-            rows={2}
-          />
-        </label>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="primary"
-            loading={bioLoading}
-            loadingLabel={
-              autoQueue
-                ? beatOutput === 'clip'
-                  ? 'Writing bio and queueing clip'
-                  : 'Writing bio and queueing still'
-                : 'Writing bio and still'
-            }
-            disabled={(busy && !bioLoading) || !photoReady}
-            onClick={() => void writeBio()}
-          >
-            Write my bio
-          </Button>
-          <Button variant="secondary" disabled={busy} onClick={surpriseCast}>
-            Surprise cast
-          </Button>
-          <Button
-            variant="secondary"
-            disabled={busy}
-            onClick={() => setOwnBibleOpen(open => !open)}
-          >
-            {bio ? 'Edit bible' : 'Use my own bible'}
-          </Button>
-          {bio ? (
-            <Button variant="ghost" disabled={busy} onClick={() => shelfAndStartNew()}>
-              Clear bio
-            </Button>
-          ) : null}
-          {story.length > 0 && storyProgress.phase !== 'complete' ? (
-            <Button variant="ghost" disabled={busy} onClick={restartStory}>
-              Restart story
-            </Button>
-          ) : null}
-        </div>
-      </ToolSection>
+      <RoleplayCastSection
+        busy={busy}
+        bioLoading={bioLoading}
+        bio={bio}
+        story={story}
+        storyPhase={storyProgress.phase}
+        personaId={personaId}
+        playAs={playAs}
+        tone={tone}
+        content={content}
+        adultEnabled={adultEnabled}
+        autoQueue={autoQueue}
+        beatOutput={beatOutput}
+        photoReady={photoReady}
+        ownBibleOpen={ownBibleOpen}
+        toolSettings={toolSettings}
+        isolateSubject={isolateSubject}
+        hasReferenceImage={hasReferenceImage}
+        scanning={scanning}
+        referenceUploading={referenceUploading}
+        isolateStatus={isolateStatus}
+        displayReferenceUrl={displayReferenceUrl}
+        referenceOriginalFilename={referenceOriginalFilename}
+        referenceOriginalUrl={referenceOriginalUrl}
+        referenceImageFilename={referenceImageFilename}
+        referenceImageUrl={referenceImageUrl}
+        lastStill={lastStill}
+        onOwnBibleOpenChange={setOwnBibleOpen}
+        onUpdateToolSettings={updateToolSettings}
+        onShelfAndStartNew={shelfAndStartNew}
+        onApplyOwnBible={nextBio => void applyOwnBible(nextBio)}
+        onClearReference={clearReference}
+        onApplyReference={applyReference}
+        onReferencePreviewUrlChange={setReferencePreviewUrl}
+        onIsolateStatusChange={setIsolateStatus}
+        onError={setError}
+        onScanWithVision={() => void scanWithVision()}
+        onWriteBio={() => void writeBio()}
+        onSurpriseCast={surpriseCast}
+        onRestartStory={restartStory}
+      />
 
       <ToolSection title="Library">
         <RoleplayLibraryPanel

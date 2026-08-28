@@ -51,31 +51,83 @@ test.describe('Heal failure path', () => {
 
     await gotoStable(page, '/settings?tab=comfyui&section=connection');
     await openComfyUiSettingsTab(page);
-    const heal = page.getByRole('button', { name: /Heal & ready/i }).first();
+    // Banner Heal shares the same label but does not set heal-status — dismiss if present.
+    const dismissBanner = page.getByRole('button', { name: /^Dismiss$/i });
+    if (await dismissBanner.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      await dismissBanner.click();
+    }
+    const connection = page.locator('#settings-comfyui-connection');
+    await expect(connection).toBeVisible({ timeout: 30_000 });
+    await connection.scrollIntoViewIfNeeded();
+    // Scope to the connection hub — SetupReadinessBanner also has Heal & ready without heal-status.
+    const heal = connection
+      .getByTestId('heal-and-ready')
+      .or(connection.getByRole('button', { name: /Heal & ready/i }))
+      .first();
     await expect(heal).toBeVisible({ timeout: 30_000 });
+    const healthAfterClick = page.waitForResponse(
+      response => response.url().includes('/api/health') && response.request().method() === 'GET',
+      { timeout: 45_000 }
+    );
     await heal.click();
-    // Status persists after heal finishes (connection first-run or overview).
-    const status = page.getByTestId('heal-status').or(page.getByText(/ComfyUI unreachable|Heal failed|LLM not ready|system workflows/i).first());
-    await expect(status).toBeVisible({ timeout: 45_000 });
+    await healthAfterClick;
+    // Prefer the dedicated status node — text fallbacks collide with checklist copy
+    // ("System workflows are off…") and trip Playwright strict mode.
+    // Dev Fast Refresh can remount Settings and clear ephemeral healProgress; accept the
+    // persisted checklist flip as proof heal ran.
+    await expect
+      .poll(
+        async () => {
+          if (await connection.getByTestId('heal-status').isVisible().catch(() => false)) {
+            return 'status';
+          }
+          if (
+            await connection
+              .getByText(/System workflows\s*·\s*on/i)
+              .isVisible()
+              .catch(() => false)
+          ) {
+            return 'workflows-on';
+          }
+          return '';
+        },
+        { timeout: 45_000 }
+      )
+      .not.toEqual('');
   });
 });
 
 test.describe('Auth-on optional', () => {
   test('login API responds when auth is enabled; skips cleanly when off', async ({ page }) => {
+    const authRequired = process.env.PROMPT_E2E_AUTH === '1';
     const { username, password } = e2eCredentials();
     const response = await page.request.post('/api/auth/login', {
       data: { username, password },
     });
     if (response.status() === 404 || response.status() === 503) {
+      if (authRequired) {
+        throw new Error(
+          'PROMPT_E2E_AUTH=1 but /api/auth/login is disabled (404/503). Enable auth for this lane.'
+        );
+      }
       test.skip(true, 'Auth is disabled in this environment');
       return;
     }
-    if (process.env.PROMPT_E2E_AUTH === '1') {
-      expect(response.ok()).toBeTruthy();
+    if (authRequired) {
+      expect(
+        response.ok(),
+        `PROMPT_E2E_AUTH=1 requires successful login (got ${response.status()})`
+      ).toBeTruthy();
       await gotoStable(page, '/');
       await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).not.toBeVisible({
         timeout: 15_000,
       });
+      // Protected settings deep-link should stay signed-in.
+      await gotoStable(page, '/settings?tab=comfyui&section=connection');
+      await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).not.toBeVisible({
+        timeout: 15_000,
+      });
+      await expect(page.locator('#settings-comfyui-connection')).toBeVisible({ timeout: 30_000 });
       return;
     }
     // Default LAN: route may accept admin seed or reject — either proves auth surface exists.
