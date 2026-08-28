@@ -11,7 +11,9 @@ import {
   selectRoleplayClipTakePatch,
   selectRoleplayStillTakePatch,
   type RoleplayBio,
+  type RoleplayContentId,
   type RoleplayStoryBeat,
+  type RoleplayTone,
 } from '@/lib/roleplay';
 import { downloadRoleplayStoryBundle } from '@/lib/roleplay-export';
 import {
@@ -31,8 +33,8 @@ type UseRoleplaySessionActionsOptions = {
   updateToolSettings: (patch: Partial<RoleplayToolCache>) => void;
   bio: RoleplayBio | undefined;
   personaId: string;
-  tone: string;
-  content: string;
+  tone: RoleplayTone;
+  content: RoleplayContentId;
   assembledFilmRef: AssembledFilmRef;
   stampRoleplayCharacter: (patch: Partial<RoleplayToolCache>) => void;
   setScenes: (scenes: RoleplayScene[]) => void;

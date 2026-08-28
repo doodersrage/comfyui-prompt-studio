@@ -25,6 +25,10 @@ import type {
 import type { GalleryCapWarningLevel } from '@/lib/gallery-cap';
 import type { GalleryDensity } from '@/lib/gallery-density';
 
+export type GalleryFilterSetter = (
+  patch: Partial<ComfyGalleryFilter> | ((previous: ComfyGalleryFilter) => ComfyGalleryFilter)
+) => void;
+
 export type GalleryPanelLightboxSlotProps = {
   resolvedLightbox: ImageLightboxState | null;
   closeLightbox: () => void;
@@ -42,7 +46,7 @@ export type GalleryPanelLightboxSlotProps = {
   playlistLength: number;
 };
 
-export type GalleryPanelBodyProps = {
+export type GalleryPanelChromeProps = {
   showHeader: boolean;
   showFilters: boolean;
   compact: boolean;
@@ -52,36 +56,44 @@ export type GalleryPanelBodyProps = {
   bulkEnabled: boolean;
   paginationEnabled: boolean;
   pickFor: GalleryHandoffPayload['target'] | null;
+};
+
+export type GalleryPanelUploadProps = {
   uploadInputRef: RefObject<HTMLInputElement | null>;
   importDroppedImages: (files: File[]) => Promise<void>;
-  lightbox: GalleryPanelLightboxSlotProps;
-  header: {
-    activeJobs: number;
-    entriesLength: number;
-    uploadingImages: boolean;
-    onRefreshPending: () => void;
-    onClearAll: () => void;
-  };
-  requeueStatus: string | null;
+};
+
+export type GalleryPanelHeaderSlotProps = {
+  activeJobs: number;
+  entriesLength: number;
+  uploadingImages: boolean;
+  onRefreshPending: () => void;
+  onClearAll: () => void;
+};
+
+export type GalleryPanelCapProps = {
   galleryCapWarning: { level: GalleryCapWarningLevel; message: string | null };
   capWizardOpen: boolean;
   setCapWizardOpen: (open: boolean) => void;
   capEvictionPreview: ComfyGalleryEntry[];
   exportCapKeepers: () => void;
-  filter: ComfyGalleryFilter;
-  setFilter: (
-    patch: Partial<ComfyGalleryFilter> | ((previous: ComfyGalleryFilter) => ComfyGalleryFilter)
-  ) => void;
+};
+
+export type GalleryPanelAuxiliaryProps = {
   duplicateClusters: GalleryDuplicateCluster[];
   duplicateEntriesById: Map<string, ComfyGalleryEntry> | undefined;
-  setSelectedIds: (ids: string[]) => void;
-  setCompareOpen: (open: boolean) => void;
-  removeEntries: (ids: string[]) => void;
   showVisionInbox: boolean;
   visionInboxQueue: ComfyGalleryEntry[];
   setReviewRating: (entryId: string, rating: 1 | 2 | 3 | 4 | 5) => void;
   setVisionInboxSkipIds: Dispatch<SetStateAction<Set<string>>>;
   setVisionInboxOpen: (open: boolean) => void;
+};
+
+export type GalleryPanelBrowseProps = {
+  filter: ComfyGalleryFilter;
+  setFilter: GalleryFilterSetter;
+  entries: ComfyGalleryEntry[];
+  visibleEntries: ComfyGalleryEntry[];
   galleryStats: GalleryStats;
   heldMaxCount: number;
   activeProjectId: string | undefined;
@@ -94,7 +106,6 @@ export type GalleryPanelBodyProps = {
   customGroups: string[];
   renameCustomGroup: (from: string, to: string) => number;
   deleteCustomGroup: (name: string) => number;
-  setRequeueStatus: (status: string | null) => void;
   projects: PromptProject[];
   sort: ComfyGallerySort;
   setSort: (sort: ComfyGallerySort) => void;
@@ -114,30 +125,44 @@ export type GalleryPanelBodyProps = {
   showPagination: boolean;
   startSlideshow: () => void;
   startFullscreenSlideshow: () => void;
-  visibleEntries: ComfyGalleryEntry[];
-  selectedEntries: ComfyGalleryEntry[];
-  selectedIds: string[];
   retryFailedEntries: (entries: ComfyGalleryEntry[], mode?: 'same' | 'new' | 'exact') => void;
   setPage: (page: number) => void;
   effectivePageSize: number;
+  clearGalleryFilters: () => void;
+};
+
+export type GalleryPanelSelectionProps = {
+  selectedEntries: ComfyGalleryEntry[];
+  selectedIds: string[];
   selectAllVisible: () => void;
-  setLoraExportScope: (scope: 'favorites' | 'selected') => void;
-  setLoraExportOpen: (open: boolean) => void;
+  clearSelection: () => void;
   openCompare: () => void;
+  setSelectedIds: (ids: string[]) => void;
+  setCompareOpen: (open: boolean) => void;
+};
+
+export type GalleryPanelBulkProps = {
   paramAxis: ParamExperimentAxis;
   setParamAxis: (axis: ParamExperimentAxis) => void;
   similarSearchActive: boolean;
-  clearSelection: () => void;
   bulkExperimentHandlers: GalleryBulkExperimentHandlers;
   downloadError: string | null;
+  setLoraExportScope: (scope: 'favorites' | 'selected') => void;
+  setLoraExportOpen: (open: boolean) => void;
+};
+
+export type GalleryPanelModalsProps = {
   compareOpen: boolean;
   compareHandlers: Omit<GalleryComparePanelProps, 'entries' | 'onClose'>;
   resetCompare: () => void;
   openEntryLightbox: (entry: ComfyGalleryEntry, index: number) => void;
   workflowEntry: ComfyGalleryEntry | null;
   setWorkflowEntry: (entry: ComfyGalleryEntry | null) => void;
-  clearGalleryFilters: () => void;
-  entries: ComfyGalleryEntry[];
+  loraExportOpen: boolean;
+  loraExportScope: 'favorites' | 'selected';
+};
+
+export type GalleryPanelGridProps = {
   lineageGroups: ReturnType<typeof buildGalleryLineageGroups> | null;
   collapsedLineageGroups: Set<string>;
   toggleLineageGroup: (rootId: string) => void;
@@ -156,11 +181,30 @@ export type GalleryPanelBodyProps = {
   galleryCardGridClass: string;
   galleryVirtualGridClass: string;
   renderGalleryCard: (entry: ComfyGalleryEntry) => ReactNode;
+};
+
+export type GalleryPanelReviewProps = {
   reviewFocusEntry: ComfyGalleryEntry | null;
   reviewFocusIndex: number;
   handleReviewRating: (entry: ComfyGalleryEntry, rating: 1 | 2 | 3 | 4 | 5) => void;
   toggleFavorite: (entryId: string) => void;
-  loraExportOpen: boolean;
-  loraExportScope: 'favorites' | 'selected';
+};
+
+export type GalleryPanelBodyProps = {
+  chrome: GalleryPanelChromeProps;
+  upload: GalleryPanelUploadProps;
+  lightbox: GalleryPanelLightboxSlotProps;
+  header: GalleryPanelHeaderSlotProps;
+  status: { requeueStatus: string | null };
+  cap: GalleryPanelCapProps;
+  auxiliary: GalleryPanelAuxiliaryProps;
+  browse: GalleryPanelBrowseProps;
+  selection: GalleryPanelSelectionProps;
+  bulk: GalleryPanelBulkProps;
+  modals: GalleryPanelModalsProps;
+  grid: GalleryPanelGridProps;
+  review: GalleryPanelReviewProps;
+  removeEntries: (ids: string[]) => void;
   setFavorites: (entryIds: string[], favorite: boolean) => void;
+  setRequeueStatus: (status: string | null) => void;
 };

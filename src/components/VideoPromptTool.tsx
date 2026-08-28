@@ -1,26 +1,15 @@
 'use client';
 
-import { useCallback, useState } from 'react';
 import EditToolRecipeStrip from '@/components/EditToolRecipeStrip';
 import SharedToolControls from '@/components/SharedToolControls';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
-import { useCachedSettings } from '@/hooks/useCachedSettings';
-import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
-import { usePromptResultActions } from '@/hooks/usePromptResultActions';
-import { useVideoPromptInitImage, isFetchableImageRef } from '@/hooks/useVideoPromptInitImage';
-import { useVideoPromptQueue } from '@/hooks/useVideoPromptQueue';
-import { useVideoPromptFieldSetters } from '@/hooks/useVideoPromptFieldSetters';
-import { useVideoWorkflowScaffold } from '@/hooks/useVideoWorkflowScaffold';
-import { useVideoPromptModelSync } from '@/hooks/useVideoPromptModelSync';
 import VideoPromptFormPanel from '@/components/video/VideoPromptFormPanel';
 import VideoPromptResultSection from '@/components/video/VideoPromptResultSection';
 import VideoPromptHistorySeedSection from '@/components/video/VideoPromptHistorySeedSection';
-import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
-import { DEFAULT_VIDEO_TOOL_CACHE } from '@/lib/settings-cache';
-import { isVideoModel } from '@/lib/queue-tool-model';
-import { ToolBadge, ToolLayout, accentFocusClass } from '@/components/ui/ToolPageShell';
-import { inferVideoClipMode, type VideoClipMode } from '@/lib/video-clip-mode';
+import { useVideoPromptOrchestration } from '@/hooks/useVideoPromptOrchestration';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
+import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
+import { ToolBadge, ToolLayout, accentFocusClass } from '@/components/ui/ToolPageShell';
 
 const ACCENT = 'brand' as const;
 
@@ -29,138 +18,7 @@ export default function VideoPromptTool() {
     'Motion and camera prompts for WAN / Hunyuan, or Fal / Replicate / Grok cloud T2V / I2V / extend. Pick a mode, then queue.',
     'Video motion prompts — T2V, I2V from a first frame, or extend a parent clip.'
   );
-  const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
-    'video',
-    DEFAULT_VIDEO_TOOL_CACHE
-  );
-  const subject = toolSettings.subject ?? '';
-  const motion = toolSettings.motion ?? '';
-  const camera = toolSettings.camera ?? '';
-  const style = toolSettings.style ?? '';
-  const durationSec = toolSettings.durationSec ?? 4;
-  const initImageUrl = toolSettings.initImageUrl ?? '';
-  const parentVideoUrl = toolSettings.parentVideoUrl ?? '';
-  const frames = toolSettings.frames;
-  const fps = toolSettings.fps;
-
-  const [parentGalleryEntryId, setParentGalleryEntryId] = useState<string | undefined>();
-  const [workflowStatus, setWorkflowStatus] = useState<string | null>(null);
-  const [output, setOutput] = useState('');
-  const [error, setError] = useState<string | null>(null);
-
-  const setClipMode = useCallback(
-    (mode: VideoClipMode) => updateToolSettings({ clipMode: mode }),
-    [updateToolSettings]
-  );
-
-  const {
-    setSubject,
-    setMotion,
-    setCamera,
-    setStyle,
-    setDurationSec,
-    setInitImageUrl,
-    setParentVideoUrl,
-    setFrames,
-    setFps,
-    setVideoModel,
-  } = useVideoPromptFieldSetters({
-    subject,
-    motion,
-    camera,
-    style,
-    updateToolSettings,
-    updateShared,
-  });
-
-  const {
-    file,
-    previewUrl,
-    scanning,
-    hasInitImage,
-    pastedInitValue,
-    clearInitImage,
-    onInitFileChange,
-    scanInitWithVision,
-    setPreviewUrl,
-    revokePreviewIfBlob,
-  } = useVideoPromptInitImage({
-    initImageUrl,
-    setInitImageUrl,
-    setParentVideoUrl,
-    setParentGalleryEntryId,
-    setClipMode,
-    setSubject,
-    setMotion,
-    setError,
-    updateShared,
-    updateToolSettings,
-    camera,
-    style,
-    shared,
-  });
-
-  const clipMode = inferVideoClipMode({
-    clipMode: toolSettings.clipMode,
-    hasInitImage,
-  });
-
-  useSeedToolDraft(mounted, {
-    toolKey: 'video',
-    label: 'Video',
-    href: '/video',
-    fields: [subject, motion, camera, style],
-  });
-
-  const { controlsSharedModel } = useVideoPromptModelSync({
-    mounted,
-    sharedModel: shared.model,
-    toolModel: toolSettings.model,
-    updateShared,
-    updateToolSettings,
-  });
-
-  useVideoWorkflowScaffold({
-    mounted,
-    toolModel: toolSettings.model,
-    sharedModel: shared.model,
-    updateShared,
-    setWorkflowStatus,
-  });
-
-  const actions = usePromptResultActions({
-    tool: 'video',
-    model: shared.model,
-    detail: shared.detail,
-    hints: motion,
-    autoFixRules: shared.autoFixRules !== false,
-  });
-
-  const { loading, copied, inferenceEngine, generate, queueVideo, copyOutput } =
-    useVideoPromptQueue({
-      subject,
-      motion,
-      camera,
-      style,
-      durationSec,
-      frames,
-      fps,
-      initImageUrl,
-      parentVideoUrl,
-      parentGalleryEntryId,
-      file,
-      previewUrl,
-      hasInitImage,
-      clipMode,
-      shared,
-      actions,
-      setError,
-      setOutput,
-    });
-
-  const controlsShared = isVideoModel(shared.model)
-    ? shared
-    : { ...shared, model: controlsSharedModel };
+  const vm = useVideoPromptOrchestration();
 
   return (
     <ToolLayout
@@ -170,85 +28,81 @@ export default function VideoPromptTool() {
       description={description}
       sidebar={
         <SharedToolControls
-          shared={controlsShared}
+          shared={vm.controlsShared}
           toolId="video"
-          onModelChange={setVideoModel}
-          onDetailChange={detail => updateShared({ detail })}
-          onWorkflowPresetChange={id => updateShared({ selectedWorkflowFileId: id })}
-          autoFixRules={shared.autoFixRules !== false}
-          onAutoFixRulesChange={value => updateShared({ autoFixRules: value })}
-          onSharedSettingsChange={updateShared}
-          recommendFromText={output}
+          onModelChange={vm.fieldSetters.setVideoModel}
+          onDetailChange={detail => vm.updateShared({ detail })}
+          onWorkflowPresetChange={id => vm.updateShared({ selectedWorkflowFileId: id })}
+          autoFixRules={vm.shared.autoFixRules !== false}
+          onAutoFixRulesChange={value => vm.updateShared({ autoFixRules: value })}
+          onSharedSettingsChange={vm.updateShared}
+          recommendFromText={vm.output}
         />
       }
     >
       <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.video} />
-      <EditToolRecipeStrip toolId="video" shared={shared} onApplied={next => updateShared(next)} />
+      <EditToolRecipeStrip
+        toolId="video"
+        shared={vm.shared}
+        onApplied={next => vm.updateShared(next)}
+      />
       <VideoPromptHistorySeedSection
-        toolSettings={toolSettings}
-        subject={subject}
+        toolSettings={vm.toolSettings}
+        subject={vm.subject}
         accentFocusClassName={accentFocusClass(ACCENT)}
-        onSubjectChange={setSubject}
-        onUpdateToolSettings={updateToolSettings}
+        onSubjectChange={vm.fieldSetters.setSubject}
+        onUpdateToolSettings={vm.updateToolSettings}
       />
       <VideoPromptFormPanel
-        mounted={mounted}
-        shared={shared}
-        workflowStatus={workflowStatus}
-        subject={subject}
-        motion={motion}
-        camera={camera}
-        style={style}
-        durationSec={durationSec}
-        clipMode={clipMode}
-        inferenceEngine={inferenceEngine}
-        parentVideoUrl={parentVideoUrl}
-        frames={frames}
-        fps={fps}
-        file={file}
-        previewUrl={previewUrl}
-        pastedInitValue={pastedInitValue}
-        hasInitImage={hasInitImage}
-        scanning={scanning}
-        loading={loading}
-        error={error}
-        onSharedPatch={updateShared}
-        onWorkflowStatus={setWorkflowStatus}
-        onSubjectChange={setSubject}
-        onMotionChange={setMotion}
-        onCameraChange={setCamera}
-        onStyleChange={setStyle}
-        onDurationSecChange={setDurationSec}
-        onClipModeChange={setClipMode}
-        onParentVideoUrlChange={setParentVideoUrl}
-        onInitFileChange={onInitFileChange}
-        onScanInitWithVision={() => void scanInitWithVision()}
-        onClearInitImage={clearInitImage}
-        onPastedInitChange={value => {
-          setInitImageUrl(value);
-          if (!file) {
-            setPreviewUrl(current => {
-              revokePreviewIfBlob(current);
-              return isFetchableImageRef(value) ? value.trim() : null;
-            });
-          }
-        }}
-        revokePreviewIfBlob={revokePreviewIfBlob}
-        setPreviewUrl={setPreviewUrl}
-        onFramesChange={setFrames}
-        onFpsChange={setFps}
-        onGenerate={() => void generate()}
+        mounted={vm.mounted}
+        shared={vm.shared}
+        workflowStatus={vm.workflowStatus}
+        subject={vm.subject}
+        motion={vm.motion}
+        camera={vm.camera}
+        style={vm.style}
+        durationSec={vm.durationSec}
+        clipMode={vm.clipMode}
+        inferenceEngine={vm.queue.inferenceEngine}
+        parentVideoUrl={vm.parentVideoUrl}
+        frames={vm.frames}
+        fps={vm.fps}
+        file={vm.initImage.file}
+        previewUrl={vm.initImage.previewUrl}
+        pastedInitValue={vm.initImage.pastedInitValue}
+        hasInitImage={vm.initImage.hasInitImage}
+        scanning={vm.initImage.scanning}
+        loading={vm.queue.loading}
+        error={vm.error}
+        onSharedPatch={vm.updateShared}
+        onWorkflowStatus={vm.setWorkflowStatus}
+        onSubjectChange={vm.fieldSetters.setSubject}
+        onMotionChange={vm.fieldSetters.setMotion}
+        onCameraChange={vm.fieldSetters.setCamera}
+        onStyleChange={vm.fieldSetters.setStyle}
+        onDurationSecChange={vm.fieldSetters.setDurationSec}
+        onClipModeChange={vm.setClipMode}
+        onParentVideoUrlChange={vm.fieldSetters.setParentVideoUrl}
+        onInitFileChange={vm.initImage.onInitFileChange}
+        onScanInitWithVision={() => void vm.initImage.scanInitWithVision()}
+        onClearInitImage={vm.initImage.clearInitImage}
+        onPastedInitChange={vm.onPastedInitChange}
+        revokePreviewIfBlob={vm.initImage.revokePreviewIfBlob}
+        setPreviewUrl={vm.initImage.setPreviewUrl}
+        onFramesChange={vm.fieldSetters.setFrames}
+        onFpsChange={vm.fieldSetters.setFps}
+        onGenerate={() => void vm.queue.generate()}
       />
       <VideoPromptResultSection
-        output={output}
-        motion={motion}
-        model={shared.model}
-        detail={shared.detail}
-        copied={copied}
-        actions={actions}
-        onOutputChange={setOutput}
-        onCopy={() => void copyOutput(output)}
-        onQueue={() => queueVideo(output)}
+        output={vm.output}
+        motion={vm.motion}
+        model={vm.shared.model}
+        detail={vm.shared.detail}
+        copied={vm.queue.copied}
+        actions={vm.actions}
+        onOutputChange={vm.setOutput}
+        onCopy={() => void vm.queue.copyOutput(vm.output)}
+        onQueue={() => vm.queue.queueVideo(vm.output)}
       />
     </ToolLayout>
   );

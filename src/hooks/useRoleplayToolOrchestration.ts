@@ -1,0 +1,241 @@
+'use client';
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCachedSettings } from '@/hooks/useCachedSettings';
+import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
+import { usePromptResultActions } from '@/hooks/usePromptResultActions';
+import { useRoleplayBeatQueue, useRoleplayPhotoModelGuard } from '@/hooks/useRoleplayBeatQueue';
+import { useRoleplayLookPackDeepLink } from '@/hooks/useRoleplayLookPackDeepLink';
+import { useRoleplayReferenceImage } from '@/hooks/useRoleplayReferenceImage';
+import { useRoleplayStorySync } from '@/hooks/useRoleplayStorySync';
+import { useRoleplayFilmActions } from '@/hooks/useRoleplayFilmActions';
+import { useRoleplayLibraryPersist } from '@/hooks/useRoleplayLibraryPersist';
+import { useRoleplayBioFlow } from '@/hooks/useRoleplayBioFlow';
+import { useRoleplaySceneFlow } from '@/hooks/useRoleplaySceneFlow';
+import { useRoleplaySessionActions } from '@/hooks/useRoleplaySessionActions';
+import { useRoleplayRequestBody } from '@/hooks/useRoleplayRequestBody';
+import { getComfyModelDefinition } from '@/lib/comfy-models/client';
+import { getReformatTargetModel } from '@/lib/reformat-target';
+import { DEFAULT_ROLEPLAY_TOOL_CACHE } from '@/lib/settings-cache';
+import {
+  ROLEPLAY_ARCHETYPES,
+  formatRoleplayStoryProgress,
+  resolveRoleplayToneAndContent,
+  type RoleplayScene,
+  type RoleplayStoryBeat,
+} from '@/lib/roleplay';
+import { lastRoleplayMotionSource, normalizeRoleplayBeatOutput } from '@/lib/roleplay-film';
+import { isNsfwGeneratorEnabledClient } from '@/lib/nsfw-generator-env';
+
+const TOOL_ID = 'roleplay';
+
+export function useRoleplayToolOrchestration() {
+  const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
+    'roleplay',
+    DEFAULT_ROLEPLAY_TOOL_CACHE
+  );
+  const [error, setError] = useState<string | null>(null);
+  const [ownBibleOpen, setOwnBibleOpen] = useState(false);
+
+  const personaId = toolSettings.personaId ?? ROLEPLAY_ARCHETYPES[0].id;
+  const adultEnabled = isNsfwGeneratorEnabledClient();
+  const { tone, content } = resolveRoleplayToneAndContent(toolSettings.tone, toolSettings.content, {
+    adultEnabled,
+  });
+  const bio = toolSettings.bio;
+  const story = toolSettings.story ?? [];
+  const storyProgress = formatRoleplayStoryProgress(story);
+  const rejectedScenesMemory = useMemo(
+    () => toolSettings.rejectedScenes ?? [],
+    [toolSettings.rejectedScenes]
+  );
+  const autoQueue = toolSettings.autoQueue !== false;
+  const beatOutput = normalizeRoleplayBeatOutput(toolSettings.beatOutput);
+  const storyRef = useRef<RoleplayStoryBeat[]>(toolSettings.story ?? []);
+  const scenesRef = useRef<RoleplayScene[]>([]);
+
+  useEffect(() => {
+    storyRef.current = toolSettings.story ?? [];
+  }, [toolSettings.story]);
+
+  const film = useRoleplayFilmActions({
+    toolSettings,
+    storyRef,
+    bioName: bio?.name,
+  });
+
+  useRoleplayLibraryPersist({ mounted, toolSettings, updateToolSettings });
+  useRoleplayLookPackDeepLink({ mounted, updateShared, updateToolSettings });
+
+  const reference = useRoleplayReferenceImage({
+    mounted,
+    story,
+    shared,
+    toolSettings,
+    updateToolSettings,
+    setError,
+  });
+
+  useRoleplayPhotoModelGuard({
+    mounted,
+    playAs: reference.playAs,
+    sharedModel: shared.model,
+    updateShared,
+  });
+
+  const playAsResolved = reference.playAs;
+
+  useSeedToolDraft(mounted, {
+    toolKey: TOOL_ID,
+    label: 'Roleplay',
+    href: '/roleplay',
+    fields: [bio?.name, toolSettings.customPersona, toolSettings.extraHints, toolSettings.setting],
+  });
+
+  const actions = usePromptResultActions({
+    tool: TOOL_ID,
+    model: shared.model,
+    detail: shared.detail,
+    hints: [bio?.name, toolSettings.extraHints, toolSettings.setting].filter(Boolean).join(' · '),
+    autoFixRules: shared.autoFixRules !== false,
+    reformatTarget: getReformatTargetModel(shared.model),
+  });
+
+  const selectedModel = getComfyModelDefinition(shared.model);
+  const lastPrompt = [...story].reverse().find(beat => beat.prompt?.trim())?.prompt;
+
+  const requestBody = useRoleplayRequestBody({
+    shared,
+    personaId,
+    toolSettings,
+    tone,
+    content,
+    playAsResolved,
+    hasReferenceImage: reference.hasReferenceImage,
+    bio,
+    rejectedScenesMemory,
+    scenesRef,
+  });
+
+  const beatQueue = useRoleplayBeatQueue({
+    storyRef,
+    toolSettings,
+    updateToolSettings,
+    shared,
+    actions,
+    playAs: playAsResolved,
+    referenceImageUrl: reference.referenceImageUrl,
+    isolateSubject: reference.isolateSubject,
+    referenceImageFilename: reference.referenceImageFilename,
+    autoQueue,
+    beatOutput,
+    setError,
+  });
+
+  useRoleplayStorySync(storyRef, patch => updateToolSettings(patch));
+
+  const sceneFlow = useRoleplaySceneFlow({
+    storyRef,
+    toolSettings,
+    updateToolSettings,
+    bio,
+    rejectedScenesMemory,
+    requestBody,
+    commitStill: beatQueue.commitStill,
+    skipStillForClip: beatQueue.skipStillForClip,
+    autoQueue,
+    playAsResolved,
+    hasReferenceImage: reference.hasReferenceImage,
+    setError,
+  });
+
+  useEffect(() => {
+    scenesRef.current = sceneFlow.scenes;
+  }, [sceneFlow.scenes]);
+
+  const bioFlow = useRoleplayBioFlow({
+    storyRef,
+    updateToolSettings,
+    requestBody,
+    commitStill: beatQueue.commitStill,
+    skipStillForClip: beatQueue.skipStillForClip,
+    autoQueue,
+    playAsResolved,
+    hasReferenceImage: reference.hasReferenceImage,
+    setError,
+    setScenes: sceneFlow.setScenes,
+    setOwnBibleOpen,
+  });
+
+  const session = useRoleplaySessionActions({
+    storyRef,
+    toolSettings,
+    updateToolSettings,
+    bio,
+    personaId,
+    tone,
+    content,
+    assembledFilmRef: film.assembledFilmRef,
+    stampRoleplayCharacter: beatQueue.stampRoleplayCharacter,
+    setScenes: sceneFlow.setScenes,
+    setOwnBibleOpen,
+    setError,
+  });
+
+  const extendBeat = useCallback(
+    (beat: RoleplayStoryBeat) => {
+      const source =
+        beat.clipStatus === 'completed' && beat.clipUrl?.trim()
+          ? {
+              imageUrl: beat.clipUrl.trim(),
+              parentPromptId: beat.clipPromptId?.trim() || beat.promptId?.trim(),
+              fromClip: true,
+            }
+          : (lastRoleplayMotionSource(storyRef.current) ?? undefined);
+      void beatQueue.queueBeatMotion(beat, source ? { source } : undefined);
+    },
+    [beatQueue]
+  );
+
+  const busy =
+    bioFlow.bioLoading ||
+    sceneFlow.scenesLoading ||
+    Boolean(sceneFlow.playingId) ||
+    session.exporting ||
+    film.assemblingFilm ||
+    reference.scanning ||
+    reference.referenceUploading;
+
+  return {
+    mounted,
+    shared,
+    toolSettings,
+    updateShared,
+    updateToolSettings,
+    error,
+    ownBibleOpen,
+    setOwnBibleOpen,
+    setError,
+    personaId,
+    adultEnabled,
+    tone,
+    content,
+    bio,
+    story,
+    storyProgress,
+    autoQueue,
+    beatOutput,
+    storyRef,
+    playAsResolved,
+    selectedModel,
+    lastPrompt,
+    busy,
+    reference,
+    film,
+    beatQueue,
+    sceneFlow,
+    bioFlow,
+    session,
+    extendBeat,
+  };
+}
