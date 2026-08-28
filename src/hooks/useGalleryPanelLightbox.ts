@@ -21,6 +21,7 @@ import {
   loadGalleryViewPreferences,
   resolveGalleryLightboxEntry,
   resolveGalleryLightboxOpenIndex,
+  saveGalleryViewPreferences,
   type ComfyGalleryEntry,
   type GallerySlideshowIntervalMs,
   type GallerySlideshowTransition,
@@ -71,14 +72,27 @@ export function useGalleryPanelLightbox({
   const [slideshowIntervalMs, setSlideshowIntervalMs] = useState<GallerySlideshowIntervalMs>(5000);
   const [slideshowTransition, setSlideshowTransition] =
     useState<GallerySlideshowTransition>('slide');
+  const [slideshowPrefsLoaded, setSlideshowPrefsLoaded] = useState(false);
 
   useEffect(() => {
     scheduleAfterCommit(() => {
       const preferences = loadGalleryViewPreferences();
       setSlideshowIntervalMs(preferences.slideshowIntervalMs);
       setSlideshowTransition(preferences.slideshowTransition);
+      setSlideshowPrefsLoaded(true);
     });
   }, []);
+
+  useEffect(() => {
+    if (!slideshowPrefsLoaded) {
+      return;
+    }
+    saveGalleryViewPreferences({
+      ...loadGalleryViewPreferences(),
+      slideshowIntervalMs,
+      slideshowTransition,
+    });
+  }, [slideshowIntervalMs, slideshowTransition, slideshowPrefsLoaded]);
 
   const lightboxEntries = sortedSource;
   const lightboxEntriesRef = useRef(lightboxEntries);

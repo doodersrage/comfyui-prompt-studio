@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState, useCallback, useRef, useLayoutEffect } from 'react';
+import { useGalleryBrowseState, useGalleryBrowsePageClamp } from '@/hooks/useGalleryBrowseState';
 import { useGalleryPanelActions } from '@/hooks/useGalleryPanelActions';
 import ImageLightbox, { type ImageLightboxSlideChrome } from '@/components/ui/ImageLightbox';
 import {
@@ -45,15 +46,6 @@ import {
   GALLERY_DERIVED_KIND_FILTERS,
 } from '@/lib/gallery-derived-kind';
 import { MAX_GALLERY_ENTRIES } from '@/lib/comfyui-gallery-storage-meta';
-import { applyGalleryUrlState, parseGalleryUrlState } from '@/lib/gallery-url-state';
-import {
-  galleryBrowseScope,
-  galleryUrlHasBrowseState,
-  loadGallerySessionState,
-  patchGallerySessionPage,
-  readInitialGalleryPage,
-  saveGallerySessionState,
-} from '@/lib/gallery-session-state';
 import { useGalleryReview } from '@/hooks/useGalleryReview';
 import { useGallerySelection } from '@/hooks/useGallerySelection';
 import { useGalleryCompareHandlers } from '@/hooks/useGalleryCompareHandlers';
@@ -83,12 +75,10 @@ import {
 } from '@/lib/gallery-display-rows';
 import { clusterGalleryDuplicates, duplicateDropIds } from '@/lib/gallery-duplicate-clusters';
 import {
-  EXPERIMENT_WINNERS_UPDATED_EVENT,
   clearExperimentWinner,
   loadExperimentWinners,
   markExperimentWinner,
 } from '@/lib/experiment-winners';
-import { loadGalleryDensity, saveGalleryDensity, type GalleryDensity } from '@/lib/gallery-density';
 import { toastBulkQueueSummary } from '@/lib/app-toast';
 import { buildGalleryLightboxSlideChrome } from '@/components/gallery/buildGalleryLightboxSlideChrome';
 import {
@@ -100,17 +90,11 @@ import {
   GALLERY_PAGE_SIZE_ALL,
   GALLERY_SLIDESHOW_INTERVAL_OPTIONS,
   GALLERY_SLIDESHOW_TRANSITION_OPTIONS,
-  loadGalleryViewPreferences,
   resolveGalleryPageSize,
   resolveGalleryLightboxEntry,
-  saveGalleryViewPreferences,
   sortGalleryEntries,
   isGalleryStoreReady,
   type ComfyGalleryEntry,
-  type ComfyGalleryFilter,
-  type ComfyGallerySort,
-  type GalleryLayoutMode,
-  type GalleryPageSize,
   type GallerySlideshowIntervalMs,
   type GallerySlideshowTransition,
 } from '@/lib/comfyui-gallery';
@@ -200,13 +184,6 @@ export default function ComfyUiGalleryPanel({
   const heldMaxCount = useHeldMaxCount();
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [requeueStatus, setRequeueStatus] = useState<string | null>(null);
-  const [page, setPage] = useState(() =>
-    browsePaginationEnabled ? readInitialGalleryPage(window.location.pathname) : 1
-  );
-  const [sort, setSort] = useState<ComfyGallerySort>('queued-desc');
-  const [pageSize, setPageSize] = useState<GalleryPageSize>(12);
-  const [layout, setLayout] = useState<GalleryLayoutMode>('grid');
-  const [viewPrefsLoaded, setViewPrefsLoaded] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
   // Stable reference for GalleryExperimentPanel's onCompare prop — that panel is memo()-wrapped,
   // and passing a fresh arrow function inline every render was defeating the memo (see below).
@@ -223,44 +200,11 @@ export default function ComfyUiGalleryPanel({
   const [collapsedExperimentGroups, setCollapsedExperimentGroups] = useState<Set<string>>(
     () => new Set()
   );
-  const [experimentWinners, setExperimentWinners] = useState(loadExperimentWinners);
   const [paramAxis, setParamAxis] = useState<ParamExperimentAxis>('cfg');
-  const [projectFilterId, setProjectFilterId] = useState<string>('');
   const [projects] = useState(() => loadPromptProjects());
-  const [density, setDensity] = useState<GalleryDensity>('comfortable');
-  const [galleryUrlReady, setGalleryUrlReady] = useState(false);
   const [galleryEntriesSettled, setGalleryEntriesSettled] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
-  const galleryBrowseBaselineRef = useRef<string | null>(null);
-  const pendingRestorePageRef = useRef<number | null>(null);
-  const galleryBrowsePathRef = useRef<string | null>(
-    browsePaginationEnabled ? galleryBrowseScope(pathname) : null
-  );
-  const galleryBrowseSaveRef = useRef<{
-    filter: ComfyGalleryFilter;
-    sort: ComfyGallerySort;
-    projectFilterId: string;
-    page: number;
-  }>({
-    filter: { status: 'all' },
-    sort: 'queued-desc',
-    projectFilterId: '',
-    page: 1,
-  });
-  const galleryBrowseRestoringRef = useRef(false);
-  useLayoutEffect(() => {
-    if (!browsePaginationEnabled) {
-      return;
-    }
-    const initial = readInitialGalleryPage(window.location.pathname);
-    if (initial > 1) {
-      pendingRestorePageRef.current = initial;
-      galleryBrowseRestoringRef.current = true;
-    }
-  }, [browsePaginationEnabled]);
-
-  const [galleryBrowseHydrated, setGalleryBrowseHydrated] = useState(false);
   const entriesRef = useRef(entries);
   const visibleEntriesRef = useRef<ComfyGalleryEntry[]>([]);
   const entryIdsWithDerivatives = useMemo(() => {
@@ -272,19 +216,39 @@ export default function ComfyUiGalleryPanel({
     }
     return ids;
   }, [entries]);
-  const resolvedProjectFilterId = useMemo(() => {
-    if (projectFilterId === 'active') {
-      return loadActiveProjectId();
-    }
-    return projectFilterId || undefined;
-  }, [projectFilterId]);
 
-  const clearGalleryFilters = useCallback(() => {
-    setFilter({ status: 'all' });
-    setProjectFilterId('');
-    setSort('queued-desc');
-    setPage(1);
-  }, [setFilter]);
+  const bulkEnabled = showFilters && !compact;
+  /** Full experiment/export menus stay advanced; lean still gets select + compare. */
+  const leanBulkEnabled = bulkEnabled;
+  const paginationEnabled = browsePaginationEnabled;
+
+  const {
+    page,
+    setPage,
+    sort,
+    setSort,
+    pageSize,
+    setPageSize,
+    layout,
+    setLayout,
+    density,
+    setDensity,
+    projectFilterId,
+    setProjectFilterId,
+    experimentWinners,
+    setExperimentWinners,
+    clearGalleryFilters,
+    pageClamp,
+  } = useGalleryBrowseState({
+    browsePaginationEnabled,
+    pathname,
+    showFilters,
+    filter,
+    setFilter,
+    paginationEnabled,
+    storeReady,
+    galleryEntriesSettled,
+  });
 
   const importDroppedImages = useCallback(async (files: File[]) => {
     if (files.length === 0) {
@@ -317,17 +281,6 @@ export default function ComfyUiGalleryPanel({
     }
   }, [searchParams]);
 
-  useEffect(() => {
-    setFilter(previous => ({
-      ...previous,
-      projectId: resolvedProjectFilterId,
-    }));
-  }, [resolvedProjectFilterId, setFilter]);
-
-  const bulkEnabled = showFilters && !compact;
-  /** Full experiment/export menus stay advanced; lean still gets select + compare. */
-  const leanBulkEnabled = bulkEnabled;
-  const paginationEnabled = browsePaginationEnabled;
   const galleryStats = useMemo(() => computeGalleryStats(entries), [entries]);
   const galleryCapWarning = useMemo(
     () => assessGalleryCapWarning(entries.length, MAX_GALLERY_ENTRIES),
@@ -397,206 +350,6 @@ export default function ComfyUiGalleryPanel({
     };
   }, [storeReady, entries.length]);
 
-  useEffect(() => {
-    if (!browsePaginationEnabled) {
-      return;
-    }
-    const scope = galleryBrowseScope(pathname);
-    if (scope === '/gallery' || scope === '/m/gallery') {
-      galleryBrowsePathRef.current = scope;
-    }
-  }, [pathname, browsePaginationEnabled]);
-
-  useEffect(() => {
-    galleryBrowseSaveRef.current = { filter, sort, projectFilterId, page };
-  }, [filter, sort, projectFilterId, page]);
-
-  useEffect(() => {
-    if (!browsePaginationEnabled || typeof window === 'undefined') {
-      return;
-    }
-    patchGallerySessionPage(galleryBrowseScope(pathname), page);
-  }, [page, browsePaginationEnabled, pathname]);
-
-  useEffect(() => {
-    if (!browsePaginationEnabled) {
-      return;
-    }
-    return () => {
-      const scope = galleryBrowsePathRef.current;
-      if (!scope) {
-        return;
-      }
-      saveGallerySessionState(scope, galleryBrowseSaveRef.current);
-    };
-  }, [browsePaginationEnabled]);
-
-  useEffect(() => {
-    scheduleAfterCommit(() => {
-      const preferences = loadGalleryViewPreferences();
-      setSort(preferences.sort);
-      setPageSize(preferences.pageSize);
-      setLayout(preferences.layout);
-      setDensity(loadGalleryDensity());
-      setExperimentWinners(loadExperimentWinners());
-      setViewPrefsLoaded(true);
-    });
-  }, []);
-
-  useEffect(() => {
-    if (!viewPrefsLoaded || typeof window === 'undefined') {
-      return;
-    }
-    scheduleAfterCommit(() => {
-      const params = new URLSearchParams(window.location.search);
-      const hasUrlBrowse = galleryUrlHasBrowseState(params);
-      const cached = loadGallerySessionState(window.location.pathname);
-      const urlParsed = parseGalleryUrlState(params);
-      if (hasUrlBrowse) {
-        const hasFilter = Object.keys(urlParsed.filter).length > 0;
-        if (hasFilter) {
-          setFilter(previous => ({
-            ...previous,
-            ...urlParsed.filter,
-            ...(urlParsed.filter.query?.trim() ? { semanticSearch: true } : {}),
-          }));
-        }
-        if (urlParsed.sort) {
-          setSort(urlParsed.sort);
-        }
-        if (urlParsed.projectFilterId !== undefined) {
-          setProjectFilterId(urlParsed.projectFilterId);
-        }
-      } else if (cached) {
-        const cachedFilter = cached.filter ?? {};
-        if (Object.keys(cachedFilter).length > 0) {
-          setFilter(previous => ({
-            ...previous,
-            ...cachedFilter,
-            status: cachedFilter.status ?? previous.status ?? 'all',
-            ...(cachedFilter.query?.trim() ? { semanticSearch: true } : {}),
-          }));
-        }
-        if (cached.sort) {
-          setSort(cached.sort);
-        }
-        if (cached.projectFilterId !== undefined) {
-          setProjectFilterId(cached.projectFilterId);
-        }
-      }
-      const prefs = loadGalleryViewPreferences();
-      const restoredPage =
-        urlParsed.page ?? cached?.page ?? (prefs.page && prefs.page >= 1 ? prefs.page : undefined);
-      if (restoredPage) {
-        pendingRestorePageRef.current = restoredPage;
-        setPage(restoredPage);
-      }
-      setGalleryUrlReady(true);
-    });
-  }, [viewPrefsLoaded, setFilter]);
-
-  useEffect(() => {
-    if (!galleryUrlReady || !showFilters || typeof window === 'undefined') {
-      return;
-    }
-    const url = new URL(window.location.href);
-    applyGalleryUrlState(url.searchParams, { filter, sort, projectFilterId, page });
-    const next = `${url.pathname}${url.search}${url.hash}`;
-    const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    if (next !== current) {
-      window.history.replaceState(null, '', next);
-    }
-  }, [filter, sort, projectFilterId, page, galleryUrlReady, showFilters]);
-
-  useEffect(() => {
-    if (
-      !galleryUrlReady ||
-      !paginationEnabled ||
-      typeof window === 'undefined' ||
-      !galleryBrowseHydrated
-    ) {
-      return;
-    }
-    saveGallerySessionState(window.location.pathname, {
-      filter,
-      sort,
-      projectFilterId,
-      page,
-    });
-  }, [
-    filter,
-    sort,
-    projectFilterId,
-    page,
-    galleryUrlReady,
-    paginationEnabled,
-    galleryBrowseHydrated,
-  ]);
-
-  useEffect(() => {
-    const onWinners = () => setExperimentWinners(loadExperimentWinners());
-    window.addEventListener(EXPERIMENT_WINNERS_UPDATED_EVENT, onWinners);
-    return () => window.removeEventListener(EXPERIMENT_WINNERS_UPDATED_EVENT, onWinners);
-  }, []);
-
-  useEffect(() => {
-    if (!viewPrefsLoaded || !paginationEnabled) {
-      return;
-    }
-    saveGalleryViewPreferences({
-      sort,
-      pageSize,
-      slideshowIntervalMs,
-      slideshowTransition,
-      layout,
-      page: galleryBrowseHydrated ? page : undefined,
-    });
-    saveGalleryDensity(density);
-  }, [
-    sort,
-    pageSize,
-    slideshowIntervalMs,
-    slideshowTransition,
-    layout,
-    density,
-    page,
-    viewPrefsLoaded,
-    paginationEnabled,
-    galleryBrowseHydrated,
-  ]);
-
-  useEffect(() => {
-    if (!galleryUrlReady || !paginationEnabled || !galleryBrowseHydrated) {
-      return;
-    }
-    if (galleryBrowseRestoringRef.current) {
-      return;
-    }
-    const { projectId: _projectId, ...filterWithoutProject } = filter;
-    const sig = JSON.stringify({
-      filter: filterWithoutProject,
-      sort,
-      pageSize,
-      projectFilterId,
-    });
-    if (galleryBrowseBaselineRef.current === null) {
-      galleryBrowseBaselineRef.current = sig;
-      return;
-    }
-    if (galleryBrowseBaselineRef.current !== sig) {
-      galleryBrowseBaselineRef.current = sig;
-      setPage(1);
-    }
-  }, [
-    filter,
-    sort,
-    pageSize,
-    projectFilterId,
-    galleryUrlReady,
-    paginationEnabled,
-    galleryBrowseHydrated,
-  ]);
-
   const experimentGroups = useMemo(() => {
     // Group across the full filtered/sorted set, not just the current page's
     // `visibleEntries`. Grouping on the paginated slice made membership (and
@@ -656,55 +409,8 @@ export default function ComfyUiGalleryPanel({
   const totalPages = pagination.totalPages;
   const currentPage = pagination.page;
 
-  useEffect(() => {
-    if (
-      !paginationEnabled ||
-      !galleryUrlReady ||
-      !storeReady ||
-      !galleryEntriesSettled ||
-      galleryBrowseHydrated
-    ) {
-      return;
-    }
-    const pending = pendingRestorePageRef.current;
-    if (pending !== null && totalPages > 0) {
-      if (pending <= totalPages) {
-        pendingRestorePageRef.current = null;
-        if (page !== pending) {
-          setPage(pending);
-        }
-      } else if (sortedSource.length > 0) {
-        pendingRestorePageRef.current = null;
-        setPage(totalPages);
-      }
-    } else if (pending === null && totalPages > 0 && page > totalPages) {
-      setPage(totalPages);
-    }
-    scheduleAfterCommit(() => {
-      galleryBrowseRestoringRef.current = false;
-      setGalleryBrowseHydrated(true);
-      const { projectId: _projectId, ...filterWithoutProject } = filter;
-      galleryBrowseBaselineRef.current = JSON.stringify({
-        filter: filterWithoutProject,
-        sort,
-        pageSize,
-        projectFilterId,
-      });
-    });
-  }, [
-    filter,
-    sort,
-    pageSize,
-    projectFilterId,
-    page,
-    totalPages,
-    sortedSource.length,
-    galleryUrlReady,
-    paginationEnabled,
-    storeReady,
-    galleryEntriesSettled,
-    galleryBrowseHydrated,
-  ]);
+  useGalleryBrowsePageClamp(pageClamp, totalPages, sortedSource.length);
+
   const totalFiltered = pagination.totalItems;
   const effectivePageSize = resolveGalleryPageSize(pageSize, totalFiltered);
   const showPagination =

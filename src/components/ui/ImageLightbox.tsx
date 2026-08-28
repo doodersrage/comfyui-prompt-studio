@@ -8,7 +8,6 @@ import {
   useState,
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
-  type TouchEvent as ReactTouchEvent,
 } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/Button';
@@ -45,6 +44,7 @@ import {
   resolveTransitionClasses,
 } from '@/components/ui/image-lightbox/imageLightboxTransitions';
 import { useImageLightboxKeyboard } from '@/components/ui/image-lightbox/useImageLightboxKeyboard';
+import { useImageLightboxStage } from '@/components/ui/image-lightbox/useImageLightboxStage';
 import type {
   ImageLightboxSlideChrome,
   ImageLightboxSlideshowOptions,
@@ -84,9 +84,6 @@ export default function ImageLightbox({
   const [slideDirection, setSlideDirection] = useState<1 | -1>(1);
   const [titleAnimating, setTitleAnimating] = useState(false);
   const [currentImageLoaded, setCurrentImageLoaded] = useState(false);
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [dragging, setDragging] = useState(false);
   const [metaOpen, setMetaOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [copyFlash, setCopyFlash] = useState<string | null>(null);
@@ -108,20 +105,8 @@ export default function ImageLightbox({
   const [histogramLoading, setHistogramLoading] = useState(false);
   const [noteDraft, setNoteDraft] = useState('');
   const prefsHydratedRef = useRef(false);
-  const dragRef = useRef<{
-    pointerId: number;
-    startX: number;
-    startY: number;
-    originX: number;
-    originY: number;
-    moved: boolean;
-    mode: 'pan' | 'swipe';
-  } | null>(null);
   const playlistKeyRef = useRef('');
   const containerRef = useRef<HTMLDivElement>(null);
-  const stageRef = useRef<HTMLDivElement>(null);
-  const zoomRef = useRef(1);
-  const touchPinchRef = useRef<{ distance: number; zoom: number } | null>(null);
   const open = Boolean(state && state.images.length > 0);
   const images = useMemo(() => state?.images ?? [], [state?.images]);
   const index = state?.index ?? 0;
@@ -188,34 +173,34 @@ export default function ImageLightbox({
     enterFullscreenPresentation();
   }, [enterFullscreenPresentation, exitFullscreenPresentation, isFullscreen]);
 
-  const resetZoom = useCallback(() => {
-    setZoom(1);
-    zoomRef.current = 1;
-    setPan({ x: 0, y: 0 });
-    setDragging(false);
-    dragRef.current = null;
-  }, []);
-
-  const applyZoom = useCallback((next: number) => {
-    const clamped = Math.min(5, Math.max(1, next));
-    zoomRef.current = clamped;
-    setZoom(clamped);
-    if (clamped <= 1) {
-      setPan({ x: 0, y: 0 });
-    }
-  }, []);
-
-  const toggleZoom = useCallback(() => {
-    setZoom(previous => {
-      if (previous > 1) {
-        setPan({ x: 0, y: 0 });
-        zoomRef.current = 1;
-        return 1;
-      }
-      zoomRef.current = 2;
-      return 2;
-    });
-  }, []);
+  const {
+    zoom,
+    pan,
+    dragging,
+    stageRef,
+    resetZoom,
+    applyZoom,
+    toggleZoom,
+    setPan,
+    onStagePointerDown,
+    onStagePointerMove,
+    onStagePointerUp,
+    onStageTouchStart,
+    onStageTouchMove,
+    onStageTouchEnd,
+    goToIndex,
+  } = useImageLightboxStage({
+    open,
+    index,
+    imagesLength: images.length,
+    mediaKinds: state?.mediaKinds,
+    slideshow,
+    onIndexChange,
+    canGoNext,
+    canGoPrevious,
+    isFullscreen,
+    mounted,
+  });
 
   const applyZoomPreset = useCallback(
     (preset: 'fit' | 'actual' | 'center' | 'face') => {
@@ -240,7 +225,7 @@ export default function ImageLightbox({
       applyZoom(2.4);
       setPan({ x: 0, y: 72 });
     },
-    [applyZoom, resetZoom]
+    [applyZoom, resetZoom, setPan]
   );
 
   const flashCopy = useCallback((label: string) => {
@@ -267,17 +252,6 @@ export default function ImageLightbox({
     }
     setHistogram(result);
   }, [currentOriginalUrl, midResUrl]);
-
-  const goToIndex = useCallback(
-    (nextIndex: number, manual = false) => {
-      if (manual && slideshow?.playing) {
-        slideshow.onPlayingChange(false);
-      }
-      resetZoom();
-      onIndexChange(nextIndex);
-    },
-    [onIndexChange, resetZoom, slideshow]
-  );
 
   useEffect(() => {
     scheduleAfterCommit(() => {
@@ -492,147 +466,6 @@ export default function ImageLightbox({
   useEffect(() => {
     scheduleAfterCommit(() => setCurrentImageLoaded(false));
   }, [currentUrl]);
-
-  useEffect(() => {
-    scheduleAfterCommit(() => {
-      resetZoom();
-    });
-  }, [index, resetZoom]);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    const el = stageRef.current;
-    if (!el) {
-      return;
-    }
-
-    const onWheel = (event: WheelEvent) => {
-      const mediaKind = state?.mediaKinds?.[index] ?? 'image';
-      if (event.ctrlKey || event.metaKey) {
-        if (!isStillLightboxKind(mediaKind)) {
-          return;
-        }
-        event.preventDefault();
-        const factor = event.deltaY > 0 ? 0.92 : 1.08;
-        applyZoom(zoomRef.current * factor);
-        return;
-      }
-
-      if (zoomRef.current > 1) {
-        return;
-      }
-
-      if (images.length <= 1) {
-        return;
-      }
-
-      const dominant =
-        Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
-      if (Math.abs(dominant) < 18) {
-        return;
-      }
-
-      event.preventDefault();
-      if (dominant > 0) {
-        const nextIndex = index < images.length - 1 ? index + 1 : slideshow?.playing ? 0 : index;
-        if (nextIndex !== index) {
-          goToIndex(nextIndex, !slideshow?.playing);
-        }
-      } else {
-        const prevIndex = index > 0 ? index - 1 : slideshow?.playing ? images.length - 1 : index;
-        if (prevIndex !== index) {
-          goToIndex(prevIndex, !slideshow?.playing);
-        }
-      }
-    };
-
-    el.addEventListener('wheel', onWheel, { passive: false });
-    return () => {
-      el.removeEventListener('wheel', onWheel);
-    };
-  }, [
-    open,
-    index,
-    images.length,
-    goToIndex,
-    slideshow?.playing,
-    state?.mediaKinds,
-    applyZoom,
-    isFullscreen,
-    mounted,
-  ]);
-
-  const onStagePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) {
-      return;
-    }
-    const mode = zoom > 1 ? 'pan' : 'swipe';
-    dragRef.current = {
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      originX: pan.x,
-      originY: pan.y,
-      moved: false,
-      mode,
-    };
-    setDragging(true);
-    event.currentTarget.setPointerCapture(event.pointerId);
-  };
-
-  const onStagePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const drag = dragRef.current;
-    if (!drag || drag.pointerId !== event.pointerId) {
-      return;
-    }
-    const dx = event.clientX - drag.startX;
-    const dy = event.clientY - drag.startY;
-    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
-      drag.moved = true;
-    }
-    if (drag.mode === 'pan' && zoom > 1) {
-      setPan({ x: drag.originX + dx, y: drag.originY + dy });
-    }
-  };
-
-  const onStagePointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const drag = dragRef.current;
-    if (!drag || drag.pointerId !== event.pointerId) {
-      return;
-    }
-    const dx = event.clientX - drag.startX;
-    const dy = event.clientY - drag.startY;
-    dragRef.current = null;
-    setDragging(false);
-    try {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    } catch {
-      // ignore
-    }
-
-    const clickedImage = event.target instanceof HTMLElement && event.target.tagName === 'IMG';
-    const mediaKind = state?.mediaKinds?.[index] ?? 'image';
-    if (!drag.moved && clickedImage && isStillLightboxKind(mediaKind)) {
-      toggleZoom();
-      return;
-    }
-
-    if (drag.mode === 'swipe' && zoom <= 1 && Math.abs(dx) > 56 && Math.abs(dx) > Math.abs(dy)) {
-      if (dx < 0 && (canGoNext || slideshow?.playing)) {
-        const nextIndex = index < images.length - 1 ? index + 1 : slideshow?.playing ? 0 : index;
-        if (nextIndex !== index) {
-          goToIndex(nextIndex, !slideshow?.playing);
-        }
-      } else if (dx > 0 && (canGoPrevious || slideshow?.playing)) {
-        const prevIndex = index > 0 ? index - 1 : slideshow?.playing ? images.length - 1 : index;
-        if (prevIndex !== index) {
-          goToIndex(prevIndex, !slideshow?.playing);
-        }
-      }
-    }
-  };
 
   if (!mounted || !open || !currentUrl) {
     return null;
@@ -968,40 +801,6 @@ export default function ImageLightbox({
         </div>
       </div>
     ) : null;
-
-  const onStageTouchStart = (event: ReactTouchEvent<HTMLDivElement>) => {
-    if (event.touches.length === 2 && isStillLightboxKind(state?.mediaKinds?.[index])) {
-      const [a, b] = [event.touches[0], event.touches[1]];
-      if (!a || !b) {
-        return;
-      }
-      const distance = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-      touchPinchRef.current = { distance, zoom: zoomRef.current };
-      dragRef.current = null;
-      setDragging(false);
-    }
-  };
-
-  const onStageTouchMove = (event: ReactTouchEvent<HTMLDivElement>) => {
-    const pinch = touchPinchRef.current;
-    if (!pinch || event.touches.length !== 2) {
-      return;
-    }
-    event.preventDefault();
-    const [a, b] = [event.touches[0], event.touches[1]];
-    if (!a || !b) {
-      return;
-    }
-    const distance = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-    if (pinch.distance < 8) {
-      return;
-    }
-    applyZoom(pinch.zoom * (distance / pinch.distance));
-  };
-
-  const onStageTouchEnd = () => {
-    touchPinchRef.current = null;
-  };
 
   const renderImageStage = (stageClassName: string) => (
     <div
