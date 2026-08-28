@@ -12,20 +12,15 @@ import {
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/Button';
 import {
-  formatGallerySlideshowInterval,
-  GALLERY_SLIDESHOW_TRANSITION_LABELS,
   GALLERY_SLIDESHOW_TRANSITION_OPTIONS,
   resolveGallerySlideshowTransitionMs,
-  type GallerySlideshowTransition,
 } from '@/lib/comfyui-gallery';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
-import type { ComfyOutputMediaKind } from '@/lib/comfyui-outputs';
 import {
   isStillLightboxKind,
   shouldUseHtmlVideoElement,
   stripGalleryViewWidthParam,
 } from '@/lib/comfyui-outputs';
-import GalleryKindPreview from '@/components/ui/GalleryKindPreview';
 import { prefetchGalleryImageUrl } from '@/lib/gallery-image-prefetch';
 import {
   loadGalleryLightboxUiPreferences,
@@ -33,11 +28,15 @@ import {
   type GalleryLightboxFit,
 } from '@/lib/gallery-lightbox-prefs';
 import { computeLightboxHistogram, type LightboxHistogram } from '@/lib/lightbox-histogram';
-import { chromeBtn } from '@/components/ui/image-lightbox/chromeBtn';
+import ImageLightboxFilmstrip from '@/components/ui/image-lightbox/ImageLightboxFilmstrip';
+import ImageLightboxHelpOverlay from '@/components/ui/image-lightbox/ImageLightboxHelpOverlay';
 import ImageLightboxHistogramPanel from '@/components/ui/image-lightbox/ImageLightboxHistogramPanel';
+import ImageLightboxImageStage from '@/components/ui/image-lightbox/ImageLightboxImageStage';
 import ImageLightboxJobBadge from '@/components/ui/image-lightbox/ImageLightboxJobBadge';
 import ImageLightboxMetaPanel from '@/components/ui/image-lightbox/ImageLightboxMetaPanel';
+import ImageLightboxSideNav from '@/components/ui/image-lightbox/ImageLightboxSideNav';
 import ImageLightboxSlideChromeBar from '@/components/ui/image-lightbox/ImageLightboxSlideChrome';
+import ImageLightboxSlideshowControls from '@/components/ui/image-lightbox/ImageLightboxSlideshowControls';
 import ImageLightboxTutorialTip from '@/components/ui/image-lightbox/ImageLightboxTutorialTip';
 import {
   resolveSlideDirection,
@@ -486,521 +485,49 @@ export default function ImageLightbox({
     event.stopPropagation();
   };
 
-  const renderSlide = (
-    url: string,
-    kind: ComfyOutputMediaKind,
-    className: string,
-    key: string,
-    options?: {
-      ariaHidden?: boolean;
-      isCurrent?: boolean;
-      placeholderUrl?: string;
-    }
-  ) => {
-    const ariaHidden = options?.ariaHidden ?? false;
-    const isCurrent = options?.isCurrent ?? false;
-    if (kind === 'audio' || kind === 'mesh') {
-      return (
-        <div key={key} className={className}>
-          <GalleryKindPreview
-            kind={kind}
-            src={stripGalleryViewWidthParam(url)}
-            filename={isCurrent ? state?.downloadFilenames?.[displayIndex] : undefined}
-            className="max-h-[var(--lightbox-image-max-h,calc(96vh-6.5rem))] w-full max-w-lg"
-            controls={!ariaHidden}
-          />
-        </div>
-      );
-    }
-
-    if (kind === 'video') {
-      const fullUrl = stripGalleryViewWidthParam(url);
-      const videoSrc = shouldUseHtmlVideoElement(kind, url)
-        ? url
-        : shouldUseHtmlVideoElement(kind, fullUrl)
-          ? fullUrl
-          : '';
-      const playHtmlVideo = Boolean(videoSrc) && !htmlVideoFailed[fullUrl];
-      const mediaClass =
-        'max-h-[var(--lightbox-image-max-h,calc(96vh-6.5rem))] max-w-full object-contain';
-      return (
-        <div key={key} className={className}>
-          {playHtmlVideo ? (
-            <video
-              src={videoSrc}
-              className={mediaClass}
-              aria-hidden={ariaHidden || undefined}
-              autoPlay={!ariaHidden}
-              loop
-              muted
-              playsInline
-              controls={!ariaHidden}
-              onError={() => {
-                setHtmlVideoFailed(previous =>
-                  previous[fullUrl] ? previous : { ...previous, [fullUrl]: true }
-                );
-              }}
-            />
-          ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={fullUrl}
-              alt=""
-              className={mediaClass}
-              aria-hidden={ariaHidden || undefined}
-            />
-          )}
-        </div>
-      );
-    }
-
-    const showPlaceholder =
-      isCurrent &&
-      Boolean(options?.placeholderUrl) &&
-      options?.placeholderUrl !== url &&
-      !currentImageLoaded;
-    const fitClass =
-      fitMode === 'cover'
-        ? 'object-cover'
-        : fitMode === 'actual'
-          ? 'object-none'
-          : 'object-contain';
-    const sizeClass =
-      fitMode === 'actual'
-        ? 'max-h-none max-w-none'
-        : 'max-h-[var(--lightbox-image-max-h,calc(96vh-6.5rem))] max-w-full';
-    const beforeUrl =
-      isCurrent && baOpen && slideChrome?.beforeAfterUrl ? slideChrome.beforeAfterUrl : null;
-
-    return (
-      <div key={key} className={className}>
-        {showPlaceholder ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={options!.placeholderUrl}
-            alt=""
-            aria-hidden
-            decoding="async"
-            className={`absolute inset-0 m-auto ${sizeClass} ${fitClass} opacity-90 blur-sm scale-[1.02]`}
-          />
-        ) : null}
-        {beforeUrl ? (
-          <div
-            className="relative z-[1] inline-block max-w-full"
-            style={
-              zoom > 1
-                ? {
-                    transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-                    transformOrigin: 'center center',
-                  }
-                : undefined
-            }
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={url}
-              alt={ariaHidden ? '' : (currentTitle ?? 'Gallery image preview')}
-              className={`block ${sizeClass} ${fitClass}`}
-              onLoad={() => {
-                setCurrentImageLoaded(true);
-                if (preferFullRes) {
-                  setFullResLoading(false);
-                }
-              }}
-            />
-            <div
-              className="absolute inset-0 overflow-hidden border-r-2 border-white/80"
-              style={{ width: `${baPosition}%` }}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={beforeUrl}
-                alt=""
-                aria-hidden
-                className={`absolute left-0 top-0 h-full max-w-none ${fitClass}`}
-                style={{ width: `${(100 / Math.max(baPosition, 1)) * 100}%` }}
-              />
-            </div>
-            <label className="absolute inset-x-4 bottom-3 z-[2] flex items-center gap-3 rounded-full bg-black/55 px-3 py-1.5 text-[11px] text-white/85 backdrop-blur-md">
-              <span className="shrink-0">{slideChrome?.beforeAfterLabel ?? 'Before'} / After</span>
-              <input
-                type="range"
-                min={5}
-                max={95}
-                value={baPosition}
-                onChange={event => setBaPosition(Number(event.target.value))}
-                className="w-full accent-[var(--accent)]"
-                aria-label="Before after wipe position"
-                onPointerDown={stopStagePointer}
-              />
-            </label>
-          </div>
-        ) : (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={url}
-            alt={ariaHidden ? '' : (currentTitle ?? 'Gallery image preview')}
-            aria-hidden={ariaHidden || undefined}
-            decoding={isCurrent ? 'sync' : 'async'}
-            fetchPriority={isCurrent ? 'high' : 'auto'}
-            ref={
-              isCurrent
-                ? el => {
-                    if (el?.complete && el.naturalWidth > 0) {
-                      setCurrentImageLoaded(true);
-                    }
-                  }
-                : undefined
-            }
-            onLoad={
-              isCurrent
-                ? () => {
-                    setCurrentImageLoaded(true);
-                    if (preferFullRes) {
-                      setFullResLoading(false);
-                    }
-                  }
-                : undefined
-            }
-            className={`relative z-[1] ${sizeClass} ${fitClass} transition-opacity duration-200 ${
-              isCurrent && !currentImageLoaded && options?.placeholderUrl
-                ? 'opacity-0'
-                : 'opacity-100'
-            }`}
-            style={
-              isCurrent && zoom > 1
-                ? {
-                    transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-                    transformOrigin: 'center center',
-                    cursor: dragging ? 'grabbing' : 'grab',
-                    maxHeight: 'none',
-                    maxWidth: 'none',
-                    height: 'min(var(--lightbox-image-max-h, calc(96vh - 6.5rem)), 100%)',
-                  }
-                : isCurrent
-                  ? { cursor: 'zoom-in' }
-                  : undefined
-            }
-          />
-        )}
-      </div>
-    );
-  };
-
-  const renderHelpOverlay = (compact = false) => {
-    if (!helpOpen) {
-      return null;
-    }
-    const rows = [
-      ['← / → · wheel', 'Previous / next'],
-      ['Click · Z · pinch', 'Zoom (Esc or click again resets)'],
-      ['1–5', 'Rate'],
-      ['B · Shift+F', 'Favorite'],
-      ['M', 'Details / metadata'],
-      ['V', 'Fit: contain → cover → 1:1'],
-      ['X', 'Before / after wipe'],
-      ['Y', 'Side-by-side pair mode'],
-      ['H', 'Color / histogram peek'],
-      ['N', 'Toggle actions drawer'],
-      ['C / I', 'Compose / Improve'],
-      ['A', 'Toggle compare selection'],
-      ['P / G / S', 'Parent / derivatives / sibling'],
-      ['D', 'Download'],
-      ['O', 'Toggle full-res preview'],
-      ['Delete', 'Remove (confirm)'],
-      ['? · Esc', 'Help / dismiss'],
-    ] as const;
-    return (
-      <div
-        className="ui-lightbox-panel absolute inset-x-4 top-16 z-[40] mx-auto max-w-md p-4 sm:inset-x-auto"
-        data-immersive={compact ? 'true' : undefined}
-        role="dialog"
-        aria-label="Lightbox shortcuts"
-      >
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <p className="type-heading text-[15px]">Shortcuts</p>
-          <Button
-            variant={compact ? 'ghost' : 'secondary'}
-            className={chromeBtn(compact)}
-            onClick={() => setHelpOpen(false)}
-          >
-            Close
-          </Button>
-        </div>
-        <ul className="space-y-1.5">
-          {rows.map(([keys, label]) => (
-            <li key={keys} className="flex items-baseline justify-between gap-4 text-[12px]">
-              <span
-                className={`font-medium ${compact ? 'text-white' : 'text-[var(--text-primary)]'}`}
-              >
-                {keys}
-              </span>
-              <span className={compact ? 'text-white/65' : 'text-[var(--text-muted)]'}>
-                {label}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </div>
-    );
-  };
-
-  const renderFilmstrip = (compact = false) =>
-    images.length > 1 && state?.thumbImages?.length ? (
-      <div className="space-y-1">
-        {dualMode ? (
-          <p className={`type-caption ${compact ? 'text-white/55' : 'text-[var(--text-muted)]'}`}>
-            Pair mode: click a thumb to set the right pane
-          </p>
-        ) : null}
-        <div
-          className={`flex max-w-full gap-1.5 overflow-x-auto pb-0.5 ${
-            compact ? 'scrollbar-thin' : ''
-          }`}
-        >
-          {images.map((_, thumbIndex) => {
-            const thumb = state.thumbImages?.[thumbIndex];
-            if (!thumb) {
-              return null;
-            }
-            const active = thumbIndex === index;
-            const paired = dualMode && dualIndex === thumbIndex;
-            return (
-              <button
-                key={`film-${thumbIndex}`}
-                type="button"
-                onClick={() => {
-                  if (dualMode) {
-                    if (thumbIndex === index) {
-                      return;
-                    }
-                    setDualIndex(thumbIndex);
-                    return;
-                  }
-                  goToIndex(thumbIndex, true);
-                }}
-                className={`relative h-12 w-12 shrink-0 overflow-hidden rounded-md border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] ${
-                  active
-                    ? 'border-[var(--accent-border)] ring-1 ring-[var(--accent-ring)]'
-                    : paired
-                      ? 'border-amber-300/80 ring-1 ring-amber-300/50'
-                      : compact
-                        ? 'border-white/20 opacity-70 hover:opacity-100'
-                        : 'border-[var(--border-subtle)] opacity-80 hover:opacity-100'
-                }`}
-                aria-label={
-                  dualMode ? `Set pair image ${thumbIndex + 1}` : `Go to image ${thumbIndex + 1}`
-                }
-                aria-current={active ? 'true' : undefined}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={thumb} alt="" className="h-full w-full object-cover" loading="lazy" />
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    ) : null;
-
   const renderImageStage = (stageClassName: string) => (
-    <div
-      ref={stageRef}
-      className={`relative min-h-0 touch-pan-y overflow-hidden ${stageClassName} ${
-        zoom > 1 ? 'cursor-grab' : ''
-      }`}
-      onPointerDown={onStagePointerDown}
-      onPointerMove={onStagePointerMove}
-      onPointerUp={onStagePointerUp}
-      onPointerCancel={onStagePointerUp}
-      onTouchStart={onStageTouchStart}
-      onTouchMove={onStageTouchMove}
-      onTouchEnd={onStageTouchEnd}
-      onTouchCancel={onStageTouchEnd}
-    >
-      <div className="relative flex h-full min-h-0 w-full items-center justify-center">
-        {dualMode && dualIndex != null && images[dualIndex] ? (
-          <div className="grid h-full min-h-0 w-full grid-cols-2 gap-2 p-1">
-            {renderSlide(
-              currentUrl,
-              currentMediaKind,
-              `relative ${imageClassName} min-h-0`,
-              `dual-left-${displayIndex}`,
-              {
-                isCurrent: true,
-                placeholderUrl: currentThumbUrl,
-              }
-            )}
-            {renderSlide(
-              images[dualIndex],
-              state?.mediaKinds?.[dualIndex] ?? 'image',
-              `relative ${imageClassName} min-h-0`,
-              `dual-right-${dualIndex}`,
-              {
-                placeholderUrl: state?.thumbImages?.[dualIndex],
-              }
-            )}
-          </div>
-        ) : previousIndex !== null && images[previousIndex] ? (
-          <>
-            {renderSlide(
-              images[previousIndex],
-              previousMediaKind,
-              `absolute inset-0 m-auto flex max-h-full max-w-full items-center justify-center ${exitClass}`,
-              'previous-slide',
-              { ariaHidden: true }
-            )}
-            {renderSlide(
-              currentUrl,
-              currentMediaKind,
-              `relative z-[1] ${imageClassName} ${enterClass}`,
-              `current-slide-${displayIndex}`,
-              {
-                isCurrent: true,
-                placeholderUrl: currentThumbUrl,
-              }
-            )}
-          </>
-        ) : (
-          renderSlide(
-            currentUrl,
-            currentMediaKind,
-            `relative ${imageClassName}`,
-            `solo-slide-${displayIndex}`,
-            {
-              isCurrent: true,
-              placeholderUrl: currentThumbUrl,
-            }
-          )
-        )}
-      </div>
-    </div>
+    <ImageLightboxImageStage
+      stageClassName={stageClassName}
+      stageRef={stageRef}
+      zoom={zoom}
+      onStagePointerDown={onStagePointerDown}
+      onStagePointerMove={onStagePointerMove}
+      onStagePointerUp={onStagePointerUp}
+      onStageTouchStart={onStageTouchStart}
+      onStageTouchMove={onStageTouchMove}
+      onStageTouchEnd={onStageTouchEnd}
+      dualMode={dualMode}
+      dualIndex={dualIndex}
+      images={images}
+      displayIndex={displayIndex}
+      currentUrl={currentUrl}
+      currentMediaKind={currentMediaKind}
+      currentThumbUrl={currentThumbUrl}
+      imageClassName={imageClassName}
+      previousIndex={previousIndex}
+      previousMediaKind={previousMediaKind}
+      enterClass={enterClass}
+      exitClass={exitClass}
+      mediaKinds={state?.mediaKinds}
+      thumbImages={state?.thumbImages}
+      fitMode={fitMode}
+      pan={pan}
+      dragging={dragging}
+      currentTitle={currentTitle}
+      baOpen={baOpen}
+      baPosition={baPosition}
+      slideChrome={slideChrome}
+      currentImageLoaded={currentImageLoaded}
+      preferFullRes={preferFullRes}
+      downloadFilename={state?.downloadFilenames?.[displayIndex]}
+      htmlVideoFailed={htmlVideoFailed}
+      onHtmlVideoFailedChange={setHtmlVideoFailed}
+      onCurrentImageLoadedChange={setCurrentImageLoaded}
+      onFullResLoadingChange={setFullResLoading}
+      onBaPositionChange={setBaPosition}
+      onStopStagePointer={stopStagePointer}
+    />
   );
-
-  const renderSideNav = () =>
-    images.length > 1 ? (
-      isFullscreen ? (
-        <>
-          <button
-            type="button"
-            className="absolute inset-y-0 left-0 z-30 w-[18%] cursor-w-resize bg-gradient-to-r from-black/35 via-black/10 to-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/40"
-            onPointerDown={stopStagePointer}
-            onClick={() => {
-              const prevIndex = index > 0 ? index - 1 : slideshow?.playing ? images.length - 1 : 0;
-              goToIndex(prevIndex, !slideshow?.playing);
-            }}
-            aria-label="Previous image"
-          />
-          <button
-            type="button"
-            className="absolute inset-y-0 right-0 z-30 w-[18%] cursor-e-resize bg-gradient-to-l from-black/35 via-black/10 to-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/40"
-            onPointerDown={stopStagePointer}
-            onClick={() => {
-              const nextIndex =
-                index < images.length - 1 ? index + 1 : slideshow?.playing ? 0 : images.length - 1;
-              goToIndex(nextIndex, !slideshow?.playing);
-            }}
-            aria-label="Next image"
-          />
-        </>
-      ) : (
-        <>
-          <Button
-            variant="secondary"
-            className="absolute left-3 top-1/2 z-30 !min-h-10 -translate-y-1/2 border border-white/30 !bg-[var(--bg-base)]/85 px-3.5 type-caption !text-white shadow-[0_8px_28px_rgb(0_0_0/0.55)] backdrop-blur-md hover:!bg-[var(--bg-muted)]/95 hover:!text-white focus-visible:ring-2 focus-visible:ring-white/40 disabled:!bg-[var(--bg-base)]/40 disabled:!text-white/35"
-            disabled={!canGoPrevious}
-            onPointerDown={stopStagePointer}
-            onClick={() => goToIndex(index - 1, true)}
-            aria-label="Previous image"
-          >
-            ← Prev
-          </Button>
-          <Button
-            variant="secondary"
-            className="absolute right-3 top-1/2 z-30 !min-h-10 -translate-y-1/2 border border-white/30 !bg-[var(--bg-base)]/85 px-3.5 type-caption !text-white shadow-[0_8px_28px_rgb(0_0_0/0.55)] backdrop-blur-md hover:!bg-[var(--bg-muted)]/95 hover:!text-white focus-visible:ring-2 focus-visible:ring-white/40 disabled:!bg-[var(--bg-base)]/40 disabled:!text-white/35"
-            disabled={!canGoNext}
-            onPointerDown={stopStagePointer}
-            onClick={() => goToIndex(index + 1, true)}
-            aria-label="Next image"
-          >
-            Next →
-          </Button>
-        </>
-      )
-    ) : null;
-
-  const renderSlideshowControls = (compact = false) =>
-    slideshowEnabled ? (
-      <>
-        <Button
-          variant={compact ? 'ghost' : 'secondary'}
-          className={`${compact ? '!min-h-8 !text-white hover:!bg-white/10' : '!min-h-9'} px-3 type-caption`}
-          onClick={() => slideshow?.onPlayingChange(!slideshow.playing)}
-        >
-          {slideshow?.playing ? 'Pause' : 'Play'}
-        </Button>
-        {slideshow?.onIntervalChange &&
-        slideshow.intervalOptions &&
-        slideshow.intervalOptions.length > 0 ? (
-          <label
-            className={`flex items-center gap-2 type-caption ${compact ? 'text-white/70' : 'text-[var(--text-tertiary)]'}`}
-          >
-            Every
-            <select
-              value={slideshow.intervalMs}
-              onChange={event => {
-                pauseSlideshow();
-                slideshow.onIntervalChange?.(Number(event.target.value));
-              }}
-              className={
-                compact
-                  ? 'rounded-md border border-white/15 bg-black/40 px-2 py-1 text-white'
-                  : 'rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-2 py-1 text-[var(--text-secondary)]'
-              }
-            >
-              {slideshow.intervalOptions.map(option => (
-                <option key={option} value={option}>
-                  {formatGallerySlideshowInterval(option)}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
-        {slideshow?.onTransitionChange && transitionOptions.length > 0 ? (
-          <label
-            className={`flex items-center gap-2 type-caption ${compact ? 'text-white/70' : 'text-[var(--text-tertiary)]'}`}
-          >
-            Effect
-            <select
-              value={transition}
-              onChange={event => {
-                pauseSlideshow();
-                slideshow.onTransitionChange?.(event.target.value as GallerySlideshowTransition);
-              }}
-              className={
-                compact
-                  ? 'rounded-md border border-white/15 bg-black/40 px-2 py-1 text-white'
-                  : 'rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-2 py-1 text-[var(--text-secondary)]'
-              }
-            >
-              {transitionOptions.map(option => (
-                <option key={option} value={option}>
-                  {GALLERY_SLIDESHOW_TRANSITION_LABELS[option]}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
-        {slideshow?.onFullscreenChange ? (
-          <Button
-            variant={compact ? 'ghost' : 'secondary'}
-            className={`${compact ? '!min-h-8 !text-white hover:!bg-white/10' : '!min-h-9'} px-3 type-caption`}
-            onClick={toggleFullscreenPresentation}
-          >
-            {isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-          </Button>
-        ) : null}
-      </>
-    ) : null;
 
   if (isFullscreen) {
     return createPortal(
@@ -1044,16 +571,36 @@ export default function ImageLightbox({
           </div>
         </div>
 
-        {renderHelpOverlay(true)}
+        <ImageLightboxHelpOverlay open={helpOpen} compact onClose={() => setHelpOpen(false)} />
         <div className="relative min-h-0 flex-1">
           {renderImageStage('h-full min-h-0')}
-          {renderSideNav()}
+          <ImageLightboxSideNav
+            imagesLength={images.length}
+            index={index}
+            isFullscreen={isFullscreen}
+            canGoPrevious={canGoPrevious}
+            canGoNext={canGoNext}
+            slideshow={slideshow}
+            onGoToIndex={goToIndex}
+            onStopStagePointer={stopStagePointer}
+          />
         </div>
 
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[3] bg-gradient-to-t from-black/85 via-black/45 to-transparent px-4 pb-4 pt-12 sm:px-6">
           <div className="pointer-events-auto flex max-h-[min(48vh,30rem)] flex-col gap-2">
             <div className="sticky top-0 z-[1] shrink-0 bg-gradient-to-b from-black/70 to-transparent pb-1">
-              {renderFilmstrip(true)}
+              {state ? (
+                <ImageLightboxFilmstrip
+                  compact
+                  images={images}
+                  index={index}
+                  state={state}
+                  dualMode={dualMode}
+                  dualIndex={dualIndex}
+                  onGoToIndex={goToIndex}
+                  onDualIndexChange={setDualIndex}
+                />
+              ) : null}
             </div>
             <div className="min-h-0 space-y-2 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
               <ImageLightboxTutorialTip
@@ -1090,7 +637,16 @@ export default function ImageLightbox({
               />
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  {renderSlideshowControls(true)}
+                  <ImageLightboxSlideshowControls
+                    compact
+                    slideshowEnabled={slideshowEnabled}
+                    slideshow={slideshow}
+                    transition={transition}
+                    transitionOptions={transitionOptions}
+                    isFullscreen={isFullscreen}
+                    onPauseSlideshow={pauseSlideshow}
+                    onToggleFullscreen={toggleFullscreenPresentation}
+                  />
                   {/* Zoom presets touch zoomRef inside click handlers only. */}
                   {}
                   <ImageLightboxSlideChromeBar
@@ -1214,18 +770,37 @@ export default function ImageLightbox({
           </Button>
         </div>
 
-        {renderHelpOverlay(false)}
+        <ImageLightboxHelpOverlay open={helpOpen} onClose={() => setHelpOpen(false)} />
 
         <div className="relative min-h-0 w-full flex-1">
           {renderImageStage(
             'relative flex h-full min-h-0 w-full items-center justify-center overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)] shadow-[var(--shadow-overlay,0_24px_80px_rgb(0_0_0/0.45))]'
           )}
-          {renderSideNav()}
+          <ImageLightboxSideNav
+            imagesLength={images.length}
+            index={index}
+            isFullscreen={isFullscreen}
+            canGoPrevious={canGoPrevious}
+            canGoNext={canGoNext}
+            slideshow={slideshow}
+            onGoToIndex={goToIndex}
+            onStopStagePointer={stopStagePointer}
+          />
         </div>
 
         <div className="flex max-h-[min(46vh,28rem)] shrink-0 flex-col gap-2 pb-0.5">
           <div className="sticky top-0 z-[1] shrink-0 border-b border-[var(--border-subtle)]/50 bg-[var(--bg-base)]/90 pb-1.5 backdrop-blur-md">
-            {renderFilmstrip(false)}
+            {state ? (
+              <ImageLightboxFilmstrip
+                images={images}
+                index={index}
+                state={state}
+                dualMode={dualMode}
+                dualIndex={dualIndex}
+                onGoToIndex={goToIndex}
+                onDualIndexChange={setDualIndex}
+              />
+            ) : null}
           </div>
           <div className="flex min-h-0 flex-col gap-2 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
             <ImageLightboxTutorialTip
@@ -1262,7 +837,15 @@ export default function ImageLightbox({
               <div className="flex flex-wrap items-center justify-between gap-3">
                 {images.length > 1 ? (
                   <div className="flex flex-wrap items-center gap-2">
-                    {renderSlideshowControls()}
+                    <ImageLightboxSlideshowControls
+                      slideshowEnabled={slideshowEnabled}
+                      slideshow={slideshow}
+                      transition={transition}
+                      transitionOptions={transitionOptions}
+                      isFullscreen={isFullscreen}
+                      onPauseSlideshow={pauseSlideshow}
+                      onToggleFullscreen={toggleFullscreenPresentation}
+                    />
                     <Button
                       variant="secondary"
                       className="!min-h-9 px-3 type-caption"
