@@ -10,6 +10,13 @@ test.describe('Workflow editor', () => {
   });
 
   test('workflow editor chrome loads with save and queue controls', async ({ page }) => {
+    await page.route('**/api/comfyui/preview**', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ workflowSource: 'editor', preflightIssues: [] }),
+      });
+    });
     await gotoStable(page, '/workflow-editor');
     await dismissBlockingOverlays(page);
     await expect(page.getByTestId('workflow-editor')).toBeVisible({ timeout: 30_000 });
@@ -17,6 +24,25 @@ test.describe('Workflow editor', () => {
     await expect(page.getByRole('button', { name: /Save to library/i })).toBeVisible();
     await expect(page.getByTestId('workflow-editor-queue')).toBeVisible();
     await expect(page.getByRole('button', { name: /^Dry-run$/i })).toBeVisible();
+    const sampleWorkflow = JSON.stringify({
+      '1': {
+        class_type: 'CLIPTextEncode',
+        inputs: { text: 'e2e dry-run prompt', clip: ['2', 0] },
+      },
+      '2': {
+        class_type: 'CheckpointLoaderSimple',
+        inputs: { ckpt_name: 'model.safetensors' },
+      },
+    });
+    await page.getByPlaceholder(/Paste Comfy API-format workflow JSON/i).fill(sampleWorkflow);
+    await page.getByRole('button', { name: /Parse JSON/i }).click();
+    await expect(page.getByTestId('workflow-editor-status')).toContainText(/Loaded|nodes/i, {
+      timeout: 15_000,
+    });
+    await page.getByRole('button', { name: /^Dry-run$/i }).click();
+    await expect(page.getByTestId('workflow-editor-status')).toContainText(/Dry-run ok/i, {
+      timeout: 30_000,
+    });
   });
 });
 
@@ -238,6 +264,8 @@ test.describe('Play dogfood glue', () => {
     await expect(page.getByTestId('play-film-metrics')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId('play-next-cta')).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId('play-funnel-step-day')).toHaveAttribute('data-active', 'true');
+    await expect(page.getByTestId('play-funnel-stall')).toBeVisible();
+    await expect(page.getByTestId('play-funnel-stall')).toHaveAttribute('data-stall-step', 'cut');
     const href = await page.getByTestId('play-next-cta').getAttribute('href');
     expect(href).toMatch(/\/day/);
   });

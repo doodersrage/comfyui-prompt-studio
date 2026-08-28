@@ -4,6 +4,7 @@ import {
   daysFromCampaignStartToFirstFilmCut,
   firstFilmCutWithinDays,
   resolveNextPlayAction,
+  resolvePlayFunnelStall,
   type PlayMetrics,
 } from './play-metrics';
 
@@ -65,5 +66,27 @@ describe('play-metrics', () => {
     });
     assert.equal(again.label, 'Cut another Day film');
     assert.equal(again.href, '/day?character=c1');
+  });
+
+  it('detects funnel stall before first film cut', () => {
+    assert.equal(resolvePlayFunnelStall({}), null);
+    assert.equal(
+      resolvePlayFunnelStall({
+        metrics: { version: 1, firstFilmCutAt: Date.now() },
+      }),
+      null
+    );
+    const cutStall = resolvePlayFunnelStall({
+      metrics: { version: 1, firstPlayCampaignAt: Date.now() - 60_000 },
+      funnel: { keepTryOn: 2, firstFilmCut: 0 },
+    });
+    assert.equal(cutStall?.stepId, 'cut');
+    assert.match(cutStall?.reason ?? '', /Cut film/i);
+
+    const moodboardStall = resolvePlayFunnelStall({
+      metrics: { version: 1, firstPlayCampaignAt: Date.now() - 60_000 },
+      funnel: { firstPlayCampaign: 1, campaignMaxStep: 2 },
+    });
+    assert.equal(moodboardStall?.stepId, 'moodboard');
   });
 });

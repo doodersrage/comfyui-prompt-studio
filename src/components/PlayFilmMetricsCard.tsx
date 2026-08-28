@@ -17,6 +17,7 @@ import {
   loadPlayMetrics,
   PLAY_METRICS_UPDATED_EVENT,
   resolveNextPlayAction,
+  resolvePlayFunnelStall,
   type PlayMetrics,
 } from '@/lib/play-metrics';
 
@@ -87,6 +88,11 @@ export default function PlayFilmMetricsCard() {
     funnel,
     campaign: campaignStep,
     watchedFirstFilm,
+  });
+  const stall = resolvePlayFunnelStall({
+    metrics,
+    funnel,
+    campaign: campaignStep,
   });
 
   const currentIndex = Math.max(
@@ -172,6 +178,20 @@ export default function PlayFilmMetricsCard() {
           {rates.maxStep}
         </p>
       )}
+
+      {stall ? (
+        <p
+          className="mt-2 rounded-[var(--radius-md)] border border-[var(--accent-border)] bg-[var(--accent-muted)] px-3 py-2 type-caption text-[var(--accent-text)]"
+          data-testid="play-funnel-stall"
+          data-stall-step={stall.stepId}
+        >
+          Stalled at {stall.stepLabel}
+          {stall.daysSinceCampaignStart != null
+            ? ` · ${formatDays(stall.daysSinceCampaignStart)} since campaign start`
+            : ''}
+          . {stall.reason}
+        </p>
+      ) : null}
 
       <p className="mt-2 type-caption text-[var(--text-secondary)]" data-testid="play-next-reason">
         {next.reason}

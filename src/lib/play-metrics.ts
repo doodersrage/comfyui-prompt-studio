@@ -99,6 +99,14 @@ export type PlayNextAction = {
   reason: string;
 };
 
+export type PlayFunnelStall = {
+  stepId: 'character' | 'moodboard' | 'fitting' | 'day' | 'roleplay' | 'cut';
+  stepLabel: string;
+  reason: string;
+  /** Days since first campaign start; null when start time is unknown. */
+  daysSinceCampaignStart: number | null;
+};
+
 type FunnelLike = {
   firstPlayCampaign?: number;
   firstFilmCut?: number;
@@ -216,5 +224,71 @@ export function resolveNextPlayAction(input: {
     label: 'Open Play campaign',
     href: '/play',
     reason: 'Start Moodboard → Fitting → Day → film.',
+  };
+}
+
+const STALL_STEP_LABELS: Record<PlayFunnelStall['stepId'], string> = {
+  character: 'Cast',
+  moodboard: 'Moodboard',
+  fitting: 'Fitting',
+  day: 'Day Planner',
+  roleplay: 'Roleplay',
+  cut: 'Cut film',
+};
+
+/**
+ * Where the Play funnel is stuck before the first film cut — for dashboard stall callouts.
+ */
+export function resolvePlayFunnelStall(input: {
+  metrics?: PlayMetrics;
+  funnel?: FunnelLike | null;
+  campaign?: CampaignLike;
+}): PlayFunnelStall | null {
+  const metrics = input.metrics ?? { version: 1 };
+  const funnel = input.funnel ?? {};
+  const campaign = input.campaign ?? null;
+
+  const hasCut = Boolean(metrics.firstFilmCutAt) || (funnel.firstFilmCut ?? 0) > 0;
+  if (hasCut) {
+    return null;
+  }
+
+  const started = Boolean(metrics.firstPlayCampaignAt) || (funnel.firstPlayCampaign ?? 0) > 0;
+  if (!started) {
+    return null;
+  }
+
+  const daysSinceCampaignStart =
+    typeof metrics.firstPlayCampaignAt === 'number'
+      ? Math.max(0, (Date.now() - metrics.firstPlayCampaignAt) / (1000 * 60 * 60 * 24))
+      : null;
+
+  const keeps = funnel.keepTryOn ?? 0;
+  const maxStep = Math.max(campaign?.stepIndex ?? -1, (funnel.campaignMaxStep ?? 0) - 1, 0);
+
+  if (keeps > 0 || maxStep >= 3) {
+    return {
+      stepId: 'cut',
+      stepLabel: STALL_STEP_LABELS.cut,
+      reason: 'Try-ons saved — Cut film in Day or Roleplay to close the loop.',
+      daysSinceCampaignStart,
+    };
+  }
+
+  const stepIds = ['character', 'moodboard', 'fitting', 'day', 'roleplay'] as const;
+  const stepId = stepIds[Math.min(maxStep, stepIds.length - 1)] ?? 'moodboard';
+  const reasons: Record<(typeof stepIds)[number], string> = {
+    character: 'Pick a Cast character and start Moodboard.',
+    moodboard: 'Extract a look pack on Moodboard, then continue to Fitting.',
+    fitting: 'Queue try-ons in Fitting and Keep a plate before Day.',
+    day: 'Plan Day slots and queue stills before Cut film.',
+    roleplay: 'Run a Roleplay beat, then Cut film.',
+  };
+
+  return {
+    stepId,
+    stepLabel: STALL_STEP_LABELS[stepId],
+    reason: reasons[stepId],
+    daysSinceCampaignStart,
   };
 }
