@@ -1,12 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
 import EditToolRecipeStrip from '@/components/EditToolRecipeStrip';
 import { HistoryHintSeedPanel } from '@/components/scene-tool/HistoryHintSeedPanel';
 import SharedToolControls from '@/components/SharedToolControls';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
-import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
 import { usePromptResultActions } from '@/hooks/usePromptResultActions';
@@ -15,9 +13,7 @@ import { useVideoPromptQueue } from '@/hooks/useVideoPromptQueue';
 import { useVideoPromptFieldSetters } from '@/hooks/useVideoPromptFieldSetters';
 import { useVideoWorkflowScaffold } from '@/hooks/useVideoWorkflowScaffold';
 import VideoPromptFormPanel from '@/components/video/VideoPromptFormPanel';
-import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
-import { continueEditResultProps } from '@/lib/continue-edit-result-props';
-import { getReformatTargetLabel } from '@/lib/reformat-target';
+import VideoPromptResultSection from '@/components/video/VideoPromptResultSection';
 import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
 import { DEFAULT_VIDEO_TOOL_CACHE } from '@/lib/settings-cache';
 import { normalizeHistorySeedScope, normalizeSceneHintSource } from '@/lib/scene-hint-source';
@@ -281,38 +277,15 @@ export default function VideoPromptTool() {
         onGenerate={() => void generate()}
       />
 
-      {output ? (
-        <EnhancedPromptResult
-          output={output}
-          provider="rules"
-          comfyNode="Video text encode"
-          readinessModel={shared.model}
-          readinessDetail={shared.detail}
-          readinessHints={motion}
-          copied={copied}
-          onCopy={() => void copyOutput(output)}
-          onOutputChange={setOutput}
-          onSaveHistory={() => actions.saveHistory({ prompt: output, hints: motion })}
-          onSendComfyUi={() => queueVideo(output)}
-          onExportSidecar={() => actions.exportSidecar(output, { metadata: { hints: motion } })}
-          {...promptResultPreviewProps(actions, output, null)}
-          {...continueEditResultProps(actions, output)}
-          onFixPrompt={() => void actions.fixPrompt(output, setOutput, motion)}
-          onCopyPair={() => void actions.copyPromptPair(output, null)}
-          onReformat={() => void actions.reformatForModel(output, setOutput)}
-          reformatTargetLabel={getReformatTargetLabel(shared.model)}
-          onCompact={() => void actions.compactPrompt(output, setOutput)}
-          comfyUiStatus={actions.comfyUiStatus}
-          comfyUiJob={actions.comfyUiJob}
-          comfyUiPreviewUrl={actions.comfyUiPreviewUrl}
-          historySaved={actions.historySaved}
-        />
-      ) : null}
-      <MobileStickyQueueBar
-        disabled={!output.trim()}
-        label="Queue video"
-        status={actions.comfyUiStatus}
-        primaryGenerate
+      <VideoPromptResultSection
+        output={output}
+        motion={motion}
+        model={shared.model}
+        detail={shared.detail}
+        copied={copied}
+        actions={actions}
+        onOutputChange={setOutput}
+        onCopy={() => void copyOutput(output)}
         onQueue={() => queueVideo(output)}
       />
     </ToolLayout>
