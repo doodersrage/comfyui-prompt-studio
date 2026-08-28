@@ -13,7 +13,14 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as {
+    const body = (await request.json().catch(error => {
+      if (error instanceof SyntaxError) {
+        throw new Error(
+          'Upload was too large or incomplete. Use a still image or pick a smaller frame from Gallery.'
+        );
+      }
+      throw error;
+    })) as {
       purpose?: string;
       image?: string;
       mimeType?: string;

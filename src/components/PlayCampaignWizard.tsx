@@ -37,6 +37,7 @@ import {
   stagePlayCampaignHandoff,
   type PlayCampaignStepId,
 } from '@/lib/play-campaign';
+import { CHARACTERS_UPDATED_EVENT } from '@/lib/character-os';
 import {
   loadSettingsCache,
   saveSharedSettings,
@@ -62,6 +63,13 @@ export default function PlayCampaignWizard({ initialCharacterId }: PlayCampaignW
   const [shareCopyStatus, setShareCopyStatus] = useState<string | null>(null);
   const [stepOverride, setStepOverride] = useState<PlayCampaignStepId | null>(null);
   const lookPackFileRef = useRef<HTMLInputElement | null>(null);
+  const [charactersRevision, setCharactersRevision] = useState(0);
+
+  useEffect(() => {
+    const onCharactersUpdated = () => setCharactersRevision(revision => revision + 1);
+    window.addEventListener(CHARACTERS_UPDATED_EVENT, onCharactersUpdated);
+    return () => window.removeEventListener(CHARACTERS_UPDATED_EVENT, onCharactersUpdated);
+  }, []);
 
   const queryCharacterId = searchParams.get('character')?.trim() || '';
   const queryLookPackId = searchParams.get('lookPack')?.trim() || '';
@@ -217,20 +225,32 @@ export default function PlayCampaignWizard({ initialCharacterId }: PlayCampaignW
 
   // Resume: restore saved look pack into session + URL when campaign has lookPackId.
   useEffect(() => {
-    if (!mounted || !savedCampaign || !character) {
+    if (!mounted || !savedCampaign || !characterId) {
       return;
     }
-    const packId = savedCampaign.lookPackId;
+    const packId = savedCampaign.lookPackId?.trim();
     if (!packId || queryLookPackId) {
       return;
     }
-    const saved = getCharacterLookPack(character.id, packId);
+    router.replace(playCampaignHref(characterId, packId));
+    const characterRecord = getCharacter(characterId);
+    if (!characterRecord) {
+      return;
+    }
+    const saved = getCharacterLookPack(characterRecord.id, packId);
     if (!saved) {
       return;
     }
-    saveLookPack({ ...saved.pack, characterId: character.id, source: 'saved' });
-    router.replace(playCampaignHref(character.id, packId));
-  }, [mounted, savedCampaign, character, queryLookPackId, router]);
+    saveLookPack({ ...saved.pack, characterId: characterRecord.id, source: 'saved' });
+  }, [
+    mounted,
+    savedCampaign,
+    characterId,
+    queryLookPackId,
+    router,
+    charactersRevision,
+    savedLookPacks.length,
+  ]);
 
   const goToStep = useCallback(
     (stepId: PlayCampaignStepId, pack?: LookPack | null) => {

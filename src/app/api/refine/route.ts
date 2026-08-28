@@ -51,7 +51,14 @@ async function parseRefineRequest(request: Request) {
     };
   }
 
-  const body = (await request.json()) as {
+  const body = (await request.json().catch(error => {
+    if (error instanceof SyntaxError) {
+      throw new Error(
+        'Upload was too large or incomplete. Use a still image or pick a smaller frame from Gallery.'
+      );
+    }
+    throw error;
+  })) as {
     action?: string;
     image?: string;
     mimeType?: string;

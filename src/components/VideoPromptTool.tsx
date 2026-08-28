@@ -12,28 +12,26 @@ import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import MediaScaffoldReadyPanel from '@/components/MediaScaffoldReadyPanel';
 import ComfyModelAssetsPanel from '@/components/settings/ComfyModelAssetsPanel';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
-import { useGalleryHandoff } from '@/hooks/useGalleryHandoff';
 import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
 import { usePromptResultActions } from '@/hooks/usePromptResultActions';
+import {
+  useVideoPromptInitImage,
+  LOCAL_INIT_IMAGE_MARKER,
+  isFetchableImageRef,
+} from '@/hooks/useVideoPromptInitImage';
+import VideoPromptInitImageSection from '@/components/video/VideoPromptInitImageSection';
 import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
 import { continueEditResultProps } from '@/lib/continue-edit-result-props';
 import { getReformatTargetLabel } from '@/lib/reformat-target';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
 import { loadComfyGallery } from '@/lib/comfyui-gallery';
-import { nextRoleplayMotionKind, looksLikeVideoUrl } from '@/lib/roleplay-film';
-import { extractVideoLastFrame } from '@/lib/video-last-frame';
+import { nextRoleplayMotionKind } from '@/lib/roleplay-film';
 import { DEFAULT_VIDEO_TOOL_CACHE, loadSettingsCache } from '@/lib/settings-cache';
 import { normalizeHistorySeedScope, normalizeSceneHintSource } from '@/lib/scene-hint-source';
 import { isVideoModel, resolvePreferredVideoModel } from '@/lib/queue-tool-model';
 import type { ComfyImageModel } from '@/lib/comfy-models/client';
-import {
-  sharedPatchFromGalleryHandoff,
-  galleryPickPath,
-  type GalleryHandoffPayload,
-} from '@/lib/gallery-handoff';
 import { ensureVideoWorkflowScaffold } from '@/lib/ensure-video-workflow';
 import { fetchComfyObjectInfoCached } from '@/lib/comfyui-object-info-cache';
-import type { WorkflowParamValues } from '@/lib/comfyui-config';
 import {
   ToolBadge,
   ToolLayout,
@@ -50,22 +48,13 @@ import {
   snapFalVideoDurationSec,
   type VideoClipMode,
 } from '@/lib/video-clip-mode';
-import { loadEngineSettings, saveEngineSettings } from '@/lib/engine-settings';
-import { preferCloudForVideoStillHandoff } from '@/lib/video-still-handoff';
+import { loadEngineSettings } from '@/lib/engine-settings';
 import { resolveFalExtendParentUrl } from '@/lib/fal-extend-upload';
 import { engineDisplayName } from '@/lib/engine/capabilities';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
-import { Button, ButtonLink, PrimaryButton } from '@/components/ui/Button';
-import { sharedLlmRequestBody } from '@/lib/llm-request-options';
-import { fileToDataUrl } from '@/lib/browser-file-data-url';
+import { PrimaryButton } from '@/components/ui/Button';
 
 const ACCENT = 'brand' as const;
-
-const LOCAL_INIT_IMAGE_MARKER = 'local-upload';
-
-function isFetchableImageRef(value: string): boolean {
-  return /^(?:https?:|data:|blob:)/i.test(value.trim());
-}
 
 export default function VideoPromptTool() {
   const description = useToolPageDescription(
@@ -87,21 +76,12 @@ export default function VideoPromptTool() {
   const fps = toolSettings.fps;
   const inferenceEngine = shared.inferenceEngine || loadEngineSettings().engine;
 
-  const [file, setFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [parentGalleryEntryId, setParentGalleryEntryId] = useState<string | undefined>();
   const [workflowStatus, setWorkflowStatus] = useState<string | null>(null);
   const [output, setOutput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [scanning, setScanning] = useState(false);
-  const clipMode = inferVideoClipMode({
-    clipMode: toolSettings.clipMode,
-    hasInitImage: Boolean(
-      file || previewUrl || (initImageUrl.trim() && initImageUrl.trim() !== LOCAL_INIT_IMAGE_MARKER)
-    ),
-  });
   const setClipMode = useCallback(
     (mode: VideoClipMode) => updateToolSettings({ clipMode: mode }),
     [updateToolSettings]
@@ -165,138 +145,37 @@ export default function VideoPromptTool() {
     [updateToolSettings]
   );
 
-  const revokePreviewIfBlob = useCallback((url: string | null | undefined) => {
-    if (url?.startsWith('blob:')) {
-      URL.revokeObjectURL(url);
-    }
-  }, []);
+  const {
+    file,
+    previewUrl,
+    scanning,
+    hasInitImage,
+    pastedInitValue,
+    clearInitImage,
+    onInitFileChange,
+    scanInitWithVision,
+    setPreviewUrl,
+    revokePreviewIfBlob,
+  } = useVideoPromptInitImage({
+    initImageUrl,
+    setInitImageUrl,
+    setParentVideoUrl,
+    setParentGalleryEntryId,
+    setClipMode,
+    setSubject,
+    setMotion,
+    setError,
+    updateShared,
+    updateToolSettings,
+    camera,
+    style,
+    shared,
+  });
 
-  const clearInitImage = useCallback(() => {
-    setFile(null);
-    setPreviewUrl(current => {
-      revokePreviewIfBlob(current);
-      return null;
-    });
-    setInitImageUrl('');
-    setParentVideoUrl('');
-  }, [revokePreviewIfBlob, setInitImageUrl, setParentVideoUrl]);
-
-  const onInitFileChange = useCallback(
-    (nextFile: File | null) => {
-      setFile(nextFile);
-      setPreviewUrl(current => {
-        revokePreviewIfBlob(current);
-        return nextFile ? URL.createObjectURL(nextFile) : null;
-      });
-      // Keep Settings/preferI2v in sync — concrete upload happens at queue time.
-      setInitImageUrl(nextFile ? LOCAL_INIT_IMAGE_MARKER : '');
-      if (nextFile) {
-        setClipMode('i2v');
-      }
-    },
-    [revokePreviewIfBlob, setClipMode, setInitImageUrl]
-  );
-
-  const applyGalleryHandoff = useCallback(
-    (handoff: {
-      prompt: string;
-      model?: string;
-      queueParams?: WorkflowParamValues;
-      file: File | null;
-      previewUrl: string | null;
-      payload: GalleryHandoffPayload;
-    }) => {
-      const framesFromHandoff = Number(handoff.queueParams?.videoFrames);
-      const fpsFromHandoff = Number(handoff.queueParams?.videoFps);
-      const imageRef =
-        handoff.payload.imageUrl?.trim() ||
-        handoff.previewUrl?.trim() ||
-        (handoff.file ? LOCAL_INIT_IMAGE_MARKER : '');
-
-      const rawUrl = handoff.payload.imageUrl?.trim() || handoff.previewUrl?.trim() || '';
-      const parentIsVideo = Boolean(rawUrl && looksLikeVideoUrl(rawUrl));
-      const engine = loadEngineSettings().engine;
-      const useFalExtend = parentIsVideo && engine === 'fal' && canFalExtendFromParentUrl(rawUrl);
-
-      updateToolSettings({
-        ...(parentIsVideo ? { parentVideoUrl: rawUrl } : { parentVideoUrl: '' }),
-        ...(useFalExtend
-          ? { clipMode: 'extend' as const, initImageUrl: '' }
-          : imageRef
-            ? { initImageUrl: imageRef, clipMode: 'i2v' as const }
-            : { clipMode: 'i2v' as const }),
-        ...(handoff.prompt?.trim() ? { subject: handoff.prompt.trim().slice(0, 400) } : {}),
-        ...(Number.isFinite(framesFromHandoff) && framesFromHandoff > 0
-          ? { frames: Math.floor(framesFromHandoff) }
-          : {}),
-        ...(Number.isFinite(fpsFromHandoff) && fpsFromHandoff > 0
-          ? { fps: Math.floor(fpsFromHandoff) }
-          : {}),
-      });
-      void preferCloudForVideoStillHandoff().then(cloudEngine => {
-        if (cloudEngine) {
-          saveEngineSettings({ engine: cloudEngine });
-          updateShared({ inferenceEngine: cloudEngine });
-        }
-      });
-
-      const sharedPatch = sharedPatchFromGalleryHandoff(handoff.payload);
-      const handoffModel = handoff.model?.trim() as ComfyImageModel | undefined;
-      if (handoffModel && isVideoModel(handoffModel)) {
-        updateShared({
-          model: handoffModel,
-          ...sharedPatch,
-        });
-        updateToolSettings({ model: handoffModel });
-      } else if (Object.keys(sharedPatch).length > 0) {
-        updateShared(sharedPatch);
-      }
-
-      setParentGalleryEntryId(handoff.payload.galleryEntryId?.trim() || undefined);
-
-      if (useFalExtend) {
-        setFile(null);
-        setPreviewUrl(current => {
-          revokePreviewIfBlob(current);
-          return rawUrl;
-        });
-        return;
-      }
-
-      if (parentIsVideo) {
-        void extractVideoLastFrame(rawUrl)
-          .then(blob => {
-            const nextFile = new File([blob], 'last-frame.jpg', {
-              type: blob.type || 'image/jpeg',
-            });
-            setFile(nextFile);
-            setPreviewUrl(current => {
-              revokePreviewIfBlob(current);
-              return URL.createObjectURL(nextFile);
-            });
-            setInitImageUrl(LOCAL_INIT_IMAGE_MARKER);
-          })
-          .catch(() => {
-            setError('Could not read the last frame.');
-            setPreviewUrl(current => {
-              revokePreviewIfBlob(current);
-              return handoff.previewUrl;
-            });
-            setFile(handoff.file);
-          });
-        return;
-      }
-
-      setPreviewUrl(current => {
-        revokePreviewIfBlob(current);
-        return handoff.previewUrl;
-      });
-      setFile(handoff.file);
-    },
-    [revokePreviewIfBlob, setError, setInitImageUrl, updateShared, updateToolSettings]
-  );
-
-  useGalleryHandoff('video', applyGalleryHandoff);
+  const clipMode = inferVideoClipMode({
+    clipMode: toolSettings.clipMode,
+    hasInitImage,
+  });
 
   const setFrames = useCallback(
     (value: number | undefined) => updateToolSettings({ frames: value }),
@@ -484,84 +363,6 @@ export default function VideoPromptTool() {
     parentGalleryEntryId,
     parentVideoUrl,
     previewUrl,
-  ]);
-
-  const pastedInitValue = initImageUrl === LOCAL_INIT_IMAGE_MARKER ? '' : initImageUrl;
-  const hasInitImage = Boolean(file || previewUrl || pastedInitValue.trim());
-
-  const resolveInitImageFile = useCallback(async (): Promise<File> => {
-    if (file) {
-      return file;
-    }
-    const url = [previewUrl, pastedInitValue]
-      .find(value => value && isFetchableImageRef(value))
-      ?.trim();
-    if (!url) {
-      throw new Error(
-        'Upload a still, pick from Gallery, or paste an http/data URL before scanning.'
-      );
-    }
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error('Could not read the first frame to scan.');
-    }
-    const blob = await response.blob();
-    if (blob.type && !blob.type.startsWith('image/')) {
-      throw new Error('Vision scan needs a still image, not a clip.');
-    }
-    return new File([blob], 'video-init.jpg', { type: blob.type || 'image/jpeg' });
-  }, [file, pastedInitValue, previewUrl]);
-
-  const scanInitWithVision = useCallback(async () => {
-    if (!hasInitImage) {
-      setError('Add a first frame before scanning.');
-      return;
-    }
-    setScanning(true);
-    setError(null);
-    try {
-      const initFile = await resolveInitImageFile();
-      // JSON + data URL avoids Next/undici "Failed to parse body as FormData"
-      // failures that hit multipart uploads (missing boundary / truncated body).
-      const image = await fileToDataUrl(initFile);
-      const response = await fetch('/api/video-prompt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({
-          action: 'scan',
-          image,
-          mimeType: initFile.type || 'image/jpeg',
-          camera: camera.trim() || undefined,
-          style: style.trim() || undefined,
-          ...sharedLlmRequestBody(shared),
-        }),
-      });
-      const data = (await response.json()) as {
-        subject?: string;
-        motion?: string;
-        error?: string;
-      };
-      if (!response.ok || !data.subject?.trim()) {
-        throw new Error(data.error ?? 'Vision scan failed.');
-      }
-      setClipMode('i2v');
-      setSubject(data.subject.trim());
-      setMotion(data.motion?.trim() || '');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Vision scan failed.');
-    } finally {
-      setScanning(false);
-    }
-  }, [
-    camera,
-    hasInitImage,
-    resolveInitImageFile,
-    setClipMode,
-    setMotion,
-    setSubject,
-    shared,
-    style,
   ]);
 
   const queueVideo = useCallback(() => {
@@ -910,93 +711,29 @@ export default function VideoPromptTool() {
           </div>
         ) : null}
 
-        <FieldLabel
-          htmlFor="video-init-image"
-          hint={
-            clipMode === 'extend'
-              ? 'Optional last-frame fallback when Fal extend is not available.'
-              : clipMode === 'i2v'
-                ? 'Required for I2V. Queue wires WanImageToVideo, HunyuanImageToVideo, or LTXVImgToVideo — or swaps in the built-in video scaffold when the selected graph is stills-only.'
-                : 'Ignored in T2V mode. Switch to Image to video to use a first frame.'
-          }
-        >
-          {clipMode === 'i2v' ? 'First frame (required, I2V)' : 'First frame (I2V only)'}
-        </FieldLabel>
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              id="video-init-image"
-              type="file"
-              accept="image/*"
-              onChange={event => onInitFileChange(event.target.files?.[0] ?? null)}
-              className="ui-file-input min-w-0 flex-1"
-            />
-            <ButtonLink href={galleryPickPath('video')} variant="secondary" size="sm">
-              Choose from Gallery
-            </ButtonLink>
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={!hasInitImage || scanning || loading}
-              loading={scanning}
-              loadingLabel="Scanning still"
-              onClick={() => void scanInitWithVision()}
-            >
-              Scan with vision
-            </Button>
-          </div>
-          <p className="type-caption text-[var(--text-muted)]">
-            Opens Gallery in pick mode — click a completed still to return here as the I2V init
-            image. Scan with vision fills Subject and Motion from the still.
-          </p>
-          {previewUrl ? (
-            <div className="flex flex-wrap items-start gap-3">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={previewUrl}
-                alt="Video init preview"
-                className="max-h-48 rounded-xl border border-[var(--border-subtle)] object-contain shadow-[0_8px_24px_rgba(0,0,0,0.35)]"
-              />
-              <Button variant="ghost" size="sm" onClick={clearInitImage}>
-                Remove image
-              </Button>
-            </div>
-          ) : null}
-          <div>
-            <FieldLabel
-              htmlFor="video-init-image-url"
-              hint="Optional fallback when you already have a ComfyUI input filename or remote URL."
-            >
-              Or paste URL / Comfy filename
-            </FieldLabel>
-            <input
-              id="video-init-image-url"
-              value={pastedInitValue}
-              onChange={event => {
-                const next = event.target.value;
-                setInitImageUrl(next);
-                if (!file) {
-                  setPreviewUrl(current => {
-                    revokePreviewIfBlob(current);
-                    return isFetchableImageRef(next) ? next.trim() : null;
-                  });
-                }
-              }}
-              placeholder="https://… or an uploaded ComfyUI filename"
-              className="ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
-            />
-          </div>
-          {clipMode === 'i2v' && hasInitImage ? (
-            <p className="type-caption text-[var(--tint-success-text)]">
-              I2V first frame ready — queue will upload and wire it into the video graph.
-            </p>
-          ) : null}
-          {clipMode === 'i2v' && !hasInitImage ? (
-            <p className="type-caption text-[var(--tint-warning-text)]">
-              Add a first frame or pick a still from Gallery before queueing I2V.
-            </p>
-          ) : null}
-        </div>
+        <VideoPromptInitImageSection
+          clipMode={clipMode}
+          file={file}
+          previewUrl={previewUrl}
+          pastedInitValue={pastedInitValue}
+          hasInitImage={hasInitImage}
+          scanning={scanning}
+          loading={loading}
+          onInitFileChange={onInitFileChange}
+          onScanInitWithVision={() => void scanInitWithVision()}
+          onClearInitImage={clearInitImage}
+          onPastedInitChange={value => {
+            setInitImageUrl(value);
+            if (!file) {
+              setPreviewUrl(current => {
+                revokePreviewIfBlob(current);
+                return isFetchableImageRef(value) ? value.trim() : null;
+              });
+            }
+          }}
+          revokePreviewIfBlob={revokePreviewIfBlob}
+          setPreviewUrl={setPreviewUrl}
+        />
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>

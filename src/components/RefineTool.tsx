@@ -49,17 +49,13 @@ import {
 import { FieldError, FieldLabel, TextArea } from '@/components/ui/Field';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { Button, ButtonLink, PrimaryButton } from '@/components/ui/Button';
+import {
+  parseVisionScanApiResponse,
+  prepareVisionScanImagePayload,
+  resolveStillFileForVisionScan,
+} from '@/lib/vision-scan-still';
 
 const ACCENT = 'fuchsia' as const;
-
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error('Could not read image file.'));
-    reader.readAsDataURL(file);
-  });
-}
 
 export default function RefineTool() {
   const description = useToolPageDescription(
@@ -222,23 +218,6 @@ export default function RefineTool() {
     [clearMaskState, previewUrl]
   );
 
-  const resolveRefineImageFile = useCallback(async (): Promise<File> => {
-    if (file) {
-      return file;
-    }
-    if (!previewUrl) {
-      throw new Error('Upload a reference image first.');
-    }
-    const response = await fetch(previewUrl);
-    if (!response.ok) {
-      throw new Error(`Could not load reference image (HTTP ${response.status}).`);
-    }
-    const blob = await response.blob();
-    return new File([blob], `refine-source-${Date.now()}.png`, {
-      type: blob.type || 'image/png',
-    });
-  }, [file, previewUrl]);
-
   const scanWithVision = useCallback(async () => {
     if (!file && !previewUrl) {
       setError('Upload a reference image first.');
@@ -247,25 +226,29 @@ export default function RefineTool() {
     setScanning(true);
     setError(null);
     try {
-      const refineFile = await resolveRefineImageFile();
-      const image = await fileToDataUrl(refineFile);
+      const still = await resolveStillFileForVisionScan({
+        file,
+        urls: [previewUrl],
+        fallbackName: 'refine-source.jpg',
+      });
+      const { image, mimeType } = await prepareVisionScanImagePayload(still);
       const response = await fetch('/api/refine', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'scan',
           image,
-          mimeType: refineFile.type || 'image/png',
+          mimeType,
           model: shared.model,
           detail: shared.detail,
           intentHints: intentHints.trim() || undefined,
           ...sharedLlmRequestBody(shared),
         }),
       });
-      const data = (await response.json()) as {
+      const data = await parseVisionScanApiResponse<{
         currentPrompt?: string;
         error?: string;
-      };
+      }>(response);
       if (!response.ok || !data.currentPrompt?.trim()) {
         throw new Error(data.error ?? 'Vision scan failed.');
       }
@@ -275,7 +258,7 @@ export default function RefineTool() {
     } finally {
       setScanning(false);
     }
-  }, [file, intentHints, previewUrl, resolveRefineImageFile, setCurrentPrompt, shared]);
+  }, [file, intentHints, previewUrl, setCurrentPrompt, shared]);
 
   const refine = useCallback(async () => {
     if (!file && !previewUrl) {
@@ -294,18 +277,20 @@ export default function RefineTool() {
 
     let stage = 'load-image';
     try {
-      const refineFile = await resolveRefineImageFile();
+      const still = await resolveStillFileForVisionScan({
+        file,
+        urls: [previewUrl],
+        fallbackName: 'refine-source.jpg',
+      });
       stage = 'read-image';
-      // JSON + data URL avoids Next/undici "Failed to parse body as FormData"
-      // failures that hit multipart uploads (missing boundary / truncated body).
-      const image = await fileToDataUrl(refineFile);
+      const { image, mimeType } = await prepareVisionScanImagePayload(still);
       stage = 'request';
       const response = await fetch('/api/refine', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           image,
-          mimeType: refineFile.type || 'image/png',
+          mimeType,
           model: shared.model,
           detail: shared.detail,
           currentPrompt: currentPrompt.trim() || undefined,
@@ -344,15 +329,7 @@ export default function RefineTool() {
     } finally {
       setLoading(false);
     }
-  }, [
-    actions,
-    beforePrompt,
-    currentPrompt,
-    intentHints,
-    previewUrl,
-    resolveRefineImageFile,
-    shared,
-  ]);
+  }, [actions, beforePrompt, currentPrompt, file, intentHints, previewUrl, shared]);
 
   const copyOutput = useCallback(async () => {
     if (!output) return;

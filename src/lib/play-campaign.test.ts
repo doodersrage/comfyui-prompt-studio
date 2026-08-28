@@ -65,6 +65,47 @@ describe('play campaign helpers', () => {
     assert.ok(storage.has(PLAY_CAMPAIGN_KEY) || loadPlayCampaignState()?.stepIndex === 3);
   });
 
+  it('loadPlayCampaignState merges lookPackId from session mirror', () => {
+    const storage = new Map<string, string>();
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: {
+        localStorage: {
+          getItem: (key: string) => storage.get(key) ?? null,
+          setItem: (key: string, value: string) => storage.set(key, value),
+          removeItem: (key: string) => storage.delete(key),
+        },
+        sessionStorage: {
+          getItem: (key: string) => storage.get(`s:${key}`) ?? null,
+          setItem: (key: string, value: string) => storage.set(`s:${key}`, value),
+          removeItem: (key: string) => storage.delete(`s:${key}`),
+        },
+        dispatchEvent: () => true,
+      },
+    });
+    resetBrowserStorageCache();
+    storage.set(
+      PLAY_CAMPAIGN_KEY,
+      JSON.stringify({
+        version: 1,
+        characterId: 'char-a',
+        stepIndex: 2,
+        updatedAt: 1,
+      })
+    );
+    storage.set(
+      `s:${PLAY_CAMPAIGN_KEY}`,
+      JSON.stringify({
+        version: 1,
+        characterId: 'char-a',
+        lookPackId: 'lp-resume',
+        stepIndex: 2,
+        updatedAt: 2,
+      })
+    );
+    assert.equal(loadPlayCampaignState()?.lookPackId, 'lp-resume');
+  });
+
   it('completePlayCampaign sets roleplay step and completedAt', () => {
     const storage = new Map<string, string>();
     Object.defineProperty(globalThis, 'window', {

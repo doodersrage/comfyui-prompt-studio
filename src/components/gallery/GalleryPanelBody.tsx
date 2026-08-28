@@ -4,7 +4,6 @@ import dynamic from 'next/dynamic';
 import type { Dispatch, ReactNode, RefObject, SetStateAction } from 'react';
 import ImageLightbox from '@/components/ui/ImageLightbox';
 import type { GalleryComparePanelProps } from '@/components/GalleryComparePanel';
-import GalleryVisionReviewButton from '@/components/gallery/GalleryVisionReviewButton';
 import GalleryDisplayGrid from '@/components/gallery/GalleryDisplayGrid';
 import GalleryEmptyPanel from '@/components/gallery/GalleryEmptyPanel';
 import { GALLERY_UPLOAD_ACCEPT } from '@/components/gallery/GalleryUploadButton';
@@ -13,7 +12,7 @@ import GalleryFailedRecoveryBanner from '@/components/gallery/GalleryFailedRecov
 import GalleryReviewBanner from '@/components/gallery/GalleryReviewBanner';
 import GalleryExperimentPanel from '@/components/gallery/GalleryExperimentPanel';
 import GalleryStatsBar from '@/components/gallery/GalleryStatsBar';
-import GalleryReviewTouchBar from '@/components/gallery/GalleryReviewTouchBar';
+import GalleryPanelReviewSlot from '@/components/gallery/GalleryPanelReviewSlot';
 import GalleryPaginator from '@/components/gallery/GalleryPaginator';
 import GalleryDuplicateClustersPanel from '@/components/gallery/GalleryDuplicateClustersPanel';
 import GalleryDerivedKindChips from '@/components/gallery/GalleryDerivedKindChips';
@@ -39,7 +38,6 @@ import type {
 } from '@/lib/comfyui-gallery';
 import {
   galleryEntryPrimaryViewUrl,
-  galleryEntryViewUrls,
   GALLERY_SLIDESHOW_INTERVAL_OPTIONS,
   GALLERY_SLIDESHOW_TRANSITION_OPTIONS,
 } from '@/lib/comfyui-gallery';
@@ -727,36 +725,14 @@ export default function GalleryPanelBody(props: GalleryPanelBodyProps) {
       )}
 
       {filter.reviewMode && reviewFocusEntry ? (
-        <>
-          {galleryEntryViewUrls(reviewFocusEntry)[0] ? (
-            <GalleryVisionReviewButton
-              imageDataUrl={galleryEntryViewUrls(reviewFocusEntry)[0]!}
-              prompt={reviewFocusEntry.prompt}
-              onApplyRating={rating => {
-                handleReviewRating(reviewFocusEntry, rating);
-              }}
-            />
-          ) : null}
-          <GalleryReviewTouchBar
-            onRate={rating => {
-              handleReviewRating(reviewFocusEntry, rating);
-            }}
-            onFavorite={() => toggleFavorite(reviewFocusEntry.id)}
-            onNext={() => {
-              const nextEntry =
-                visibleEntries[Math.min(reviewFocusIndex + 1, visibleEntries.length - 1)];
-              if (nextEntry) {
-                setSelectedIds([nextEntry.id]);
-              }
-            }}
-            onPrev={() => {
-              const prevEntry = visibleEntries[Math.max(reviewFocusIndex - 1, 0)];
-              if (prevEntry) {
-                setSelectedIds([prevEntry.id]);
-              }
-            }}
-          />
-        </>
+        <GalleryPanelReviewSlot
+          reviewFocusEntry={reviewFocusEntry}
+          reviewFocusIndex={reviewFocusIndex}
+          visibleEntries={visibleEntries}
+          onReviewRating={handleReviewRating}
+          onToggleFavorite={toggleFavorite}
+          onSelectEntry={entryId => setSelectedIds([entryId])}
+        />
       ) : null}
 
       <LoraDatasetExportDialog

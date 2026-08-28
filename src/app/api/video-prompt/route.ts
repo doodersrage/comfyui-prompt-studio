@@ -46,7 +46,14 @@ async function parseScanImage(request: Request): Promise<{
     };
   }
 
-  const body = (await request.json()) as {
+  const body = (await request.json().catch(error => {
+    if (error instanceof SyntaxError) {
+      throw new Error(
+        'Upload was too large or incomplete. Use a still image or pick a smaller frame from Gallery.'
+      );
+    }
+    throw error;
+  })) as {
     image?: string;
     mimeType?: string;
     camera?: string;
@@ -85,7 +92,14 @@ export async function POST(request: Request) {
       return apiJson(result);
     }
 
-    const body = (await request.json()) as {
+    const body = (await request.json().catch(error => {
+      if (error instanceof SyntaxError) {
+        throw new Error(
+          'Upload was too large or incomplete. Use a still image or pick a smaller frame from Gallery.'
+        );
+      }
+      throw error;
+    })) as {
       action?: string;
       subject?: string;
       motion?: string;

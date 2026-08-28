@@ -67,6 +67,7 @@ import { normalizeTurboEditStrength } from '@/lib/turbo-edit-strength';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { Button, ButtonLink, PrimaryButton } from '@/components/ui/Button';
 import VisionScanButton from '@/components/VisionScanButton';
+import { fileToDataUrl } from '@/lib/browser-file-data-url';
 import { resolveLocalImageFile, scanStillWithVision } from '@/lib/vision-still-scan-client';
 
 const ACCENT = 'cyan' as const;
@@ -78,15 +79,6 @@ const MODES: { id: ControlNetMode; label: string }[] = [
   { id: 'normal', label: 'Normal map' },
   { id: 'lineart', label: 'Lineart' },
 ];
-
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error('Could not read image file.'));
-    reader.readAsDataURL(file);
-  });
-}
 
 export default function ControlNetTool() {
   const description = useToolPageDescription(

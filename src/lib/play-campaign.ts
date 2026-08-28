@@ -107,30 +107,61 @@ export function savePlayCampaignState(state: PlayCampaignState): void {
   }
 }
 
-export function loadPlayCampaignState(): PlayCampaignState | null {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-  const durable = normalizePlayCampaignState(readBrowserValue(PLAY_CAMPAIGN_KEY));
-  if (durable) {
-    return durable;
-  }
+function readSessionPlayCampaignState(): PlayCampaignState | null {
   try {
     const raw = window.sessionStorage.getItem(PLAY_CAMPAIGN_KEY);
     if (!raw) {
       return null;
     }
-    const migrated = normalizePlayCampaignState(JSON.parse(raw) as unknown);
-    if (!migrated) {
-      window.sessionStorage.removeItem(PLAY_CAMPAIGN_KEY);
-      return null;
-    }
-    writeBrowserValue(PLAY_CAMPAIGN_KEY, migrated);
-    return migrated;
+    return normalizePlayCampaignState(JSON.parse(raw) as unknown);
   } catch {
     window.sessionStorage.removeItem(PLAY_CAMPAIGN_KEY);
     return null;
   }
+}
+
+function mergePlayCampaignState(
+  durable: PlayCampaignState,
+  session: PlayCampaignState
+): PlayCampaignState {
+  if (durable.characterId !== session.characterId) {
+    return durable.updatedAt >= session.updatedAt ? durable : session;
+  }
+  return {
+    version: 1,
+    characterId: durable.characterId,
+    lookPackId: durable.lookPackId?.trim() || session.lookPackId?.trim() || undefined,
+    stepIndex: Math.max(durable.stepIndex, session.stepIndex),
+    completedAt: durable.completedAt ?? session.completedAt,
+    updatedAt: Math.max(durable.updatedAt, session.updatedAt),
+  };
+}
+
+export function loadPlayCampaignState(): PlayCampaignState | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  const durable = normalizePlayCampaignState(readBrowserValue(PLAY_CAMPAIGN_KEY));
+  const session = readSessionPlayCampaignState();
+  if (durable && session) {
+    const merged = mergePlayCampaignState(durable, session);
+    if (
+      merged.lookPackId !== durable.lookPackId ||
+      merged.stepIndex !== durable.stepIndex ||
+      merged.completedAt !== durable.completedAt
+    ) {
+      writeBrowserValue(PLAY_CAMPAIGN_KEY, merged);
+    }
+    return merged;
+  }
+  if (durable) {
+    return durable;
+  }
+  if (session) {
+    writeBrowserValue(PLAY_CAMPAIGN_KEY, session);
+    return session;
+  }
+  return null;
 }
 
 /** Stage look pack for the next Play tool hop. */

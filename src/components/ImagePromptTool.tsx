@@ -54,6 +54,7 @@ import {
 } from '@/lib/tool-ui-labels';
 import { Button, ButtonLink, PrimaryButton } from '@/components/ui/Button';
 import { galleryPickPath } from '@/lib/gallery-handoff';
+import { prepareVisionScanImagePayload } from '@/lib/vision-scan-still';
 
 const ACCENT = 'fuchsia' as const;
 
@@ -64,15 +65,6 @@ type RefImageUpload = {
   role: string;
   strength: number;
 };
-
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error('Could not read image file.'));
-    reader.readAsDataURL(file);
-  });
-}
 
 export default function ImagePromptTool() {
   const description = useToolPageDescription(
@@ -208,15 +200,14 @@ export default function ImagePromptTool() {
       let data: ToolGenerateResult & { error?: string };
 
       if (refImages.length === 1) {
-        // JSON + data URL avoids Next/undici multipart FormData parse failures.
-        const image = await fileToDataUrl(refImages[0].file);
+        const { image, mimeType } = await prepareVisionScanImagePayload(refImages[0].file);
         const response = await fetch('/api/image-prompt', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'same-origin',
           body: JSON.stringify({
             image,
-            mimeType: refImages[0].file.type || 'image/jpeg',
+            mimeType,
             model: shared.model,
             detail: shared.detail,
             focus: toolSettings.focus ?? 'full',
@@ -231,13 +222,16 @@ export default function ImagePromptTool() {
         }
       } else {
         const images = await Promise.all(
-          refImages.map(async entry => ({
-            image: await fileToDataUrl(entry.file),
-            mimeType: entry.file.type || 'image/jpeg',
-            role: entry.role,
-            focus: toolSettings.focus ?? 'full',
-            strength: entry.strength,
-          }))
+          refImages.map(async entry => {
+            const payload = await prepareVisionScanImagePayload(entry.file);
+            return {
+              image: payload.image,
+              mimeType: payload.mimeType,
+              role: entry.role,
+              focus: toolSettings.focus ?? 'full',
+              strength: entry.strength,
+            };
+          })
         );
         const response = await fetch('/api/image-prompt/multi', {
           method: 'POST',
@@ -299,14 +293,14 @@ export default function ImagePromptTool() {
 
     let stage = 'read-image';
     try {
-      const image = await fileToDataUrl(primary.file);
+      const { image, mimeType } = await prepareVisionScanImagePayload(primary.file);
       stage = 'request';
       const response = await fetch('/api/refine', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           image,
-          mimeType: primary.file.type || 'image/png',
+          mimeType,
           model: shared.model,
           detail: shared.detail,
           currentPrompt: output || undefined,
