@@ -9,14 +9,13 @@ import { HistoryHintSeedPanel } from '@/components/scene-tool/HistoryHintSeedPan
 import SharedToolControls from '@/components/SharedToolControls';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
-import MediaScaffoldReadyPanel from '@/components/MediaScaffoldReadyPanel';
-import ComfyModelAssetsPanel from '@/components/settings/ComfyModelAssetsPanel';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
 import { usePromptResultActions } from '@/hooks/usePromptResultActions';
 import { useVideoPromptInitImage, isFetchableImageRef } from '@/hooks/useVideoPromptInitImage';
 import { useVideoPromptQueue } from '@/hooks/useVideoPromptQueue';
 import VideoPromptInitImageSection from '@/components/video/VideoPromptInitImageSection';
+import VideoPromptScaffoldSection from '@/components/video/VideoPromptScaffoldSection';
 import VideoPromptClipModeSection, {
   VideoPromptPromptFieldsSection,
   VideoPromptTimingFieldsSection,
@@ -361,51 +360,11 @@ export default function VideoPromptTool() {
             {workflowStatus}
           </p>
         ) : null}
-        <div className="mb-4 space-y-3">
-          <MediaScaffoldReadyPanel
-            kind="video"
-            onImported={(summary, result) => {
-              if (result.sharedPatch) {
-                updateShared(result.sharedPatch);
-              }
-              setWorkflowStatus(summary);
-            }}
-          />
-          {isVideoModel(shared.model) ? (
-            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/40 px-3 py-3">
-              <p className="mb-2 text-xs font-medium text-[var(--text-primary)]">
-                Video model files
-              </p>
-              <ComfyModelAssetsPanel
-                modelId={shared.model}
-                compact
-                onStatus={setWorkflowStatus}
-                onInstalled={() => {
-                  void (async () => {
-                    try {
-                      const { pinVideoWeightsAfterInstall } =
-                        await import('@/lib/pin-video-weights');
-                      const result = await pinVideoWeightsAfterInstall(shared.model);
-                      if (result.sharedPatch) {
-                        updateShared(result.sharedPatch);
-                      }
-                      setWorkflowStatus(
-                        result.note ??
-                          'Video weights installed and mapped — refresh ComfyUI if loaders stay empty.'
-                      );
-                    } catch (error) {
-                      setWorkflowStatus(
-                        error instanceof Error
-                          ? error.message
-                          : 'Video weights installed — refresh ComfyUI if loaders stay empty.'
-                      );
-                    }
-                  })();
-                }}
-              />
-            </div>
-          ) : null}
-        </div>
+        <VideoPromptScaffoldSection
+          model={shared.model}
+          onSharedPatch={updateShared}
+          onStatus={setWorkflowStatus}
+        />
         <VideoPromptPromptFieldsSection
           accentFocusClassName={accentFocusClass(ACCENT)}
           subject={subject}

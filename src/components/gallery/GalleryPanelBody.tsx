@@ -9,7 +9,7 @@ import { GALLERY_UPLOAD_ACCEPT } from '@/components/gallery/GalleryUploadButton'
 import GalleryFiltersBar from '@/components/gallery/GalleryFiltersBar';
 import GalleryFailedRecoveryBanner from '@/components/gallery/GalleryFailedRecoveryBanner';
 import GalleryReviewBanner from '@/components/gallery/GalleryReviewBanner';
-import GalleryExperimentPanel from '@/components/gallery/GalleryExperimentPanel';
+import GalleryPanelBulkSection from '@/components/gallery/GalleryPanelBulkSection';
 import GalleryStatsBar from '@/components/gallery/GalleryStatsBar';
 import GalleryPanelReviewSlot from '@/components/gallery/GalleryPanelReviewSlot';
 import GalleryPanelCapSection from '@/components/gallery/GalleryPanelCapSection';
@@ -550,64 +550,28 @@ export default function GalleryPanelBody(props: GalleryPanelBodyProps) {
         />
       )}
 
-      {leanBulkEnabled && visibleEntries.length > 0 && selectedIds.length === 0 ? (
-        <div
-          data-testid="gallery-multiselect-tip"
-          className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-[var(--accent-border)]/60 bg-[var(--accent-muted)]/40 px-4 py-3 text-xs text-[var(--accent-text)]"
-        >
-          <span>
-            {leanGallery
-              ? 'Select cards → Compare, Collect, Group, or Queue. Tip: Shift-click for a range.'
-              : 'Select cards to compare, export, queue, group, assign projects, or remove.'}
-          </span>
-          <div className="flex items-center gap-2">
-            {!leanGallery ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setLoraExportScope('favorites');
-                  setLoraExportOpen(true);
-                }}
-                className="ui-btn-ghost ui-btn-sm"
-              >
-                Export LoRA dataset (favorites/4–5★)
-              </button>
-            ) : null}
-            <button type="button" onClick={selectAllVisible} className="ui-btn-ghost ui-btn-sm">
-              Select visible ({visibleEntries.length})
-            </button>
-          </div>
-        </div>
-      ) : null}
+      <GalleryPanelBulkSection
+        leanGallery={leanGallery}
+        leanBulkEnabled={leanBulkEnabled}
+        bulkEnabled={bulkEnabled}
+        visibleEntries={visibleEntries}
+        selectedIds={selectedIds}
+        selectedEntries={selectedEntries}
+        projects={projects}
+        paramAxis={paramAxis}
+        setParamAxis={setParamAxis}
+        similarSearchActive={similarSearchActive}
+        clearSelection={clearSelection}
+        openCompare={openCompare}
+        bulkExperimentHandlers={bulkExperimentHandlers}
+        downloadError={downloadError}
+        filter={filter}
+        setFilter={setFilter}
+        setLoraExportScope={setLoraExportScope}
+        setLoraExportOpen={setLoraExportOpen}
+        selectAllVisible={selectAllVisible}
+      />
 
-      {bulkEnabled ? (
-        <GalleryExperimentPanel
-          lean={leanGallery}
-          selectedCount={selectedIds.length}
-          selectedEntries={selectedEntries}
-          projects={projects}
-          paramAxis={paramAxis}
-          setParamAxis={setParamAxis}
-          similarSearchActive={similarSearchActive}
-          onClearSelection={clearSelection}
-          onCompare={openCompare}
-          {...bulkExperimentHandlers}
-        />
-      ) : null}
-
-      {downloadError && <p className="text-xs ui-status-danger">{downloadError}</p>}
-      {filter.characterId ? (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--accent-border)] bg-[var(--accent-muted)] px-3 py-2 text-xs text-[var(--accent-text)]">
-          <span>Character filter: this cast member only</span>
-          <button
-            type="button"
-            onClick={() => setFilter(previous => ({ ...previous, characterId: undefined }))}
-            className="rounded-lg border border-[var(--accent-border)] px-2 py-0.5 text-[11px] transition hover:border-[var(--accent-border)] hover:text-[var(--accent-text)]"
-          >
-            Clear
-          </button>
-        </div>
-      ) : null}
       <GalleryDerivedKindChips filter={filter} setFilter={setFilter} />
 
       <GalleryPanelModalsSlot
