@@ -14,18 +14,17 @@ import ComfyModelAssetsPanel from '@/components/settings/ComfyModelAssetsPanel';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
 import { usePromptResultActions } from '@/hooks/usePromptResultActions';
-import {
-  useVideoPromptInitImage,
-  LOCAL_INIT_IMAGE_MARKER,
-  isFetchableImageRef,
-} from '@/hooks/useVideoPromptInitImage';
+import { useVideoPromptInitImage, isFetchableImageRef } from '@/hooks/useVideoPromptInitImage';
+import { useVideoPromptQueue } from '@/hooks/useVideoPromptQueue';
 import VideoPromptInitImageSection from '@/components/video/VideoPromptInitImageSection';
+import VideoPromptClipModeSection, {
+  VideoPromptPromptFieldsSection,
+  VideoPromptTimingFieldsSection,
+} from '@/components/video/VideoPromptFormSections';
 import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
 import { continueEditResultProps } from '@/lib/continue-edit-result-props';
 import { getReformatTargetLabel } from '@/lib/reformat-target';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
-import { loadComfyGallery } from '@/lib/comfyui-gallery';
-import { nextRoleplayMotionKind } from '@/lib/roleplay-film';
 import { DEFAULT_VIDEO_TOOL_CACHE, loadSettingsCache } from '@/lib/settings-cache';
 import { normalizeHistorySeedScope, normalizeSceneHintSource } from '@/lib/scene-hint-source';
 import { isVideoModel, resolvePreferredVideoModel } from '@/lib/queue-tool-model';
@@ -39,18 +38,7 @@ import {
   accentButtonClass,
   accentFocusClass,
 } from '@/components/ui/ToolPageShell';
-import { ChipButton, FieldLabel, TextArea } from '@/components/ui/Field';
-import {
-  FAL_VIDEO_DURATION_SECONDS,
-  canFalExtendFromParentUrl,
-  engineCanQueueClips,
-  inferVideoClipMode,
-  snapFalVideoDurationSec,
-  type VideoClipMode,
-} from '@/lib/video-clip-mode';
-import { loadEngineSettings } from '@/lib/engine-settings';
-import { resolveFalExtendParentUrl } from '@/lib/fal-extend-upload';
-import { engineDisplayName } from '@/lib/engine/capabilities';
+import { inferVideoClipMode, type VideoClipMode } from '@/lib/video-clip-mode';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { PrimaryButton } from '@/components/ui/Button';
 
@@ -74,14 +62,11 @@ export default function VideoPromptTool() {
   const parentVideoUrl = toolSettings.parentVideoUrl ?? '';
   const frames = toolSettings.frames;
   const fps = toolSettings.fps;
-  const inferenceEngine = shared.inferenceEngine || loadEngineSettings().engine;
 
   const [parentGalleryEntryId, setParentGalleryEntryId] = useState<string | undefined>();
   const [workflowStatus, setWorkflowStatus] = useState<string | null>(null);
   const [output, setOutput] = useState('');
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const setClipMode = useCallback(
     (mode: VideoClipMode) => updateToolSettings({ clipMode: mode }),
     [updateToolSettings]
@@ -302,182 +287,28 @@ export default function VideoPromptTool() {
     autoFixRules: shared.autoFixRules !== false,
   });
 
-  const buildVideoQueueOptions = useCallback(() => {
-    const initImage = initImageUrl.trim();
-    const initImageIsFetchable =
-      initImage !== LOCAL_INIT_IMAGE_MARKER && isFetchableImageRef(initImage);
-    const previewIsFetchable = Boolean(previewUrl && isFetchableImageRef(previewUrl));
-    const resolvedFps =
-      typeof fps === 'number' && Number.isFinite(fps) && fps > 0 ? Math.floor(fps) : 16;
-    const resolvedFrames =
-      typeof frames === 'number' && Number.isFinite(frames) && frames > 0
-        ? Math.floor(frames)
-        : Math.max(1, Math.round(Math.max(1, Number(durationSec) || 4) * resolvedFps));
-
-    const useInit = clipMode === 'i2v';
-    return {
-      inputImage: useInit ? file : undefined,
-      inputImageUrl: useInit
-        ? file
-          ? undefined
-          : previewIsFetchable
-            ? previewUrl!
-            : initImageIsFetchable
-              ? initImage
-              : undefined
-        : undefined,
-      inputImageFilename:
-        useInit &&
-        !file &&
-        !previewIsFetchable &&
-        !initImageIsFetchable &&
-        initImage &&
-        initImage !== LOCAL_INIT_IMAGE_MARKER
-          ? initImage
-          : undefined,
-      queueParamsBase: {
-        videoFrames: resolvedFrames,
-        videoFps: resolvedFps,
-      },
+  const { loading, copied, inferenceEngine, generate, queueVideo, copyOutput } =
+    useVideoPromptQueue({
+      subject,
+      motion,
+      camera,
+      style,
+      durationSec,
+      frames,
+      fps,
+      initImageUrl,
+      parentVideoUrl,
       parentGalleryEntryId,
-      derivedKind:
-        clipMode === 'extend'
-          ? ('extend' as const)
-          : parentGalleryEntryId
-            ? nextRoleplayMotionKind(
-                loadComfyGallery().find(entry => entry.id === parentGalleryEntryId)
-              )
-            : clipMode === 'i2v'
-              ? ('i2v' as const)
-              : ('t2v' as const),
+      file,
+      previewUrl,
+      hasInitImage,
       clipMode,
-      videoUrl: clipMode === 'extend' ? parentVideoUrl.trim() || undefined : undefined,
-    };
-  }, [
-    clipMode,
-    durationSec,
-    file,
-    frames,
-    fps,
-    initImageUrl,
-    parentGalleryEntryId,
-    parentVideoUrl,
-    previewUrl,
-  ]);
+      shared,
+      actions,
+      setError,
+      setOutput,
+    });
 
-  const queueVideo = useCallback(() => {
-    if (!output.trim()) {
-      return;
-    }
-    if (!engineCanQueueClips(inferenceEngine) && inferenceEngine !== 'comfyui') {
-      setError(
-        `${engineDisplayName(inferenceEngine)} cannot queue clips. Switch the inference engine to Fal, Replicate, Grok, Gemini, or local WAN (ComfyUI).`
-      );
-      return;
-    }
-    if (clipMode === 'i2v' && !hasInitImage) {
-      setError('Image-to-video needs a first frame.');
-      return;
-    }
-    if (clipMode === 'extend' && !parentVideoUrl.trim()) {
-      setError('Extend needs a parent clip. Continue from Gallery or paste a clip URL.');
-      return;
-    }
-    void (async () => {
-      const options = buildVideoQueueOptions();
-      if (
-        clipMode === 'extend' &&
-        inferenceEngine === 'fal' &&
-        !canFalExtendFromParentUrl(parentVideoUrl)
-      ) {
-        const uploaded = await resolveFalExtendParentUrl({
-          parentUrl: parentVideoUrl,
-          falApiKey: shared.sessionFalApiKey,
-        });
-        if (!uploaded.url) {
-          setError(
-            uploaded.uploadError?.trim() ||
-              'Could not upload that local clip to Fal. Continue from last frame instead, or use a Fal-hosted clip.'
-          );
-          return;
-        }
-        options.videoUrl = uploaded.url;
-      }
-      void actions.sendComfyUi(output, null, undefined, options);
-    })();
-  }, [
-    actions,
-    buildVideoQueueOptions,
-    clipMode,
-    hasInitImage,
-    inferenceEngine,
-    output,
-    parentVideoUrl,
-    setError,
-    shared.sessionFalApiKey,
-  ]);
-
-  const generate = useCallback(async () => {
-    if (!subject.trim()) {
-      setError('Describe the subject or action.');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    setCopied(false);
-    actions.resetStatuses();
-
-    try {
-      const response = await fetch('/api/video-prompt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          subject,
-          motion,
-          camera,
-          style,
-          durationSec,
-          model: shared.model,
-        }),
-      });
-      const data = (await response.json()) as {
-        prompt?: string;
-        method?: string;
-        error?: string;
-      };
-      if (!response.ok) {
-        throw new Error(data.error ?? 'Video prompt failed.');
-      }
-      const prompt = await actions.finalizePrompt(data.prompt ?? '', motion);
-      setOutput(prompt);
-      rememberDraftFields({
-        toolKey: 'video',
-        label: 'Video',
-        href: '/video',
-        fields: [prompt, subject, motion],
-      });
-    } catch (err) {
-      setOutput('');
-      setError(err instanceof Error ? err.message : 'Video prompt failed.');
-    } finally {
-      setLoading(false);
-    }
-  }, [actions, camera, durationSec, motion, setError, shared.model, style, subject]);
-
-  const copyOutput = useCallback(async () => {
-    if (!output) return;
-    try {
-      await navigator.clipboard.writeText(output);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setError('Could not copy to clipboard.');
-    }
-  }, [output, setError]);
-
-  // Avoid first-paint crashes when shared.model is still audio/mesh/image
-  // from another tool — effects sync storage, but controls need a video model now.
   const controlsShared = isVideoModel(shared.model)
     ? shared
     : { ...shared, model: preferredVideoModel };
@@ -575,141 +406,30 @@ export default function VideoPromptTool() {
             </div>
           ) : null}
         </div>
-        <FieldLabel htmlFor="video-subject">Subject / action</FieldLabel>
-        <TextArea
-          id="video-subject"
-          rows={3}
-          value={subject}
-          onChange={event => setSubject(event.target.value)}
-          placeholder="A cyclist crests a foggy hill at dawn, pedaling steadily uphill…"
-          className={accentFocusClass(ACCENT)}
+        <VideoPromptPromptFieldsSection
+          accentFocusClassName={accentFocusClass(ACCENT)}
+          subject={subject}
+          motion={motion}
+          camera={camera}
+          style={style}
+          durationSec={durationSec}
+          falDurationPicker={
+            shared.inferenceEngine === 'fal' || shared.inferenceEngine === 'replicate'
+          }
+          onSubjectChange={setSubject}
+          onMotionChange={setMotion}
+          onCameraChange={setCamera}
+          onStyleChange={setStyle}
+          onDurationSecChange={setDurationSec}
         />
 
-        <FieldLabel htmlFor="video-motion">Motion (optional)</FieldLabel>
-        <TextArea
-          id="video-motion"
-          rows={2}
-          value={motion}
-          onChange={event => setMotion(event.target.value)}
-          placeholder="Slow forward tracking, wheels spinning, jacket fluttering in wind…"
-          className={accentFocusClass(ACCENT)}
+        <VideoPromptClipModeSection
+          clipMode={clipMode}
+          inferenceEngine={inferenceEngine}
+          parentVideoUrl={parentVideoUrl}
+          onClipModeChange={setClipMode}
+          onParentVideoUrlChange={setParentVideoUrl}
         />
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <FieldLabel htmlFor="video-camera">Camera (optional)</FieldLabel>
-            <input
-              id="video-camera"
-              value={camera}
-              onChange={event => setCamera(event.target.value)}
-              placeholder="Low-angle follow shot, gentle dolly in"
-              className="ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
-            />
-          </div>
-          <div>
-            <FieldLabel htmlFor="video-duration">Duration (seconds)</FieldLabel>
-            {shared.inferenceEngine === 'fal' || shared.inferenceEngine === 'replicate' ? (
-              <div className="flex flex-wrap gap-1.5">
-                {FAL_VIDEO_DURATION_SECONDS.map(seconds => (
-                  <ChipButton
-                    key={seconds}
-                    active={snapFalVideoDurationSec(durationSec) === seconds}
-                    onClick={() => setDurationSec(seconds)}
-                  >
-                    {seconds}s
-                  </ChipButton>
-                ))}
-              </div>
-            ) : (
-              <input
-                id="video-duration"
-                type="number"
-                min={1}
-                max={16}
-                value={durationSec}
-                onChange={event => setDurationSec(Number(event.target.value) || 4)}
-                placeholder="e.g. 4"
-                className="ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
-              />
-            )}
-          </div>
-        </div>
-
-        <FieldLabel htmlFor="video-style">Look / style (optional)</FieldLabel>
-        <input
-          id="video-style"
-          value={style}
-          onChange={event => setStyle(event.target.value)}
-          placeholder="Cinematic teal-orange grade, soft morning haze"
-          className="ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
-        />
-
-        <div className="mb-4 space-y-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/50 px-3 py-2.5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs font-medium text-[var(--text-primary)]">Clip mode</p>
-            <div className="flex flex-wrap gap-1.5">
-              <ChipButton
-                active={clipMode === 't2v'}
-                title="Text-to-video — no first frame"
-                onClick={() => setClipMode('t2v')}
-              >
-                Text to video
-              </ChipButton>
-              <ChipButton
-                active={clipMode === 'i2v'}
-                title="Image-to-video — first frame required"
-                onClick={() => setClipMode('i2v')}
-              >
-                Image to video
-              </ChipButton>
-              <ChipButton
-                active={clipMode === 'extend'}
-                title="Extend a parent clip — Fal LTX extend-video when the URL is public, otherwise last-frame I2V"
-                onClick={() => setClipMode('extend')}
-              >
-                Extend clip
-              </ChipButton>
-            </div>
-          </div>
-          <p className="text-xs leading-relaxed text-[var(--text-muted)]">
-            {clipMode === 'extend'
-              ? 'Needs a parent clip. Fal calls LTX extend-video when the parent is already a Fal URL (or after a documented CDN upload). Otherwise continue is last-frame I2V. Replicate has no extend API.'
-              : clipMode === 'i2v'
-                ? 'Needs a first frame. Scan with vision fills Subject and Motion from that still. Local WAN / Hunyuan / LTX wire I2V nodes; Fal uses the I2V model in Settings.'
-                : 'No still required. Local graphs stay T2V; Fal uses the T2V model in Settings.'}
-          </p>
-          {!engineCanQueueClips(inferenceEngine) && inferenceEngine !== 'comfyui' ? (
-            <p className="text-xs text-[var(--tint-warning-text)]">
-              {engineDisplayName(inferenceEngine)} cannot queue clips. Switch Settings → Inference
-              engine to Fal, Replicate, Grok, Gemini, or local WAN (ComfyUI).
-            </p>
-          ) : null}
-        </div>
-
-        {clipMode === 'extend' ? (
-          <div className="mb-4 space-y-2">
-            <FieldLabel
-              htmlFor="video-parent-clip"
-              hint="Public Fal clip URL, or a local / Gallery view URL (uploaded to Fal CDN when you queue)."
-            >
-              Parent clip (required, extend)
-            </FieldLabel>
-            <input
-              id="video-parent-clip"
-              value={parentVideoUrl}
-              onChange={event => setParentVideoUrl(event.target.value)}
-              placeholder="https://v3.fal.media/… or /api/comfyui/view?…"
-              className="ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
-            />
-            <p className="type-caption text-[var(--text-muted)]">
-              {canFalExtendFromParentUrl(parentVideoUrl)
-                ? 'Fal can extend this URL directly.'
-                : parentVideoUrl.trim()
-                  ? 'Local or non-Fal URL — queue uploads to Fal when the engine is Fal, otherwise last-frame I2V.'
-                  : 'Continue from Gallery to fill this, or paste a clip URL.'}
-            </p>
-          </div>
-        ) : null}
 
         <VideoPromptInitImageSection
           clipMode={clipMode}
@@ -735,48 +455,12 @@ export default function VideoPromptTool() {
           setPreviewUrl={setPreviewUrl}
         />
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <FieldLabel
-              htmlFor="video-frames"
-              hint="Patched into {{VIDEO_FRAMES}}. Leave empty to derive from duration × FPS."
-            >
-              Frames / length (optional)
-            </FieldLabel>
-            <input
-              id="video-frames"
-              type="number"
-              min={1}
-              max={480}
-              value={frames ?? ''}
-              onChange={event =>
-                setFrames(event.target.value ? Number(event.target.value) : undefined)
-              }
-              placeholder="e.g. 81"
-              className="ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
-            />
-          </div>
-          <div>
-            <FieldLabel
-              htmlFor="video-fps"
-              hint="Patched into {{VIDEO_FPS}} (e.g. SaveAnimatedWEBP fps)."
-            >
-              FPS (optional)
-            </FieldLabel>
-            <input
-              id="video-fps"
-              type="number"
-              min={1}
-              max={60}
-              value={fps ?? ''}
-              onChange={event =>
-                setFps(event.target.value ? Number(event.target.value) : undefined)
-              }
-              placeholder="e.g. 16"
-              className="ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
-            />
-          </div>
-        </div>
+        <VideoPromptTimingFieldsSection
+          frames={frames}
+          fps={fps}
+          onFramesChange={setFrames}
+          onFpsChange={setFps}
+        />
 
         <PrimaryButton
           accentClassName={accentButtonClass(ACCENT)}
@@ -801,10 +485,10 @@ export default function VideoPromptTool() {
           readinessDetail={shared.detail}
           readinessHints={motion}
           copied={copied}
-          onCopy={() => void copyOutput()}
+          onCopy={() => void copyOutput(output)}
           onOutputChange={setOutput}
           onSaveHistory={() => actions.saveHistory({ prompt: output, hints: motion })}
-          onSendComfyUi={queueVideo}
+          onSendComfyUi={() => queueVideo(output)}
           onExportSidecar={() => actions.exportSidecar(output, { metadata: { hints: motion } })}
           {...promptResultPreviewProps(actions, output, null)}
           {...continueEditResultProps(actions, output)}
@@ -824,7 +508,7 @@ export default function VideoPromptTool() {
         label="Queue video"
         status={actions.comfyUiStatus}
         primaryGenerate
-        onQueue={queueVideo}
+        onQueue={() => queueVideo(output)}
       />
     </ToolLayout>
   );

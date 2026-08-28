@@ -1,6 +1,5 @@
 'use client';
 
-import dynamic from 'next/dynamic';
 import type { Dispatch, ReactNode, RefObject, SetStateAction } from 'react';
 import ImageLightbox from '@/components/ui/ImageLightbox';
 import type { GalleryComparePanelProps } from '@/components/GalleryComparePanel';
@@ -13,18 +12,15 @@ import GalleryReviewBanner from '@/components/gallery/GalleryReviewBanner';
 import GalleryExperimentPanel from '@/components/gallery/GalleryExperimentPanel';
 import GalleryStatsBar from '@/components/gallery/GalleryStatsBar';
 import GalleryPanelReviewSlot from '@/components/gallery/GalleryPanelReviewSlot';
+import GalleryPanelCapSection from '@/components/gallery/GalleryPanelCapSection';
+import GalleryPanelModalsSlot from '@/components/gallery/GalleryPanelModalsSlot';
 import GalleryPaginator from '@/components/gallery/GalleryPaginator';
 import GalleryDuplicateClustersPanel from '@/components/gallery/GalleryDuplicateClustersPanel';
 import GalleryDerivedKindChips from '@/components/gallery/GalleryDerivedKindChips';
 import GalleryVisionInbox from '@/components/gallery/GalleryVisionInbox';
-import GalleryCapCleanupWizard from '@/components/gallery/GalleryCapCleanupWizard';
-import {
-  GalleryCapWarningBanner,
-  GalleryPanelHeader,
-  GalleryPickDock,
-} from '@/components/gallery/GalleryPanelChrome';
+import { GalleryPanelHeader, GalleryPickDock } from '@/components/gallery/GalleryPanelChrome';
 import StatusToastStrip from '@/components/ui/StatusToastStrip';
-import LoraDatasetExportDialog from '@/components/LoraDatasetExportDialog';
+import type { LoraDatasetExportUiOptions } from '@/lib/lora-dataset-export-ui';
 import type { GalleryBulkExperimentHandlers } from '@/hooks/useGalleryPanelActions';
 import type { GalleryHandoffPayload } from '@/lib/gallery-handoff';
 import type {
@@ -54,17 +50,8 @@ import type {
 } from '@/components/ui/image-lightbox/types';
 import { toneForStatusText } from '@/lib/status-progress';
 import type { GalleryCapWarningLevel } from '@/lib/gallery-cap';
-import { MAX_GALLERY_ENTRIES } from '@/lib/comfyui-gallery-storage-meta';
 import { duplicateDropIds } from '@/lib/gallery-duplicate-clusters';
 import type { GalleryDensity } from '@/lib/gallery-density';
-
-const GalleryWorkflowModal = dynamic(() => import('@/components/gallery/GalleryWorkflowModal'), {
-  loading: () => null,
-});
-
-const GalleryCompareModal = dynamic(() => import('@/components/gallery/GalleryCompareModal'), {
-  loading: () => null,
-});
 
 export type GalleryPanelLightboxSlotProps = {
   resolvedLightbox: ImageLightboxState | null;
@@ -398,58 +385,18 @@ export default function GalleryPanelBody(props: GalleryPanelBodyProps) {
 
       {pickFor ? <GalleryPickDock pickFor={pickFor} /> : null}
 
-      {galleryCapWarning.message ? (
-        <GalleryCapWarningBanner
-          level={galleryCapWarning.level}
-          message={galleryCapWarning.message}
-          onShowAtRisk={() =>
-            setFilter(previous => ({
-              ...previous,
-              atRiskOnly: true,
-              favoritesOnly: undefined,
-              minRating: undefined,
-            }))
-          }
-          onExportKeepers={exportCapKeepers}
-          onOpenCleanup={() => setCapWizardOpen(true)}
-        />
-      ) : null}
-
-      {showFilters && capWizardOpen && capEvictionPreview.length > 0 ? (
-        <GalleryCapCleanupWizard
-          evicted={capEvictionPreview}
-          max={MAX_GALLERY_ENTRIES}
-          total={entries.length}
-          onShowAtRisk={() => {
-            setFilter(previous => ({
-              ...previous,
-              atRiskOnly: true,
-              favoritesOnly: undefined,
-              minRating: undefined,
-            }));
-            setCapWizardOpen(false);
-          }}
-          onExportKeepers={exportCapKeepers}
-          onDeleteEvicted={() => {
-            if (
-              window.confirm(
-                `Delete ${capEvictionPreview.length} at-risk gallery entries? Keepers stay.`
-              )
-            ) {
-              removeEntries(capEvictionPreview.map(entry => entry.id));
-              setCapWizardOpen(false);
-            }
-          }}
-          onFavoriteEvicted={() => {
-            setFavorites(
-              capEvictionPreview.map(entry => entry.id),
-              true
-            );
-            setCapWizardOpen(false);
-          }}
-          onClose={() => setCapWizardOpen(false)}
-        />
-      ) : null}
+      <GalleryPanelCapSection
+        showFilters={showFilters}
+        galleryCapWarning={galleryCapWarning}
+        capWizardOpen={capWizardOpen}
+        setCapWizardOpen={setCapWizardOpen}
+        capEvictionPreview={capEvictionPreview}
+        entriesLength={entries.length}
+        setFilter={setFilter}
+        exportCapKeepers={exportCapKeepers}
+        removeEntries={removeEntries}
+        setFavorites={setFavorites}
+      />
 
       {showFilters && filter.duplicatesOnly && duplicateClusters.length > 0 ? (
         <GalleryDuplicateClustersPanel
@@ -663,25 +610,52 @@ export default function GalleryPanelBody(props: GalleryPanelBodyProps) {
       ) : null}
       <GalleryDerivedKindChips filter={filter} setFilter={setFilter} />
 
-      {compareOpen ? (
-        <GalleryCompareModal
-          open={compareOpen}
-          entries={selectedEntries}
-          onClose={() => {
-            setCompareOpen(false);
-            resetCompare();
-          }}
-          onOpenPreview={entry => {
-            setCompareOpen(false);
-            openEntryLightbox(entry, 0);
-          }}
-          {...compareHandlers}
-        />
-      ) : null}
-
-      {workflowEntry ? (
-        <GalleryWorkflowModal entry={workflowEntry} onClose={() => setWorkflowEntry(null)} />
-      ) : null}
+      <GalleryPanelModalsSlot
+        compareOpen={compareOpen}
+        selectedEntries={selectedEntries}
+        compareHandlers={compareHandlers}
+        onCompareClose={() => {
+          setCompareOpen(false);
+          resetCompare();
+        }}
+        onOpenPreviewFromCompare={entry => {
+          setCompareOpen(false);
+          openEntryLightbox(entry, 0);
+        }}
+        workflowEntry={workflowEntry}
+        onWorkflowClose={() => setWorkflowEntry(null)}
+        loraExportOpen={loraExportOpen}
+        loraExportScope={loraExportScope}
+        selectedEntriesForExport={selectedEntries}
+        allEntries={entries}
+        onLoraExportCancel={() => setLoraExportOpen(false)}
+        onLoraExportConfirm={(options: LoraDatasetExportUiOptions) => {
+          setLoraExportOpen(false);
+          setRequeueStatus('Building LoRA dataset export…');
+          void import('@/lib/gallery-lora-dataset-export')
+            .then(({ downloadLoraDatasetZip, selectLoraDatasetEntries }) => {
+              const source = loraExportScope === 'selected' ? selectedEntries : entries;
+              return downloadLoraDatasetZip(
+                selectLoraDatasetEntries(
+                  source,
+                  loraExportScope === 'selected'
+                    ? { selectedIds: selectedEntries.map(entry => entry.id) }
+                    : undefined
+                ),
+                options
+              );
+            })
+            .then(({ count }) => {
+              setRequeueStatus(
+                count > 0
+                  ? `LoRA dataset exported (${count} image/caption pairs, ${options.captionMode}).`
+                  : loraExportScope === 'selected'
+                    ? 'No eligible images found for the LoRA dataset export.'
+                    : 'No favorited or 4–5★ entries found for the LoRA dataset export.'
+              );
+            });
+        }}
+      />
 
       {visibleEntries.length === 0 ? (
         <GalleryEmptyPanel
@@ -734,37 +708,6 @@ export default function GalleryPanelBody(props: GalleryPanelBodyProps) {
           onSelectEntry={entryId => setSelectedIds([entryId])}
         />
       ) : null}
-
-      <LoraDatasetExportDialog
-        open={loraExportOpen}
-        onCancel={() => setLoraExportOpen(false)}
-        onConfirm={options => {
-          setLoraExportOpen(false);
-          setRequeueStatus('Building LoRA dataset export…');
-          void import('@/lib/gallery-lora-dataset-export')
-            .then(({ downloadLoraDatasetZip, selectLoraDatasetEntries }) => {
-              const source = loraExportScope === 'selected' ? selectedEntries : entries;
-              return downloadLoraDatasetZip(
-                selectLoraDatasetEntries(
-                  source,
-                  loraExportScope === 'selected'
-                    ? { selectedIds: selectedEntries.map(entry => entry.id) }
-                    : undefined
-                ),
-                options
-              );
-            })
-            .then(({ count }) => {
-              setRequeueStatus(
-                count > 0
-                  ? `LoRA dataset exported (${count} image/caption pairs, ${options.captionMode}).`
-                  : loraExportScope === 'selected'
-                    ? 'No eligible images found for the LoRA dataset export.'
-                    : 'No favorited or 4–5★ entries found for the LoRA dataset export.'
-              );
-            });
-        }}
-      />
     </section>
   );
 }

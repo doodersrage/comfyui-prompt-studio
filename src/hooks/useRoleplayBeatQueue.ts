@@ -33,7 +33,12 @@ import {
   type RoleplayPlayAs,
   type RoleplayStoryBeat,
 } from '@/lib/roleplay';
-import { shouldAutoQueueRoleplayClip, type RoleplayBeatOutput } from '@/lib/roleplay-film';
+import {
+  looksLikeVideoUrl,
+  nextRoleplayMotionKind,
+  shouldAutoQueueRoleplayClip,
+  type RoleplayBeatOutput,
+} from '@/lib/roleplay-film';
 import { extractVideoLastFrame } from '@/lib/video-last-frame';
 import { canFalExtendFromParentUrl } from '@/lib/video-clip-mode';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
