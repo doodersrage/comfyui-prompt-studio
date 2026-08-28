@@ -19,42 +19,23 @@ import { useRoleplayReferenceImage } from '@/hooks/useRoleplayReferenceImage';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { useRoleplayStorySync } from '@/hooks/useRoleplayStorySync';
 import { useRoleplayFilmActions } from '@/hooks/useRoleplayFilmActions';
+import { useRoleplayLibraryPersist } from '@/hooks/useRoleplayLibraryPersist';
+import { useRoleplayBioFlow } from '@/hooks/useRoleplayBioFlow';
+import { useRoleplaySceneFlow } from '@/hooks/useRoleplaySceneFlow';
+import { useRoleplaySessionActions } from '@/hooks/useRoleplaySessionActions';
 import { getComfyModelDefinition } from '@/lib/comfy-models/client';
 import { getReformatTargetModel } from '@/lib/reformat-target';
-import { rememberDraftFields } from '@/lib/remember-draft-fields';
-import { buildRoleplayRequestBody, type RoleplayApiPayload } from '@/lib/roleplay-play-core';
+import { buildRoleplayRequestBody } from '@/lib/roleplay-play-core';
 import { DEFAULT_ROLEPLAY_TOOL_CACHE } from '@/lib/settings-cache';
 import {
-  CUSTOM_ROLEPLAY_PERSONA_ID,
   ROLEPLAY_ARCHETYPES,
-  ROLEPLAY_CONTENT,
-  ROLEPLAY_TONES,
-  appendRoleplayStoryBeat,
   formatRoleplayStoryProgress,
-  getRoleplayArchetype,
-  lastRoleplayPlotBeat,
   mergeRoleplayRejectedScenes,
-  patchRoleplayStoryBeat,
   resolveRoleplayToneAndContent,
-  roleplayIntroScene,
-  roleplayStoryPhase,
-  selectRoleplayClipTakePatch,
-  selectRoleplayStillTakePatch,
-  type RoleplayBio,
   type RoleplayScene,
-  type RoleplayStoryBeat,
 } from '@/lib/roleplay';
 import { lastRoleplayMotionSource, normalizeRoleplayBeatOutput } from '@/lib/roleplay-film';
 import { isNsfwGeneratorEnabledClient } from '@/lib/nsfw-generator-env';
-import { downloadRoleplayStoryBundle } from '@/lib/roleplay-export';
-import {
-  applyRoleplayLibrarySession,
-  archiveAndStartNewRoleplaySession,
-  persistRoleplayLibraryFromCache,
-  type RoleplayLibrarySession,
-} from '@/lib/roleplay-library';
-import { applyCharacterRecord, upsertCharacterFromRoleplaySession } from '@/lib/character-os';
-import { loadSettingsCache, saveSharedSettings } from '@/lib/settings-cache';
 import { Button } from '@/components/ui/Button';
 import { ToolBadge, ToolLayout, ToolSection } from '@/components/ui/ToolPageShell';
 
@@ -70,12 +51,7 @@ export default function RoleplayTool() {
     'roleplay',
     DEFAULT_ROLEPLAY_TOOL_CACHE
   );
-  const [scenes, setScenes] = useState<RoleplayScene[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [bioLoading, setBioLoading] = useState(false);
-  const [scenesLoading, setScenesLoading] = useState(false);
-  const [playingId, setPlayingId] = useState<string | null>(null);
-  const [exporting, setExporting] = useState(false);
   const [ownBibleOpen, setOwnBibleOpen] = useState(false);
 
   const personaId = toolSettings.personaId ?? ROLEPLAY_ARCHETYPES[0].id;
@@ -93,9 +69,11 @@ export default function RoleplayTool() {
   const autoQueue = toolSettings.autoQueue !== false;
   const beatOutput = normalizeRoleplayBeatOutput(toolSettings.beatOutput);
   const storyRef = useRef(toolSettings.story ?? []);
+  const scenesRef = useRef<RoleplayScene[]>([]);
   useEffect(() => {
     storyRef.current = toolSettings.story ?? [];
   }, [toolSettings.story]);
+
   const {
     assemblingFilm,
     filmStatus,
@@ -111,32 +89,7 @@ export default function RoleplayTool() {
     bioName: bio?.name,
   });
 
-  useEffect(() => {
-    if (!mounted) {
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      const persisted = persistRoleplayLibraryFromCache(toolSettings);
-      if (!persisted) {
-        return;
-      }
-      const character = upsertCharacterFromRoleplaySession(persisted.session);
-      if (character) {
-        saveSharedSettings({
-          ...loadSettingsCache().shared,
-          ...applyCharacterRecord(character),
-        });
-      }
-      if (
-        persisted.cache.activeSessionId &&
-        persisted.cache.activeSessionId !== toolSettings.activeSessionId
-      ) {
-        updateToolSettings({ activeSessionId: persisted.cache.activeSessionId });
-      }
-    }, 900);
-    return () => window.clearTimeout(timer);
-  }, [mounted, toolSettings, updateToolSettings]);
-
+  useRoleplayLibraryPersist({ mounted, toolSettings, updateToolSettings });
   useRoleplayLookPackDeepLink({ mounted, updateShared, updateToolSettings });
 
   const {
@@ -196,7 +149,10 @@ export default function RoleplayTool() {
   const lastPrompt = [...story].reverse().find(beat => beat.prompt?.trim())?.prompt;
 
   const requestBody = useCallback(
-    (action: 'bio' | 'scenes' | 'prompt', situation?: RoleplayScene) =>
+    (
+      action: 'bio' | 'scenes' | 'prompt',
+      situation?: Parameters<typeof buildRoleplayRequestBody>[0]['situation']
+    ) =>
       buildRoleplayRequestBody({
         action,
         situation,
@@ -216,7 +172,7 @@ export default function RoleplayTool() {
           toolSettings.referenceIsolated === true,
         bio,
         story: toolSettings.story,
-        rejectedScenes: mergeRoleplayRejectedScenes(rejectedScenesMemory, scenes),
+        rejectedScenes: mergeRoleplayRejectedScenes(rejectedScenesMemory, scenesRef.current),
       }),
     [
       bio,
@@ -234,7 +190,6 @@ export default function RoleplayTool() {
       toolSettings.allowGore,
       toolSettings.story,
       rejectedScenesMemory,
-      scenes,
     ]
   );
 
@@ -256,361 +211,65 @@ export default function RoleplayTool() {
 
   useRoleplayStorySync(storyRef, patch => updateToolSettings(patch));
 
-  const beginStoryFromBio = useCallback(
-    async (nextBio: RoleplayBio) => {
-      const intro = roleplayIntroScene(nextBio);
-      const writingStory = appendRoleplayStoryBeat([], intro, {
-        stillStatus: skipStillForClip ? undefined : 'writing',
-      });
-      const introBeat = writingStory[writingStory.length - 1];
-      updateToolSettings({
-        bio: nextBio,
-        story: writingStory,
-        rejectedScenes: [],
-      });
-      rememberDraftFields({
-        toolKey: TOOL_ID,
-        label: 'Roleplay',
-        href: '/roleplay',
-        fields: [nextBio.name, nextBio.look],
-      });
-      if (!introBeat) {
-        return;
-      }
-      try {
-        const [stillResponse, scenesResponse] = await Promise.all([
-          fetch('/api/roleplay', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              ...requestBody('prompt', intro),
-              bio: nextBio,
-              story: [],
-              rejectedScenes: [],
-            }),
-          }),
-          fetch('/api/roleplay', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              ...requestBody('scenes'),
-              bio: nextBio,
-              story: writingStory,
-              rejectedScenes: [],
-            }),
-          }).catch(() => null),
-        ]);
-        const stillData = (await stillResponse.json()) as RoleplayApiPayload;
-        if (!stillResponse.ok || !stillData.prompt?.trim()) {
-          throw new Error(
-            stillData.error ??
-              (skipStillForClip
-                ? 'Bio saved, but the first clip prompt failed.'
-                : 'Bio saved, but the first still failed.')
-          );
-        }
-        await commitStill(stillData, introBeat, nextBio, writingStory, {
-          queueStill: autoQueue && !skipStillForClip,
-        });
-        if (scenesResponse) {
-          const scenesData = (await scenesResponse.json()) as RoleplayApiPayload;
-          setScenes(scenesResponse.ok && Array.isArray(scenesData.scenes) ? scenesData.scenes : []);
-        } else {
-          setScenes([]);
-        }
-      } catch (err) {
-        updateToolSettings({
-          story: patchRoleplayStoryBeat(
-            writingStory,
-            introBeat,
-            skipStillForClip ? {} : { stillStatus: 'error' }
-          ),
-        });
-        throw err;
-      }
-    },
-    [autoQueue, commitStill, requestBody, skipStillForClip, updateToolSettings]
-  );
-
-  const writeBio = useCallback(async () => {
-    if (playAsResolved === 'photo' && !hasReferenceImage) {
-      setError('Upload a photo or pick a gallery still first.');
-      return;
-    }
-    setBioLoading(true);
-    setError(null);
-    try {
-      const response = await fetch('/api/roleplay', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody('bio')),
-      });
-      const data = (await response.json()) as RoleplayApiPayload;
-      if (!response.ok || !data.bio) {
-        throw new Error(data.error ?? 'Could not write a bio.');
-      }
-      await beginStoryFromBio(data.bio);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not write a bio.');
-    } finally {
-      setBioLoading(false);
-    }
-  }, [beginStoryFromBio, hasReferenceImage, playAsResolved, requestBody]);
-
-  const applyOwnBible = useCallback(
-    async (nextBio: RoleplayBio) => {
-      if (playAsResolved === 'photo' && !hasReferenceImage) {
-        setError('Upload a photo or pick a gallery still first.');
-        return;
-      }
-      setError(null);
-      const hasPlot = Boolean(lastRoleplayPlotBeat(storyRef.current));
-      if (hasPlot || storyRef.current.length > 0) {
-        updateToolSettings({ bio: nextBio });
-        setOwnBibleOpen(false);
-        return;
-      }
-      setBioLoading(true);
-      try {
-        await beginStoryFromBio(nextBio);
-        setOwnBibleOpen(false);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Could not start from this bible.');
-      } finally {
-        setBioLoading(false);
-      }
-    },
-    [beginStoryFromBio, hasReferenceImage, playAsResolved, updateToolSettings]
-  );
-
-  const rememberRejectedScenes = useCallback(
-    (offered: RoleplayScene[], chosen?: RoleplayScene | null) => {
-      const next = mergeRoleplayRejectedScenes(rejectedScenesMemory, offered, chosen);
-      updateToolSettings({ rejectedScenes: next });
-      return next;
-    },
-    [rejectedScenesMemory, updateToolSettings]
-  );
-
-  const rollScenes = useCallback(async () => {
-    if (!bio) {
-      setError('Write a bio first — the scenes need someone to happen to.');
-      return;
-    }
-    if (roleplayStoryPhase(storyRef.current) === 'complete') {
-      setScenes([]);
-      return;
-    }
-    setScenesLoading(true);
-    setError(null);
-    try {
-      const rejectedScenes = rememberRejectedScenes(scenes);
-      const response = await fetch('/api/roleplay', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...requestBody('scenes'),
-          rejectedScenes,
-        }),
-      });
-      const data = (await response.json()) as RoleplayApiPayload;
-      if (!response.ok) {
-        throw new Error(data.error ?? 'Could not roll scenes.');
-      }
-      setScenes(Array.isArray(data.scenes) ? data.scenes : []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not roll scenes.');
-    } finally {
-      setScenesLoading(false);
-    }
-  }, [bio, rememberRejectedScenes, requestBody, scenes]);
-
-  const playScene = useCallback(
-    async (scene: RoleplayScene) => {
-      if (!bio) {
-        setError('Write a bio first.');
-        return;
-      }
-      if (playAsResolved === 'photo' && !hasReferenceImage) {
-        setError('Upload a photo or pick a gallery still first.');
-        return;
-      }
-      if (roleplayStoryPhase(storyRef.current) === 'complete') {
-        setError('This story already ended. Restart to play another.');
-        return;
-      }
-      setPlayingId(scene.id);
-      setError(null);
-      const playing: RoleplayScene =
-        roleplayStoryPhase(storyRef.current) === 'finale' ? { ...scene, kind: 'ending' } : scene;
-      const rejectedScenes = rememberRejectedScenes(scenes, playing);
-      const writingStory = appendRoleplayStoryBeat(storyRef.current, playing, {
-        stillStatus: skipStillForClip ? undefined : 'writing',
-      });
-      const beat = writingStory[writingStory.length - 1];
-      if (!beat) {
-        setPlayingId(null);
-        return;
-      }
-      updateToolSettings({ story: writingStory, rejectedScenes });
-      try {
-        const response = await fetch('/api/roleplay', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody('prompt', playing)),
-        });
-        const data = (await response.json()) as RoleplayApiPayload;
-        if (!response.ok || !data.prompt?.trim()) {
-          throw new Error(data.error ?? 'Could not write a still.');
-        }
-        const nextStory = await commitStill(data, beat, bio, writingStory, {
-          queueStill: autoQueue && !skipStillForClip,
-        });
-        if (roleplayStoryPhase(nextStory) === 'complete') {
-          setScenes([]);
-          return;
-        }
-        const nextScenes = await fetch('/api/roleplay', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ...requestBody('scenes'),
-            story: nextStory,
-            rejectedScenes,
-          }),
-        });
-        const nextPayload = (await nextScenes.json()) as RoleplayApiPayload;
-        if (nextScenes.ok && Array.isArray(nextPayload.scenes)) {
-          setScenes(nextPayload.scenes);
-        }
-      } catch (err) {
-        updateToolSettings({
-          story: writingStory.filter(entry => entry.at !== beat.at || entry.prompt),
-        });
-        setError(err instanceof Error ? err.message : 'Could not play that scene.');
-      } finally {
-        setPlayingId(null);
-      }
-    },
-    [
-      autoQueue,
-      bio,
-      commitStill,
-      hasReferenceImage,
-      playAsResolved,
-      rememberRejectedScenes,
-      requestBody,
-      scenes,
-      skipStillForClip,
+  const { scenes, setScenes, scenesLoading, playingId, rollScenes, playScene } =
+    useRoleplaySceneFlow({
+      storyRef,
+      toolSettings,
       updateToolSettings,
-    ]
-  );
+      bio,
+      rejectedScenesMemory,
+      requestBody,
+      commitStill,
+      skipStillForClip,
+      autoQueue,
+      playAsResolved,
+      hasReferenceImage,
+      setError,
+    });
 
-  const selectStillTake = useCallback(
-    (beat: RoleplayStoryBeat, index: number) => {
-      const latest =
-        storyRef.current.find(entry => entry.id === beat.id && entry.at === beat.at) ?? beat;
-      updateToolSettings({
-        story: patchRoleplayStoryBeat(
-          storyRef.current,
-          latest,
-          selectRoleplayStillTakePatch(latest, index)
-        ),
-      });
-    },
-    [updateToolSettings]
-  );
+  useEffect(() => {
+    scenesRef.current = scenes;
+  }, [scenes]);
 
-  const selectClipTake = useCallback(
-    (beat: RoleplayStoryBeat, index: number) => {
-      const latest =
-        storyRef.current.find(entry => entry.id === beat.id && entry.at === beat.at) ?? beat;
-      updateToolSettings({
-        story: patchRoleplayStoryBeat(
-          storyRef.current,
-          latest,
-          selectRoleplayClipTakePatch(latest, index)
-        ),
-      });
-    },
-    [updateToolSettings]
-  );
+  const { bioLoading, writeBio, applyOwnBible } = useRoleplayBioFlow({
+    storyRef,
+    updateToolSettings,
+    requestBody,
+    commitStill,
+    skipStillForClip,
+    autoQueue,
+    playAsResolved,
+    hasReferenceImage,
+    setError,
+    setScenes,
+    setOwnBibleOpen,
+  });
 
-  const copyBeatPrompt = useCallback(async (beat: RoleplayStoryBeat) => {
-    const prompt = beat.prompt?.trim();
-    if (!prompt) {
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(prompt);
-    } catch {
-      setError('Could not copy to clipboard.');
-    }
-  }, []);
-
-  const downloadStory = useCallback(async () => {
-    if (!bio && storyRef.current.length === 0) {
-      setError('Write a bio or a beat first.');
-      return;
-    }
-    setExporting(true);
-    setError(null);
-    try {
-      const personaLabel =
-        personaId === CUSTOM_ROLEPLAY_PERSONA_ID
-          ? toolSettings.customPersona?.trim() || 'Custom'
-          : (getRoleplayArchetype(personaId)?.label ?? personaId);
-      const toneLabel = ROLEPLAY_TONES.find(entry => entry.id === tone)?.label ?? tone;
-      const contentLabel = ROLEPLAY_CONTENT.find(entry => entry.id === content)?.label ?? content;
-      await downloadRoleplayStoryBundle({
-        bio,
-        story: storyRef.current,
-        tone: toneLabel,
-        content: contentLabel,
-        personaLabel,
-        film: assembledFilmRef.current,
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not download the story.');
-    } finally {
-      setExporting(false);
-    }
-  }, [assembledFilmRef, bio, content, personaId, tone, toolSettings.customPersona]);
-
-  const shelfAndStartNew = useCallback(
-    (patch?: Partial<typeof toolSettings>) => {
-      const { next } = archiveAndStartNewRoleplaySession(toolSettings);
-      updateToolSettings({ ...next, ...patch });
-      setScenes([]);
-      setOwnBibleOpen(false);
-    },
-    [toolSettings, updateToolSettings]
-  );
-
-  const restartStory = useCallback(() => {
-    updateToolSettings({ story: [], rejectedScenes: [] });
-    setScenes([]);
-  }, [updateToolSettings]);
-
-  const surpriseCast = useCallback(() => {
-    const pick = ROLEPLAY_ARCHETYPES[Math.floor(Math.random() * ROLEPLAY_ARCHETYPES.length)];
-    shelfAndStartNew({ personaId: pick.id, customPersona: undefined });
-  }, [shelfAndStartNew]);
-
-  const continueLibrarySession = useCallback(
-    (session: RoleplayLibrarySession) => {
-      persistRoleplayLibraryFromCache(toolSettings);
-      updateToolSettings(applyRoleplayLibrarySession(session));
-      stampRoleplayCharacter(applyRoleplayLibrarySession(session));
-      setScenes([]);
-      setOwnBibleOpen(false);
-    },
-    [stampRoleplayCharacter, toolSettings, updateToolSettings]
-  );
-
-  const startLibrarySession = useCallback(() => {
-    shelfAndStartNew();
-  }, [shelfAndStartNew]);
+  const {
+    exporting,
+    selectStillTake,
+    selectClipTake,
+    copyBeatPrompt,
+    downloadStory,
+    shelfAndStartNew,
+    restartStory,
+    surpriseCast,
+    continueLibrarySession,
+    startLibrarySession,
+  } = useRoleplaySessionActions({
+    storyRef,
+    toolSettings,
+    updateToolSettings,
+    bio,
+    personaId,
+    tone,
+    content,
+    assembledFilmRef,
+    stampRoleplayCharacter,
+    setScenes,
+    setOwnBibleOpen,
+    setError,
+  });
 
   if (!mounted) {
     return null;

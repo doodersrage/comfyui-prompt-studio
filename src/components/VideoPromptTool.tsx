@@ -1,8 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import EditToolRecipeStrip from '@/components/EditToolRecipeStrip';
-import { HistoryHintSeedPanel } from '@/components/scene-tool/HistoryHintSeedPanel';
 import SharedToolControls from '@/components/SharedToolControls';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
@@ -12,12 +11,13 @@ import { useVideoPromptInitImage, isFetchableImageRef } from '@/hooks/useVideoPr
 import { useVideoPromptQueue } from '@/hooks/useVideoPromptQueue';
 import { useVideoPromptFieldSetters } from '@/hooks/useVideoPromptFieldSetters';
 import { useVideoWorkflowScaffold } from '@/hooks/useVideoWorkflowScaffold';
+import { useVideoPromptModelSync } from '@/hooks/useVideoPromptModelSync';
 import VideoPromptFormPanel from '@/components/video/VideoPromptFormPanel';
 import VideoPromptResultSection from '@/components/video/VideoPromptResultSection';
+import VideoPromptHistorySeedSection from '@/components/video/VideoPromptHistorySeedSection';
 import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
 import { DEFAULT_VIDEO_TOOL_CACHE } from '@/lib/settings-cache';
-import { normalizeHistorySeedScope, normalizeSceneHintSource } from '@/lib/scene-hint-source';
-import { isVideoModel, resolvePreferredVideoModel } from '@/lib/queue-tool-model';
+import { isVideoModel } from '@/lib/queue-tool-model';
 import { ToolBadge, ToolLayout, accentFocusClass } from '@/components/ui/ToolPageShell';
 import { inferVideoClipMode, type VideoClipMode } from '@/lib/video-clip-mode';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
@@ -112,37 +112,13 @@ export default function VideoPromptTool() {
     fields: [subject, motion, camera, style],
   });
 
-  const preferredVideoModel = resolvePreferredVideoModel({
-    toolModel: toolSettings.model,
-    sharedModel: shared.model,
-  });
-
-  useEffect(() => {
-    if (!mounted) {
-      return;
-    }
-    if (isVideoModel(shared.model)) {
-      if (!toolSettings.model || !isVideoModel(toolSettings.model)) {
-        updateToolSettings({ model: shared.model });
-      } else if (toolSettings.model !== shared.model) {
-        updateShared({ model: toolSettings.model });
-      }
-      return;
-    }
-    if (preferredVideoModel !== shared.model) {
-      updateShared({ model: preferredVideoModel });
-    }
-    if ((!toolSettings.model || !isVideoModel(toolSettings.model)) && preferredVideoModel) {
-      updateToolSettings({ model: preferredVideoModel });
-    }
-  }, [
+  const { controlsSharedModel } = useVideoPromptModelSync({
     mounted,
-    preferredVideoModel,
-    shared.model,
-    toolSettings.model,
+    sharedModel: shared.model,
+    toolModel: toolSettings.model,
     updateShared,
     updateToolSettings,
-  ]);
+  });
 
   useVideoWorkflowScaffold({
     mounted,
@@ -184,7 +160,7 @@ export default function VideoPromptTool() {
 
   const controlsShared = isVideoModel(shared.model)
     ? shared
-    : { ...shared, model: preferredVideoModel };
+    : { ...shared, model: controlsSharedModel };
 
   return (
     <ToolLayout
@@ -208,25 +184,12 @@ export default function VideoPromptTool() {
     >
       <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.video} />
       <EditToolRecipeStrip toolId="video" shared={shared} onApplied={next => updateShared(next)} />
-      <HistoryHintSeedPanel
-        tool="video"
-        hintSource={normalizeSceneHintSource(toolSettings.hintSource)}
-        historySeedScope={normalizeHistorySeedScope(toolSettings.historySeedScope)}
-        hints={subject}
-        randomTheme={toolSettings.randomTheme ?? ''}
-        lastHistorySeedEntryId={toolSettings.lastHistorySeedEntryId}
-        onHintSourceChange={source => updateToolSettings({ hintSource: source })}
-        onHistorySeedScopeChange={scope => updateToolSettings({ historySeedScope: scope })}
-        onHintsChange={setSubject}
-        onRandomThemeChange={theme => updateToolSettings({ randomTheme: theme })}
-        onHistorySeedApplied={result => {
-          setSubject(result.hints);
-          updateToolSettings({
-            lastHistorySeedEntryId: result.entryId,
-            hintSource: 'history',
-          });
-        }}
+      <VideoPromptHistorySeedSection
+        toolSettings={toolSettings}
+        subject={subject}
         accentFocusClassName={accentFocusClass(ACCENT)}
+        onSubjectChange={setSubject}
+        onUpdateToolSettings={updateToolSettings}
       />
       <VideoPromptFormPanel
         mounted={mounted}
@@ -276,7 +239,6 @@ export default function VideoPromptTool() {
         onFpsChange={setFps}
         onGenerate={() => void generate()}
       />
-
       <VideoPromptResultSection
         output={output}
         motion={motion}
