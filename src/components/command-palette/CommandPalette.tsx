@@ -4,7 +4,11 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useNsfwGeneratorEnabled } from '@/hooks/useNsfwGeneratorEnabled';
-import KeyboardShortcutsHelp from '@/components/KeyboardShortcutsHelp';
+import dynamic from 'next/dynamic';
+
+const KeyboardShortcutsHelp = dynamic(() => import('@/components/KeyboardShortcutsHelp'), {
+  ssr: false,
+});
 import CommandPalettePanel from '@/components/command-palette/CommandPalettePanel';
 import {
   useCommandPaletteCatalog,

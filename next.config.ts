@@ -56,7 +56,7 @@ const baseConfig: NextConfig = {
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
   experimental: {
-    optimizePackageImports: ['@tanstack/react-virtual', '@xyflow/react'],
+    optimizePackageImports: ['@tanstack/react-virtual', '@xyflow/react', 'dexie'],
     serverActions: {
       bodySizeLimit: '80mb',
     },
