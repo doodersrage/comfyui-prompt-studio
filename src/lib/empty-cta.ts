@@ -1,5 +1,9 @@
 import { flattenAppNavLinks } from './app-nav-catalog';
+import { loadLocalObservability } from './local-observability';
 import { loadNavFavorites } from './nav-favorites';
+import { loadOnboardingState } from './onboarding-store';
+import { loadPlayCampaignState } from './play-campaign';
+import { loadPlayMetrics, resolveNextPlayAction } from './play-metrics';
 import { loadWorkspaceMode } from './workspace-mode';
 
 export type EmptyCta = {
@@ -54,15 +58,34 @@ export function resolveGenerateEmptyCta(
 }
 
 /**
- * Post-welcome primary CTA — always “make a first image” except Play → Roleplay.
- * Aligns Welcome with Settings first-run (`FIRST_RUN_GENERATE_HREF`).
+ * Post-welcome primary CTA.
+ * Return visits with Play progress resume the funnel; Play workspace opens `/play`;
+ * otherwise first-run Generate random surprise.
  */
 export function resolveWelcomeLandingCta(): EmptyCta {
   if (typeof window === 'undefined') {
     return { label: 'Open Generate', href: FIRST_RUN_GENERATE_HREF };
   }
+
+  const metrics = loadPlayMetrics();
+  const campaign = loadPlayCampaignState();
+  const funnel = loadLocalObservability();
+  const hasPlayProgress =
+    Boolean(metrics.firstPlayCampaignAt) ||
+    Boolean(campaign?.characterId) ||
+    (funnel.firstPlayCampaign || 0) > 0 ||
+    (funnel.firstFilmCut || 0) > 0;
+
+  if (hasPlayProgress) {
+    const watchedFirstFilm = loadOnboardingState().some(
+      step => step.id === 'watch-first-film' && step.done
+    );
+    const next = resolveNextPlayAction({ metrics, funnel, campaign, watchedFirstFilm });
+    return { label: next.label, href: next.href };
+  }
+
   if (loadWorkspaceMode() === 'play') {
-    return { label: 'Open Roleplay', href: '/roleplay' };
+    return { label: 'Open Play campaign', href: '/play' };
   }
   return { label: 'Open Generate', href: FIRST_RUN_GENERATE_HREF };
 }

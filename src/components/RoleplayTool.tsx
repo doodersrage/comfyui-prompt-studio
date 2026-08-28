@@ -6,8 +6,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SharedToolControls from '@/components/SharedToolControls';
 import RoleplayBibleEditor from '@/components/RoleplayBibleEditor';
 import RoleplayLibraryPanel from '@/components/RoleplayLibraryPanel';
-import RoleplayStoryReel from '@/components/RoleplayStoryReel';
-import RoleplayFilmCutActions from '@/components/RoleplayFilmCutActions';
+import RoleplayBeatOutputSection from '@/components/roleplay/RoleplayBeatOutputSection';
+import RoleplayBioSection from '@/components/roleplay/RoleplayBioSection';
+import RoleplayStorySection from '@/components/roleplay/RoleplayStorySection';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { useGalleryHandoff } from '@/hooks/useGalleryHandoff';
@@ -64,7 +65,6 @@ import {
   beginRoleplayStillRetryPatch,
   canRetryRoleplayStill,
   applyRoleplayCharacterName,
-  formatRoleplayBio,
   getRoleplayArchetype,
   MAX_ROLEPLAY_CHARACTER_NAME,
   formatRoleplayStoryProgress,
@@ -117,7 +117,7 @@ import {
   snapshotRoleplaySession,
   type RoleplayLibrarySession,
 } from '@/lib/roleplay-library';
-import { ChipButton, FieldError, TextArea, TextInput } from '@/components/ui/Field';
+import { ChipButton, TextArea, TextInput } from '@/components/ui/Field';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import VisionScanButton from '@/components/VisionScanButton';
 import { resolveLocalImageFile, scanStillWithVision } from '@/lib/vision-still-scan-client';
@@ -1805,50 +1805,26 @@ export default function RoleplayTool() {
       </ToolSection>
 
       {bio ? (
-        <ToolSection title={`${bio.name} · character bible`}>
-          <p className="text-sm whitespace-pre-wrap text-[var(--text-secondary)]">
-            {formatRoleplayBio(bio)}
-          </p>
-          {ownBibleOpen ? (
-            <RoleplayBibleEditor
-              key={`${bio.name}-${bio.look}-${bio.personality}`}
-              initial={bio}
-              characterName={toolSettings.characterName}
-              disabled={busy}
-              accentClass={accentFocusClass(ACCENT)}
-              applyLabel="Update bible"
-              onApply={nextBio => void applyOwnBible(nextBio)}
-            />
-          ) : (
-            <Button variant="ghost" disabled={busy} onClick={() => setOwnBibleOpen(true)}>
-              Edit bible
-            </Button>
-          )}
-        </ToolSection>
+        <RoleplayBioSection
+          bio={bio}
+          ownBibleOpen={ownBibleOpen}
+          characterName={toolSettings.characterName}
+          busy={busy}
+          onOpenEditor={() => setOwnBibleOpen(true)}
+          onApplyBible={nextBio => void applyOwnBible(nextBio)}
+        />
       ) : null}
 
-      <ToolSection title="Story">
-        <p className="text-sm text-[var(--text-muted)]">
-          {beatOutput === 'clip'
-            ? 'Clips land here as they render'
-            : 'Stills land here as they render'}
-          {autoQueue
-            ? beatOutput === 'clip'
-              ? ' — T2V from the beat prompt. From photo uses that photo as I2V. Extend clip continues the last frame'
-              : ' — queued automatically from the bio and each pick'
-            : ''}
-          .
-        </p>
-        <RoleplayFilmCutActions
-          assemblingFilm={assemblingFilm}
-          busy={busy}
-          storyEmpty={story.length === 0}
-          filmNeedsCast={filmNeedsCast}
-          filmCharacterId={filmCharacterId}
-          filmStatus={filmStatus}
-          onCutFilm={() => void cutRoleplayFilm()}
-          onSaveToCast={saveFilmToCast}
-        >
+      <RoleplayStorySection
+        beatOutput={beatOutput}
+        autoQueue={autoQueue}
+        assemblingFilm={assemblingFilm}
+        busy={busy}
+        story={story}
+        filmNeedsCast={filmNeedsCast}
+        filmCharacterId={filmCharacterId}
+        filmStatus={filmStatus}
+        downloadAction={
           <Button
             variant="secondary"
             loading={exporting}
@@ -1858,121 +1834,46 @@ export default function RoleplayTool() {
           >
             Download story + stills + clips
           </Button>
-        </RoleplayFilmCutActions>
-        <RoleplayStoryReel
-          story={story}
-          busy={busy}
-          onQueue={beat => void queueBeat(beat)}
-          onRetry={beat => void queueBeat(beat, { retry: true })}
-          onRetryClip={beat => void queueBeatMotion(beat, { retry: true })}
-          onAnimate={beat => void queueBeatMotion(beat)}
-          onExtend={beat => {
-            const source =
-              beat.clipStatus === 'completed' && beat.clipUrl?.trim()
-                ? {
-                    imageUrl: beat.clipUrl.trim(),
-                    parentPromptId: beat.clipPromptId?.trim() || beat.promptId?.trim(),
-                    fromClip: true,
-                  }
-                : (lastRoleplayMotionSource(storyRef.current) ?? undefined);
-            void queueBeatMotion(beat, source ? { source } : undefined);
-          }}
-          onSelectTake={selectStillTake}
-          onSelectClipTake={selectClipTake}
-          onCopy={beat => void copyBeatPrompt(beat)}
-        />
-      </ToolSection>
+        }
+        onCutFilm={() => void cutRoleplayFilm()}
+        onSaveToCast={saveFilmToCast}
+        onQueue={beat => void queueBeat(beat)}
+        onRetry={beat => void queueBeat(beat, { retry: true })}
+        onRetryClip={beat => void queueBeatMotion(beat, { retry: true })}
+        onAnimate={beat => void queueBeatMotion(beat)}
+        onExtend={beat => {
+          const source =
+            beat.clipStatus === 'completed' && beat.clipUrl?.trim()
+              ? {
+                  imageUrl: beat.clipUrl.trim(),
+                  parentPromptId: beat.clipPromptId?.trim() || beat.promptId?.trim(),
+                  fromClip: true,
+                }
+              : (lastRoleplayMotionSource(storyRef.current) ?? undefined);
+          void queueBeatMotion(beat, source ? { source } : undefined);
+        }}
+        onSelectTake={selectStillTake}
+        onSelectClipTake={selectClipTake}
+        onCopy={beat => void copyBeatPrompt(beat)}
+      />
 
-      <ToolSection title={storyProgress.heading}>
-        <p className="text-sm text-[var(--text-muted)]">{storyProgress.hint}</p>
-        {storyProgress.phase === 'complete' ? (
-          <Button variant="secondary" disabled={busy} onClick={restartStory}>
-            Restart story
-          </Button>
-        ) : (
-          <>
-            <div className="flex flex-wrap gap-2">
-              <ChipButton
-                active={beatOutput === 'still'}
-                disabled={busy}
-                onClick={() => updateToolSettings({ beatOutput: 'still' })}
-              >
-                Still
-              </ChipButton>
-              <ChipButton
-                active={beatOutput === 'clip'}
-                disabled={busy}
-                onClick={() => updateToolSettings({ beatOutput: 'clip' })}
-              >
-                Clip
-              </ChipButton>
-            </div>
-            <label className="flex cursor-pointer items-start gap-3 text-sm text-[var(--text-secondary)]">
-              <input
-                type="checkbox"
-                checked={autoQueue}
-                disabled={busy}
-                onChange={event => updateToolSettings({ autoQueue: event.target.checked })}
-                className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] ${accentFocusClass(ACCENT)}`}
-              />
-              <span>
-                Queue a {beatOutput === 'clip' ? 'clip' : 'still'} when I write a bio or pick a
-                scene
-                <span className="mt-0.5 block text-xs text-[var(--text-muted)]">
-                  {beatOutput === 'clip'
-                    ? 'Each scene queues a new clip from the beat prompt (T2V). From photo uses that photo as I2V, not the previous scene. Use Play another clip to reroll a take. Extend clip / Continue from last frame is the continuity action — Fal extend-video when the parent is already a public Fal URL, or after a successful Fal CDN upload of a local clip; otherwise last-frame I2V (Roleplay says so if the upload fails). Local WAN, Fal, or Replicate.'
-                    : 'Uses the model and Fast/Good/Best from the sidebar. Turn off to write the prompt first.'}
-                </span>
-              </span>
-            </label>
-            <Button
-              variant="secondary"
-              loading={scenesLoading}
-              loadingLabel="Rolling scenes"
-              disabled={!bio || busy}
-              onClick={() => void rollScenes()}
-            >
-              {scenes.length > 0 ? storyProgress.rerollLabel : storyProgress.rollLabel}
-            </Button>
-            {scenes.length > 0 ? (
-              <div className="grid gap-2 sm:grid-cols-2">
-                {scenes.map(scene => (
-                  <button
-                    key={scene.id}
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void playScene(scene)}
-                    className={`rounded-[var(--radius-lg)] border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] ${
-                      playingId === scene.id
-                        ? 'border-[var(--accent-border)] bg-[var(--accent-soft)]'
-                        : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]'
-                    }`}
-                  >
-                    <span className="block text-sm font-medium text-[var(--text-primary)]">
-                      {scene.title}
-                    </span>
-                    <span className="type-caption mt-1 block text-[var(--text-muted)]">
-                      {scene.blurb}
-                    </span>
-                    {playingId === scene.id ? (
-                      <span className="type-caption mt-2 block text-[var(--accent-text)]">
-                        {beatOutput === 'clip'
-                          ? scene.kind === 'ending'
-                            ? 'Writing ending clip…'
-                            : 'Writing clip…'
-                          : scene.kind === 'ending'
-                            ? 'Writing ending…'
-                            : 'Writing still…'}
-                      </span>
-                    ) : null}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </>
-        )}
-        {error || filmError ? <FieldError>{error || filmError}</FieldError> : null}
-      </ToolSection>
+      <RoleplayBeatOutputSection
+        storyProgress={storyProgress}
+        beatOutput={beatOutput}
+        autoQueue={autoQueue}
+        busy={busy}
+        bioPresent={Boolean(bio)}
+        scenesLoading={scenesLoading}
+        scenes={scenes}
+        playingId={playingId}
+        error={error}
+        filmError={filmError}
+        onRestartStory={restartStory}
+        onBeatOutputChange={next => updateToolSettings({ beatOutput: next })}
+        onAutoQueueChange={next => updateToolSettings({ autoQueue: next })}
+        onRollScenes={() => void rollScenes()}
+        onPlayScene={scene => void playScene(scene)}
+      />
     </ToolLayout>
   );
 }

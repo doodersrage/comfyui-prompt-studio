@@ -48,4 +48,22 @@ describe('play-metrics', () => {
     assert.equal(resume.href, '/fitting?character=c1');
     assert.match(resume.label, /Fitting/i);
   });
+
+  it('pushes Cast watch then another Day cut after campaign complete', () => {
+    const watch = resolveNextPlayAction({
+      funnel: { firstFilmCut: 1, saveToCast: 1 },
+      campaign: { characterId: 'c1', stepIndex: 4, completedAt: Date.now() },
+      watchedFirstFilm: false,
+    });
+    assert.equal(watch.label, 'Watch film on Cast');
+    assert.equal(watch.href, '/characters/c1?media=films');
+
+    const again = resolveNextPlayAction({
+      funnel: { firstFilmCut: 1, saveToCast: 1 },
+      campaign: { characterId: 'c1', stepIndex: 4, completedAt: Date.now() },
+      watchedFirstFilm: true,
+    });
+    assert.equal(again.label, 'Cut another Day film');
+    assert.equal(again.href, '/day?character=c1');
+  });
 });

@@ -935,9 +935,41 @@ test('dashboard elevates Open Play campaign as primary studio path', async ({ pa
 test('mobile studio companion copy leads Capture→Queue→Rate→Desk', async ({ page }) => {
   await gotoStable(page, '/m');
   await dismissBlockingOverlays(page);
-  await expect(page.getByText(/Plate for desk|Capture → Queue → Rate → Desk Continue/i).first()).toBeVisible({
+  await expect(
+    page.getByText(/Plate for desk|Capture → Queue → Rate → Desk Continue/i).first()
+  ).toBeVisible({
     timeout: 30_000,
   });
   await expect(page.getByTestId('mobile-desk-bridge')).toBeVisible();
   await expect(page.getByRole('link', { name: /^Desk$/i })).toBeVisible();
+});
+
+test('completed campaign offers Cast watch and cut-another Day CTAs', async ({ page }) => {
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem('comfy-workspace-mode-v1', 'play');
+      localStorage.setItem('comfy-workspace-mode-chosen-v1', '1');
+      localStorage.setItem(
+        'play-campaign-v1',
+        JSON.stringify({
+          version: 1,
+          characterId: 'e2e-complete',
+          stepIndex: 4,
+          completedAt: Date.now(),
+          updatedAt: Date.now(),
+        })
+      );
+    } catch {
+      // ignore
+    }
+  });
+  await gotoStable(page, '/play?character=e2e-complete');
+  await dismissBlockingOverlays(page);
+  await expect(page.getByTestId('play-campaign-complete')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('play-campaign-open-cast-film')).toBeVisible();
+  await expect(page.getByTestId('play-campaign-cut-another')).toHaveAttribute(
+    'href',
+    /\/day\?character=e2e-complete/
+  );
+  await expect(page.getByTestId('play-campaign-start-new')).toBeVisible();
 });

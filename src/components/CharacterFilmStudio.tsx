@@ -173,6 +173,22 @@ export default function CharacterFilmStudio({
             >
               Open films in Gallery
             </ButtonLink>
+            <ButtonLink
+              href={`/day?character=${encodeURIComponent(characterId)}`}
+              size="sm"
+              variant="secondary"
+              data-testid="character-film-cut-another"
+            >
+              Cut another Day film
+            </ButtonLink>
+            <ButtonLink
+              href="/play"
+              size="sm"
+              variant="ghost"
+              data-testid="character-film-new-campaign"
+            >
+              New Play campaign
+            </ButtonLink>
           </ToolActionRow>
         </div>
       ) : null}

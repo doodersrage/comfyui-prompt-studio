@@ -4,20 +4,15 @@ import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import FittingCharacterSection from '@/components/fitting/FittingCharacterSection';
+import FittingCompareSection from '@/components/fitting/FittingCompareSection';
+import FittingActionRow from '@/components/fitting/FittingActionRow';
 import FittingPlateSection from '@/components/fitting/FittingPlateSection';
 import FittingWardrobeKitSection from '@/components/fitting/FittingWardrobeKitSection';
 import SharedToolControls from '@/components/SharedToolControls';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
 import ScenePromptResultPanel from '@/components/scene-tool/ScenePromptResultPanel';
-import { Button, ButtonLink } from '@/components/ui/Button';
 import { FieldError } from '@/components/ui/Field';
-import {
-  CollapsibleSection,
-  ToolActionRow,
-  ToolBadge,
-  ToolLayout,
-  ToolSection,
-} from '@/components/ui/ToolPageShell';
+import { ToolBadge, ToolLayout } from '@/components/ui/ToolPageShell';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
 import { isLeanWorkspaceMode } from '@/lib/workspace-mode';
@@ -1254,139 +1249,28 @@ export default function FittingRoomTool() {
         onNotesChange={value => updateToolSettings({ notes: value })}
       />
 
-      {compareTryOns.length > 0 ? (
-        <ToolSection
-          title="Compare try-ons"
-          description="Keep a winner as a Cast keeper, or skip to the next kit."
-          data-testid="fitting-compare"
-        >
-          <CollapsibleSection
-            title="Recent try-ons"
-            summary="Side-by-side Keep / Skip for the last completed kits."
-            defaultOpen={!leanChrome}
-            persistKey="fitting-compare"
-          >
-            <div className="flex gap-3 overflow-x-auto pb-1">
-              {compareTryOns.map(tryOn => (
-                <figure
-                  key={tryOn.promptId}
-                  className="min-w-[7.5rem] shrink-0 rounded-[var(--radius-md)] border border-[var(--border-subtle)] p-2"
-                >
-                  {tryOn.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={tryOn.imageUrl}
-                      alt={tryOn.wardrobeLabel || tryOn.wardrobeId || 'Try-on'}
-                      className="mb-2 h-28 w-full rounded object-cover"
-                    />
-                  ) : null}
-                  <figcaption className="type-caption truncate text-[var(--text-muted)]">
-                    {tryOn.wardrobeLabel || tryOn.wardrobeId || 'Try-on'}
-                  </figcaption>
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    <Button
-                      size="sm"
-                      variant="primary"
-                      disabled={busy}
-                      data-testid="fitting-keep"
-                      onClick={() => keepTryOn(tryOn)}
-                    >
-                      Keep
-                    </Button>
-                    <Button size="sm" variant="ghost" disabled={busy} onClick={skipKit}>
-                      Skip
-                    </Button>
-                  </div>
-                </figure>
-              ))}
-            </div>
-            {continueDayHref ? (
-              <div className="mt-3">
-                <ButtonLink href={continueDayHref} size="sm" variant="primary">
-                  Continue in Day
-                </ButtonLink>
-              </div>
-            ) : null}
-          </CollapsibleSection>
-        </ToolSection>
-      ) : null}
+      <FittingCompareSection
+        compareTryOns={compareTryOns}
+        leanChrome={leanChrome}
+        busy={busy}
+        continueDayHref={continueDayHref}
+        onKeepTryOn={keepTryOn}
+        onSkipKit={skipKit}
+      />
 
-      <ToolActionRow>
-        {continueDayHref ? (
-          <ButtonLink
-            href={continueDayHref}
-            size="sm"
-            variant="primary"
-            data-testid="fitting-continue-day"
-          >
-            Continue in Day
-          </ButtonLink>
-        ) : null}
-        <Button
-          size="sm"
-          variant="secondary"
-          disabled={queueBlocked || swipeDeck.length < 2}
-          onClick={skipKit}
-        >
-          Skip kit
-        </Button>
-        <Button
-          size="sm"
-          variant="primary"
-          disabled={queueBlocked}
-          onClick={() => void queueTryOn()}
-        >
-          {busy ? 'Queueing…' : 'Queue try-on'}
-        </Button>
-        <Button
-          size="sm"
-          variant="secondary"
-          disabled={queueBlocked || swipeDeck.length < 2}
-          onClick={() => void queueTryOnAndSwipe()}
-        >
-          Queue & next
-        </Button>
-        <Button size="sm" variant="secondary" disabled={busy} onClick={saveKitToCast}>
-          Save kit to Cast
-        </Button>
-        <Button size="sm" variant="secondary" disabled={busy} onClick={goRoleplay}>
-          Continue in Roleplay
-        </Button>
-        {character ? (
-          <>
-            {!continueDayHref ? (
-              <ButtonLink
-                href={dayPlannerHref}
-                size="sm"
-                variant="secondary"
-                data-testid="fitting-plan-day"
-                onClick={() => {
-                  if (!character) {
-                    return;
-                  }
-                  bumpPlayCampaignStep({ characterId: character.id, stepId: 'day' });
-                }}
-              >
-                Plan a day
-              </ButtonLink>
-            ) : null}
-            <ButtonLink
-              href={`/moodboard?character=${encodeURIComponent(character.id)}`}
-              size="sm"
-              variant="secondary"
-            >
-              Set look (Moodboard)
-            </ButtonLink>
-            <ButtonLink
-              href={`/gallery?character=${encodeURIComponent(character.id)}`}
-              size="sm"
-              variant="ghost"
-            >
-              Open in Gallery
-            </ButtonLink>
-          </>
-        ) : null}
-      </ToolActionRow>
+      <FittingActionRow
+        continueDayHref={continueDayHref}
+        dayPlannerHref={dayPlannerHref}
+        queueBlocked={queueBlocked}
+        swipeDeckLength={swipeDeck.length}
+        busy={busy}
+        character={character}
+        onSkipKit={skipKit}
+        onQueueTryOn={() => void queueTryOn()}
+        onQueueTryOnAndSwipe={() => void queueTryOnAndSwipe()}
+        onSaveKitToCast={saveKitToCast}
+        onGoRoleplay={goRoleplay}
+      />
       {saveStatus ? <p className="type-caption text-[var(--text-muted)]">{saveStatus}</p> : null}
       {error ? <FieldError>{error}</FieldError> : null}
       {isolateSubject && hasReference && toolSettings.referenceIsolated !== true && !error ? (

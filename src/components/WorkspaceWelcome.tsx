@@ -13,7 +13,11 @@ import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { runHealAndReady } from '@/lib/first-run-setup';
 import { markOnboardingSetWorkspace } from '@/lib/onboarding-hooks';
-import { resolveWelcomeLandingCta, FIRST_RUN_QUEUE_HREF } from '@/lib/empty-cta';
+import {
+  resolveWelcomeLandingCta,
+  FIRST_RUN_QUEUE_HREF,
+  FIRST_RUN_GENERATE_HREF,
+} from '@/lib/empty-cta';
 import { useAuth } from '@/hooks/useAuth';
 
 type WelcomePhase = 'workspace' | 'setup' | 'ready';
@@ -203,15 +207,20 @@ export default function WorkspaceWelcome() {
             </h2>
             <p className="type-body mt-2 text-[var(--text-secondary)]">
               {setupMessage ??
-                (generateCta.href.startsWith('/roleplay')
-                  ? 'Open Roleplay to start a story loop, or Generate anytime from All tools.'
-                  : 'Queue a first still (Random surprise needs no keywords), then start a Play campaign for Moodboard → film.')}
+                (generateCta.href.includes('/play') ||
+                generateCta.href.includes('/day') ||
+                generateCta.href.includes('/characters')
+                  ? 'Pick up your Play film loop, or Generate anytime from All tools.'
+                  : generateCta.href.startsWith('/roleplay')
+                    ? 'Open Roleplay to start a story loop, or Generate anytime from All tools.'
+                    : 'Queue a first still (Random surprise needs no keywords), then start a Play campaign for Moodboard → film.')}
             </p>
             <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
               <Button type="button" variant="ghost" size="sm" onClick={() => setPhase(null)}>
                 Close
               </Button>
-              {generateCta.href.startsWith('/roleplay') ? null : (
+              {generateCta.href === FIRST_RUN_GENERATE_HREF ||
+              generateCta.href.startsWith('/?source=random') ? (
                 <ButtonLink
                   href="/play"
                   variant="secondary"
@@ -223,8 +232,13 @@ export default function WorkspaceWelcome() {
                 >
                   Start Play campaign
                 </ButtonLink>
-              )}
-              {generateCta.href.startsWith('/roleplay') ? null : (
+              ) : null}
+              {generateCta.href.startsWith('/roleplay') ||
+              generateCta.href.includes('/play') ||
+              generateCta.href.includes('/day') ||
+              generateCta.href.includes('/characters') ||
+              generateCta.href.includes('/fitting') ||
+              generateCta.href.includes('/moodboard') ? null : (
                 <ButtonLink
                   href={generateCta.href}
                   variant="secondary"
@@ -236,13 +250,25 @@ export default function WorkspaceWelcome() {
               )}
               <ButtonLink
                 href={
-                  generateCta.href.startsWith('/roleplay') ? generateCta.href : FIRST_RUN_QUEUE_HREF
+                  generateCta.href.startsWith('/roleplay') ||
+                  generateCta.href.includes('/play') ||
+                  generateCta.href.includes('/day') ||
+                  generateCta.href.includes('/characters') ||
+                  generateCta.href.includes('/fitting') ||
+                  generateCta.href.includes('/moodboard')
+                    ? generateCta.href
+                    : FIRST_RUN_QUEUE_HREF
                 }
                 variant="primary"
                 size="sm"
                 onClick={() => setPhase(null)}
               >
-                {generateCta.href.startsWith('/roleplay')
+                {generateCta.href.startsWith('/roleplay') ||
+                generateCta.href.includes('/play') ||
+                generateCta.href.includes('/day') ||
+                generateCta.href.includes('/characters') ||
+                generateCta.href.includes('/fitting') ||
+                generateCta.href.includes('/moodboard')
                   ? generateCta.label
                   : 'Generate & queue first scene'}
               </ButtonLink>

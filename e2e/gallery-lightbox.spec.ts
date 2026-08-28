@@ -40,6 +40,30 @@ test('lightbox opens, rates, expands actions, and navigates', async ({ page }) =
   await expect(lightbox).toHaveCount(0);
 });
 
+test('lightbox favorite toggle and review note controls work', async ({ page }) => {
+  await seedGalleryLightboxFixtures(page);
+  await gotoStable(page, '/gallery');
+  await dismissBlockingOverlays(page);
+
+  await page.getByRole('button', { name: 'Open image preview' }).first().click();
+  const lightbox = page.getByTestId('image-lightbox');
+  await expect(lightbox).toBeVisible({ timeout: 15_000 });
+
+  const favorite = lightbox.getByRole('button', { name: /Fav/i }).first();
+  await expect(favorite).toBeVisible({ timeout: 10_000 });
+  await favorite.click();
+  await expect(lightbox.getByRole('button', { name: /★ Fav/i })).toBeVisible({ timeout: 10_000 });
+
+  await lightbox.getByRole('button', { name: /Details/i }).click();
+  const note = lightbox.getByPlaceholder(/Quick note for this output/i);
+  await expect(note).toBeVisible({ timeout: 10_000 });
+  await note.fill('e2e keeper note');
+  await expect(note).toHaveValue('e2e keeper note');
+
+  await lightbox.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(lightbox).toHaveCount(0);
+});
+
 test('gallery deep-links into lightbox via ?lightbox=', async ({ page }) => {
   await seedGalleryLightboxFixtures(page);
   await gotoStable(page, '/gallery?lightbox=e2e-gallery-fixture');

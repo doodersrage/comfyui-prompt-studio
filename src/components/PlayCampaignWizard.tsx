@@ -623,7 +623,7 @@ export default function PlayCampaignWizard({ initialCharacterId }: PlayCampaignW
                   {savedCampaign?.completedAt
                     ? ` · ${new Date(savedCampaign.completedAt).toLocaleString()}`
                     : ''}{' '}
-                  — film cut. Watch it on Cast or start another loop.
+                  — film cut. Watch it on Cast, cut another Day film, or start another loop.
                 </p>
               </div>
               {characterId ? (
@@ -643,9 +643,19 @@ export default function PlayCampaignWizard({ initialCharacterId }: PlayCampaignW
                   Open film on Cast
                 </ButtonLink>
               ) : null}
+              {characterId ? (
+                <ButtonLink
+                  href={`/day?character=${encodeURIComponent(characterId)}`}
+                  size="sm"
+                  variant="secondary"
+                  data-testid="play-campaign-cut-another"
+                >
+                  Cut another Day film
+                </ButtonLink>
+              ) : null}
               <Button
                 size="sm"
-                variant="secondary"
+                variant="ghost"
                 disabled={!characterId}
                 data-testid="play-campaign-start-new"
                 onClick={startNewCampaign}

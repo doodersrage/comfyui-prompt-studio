@@ -1,6 +1,5 @@
 'use client';
 
-import dynamic from 'next/dynamic';
 import type { DiffusersCheckpointOption } from '@/components/DiffusersCheckpointSelector';
 import { useComfyWorkflowSelection } from '@/hooks/useComfyWorkflowSelection';
 import { getDetailLimits } from '@/lib/detail-level';
@@ -96,6 +95,7 @@ import SharedIdentitySurface from '@/components/shared-tool-controls/SharedIdent
 import SharedModelSurface from '@/components/shared-tool-controls/SharedModelSurface';
 import SharedPrimaryControls from '@/components/shared-tool-controls/SharedPrimaryControls';
 import SharedQueueQualityBlock from '@/components/shared-tool-controls/SharedQueueQualityBlock';
+import SharedWorkflowBlock from '@/components/shared-tool-controls/SharedWorkflowBlock';
 import type { SharedToolControlsProps } from '@/components/shared-tool-controls/types';
 import { SUGGESTED_MODEL_CHECKPOINT_MAP } from '@/lib/model-checkpoint-map';
 import {
@@ -103,11 +103,6 @@ import {
   type SessionLoraStrengthOverrides,
 } from '@/lib/lora-stack';
 import { isCloudEngine } from '@/lib/engine/capabilities';
-
-const ComfyWorkflowSelector = dynamic(() => import('@/components/ComfyWorkflowSelector'), {
-  ssr: false,
-  loading: () => null,
-});
 
 export default function SharedToolControls({
   shared,
@@ -1216,31 +1211,24 @@ export default function SharedToolControls({
           />
         );
 
-        const workflowBlock =
-          !roleplayVariant &&
-          !cloudEngine &&
-          onWorkflowPresetChange &&
-          workflowSelection.mounted &&
-          !usesSystemWorkflowPath(shared, shared.model) ? (
-            <ComfyWorkflowSelector
-              selectedId={selectedWorkflowId}
-              defaultLabel={workflowSelection.defaultLabel}
-              localFiles={workflowSelection.localFiles}
-              serverFiles={workflowSelection.serverFiles}
-              helpText={
-                shared.useSystemWorkflows === true
-                  ? 'This model is outside the system-workflow families — pick a library graph (or map one in Settings).'
-                  : shared.autoSelectWorkflowForModel !== false
-                    ? 'Your picker choice is used at queue time unless Settings → model→workflow map assigns a file for this model.'
-                    : undefined
-              }
-              onChange={fileId => {
-                workflowManualOverrideRef.current = true;
-                workflowSelection.setSelectedId(fileId);
-                onWorkflowPresetChange(fileId);
-              }}
-            />
-          ) : null;
+        const workflowBlock = (
+          <SharedWorkflowBlock
+            roleplayVariant={roleplayVariant}
+            cloudEngine={cloudEngine}
+            onWorkflowPresetChange={onWorkflowPresetChange}
+            workflowMounted={workflowSelection.mounted}
+            shared={shared}
+            selectedWorkflowId={selectedWorkflowId}
+            defaultLabel={workflowSelection.defaultLabel}
+            localFiles={workflowSelection.localFiles}
+            serverFiles={workflowSelection.serverFiles}
+            onWorkflowChange={fileId => {
+              workflowManualOverrideRef.current = true;
+              workflowSelection.setSelectedId(fileId);
+              onWorkflowPresetChange?.(fileId);
+            }}
+          />
+        );
 
         const identitySurface = (
           <SharedIdentitySurface

@@ -10,6 +10,7 @@ import {
   type LocalObservabilityCounters,
 } from '@/lib/local-observability';
 import { loadPlayCampaignState, PLAY_CAMPAIGN_STEPS } from '@/lib/play-campaign';
+import { loadOnboardingState } from '@/lib/onboarding-store';
 import {
   daysFromCampaignStartToFirstFilmCut,
   firstFilmCutWithinDays,
@@ -46,12 +47,17 @@ export default function PlayFilmMetricsCard() {
     completedAt?: number;
   } | null>(null);
 
+  const [watchedFirstFilm, setWatchedFirstFilm] = useState(false);
+
   useEffect(() => {
     const refresh = () => {
       scheduleAfterCommit(() => {
         setMetrics(loadPlayMetrics());
         setFunnel(loadLocalObservability());
         setCampaignStep(loadPlayCampaignState());
+        setWatchedFirstFilm(
+          loadOnboardingState().some(step => step.id === 'watch-first-film' && step.done)
+        );
       });
     };
     refresh();
@@ -80,6 +86,7 @@ export default function PlayFilmMetricsCard() {
     metrics,
     funnel,
     campaign: campaignStep,
+    watchedFirstFilm,
   });
 
   const currentIndex = Math.max(

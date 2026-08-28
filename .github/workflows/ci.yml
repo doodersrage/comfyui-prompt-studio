@@ -41,6 +41,12 @@ jobs:
           CI: true
           PROMPT_AUTH_ENABLED: 'false'
           NEXT_PUBLIC_PLAYWRIGHT: '1'
+      # Auth / Heal / workflow-editor / dogfood metrics — fail fast before full suite.
+      - run: npm run test:e2e:ops
+        env:
+          CI: true
+          PROMPT_AUTH_ENABLED: 'false'
+          NEXT_PUBLIC_PLAYWRIGHT: '1'
       - run: npm run test:e2e
         env:
           CI: true
