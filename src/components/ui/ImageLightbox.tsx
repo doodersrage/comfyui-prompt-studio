@@ -1,20 +1,14 @@
 'use client';
 
-import {
-  useCallback,
-  useMemo,
-  type CSSProperties,
-  type PointerEvent as ReactPointerEvent,
-} from 'react';
-import { createPortal } from 'react-dom';
-import { Button } from '@/components/ui/Button';
+import { useCallback, type PointerEvent as ReactPointerEvent } from 'react';
 import ImageLightboxBottomChrome from '@/components/ui/image-lightbox/ImageLightboxBottomChrome';
-import ImageLightboxHelpOverlay from '@/components/ui/image-lightbox/ImageLightboxHelpOverlay';
 import ImageLightboxImageStage from '@/components/ui/image-lightbox/ImageLightboxImageStage';
+import ImageLightboxShell from '@/components/ui/image-lightbox/ImageLightboxShell';
 import ImageLightboxSideNav from '@/components/ui/image-lightbox/ImageLightboxSideNav';
 import { resolveTransitionClasses } from '@/components/ui/image-lightbox/imageLightboxTransitions';
 import { useImageLightboxKeyboard } from '@/components/ui/image-lightbox/useImageLightboxKeyboard';
 import { useImageLightboxPresentation } from '@/components/ui/image-lightbox/useImageLightboxPresentation';
+import { useImageLightboxSlideChromeBarBindings } from '@/components/ui/image-lightbox/useImageLightboxSlideChromeBarBindings';
 import { useImageLightboxStage } from '@/components/ui/image-lightbox/useImageLightboxStage';
 import type {
   ImageLightboxSlideChrome,
@@ -177,74 +171,38 @@ export default function ImageLightbox({
     [applyZoom, resetZoom, setPan, setFitMode]
   );
 
-  const slideChromeBar = useMemo(
-    () => ({
-      chromeCompact,
-      actionsOpen,
-      metaOpen,
-      helpOpen,
-      moreOpen,
-      baOpen,
-      dualMode,
-      fitMode,
-      histogramOpen,
-      preferFullRes,
-      fullResLoading,
-      hasDistinctFullRes,
-      currentMediaKind: presentation.currentKind,
-      imagesLength: images.length,
-      index,
-      onMetaOpenChange: setMetaOpen,
-      onActionsOpenChange: setActionsOpen,
-      onChromeCompactChange: setChromeCompact,
-      onHelpOpenChange: setHelpOpen,
-      onMoreOpenChange: setMoreOpen,
-      onBaOpenChange: setBaOpen,
-      onDualModeChange: setDualMode,
-      onDualIndexChange: setDualIndex,
-      onFitModeChange: setFitMode,
-      onHistogramOpenChange: setHistogramOpen,
-      onPreferFullResChange: setPreferFullRes,
-      onFullResLoadingChange: setFullResLoading,
-      onCurrentImageLoadedChange: setCurrentImageLoaded,
-      onLoadHistogram: () => {
-        void loadHistogram();
-      },
-      onApplyZoomPreset: applyZoomPreset,
-    }),
-    [
-      actionsOpen,
-      applyZoomPreset,
-      baOpen,
-      chromeCompact,
-      dualMode,
-      fitMode,
-      fullResLoading,
-      hasDistinctFullRes,
-      helpOpen,
-      histogramOpen,
-      images.length,
-      index,
-      loadHistogram,
-      metaOpen,
-      moreOpen,
-      preferFullRes,
-      presentation.currentKind,
-      setActionsOpen,
-      setBaOpen,
-      setChromeCompact,
-      setCurrentImageLoaded,
-      setDualIndex,
-      setDualMode,
-      setFitMode,
-      setFullResLoading,
-      setHelpOpen,
-      setHistogramOpen,
-      setMetaOpen,
-      setMoreOpen,
-      setPreferFullRes,
-    ]
-  );
+  const slideChromeBar = useImageLightboxSlideChromeBarBindings({
+    chromeCompact,
+    actionsOpen,
+    metaOpen,
+    helpOpen,
+    moreOpen,
+    baOpen,
+    dualMode,
+    fitMode,
+    histogramOpen,
+    preferFullRes,
+    fullResLoading,
+    hasDistinctFullRes,
+    currentMediaKind: presentation.currentKind,
+    imagesLength: images.length,
+    index,
+    setMetaOpen,
+    setActionsOpen,
+    setChromeCompact,
+    setHelpOpen,
+    setMoreOpen,
+    setBaOpen,
+    setDualMode,
+    setDualIndex,
+    setFitMode,
+    setHistogramOpen,
+    setPreferFullRes,
+    setFullResLoading,
+    setCurrentImageLoaded,
+    loadHistogram,
+    applyZoomPreset,
+  });
 
   useImageLightboxKeyboard({
     open,
@@ -302,6 +260,12 @@ export default function ImageLightbox({
     event.stopPropagation();
   };
 
+  const overline = isFullscreen
+    ? `${slideshow?.playing ? 'Slideshow' : 'Paused'} · ${index + 1} / ${images.length}`
+    : slideshow?.playing
+      ? 'Slideshow'
+      : 'Image preview';
+
   const bottomChromeProps = {
     state,
     images,
@@ -345,9 +309,26 @@ export default function ImageLightbox({
     canGoNext,
   };
 
-  const renderImageStage = (stageClassName: string) => (
+  const sideNav = (
+    <ImageLightboxSideNav
+      imagesLength={images.length}
+      index={index}
+      isFullscreen={isFullscreen}
+      canGoPrevious={canGoPrevious}
+      canGoNext={canGoNext}
+      slideshow={slideshow}
+      onGoToIndex={goToIndex}
+      onStopStagePointer={stopStagePointer}
+    />
+  );
+
+  const stage = (
     <ImageLightboxImageStage
-      stageClassName={stageClassName}
+      stageClassName={
+        isFullscreen
+          ? 'h-full min-h-0'
+          : 'relative flex h-full min-h-0 w-full items-center justify-center overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)] shadow-[var(--shadow-overlay,0_24px_80px_rgb(0_0_0/0.45))]'
+      }
       stageRef={stageRef}
       zoom={zoom}
       onStagePointerDown={onStagePointerDown}
@@ -389,142 +370,22 @@ export default function ImageLightbox({
     />
   );
 
-  if (isFullscreen) {
-    return createPortal(
-      <div
-        ref={containerRef}
-        className="fixed inset-0 z-[120] flex flex-col bg-black text-white"
-        role="dialog"
-        aria-modal="true"
-        aria-label={state.title ?? 'Fullscreen slideshow'}
-        style={
-          {
-            '--lightbox-transition-duration': `${transitionMs}ms`,
-            '--lightbox-image-max-h': '100vh',
-          } as CSSProperties
-        }
-      >
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-[3] bg-gradient-to-b from-black/80 via-black/35 to-transparent px-4 pb-10 pt-4 sm:px-6">
-          <div className="pointer-events-auto flex items-start justify-between gap-4">
-            <div className="min-w-0 space-y-1">
-              <p className="type-overline text-white/50">
-                {slideshow?.playing ? 'Slideshow' : 'Paused'} · {index + 1} / {images.length}
-              </p>
-              {currentTitle ? (
-                <p
-                  key={`${displayIndex}-${currentTitle}`}
-                  className={`type-caption line-clamp-2 text-white/80${
-                    titleAnimating && transitionMs > 0 ? ' lightbox-title-fade-in' : ''
-                  }`}
-                >
-                  {currentTitle}
-                </p>
-              ) : null}
-            </div>
-            <Button
-              variant="ghost"
-              className="!min-h-9 shrink-0 px-3 type-caption !text-white hover:!bg-white/10"
-              onClick={onClose}
-            >
-              Close
-            </Button>
-          </div>
-        </div>
-
-        <ImageLightboxHelpOverlay open={helpOpen} compact onClose={() => setHelpOpen(false)} />
-        <div className="relative min-h-0 flex-1">
-          {renderImageStage('h-full min-h-0')}
-          <ImageLightboxSideNav
-            imagesLength={images.length}
-            index={index}
-            isFullscreen={isFullscreen}
-            canGoPrevious={canGoPrevious}
-            canGoNext={canGoNext}
-            slideshow={slideshow}
-            onGoToIndex={goToIndex}
-            onStopStagePointer={stopStagePointer}
-          />
-        </div>
-
-        <ImageLightboxBottomChrome compact {...bottomChromeProps} />
-      </div>,
-      document.body
-    );
-  }
-
-  return createPortal(
-    <div
-      ref={containerRef}
-      className="fixed inset-0 z-[120] flex items-center justify-center p-2 sm:p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label={state.title ?? 'Image preview'}
-      data-testid="image-lightbox"
-      style={
-        {
-          '--lightbox-transition-duration': `${transitionMs}ms`,
-          '--lightbox-image-max-h': '100%',
-        } as CSSProperties
-      }
-    >
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-        onClick={onClose}
-        aria-label="Close image preview"
-      />
-
-      <div
-        className="relative z-10 flex h-[min(96vh,100%)] max-h-[96vh] w-full max-w-[min(98vw,1800px)] flex-col gap-2 overflow-hidden"
-        onClick={event => event.stopPropagation()}
-      >
-        <div className="flex shrink-0 items-start justify-between gap-4">
-          <div className="min-w-0 space-y-1">
-            <p className="type-overline text-[var(--text-muted)]">
-              {slideshow?.playing ? 'Slideshow' : 'Image preview'}
-            </p>
-            {currentTitle ? (
-              <p
-                key={`${displayIndex}-${currentTitle}`}
-                className={`type-caption line-clamp-2 text-[var(--text-secondary)]${
-                  titleAnimating && transitionMs > 0 ? ' lightbox-title-fade-in' : ''
-                }`}
-              >
-                {currentTitle}
-              </p>
-            ) : null}
-          </div>
-          <Button
-            variant="ghost"
-            className="!min-h-9 shrink-0 px-3 type-caption"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            Close
-          </Button>
-        </div>
-
-        <ImageLightboxHelpOverlay open={helpOpen} onClose={() => setHelpOpen(false)} />
-
-        <div className="relative min-h-0 w-full flex-1">
-          {renderImageStage(
-            'relative flex h-full min-h-0 w-full items-center justify-center overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)] shadow-[var(--shadow-overlay,0_24px_80px_rgb(0_0_0/0.45))]'
-          )}
-          <ImageLightboxSideNav
-            imagesLength={images.length}
-            index={index}
-            isFullscreen={isFullscreen}
-            canGoPrevious={canGoPrevious}
-            canGoNext={canGoNext}
-            slideshow={slideshow}
-            onGoToIndex={goToIndex}
-            onStopStagePointer={stopStagePointer}
-          />
-        </div>
-
-        <ImageLightboxBottomChrome {...bottomChromeProps} />
-      </div>
-    </div>,
-    document.body
+  return (
+    <ImageLightboxShell
+      isFullscreen={isFullscreen}
+      containerRef={containerRef}
+      transitionMs={transitionMs}
+      ariaLabel={state.title ?? (isFullscreen ? 'Fullscreen slideshow' : 'Image preview')}
+      onClose={onClose}
+      helpOpen={helpOpen}
+      onHelpClose={() => setHelpOpen(false)}
+      overline={overline}
+      currentTitle={currentTitle}
+      displayIndex={displayIndex}
+      titleAnimating={titleAnimating}
+      stage={stage}
+      sideNav={sideNav}
+      bottomChrome={<ImageLightboxBottomChrome compact={isFullscreen} {...bottomChromeProps} />}
+    />
   );
 }
