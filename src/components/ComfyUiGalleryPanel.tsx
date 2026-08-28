@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState, useCallback, useRef, useLayoutEffect } from 'react';
 import { useGalleryBrowseState } from '@/hooks/useGalleryBrowseState';
+import { useGalleryCardRenderer } from '@/hooks/useGalleryCardRenderer';
 import { useGalleryDisplayPlan } from '@/hooks/useGalleryDisplayPlan';
 import { useGalleryLightboxBindings } from '@/hooks/useGalleryLightboxBindings';
 import { useGalleryPanelActions } from '@/hooks/useGalleryPanelActions';
@@ -20,7 +21,6 @@ import {
   GalleryPickDock,
 } from '@/components/gallery/GalleryPanelChrome';
 import GalleryVisionReviewButton from '@/components/gallery/GalleryVisionReviewButton';
-import GalleryCardItem from '@/components/gallery/GalleryCardItem';
 import GalleryDisplayGrid from '@/components/gallery/GalleryDisplayGrid';
 import GalleryEmptyPanel from '@/components/gallery/GalleryEmptyPanel';
 import {
@@ -53,7 +53,6 @@ import { isLeanWorkspaceMode } from '@/lib/workspace-mode';
 import { computeGalleryStats } from '@/lib/gallery-stats';
 import { type ParamExperimentAxis } from '@/lib/param-experiment-queue';
 import { useHeldMaxCount } from '@/hooks/useHeldMaxJobs';
-import { suggestRatingMutations } from '@/lib/rating-prompt-mutations';
 import { loadActiveProjectId, loadPromptProjects } from '@/lib/prompt-projects';
 import {
   clearExperimentWinner,
@@ -62,10 +61,7 @@ import {
 } from '@/lib/experiment-winners';
 import { toastBulkQueueSummary } from '@/lib/app-toast';
 import {
-  galleryEntryHeroPreviewUrl,
-  galleryEntryPrimaryMediaKind,
   galleryEntryPrimaryViewUrl,
-  galleryEntryStripThumbUrls,
   galleryEntryViewUrls,
   GALLERY_SLIDESHOW_INTERVAL_OPTIONS,
   GALLERY_SLIDESHOW_TRANSITION_OPTIONS,
@@ -73,7 +69,7 @@ import {
   type ComfyGalleryEntry,
   type GallerySlideshowIntervalMs,
 } from '@/lib/comfyui-gallery';
-import { galleryPickActionLabel, parseGalleryPickTarget } from '@/lib/gallery-handoff';
+import { parseGalleryPickTarget } from '@/lib/gallery-handoff';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import LoraDatasetExportDialog from '@/components/LoraDatasetExportDialog';
 
@@ -474,52 +470,18 @@ export default function ComfyUiGalleryPanel({
     visibleEntriesRef.current = visibleEntries;
   }, [visibleEntries]);
 
-  const renderGalleryCard = useCallback(
-    (entry: ComfyGalleryEntry) => (
-      <GalleryCardItem
-        entry={entry}
-        actionsRef={galleryCardActionsRef}
-        compact={compact || layout === 'dense'}
-        layout={layout}
-        selectable={bulkEnabled && !pickFor}
-        selected={selectedIdSet.has(entry.id)}
-        reviewFocus={
-          (filter.reviewMode === true && reviewFocusEntry?.id === entry.id) ||
-          filter.focusEntryId === entry.id
-        }
-        previewUrl={galleryEntryHeroPreviewUrl(entry)}
-        imageUrls={galleryEntryStripThumbUrls(entry)}
-        reviewMode={filter.reviewMode === true && !pickFor}
-        reviewMutationHints={
-          filter.reviewMode && !pickFor && reviewFocusEntry?.id === entry.id && !entry.reviewRating
-            ? suggestRatingMutations(entry, 2).map(item => item.detail)
-            : undefined
-        }
-        hasDerivatives={entryIdsWithDerivatives.has(entry.id)}
-        pickMode={Boolean(pickFor)}
-        pickable={
-          Boolean(pickFor) &&
-          entry.status === 'completed' &&
-          galleryEntryPrimaryMediaKind(entry) === 'image'
-        }
-        pickLabel={pickFor ? galleryPickActionLabel(pickFor) : undefined}
-        leanActions={leanGallery}
-      />
-    ),
-    [
-      bulkEnabled,
-      compact,
-      entryIdsWithDerivatives,
-      filter.focusEntryId,
-      filter.reviewMode,
-      galleryCardActionsRef,
-      layout,
-      leanGallery,
-      pickFor,
-      reviewFocusEntry?.id,
-      selectedIdSet,
-    ]
-  );
+  const renderGalleryCard = useGalleryCardRenderer({
+    galleryCardActionsRef,
+    compact,
+    layout,
+    bulkEnabled,
+    pickFor,
+    selectedIdSet,
+    filter,
+    reviewFocusEntry,
+    entryIdsWithDerivatives,
+    leanGallery,
+  });
 
   if (entries.length === 0 && !storeReady) {
     return <GalleryPanelSkeleton showFilters={showFilters} compact={compact} />;
