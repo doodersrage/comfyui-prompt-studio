@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { e2eCredentials, ensureAuthenticated } from './helpers/auth';
-import { seedFailedGalleryFixture, seedGalleryFixture } from './helpers/gallery';
+import { seedFailedGalleryFixture } from './helpers/gallery';
 import { gotoStable } from './helpers/navigation';
 import { dismissBlockingOverlays } from './helpers/overlays';
 
@@ -65,15 +65,47 @@ test.describe('Queue failure recovery', () => {
     });
   });
 
-  test('queue page still loads with a seeded failed job in gallery store', async ({ page }) => {
+  test('OOM failed job shows quality downgrade fix on gallery recovery', async ({ page }) => {
     await seedFailedGalleryFixture(page, {
       statusMessage: 'CUDA out of memory',
+      queueQualityProfile: 'max',
     });
-    await seedGalleryFixture(page);
+    await gotoStable(page, '/gallery?status=error');
+    await dismissBlockingOverlays(page);
+    await expect(page.getByTestId('gallery-failed-recovery')).toBeVisible({ timeout: 30_000 });
+    await expect(
+      page.getByRole('button', { name: /Retry as (Draft|Final)/i }).first()
+    ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('OOM failed job shows FailedJobFixButtons on queue page', async ({ page }) => {
+    await seedFailedGalleryFixture(page, {
+      statusMessage: 'CUDA out of memory',
+      queueQualityProfile: 'final',
+    });
     await gotoStable(page, '/queue');
+    await dismissBlockingOverlays(page);
     await expect(page.getByRole('heading', { name: /ComfyUI job queue/i })).toBeVisible({
       timeout: 30_000,
     });
+    await expect(page.getByRole('button', { name: /Retry as Draft/i })).toBeVisible({
+      timeout: 15_000,
+    });
+  });
+
+  test('OOM playbook: gallery error filter shows recovery banner and VRAM settings link', async ({
+    page,
+  }) => {
+    await seedFailedGalleryFixture(page, {
+      statusMessage: 'CUDA out of memory',
+      queueQualityProfile: 'max',
+    });
+    await gotoStable(page, '/gallery?status=error');
+    await dismissBlockingOverlays(page);
+    await expect(page.getByTestId('gallery-failed-recovery')).toBeVisible({ timeout: 30_000 });
+    const settingsLink = page.getByTestId('gallery-failed-fix-guide');
+    await expect(settingsLink).toBeVisible({ timeout: 15_000 });
+    await expect(settingsLink).toHaveAttribute('href', /vram|settings/i);
   });
 });
 

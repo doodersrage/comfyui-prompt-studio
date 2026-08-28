@@ -30,7 +30,6 @@ import { useHubPageDescription, useToolSectionDescription } from '@/hooks/useToo
 import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
 import { saveWorkspaceMode } from '@/lib/workspace-mode';
 import OnboardingChecklist from '@/components/OnboardingChecklist';
-import PlayFilmMetricsCard from '@/components/PlayFilmMetricsCard';
 import ConnectionHealthChip from '@/components/ConnectionHealthChip';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { ToolPageSkeleton } from '@/components/ui/ViewState';
@@ -44,6 +43,10 @@ import {
 
 const QueueOrchestrationPanel = dynamic(() => import('@/components/QueueOrchestrationPanel'), {
   loading: () => <ToolPageSkeleton label="Loading queue" />,
+});
+
+const PlayFilmMetricsCard = dynamic(() => import('@/components/PlayFilmMetricsCard'), {
+  loading: () => <ToolPageSkeleton label="Loading play metrics" />,
 });
 
 const ACCENT = 'neutral' as const;

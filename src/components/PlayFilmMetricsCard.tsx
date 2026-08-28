@@ -18,6 +18,7 @@ import {
   PLAY_METRICS_UPDATED_EVENT,
   resolveNextPlayAction,
   resolvePlayFunnelStall,
+  resolvePlayFunnelStepHref,
   type PlayMetrics,
 } from '@/lib/play-metrics';
 
@@ -95,6 +96,8 @@ export default function PlayFilmMetricsCard() {
     campaign: campaignStep,
   });
 
+  const characterId = campaignStep?.characterId?.trim() || '';
+
   const currentIndex = Math.max(
     campaignStep?.stepIndex ?? -1,
     (funnel?.campaignMaxStep || 0) > 0 ? (funnel?.campaignMaxStep || 1) - 1 : -1,
@@ -120,9 +123,16 @@ export default function PlayFilmMetricsCard() {
       data-testid="play-film-metrics"
     >
       {empty ? (
-        <p className="type-caption text-[var(--text-muted)]" data-testid="play-metrics-empty">
-          No Play funnel events yet. Heal & ready, queue a still, then start a campaign.
-        </p>
+        <>
+          <p className="type-caption text-[var(--text-muted)]" data-testid="play-metrics-empty">
+            No Play funnel events yet. Heal & ready, queue a still, then start a campaign.
+          </p>
+          <div className="mt-2">
+            <ButtonLink href="/play" size="sm" variant="primary" data-testid="play-empty-start">
+              Open Play campaign
+            </ButtonLink>
+          </div>
+        </>
       ) : (
         <div className="grid gap-[var(--group-gap)] sm:grid-cols-2 lg:grid-cols-4">
           <StatCard label="Campaign → first film" value={value} detail={detail} />
@@ -151,22 +161,57 @@ export default function PlayFilmMetricsCard() {
       >
         {PLAY_CAMPAIGN_STEPS.map((step, index) => {
           const done = completed || index < currentIndex;
-          const stall = !completed && index === currentIndex && (hasCampaign || hasFunnel);
+          const isActiveStep = !completed && index === currentIndex && (hasCampaign || hasFunnel);
+          const isStallStep =
+            Boolean(stall) &&
+            (stall!.stepId === step.id ||
+              (stall!.stepId === 'cut' && (step.id === 'day' || step.id === 'roleplay')));
+          const isHighlighted = isActiveStep || isStallStep;
+          const chipClass = `rounded-[var(--radius-md)] border px-2.5 py-1.5 type-caption ${
+            isHighlighted
+              ? 'border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)]'
+              : done
+                ? 'border-[var(--tint-success-border)] text-[var(--tint-success-text)]'
+                : 'border-[var(--border-subtle)] text-[var(--text-muted)]'
+          }`;
+          const label = `${index + 1}. ${step.label}`;
+          const stepHref =
+            characterId && (isActiveStep || isStallStep)
+              ? step.href({ characterId })
+              : resolvePlayFunnelStepHref(
+                  isStallStep && stall!.stepId === 'cut' ? 'cut' : step.id,
+                  characterId || undefined
+                );
+
+          if (isHighlighted) {
+            return (
+              <li key={step.id}>
+                <ButtonLink
+                  href={stepHref}
+                  size="sm"
+                  variant="ghost"
+                  data-testid={`play-funnel-step-${step.id}`}
+                  data-active={isActiveStep ? 'true' : 'false'}
+                  data-stall={isStallStep ? 'true' : 'false'}
+                  data-done={done ? 'true' : 'false'}
+                  className={`${chipClass} no-underline hover:no-underline`}
+                >
+                  {label}
+                </ButtonLink>
+              </li>
+            );
+          }
+
           return (
             <li
               key={step.id}
               data-testid={`play-funnel-step-${step.id}`}
-              data-active={stall ? 'true' : 'false'}
+              data-active="false"
+              data-stall="false"
               data-done={done ? 'true' : 'false'}
-              className={`rounded-[var(--radius-md)] border px-2.5 py-1.5 type-caption ${
-                stall
-                  ? 'border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)]'
-                  : done
-                    ? 'border-[var(--tint-success-border)] text-[var(--tint-success-text)]'
-                    : 'border-[var(--border-subtle)] text-[var(--text-muted)]'
-              }`}
+              className={chipClass}
             >
-              {index + 1}. {step.label}
+              {label}
             </li>
           );
         })}
@@ -180,17 +225,22 @@ export default function PlayFilmMetricsCard() {
       )}
 
       {stall ? (
-        <p
-          className="mt-2 rounded-[var(--radius-md)] border border-[var(--accent-border)] bg-[var(--accent-muted)] px-3 py-2 type-caption text-[var(--accent-text)]"
+        <div
+          className="mt-2 flex flex-wrap items-center gap-2 rounded-[var(--radius-md)] border border-[var(--accent-border)] bg-[var(--accent-muted)] px-3 py-2"
           data-testid="play-funnel-stall"
           data-stall-step={stall.stepId}
         >
-          Stalled at {stall.stepLabel}
-          {stall.daysSinceCampaignStart != null
-            ? ` · ${formatDays(stall.daysSinceCampaignStart)} since campaign start`
-            : ''}
-          . {stall.reason}
-        </p>
+          <p className="type-caption text-[var(--accent-text)]">
+            Stalled at {stall.stepLabel}
+            {stall.daysSinceCampaignStart != null
+              ? ` · ${formatDays(stall.daysSinceCampaignStart)} since campaign start`
+              : ''}
+            . {stall.reason}
+          </p>
+          <ButtonLink href={next.href} size="sm" variant="primary" data-testid="play-stall-cta">
+            {next.label}
+          </ButtonLink>
+        </div>
       ) : null}
 
       <p className="mt-2 type-caption text-[var(--text-secondary)]" data-testid="play-next-reason">

@@ -19,6 +19,21 @@ export function resolveQueueFailureHref(message: string): string | undefined {
   ) {
     return settingsComfyUiSectionHref('inference-engine');
   }
+  if (
+    /fal|replicate|openai|gemini|grok|cloud engine/i.test(text) &&
+    /(fail|unauthorized|api key|unknown|refused|timeout)/i.test(text)
+  ) {
+    return settingsComfyUiSectionHref('inference-engine');
+  }
+  if (
+    /loadimage|identity lock|ip-adapter|instantid|pulid/i.test(text) &&
+    /(not found|missing|invalid|does not exist|failed)/i.test(text)
+  ) {
+    return settingsComfyUiSectionHref('connection');
+  }
+  if (/inpaint mask|draw or upload.*mask|mask.*before queue/i.test(text)) {
+    return '/inpaint';
+  }
   if (/batch.*(fail|partial)|partial.*batch|\d+\s*failed/i.test(text)) {
     return '/queue';
   }

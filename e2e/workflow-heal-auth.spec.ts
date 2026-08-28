@@ -44,6 +44,53 @@ test.describe('Workflow editor', () => {
       timeout: 30_000,
     });
   });
+
+  test('save to library and queue with mocked ComfyUI API', async ({ page }) => {
+    await page.route('**/api/comfyui/preview**', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ workflowSource: 'editor', preflightIssues: [] }),
+      });
+    });
+    await page.route('**/api/comfyui', async route => {
+      if (route.request().method() !== 'POST') {
+        await route.continue();
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ promptId: 'e2e-workflow-queue', ok: true }),
+      });
+    });
+    await gotoStable(page, '/workflow-editor');
+    await dismissBlockingOverlays(page);
+    await expect(page.getByTestId('workflow-editor')).toBeVisible({ timeout: 30_000 });
+    const sampleWorkflow = JSON.stringify({
+      '1': {
+        class_type: 'CLIPTextEncode',
+        inputs: { text: 'e2e queue workflow prompt', clip: ['2', 0] },
+      },
+      '2': {
+        class_type: 'CheckpointLoaderSimple',
+        inputs: { ckpt_name: 'model.safetensors' },
+      },
+    });
+    await page.getByPlaceholder(/Paste Comfy API-format workflow JSON/i).fill(sampleWorkflow);
+    await page.getByRole('button', { name: /Parse JSON/i }).click();
+    await expect(page.getByTestId('workflow-editor-status')).toContainText(/Loaded|nodes/i, {
+      timeout: 15_000,
+    });
+    await page.getByRole('button', { name: /Save to library/i }).click();
+    await expect(page.getByTestId('workflow-editor-status')).toContainText(/Saved/i, {
+      timeout: 15_000,
+    });
+    await page.getByTestId('workflow-editor-queue').click();
+    await expect(page.getByTestId('workflow-editor-status')).toContainText(/Queued|prompt_id/i, {
+      timeout: 30_000,
+    });
+  });
 });
 
 test.describe('Heal failure path', () => {
@@ -191,7 +238,9 @@ test.describe('Play dogfood glue', () => {
     await dismissBlockingOverlays(page);
     await expect(page.getByTestId('play-film-metrics')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId('play-metrics-empty')).toBeVisible();
-    await expect(page.getByTestId('play-next-cta')).toBeVisible();
+    const emptyPlayCta = page.getByTestId('play-empty-start').or(page.getByTestId('play-next-cta'));
+    await expect(emptyPlayCta.first()).toBeVisible();
+    await expect(emptyPlayCta.first()).toHaveAttribute('href', '/play');
     await expect(page.getByTestId('play-funnel-steps')).toBeVisible();
     await expect(page.getByTestId('play-metrics-heal')).toBeVisible();
   });
@@ -266,7 +315,10 @@ test.describe('Play dogfood glue', () => {
     await expect(page.getByTestId('play-funnel-step-day')).toHaveAttribute('data-active', 'true');
     await expect(page.getByTestId('play-funnel-stall')).toBeVisible();
     await expect(page.getByTestId('play-funnel-stall')).toHaveAttribute('data-stall-step', 'cut');
-    const href = await page.getByTestId('play-next-cta').getAttribute('href');
-    expect(href).toMatch(/\/day/);
+    await expect(page.getByTestId('play-stall-cta')).toBeVisible();
+    const stallHref = await page.getByTestId('play-stall-cta').getAttribute('href');
+    expect(stallHref).toMatch(/\/day/);
+    await page.getByTestId('play-stall-cta').click();
+    await expect(page).toHaveURL(/\/day/, { timeout: 30_000 });
   });
 });

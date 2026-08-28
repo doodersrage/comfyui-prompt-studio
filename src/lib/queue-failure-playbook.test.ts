@@ -53,6 +53,36 @@ describe('resolveQueueFailureHref', () => {
   it('returns undefined for generic failures', () => {
     assert.equal(resolveQueueFailureHref('Something went wrong'), undefined);
   });
+
+  it('routes identity lock and stale reference failures to connection', () => {
+    assert.match(
+      resolveQueueFailureHref('LoadImage: face.png not found in input folder') ?? '',
+      /connection|comfyui/i
+    );
+    assert.match(
+      resolveQueueFailureHref('IP-Adapter image file missing on pinned host') ?? '',
+      /connection|comfyui/i
+    );
+  });
+
+  it('routes inpaint mask failures to the inpaint tool', () => {
+    assert.equal(
+      resolveQueueFailureHref('Draw or upload an inpaint mask before queueing.'),
+      '/inpaint'
+    );
+  });
+
+  it('routes cloud engine and API key failures to inference engine', () => {
+    assert.match(resolveQueueFailureHref('Fal queue failed: unauthorized') ?? '', /inference-engine/i);
+    assert.match(
+      resolveQueueFailureHref('Unknown cloud engine "foo"') ?? '',
+      /inference-engine/i
+    );
+    assert.match(
+      resolveQueueFailureHref('Replicate API key is required') ?? '',
+      /inference-engine/i
+    );
+  });
 });
 
 describe('resolveQueueFailurePlaybook', () => {

@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Button } from '@/components/ui/Button';
+import { Button, ButtonLink } from '@/components/ui/Button';
 import type { ComfyGalleryEntry } from '@/lib/comfyui-gallery';
 import { applyQueueFailureFix, resolveQueueFailureFixes } from '@/lib/queue-failure-fix';
+import { resolveQueueFailureHref } from '@/lib/queue-failure-playbook';
 import {
   loadLastFailedQueue,
   requestRetryLastFailedQueue,
@@ -156,6 +157,22 @@ export default function GalleryFailedRecoveryBanner({
                 {cluster.label.length > 120 ? `${cluster.label.slice(0, 120)}…` : cluster.label}
               </p>
               <div className="flex flex-wrap items-center gap-1.5">
+                {(() => {
+                  const settingsHref = resolveQueueFailureHref(cluster.label);
+                  if (!settingsHref || !/settings|vram/i.test(settingsHref)) {
+                    return null;
+                  }
+                  return (
+                    <ButtonLink
+                      href={settingsHref}
+                      size="sm"
+                      variant="ghost"
+                      data-testid="gallery-failed-fix-guide"
+                    >
+                      {settingsHref.includes('vram') ? 'VRAM settings' : 'Open settings'}
+                    </ButtonLink>
+                  );
+                })()}
                 {resolveQueueFailureFixes(cluster.entries[0]!).map(fix => (
                   <Button
                     key={fix.kind}

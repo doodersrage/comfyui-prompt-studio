@@ -99,13 +99,44 @@ export type PlayNextAction = {
   reason: string;
 };
 
+export type PlayFunnelStepId = 'character' | 'moodboard' | 'fitting' | 'day' | 'roleplay' | 'cut';
+
 export type PlayFunnelStall = {
-  stepId: 'character' | 'moodboard' | 'fitting' | 'day' | 'roleplay' | 'cut';
+  stepId: PlayFunnelStepId;
   stepLabel: string;
   reason: string;
   /** Days since first campaign start; null when start time is unknown. */
   daysSinceCampaignStart: number | null;
 };
+
+const PLAY_FUNNEL_STEP_LABELS: Record<PlayFunnelStepId, string> = {
+  character: 'Cast',
+  moodboard: 'Moodboard',
+  fitting: 'Fitting',
+  day: 'Day Planner',
+  roleplay: 'Roleplay',
+  cut: 'Cut film',
+};
+
+/** Deep-link for a Play funnel step chip or stall CTA. */
+export function resolvePlayFunnelStepHref(stepId: PlayFunnelStepId, characterId?: string): string {
+  const id = characterId?.trim() || '';
+  switch (stepId) {
+    case 'character':
+      return id ? `/characters/${encodeURIComponent(id)}` : '/characters';
+    case 'moodboard':
+      return id ? `/moodboard?character=${encodeURIComponent(id)}` : '/moodboard';
+    case 'fitting':
+      return id ? `/fitting?character=${encodeURIComponent(id)}` : '/fitting';
+    case 'day':
+    case 'cut':
+      return id ? `/day?character=${encodeURIComponent(id)}` : '/day';
+    case 'roleplay':
+      return id ? `/roleplay?character=${encodeURIComponent(id)}` : '/roleplay';
+    default:
+      return '/play';
+  }
+}
 
 type FunnelLike = {
   firstPlayCampaign?: number;
@@ -168,13 +199,6 @@ export function resolveNextPlayAction(input: {
     const stepIndex = Math.max(0, Math.min(campaign.stepIndex, 4));
     const stepIds = ['character', 'moodboard', 'fitting', 'day', 'roleplay'] as const;
     const id = stepIds[stepIndex] ?? 'moodboard';
-    const hrefById: Record<(typeof stepIds)[number], string> = {
-      character: `/characters/${encodeURIComponent(characterId)}`,
-      moodboard: `/moodboard?character=${encodeURIComponent(characterId)}`,
-      fitting: `/fitting?character=${encodeURIComponent(characterId)}`,
-      day: `/day?character=${encodeURIComponent(characterId)}`,
-      roleplay: `/roleplay?character=${encodeURIComponent(characterId)}`,
-    };
     const labels: Record<(typeof stepIds)[number], string> = {
       character: 'Open Cast',
       moodboard: 'Continue Moodboard',
@@ -184,7 +208,7 @@ export function resolveNextPlayAction(input: {
     };
     return {
       label: labels[id],
-      href: hrefById[id],
+      href: resolvePlayFunnelStepHref(id, characterId),
       reason: 'Resume your active Play campaign at the current step.',
     };
   }
@@ -227,15 +251,6 @@ export function resolveNextPlayAction(input: {
   };
 }
 
-const STALL_STEP_LABELS: Record<PlayFunnelStall['stepId'], string> = {
-  character: 'Cast',
-  moodboard: 'Moodboard',
-  fitting: 'Fitting',
-  day: 'Day Planner',
-  roleplay: 'Roleplay',
-  cut: 'Cut film',
-};
-
 /**
  * Where the Play funnel is stuck before the first film cut — for dashboard stall callouts.
  */
@@ -269,7 +284,7 @@ export function resolvePlayFunnelStall(input: {
   if (keeps > 0 || maxStep >= 3) {
     return {
       stepId: 'cut',
-      stepLabel: STALL_STEP_LABELS.cut,
+      stepLabel: PLAY_FUNNEL_STEP_LABELS.cut,
       reason: 'Try-ons saved — Cut film in Day or Roleplay to close the loop.',
       daysSinceCampaignStart,
     };
@@ -287,7 +302,7 @@ export function resolvePlayFunnelStall(input: {
 
   return {
     stepId,
-    stepLabel: STALL_STEP_LABELS[stepId],
+    stepLabel: PLAY_FUNNEL_STEP_LABELS[stepId],
     reason: reasons[stepId],
     daysSinceCampaignStart,
   };

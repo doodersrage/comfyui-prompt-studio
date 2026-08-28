@@ -5,6 +5,7 @@ import {
   firstFilmCutWithinDays,
   resolveNextPlayAction,
   resolvePlayFunnelStall,
+  resolvePlayFunnelStepHref,
   type PlayMetrics,
 } from './play-metrics';
 
@@ -88,5 +89,14 @@ describe('play-metrics', () => {
       funnel: { firstPlayCampaign: 1, campaignMaxStep: 2 },
     });
     assert.equal(moodboardStall?.stepId, 'moodboard');
+  });
+
+  it('resolves funnel step hrefs with optional character id', () => {
+    assert.equal(resolvePlayFunnelStepHref('day'), '/day');
+    assert.equal(resolvePlayFunnelStepHref('day', 'c1'), '/day?character=c1');
+    assert.equal(resolvePlayFunnelStepHref('cut', 'c1'), '/day?character=c1');
+    assert.equal(resolvePlayFunnelStepHref('fitting', 'c1'), '/fitting?character=c1');
+    assert.equal(resolvePlayFunnelStepHref('character'), '/characters');
+    assert.equal(resolvePlayFunnelStepHref('moodboard', 'c1'), '/moodboard?character=c1');
   });
 });
