@@ -141,7 +141,6 @@ export default function RoleplayTool() {
 
   const {
     playAs: normalizedPlayAs,
-    referencePreviewUrl,
     setReferencePreviewUrl,
     referenceUploading,
     scanning,
