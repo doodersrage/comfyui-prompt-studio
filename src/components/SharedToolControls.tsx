@@ -70,7 +70,6 @@ import { readCachedComfyObjectInfoModels } from '@/lib/comfyui-object-info-cache
 import { scanAndAdaptSystemWorkflowInventory } from '@/lib/comfyui-runtime-for-model';
 import { loadComfyWorkflowFiles } from '@/lib/comfyui-workflow-files';
 import { accentRingClass } from '@/lib/tool-theme';
-import { CollapsibleSection } from '@/components/ui/ToolPageShell';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import { isBrowserStorageReady, whenBrowserStorageReady } from '@/lib/browser-storage';
@@ -90,12 +89,9 @@ import {
   DIFFUSERS_DEFAULT_MODEL,
   resolveStudioModelForDiffusersAsset,
 } from '@/lib/diffusers-defaults';
-import SharedAdvancedSections from '@/components/shared-tool-controls/SharedAdvancedSections';
-import SharedIdentitySurface from '@/components/shared-tool-controls/SharedIdentitySurface';
 import SharedModelSurface from '@/components/shared-tool-controls/SharedModelSurface';
 import SharedPrimaryControls from '@/components/shared-tool-controls/SharedPrimaryControls';
-import SharedQueueQualityBlock from '@/components/shared-tool-controls/SharedQueueQualityBlock';
-import SharedWorkflowBlock from '@/components/shared-tool-controls/SharedWorkflowBlock';
+import SharedToolAdvancedCollapsible from '@/components/shared-tool-controls/SharedToolAdvancedCollapsible';
 import type { SharedToolControlsProps } from '@/components/shared-tool-controls/types';
 import { SUGGESTED_MODEL_CHECKPOINT_MAP } from '@/lib/model-checkpoint-map';
 import {
@@ -1193,141 +1189,74 @@ export default function SharedToolControls({
         onSharedSettingsChange={onSharedSettingsChange}
       />
 
-      {(() => {
-        const queueQualityBlock = (
-          <SharedQueueQualityBlock
-            cloudEngine={cloudEngine}
-            systemPathActive={systemPathActive}
-            roleplayVariant={roleplayVariant}
-            queueQualityProfile={queueQualityProfile}
-            lockedVariationSeed={lockedVariationSeed}
-            systemWorkflowChoice={systemWorkflowChoice}
-            toolId={toolId}
-            shared={shared}
-            recipesShared={recipesShared}
-            resolutionOrientation={resolutionOrientation}
-            resolutionSizeTier={resolutionSizeTier}
-            onRecipesApplied={handleRecipesApplied}
-          />
-        );
-
-        const workflowBlock = (
-          <SharedWorkflowBlock
-            roleplayVariant={roleplayVariant}
-            cloudEngine={cloudEngine}
-            onWorkflowPresetChange={onWorkflowPresetChange}
-            workflowMounted={workflowSelection.mounted}
-            shared={shared}
-            selectedWorkflowId={selectedWorkflowId}
-            defaultLabel={workflowSelection.defaultLabel}
-            localFiles={workflowSelection.localFiles}
-            serverFiles={workflowSelection.serverFiles}
-            onWorkflowChange={fileId => {
-              workflowManualOverrideRef.current = true;
-              workflowSelection.setSelectedId(fileId);
-              onWorkflowPresetChange?.(fileId);
-            }}
-          />
-        );
-
-        const identitySurface = (
-          <SharedIdentitySurface
-            shared={shared}
-            cloudEngine={cloudEngine}
-            toolId={toolId}
-            roleplayVariant={roleplayVariant}
-            advancedOpenByDefault={advancedOpenByDefault}
-            onSharedSettingsChange={onSharedSettingsChange}
-          />
-        );
-
-        const advancedSections = (
-          <SharedAdvancedSections
-            queueQualityBlock={queueQualityBlock}
-            workflowBlock={workflowBlock}
-            identitySurface={identitySurface}
-            cloudEngine={cloudEngine}
-            roleplayVariant={roleplayVariant}
-            systemPathActive={systemPathActive}
-            advancedOpenByDefault={advancedOpenByDefault}
-            checkboxClass={checkboxClass}
-            shared={shared}
-            sessionActiveLoraIds={sessionActiveLoraIds}
-            sessionActiveLoraIdsByModel={sessionActiveLoraIdsByModel}
-            sessionLoraStrengthOverrides={sessionLoraStrengthOverrides}
-            onSessionActiveLoraIdsChange={handleSessionActiveLoraIdsChange}
-            onSessionLoraStrengthOverridesChange={handleSessionLoraStrengthOverridesChange}
-            onSharedSettingsChange={onSharedSettingsChange}
-            samplerPreset={samplerPreset}
-            samplerOverrides={samplerOverrides}
-            onSamplerPresetChange={handleSamplerPresetChange}
-            onSamplerOverridesChange={handleSamplerOverridesChange}
-            resolutionOrientation={resolutionOrientation}
-            resolutionSizeTier={resolutionSizeTier}
-            onResolutionOrientationChange={handleResolutionOrientationChange}
-            onResolutionSizeTierChange={handleResolutionSizeTierChange}
-            queueQualityProfile={queueQualityProfile}
-            onQueueQualityProfileChange={handleQueueQualityProfileChange}
-            toolId={toolId}
-            toolProfileOverride={toolProfileOverride}
-            onToolQueueQualityChange={handleToolQueueQualityChange}
-            lockedVariationSeed={lockedVariationSeed}
-            recipesShared={recipesShared}
-            onRecipesApplied={handleRecipesApplied}
-            renderRealismMode={renderRealismMode}
-            onRenderRealismModeChange={handleRenderRealismModeChange}
-            anatomyGuardMode={anatomyGuardMode}
-            onAnatomyGuardModeChange={handleAnatomyGuardModeChange}
-            recommendFromText={recommendFromText}
-            onModelChange={handleModelChange}
-            expandWildcards={expandWildcards}
-            onExpandWildcardsChange={handleExpandWildcardsChange}
-            wildcardSeed={wildcardSeed}
-            onWildcardSeedChange={handleWildcardSeedChange}
-            wildcardPreviewText={wildcardPreviewText}
-            wildcardPreview={wildcardPreview}
-            onWildcardPreviewChange={setWildcardPreview}
-            autoRetryOnOom={autoRetryOnOom}
-            onAutoRetryOnOomChange={handleAutoRetryOnOomChange}
-            oomRetryDowngrade={oomRetryDowngrade}
-            onOomRetryDowngradeChange={handleOomRetryDowngradeChange}
-            showWardrobeOption={showWardrobeOption}
-            alwaysIncludeClothing={alwaysIncludeClothing}
-            onAlwaysIncludeClothingChange={onAlwaysIncludeClothingChange}
-            wardrobeHelp={wardrobeHelp}
-            seedLlmWithIngredients={seedLlmWithIngredients}
-            onSeedLlmWithIngredientsChange={onSeedLlmWithIngredientsChange}
-            lockedWardrobeId={lockedWardrobeId}
-            lockedWardrobeLabel={lockedWardrobeLabel}
-            onClearLockedWardrobe={onClearLockedWardrobe}
-            lockedLocation={lockedLocation}
-            onClearLockedLocation={onClearLockedLocation}
-            onClearLockedVariationSeed={onClearLockedVariationSeed}
-            autoFixRules={autoFixRules}
-            onAutoFixRulesChange={onAutoFixRulesChange}
-            activeCharacterDescriptor={activeCharacterDescriptor}
-            onActiveCharacterDescriptorChange={onActiveCharacterDescriptorChange}
-          />
-        );
-
-        return (
-          <>
-            {roleplayVariant ? identitySurface : null}
-            <CollapsibleSection
-              title="Advanced settings"
-              summary={
-                roleplayVariant
-                  ? 'Quality and LoRA stack.'
-                  : 'LoRAs, embeddings, identity, sampling, wildcards, and automation.'
-              }
-              defaultOpen={advancedOpenByDefault}
-              persistKey="shared-advanced-settings"
-            >
-              {advancedSections}
-            </CollapsibleSection>
-          </>
-        );
-      })()}
+      <SharedToolAdvancedCollapsible
+        cloudEngine={cloudEngine}
+        roleplayVariant={roleplayVariant}
+        systemPathActive={systemPathActive}
+        advancedOpenByDefault={advancedOpenByDefault}
+        checkboxClass={checkboxClass}
+        shared={shared}
+        sessionActiveLoraIds={sessionActiveLoraIds}
+        sessionActiveLoraIdsByModel={sessionActiveLoraIdsByModel}
+        sessionLoraStrengthOverrides={sessionLoraStrengthOverrides}
+        onSessionActiveLoraIdsChange={handleSessionActiveLoraIdsChange}
+        onSessionLoraStrengthOverridesChange={handleSessionLoraStrengthOverridesChange}
+        onSharedSettingsChange={onSharedSettingsChange}
+        samplerPreset={samplerPreset}
+        samplerOverrides={samplerOverrides}
+        onSamplerPresetChange={handleSamplerPresetChange}
+        onSamplerOverridesChange={handleSamplerOverridesChange}
+        resolutionOrientation={resolutionOrientation}
+        resolutionSizeTier={resolutionSizeTier}
+        onResolutionOrientationChange={handleResolutionOrientationChange}
+        onResolutionSizeTierChange={handleResolutionSizeTierChange}
+        queueQualityProfile={queueQualityProfile}
+        onQueueQualityProfileChange={handleQueueQualityProfileChange}
+        toolId={toolId}
+        toolProfileOverride={toolProfileOverride}
+        onToolQueueQualityChange={handleToolQueueQualityChange}
+        lockedVariationSeed={lockedVariationSeed}
+        recipesShared={recipesShared}
+        onRecipesApplied={handleRecipesApplied}
+        renderRealismMode={renderRealismMode}
+        onRenderRealismModeChange={handleRenderRealismModeChange}
+        anatomyGuardMode={anatomyGuardMode}
+        onAnatomyGuardModeChange={handleAnatomyGuardModeChange}
+        recommendFromText={recommendFromText}
+        onModelChange={handleModelChange}
+        expandWildcards={expandWildcards}
+        onExpandWildcardsChange={handleExpandWildcardsChange}
+        wildcardSeed={wildcardSeed}
+        onWildcardSeedChange={handleWildcardSeedChange}
+        wildcardPreviewText={wildcardPreviewText}
+        wildcardPreview={wildcardPreview}
+        onWildcardPreviewChange={setWildcardPreview}
+        autoRetryOnOom={autoRetryOnOom}
+        onAutoRetryOnOomChange={handleAutoRetryOnOomChange}
+        oomRetryDowngrade={oomRetryDowngrade}
+        onOomRetryDowngradeChange={handleOomRetryDowngradeChange}
+        showWardrobeOption={showWardrobeOption}
+        alwaysIncludeClothing={alwaysIncludeClothing}
+        onAlwaysIncludeClothingChange={onAlwaysIncludeClothingChange}
+        wardrobeHelp={wardrobeHelp}
+        seedLlmWithIngredients={seedLlmWithIngredients}
+        onSeedLlmWithIngredientsChange={onSeedLlmWithIngredientsChange}
+        lockedWardrobeId={lockedWardrobeId}
+        lockedWardrobeLabel={lockedWardrobeLabel}
+        onClearLockedWardrobe={onClearLockedWardrobe}
+        lockedLocation={lockedLocation}
+        onClearLockedLocation={onClearLockedLocation}
+        onClearLockedVariationSeed={onClearLockedVariationSeed}
+        autoFixRules={autoFixRules}
+        onAutoFixRulesChange={onAutoFixRulesChange}
+        activeCharacterDescriptor={activeCharacterDescriptor}
+        onActiveCharacterDescriptorChange={onActiveCharacterDescriptorChange}
+        selectedWorkflowId={selectedWorkflowId}
+        systemWorkflowChoice={systemWorkflowChoice}
+        workflowSelection={workflowSelection}
+        workflowManualOverrideRef={workflowManualOverrideRef}
+        onWorkflowPresetChange={onWorkflowPresetChange}
+      />
     </div>
   );
 }

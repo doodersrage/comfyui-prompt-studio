@@ -4,10 +4,7 @@ import dynamic from 'next/dynamic';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState, useCallback, useRef, useLayoutEffect } from 'react';
 import { useGalleryPanelActions } from '@/hooks/useGalleryPanelActions';
-import ImageLightbox, {
-  type ImageLightboxSlideChrome,
-  type ImageLightboxState,
-} from '@/components/ui/ImageLightbox';
+import ImageLightbox, { type ImageLightboxSlideChrome } from '@/components/ui/ImageLightbox';
 import {
   startRefineFromGalleryEntry,
   startReeditRefineFromGalleryEntry,
@@ -60,6 +57,7 @@ import {
 import { useGalleryReview } from '@/hooks/useGalleryReview';
 import { useGallerySelection } from '@/hooks/useGallerySelection';
 import { useGalleryCompareHandlers } from '@/hooks/useGalleryCompareHandlers';
+import { useGalleryPanelLightbox } from '@/hooks/useGalleryPanelLightbox';
 import { toneForStatusText } from '@/lib/status-progress';
 import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
 import { isLeanWorkspaceMode } from '@/lib/workspace-mode';
@@ -92,13 +90,9 @@ import {
 } from '@/lib/experiment-winners';
 import { loadGalleryDensity, saveGalleryDensity, type GalleryDensity } from '@/lib/gallery-density';
 import { toastBulkQueueSummary } from '@/lib/app-toast';
-import { buildLightboxStateFromPlaylist } from '@/lib/gallery-lightbox-state';
 import { buildGalleryLightboxSlideChrome } from '@/components/gallery/buildGalleryLightboxSlideChrome';
 import {
-  buildGalleryLightboxPlaylist,
   galleryEntryHeroPreviewUrl,
-  galleryEntryLightboxUrls,
-  galleryEntryMediaKinds,
   galleryEntryPrimaryMediaKind,
   galleryEntryPrimaryViewUrl,
   galleryEntryStripThumbUrls,
@@ -109,7 +103,6 @@ import {
   loadGalleryViewPreferences,
   resolveGalleryPageSize,
   resolveGalleryLightboxEntry,
-  resolveGalleryLightboxOpenIndex,
   saveGalleryViewPreferences,
   sortGalleryEntries,
   isGalleryStoreReady,
@@ -121,7 +114,6 @@ import {
   type GallerySlideshowIntervalMs,
   type GallerySlideshowTransition,
 } from '@/lib/comfyui-gallery';
-import { prefetchGalleryImageUrl } from '@/lib/gallery-image-prefetch';
 import { galleryPickActionLabel, parseGalleryPickTarget } from '@/lib/gallery-handoff';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import LoraDatasetExportDialog from '@/components/LoraDatasetExportDialog';
@@ -208,17 +200,11 @@ export default function ComfyUiGalleryPanel({
   const heldMaxCount = useHeldMaxCount();
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [requeueStatus, setRequeueStatus] = useState<string | null>(null);
-  const [lightbox, setLightbox] = useState<ImageLightboxState | null>(null);
-  const [slideshowPlaying, setSlideshowPlaying] = useState(false);
-  const [slideshowFullscreen, setSlideshowFullscreen] = useState(false);
   const [page, setPage] = useState(() =>
     browsePaginationEnabled ? readInitialGalleryPage(window.location.pathname) : 1
   );
   const [sort, setSort] = useState<ComfyGallerySort>('queued-desc');
   const [pageSize, setPageSize] = useState<GalleryPageSize>(12);
-  const [slideshowIntervalMs, setSlideshowIntervalMs] = useState<GallerySlideshowIntervalMs>(5000);
-  const [slideshowTransition, setSlideshowTransition] =
-    useState<GallerySlideshowTransition>('slide');
   const [layout, setLayout] = useState<GalleryLayoutMode>('grid');
   const [viewPrefsLoaded, setViewPrefsLoaded] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
@@ -355,6 +341,35 @@ export default function ComfyUiGalleryPanel({
     [filteredSource, paginationEnabled, sort]
   );
 
+  const {
+    lightbox,
+    setLightbox,
+    slideshowPlaying,
+    setSlideshowPlaying,
+    slideshowFullscreen,
+    setSlideshowFullscreen,
+    slideshowIntervalMs,
+    setSlideshowIntervalMs,
+    slideshowTransition,
+    setSlideshowTransition,
+    lightboxEntries,
+    lightboxEntriesRef,
+    lightboxPlaylist,
+    applyPlaylistState,
+    resolvedLightbox,
+    openEntryLightbox,
+    openLightboxForEntryId,
+    prefetchLightboxForEntryId,
+    startSlideshow,
+    startFullscreenSlideshow,
+    closeLightbox,
+  } = useGalleryPanelLightbox({
+    sortedSource,
+    storeReady,
+    entries,
+    searchParams,
+  });
+
   useEffect(() => {
     if (!storeReady) {
       return;
@@ -421,8 +436,6 @@ export default function ComfyUiGalleryPanel({
       const preferences = loadGalleryViewPreferences();
       setSort(preferences.sort);
       setPageSize(preferences.pageSize);
-      setSlideshowIntervalMs(preferences.slideshowIntervalMs);
-      setSlideshowTransition(preferences.slideshowTransition);
       setLayout(preferences.layout);
       setDensity(loadGalleryDensity());
       setExperimentWinners(loadExperimentWinners());
@@ -858,191 +871,6 @@ export default function ComfyUiGalleryPanel({
       setRequeueStatus(`Exported ${count} keeper image(s) + sidecars.`);
     });
   }, [entries]);
-
-  // Full filtered/sorted set — not just the current page — so slideshow/nav spans the view.
-  const lightboxEntries = sortedSource;
-  const lightboxEntriesRef = useRef(lightboxEntries);
-  const lightboxPlaylist = useMemo(
-    () => buildGalleryLightboxPlaylist(lightboxEntries),
-    [lightboxEntries]
-  );
-
-  useLayoutEffect(() => {
-    lightboxEntriesRef.current = lightboxEntries;
-  }, [lightboxEntries]);
-
-  const applyPlaylistState = useCallback(
-    (index: number, extras?: { playing?: boolean; fullscreen?: boolean }) => {
-      const next = buildLightboxStateFromPlaylist(lightboxPlaylist, index);
-      if (!next) {
-        return;
-      }
-      setLightbox(next);
-      if (extras?.playing != null) {
-        setSlideshowPlaying(extras.playing);
-      }
-      if (extras?.fullscreen != null) {
-        setSlideshowFullscreen(extras.fullscreen);
-      }
-    },
-    [lightboxPlaylist]
-  );
-
-  // Derive live playlist into the open lightbox so filter/sort changes don't require setState sync.
-  const resolvedLightbox = useMemo<ImageLightboxState | null>(() => {
-    if (!lightbox) {
-      return null;
-    }
-    return buildLightboxStateFromPlaylist(lightboxPlaylist, lightbox.index);
-  }, [lightbox, lightboxPlaylist]);
-
-  useEffect(() => {
-    if (!lightbox || lightboxPlaylist.images.length > 0) {
-      return;
-    }
-    scheduleAfterCommit(() => {
-      setLightbox(null);
-      setSlideshowPlaying(false);
-      setSlideshowFullscreen(false);
-    });
-  }, [lightbox, lightboxPlaylist.images.length]);
-
-  const openEntryLightbox = useCallback(
-    (entry: ComfyGalleryEntry, imageIndex: number) => {
-      if (lightboxPlaylist.images.length === 0) {
-        return;
-      }
-
-      const index = resolveGalleryLightboxOpenIndex(
-        lightboxEntriesRef.current,
-        entry.id,
-        imageIndex
-      );
-
-      applyPlaylistState(index, { playing: false, fullscreen: false });
-    },
-    [applyPlaylistState, lightboxPlaylist.images.length]
-  );
-
-  const openLightboxForEntryId = useCallback(
-    (entryId: string, imageIndex: number) => {
-      const entry = lightboxEntriesRef.current.find(item => item.id === entryId);
-      if (entry) {
-        openEntryLightbox(entry, imageIndex);
-      }
-    },
-    [openEntryLightbox]
-  );
-
-  const prefetchLightboxForEntryId = useCallback((entryId: string, imageIndex: number) => {
-    const entry = lightboxEntriesRef.current.find(item => item.id === entryId);
-    if (!entry) {
-      return;
-    }
-    const urls = galleryEntryLightboxUrls(entry);
-    if (urls.length === 0) {
-      return;
-    }
-    const safeIndex = Math.min(Math.max(imageIndex, 0), urls.length - 1);
-    if (galleryEntryMediaKinds(entry)[safeIndex] === 'video') {
-      return;
-    }
-    prefetchGalleryImageUrl(urls[safeIndex]);
-  }, []);
-
-  const startSlideshow = () => {
-    if (lightboxPlaylist.images.length === 0) {
-      return;
-    }
-    const startIndex = resolvedLightbox?.index ?? lightbox?.index ?? 0;
-    applyPlaylistState(startIndex, { playing: true, fullscreen: false });
-  };
-
-  const startFullscreenSlideshow = () => {
-    if (lightboxPlaylist.images.length === 0) {
-      return;
-    }
-    const startIndex = resolvedLightbox?.index ?? lightbox?.index ?? 0;
-    applyPlaylistState(startIndex, { playing: true, fullscreen: true });
-  };
-
-  const closeLightbox = () => {
-    if (document.fullscreenElement) {
-      void document.exitFullscreen?.().catch(() => undefined);
-    }
-    setLightbox(null);
-    setSlideshowPlaying(false);
-    setSlideshowFullscreen(false);
-  };
-
-  const deepLinkOpenedRef = useRef<string | null>(null);
-  /** Preserve ?lightbox= across early URL sync clears until the store can open it. */
-  const pendingLightboxDeepLinkRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    const id = searchParams.get('lightbox')?.trim();
-    if (id) {
-      pendingLightboxDeepLinkRef.current = id;
-    }
-  }, [searchParams]);
-
-  // Open from ?lightbox=<entryId> once gallery data is ready.
-  useEffect(() => {
-    if (!storeReady || lightboxPlaylist.images.length === 0) {
-      return;
-    }
-    const id = pendingLightboxDeepLinkRef.current ?? searchParams.get('lightbox')?.trim();
-    if (!id || deepLinkOpenedRef.current === id) {
-      return;
-    }
-    const entry =
-      lightboxEntriesRef.current.find(item => item.id === id) ??
-      entries.find(item => item.id === id);
-    if (!entry) {
-      return;
-    }
-    deepLinkOpenedRef.current = id;
-    openEntryLightbox(entry, 0);
-  }, [storeReady, lightboxPlaylist.images.length, searchParams, entries, openEntryLightbox]);
-
-  // Keep ?lightbox= in sync with the open preview for shareable links.
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-    const url = new URL(window.location.href);
-    if (!resolvedLightbox) {
-      // Don't strip deep-link targets before the gallery store is ready to open them.
-      if (!storeReady) {
-        return;
-      }
-      const pending =
-        url.searchParams.get('lightbox')?.trim() || pendingLightboxDeepLinkRef.current;
-      if (pending && deepLinkOpenedRef.current !== pending) {
-        const exists =
-          lightboxEntriesRef.current.some(item => item.id === pending) ||
-          entries.some(item => item.id === pending);
-        if (exists) {
-          return;
-        }
-      }
-      if (url.searchParams.has('lightbox')) {
-        url.searchParams.delete('lightbox');
-        window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
-      }
-      return;
-    }
-    const resolved = resolveGalleryLightboxEntry(lightboxEntries, resolvedLightbox.index);
-    if (!resolved) {
-      return;
-    }
-    if (url.searchParams.get('lightbox') === resolved.entry.id) {
-      return;
-    }
-    url.searchParams.set('lightbox', resolved.entry.id);
-    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
-    deepLinkOpenedRef.current = resolved.entry.id;
-  }, [resolvedLightbox, lightboxEntries, storeReady, entries]);
 
   const onDownloadImage = useCallback(async (displayIndex: number) => {
     const resolved = resolveGalleryLightboxEntry(lightboxEntriesRef.current, displayIndex);

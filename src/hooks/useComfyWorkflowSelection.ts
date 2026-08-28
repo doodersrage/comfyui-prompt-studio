@@ -13,7 +13,7 @@ export type ServerWorkflowOption = {
   source: 'server';
 };
 
-type UseComfyWorkflowSelectionResult = {
+export type UseComfyWorkflowSelectionResult = {
   mounted: boolean;
   selectedId?: string;
   localFiles: ComfyWorkflowFile[];
