@@ -5,9 +5,10 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState, useCallback, useRef, useLayoutEffect } from 'react';
 import { useGalleryBrowseState } from '@/hooks/useGalleryBrowseState';
 import { useGalleryDisplayPlan } from '@/hooks/useGalleryDisplayPlan';
+import { useGalleryLightboxBindings } from '@/hooks/useGalleryLightboxBindings';
 import { useGalleryPanelActions } from '@/hooks/useGalleryPanelActions';
 import { useGalleryPanelRecovery } from '@/hooks/useGalleryPanelRecovery';
-import ImageLightbox, { type ImageLightboxSlideChrome } from '@/components/ui/ImageLightbox';
+import ImageLightbox from '@/components/ui/ImageLightbox';
 import {
   startRefineFromGalleryEntry,
   startReeditRefineFromGalleryEntry,
@@ -54,14 +55,12 @@ import { type ParamExperimentAxis } from '@/lib/param-experiment-queue';
 import { useHeldMaxCount } from '@/hooks/useHeldMaxJobs';
 import { suggestRatingMutations } from '@/lib/rating-prompt-mutations';
 import { loadActiveProjectId, loadPromptProjects } from '@/lib/prompt-projects';
-import { downloadGalleryImage } from '@/lib/comfyui-gallery-export';
 import {
   clearExperimentWinner,
   loadExperimentWinners,
   markExperimentWinner,
 } from '@/lib/experiment-winners';
 import { toastBulkQueueSummary } from '@/lib/app-toast';
-import { buildGalleryLightboxSlideChrome } from '@/components/gallery/buildGalleryLightboxSlideChrome';
 import {
   galleryEntryHeroPreviewUrl,
   galleryEntryPrimaryMediaKind,
@@ -70,7 +69,6 @@ import {
   galleryEntryViewUrls,
   GALLERY_SLIDESHOW_INTERVAL_OPTIONS,
   GALLERY_SLIDESHOW_TRANSITION_OPTIONS,
-  resolveGalleryLightboxEntry,
   isGalleryStoreReady,
   type ComfyGalleryEntry,
   type GallerySlideshowIntervalMs,
@@ -417,49 +415,24 @@ export default function ComfyUiGalleryPanel({
     });
   }, []);
 
-  const onDownloadImage = useCallback(async (displayIndex: number) => {
-    const resolved = resolveGalleryLightboxEntry(lightboxEntriesRef.current, displayIndex);
-    if (!resolved) return;
-    await downloadGalleryImage(resolved.entry, resolved.imageIndex);
-  }, []);
-
-  const lightboxSlideChrome = useMemo<ImageLightboxSlideChrome | null>(
-    () =>
-      buildGalleryLightboxSlideChrome({
-        resolvedLightbox,
-        lightboxEntries,
-        entries,
-        entryIdsWithDerivatives,
-        selectedIdSet,
-        selectedIds,
-        router,
-        handleReviewRating,
-        toggleFavorite,
-        toggleSelected,
-        removeEntry,
-        setRequeueStatus,
-        setCompareOpen,
-        setFilter,
-        applyPlaylistState,
-      }),
-    [
-      applyPlaylistState,
-      entries,
-      entryIdsWithDerivatives,
-      handleReviewRating,
-      lightboxEntries,
-      removeEntry,
-      resolvedLightbox,
-      router,
-      selectedIdSet,
-      selectedIds,
-      setCompareOpen,
-      setFilter,
-      setRequeueStatus,
-      toggleFavorite,
-      toggleSelected,
-    ]
-  );
+  const { onDownloadImage, lightboxSlideChrome } = useGalleryLightboxBindings({
+    resolvedLightbox,
+    lightboxEntries,
+    lightboxEntriesRef,
+    entries,
+    entryIdsWithDerivatives,
+    selectedIdSet,
+    selectedIds,
+    router,
+    handleReviewRating,
+    toggleFavorite,
+    toggleSelected,
+    removeEntry,
+    setRequeueStatus,
+    setCompareOpen,
+    setFilter,
+    applyPlaylistState,
+  });
 
   const { galleryCardActionsRef, bulkExperimentHandlers } = useGalleryPanelActions({
     entriesRef,
