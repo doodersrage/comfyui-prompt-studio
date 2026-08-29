@@ -15,6 +15,8 @@ export type QueueSingleInputsResult = {
   maskImageFilename?: string;
   controlImageFilename?: string;
   controlImageFilenames: string[];
+  /** Weighted identity prompt suffix for cloud face-ref (no IP-Adapter). */
+  cloudFaceRefPromptInstruction?: string;
 };
 
 export async function resolveQueueSingleInputs(input: {
@@ -126,7 +128,7 @@ export async function resolveQueueSingleInputs(input: {
     inputImageFilename = inputImageFilenames[0];
   }
 
-  const { inferVideoClipMode, falVideoRequiresFirstFrame, falVideoRequiresParentClip } =
+  const { inferVideoClipMode, falVideoRequiresFirstFrame, cloudNativeExtendEngines } =
     await import('@/lib/video-clip-mode');
   const clipMode =
     effectiveTool === 'video'
@@ -145,14 +147,27 @@ export async function resolveQueueSingleInputs(input: {
       engineAdapter.id !== 'gemini'
     ) {
       throw new Error(
-        `${engineDisplayName(engineAdapter.id)} cannot queue clips. Switch the inference engine to Fal, Replicate, Grok, Gemini, or local WAN.`
+        `${engineDisplayName(engineAdapter.id)} cannot queue clips. Switch the inference engine to Fal, Replicate, Grok, Gemini, Runway, or local WAN.`
       );
     }
-    if (falVideoRequiresParentClip(clipMode ?? 't2v') && !parentVideoUrl) {
-      throw new Error('Cloud extend needs a public Fal clip URL.');
+    if (clipMode === 'extend' && cloudNativeExtendEngines(engineAdapter.id) && !parentVideoUrl) {
+      throw new Error(
+        engineAdapter.id === 'grok'
+          ? 'Grok extend needs a parent clip URL.'
+          : 'Cloud extend needs a public Fal clip URL.'
+      );
     }
     if (falVideoRequiresFirstFrame(clipMode ?? 't2v') && !inputImageFilename) {
       throw new Error('Cloud image-to-video needs a first frame.');
+    }
+    if (
+      clipMode === 'extend' &&
+      !cloudNativeExtendEngines(engineAdapter.id) &&
+      !inputImageFilename
+    ) {
+      throw new Error(
+        `${engineDisplayName(engineAdapter.id)} continue uses last-frame I2V — need a first frame from the parent clip.`
+      );
     }
   }
 
@@ -178,6 +193,61 @@ export async function resolveQueueSingleInputs(input: {
         inputImageFilename = fallback.inputImageFilename;
         uploadedFilenames[0] = fallback.inputImageFilename;
       }
+    }
+  }
+
+  let cloudFaceRefPromptInstruction: string | undefined;
+  if (cloudEngine && options?.identityLock === true) {
+    const { buildCloudComposeFaceRefPayload } = await import('@/lib/cloud-compose-refs');
+    const { loadEngineSettings } = await import('@/lib/engine-settings');
+    const { defaultCloudImg2ImgModel } = await import('@/lib/engine/capabilities');
+    const identity = loadSettingsCache().shared;
+    const engineSettings = loadEngineSettings();
+    const img2imgModel =
+      engineAdapter.id === 'fal'
+        ? identity.falImg2ImgModel?.trim() ||
+          engineSettings.falImg2ImgModel ||
+          defaultCloudImg2ImgModel('fal')
+        : engineAdapter.id === 'replicate'
+          ? identity.replicateImg2ImgModel?.trim() ||
+            engineSettings.replicateImg2ImgModel ||
+            defaultCloudImg2ImgModel('replicate')
+          : defaultCloudImg2ImgModel(engineAdapter.id);
+
+    const sessionFaceName = identity.ipAdapterImageFilename?.trim() || '';
+    const sessionFaceUrl = identity.ipAdapterImageUrl?.trim() || '';
+    let sessionFaceFilename = '';
+
+    if (sessionFaceName || sessionFaceUrl) {
+      setComfyUiStatus('Uploading session face for cloud face-ref…');
+      const uploadedFace = await resolveQueueInputImageFilename({
+        filename: sessionFaceName || undefined,
+        imageUrl: sessionFaceUrl || undefined,
+        model: queueModel,
+      });
+      sessionFaceFilename = uploadedFace || sessionFaceName;
+    }
+
+    const faceRef = buildCloudComposeFaceRefPayload({
+      enabled: true,
+      engine: engineAdapter.id,
+      modelId: img2imgModel,
+      image1Filename: inputImageFilename,
+      sessionFaceFilename,
+      extraFilenames: uploadedFilenames.slice(1),
+      strength: options.identityLockStrength,
+    });
+    if (faceRef) {
+      cloudFaceRefPromptInstruction = faceRef.promptInstruction;
+      inputImageFilenames.length = 0;
+      inputImageFilenames.push(...faceRef.filenames);
+      while (uploadedFilenames.length < faceRef.filenames.length) {
+        uploadedFilenames.push('');
+      }
+      for (let i = 0; i < faceRef.filenames.length; i += 1) {
+        uploadedFilenames[i] = faceRef.filenames[i] ?? '';
+      }
+      inputImageFilename = faceRef.filenames[0];
     }
   }
 
@@ -250,5 +320,6 @@ export async function resolveQueueSingleInputs(input: {
     maskImageFilename,
     controlImageFilename,
     controlImageFilenames,
+    cloudFaceRefPromptInstruction,
   };
 }

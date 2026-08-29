@@ -27,7 +27,10 @@ import { ISOLATE_QUEUE_BLOCKED_MESSAGE } from '@/lib/isolate-subject';
 import {
   CLOUD_COMPOSE_TRANSFER_BLOCKED,
   cloudComposeBlocksTransfer,
+  formatCloudComposeIdentityHint,
+  isCloudMultiRefEditModel,
 } from '@/lib/cloud-compose-refs';
+import { isCloudEngine } from '@/lib/engine/capabilities';
 import type { ComposeToolOrchestrationCore } from '@/hooks/compose/useComposeToolOrchestrationCore';
 
 export function useComposeToolOrchestrationPart2(ctx: ComposeToolOrchestrationCore) {
@@ -62,9 +65,22 @@ export function useComposeToolOrchestrationPart2(ctx: ComposeToolOrchestrationCo
     toolSettings.identityLockStrength ?? DEFAULT_COMPOSE_IDENTITY_LOCK_STRENGTH
   );
   const identityKind = normalizeComposeIdentityKind(toolSettings.identityKind);
+  const cloudEngine = isCloudEngine(shared.inferenceEngine);
+  const cloudMultiRef = isCloudMultiRefEditModel(shared.inferenceEngine, cloudComposeModelId);
+  const hasSessionFace = Boolean(
+    shared.ipAdapterImageFilename?.trim() || shared.ipAdapterImageUrl?.trim()
+  );
   const kleinEnhancerActive =
     isFluxKleinModel(shared.model) && shared.kleinEnhancerEnabled !== false;
   const identityLockHint = useMemo(() => {
+    if (cloudEngine) {
+      return formatCloudComposeIdentityHint({
+        enabled: identityLock,
+        strength: identityLockStrength,
+        multiRef: cloudMultiRef,
+        hasSessionFace,
+      });
+    }
     if (kleinEnhancerActive && identityLock) {
       return formatKleinEnhancerIdentityHint({
         enabled: shared.kleinEnhancerEnabled,
@@ -88,6 +104,9 @@ export function useComposeToolOrchestrationPart2(ctx: ComposeToolOrchestrationCo
       identityKind,
     });
   }, [
+    cloudEngine,
+    cloudMultiRef,
+    hasSessionFace,
     identityKind,
     identityLock,
     identityLockStrength,

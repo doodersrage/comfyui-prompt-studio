@@ -31,10 +31,16 @@ export function useLoraTrainPanel(onStatus?: (message: string) => void) {
     () => loadSettingsCache().shared.loraDatasetExportPrefs?.triggerWord ?? ''
   );
   const [outputPath, setOutputPath] = useState(() => prefs.outputDir ?? '');
+  const [datasetPath, setDatasetPath] = useState(() => prefs.datasetPath ?? '');
   const [busy, setBusy] = useState(false);
-  const [envFlags, setEnvFlags] = useState<{ envUrl: boolean; envCommand: boolean }>({
+  const [envFlags, setEnvFlags] = useState<{
+    envUrl: boolean;
+    envCommand: boolean;
+    envKohya: boolean;
+  }>({
     envUrl: false,
     envCommand: false,
+    envKohya: false,
   });
   const [validationPrompt, setValidationPrompt] = useState<string | null>(null);
 
@@ -113,11 +119,12 @@ export function useLoraTrainPanel(onStatus?: (message: string) => void) {
       }
       const data = (await response.json()) as {
         jobs?: TrainJob[];
-        trainer?: { envUrl?: boolean; envCommand?: boolean };
+        trainer?: { envUrl?: boolean; envCommand?: boolean; envKohya?: boolean };
       };
       setEnvFlags({
         envUrl: Boolean(data.trainer?.envUrl),
         envCommand: Boolean(data.trainer?.envCommand),
+        envKohya: Boolean(data.trainer?.envKohya),
       });
       const local = normalizeTrainJobs(loadSettingsCache().shared.loraTrainJobs);
       const merged = mergeJobs(local, data.jobs ?? []);
@@ -144,14 +151,17 @@ export function useLoraTrainPanel(onStatus?: (message: string) => void) {
     if (envFlags.envCommand) {
       return 'Server TRAINER_COMMAND is set — start will spawn that process (no shell).';
     }
+    if (envFlags.envKohya || prefs.kohyaScript?.trim()) {
+      return 'Using kohya / sd-scripts template (TRAINER_KOHYA_SCRIPT or Settings path).';
+    }
     if (prefs.trainerUrl?.trim()) {
       return 'Using Settings trainer URL (no TRAINER_URL env).';
     }
     if (prefs.trainerCommand?.trim()) {
       return 'Using Settings trainer command (no TRAINER_COMMAND env).';
     }
-    return 'No trainer URL/command — start records a manual job; mark complete when weights exist.';
-  }, [envFlags, prefs.trainerCommand, prefs.trainerUrl]);
+    return 'No trainer URL/command/kohya script — start records a manual job; mark complete when weights exist.';
+  }, [envFlags, prefs.kohyaScript, prefs.trainerCommand, prefs.trainerUrl]);
 
   const startJob = useCallback(async () => {
     setBusy(true);
@@ -164,9 +174,15 @@ export function useLoraTrainPanel(onStatus?: (message: string) => void) {
           action: 'start',
           trigger: trigger.trim(),
           outputPath: outputPath.trim() || prefs.outputDir?.trim() || '',
+          datasetPath: datasetPath.trim() || prefs.datasetPath?.trim() || undefined,
           baseModel: prefs.baseModel?.trim() || undefined,
           trainerUrl: prefs.trainerUrl?.trim() || undefined,
           trainerCommand: prefs.trainerCommand?.trim() || undefined,
+          templateId: prefs.templateId?.trim() || undefined,
+          kohyaScript: prefs.kohyaScript?.trim() || undefined,
+          networkRank: prefs.networkRank,
+          maxTrainSteps: prefs.maxTrainSteps,
+          resolution: prefs.resolution,
         }),
       });
       const data = (await response.json()) as {
@@ -190,7 +206,7 @@ export function useLoraTrainPanel(onStatus?: (message: string) => void) {
     } finally {
       setBusy(false);
     }
-  }, [onStatus, outputPath, persistJobs, prefs, trigger]);
+  }, [datasetPath, onStatus, outputPath, persistJobs, prefs, trigger]);
 
   const registerJob = useCallback(
     async (job: TrainJob) => {
@@ -322,6 +338,8 @@ export function useLoraTrainPanel(onStatus?: (message: string) => void) {
     setTrigger,
     outputPath,
     setOutputPath,
+    datasetPath,
+    setDatasetPath,
     busy,
     envFlags,
     validationPrompt,

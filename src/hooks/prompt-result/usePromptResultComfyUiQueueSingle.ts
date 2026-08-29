@@ -230,6 +230,7 @@ export function usePromptResultComfyUiQueueSingle(
           maskImageFilename,
           controlImageFilename,
           controlImageFilenames,
+          cloudFaceRefPromptInstruction,
         } = await resolveQueueSingleInputs({
           options,
           queueModel,
@@ -238,6 +239,12 @@ export function usePromptResultComfyUiQueueSingle(
           engineAdapter,
           setComfyUiStatus,
         });
+
+        const { appendCloudFaceRefPrompt } = await import('@/lib/cloud-compose-refs');
+        const faceRefPrompt = appendCloudFaceRefPrompt(
+          preparedPrompt,
+          cloudFaceRefPromptInstruction
+        );
 
         const workflow = runtime?.workflowJson?.trim()
           ? (parseWorkflowJson(runtime.workflowJson) ?? undefined)
@@ -265,7 +272,7 @@ export function usePromptResultComfyUiQueueSingle(
             await import('@/lib/held-max-queue');
           if (await shouldHoldMaxUntilIdle()) {
             holdMaxGenerateJob({
-              prompt: preparedPrompt,
+              prompt: faceRefPrompt,
               negativePrompt,
               model: queueModel,
               tool: effectiveTool,
@@ -284,7 +291,7 @@ export function usePromptResultComfyUiQueueSingle(
           historyId ??
           (autoSaveEnabled && !historySaved
             ? saveHistory({
-                prompt: preparedPrompt,
+                prompt: faceRefPrompt,
                 hints: config.hints,
                 parentHistoryId: resolveParentHistoryId(),
               })
@@ -297,7 +304,7 @@ export function usePromptResultComfyUiQueueSingle(
             : runtime?.apiUrl?.trim() || loadComfyUiSettings().apiUrl?.trim() || undefined;
 
         failedQueueSnapshot = {
-          prompt: preparedPrompt,
+          prompt: faceRefPrompt,
           negativePrompt,
           model: queueModel,
           tool: config.tool,
@@ -307,7 +314,7 @@ export function usePromptResultComfyUiQueueSingle(
 
         return await postQueueSinglePrompt({
           engineAdapter,
-          preparedPrompt,
+          preparedPrompt: faceRefPrompt,
           negativePrompt,
           queueModel,
           configModel: config.model,

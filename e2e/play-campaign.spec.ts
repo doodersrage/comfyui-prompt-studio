@@ -382,14 +382,42 @@ test('mobile desk bridge links to Play campaign and Day', async ({ page }) => {
   await expect(page.getByTestId('mobile-desk-bridge')).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId('mobile-desk-play')).toHaveAttribute('href', /\/play/);
   await expect(page.getByTestId('mobile-desk-day')).toHaveAttribute('href', /\/day/);
+  await expect(page.getByTestId('mobile-desk-moodboard')).toHaveAttribute('href', /\/moodboard/);
+  await expect(page.getByTestId('mobile-tab-moodboard')).toBeVisible();
+  await expect(page.getByTestId('mobile-tab-fitting')).toBeVisible();
+  await expect(page.getByTestId('mobile-tab-day')).toBeVisible();
 });
 
-test('mobile play page exposes desk Day and campaign bridges', async ({ page }) => {
+test('mobile play page exposes phone Day/Fitting and optional desk handoff', async ({ page }) => {
   await gotoStable(page, '/m/play');
   await dismissBlockingOverlays(page);
-  await expect(page.getByTestId('mobile-continue-desk-day')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('mobile-play')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('mobile-continue-day')).toHaveAttribute('href', /\/m\/day/);
+  await expect(page.getByTestId('mobile-continue-fitting')).toHaveAttribute('href', /\/m\/fitting/);
+  await expect(page.getByTestId('mobile-play-cut')).toBeVisible();
+  await expect(page.getByTestId('roleplay-save-film-cast')).toBeVisible();
+  await page.getByText(/Optional desk handoff/i).click();
+  await expect(page.getByTestId('mobile-continue-desk-day')).toBeVisible();
   await expect(page.getByTestId('mobile-continue-desk-play')).toBeVisible();
-  await expect(page.getByRole('button', { name: /Cut film/i })).toBeVisible();
+});
+
+test('mobile film funnel routes Moodboard → Fitting → Day', async ({ page }) => {
+  await gotoStable(page, '/m/moodboard');
+  await dismissBlockingOverlays(page);
+  await expect(page.getByTestId('mobile-moodboard')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('mobile-moodboard-extract')).toBeVisible();
+  await expect(page.getByTestId('mobile-moodboard-to-fitting')).toBeVisible();
+
+  await gotoStable(page, '/m/fitting');
+  await dismissBlockingOverlays(page);
+  await expect(page.getByTestId('mobile-fitting')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('heading', { name: /^Fitting$/i })).toBeVisible();
+
+  await gotoStable(page, '/m/day');
+  await dismissBlockingOverlays(page);
+  await expect(page.getByTestId('mobile-day')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('day-slots')).toBeVisible();
+  await expect(page.getByTestId('mobile-day-cut')).toBeVisible();
 });
 
 test('gallery exposes Film derived-kind chip', async ({ page }) => {
@@ -932,14 +960,13 @@ test('dashboard elevates Open Play campaign as primary studio path', async ({ pa
   await expect(page.getByRole('link', { name: /Open Play campaign/i }).first()).toBeVisible();
 });
 
-test('mobile studio companion copy leads Capture→Queue→Rate→Desk', async ({ page }) => {
+test('mobile studio first-class film loop tabs and desk bridge', async ({ page }) => {
   await gotoStable(page, '/m');
   await dismissBlockingOverlays(page);
-  await expect(
-    page.getByText(/Plate for desk|Capture → Queue → Rate → Desk Continue/i).first()
-  ).toBeVisible({
-    timeout: 30_000,
-  });
+  await expect(page.getByTestId('mobile-tab-moodboard')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('mobile-tab-fitting')).toBeVisible();
+  await expect(page.getByTestId('mobile-tab-day')).toBeVisible();
+  await expect(page.getByTestId('mobile-tab-play')).toBeVisible();
   await expect(page.getByTestId('mobile-desk-bridge')).toBeVisible();
   await expect(page.getByRole('link', { name: /^Desk$/i })).toBeVisible();
 });

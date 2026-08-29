@@ -44,5 +44,5 @@ export function saveCustomToolPlugins(plugins: ToolPlugin[]): void {
   if (typeof window === 'undefined') {
     return;
   }
-  writeBrowserValue(TOOL_PLUGIN_REGISTRY_KEY, plugins.slice(0, 24));
+  writeBrowserValue(TOOL_PLUGIN_REGISTRY_KEY, plugins.slice(0, 32));
 }

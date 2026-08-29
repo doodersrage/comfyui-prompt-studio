@@ -4,6 +4,7 @@ import { useId } from 'react';
 import { Button } from '@/components/ui/Button';
 import { FieldLabel, TextInput } from '@/components/ui/Field';
 import type { LoraTrainPanelViewModel } from '@/components/settings/lora-train/useLoraTrainPanel';
+import { LORA_TRAIN_TEMPLATES } from '@/lib/lora-train-templates';
 
 type Props = Pick<
   LoraTrainPanelViewModel,
@@ -13,6 +14,8 @@ type Props = Pick<
   | 'setTrigger'
   | 'outputPath'
   | 'setOutputPath'
+  | 'datasetPath'
+  | 'setDatasetPath'
   | 'busy'
   | 'envFlags'
   | 'trainerHint'
@@ -28,6 +31,8 @@ export function LoraTrainPanelForm({
   setTrigger,
   outputPath,
   setOutputPath,
+  datasetPath,
+  setDatasetPath,
   busy,
   envFlags,
   trainerHint,
@@ -40,15 +45,17 @@ export function LoraTrainPanelForm({
   return (
     <>
       <p className="text-sm text-[var(--text-muted)]">
-        GPU training runs out of process. This panel owns the loop: start an external trainer
-        (webhook or command), track jobs, then register the weight into the LoRA library with its
-        trigger.
+        GPU training runs out of process. Prefer a first-party kohya / sd-scripts template, or set a
+        trainer webhook / command as an escape hatch. Jobs persist in SQLite under{' '}
+        <code className="ui-inline-code">PROMPT_DATA_DIR</code>. Cast Export → Train writes a
+        dataset folder and passes <code className="ui-inline-code">datasetPath</code> into start.
       </p>
 
       <p className="type-caption text-[var(--text-muted)]">{trainerHint}</p>
       <p className="type-caption text-[var(--text-muted)]">
         Env <code className="ui-inline-code">TRAINER_URL</code> /{' '}
-        <code className="ui-inline-code">TRAINER_COMMAND</code> win until the Next.js process
+        <code className="ui-inline-code">TRAINER_COMMAND</code> /{' '}
+        <code className="ui-inline-code">TRAINER_KOHYA_SCRIPT</code> win until the Next.js process
         restarts. Settings values apply only when those env vars are unset. Studio never spawns a
         trainer from the browser.
       </p>
@@ -60,7 +67,103 @@ export function LoraTrainPanelForm({
 
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block space-y-1.5 sm:col-span-2">
-          <FieldLabel htmlFor={`${formId}-url`}>Trainer URL</FieldLabel>
+          <FieldLabel htmlFor={`${formId}-template`}>Kohya template</FieldLabel>
+          <select
+            id={`${formId}-template`}
+            className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+            value={prefs.templateId ?? 'kohya-sdxl'}
+            onChange={event => persistPrefs({ ...prefs, templateId: event.target.value })}
+            disabled={!canEditTrainer || envFlags.envUrl || envFlags.envCommand}
+          >
+            {LORA_TRAIN_TEMPLATES.map(template => (
+              <option key={template.id} value={template.id}>
+                {template.label} — {template.description}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block space-y-1.5 sm:col-span-2">
+          <FieldLabel htmlFor={`${formId}-kohya`}>Kohya train_network.py</FieldLabel>
+          <TextInput
+            id={`${formId}-kohya`}
+            value={prefs.kohyaScript ?? ''}
+            onChange={event => persistPrefs({ ...prefs, kohyaScript: event.target.value })}
+            placeholder="/path/to/sd-scripts/train_network.py"
+            disabled={envFlags.envKohya || !canEditTrainer}
+            className="font-mono text-sm"
+          />
+        </label>
+        <label className="block space-y-1.5">
+          <FieldLabel htmlFor={`${formId}-rank`}>Network rank</FieldLabel>
+          <TextInput
+            id={`${formId}-rank`}
+            type="number"
+            min={1}
+            max={256}
+            value={prefs.networkRank ?? ''}
+            onChange={event => {
+              const raw = event.target.value.trim();
+              persistPrefs({
+                ...prefs,
+                networkRank: raw ? Number(raw) : undefined,
+              });
+            }}
+            placeholder="16"
+            disabled={!canEditTrainer}
+          />
+        </label>
+        <label className="block space-y-1.5">
+          <FieldLabel htmlFor={`${formId}-steps`}>Max steps</FieldLabel>
+          <TextInput
+            id={`${formId}-steps`}
+            type="number"
+            min={1}
+            value={prefs.maxTrainSteps ?? ''}
+            onChange={event => {
+              const raw = event.target.value.trim();
+              persistPrefs({
+                ...prefs,
+                maxTrainSteps: raw ? Number(raw) : undefined,
+              });
+            }}
+            placeholder="1500"
+            disabled={!canEditTrainer}
+          />
+        </label>
+        <label className="block space-y-1.5">
+          <FieldLabel htmlFor={`${formId}-res`}>Resolution</FieldLabel>
+          <TextInput
+            id={`${formId}-res`}
+            type="number"
+            min={64}
+            step={64}
+            value={prefs.resolution ?? ''}
+            onChange={event => {
+              const raw = event.target.value.trim();
+              persistPrefs({
+                ...prefs,
+                resolution: raw ? Number(raw) : undefined,
+              });
+            }}
+            placeholder="1024"
+            disabled={!canEditTrainer}
+          />
+        </label>
+        <label className="block space-y-1.5 sm:col-span-2">
+          <FieldLabel htmlFor={`${formId}-dataset`}>Dataset path</FieldLabel>
+          <TextInput
+            id={`${formId}-dataset`}
+            value={datasetPath}
+            onChange={event => {
+              setDatasetPath(event.target.value);
+              persistPrefs({ ...prefs, datasetPath: event.target.value });
+            }}
+            placeholder="/var/lib/prompt-studio/lora-datasets/…"
+            className="font-mono text-sm"
+          />
+        </label>
+        <label className="block space-y-1.5 sm:col-span-2">
+          <FieldLabel htmlFor={`${formId}-url`}>Trainer URL (escape hatch)</FieldLabel>
           <TextInput
             id={`${formId}-url`}
             value={prefs.trainerUrl ?? ''}
@@ -70,12 +173,12 @@ export function LoraTrainPanelForm({
           />
         </label>
         <label className="block space-y-1.5 sm:col-span-2">
-          <FieldLabel htmlFor={`${formId}-cmd`}>Trainer command</FieldLabel>
+          <FieldLabel htmlFor={`${formId}-cmd`}>Trainer command (escape hatch)</FieldLabel>
           <TextInput
             id={`${formId}-cmd`}
             value={prefs.trainerCommand ?? ''}
             onChange={event => persistPrefs({ ...prefs, trainerCommand: event.target.value })}
-            placeholder="/path/to/train_network.py --config …"
+            placeholder="/path/to/custom-wrapper --config …"
             disabled={envFlags.envCommand || !canEditTrainer}
             className="font-mono text-sm"
           />
@@ -94,12 +197,12 @@ export function LoraTrainPanelForm({
           />
         </label>
         <label className="block space-y-1.5">
-          <FieldLabel htmlFor={`${formId}-base`}>Base model (optional)</FieldLabel>
+          <FieldLabel htmlFor={`${formId}-base`}>Base model</FieldLabel>
           <TextInput
             id={`${formId}-base`}
             value={prefs.baseModel ?? ''}
             onChange={event => persistPrefs({ ...prefs, baseModel: event.target.value })}
-            placeholder="qwen_image_2512_bf16.safetensors"
+            placeholder="/models/checkpoints/sd_xl_base_1.0.safetensors"
             className="font-mono text-sm"
           />
         </label>

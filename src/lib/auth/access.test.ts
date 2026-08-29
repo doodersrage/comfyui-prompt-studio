@@ -32,6 +32,9 @@ describe("auth features", () => {
     assert.equal(featureForPath("/m/queue"), "queue");
     assert.equal(featureForPath("/m/gallery"), "gallery");
     assert.equal(featureForPath("/m/play"), "roleplay");
+    assert.equal(featureForPath("/m/moodboard"), "roleplay");
+    assert.equal(featureForPath("/m/fitting"), "roleplay");
+    assert.equal(featureForPath("/m/day"), "roleplay");
   });
 });
 

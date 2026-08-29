@@ -109,6 +109,10 @@
       <button type="button" class="primary" id="queue">Queue via host</button>
       <button type="button" class="ghost" id="apply">Apply prompt only</button>
       <button type="button" class="ghost" id="quality">Set Final quality</button>
+      <button type="button" class="ghost" id="engine">Engine → ComfyUI</button>
+      <button type="button" class="ghost" id="loras">Clear LoRA stack</button>
+      <button type="button" class="ghost" id="tokens">Patch workflow token</button>
+      <button type="button" class="ghost" id="tag">Tag latest gallery</button>
       <button type="button" class="ghost" id="pick">Pick from gallery</button>
       <button type="button" class="ghost" id="toast">Toast</button>
     </div>
@@ -117,9 +121,10 @@
       const CHANNEL = 'comfyui-prompt-studio-plugin-host';
       const statusEl = document.getElementById('status');
       const promptEl = document.getElementById('prompt');
+      let hostOrigin = '*';
 
       function post(message) {
-        window.parent.postMessage({ channel: CHANNEL, ...message }, '*');
+        window.parent.postMessage({ channel: CHANNEL, ...message }, hostOrigin);
       }
 
       function setStatus(text) {
@@ -129,15 +134,24 @@
       window.addEventListener('message', event => {
         const data = event.data;
         if (!data || data.channel !== CHANNEL) return;
+        if (event.origin && event.origin !== 'null') {
+          hostOrigin = event.origin;
+        }
         if (data.type === 'host:ready') {
           setStatus('Host ready');
           post({ type: 'plugin:resize', height: document.documentElement.scrollHeight });
         }
         if (data.type === 'host:context') {
-          setStatus(`Context · model ${data.context?.model || '—'}`);
+          const ctx = data.context || {};
+          setStatus(
+            `Context · model ${ctx.model || '—'} · engine ${ctx.engine || '—'} · LoRAs ${(ctx.sessionActiveLoraIds || []).length}`
+          );
         }
         if (data.type === 'host:queue-result') {
           setStatus(data.ok ? `Queued ${data.promptId || ''}`.trim() : data.message || 'Queue failed');
+        }
+        if (data.type === 'host:apply-result') {
+          setStatus(data.ok ? data.message || 'Applied' : data.message || 'Apply failed');
         }
       });
 
@@ -152,6 +166,25 @@
       document.getElementById('quality').addEventListener('click', () => {
         post({ type: 'plugin:apply-quality', qualityProfile: 'final' });
         setStatus('Requested Final quality');
+      });
+      document.getElementById('engine').addEventListener('click', () => {
+        post({ type: 'plugin:apply-engine', engine: 'comfyui' });
+        setStatus('Requested ComfyUI engine');
+      });
+      document.getElementById('loras').addEventListener('click', () => {
+        post({ type: 'plugin:apply-lora-stack', loraIds: [] });
+        setStatus('Clearing LoRA stack…');
+      });
+      document.getElementById('tokens').addEventListener('click', () => {
+        post({
+          type: 'plugin:patch-workflow-tokens',
+          tokens: [{ token: 'PLUGIN_DEMO', value: 'iframe-example' }],
+        });
+        setStatus('Patching workflow token…');
+      });
+      document.getElementById('tag').addEventListener('click', () => {
+        post({ type: 'plugin:write-gallery-tag', tag: 'plugin-demo', mode: 'add' });
+        setStatus('Tagging latest gallery entry…');
       });
       document.getElementById('pick').addEventListener('click', () => {
         post({ type: 'plugin:pick-gallery', target: 'compose' });

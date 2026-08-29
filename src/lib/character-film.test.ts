@@ -179,5 +179,9 @@ describe('character-film', () => {
     assert.equal(canStampAssembledFilm(MAX_GALLERY_FILM_BYTES), true);
     assert.equal(canStampAssembledFilm(0), false);
     assert.equal(canStampAssembledFilm(MAX_GALLERY_FILM_BYTES + 1), false);
+    assert.equal(
+      canStampAssembledFilm(MAX_GALLERY_FILM_BYTES + 1, { serverEncoded: true }),
+      true
+    );
   });
 });

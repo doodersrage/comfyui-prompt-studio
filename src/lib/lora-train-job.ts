@@ -15,6 +15,13 @@ export type TrainJob = {
   loraLibraryId?: string;
   characterId?: string;
   lookId?: string;
+  /** Absolute on-disk kohya train_data_dir under PROMPT_DATA_DIR. */
+  datasetPath?: string;
+  /** First-party template id (kohya-sdxl / kohya-sd15 / kohya-flux). */
+  templateId?: string;
+  networkRank?: number;
+  maxTrainSteps?: number;
+  resolution?: number;
 };
 
 export type LoraTrainTrainerPrefs = {
@@ -26,6 +33,15 @@ export type LoraTrainTrainerPrefs = {
   activateOnRegister?: boolean;
   /** Queue a validation render when a train job completes. */
   autoQueueValidation?: boolean;
+  /** First-party kohya template when TRAINER_URL / TRAINER_COMMAND are unset. */
+  templateId?: string;
+  /** Path to sd-scripts train_network.py (fallback: TRAINER_KOHYA_SCRIPT). */
+  kohyaScript?: string;
+  networkRank?: number;
+  maxTrainSteps?: number;
+  resolution?: number;
+  /** Last dataset path used from Settings / Cast export. */
+  datasetPath?: string;
 };
 
 export type LoraDatasetExportPrefs = {
@@ -86,6 +102,26 @@ export function normalizeTrainJob(raw: unknown): TrainJob | null {
       : undefined;
   const lookId =
     typeof record.lookId === 'string' && record.lookId.trim() ? record.lookId.trim() : undefined;
+  const datasetPath =
+    typeof record.datasetPath === 'string' && record.datasetPath.trim()
+      ? record.datasetPath.trim()
+      : undefined;
+  const templateId =
+    typeof record.templateId === 'string' && record.templateId.trim()
+      ? record.templateId.trim()
+      : undefined;
+  const networkRank =
+    typeof record.networkRank === 'number' && Number.isFinite(record.networkRank)
+      ? Math.max(1, Math.floor(record.networkRank))
+      : undefined;
+  const maxTrainSteps =
+    typeof record.maxTrainSteps === 'number' && Number.isFinite(record.maxTrainSteps)
+      ? Math.max(1, Math.floor(record.maxTrainSteps))
+      : undefined;
+  const resolution =
+    typeof record.resolution === 'number' && Number.isFinite(record.resolution)
+      ? Math.max(64, Math.floor(record.resolution))
+      : undefined;
 
   return {
     id,
@@ -99,6 +135,11 @@ export function normalizeTrainJob(raw: unknown): TrainJob | null {
     ...(loraLibraryId ? { loraLibraryId } : {}),
     ...(characterId ? { characterId } : {}),
     ...(lookId ? { lookId } : {}),
+    ...(datasetPath ? { datasetPath } : {}),
+    ...(templateId ? { templateId } : {}),
+    ...(networkRank !== undefined ? { networkRank } : {}),
+    ...(maxTrainSteps !== undefined ? { maxTrainSteps } : {}),
+    ...(resolution !== undefined ? { resolution } : {}),
   };
 }
 
@@ -127,6 +168,11 @@ export function createTrainJob(input: {
   error?: string;
   characterId?: string;
   lookId?: string;
+  datasetPath?: string;
+  templateId?: string;
+  networkRank?: number;
+  maxTrainSteps?: number;
+  resolution?: number;
 }): TrainJob {
   const id =
     input.id?.trim() ||
@@ -142,6 +188,11 @@ export function createTrainJob(input: {
     error: input.error,
     characterId: input.characterId,
     lookId: input.lookId,
+    datasetPath: input.datasetPath,
+    templateId: input.templateId,
+    networkRank: input.networkRank,
+    maxTrainSteps: input.maxTrainSteps,
+    resolution: input.resolution,
   })!;
 }
 
@@ -235,9 +286,13 @@ export function normalizeLoraDatasetExportPrefs(raw: unknown): LoraDatasetExport
 
 export function normalizeLoraTrainTrainerPrefs(raw: unknown): LoraTrainTrainerPrefs {
   if (!raw || typeof raw !== 'object') {
-    return { activateOnRegister: true };
+    return { activateOnRegister: true, templateId: 'kohya-sdxl' };
   }
   const record = raw as Record<string, unknown>;
+  const templateId =
+    typeof record.templateId === 'string' && record.templateId.trim()
+      ? record.templateId.trim()
+      : 'kohya-sdxl';
   return {
     trainerUrl: typeof record.trainerUrl === 'string' ? record.trainerUrl.trim() : '',
     trainerCommand: typeof record.trainerCommand === 'string' ? record.trainerCommand.trim() : '',
@@ -245,5 +300,20 @@ export function normalizeLoraTrainTrainerPrefs(raw: unknown): LoraTrainTrainerPr
     baseModel: typeof record.baseModel === 'string' ? record.baseModel.trim() : '',
     activateOnRegister: record.activateOnRegister !== false,
     autoQueueValidation: Boolean(record.autoQueueValidation),
+    templateId,
+    kohyaScript: typeof record.kohyaScript === 'string' ? record.kohyaScript.trim() : '',
+    networkRank:
+      typeof record.networkRank === 'number' && Number.isFinite(record.networkRank)
+        ? Math.max(1, Math.floor(record.networkRank))
+        : undefined,
+    maxTrainSteps:
+      typeof record.maxTrainSteps === 'number' && Number.isFinite(record.maxTrainSteps)
+        ? Math.max(1, Math.floor(record.maxTrainSteps))
+        : undefined,
+    resolution:
+      typeof record.resolution === 'number' && Number.isFinite(record.resolution)
+        ? Math.max(64, Math.floor(record.resolution))
+        : undefined,
+    datasetPath: typeof record.datasetPath === 'string' ? record.datasetPath.trim() : '',
   };
 }

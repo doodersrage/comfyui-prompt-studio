@@ -24,7 +24,13 @@ import {
   shouldAutoQueueRoleplayClip,
 } from '@/lib/roleplay-film';
 import { extractVideoLastFrame } from '@/lib/video-last-frame';
-import { canFalExtendFromParentUrl } from '@/lib/video-clip-mode';
+import {
+  canFalExtendFromParentUrl,
+  continueClipPathRanMessage,
+  resolveVideoContinuePath,
+  type VideoContinuePath,
+} from '@/lib/video-clip-mode';
+import { registerContinueStitch } from '@/lib/video-continue-stitch';
 import type {
   RoleplayBeatQueueCore,
   UseRoleplayBeatQueueOptions,
@@ -98,30 +104,47 @@ export function useRoleplayBeatQueuePart2(
 
       const engine = loadEngineSettings().engine;
       const parentClipUrl = source?.fromClip ? source.imageUrl : '';
-      let extendUrl =
-        engine === 'fal' && canFalExtendFromParentUrl(parentClipUrl) ? parentClipUrl : '';
-      let falUploadNote: string | null = null;
-      if (engine === 'fal' && !extendUrl && parentClipUrl && looksLikeVideoUrl(parentClipUrl)) {
-        const resolved = await resolveFalExtendParentUrl({
-          parentUrl: parentClipUrl,
-          falApiKey: loadSettingsCache().shared.sessionFalApiKey,
-        });
-        if (resolved.url) {
-          extendUrl = resolved.url;
-        } else if (resolved.uploadAttempted) {
-          falUploadNote =
-            resolved.uploadError?.trim() ||
-            'Could not upload that local clip to Fal for extend-video.';
+      let continuePath: VideoContinuePath = 'last-frame';
+      let extendUrl = '';
+      let pathNote: string | null = null;
+
+      if (!retry && parentClipUrl && looksLikeVideoUrl(parentClipUrl)) {
+        continuePath = resolveVideoContinuePath({ engine, parentUrl: parentClipUrl });
+        if (engine === 'fal') {
+          if (canFalExtendFromParentUrl(parentClipUrl)) {
+            extendUrl = parentClipUrl;
+            continuePath = 'extend';
+          } else {
+            const resolved = await resolveFalExtendParentUrl({
+              parentUrl: parentClipUrl,
+              falApiKey: loadSettingsCache().shared.sessionFalApiKey,
+            });
+            if (resolved.url) {
+              extendUrl = resolved.url;
+              continuePath = 'extend';
+            } else if (resolved.uploadAttempted) {
+              continuePath = 'last-frame';
+              pathNote = `${
+                resolved.uploadError?.trim() ||
+                'Could not upload that local clip to Fal for extend-video.'
+              } Continuing from the last frame instead.`;
+            } else {
+              continuePath = 'last-frame';
+            }
+          }
+        } else if (continuePath === 'extend' && engine === 'grok') {
+          extendUrl = parentClipUrl;
         }
       }
-      const useFalExtend = Boolean(extendUrl);
-      if (falUploadNote && !useFalExtend) {
-        setError(`${falUploadNote} Continuing from the last frame instead.`);
+
+      const useNativeExtend = Boolean(extendUrl) && continuePath === 'extend';
+      if (pathNote) {
+        setError(pathNote);
       }
 
       let inputImage: File | undefined;
-      let inputImageUrl: string | undefined = useFalExtend ? undefined : source?.imageUrl;
-      if (!useFalExtend && source?.imageUrl && looksLikeVideoUrl(source.imageUrl)) {
+      let inputImageUrl: string | undefined = useNativeExtend ? undefined : source?.imageUrl;
+      if (!useNativeExtend && source?.imageUrl && looksLikeVideoUrl(source.imageUrl)) {
         try {
           const blob = await extractVideoLastFrame(source.imageUrl);
           inputImage = new File([blob], 'roleplay-last-frame.jpg', {
@@ -164,7 +187,7 @@ export function useRoleplayBeatQueuePart2(
         toolModel: loadToolSettings('video', DEFAULT_VIDEO_TOOL_CACHE).model,
         sharedModel: shared.model,
       });
-      if (!falUploadNote) {
+      if (!pathNote) {
         setError(null);
       }
       let prompt = latest.prompt?.trim() || latest.blurb;
@@ -186,6 +209,17 @@ export function useRoleplayBeatQueuePart2(
       } catch {
         /* use beat prompt */
       }
+
+      const queueClipMode = retry
+        ? hasInit
+          ? ('i2v' as const)
+          : ('t2v' as const)
+        : useNativeExtend
+          ? ('extend' as const)
+          : hasInit
+            ? ('i2v' as const)
+            : ('t2v' as const);
+
       let promptId: string | undefined;
       try {
         promptId = await actions.sendComfyUi(prompt, undefined, undefined, {
@@ -196,21 +230,13 @@ export function useRoleplayBeatQueuePart2(
           parentGalleryEntryId: parentEntry?.id,
           derivedKind: retry
             ? 'variation'
-            : useFalExtend
+            : source?.fromClip
               ? 'extend'
               : hasInit
                 ? nextRoleplayMotionKind(parentEntry)
                 : 't2v',
-          clipMode: retry
-            ? hasInit
-              ? 'i2v'
-              : 't2v'
-            : useFalExtend
-              ? 'extend'
-              : hasInit
-                ? 'i2v'
-                : 't2v',
-          videoUrl: retry || !useFalExtend ? undefined : extendUrl,
+          clipMode: queueClipMode,
+          videoUrl: useNativeExtend ? extendUrl : undefined,
           qualityProfile: 'final',
           queueParamsBase: { videoFrames: 64, videoFps: 16 },
           ...roleplayCharacterQueueFields(),
@@ -218,6 +244,15 @@ export function useRoleplayBeatQueuePart2(
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Could not queue that clip.');
       }
+
+      if (promptId && !retry && continuePath === 'stitch' && parentClipUrl) {
+        registerContinueStitch({ childPromptId: promptId, parentUrl: parentClipUrl });
+      }
+
+      if (promptId && !pathNote && source?.fromClip && !retry) {
+        setError(continueClipPathRanMessage(continuePath));
+      }
+
       const after = storyRef.current.find(
         entry => entry.id === latest.id && entry.at === latest.at
       ) ?? {

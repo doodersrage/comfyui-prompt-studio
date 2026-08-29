@@ -26,6 +26,7 @@ type ReplicateRequestBody = {
   clientId?: string;
   hasInputImage?: boolean;
   inputImageFilename?: string;
+  inputImageFilenames?: string[];
   params?: {
     seed?: string | number;
     width?: string | number;
@@ -103,6 +104,9 @@ export async function POST(request: Request) {
       seed,
       strength: toNumber(params.denoise),
       imageFilename,
+      imageFilenames: Array.isArray(body.inputImageFilenames)
+        ? body.inputImageFilenames
+        : undefined,
     });
 
     if (!result.ok || !result.promptId) {

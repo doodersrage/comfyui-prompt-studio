@@ -1,17 +1,11 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import RoleplayBibleEditor from '@/components/RoleplayBibleEditor';
-import RoleplayLibraryPanel from '@/components/RoleplayLibraryPanel';
-import RoleplayStoryReel from '@/components/RoleplayStoryReel';
-import { Button, PrimaryButton } from '@/components/ui/Button';
 import { useRoleplayFilmActions } from '@/hooks/useRoleplayFilmActions';
-import { FieldError, TextInput } from '@/components/ui/Field';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { usePromptResultActions } from '@/hooks/usePromptResultActions';
+import { useRoleplayBeatQueue } from '@/hooks/useRoleplayBeatQueue';
 import { useRoleplayStorySync } from '@/hooks/useRoleplayStorySync';
-import { loadComfyGallery } from '@/lib/comfyui-gallery';
 import { loadComfyUiSettings } from '@/lib/comfyui-settings';
 import { IDENTITY_MEDIA_URL, persistIdentityImage } from '@/lib/gallery-media-client';
 import {
@@ -20,23 +14,13 @@ import {
   ISOLATE_QUEUE_BLOCKED_MESSAGE,
   loadImageBlobFromUrls,
 } from '@/lib/isolate-subject';
-import {
-  normalizeCharacterPlates,
-  roleplayPatchFromPlate,
-  type CharacterPlate,
-} from '@/lib/mobile-studio';
+import { normalizeCharacterPlates, type CharacterPlate } from '@/lib/mobile-studio';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
 import { resolveQueueInputImage } from '@/lib/queue-input-image';
 import { getReformatTargetModel } from '@/lib/reformat-target';
 import {
   appendRoleplayStoryBeat,
-  applyRoleplayCharacterName,
-  beginRoleplayStillRetryPatch,
-  canRetryRoleplayStill,
-  formatRoleplayBio,
   formatRoleplayStoryProgress,
-  lastRoleplayPlotBeat,
-  MAX_ROLEPLAY_CHARACTER_NAME,
   mergeRoleplayRejectedScenes,
   normalizeRoleplayIsolateSubject,
   normalizeRoleplayPlayAs,
@@ -44,24 +28,16 @@ import {
   resolveRoleplayToneAndContent,
   roleplayIntroScene,
   roleplayStillQueueResultPatch,
-  roleplayStillTakes,
-  roleplayStoryPhase,
-  selectRoleplayStillTakePatch,
   type RoleplayBio,
   type RoleplayScene,
   type RoleplayStoryBeat,
 } from '@/lib/roleplay';
-import {
-  applyRoleplayLibrarySession,
-  archiveAndStartNewRoleplaySession,
-  persistRoleplayLibraryFromCache,
-  type RoleplayLibrarySession,
-} from '@/lib/roleplay-library';
+import { normalizeRoleplayBeatOutput } from '@/lib/roleplay-film';
+import { persistRoleplayLibraryFromCache } from '@/lib/roleplay-library';
 import {
   DEFAULT_MOBILE_STUDIO_TOOL_CACHE,
   DEFAULT_ROLEPLAY_TOOL_CACHE,
   loadToolSettings,
-  saveToolSettings,
   SETTINGS_CACHE_UPDATED_EVENT,
 } from '@/lib/settings-cache';
 import {
@@ -109,6 +85,7 @@ export function useMobilePlayToolOrchestrationCore() {
   const story = toolSettings.story ?? EMPTY_STORY;
   const storyProgress = formatRoleplayStoryProgress(story);
   const autoQueue = toolSettings.autoQueue !== false;
+  const beatOutput = normalizeRoleplayBeatOutput(toolSettings.beatOutput);
   const storyRef = useRef(story);
   useEffect(() => {
     storyRef.current = story;
@@ -256,6 +233,21 @@ export function useMobilePlayToolOrchestrationCore() {
     hints: [bio?.name, toolSettings.setting].filter(Boolean).join(' · '),
     autoFixRules: shared.autoFixRules !== false,
     reformatTarget: getReformatTargetModel(shared.model),
+  });
+
+  const beatQueue = useRoleplayBeatQueue({
+    storyRef,
+    toolSettings,
+    updateToolSettings,
+    shared,
+    actions,
+    playAs,
+    referenceImageUrl,
+    isolateSubject,
+    referenceImageFilename,
+    autoQueue,
+    beatOutput,
+    setError,
   });
 
   const requestBody = useCallback(
@@ -472,6 +464,7 @@ export function useMobilePlayToolOrchestrationCore() {
     storyRef,
     storyProgress,
     autoQueue,
+    beatOutput,
     assemblingFilm,
     filmStatus,
     filmNeedsCast,
@@ -480,6 +473,7 @@ export function useMobilePlayToolOrchestrationCore() {
     saveFilmToCast,
     filmError,
     actions,
+    beatQueue,
     requestBody,
     queueStillOptions,
     commitStill,

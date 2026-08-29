@@ -447,6 +447,18 @@ export type SharedToolSettings = {
   grokModel?: string;
   grokImg2ImgModel?: string;
   sessionGrokApiKey?: string;
+  /** Runway Gen-4 stills model id (e.g. gen4_image). */
+  runwayModel?: string;
+  /** Runway image-to-image model when a reference photo is queued. */
+  runwayImg2ImgModel?: string;
+  /** Runway image-to-video model (Gen-4.5 / Gen-4 Turbo). */
+  runwayI2vModel?: string;
+  /** Runway text-to-video model. */
+  runwayT2vModel?: string;
+  /** Runway video-to-video / extend model (Aleph). */
+  runwayExtendModel?: string;
+  /** Session Runway API key. Stored in this browser only; server `RUNWAY_API_KEY` is the fallback. */
+  sessionRunwayApiKey?: string;
   /**
    * Diffusers workshop crop: auto-detect craft roles, always hide hands,
    * or never force the head-and-shoulders crop.

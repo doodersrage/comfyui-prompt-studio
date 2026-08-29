@@ -5,6 +5,7 @@ import {
   mobileStudioTabFromPath,
   normalizeCharacterPlates,
   roleplayPatchFromPlate,
+  toMobileStudioHref,
   upsertCharacterPlate,
   type CharacterPlate,
 } from './mobile-studio';
@@ -34,7 +35,18 @@ describe('mobile studio paths', () => {
     assert.equal(mobileStudioTabFromPath('/m'), 'capture');
     assert.equal(mobileStudioTabFromPath('/m/queue'), 'queue');
     assert.equal(mobileStudioTabFromPath('/m/gallery'), 'gallery');
+    assert.equal(mobileStudioTabFromPath('/m/moodboard'), 'moodboard');
+    assert.equal(mobileStudioTabFromPath('/m/fitting'), 'fitting');
+    assert.equal(mobileStudioTabFromPath('/m/day'), 'day');
     assert.equal(mobileStudioTabFromPath('/m/play'), 'play');
+  });
+
+  it('remaps desk film paths onto /m', () => {
+    assert.equal(toMobileStudioHref('/fitting?character=c1'), '/m/fitting?character=c1');
+    assert.equal(toMobileStudioHref('/day?from=look'), '/m/day?from=look');
+    assert.equal(toMobileStudioHref('/moodboard'), '/m/moodboard');
+    assert.equal(toMobileStudioHref('/roleplay?character=c1'), '/m/play?character=c1');
+    assert.equal(toMobileStudioHref('/gallery'), '/gallery');
   });
 });
 

@@ -6,12 +6,17 @@ import { loadComfyGallery } from '@/lib/comfyui-gallery';
 import { nextRoleplayMotionKind } from '@/lib/roleplay-film';
 import {
   canFalExtendFromParentUrl,
+  continueClipPathRanMessage,
   engineCanQueueClips,
+  resolveVideoContinuePath,
   type VideoClipMode,
+  type VideoContinuePath,
 } from '@/lib/video-clip-mode';
 import { engineDisplayName } from '@/lib/engine/capabilities';
 import { resolveFalExtendParentUrl } from '@/lib/fal-extend-upload';
 import { loadEngineSettings } from '@/lib/engine-settings';
+import { extractVideoLastFrame } from '@/lib/video-last-frame';
+import { registerContinueStitch } from '@/lib/video-continue-stitch';
 import { isFetchableImageRef, LOCAL_INIT_IMAGE_MARKER } from '@/hooks/useVideoPromptInitImage';
 import type { usePromptResultActions } from '@/hooks/usePromptResultActions';
 import type { SharedToolSettings } from '@/lib/settings-cache';
@@ -63,68 +68,83 @@ export function useVideoPromptQueue({
   const [copied, setCopied] = useState(false);
   const inferenceEngine = shared.inferenceEngine || loadEngineSettings().engine;
 
-  const buildVideoQueueOptions = useCallback(() => {
-    const initImage = initImageUrl.trim();
-    const initImageIsFetchable =
-      initImage !== LOCAL_INIT_IMAGE_MARKER && isFetchableImageRef(initImage);
-    const previewIsFetchable = Boolean(previewUrl && isFetchableImageRef(previewUrl));
-    const resolvedFps =
-      typeof fps === 'number' && Number.isFinite(fps) && fps > 0 ? Math.floor(fps) : 16;
-    const resolvedFrames =
-      typeof frames === 'number' && Number.isFinite(frames) && frames > 0
-        ? Math.floor(frames)
-        : Math.max(1, Math.round(Math.max(1, Number(durationSec) || 4) * resolvedFps));
+  const buildVideoQueueOptions = useCallback(
+    (overrides?: {
+      clipMode?: VideoClipMode;
+      videoUrl?: string;
+      inputImage?: File;
+      clearInit?: boolean;
+    }) => {
+      const effectiveClipMode = overrides?.clipMode ?? clipMode;
+      const initImage = initImageUrl.trim();
+      const initImageIsFetchable =
+        initImage !== LOCAL_INIT_IMAGE_MARKER && isFetchableImageRef(initImage);
+      const previewIsFetchable = Boolean(previewUrl && isFetchableImageRef(previewUrl));
+      const resolvedFps =
+        typeof fps === 'number' && Number.isFinite(fps) && fps > 0 ? Math.floor(fps) : 16;
+      const resolvedFrames =
+        typeof frames === 'number' && Number.isFinite(frames) && frames > 0
+          ? Math.floor(frames)
+          : Math.max(1, Math.round(Math.max(1, Number(durationSec) || 4) * resolvedFps));
 
-    const useInit = clipMode === 'i2v';
-    return {
-      inputImage: useInit ? file : undefined,
-      inputImageUrl: useInit
-        ? file
-          ? undefined
-          : previewIsFetchable
-            ? previewUrl!
-            : initImageIsFetchable
-              ? initImage
-              : undefined
-        : undefined,
-      inputImageFilename:
-        useInit &&
-        !file &&
-        !previewIsFetchable &&
-        !initImageIsFetchable &&
-        initImage &&
-        initImage !== LOCAL_INIT_IMAGE_MARKER
-          ? initImage
-          : undefined,
-      queueParamsBase: {
-        videoFrames: resolvedFrames,
-        videoFps: resolvedFps,
-      },
-      parentGalleryEntryId,
-      derivedKind:
-        clipMode === 'extend'
-          ? ('extend' as const)
-          : parentGalleryEntryId
-            ? nextRoleplayMotionKind(
-                loadComfyGallery().find(entry => entry.id === parentGalleryEntryId)
-              )
-            : clipMode === 'i2v'
-              ? ('i2v' as const)
-              : ('t2v' as const),
+      const useInit = effectiveClipMode === 'i2v' || Boolean(overrides?.inputImage);
+      const lastFrameFile = overrides?.inputImage;
+      return {
+        inputImage: useInit ? lastFrameFile || file : undefined,
+        inputImageUrl:
+          useInit && !lastFrameFile
+            ? file
+              ? undefined
+              : previewIsFetchable
+                ? previewUrl!
+                : initImageIsFetchable
+                  ? initImage
+                  : undefined
+            : undefined,
+        inputImageFilename:
+          useInit &&
+          !lastFrameFile &&
+          !file &&
+          !previewIsFetchable &&
+          !initImageIsFetchable &&
+          initImage &&
+          initImage !== LOCAL_INIT_IMAGE_MARKER
+            ? initImage
+            : undefined,
+        queueParamsBase: {
+          videoFrames: resolvedFrames,
+          videoFps: resolvedFps,
+        },
+        parentGalleryEntryId,
+        derivedKind:
+          effectiveClipMode === 'extend' || overrides?.clearInit === false
+            ? ('extend' as const)
+            : parentGalleryEntryId
+              ? nextRoleplayMotionKind(
+                  loadComfyGallery().find(entry => entry.id === parentGalleryEntryId)
+                )
+              : effectiveClipMode === 'i2v'
+                ? ('i2v' as const)
+                : ('t2v' as const),
+        clipMode: effectiveClipMode,
+        videoUrl:
+          effectiveClipMode === 'extend'
+            ? overrides?.videoUrl?.trim() || parentVideoUrl.trim() || undefined
+            : undefined,
+      };
+    },
+    [
       clipMode,
-      videoUrl: clipMode === 'extend' ? parentVideoUrl.trim() || undefined : undefined,
-    };
-  }, [
-    clipMode,
-    durationSec,
-    file,
-    frames,
-    fps,
-    initImageUrl,
-    parentGalleryEntryId,
-    parentVideoUrl,
-    previewUrl,
-  ]);
+      durationSec,
+      file,
+      frames,
+      fps,
+      initImageUrl,
+      parentGalleryEntryId,
+      parentVideoUrl,
+      previewUrl,
+    ]
+  );
 
   const queueVideo = useCallback(
     (output: string) => {
@@ -133,7 +153,7 @@ export function useVideoPromptQueue({
       }
       if (!engineCanQueueClips(inferenceEngine) && inferenceEngine !== 'comfyui') {
         setError(
-          `${engineDisplayName(inferenceEngine)} cannot queue clips. Switch the inference engine to Fal, Replicate, Grok, Gemini, or local WAN (ComfyUI).`
+          `${engineDisplayName(inferenceEngine)} cannot queue clips. Switch the inference engine to Fal, Replicate, Grok, Gemini, Runway, or local WAN (ComfyUI).`
         );
         return;
       }
@@ -146,26 +166,95 @@ export function useVideoPromptQueue({
         return;
       }
       void (async () => {
-        const options = buildVideoQueueOptions();
-        if (
+        let continuePath: VideoContinuePath =
+          clipMode === 'extend'
+            ? resolveVideoContinuePath({
+                engine: inferenceEngine,
+                parentUrl: parentVideoUrl,
+              })
+            : 'last-frame';
+        let options = buildVideoQueueOptions();
+        let pathNote: string | null = null;
+
+        if (clipMode === 'extend' && inferenceEngine === 'fal') {
+          if (!canFalExtendFromParentUrl(parentVideoUrl)) {
+            const uploaded = await resolveFalExtendParentUrl({
+              parentUrl: parentVideoUrl,
+              falApiKey: shared.sessionFalApiKey,
+            });
+            if (uploaded.url) {
+              options = buildVideoQueueOptions({ videoUrl: uploaded.url });
+              continuePath = 'extend';
+            } else {
+              // Soft-fail → last-frame I2V (same policy as Roleplay).
+              try {
+                const blob = await extractVideoLastFrame(parentVideoUrl);
+                const lastFrame = new File([blob], 'video-last-frame.jpg', {
+                  type: blob.type || 'image/jpeg',
+                });
+                options = buildVideoQueueOptions({
+                  clipMode: 'i2v',
+                  inputImage: lastFrame,
+                });
+                options.derivedKind = 'extend';
+                continuePath = 'last-frame';
+                pathNote = `${
+                  uploaded.uploadError?.trim() ||
+                  'Could not upload that local clip to Fal for extend-video.'
+                } Continuing from the last frame instead.`;
+              } catch {
+                setError(
+                  uploaded.uploadError?.trim() ||
+                    'Could not upload that local clip to Fal. Continue from last frame instead, or use a Fal-hosted clip.'
+                );
+                return;
+              }
+            }
+          }
+        } else if (
           clipMode === 'extend' &&
-          inferenceEngine === 'fal' &&
-          !canFalExtendFromParentUrl(parentVideoUrl)
+          continuePath === 'extend' &&
+          inferenceEngine === 'grok'
         ) {
-          const uploaded = await resolveFalExtendParentUrl({
-            parentUrl: parentVideoUrl,
-            falApiKey: shared.sessionFalApiKey,
-          });
-          if (!uploaded.url) {
-            setError(
-              uploaded.uploadError?.trim() ||
-                'Could not upload that local clip to Fal. Continue from last frame instead, or use a Fal-hosted clip.'
-            );
+          options = buildVideoQueueOptions({ videoUrl: parentVideoUrl.trim() });
+        } else if (
+          clipMode === 'extend' &&
+          (continuePath === 'last-frame' || continuePath === 'stitch')
+        ) {
+          try {
+            const blob = await extractVideoLastFrame(parentVideoUrl);
+            const lastFrame = new File([blob], 'video-last-frame.jpg', {
+              type: blob.type || 'image/jpeg',
+            });
+            options = buildVideoQueueOptions({
+              clipMode: 'i2v',
+              inputImage: lastFrame,
+            });
+            options.derivedKind = 'extend';
+          } catch (err) {
+            setError(err instanceof Error ? err.message : 'Could not read the last frame.');
             return;
           }
-          options.videoUrl = uploaded.url;
         }
-        void actions.sendComfyUi(output, null, undefined, options);
+
+        if (pathNote) {
+          setError(pathNote);
+        } else if (clipMode === 'extend') {
+          setError(continueClipPathRanMessage(continuePath));
+        }
+
+        const promptId = await actions.sendComfyUi(output, null, undefined, options);
+        if (
+          promptId &&
+          clipMode === 'extend' &&
+          continuePath === 'stitch' &&
+          parentVideoUrl.trim()
+        ) {
+          registerContinueStitch({
+            childPromptId: promptId,
+            parentUrl: parentVideoUrl.trim(),
+          });
+        }
       })();
     },
     [

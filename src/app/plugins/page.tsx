@@ -58,16 +58,63 @@ export default function PluginsPage() {
   const [manifestStatus, setManifestStatus] = useState<string | null>(null);
   const [originAllowlistText, setOriginAllowlistText] = useState('');
   const [originStatus, setOriginStatus] = useState<string | null>(null);
+  const [serverEnabled, setServerEnabled] = useState(false);
+  const [serverHmacRequired, setServerHmacRequired] = useState(false);
+  const [serverPlugins, setServerPlugins] = useState<
+    Array<PluginManifest & { source?: string; privileges?: string[]; installedAt?: string }>
+  >([]);
+  const [serverUrl, setServerUrl] = useState('');
+  const [serverStatus, setServerStatus] = useState<string | null>(null);
+  const [serverError, setServerError] = useState<string | null>(null);
   const [pageOrigin] = useState(() =>
     typeof window !== 'undefined' ? window.location.origin : '—'
   );
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const serverZipRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     scheduleAfterCommit(() => {
       refreshFromStorage();
+      void refreshServerPlugins();
     });
   }, []);
+
+  async function refreshServerPlugins() {
+    try {
+      const response = await fetch('/api/plugins/server', { credentials: 'include' });
+      if (!response.ok) {
+        setServerEnabled(false);
+        setServerPlugins([]);
+        return;
+      }
+      const data = (await response.json()) as {
+        enabled?: boolean;
+        hmacRequired?: boolean;
+        plugins?: Array<
+          PluginManifest & { source?: string; privileges?: string[]; installedAt?: string }
+        >;
+      };
+      setServerEnabled(data.enabled === true);
+      setServerHmacRequired(data.hmacRequired === true);
+      setServerPlugins(Array.isArray(data.plugins) ? data.plugins : []);
+    } catch {
+      setServerEnabled(false);
+      setServerPlugins([]);
+    }
+  }
+
+  function syncServerPluginsToClient(
+    list: Array<PluginManifest & { source?: string; privileges?: string[]; installedAt?: string }>
+  ) {
+    for (const entry of list) {
+      const normalized = normalizePluginManifest(entry);
+      if (!normalized) {
+        continue;
+      }
+      upsertInstalledPlugin(normalized);
+    }
+    refreshFromStorage();
+  }
 
   function refreshFromStorage() {
     const loaded = loadToolPlugins();
@@ -302,6 +349,218 @@ export default function PluginsPage() {
               </li>
             ))}
           </ul>
+        )}
+      </ToolSection>
+
+      <ToolSection
+        title="Server plugins"
+        description="Privileged registry under PROMPT_DATA_DIR/plugins. Hooks run inside the Comfy queue path (not only browser fetch). Bookmarks stay separate."
+      >
+        {!serverEnabled ? (
+          <p className="type-caption text-[var(--text-muted)]">
+            Set <code className="ui-inline-code">PROMPT_DATA_DIR</code> on the server to enable
+            install / sync. Optional{' '}
+            <code className="ui-inline-code">PROMPT_PLUGIN_HMAC_SECRET</code> requires{' '}
+            <code className="ui-inline-code">X-Prompt-Plugin-Signature</code> on installs.
+          </p>
+        ) : (
+          <>
+            <p className="type-caption">
+              {serverHmacRequired
+                ? 'HMAC signature required for installs.'
+                : 'HMAC optional (PROMPT_PLUGIN_HMAC_SECRET unset).'}{' '}
+              Auth on → admin required to install or remove.
+            </p>
+            <div className="mt-3 flex flex-wrap items-end gap-2">
+              <label className="block min-w-[16rem] flex-1 space-y-1.5">
+                <FieldLabel>Install from URL</FieldLabel>
+                <TextInput
+                  value={serverUrl}
+                  onChange={event => setServerUrl(event.target.value)}
+                  placeholder="https://…/manifest.json or .zip"
+                />
+              </label>
+              <Button
+                type="button"
+                size="sm"
+                variant="primary"
+                onClick={() => {
+                  void (async () => {
+                    setServerError(null);
+                    setServerStatus(null);
+                    try {
+                      const response = await fetch('/api/plugins/server', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'install', url: serverUrl.trim() }),
+                      });
+                      const data = (await response.json()) as {
+                        error?: string;
+                        plugin?: PluginManifest;
+                      };
+                      if (!response.ok) {
+                        setServerError(data.error || `HTTP ${response.status}`);
+                        return;
+                      }
+                      setServerStatus(`Installed ${data.plugin?.label ?? 'plugin'} on server.`);
+                      setServerUrl('');
+                      await refreshServerPlugins();
+                    } catch (error) {
+                      setServerError(error instanceof Error ? error.message : 'Install failed.');
+                    }
+                  })();
+                }}
+              >
+                Install URL
+              </Button>
+              <input
+                ref={serverZipRef}
+                type="file"
+                accept=".zip,application/zip,.json,application/json"
+                className="sr-only"
+                onChange={event => {
+                  const file = event.target.files?.[0];
+                  event.target.value = '';
+                  if (!file) {
+                    return;
+                  }
+                  void (async () => {
+                    setServerError(null);
+                    setServerStatus(null);
+                    try {
+                      const form = new FormData();
+                      form.set('action', 'install');
+                      form.set('file', file);
+                      const response = await fetch('/api/plugins/server', {
+                        method: 'POST',
+                        credentials: 'include',
+                        body: form,
+                      });
+                      const data = (await response.json()) as {
+                        error?: string;
+                        plugin?: PluginManifest;
+                      };
+                      if (!response.ok) {
+                        setServerError(data.error || `HTTP ${response.status}`);
+                        return;
+                      }
+                      setServerStatus(`Installed ${data.plugin?.label ?? file.name} on server.`);
+                      await refreshServerPlugins();
+                    } catch (error) {
+                      setServerError(error instanceof Error ? error.message : 'Upload failed.');
+                    }
+                  })();
+                }}
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => serverZipRef.current?.click()}
+              >
+                Upload ZIP/JSON
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  syncServerPluginsToClient(serverPlugins);
+                  setServerStatus(
+                    serverPlugins.length
+                      ? `Synced ${serverPlugins.length} server plugin(s) into local runtime list.`
+                      : 'No server plugins to sync.'
+                  );
+                }}
+              >
+                Sync to UI
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  void refreshServerPlugins();
+                }}
+              >
+                Refresh
+              </Button>
+            </div>
+            {serverError ? (
+              <p className="type-caption mt-2 text-[var(--tint-danger-text)]">{serverError}</p>
+            ) : null}
+            {serverStatus ? (
+              <p className="type-caption mt-2 text-[var(--text-secondary)]">{serverStatus}</p>
+            ) : null}
+            {serverPlugins.length === 0 ? (
+              <p className="type-caption mt-4 text-[var(--text-muted)]">
+                No server plugins installed yet.
+              </p>
+            ) : (
+              <ul className="ui-list mt-4">
+                {serverPlugins.map(plugin => (
+                  <li key={`server-${plugin.id}`} className="ui-list-row items-start">
+                    <div className="ui-list-primary min-w-0 space-y-1">
+                      <p className="type-heading">{plugin.label}</p>
+                      <p className="type-caption">
+                        v{plugin.version}
+                        {plugin.queueHooks?.url ? ` · ${plugin.queueHooks.url}` : ''}
+                        {plugin.privileges?.length ? ` · ${plugin.privileges.join(', ')}` : ''}
+                      </p>
+                      <p className="type-overline">
+                        server · {plugin.enabled === false ? 'disabled' : 'enabled'}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                          void (async () => {
+                            const response = await fetch('/api/plugins/server', {
+                              method: 'POST',
+                              credentials: 'include',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                action: plugin.enabled === false ? 'enable' : 'disable',
+                                id: plugin.id,
+                              }),
+                            });
+                            if (response.ok) {
+                              await refreshServerPlugins();
+                            }
+                          })();
+                        }}
+                      >
+                        {plugin.enabled === false ? 'Enable' : 'Disable'}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="danger"
+                        onClick={() => {
+                          void (async () => {
+                            const response = await fetch(
+                              `/api/plugins/server?id=${encodeURIComponent(plugin.id)}`,
+                              { method: 'DELETE', credentials: 'include' }
+                            );
+                            if (response.ok) {
+                              setServerStatus(`Removed ${plugin.label} from server.`);
+                              await refreshServerPlugins();
+                            }
+                          })();
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
         )}
       </ToolSection>
 

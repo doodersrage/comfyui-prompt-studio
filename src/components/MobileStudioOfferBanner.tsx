@@ -11,7 +11,7 @@ import {
 } from '@/lib/mobile-studio-offer';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 
-/** Narrow-viewport offer to switch into the phone companion (/m). */
+/** Narrow-viewport offer to switch into Mobile Studio (/m). */
 export default function MobileStudioOfferBanner() {
   const pathname = usePathname();
   const [visible, setVisible] = useState(false);
@@ -38,8 +38,8 @@ export default function MobileStudioOfferBanner() {
       className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-[var(--accent-border)] bg-[var(--accent-muted)] px-4 py-2 text-xs text-[var(--accent-text)] lg:hidden"
     >
       <p className="min-w-0 leading-snug">
-        On a phone? <span className="font-medium">Mobile Studio</span> is the companion for Capture,
-        Queue, Gallery, and Play stills — Fitting, Day, and Cut film stay on Desk.
+        On a phone? <span className="font-medium">Mobile Studio</span> runs the full film loop —
+        Capture, Moodboard, Fitting, Day, Play, and Cut.
       </p>
       <div className="flex shrink-0 items-center gap-2">
         <button

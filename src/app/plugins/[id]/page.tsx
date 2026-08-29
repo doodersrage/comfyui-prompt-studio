@@ -25,6 +25,10 @@ import {
   applyModelFromPlugin,
   applyPromptFromPlugin,
   applyQualityFromPlugin,
+  applyEngineFromPlugin,
+  applyLoraStackFromPlugin,
+  patchWorkflowTokensFromPlugin,
+  writeGalleryTagFromPlugin,
   buildPluginHostContextSnapshot,
   queuePromptFromPlugin,
 } from '@/lib/plugin-iframe-queue';
@@ -127,6 +131,52 @@ export default function PluginDetailPage({ params }: PluginDetailPageProps) {
             origin
           );
           pushHostContext();
+        });
+        return;
+      }
+      if (event.data.type === 'plugin:apply-engine') {
+        void applyEngineFromPlugin(event.data).then(result => {
+          toastQueueOutcome({ ok: result.ok, text: result.message });
+          postPluginIframeHostApplyResult(
+            iframeRef.current,
+            { pluginId: plugin.id, ok: result.ok, message: result.message },
+            origin
+          );
+          pushHostContext();
+        });
+        return;
+      }
+      if (event.data.type === 'plugin:apply-lora-stack') {
+        void applyLoraStackFromPlugin(event.data).then(result => {
+          toastQueueOutcome({ ok: result.ok, text: result.message });
+          postPluginIframeHostApplyResult(
+            iframeRef.current,
+            { pluginId: plugin.id, ok: result.ok, message: result.message },
+            origin
+          );
+          pushHostContext();
+        });
+        return;
+      }
+      if (event.data.type === 'plugin:patch-workflow-tokens') {
+        void patchWorkflowTokensFromPlugin(event.data).then(result => {
+          toastQueueOutcome({ ok: result.ok, text: result.message });
+          postPluginIframeHostApplyResult(
+            iframeRef.current,
+            { pluginId: plugin.id, ok: result.ok, message: result.message },
+            origin
+          );
+        });
+        return;
+      }
+      if (event.data.type === 'plugin:write-gallery-tag') {
+        void writeGalleryTagFromPlugin(event.data).then(result => {
+          toastQueueOutcome({ ok: result.ok, text: result.message });
+          postPluginIframeHostApplyResult(
+            iframeRef.current,
+            { pluginId: plugin.id, ok: result.ok, message: result.message },
+            origin
+          );
         });
         return;
       }

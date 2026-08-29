@@ -13,10 +13,16 @@ import {
   type CloudLlmJobStatusName,
 } from './llm-image-protocol';
 import { resolveLlmImageApiToken, type LlmImageEngineId } from './llm-image-client';
-import { DEFAULT_GEMINI_VIDEO_MODEL, DEFAULT_GROK_VIDEO_MODEL } from './cloud-video-models';
+import {
+  DEFAULT_GEMINI_VIDEO_MODEL,
+  DEFAULT_GROK_EXTEND_MODEL,
+  DEFAULT_GROK_VIDEO_MODEL,
+} from './cloud-video-models';
+import { inferVideoClipMode, type VideoClipMode } from './video-clip-mode';
 
 export {
   DEFAULT_GEMINI_VIDEO_MODEL,
+  DEFAULT_GROK_EXTEND_MODEL,
   DEFAULT_GROK_VIDEO_MODEL,
   isCloudVideoModelId,
 } from './cloud-video-models';
@@ -26,9 +32,14 @@ export type CloudVideoQueueInput = {
   model?: string;
   apiToken?: string;
   imageFilename?: string;
+  /** Parent clip URL for Grok native video extension. */
+  videoUrl?: string;
+  clipMode?: VideoClipMode;
   width?: number;
   height?: number;
   durationSec?: number;
+  /** Absolute origin for resolving relative view URLs when building a data URI. */
+  requestOrigin?: string;
 };
 
 export type CloudVideoQueueResult = {
@@ -50,6 +61,7 @@ type PendingVideoJob = {
 
 const pending = new Map<string, PendingVideoJob>();
 const PENDING_TTL_MS = 2 * 60 * 60 * 1000;
+const MAX_GROK_EXTEND_BYTES = 48 * 1024 * 1024;
 
 function prunePending(): void {
   const now = Date.now();
@@ -66,8 +78,11 @@ function hostFor(engineId: LlmImageEngineId): string {
   );
 }
 
-function defaultVideoModel(engineId: LlmImageEngineId): string {
-  return engineId === 'gemini' ? DEFAULT_GEMINI_VIDEO_MODEL : DEFAULT_GROK_VIDEO_MODEL;
+function defaultVideoModel(engineId: LlmImageEngineId, clipMode?: VideoClipMode): string {
+  if (engineId === 'gemini') {
+    return DEFAULT_GEMINI_VIDEO_MODEL;
+  }
+  return clipMode === 'extend' ? DEFAULT_GROK_EXTEND_MODEL : DEFAULT_GROK_VIDEO_MODEL;
 }
 
 function isVideoEngine(id: string): id is Extract<LlmImageEngineId, 'grok' | 'gemini'> {
@@ -87,6 +102,63 @@ function imageDataUrl(filename: string): string | undefined {
   return `data:${upload.mimeType};base64,${upload.bytes.toString('base64')}`;
 }
 
+/** Build a Grok-accepted video payload: public https URL or data URI for local clips. */
+async function resolveGrokVideoInput(
+  videoUrl: string,
+  requestOrigin?: string
+): Promise<{ url: string } | { error: string }> {
+  const trimmed = videoUrl.trim();
+  if (!trimmed) {
+    return { error: 'Grok extend needs a parent clip URL.' };
+  }
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      const host = new URL(trimmed).hostname.toLowerCase();
+      // Public CDN hosts Grok can fetch directly.
+      if (
+        host.endsWith('.fal.media') ||
+        host === 'fal.media' ||
+        host.endsWith('.x.ai') ||
+        host === 'x.ai' ||
+        host.endsWith('.imagine.x.ai')
+      ) {
+        return { url: trimmed };
+      }
+    } catch {
+      /* fall through to download */
+    }
+  }
+
+  let fetchUrl = trimmed;
+  if (trimmed.startsWith('/') && requestOrigin?.trim()) {
+    fetchUrl = `${requestOrigin.replace(/\/$/, '')}${trimmed}`;
+  } else if (!/^https?:\/\//i.test(trimmed) && requestOrigin?.trim()) {
+    fetchUrl = `${requestOrigin.replace(/\/$/, '')}/${trimmed.replace(/^\//, '')}`;
+  }
+
+  try {
+    const response = await fetch(fetchUrl, { signal: AbortSignal.timeout(90_000) });
+    if (!response.ok) {
+      return { error: `Could not read parent clip for Grok extend (HTTP ${response.status}).` };
+    }
+    const bytes = Buffer.from(await response.arrayBuffer());
+    if (bytes.length === 0) {
+      return { error: 'Parent clip for Grok extend was empty.' };
+    }
+    if (bytes.length > MAX_GROK_EXTEND_BYTES) {
+      return { error: 'Parent clip is too large for Grok extend (48MB max).' };
+    }
+    const mime =
+      response.headers.get('content-type')?.split(';')[0]?.trim() ||
+      (/\.webm(\?|$)/i.test(trimmed) ? 'video/webm' : 'video/mp4');
+    return { url: `data:${mime};base64,${bytes.toString('base64')}` };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : 'Could not read parent clip for Grok extend.',
+    };
+  }
+}
+
 export async function queueCloudVideo(
   engineId: LlmImageEngineId,
   input: CloudVideoQueueInput
@@ -100,6 +172,11 @@ export async function queueCloudVideo(
     };
   }
   const host = hostFor(engineId);
+  const hasImage = Boolean(input.imageFilename?.trim());
+  const clipMode = inferVideoClipMode({
+    clipMode: input.clipMode,
+    hasInitImage: hasImage,
+  });
   let token: string;
   try {
     token = resolveLlmImageApiToken(engineId, input.apiToken);
@@ -115,8 +192,8 @@ export async function queueCloudVideo(
   let modelId: string;
   try {
     modelId = sanitizeCloudLlmModelId(
-      input.model || defaultVideoModel(engineId),
-      defaultVideoModel(engineId)
+      input.model || defaultVideoModel(engineId, clipMode),
+      defaultVideoModel(engineId, clipMode)
     );
   } catch (error) {
     return {
@@ -131,8 +208,8 @@ export async function queueCloudVideo(
   try {
     const started =
       engineId === 'gemini'
-        ? await startGeminiVideo(input, token, modelId)
-        : await startGrokVideo(input, token, modelId);
+        ? await startGeminiVideo(input, token, modelId, clipMode)
+        : await startGrokVideo(input, token, modelId, clipMode);
     if (!started.ok || !started.providerJobId) {
       return {
         ok: false,
@@ -167,7 +244,8 @@ export async function queueCloudVideo(
 async function startGrokVideo(
   input: CloudVideoQueueInput,
   token: string,
-  modelId: string
+  modelId: string,
+  clipMode: VideoClipMode
 ): Promise<{
   ok: boolean;
   status: number;
@@ -176,6 +254,51 @@ async function startGrokVideo(
   raw: Record<string, unknown>;
 }> {
   const duration = Math.max(1, Math.min(15, Math.round(input.durationSec ?? 8)));
+  const parentVideoUrl = input.videoUrl?.trim() || '';
+
+  if (clipMode === 'extend') {
+    if (!parentVideoUrl) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'Grok extend needs a parent clip URL.',
+        raw: {},
+      };
+    }
+    const video = await resolveGrokVideoInput(parentVideoUrl, input.requestOrigin);
+    if ('error' in video) {
+      return { ok: false, status: 400, error: video.error, raw: {} };
+    }
+    const response = await fetch(`${GROK_API_HOST}/v1/videos/extensions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: modelId.includes('grok-imagine-video') ? modelId : DEFAULT_GROK_EXTEND_MODEL,
+        prompt: input.prompt.trim(),
+        duration,
+        video: { url: video.url },
+      }),
+      signal: AbortSignal.timeout(60_000),
+    });
+    const raw = await readJson(response);
+    const requestId =
+      (typeof raw.request_id === 'string' && raw.request_id.trim()) ||
+      (typeof raw.id === 'string' && raw.id.trim()) ||
+      '';
+    if (!response.ok || !requestId) {
+      return {
+        ok: false,
+        status: response.status || 502,
+        error: providerErrorMessage(raw, `Grok video extend returned HTTP ${response.status}.`),
+        raw,
+      };
+    }
+    return { ok: true, status: response.status, providerJobId: requestId, raw };
+  }
+
   const body: Record<string, unknown> = {
     model: modelId,
     prompt: input.prompt.trim(),
@@ -215,7 +338,8 @@ async function startGrokVideo(
 async function startGeminiVideo(
   input: CloudVideoQueueInput,
   token: string,
-  modelId: string
+  modelId: string,
+  clipMode: VideoClipMode
 ): Promise<{
   ok: boolean;
   status: number;
@@ -223,6 +347,17 @@ async function startGeminiVideo(
   error?: string;
   raw: Record<string, unknown>;
 }> {
+  // Veo extend only accepts Veo-generated URIs from a prior operation — not arbitrary uploads.
+  // Callers use last-frame I2V + server stitch (`resolveVideoContinuePath` → stitch).
+  if (clipMode === 'extend' && !input.imageFilename?.trim()) {
+    return {
+      ok: false,
+      status: 400,
+      error:
+        'Gemini continue uses last-frame I2V then Stitch continue — need a first frame from the parent clip.',
+      raw: {},
+    };
+  }
   const instance: Record<string, unknown> = { prompt: input.prompt.trim() };
   if (input.imageFilename?.trim()) {
     const upload = getLlmImageUpload(input.imageFilename.trim());

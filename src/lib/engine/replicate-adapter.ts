@@ -62,6 +62,9 @@ export const replicateEngineAdapter: EngineAdapter = {
         (typeof body.inputImageFilename === 'string' && body.inputImageFilename.trim()) ||
         (typeof params.inputImageFilename === 'string' && params.inputImageFilename.trim()) ||
         undefined,
+      inputImageFilenames: Array.isArray(body.inputImageFilenames)
+        ? body.inputImageFilenames.filter((name): name is string => typeof name === 'string')
+        : undefined,
       params: {
         seed: params.seed,
         width: params.width,

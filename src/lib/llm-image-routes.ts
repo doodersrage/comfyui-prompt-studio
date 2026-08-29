@@ -18,6 +18,7 @@ import {
 } from '@/lib/llm-image-client';
 import {
   DEFAULT_GEMINI_VIDEO_MODEL,
+  DEFAULT_GROK_EXTEND_MODEL,
   DEFAULT_GROK_VIDEO_MODEL,
   fetchCloudVideoJobStatus,
   isCloudVideoModelId,
@@ -43,6 +44,7 @@ type QueueBody = {
   inputImageFilename?: string;
   tool?: string;
   clipMode?: 't2v' | 'i2v' | 'extend';
+  videoUrl?: string;
   params?: {
     seed?: string | number;
     width?: string | number;
@@ -118,13 +120,17 @@ export function llmImageQueueHandlers(engineId: LlmImageEngineId) {
         const isVideo = body.tool?.trim() === 'video';
         if (isVideo && engineId === 'openai') {
           return apiError(
-            'ChatGPT cannot queue clips. Sora is deprecated. Switch to Fal, Replicate, Grok, Gemini, or local WAN.',
+            'ChatGPT cannot queue clips. Sora is deprecated. Switch to Fal, Replicate, Grok, Gemini, Runway, or local WAN.',
             400
           );
         }
         const frames = toNumber(params.videoFrames);
         const fps = toNumber(params.videoFps, 16);
         const durationSec = frames && fps ? Math.max(1, Math.round(frames / Math.max(1, fps))) : 8;
+        const clipMode =
+          body.clipMode === 't2v' || body.clipMode === 'i2v' || body.clipMode === 'extend'
+            ? body.clipMode
+            : undefined;
         const result = isVideo
           ? await queueCloudVideo(engineId, {
               prompt,
@@ -132,12 +138,17 @@ export function llmImageQueueHandlers(engineId: LlmImageEngineId) {
                 ? body.model?.trim()
                 : engineId === 'gemini'
                   ? DEFAULT_GEMINI_VIDEO_MODEL
-                  : DEFAULT_GROK_VIDEO_MODEL,
+                  : clipMode === 'extend'
+                    ? DEFAULT_GROK_EXTEND_MODEL
+                    : DEFAULT_GROK_VIDEO_MODEL,
               apiToken: tokenFromBody(engineId, body),
               imageFilename,
+              videoUrl: body.videoUrl?.trim() || undefined,
+              clipMode,
               width: toNumber(params.width, 1024),
               height: toNumber(params.height, 1024),
               durationSec,
+              requestOrigin: new URL(request.url).origin,
             })
           : await queueLlmImage(engineId, {
               prompt,

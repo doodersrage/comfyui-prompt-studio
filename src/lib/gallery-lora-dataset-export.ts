@@ -306,10 +306,14 @@ async function fetchVisionCaptionsForEntries(
   return captions;
 }
 
-export async function downloadLoraDatasetZip(
+async function collectLoraDatasetImageFiles(
   entries: ComfyGalleryEntry[],
   options?: LoraCaptionOptions
-): Promise<LoraDatasetExportResult> {
+): Promise<{
+  manifest: LoraDatasetManifestEntry[];
+  exportedManifest: LoraDatasetManifestEntry[];
+  pairs: Array<{ item: LoraDatasetManifestEntry; imageBytes: Uint8Array }>;
+}> {
   const captionMode = options?.captionMode ?? 'prompt';
   const visionCaptionsById =
     captionMode === 'vision' ? await fetchVisionCaptionsForEntries(entries) : undefined;
@@ -318,15 +322,8 @@ export async function downloadLoraDatasetZip(
     captionMode,
     visionCaptionsById,
   });
-  const files: ZipFileEntry[] = [];
-  // `manifest` is the full attempted plan, but an image fetch can fail mid-loop
-  // (network hiccup, the ComfyUI host restarting, an evicted output file) and
-  // that entry never lands in `files`. Track which entries actually made it in
-  // so the reported count -- surfaced directly to the user as "Exported N
-  // images" / "Packed N stills", and by the embedded manifest.json itself --
-  // reflects what's really in the zip instead of overstating it whenever even
-  // one fetch fails partway through.
   const exportedManifest: LoraDatasetManifestEntry[] = [];
+  const pairs: Array<{ item: LoraDatasetManifestEntry; imageBytes: Uint8Array }> = [];
 
   // Independent /view fetches to the local ComfyUI host — was sequential,
   // which serialized what should be I/O-bound work for every entry in the
@@ -351,12 +348,38 @@ export async function downloadLoraDatasetZip(
     if (!result) {
       continue;
     }
+    pairs.push(result);
+    exportedManifest.push(result.item);
+  }
+
+  return { manifest, exportedManifest, pairs };
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+export async function downloadLoraDatasetZip(
+  entries: ComfyGalleryEntry[],
+  options?: LoraCaptionOptions
+): Promise<LoraDatasetExportResult> {
+  const { manifest, exportedManifest, pairs } = await collectLoraDatasetImageFiles(
+    entries,
+    options
+  );
+  const files: ZipFileEntry[] = [];
+
+  for (const result of pairs) {
     files.push({ filename: result.item.imageFilename, data: result.imageBytes });
     files.push({
       filename: result.item.captionFilename,
       data: new TextEncoder().encode(result.item.caption),
     });
-    exportedManifest.push(result.item);
   }
 
   if (files.length === 0) {
@@ -387,4 +410,151 @@ export async function downloadLoraDatasetZip(
   URL.revokeObjectURL(url);
 
   return { count: exportedManifest.length, manifest };
+}
+
+export type PersistLoraDatasetOnServerOptions = LoraCaptionOptions & {
+  characterId?: string;
+  lookId?: string;
+};
+
+export type PersistLoraDatasetOnServerResult = LoraDatasetExportResult & {
+  datasetPath: string;
+  datasetId: string;
+};
+
+/**
+ * Fetch keeper stills and write them under PROMPT_DATA_DIR via POST /api/lora-train
+ * (action=export-dataset). Returns the absolute datasetPath for train start.
+ */
+export async function persistLoraDatasetOnServer(
+  entries: ComfyGalleryEntry[],
+  options?: PersistLoraDatasetOnServerOptions
+): Promise<PersistLoraDatasetOnServerResult> {
+  const { manifest, exportedManifest, pairs } = await collectLoraDatasetImageFiles(
+    entries,
+    options
+  );
+  if (pairs.length === 0) {
+    return { count: 0, manifest, datasetPath: '', datasetId: '' };
+  }
+
+  const response = await fetch('/api/lora-train', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'export-dataset',
+      trigger: options?.triggerWord,
+      characterId: options?.characterId,
+      lookId: options?.lookId,
+      files: pairs.map(pair => ({
+        filename: pair.item.imageFilename,
+        caption: pair.item.caption,
+        imageBase64: bytesToBase64(pair.imageBytes),
+      })),
+    }),
+  });
+  const data = (await response.json()) as {
+    error?: string;
+    datasetPath?: string;
+    datasetId?: string;
+    count?: number;
+  };
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to persist LoRA dataset on server.');
+  }
+  if (!data.datasetPath?.trim()) {
+    throw new Error('Server did not return a datasetPath.');
+  }
+
+  return {
+    count: data.count ?? exportedManifest.length,
+    manifest: exportedManifest,
+    datasetPath: data.datasetPath.trim(),
+    datasetId: data.datasetId?.trim() || '',
+  };
+}
+
+/**
+ * Single fetch pass: download ZIP and persist under PROMPT_DATA_DIR when the API allows.
+ */
+export async function downloadAndPersistLoraDataset(
+  entries: ComfyGalleryEntry[],
+  options?: PersistLoraDatasetOnServerOptions
+): Promise<PersistLoraDatasetOnServerResult & { zipDownloaded: boolean }> {
+  const { manifest, exportedManifest, pairs } = await collectLoraDatasetImageFiles(
+    entries,
+    options
+  );
+  if (pairs.length === 0) {
+    return { count: 0, manifest, datasetPath: '', datasetId: '', zipDownloaded: false };
+  }
+
+  const files: ZipFileEntry[] = [];
+  for (const result of pairs) {
+    files.push({ filename: result.item.imageFilename, data: result.imageBytes });
+    files.push({
+      filename: result.item.captionFilename,
+      data: new TextEncoder().encode(result.item.caption),
+    });
+  }
+  files.push({
+    filename: 'manifest.json',
+    data: new TextEncoder().encode(
+      JSON.stringify(
+        {
+          exportedAt: new Date().toISOString(),
+          count: exportedManifest.length,
+          entries: exportedManifest,
+        },
+        null,
+        2
+      )
+    ),
+  });
+  const blob = buildZipBlob(files);
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `lora-dataset-${Date.now()}.zip`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+
+  let datasetPath = '';
+  let datasetId = '';
+  try {
+    const response = await fetch('/api/lora-train', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'export-dataset',
+        trigger: options?.triggerWord,
+        characterId: options?.characterId,
+        lookId: options?.lookId,
+        files: pairs.map(pair => ({
+          filename: pair.item.imageFilename,
+          caption: pair.item.caption,
+          imageBase64: bytesToBase64(pair.imageBytes),
+        })),
+      }),
+    });
+    const data = (await response.json()) as {
+      error?: string;
+      datasetPath?: string;
+      datasetId?: string;
+    };
+    if (response.ok && data.datasetPath?.trim()) {
+      datasetPath = data.datasetPath.trim();
+      datasetId = data.datasetId?.trim() || '';
+    }
+  } catch {
+    // ZIP still succeeded.
+  }
+
+  return {
+    count: exportedManifest.length,
+    manifest: exportedManifest,
+    datasetPath,
+    datasetId,
+    zipDownloaded: true,
+  };
 }

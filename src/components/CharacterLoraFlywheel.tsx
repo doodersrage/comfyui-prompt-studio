@@ -14,7 +14,7 @@ import {
 import {
   queueCharacterLookValidation,
   registerCharacterLookLora,
-  startCharacterLookTrain,
+  exportKeepersAndTrain,
   trainJobsForCharacter,
 } from '@/lib/character-lora-flywheel';
 import { downloadLoraDatasetZip } from '@/lib/gallery-lora-dataset-export';
@@ -100,7 +100,7 @@ export default function CharacterLoraFlywheel({
   return (
     <ToolSection
       title="LoRA flywheel"
-      description="Keepers on this look become the dataset. Train, pin, and the next still uses that face."
+      description="Keepers on this look become the dataset. Export → Train → Prove: write keepers under PROMPT_DATA_DIR, start the trainer with datasetPath, then validate after register."
     >
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-2">
@@ -168,20 +168,14 @@ export default function CharacterLoraFlywheel({
           onClick={() => {
             persistTrigger();
             setBusy(true);
-            setStatus('Packing keepers…');
-            void downloadLoraDatasetZip(keepers, { triggerWord: trigger.trim() })
-              .then(result => {
-                if (result.count === 0) {
-                  throw new Error('Could not pack any keeper stills.');
-                }
-                setStatus(`Packed ${result.count} stills. Starting train job…`);
-                return startCharacterLookTrain({
-                  character,
-                  lookId: look.id,
-                  lookName: look.name,
-                  trigger: trigger.trim(),
-                });
-              })
+            setStatus('Export keepers → Train this look…');
+            void exportKeepersAndTrain({
+              character,
+              lookId: look.id,
+              lookName: look.name,
+              trigger: trigger.trim(),
+              keepers,
+            })
               .then(result => {
                 setJobs(trainJobsForCharacter(result.jobs, character.id));
                 setStatus(result.message);
@@ -192,7 +186,7 @@ export default function CharacterLoraFlywheel({
               .finally(() => setBusy(false));
           }}
         >
-          Train this look
+          Export → Train
         </Button>
         <Button
           size="sm"
@@ -201,13 +195,13 @@ export default function CharacterLoraFlywheel({
           onClick={() => {
             setStatus('Exporting…');
             void downloadLoraDatasetZip(keepers, { triggerWord: trigger.trim() })
-              .then(result => setStatus(`Exported ${result.count} images.`))
+              .then(result => setStatus(`Exported ${result.count} images (ZIP download).`))
               .catch(error => {
                 setStatus(error instanceof Error ? error.message : 'Could not export dataset.');
               });
           }}
         >
-          Export dataset
+          Export ZIP
         </Button>
         <Button
           size="sm"

@@ -231,8 +231,11 @@ export default function MobileCaptureTool() {
           <Link href="/m/play" className="ui-btn-primary w-full justify-center text-center">
             Play as {active.name}
           </Link>
+          <Link href="/m/moodboard" className="ui-btn-secondary w-full justify-center text-center">
+            Start Moodboard
+          </Link>
           <Button
-            variant="secondary"
+            variant="ghost"
             className="w-full justify-center"
             onClick={() => {
               saveGalleryHandoff({

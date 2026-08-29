@@ -1,100 +1,29 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState } from 'react';
 import RoleplayBibleEditor from '@/components/RoleplayBibleEditor';
 import RoleplayLibraryPanel from '@/components/RoleplayLibraryPanel';
 import RoleplayStoryReel from '@/components/RoleplayStoryReel';
 import { Button, PrimaryButton } from '@/components/ui/Button';
-import { useRoleplayFilmActions } from '@/hooks/useRoleplayFilmActions';
-import { FieldError, TextInput } from '@/components/ui/Field';
-import { useCachedSettings } from '@/hooks/useCachedSettings';
-import { usePromptResultActions } from '@/hooks/usePromptResultActions';
-import { useRoleplayStorySync } from '@/hooks/useRoleplayStorySync';
-import { loadComfyGallery } from '@/lib/comfyui-gallery';
-import { loadComfyUiSettings } from '@/lib/comfyui-settings';
-import { IDENTITY_MEDIA_URL, persistIdentityImage } from '@/lib/gallery-media-client';
+import { ChipButton, FieldError, TextInput } from '@/components/ui/Field';
+import type { useMobilePlayToolOrchestration } from '@/hooks/useMobilePlayToolOrchestration';
 import {
-  collectIsolateSourceUrls,
-  isolateSubjectOnWhite,
-  ISOLATE_QUEUE_BLOCKED_MESSAGE,
-  loadImageBlobFromUrls,
-} from '@/lib/isolate-subject';
-import {
-  normalizeCharacterPlates,
-  roleplayPatchFromPlate,
-  type CharacterPlate,
-} from '@/lib/mobile-studio';
-import { rememberDraftFields } from '@/lib/remember-draft-fields';
-import { resolveQueueInputImage } from '@/lib/queue-input-image';
-import { getReformatTargetModel } from '@/lib/reformat-target';
-import {
-  appendRoleplayStoryBeat,
   applyRoleplayCharacterName,
-  beginRoleplayStillRetryPatch,
-  canRetryRoleplayStill,
   formatRoleplayBio,
-  formatRoleplayStoryProgress,
-  lastRoleplayPlotBeat,
   MAX_ROLEPLAY_CHARACTER_NAME,
-  mergeRoleplayRejectedScenes,
-  normalizeRoleplayIsolateSubject,
-  normalizeRoleplayPlayAs,
-  patchRoleplayStoryBeat,
-  resolveRoleplayToneAndContent,
-  roleplayIntroScene,
-  roleplayStillQueueResultPatch,
-  roleplayStillTakes,
-  roleplayStoryPhase,
-  selectRoleplayStillTakePatch,
-  type RoleplayBio,
-  type RoleplayScene,
-  type RoleplayStoryBeat,
 } from '@/lib/roleplay';
-import {
-  applyRoleplayLibrarySession,
-  archiveAndStartNewRoleplaySession,
-  persistRoleplayLibraryFromCache,
-  type RoleplayLibrarySession,
-} from '@/lib/roleplay-library';
+import { roleplayPatchFromPlate } from '@/lib/mobile-studio';
 import {
   DEFAULT_MOBILE_STUDIO_TOOL_CACHE,
-  DEFAULT_ROLEPLAY_TOOL_CACHE,
   loadToolSettings,
   saveToolSettings,
-  SETTINGS_CACHE_UPDATED_EVENT,
 } from '@/lib/settings-cache';
-import {
-  buildRoleplayQueueStillOptions,
-  buildRoleplayRequestBody,
-  type RoleplayApiPayload,
-} from '@/lib/roleplay-play-core';
-import { dispatchWebhook } from '@/lib/webhook-settings';
-
-const TOOL_ID = 'roleplay';
-const EMPTY_STORY: RoleplayStoryBeat[] = [];
-
-function loadPlates(): CharacterPlate[] {
-  return normalizeCharacterPlates(
-    loadToolSettings('mobileStudio', DEFAULT_MOBILE_STUDIO_TOOL_CACHE).plates
-  );
-}
-
-function loadActivePlate(): CharacterPlate | null {
-  const cache = loadToolSettings('mobileStudio', DEFAULT_MOBILE_STUDIO_TOOL_CACHE);
-  const plates = normalizeCharacterPlates(cache.plates);
-  return plates.find(plate => plate.id === cache.activePlateId) ?? plates[0] ?? null;
-}
-
-import type { useMobilePlayToolOrchestration } from '@/hooks/useMobilePlayToolOrchestration';
 
 type ViewModel = ReturnType<typeof useMobilePlayToolOrchestration>;
 type Props = ViewModel & { description: string };
 
-export default function MobilePlayToolSections({ description, ...vm }: Props) {
+export default function MobilePlayToolSections({ description: _description, ...vm }: Props) {
   const {
-    mounted,
-    shared,
     toolSettings,
     updateToolSettings,
     plates,
@@ -102,21 +31,17 @@ export default function MobilePlayToolSections({ description, ...vm }: Props) {
     scenes,
     setScenes,
     error,
-    setError,
     bioLoading,
     playingId,
     isolating,
     ownBibleOpen,
     setOwnBibleOpen,
-    personaId,
-    tone,
-    content,
     playAs,
     isolateSubject,
     bio,
     story,
     storyProgress,
-    autoQueue,
+    beatOutput,
     assemblingFilm,
     filmStatus,
     filmNeedsCast,
@@ -125,25 +50,28 @@ export default function MobilePlayToolSections({ description, ...vm }: Props) {
     saveFilmToCast,
     filmError,
     hasReferenceImage,
-    referenceImageUrl,
     writeBio,
     applyOwnBible,
     playScene,
     queueBeat,
     selectStillTake,
+    selectClipTake,
+    animateBeat,
+    retryClip,
+    extendBeat,
     continueLibrarySession,
     startLibrarySession,
     plateUrl,
     autoIsolateAttemptedRef,
-    setPlates,
     setActivePlate,
   } = vm;
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-testid="mobile-play">
       <div className="space-y-1">
         <h1 className="type-display text-2xl tracking-tight">Play</h1>
         <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
-          From photo — identity lock from your plate. Write a bio, then tap a beat.
+          From photo — stills and clips (I2V / T2V / continue). Cut and Save to Cast on the phone.
         </p>
       </div>
 
@@ -232,6 +160,24 @@ export default function MobilePlayToolSections({ description, ...vm }: Props) {
           }}
         />
       </label>
+
+      <div className="flex flex-wrap gap-2">
+        <ChipButton
+          active={beatOutput === 'still'}
+          disabled={bioLoading}
+          onClick={() => updateToolSettings({ beatOutput: 'still' })}
+        >
+          Stills
+        </ChipButton>
+        <ChipButton
+          active={beatOutput === 'clip'}
+          disabled={bioLoading}
+          onClick={() => updateToolSettings({ beatOutput: 'clip' })}
+          data-testid="mobile-play-beat-clip"
+        >
+          Clips (auto)
+        </ChipButton>
+      </div>
 
       <PrimaryButton
         disabled={!hasReferenceImage || bioLoading || isolating}
@@ -330,51 +276,34 @@ export default function MobilePlayToolSections({ description, ...vm }: Props) {
         busy={bioLoading || playingId !== null || assemblingFilm}
         onQueue={beat => void queueBeat(beat)}
         onRetry={beat => void queueBeat(beat, { retry: true })}
+        onRetryClip={retryClip}
+        onAnimate={animateBeat}
+        onExtend={extendBeat}
         onSelectTake={selectStillTake}
+        onSelectClipTake={selectClipTake}
       />
 
-      <div className="space-y-2">
-        <p className="type-caption text-[var(--text-muted)]">
-          Phone companion path: Capture → Queue → Rate → continue the film loop on desk.
-        </p>
-        <Link
-          href="/day"
-          className="ui-btn-secondary w-full justify-center text-center text-sm"
-          data-testid="mobile-continue-desk-day"
-        >
-          Continue Day on desk
-        </Link>
-        <Link
-          href="/play"
-          className="ui-btn-secondary w-full justify-center text-center text-sm"
-          data-testid="mobile-continue-desk-play"
-        >
-          Play campaign on desk
-        </Link>
-        <Button
-          variant="ghost"
+      <div className="space-y-2 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-muted)]/30 p-3">
+        <p className="type-caption text-[var(--text-muted)]">Film</p>
+        <PrimaryButton
           loading={assemblingFilm}
           loadingLabel="Cutting film"
           disabled={story.length === 0 || assemblingFilm || bioLoading}
           onClick={() => void cutRoleplayFilm()}
           className="w-full justify-center"
+          data-testid="mobile-play-cut"
         >
           Cut film
+        </PrimaryButton>
+        <Button
+          variant="secondary"
+          disabled={bioLoading || assemblingFilm || (!filmNeedsCast && !filmStatus)}
+          onClick={saveFilmToCast}
+          className="w-full justify-center"
+          data-testid="roleplay-save-film-cast"
+        >
+          Save to Cast
         </Button>
-        <p className="type-caption text-center text-[var(--text-muted)]">
-          Optional on phone · full Fitting / Day / Cut loop on desk
-        </p>
-        {filmNeedsCast ? (
-          <Button
-            variant="ghost"
-            disabled={bioLoading || assemblingFilm}
-            onClick={saveFilmToCast}
-            className="w-full justify-center"
-            data-testid="roleplay-save-film-cast"
-          >
-            Save to Cast
-          </Button>
-        ) : null}
         {filmCharacterId && filmStatus && !assemblingFilm ? (
           <Link
             href={`/characters/${encodeURIComponent(filmCharacterId)}?media=films`}
@@ -410,10 +339,59 @@ export default function MobilePlayToolSections({ description, ...vm }: Props) {
         {filmStatus ? <p className="type-caption text-[var(--text-muted)]">{filmStatus}</p> : null}
       </div>
 
+      <div className="space-y-2">
+        <p className="type-caption text-[var(--text-muted)]">Film loop on phone</p>
+        <Link
+          href="/m/day"
+          className="ui-btn-secondary w-full justify-center text-center text-sm"
+          data-testid="mobile-continue-day"
+        >
+          Open Day
+        </Link>
+        <Link
+          href="/m/fitting"
+          className="ui-btn-ghost w-full justify-center text-center text-sm"
+          data-testid="mobile-continue-fitting"
+        >
+          Open Fitting
+        </Link>
+        <Link
+          href="/m/moodboard"
+          className="ui-btn-ghost w-full justify-center text-center text-sm"
+          data-testid="mobile-continue-moodboard"
+        >
+          Open Moodboard
+        </Link>
+        <details className="rounded-xl border border-[var(--border-subtle)] px-3 py-2">
+          <summary className="type-caption cursor-pointer text-[var(--text-muted)]">
+            Optional desk handoff
+          </summary>
+          <div className="mt-2 grid gap-2">
+            <Link
+              href="/day"
+              className="ui-btn-ghost w-full justify-center text-center text-sm"
+              data-testid="mobile-continue-desk-day"
+            >
+              Day on desk
+            </Link>
+            <Link
+              href="/play"
+              className="ui-btn-ghost w-full justify-center text-center text-sm"
+              data-testid="mobile-continue-desk-play"
+            >
+              Campaign on desk
+            </Link>
+            <Link
+              href="/roleplay"
+              className="ui-btn-ghost w-full justify-center text-center text-sm"
+            >
+              Full Roleplay on desk
+            </Link>
+          </div>
+        </details>
+      </div>
+
       <FieldError>{error || filmError}</FieldError>
-      <Link href="/roleplay" className="ui-btn-ghost w-full justify-center text-center text-sm">
-        Full Roleplay on desk
-      </Link>
     </div>
   );
 }

@@ -88,7 +88,7 @@ export default function RoleplayBeatOutputSection({
               Queue a {beatOutput === 'clip' ? 'clip' : 'still'} when I write a bio or pick a scene
               <span className="mt-0.5 block text-xs text-[var(--text-muted)]">
                 {beatOutput === 'clip'
-                  ? 'Each scene queues a new clip from the beat prompt (T2V). From photo uses that photo as I2V, not the previous scene. Use Play another clip to reroll a take. Extend clip / Continue from last frame is the continuity action — Fal extend-video when the parent is already a public Fal URL, or after a successful Fal CDN upload of a local clip; otherwise last-frame I2V (Roleplay says so if the upload fails). Local WAN, Fal, or Replicate.'
+                  ? 'Each scene queues a new clip from the beat prompt (T2V). From photo uses that photo as I2V, not the previous scene. Use Play another clip to reroll a take. Continuity labels: Extend clip (Fal LTX extend-video or Grok video extensions), Continue from last frame (Replicate / Fal upload soft-fail), or Stitch continue (Gemini last-frame I2V then server concat). Roleplay says which path ran.'
                   : 'Uses the model and Fast/Good/Best from the sidebar. Turn off to write the prompt first.'}
               </span>
             </span>

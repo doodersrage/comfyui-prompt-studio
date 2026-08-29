@@ -69,6 +69,8 @@ export async function startCharacterLookTrain(input: {
   lookId?: string;
   lookName?: string;
   trigger: string;
+  /** Absolute on-disk dataset from persistLoraDatasetOnServer. */
+  datasetPath?: string;
 }): Promise<{ job: TrainJob; jobs: TrainJob[]; message: string }> {
   const trigger = input.trigger.trim() || loraTriggerFromCharacter(input.character) || '';
   if (!trigger) {
@@ -77,6 +79,14 @@ export async function startCharacterLookTrain(input: {
   const prefs = normalizeLoraTrainTrainerPrefs(loadSettingsCache().shared.loraTrainTrainerPrefs);
   const outputPath =
     prefs.outputDir?.trim() || suggestedLoraOutputPath(input.character, input.lookName);
+  const datasetPath = input.datasetPath?.trim() || prefs.datasetPath?.trim() || undefined;
+
+  if (datasetPath) {
+    saveSharedSettings({
+      ...loadSettingsCache().shared,
+      loraTrainTrainerPrefs: { ...prefs, datasetPath },
+    });
+  }
 
   const response = await fetch('/api/lora-train', {
     method: 'POST',
@@ -85,9 +95,15 @@ export async function startCharacterLookTrain(input: {
       action: 'start',
       trigger,
       outputPath,
+      datasetPath,
       baseModel: prefs.baseModel?.trim() || undefined,
       trainerUrl: prefs.trainerUrl?.trim() || undefined,
       trainerCommand: prefs.trainerCommand?.trim() || undefined,
+      templateId: prefs.templateId?.trim() || undefined,
+      kohyaScript: prefs.kohyaScript?.trim() || undefined,
+      networkRank: prefs.networkRank,
+      maxTrainSteps: prefs.maxTrainSteps,
+      resolution: prefs.resolution,
       characterId: input.character.id,
       lookId: input.lookId,
     }),
@@ -109,14 +125,58 @@ export async function startCharacterLookTrain(input: {
       status: 'manual',
       characterId: input.character.id,
       lookId: input.lookId,
+      datasetPath,
     });
   const local = normalizeTrainJobs(loadSettingsCache().shared.loraTrainJobs);
   const jobs = persistTrainJobs(mergeTrainJobs(local, data.jobs ?? [job]));
   const message =
     job.status === 'manual'
       ? `Manual train job recorded for ${input.character.name}. Register when the weight is ready.`
-      : `Train job ${job.id} started (${job.status}).`;
+      : `Train job ${job.id} started (${job.status})${datasetPath ? ' with exported keepers' : ''}.`;
   return { job, jobs, message };
+}
+
+/**
+ * Export keepers to PROMPT_DATA_DIR and start train with datasetPath.
+ */
+export async function exportKeepersAndTrain(input: {
+  character: CharacterRecord;
+  lookId?: string;
+  lookName?: string;
+  trigger: string;
+  keepers: import('./comfyui-gallery-entry').ComfyGalleryEntry[];
+}): Promise<{
+  job: TrainJob;
+  jobs: TrainJob[];
+  datasetPath: string;
+  exportCount: number;
+  message: string;
+}> {
+  const { persistLoraDatasetOnServer } = await import('./gallery-lora-dataset-export');
+  const exported = await persistLoraDatasetOnServer(input.keepers, {
+    triggerWord: input.trigger.trim(),
+    characterId: input.character.id,
+    lookId: input.lookId,
+  });
+  if (exported.count === 0 || !exported.datasetPath) {
+    throw new Error('Could not export any keeper stills to the server dataset folder.');
+  }
+
+  const trained = await startCharacterLookTrain({
+    character: input.character,
+    lookId: input.lookId,
+    lookName: input.lookName,
+    trigger: input.trigger,
+    datasetPath: exported.datasetPath,
+  });
+
+  return {
+    job: trained.job,
+    jobs: trained.jobs,
+    datasetPath: exported.datasetPath,
+    exportCount: exported.count,
+    message: `${trained.message} Exported ${exported.count} keepers → train.`,
+  };
 }
 
 export async function registerCharacterLookLora(input: {
@@ -212,12 +272,28 @@ export async function registerCharacterLookLora(input: {
     setCharacterTrigger(input.characterId, nextJob.trigger);
   }
 
+  let message = data.entry
+    ? `Pinned “${data.entry.label || data.entry.id}” on this character with trigger “${data.entry.triggerPhrase || nextJob.trigger}”.`
+    : `Train job ${nextJob.id} marked complete.`;
+
+  if (prefs.autoQueueValidation) {
+    const { getCharacter } = await import('./character-os');
+    const character = getCharacter(input.characterId);
+    if (character) {
+      const validation = await queueCharacterLookValidation({
+        character,
+        trigger: nextJob.trigger || trigger,
+      });
+      if (validation.queued) {
+        message = `${message} Validation still queued (Prove).`;
+      }
+    }
+  }
+
   return {
     job: nextJob,
     jobs,
-    message: data.entry
-      ? `Pinned “${data.entry.label || data.entry.id}” on this character with trigger “${data.entry.triggerPhrase || nextJob.trigger}”.`
-      : `Train job ${nextJob.id} marked complete.`,
+    message,
   };
 }
 

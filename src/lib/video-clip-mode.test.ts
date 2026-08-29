@@ -14,7 +14,10 @@ import {
 } from './engine/capabilities';
 import {
   canFalExtendFromParentUrl,
+  cloudContinueUsesLastFrameI2v,
+  cloudNativeExtendEngines,
   continueClipActionLabel,
+  continueClipPathRanMessage,
   engineCanQueueClips,
   falExtendQueueFields,
   falVideoDurationPayload,
@@ -22,9 +25,11 @@ import {
   falVideoRequiresParentClip,
   inferVideoClipMode,
   normalizeVideoClipMode,
+  replicateUsesLastFrameI2v,
   replicateVideoDurationPayload,
   resolveFalVideoModel,
   resolveReplicateVideoModel,
+  resolveVideoContinuePath,
   snapFalVideoDurationSec,
 } from './video-clip-mode';
 
@@ -149,7 +154,7 @@ describe('video clip mode', () => {
     );
   });
 
-  it('labels Gallery continue as Fal extend vs last-frame I2V', () => {
+  it('labels Gallery continue as Extend / last-frame / Stitch', () => {
     assert.equal(
       continueClipActionLabel({
         engine: 'fal',
@@ -171,6 +176,57 @@ describe('video clip mode', () => {
       }),
       'Continue from last frame'
     );
+    assert.equal(
+      continueClipActionLabel({
+        engine: 'grok',
+        parentUrl: '/api/comfyui/view?filename=clip.mp4',
+      }),
+      'Extend clip'
+    );
+    assert.equal(
+      continueClipActionLabel({
+        engine: 'gemini',
+        parentUrl: '/api/comfyui/view?filename=clip.mp4',
+      }),
+      'Stitch continue'
+    );
+    assert.equal(
+      continueClipActionLabel({
+        engine: 'runway',
+        parentUrl: '/api/comfyui/view?filename=clip.mp4',
+      }),
+      'Extend clip'
+    );
+    assert.equal(
+      resolveVideoContinuePath({
+        engine: 'gemini',
+        parentUrl: 'https://example.com/a.mp4',
+      }),
+      'stitch'
+    );
+    assert.equal(
+      resolveVideoContinuePath({
+        engine: 'replicate',
+        parentUrl: 'https://example.com/a.mp4',
+      }),
+      'last-frame'
+    );
+    assert.equal(
+      resolveVideoContinuePath({
+        engine: 'runway',
+        parentUrl: 'https://example.com/a.mp4',
+      }),
+      'extend'
+    );
+    assert.equal(continueClipPathRanMessage('extend'), 'Queued with native Extend.');
+    assert.equal(replicateUsesLastFrameI2v('extend'), true);
+    assert.equal(cloudNativeExtendEngines('fal'), true);
+    assert.equal(cloudNativeExtendEngines('grok'), true);
+    assert.equal(cloudNativeExtendEngines('runway'), true);
+    assert.equal(cloudNativeExtendEngines('replicate'), false);
+    assert.equal(cloudContinueUsesLastFrameI2v('replicate', 'extend'), true);
+    assert.equal(cloudContinueUsesLastFrameI2v('fal', 'extend'), false);
+    assert.equal(cloudContinueUsesLastFrameI2v('runway', 'extend'), false);
   });
 
   it('allows only engines that actually queue clips', () => {
@@ -178,8 +234,8 @@ describe('video clip mode', () => {
     assert.equal(engineCanQueueClips('replicate'), true);
     assert.equal(engineCanQueueClips('grok'), true);
     assert.equal(engineCanQueueClips('gemini'), true);
+    assert.equal(engineCanQueueClips('runway'), true);
     assert.equal(engineCanQueueClips('openai'), false);
-    assert.equal(engineCanQueueClips('runway'), false);
     assert.equal(engineCanQueueClips('comfyui'), false);
   });
 });

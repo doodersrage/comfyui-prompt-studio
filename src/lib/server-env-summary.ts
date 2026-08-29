@@ -195,6 +195,16 @@ export function getServerEnvSummary(): ServerEnvSummary {
           uiOverride: 'Settings → ComfyUI → Inference engine → xAI API key',
         },
         {
+          key: 'RUNWAY_API_KEY',
+          label: 'Runway API key',
+          value: flag(process.env.RUNWAY_API_KEY ?? process.env.RUNWAYML_API_SECRET)
+            ? '•••• configured'
+            : 'not set',
+          configured: flag(process.env.RUNWAY_API_KEY ?? process.env.RUNWAYML_API_SECRET),
+          hint: 'Used when Settings → Inference engine is Runway and the browser key is empty.',
+          uiOverride: 'Settings → ComfyUI → Inference engine → Runway API key',
+        },
+        {
           key: 'COMFYUI_ROOT',
           label: 'ComfyUI install root',
           value: flag(process.env.COMFYUI_ROOT) ? process.env.COMFYUI_ROOT!.trim() : 'not set',
@@ -373,7 +383,14 @@ export function getServerEnvSummary(): ServerEnvSummary {
             : 'not set',
           configured: isServerStorageEnabled(),
           uiOverride: 'Settings → Data → storage sync (when enabled)',
-          hint: 'Enables browser ↔ server SQLite backup of settings, history, and gallery (studio.sqlite).',
+          hint: 'Enables browser ↔ server SQLite backup of settings, history, and gallery (studio.sqlite). Also hosts /plugins under PROMPT_DATA_DIR/plugins.',
+        },
+        {
+          key: 'PROMPT_PLUGIN_HMAC_SECRET',
+          label: 'Plugin install HMAC secret',
+          value: flag(process.env.PROMPT_PLUGIN_HMAC_SECRET) ? 'set' : 'not set',
+          configured: flag(process.env.PROMPT_PLUGIN_HMAC_SECRET),
+          hint: 'When set, POST /api/plugins/server requires X-Prompt-Plugin-Signature (hex HMAC-SHA256).',
         },
         {
           key: DESKTOP_SHELL_ENV,
@@ -448,7 +465,26 @@ export function getServerEnvSummary(): ServerEnvSummary {
             : 'not set',
           configured: flag(process.env.TRAINER_COMMAND),
           uiOverride: 'Settings → ComfyUI → LoRA train (browser trainer command fallback)',
-          hint: 'Spawned without a shell when TRAINER_URL is unset. Otherwise start records a manual job.',
+          hint: 'Spawned without a shell when TRAINER_URL is unset. Otherwise kohya template or manual job.',
+        },
+        {
+          key: 'TRAINER_KOHYA_SCRIPT',
+          label: 'Kohya train_network.py path',
+          value: flag(process.env.TRAINER_KOHYA_SCRIPT)
+            ? process.env.TRAINER_KOHYA_SCRIPT!.trim()
+            : 'not set',
+          configured: flag(process.env.TRAINER_KOHYA_SCRIPT),
+          uiOverride: 'Settings → ComfyUI → LoRA train (kohya script fallback)',
+          hint: 'When URL/command are unset, start spawns python + first-party sd-scripts argv with datasetPath.',
+        },
+        {
+          key: 'TRAINER_PYTHON',
+          label: 'Python for kohya script',
+          value: flag(process.env.TRAINER_PYTHON)
+            ? process.env.TRAINER_PYTHON!.trim()
+            : process.env.PYTHON?.trim() || 'python3 (default)',
+          configured: flag(process.env.TRAINER_PYTHON) || flag(process.env.PYTHON),
+          hint: 'Interpreter used when TRAINER_KOHYA_SCRIPT ends in .py.',
         },
         {
           key: 'SERVER_SCHEDULED_BATCH',

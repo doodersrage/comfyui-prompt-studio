@@ -1,7 +1,8 @@
 export const MOBILE_STUDIO_HOME = '/m' as const;
 export const MAX_CHARACTER_PLATES = 24;
 
-export type MobileStudioTabId = 'capture' | 'queue' | 'gallery' | 'play';
+export type MobileStudioTabId =
+  'capture' | 'queue' | 'gallery' | 'moodboard' | 'fitting' | 'day' | 'play';
 
 export type MobileStudioTab = {
   id: MobileStudioTabId;
@@ -11,10 +12,13 @@ export type MobileStudioTab = {
 };
 
 export const MOBILE_STUDIO_TABS: MobileStudioTab[] = [
-  { id: 'capture', href: '/m', label: 'Capture', hint: 'Plate for desk' },
+  { id: 'capture', href: '/m', label: 'Capture', hint: 'Plate lock' },
   { id: 'queue', href: '/m/queue', label: 'Queue', hint: 'Watch jobs' },
-  { id: 'gallery', href: '/m/gallery', label: 'Gallery', hint: 'Rate stills' },
-  { id: 'play', href: '/m/play', label: 'Play', hint: 'Stills only · Cut on desk' },
+  { id: 'gallery', href: '/m/gallery', label: 'Rate', hint: 'Rate stills' },
+  { id: 'moodboard', href: '/m/moodboard', label: 'Board', hint: 'Look pack' },
+  { id: 'fitting', href: '/m/fitting', label: 'Fit', hint: 'Swipe kits · Keep' },
+  { id: 'day', href: '/m/day', label: 'Day', hint: 'Four slots · Cut' },
+  { id: 'play', href: '/m/play', label: 'Play', hint: 'Stills + clips · Cut' },
 ];
 
 export type CharacterPlate = {
@@ -41,10 +45,44 @@ export function mobileStudioTabFromPath(pathname: string | null | undefined): Mo
   if (path === '/m/gallery' || path.startsWith('/m/gallery/')) {
     return 'gallery';
   }
+  if (path === '/m/moodboard' || path.startsWith('/m/moodboard/')) {
+    return 'moodboard';
+  }
+  if (path === '/m/fitting' || path.startsWith('/m/fitting/')) {
+    return 'fitting';
+  }
+  if (path === '/m/day' || path.startsWith('/m/day/')) {
+    return 'day';
+  }
   if (path === '/m/play' || path.startsWith('/m/play/')) {
     return 'play';
   }
   return 'capture';
+}
+
+/** Remap desk film-loop paths onto Mobile Studio when handoff stays on phone. */
+export function toMobileStudioHref(href: string): string {
+  const raw = href.trim();
+  if (!raw) {
+    return raw;
+  }
+  const hashIndex = raw.indexOf('#');
+  const withoutHash = hashIndex >= 0 ? raw.slice(0, hashIndex) : raw;
+  const hash = hashIndex >= 0 ? raw.slice(hashIndex) : '';
+  const qIndex = withoutHash.indexOf('?');
+  const path = qIndex >= 0 ? withoutHash.slice(0, qIndex) : withoutHash;
+  const query = qIndex >= 0 ? withoutHash.slice(qIndex) : '';
+  const map: Record<string, string> = {
+    '/fitting': '/m/fitting',
+    '/day': '/m/day',
+    '/moodboard': '/m/moodboard',
+    '/roleplay': '/m/play',
+  };
+  const next = map[path];
+  if (!next) {
+    return raw;
+  }
+  return `${next}${query}${hash}`;
 }
 
 export function normalizeCharacterPlate(value: unknown): CharacterPlate | null {

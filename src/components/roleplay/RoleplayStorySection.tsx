@@ -58,7 +58,7 @@ export default function RoleplayStorySection({
           : 'Stills land here as they render'}
         {autoQueue
           ? beatOutput === 'clip'
-            ? ' — T2V from the beat prompt. From photo uses that photo as I2V. Extend clip continues the last frame'
+            ? ' — T2V from the beat prompt. From photo uses that photo as I2V. Continuity uses Extend clip, Continue from last frame, or Stitch continue (by engine)'
             : ' — queued automatically from the bio and each pick'
           : ''}
         .

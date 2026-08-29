@@ -270,13 +270,15 @@ export function useDayPlannerToolOrchestrationPart2(ctx: DayPlannerToolOrchestra
       };
       if (character && result.persisted) {
         setFilmNeedsCast(false);
-        setFilmStatus(`Saved ${result.filename} to ${character.name} and started the download.`);
+        setFilmStatus(
+          `Saved ${result.filename} to ${character.name} (${result.encodePath} encode) and started the download.`
+        );
       } else {
         setFilmNeedsCast(true);
         setFilmStatus(
           character
-            ? `Downloaded ${result.filename}. Save to Cast to stamp a studio copy.`
-            : `Downloaded ${result.filename} unstamped. Save to Cast to attach this film.`
+            ? `Downloaded ${result.filename} (${result.encodePath} encode). Save to Cast to stamp a studio copy.`
+            : `Downloaded ${result.filename} (${result.encodePath} encode) unstamped. Save to Cast to attach this film.`
         );
       }
       markOnboardingFirstPlayCampaign();

@@ -68,6 +68,140 @@ export type ComfyQueueResult = {
   poolRouting?: ComfyUiPoolRoutingMeta;
 };
 
+function mergeHookParamsIntoWorkflowParams(
+  base: WorkflowParamValues | undefined,
+  hookParams: Record<string, string | number | boolean | null> | undefined,
+  denoise: string | number | undefined,
+  cfg: string | number | undefined
+): WorkflowParamValues | undefined {
+  const next: WorkflowParamValues = { ...(base ?? {}) };
+  let changed = Boolean(base);
+  if (hookParams) {
+    if (hookParams.denoise !== undefined && hookParams.denoise !== null) {
+      next.denoise = hookParams.denoise as string | number;
+      changed = true;
+    }
+    if (hookParams.cfg !== undefined && hookParams.cfg !== null) {
+      next.cfg = hookParams.cfg as string | number;
+      changed = true;
+    }
+    if (hookParams.steps !== undefined && hookParams.steps !== null) {
+      next.steps = hookParams.steps as string | number;
+      changed = true;
+    }
+    if (hookParams.seed !== undefined && hookParams.seed !== null) {
+      next.seed = hookParams.seed as string | number;
+      changed = true;
+    }
+    if (typeof hookParams.width === 'number' || typeof hookParams.width === 'string') {
+      next.width = hookParams.width;
+      changed = true;
+    }
+    if (typeof hookParams.height === 'number' || typeof hookParams.height === 'string') {
+      next.height = hookParams.height;
+      changed = true;
+    }
+  }
+  if (denoise !== undefined && denoise !== null && String(denoise).trim() !== '') {
+    next.denoise = denoise;
+    changed = true;
+  }
+  if (cfg !== undefined && cfg !== null && String(cfg).trim() !== '') {
+    next.cfg = cfg;
+    changed = true;
+  }
+  return changed ? next : base;
+}
+
+/**
+ * Privileged server plugin hooks (PROMPT_DATA_DIR/plugins) — rewrite allowlisted
+ * fields before Comfy /prompt. Returns a blocked error string when a hook stops the queue.
+ */
+async function applyServerPluginQueueHooks(input: {
+  request: ComfyQueueRequest;
+  workflow: Record<string, unknown> | null;
+  runtime?: ComfyUiRuntimeConfig;
+}): Promise<
+  | { ok: true; request: ComfyQueueRequest; workflow: Record<string, unknown> | null }
+  | { ok: false; error: string }
+> {
+  try {
+    const { runServerQueuePreflight } = await import('./server-plugin-hooks');
+    const { isServerPluginRegistryEnabled } = await import('./server-plugin-registry');
+    if (!isServerPluginRegistryEnabled()) {
+      return { ok: true, request: input.request, workflow: input.workflow };
+    }
+
+    const preflight = await runServerQueuePreflight({
+      event: 'queue-preflight',
+      prompt: input.request.prompt,
+      negativePrompt: input.request.negativePrompt,
+      model: input.request.model ?? input.runtime?.queueTargetModel,
+      denoise: input.request.params?.denoise as string | number | undefined,
+      cfg: input.request.params?.cfg as string | number | undefined,
+      params: input.request.params as Record<string, string | number | boolean | null> | undefined,
+      workflow: input.workflow ?? undefined,
+    });
+    if (preflight.blocked) {
+      return {
+        ok: false,
+        error:
+          preflight.reason ||
+          preflight.messages.join(' · ') ||
+          'Server plugin hook blocked the queue.',
+      };
+    }
+
+    const mutated = preflight.payload;
+    const nextRequest: ComfyQueueRequest = {
+      ...input.request,
+      prompt: mutated.prompt || input.request.prompt,
+      negativePrompt: mutated.negativePrompt ?? input.request.negativePrompt,
+      params: mergeHookParamsIntoWorkflowParams(
+        input.request.params,
+        mutated.params,
+        mutated.denoise,
+        mutated.cfg
+      ),
+    };
+    const nextWorkflow =
+      mutated.workflow && typeof mutated.workflow === 'object' ? mutated.workflow : input.workflow;
+    return { ok: true, request: nextRequest, workflow: nextWorkflow };
+  } catch {
+    return { ok: true, request: input.request, workflow: input.workflow };
+  }
+}
+
+async function dispatchServerQueuePost(input: {
+  request: ComfyQueueRequest;
+  result: ComfyQueueResult;
+  workflow?: Record<string, unknown>;
+}): Promise<void> {
+  try {
+    const { runServerQueuePost } = await import('./server-plugin-hooks');
+    const { isServerPluginRegistryEnabled } = await import('./server-plugin-registry');
+    if (!isServerPluginRegistryEnabled()) {
+      return;
+    }
+    await runServerQueuePost({
+      event: 'queue-post',
+      prompt: input.request.prompt,
+      negativePrompt: input.request.negativePrompt,
+      model: input.request.model,
+      denoise: input.request.params?.denoise as string | number | undefined,
+      cfg: input.request.params?.cfg as string | number | undefined,
+      params: input.request.params as Record<string, string | number | boolean | null> | undefined,
+      workflow: input.workflow,
+      promptId: input.result.promptId,
+      comfyUrl: input.result.comfyUrl,
+      ok: input.result.ok,
+      error: input.result.error,
+    });
+  } catch {
+    // Best-effort.
+  }
+}
+
 /** Max prompts accepted by /api/comfyui in one request. */
 export const COMFYUI_MAX_BATCH_PROMPTS = 12;
 
@@ -533,18 +667,96 @@ export async function queuePromptToComfyUi(
             replacements: { positive: 1, negative: 0 },
           };
 
+    const initialWorkflow =
+      typeof resolvedPromptBody.prompt === 'object' && resolvedPromptBody.prompt
+        ? (resolvedPromptBody.prompt as Record<string, unknown>)
+        : null;
+    const hooked = await applyServerPluginQueueHooks({
+      request,
+      workflow: initialWorkflow,
+      runtime,
+    });
+    if (!hooked.ok) {
+      return {
+        ok: false,
+        error: hooked.error,
+        comfyUrl: config.apiUrl,
+        engineId: 'comfyui',
+        poolRouting,
+      };
+    }
+
+    const activeRequest = hooked.request;
+    type ActivePromptBody = {
+      prompt: Record<string, unknown>;
+      workflowSource: 'client' | 'env' | 'minimal';
+      replacements: { positive: number; negative: number };
+    };
+    let activePromptBody: ActivePromptBody = {
+      prompt:
+        typeof resolvedPromptBody.prompt === 'object' && resolvedPromptBody.prompt
+          ? (resolvedPromptBody.prompt as Record<string, unknown>)
+          : {},
+      workflowSource: resolvedPromptBody.workflowSource,
+      replacements: resolvedPromptBody.replacements,
+    };
+
+    const promptRewritten =
+      activeRequest.prompt !== request.prompt ||
+      (activeRequest.negativePrompt ?? '') !== (request.negativePrompt ?? '') ||
+      activeRequest.params !== request.params;
+    const workflowRewritten = hooked.workflow && hooked.workflow !== initialWorkflow;
+
+    if (workflowRewritten && hooked.workflow) {
+      activePromptBody = {
+        ...activePromptBody,
+        prompt: hooked.workflow,
+      };
+    } else if (promptRewritten && config.workflow && promptBody.kind === 'ready') {
+      const reinjected = injectPromptsIntoWorkflow(
+        config.workflow,
+        activeRequest,
+        config,
+        runtime,
+        {
+          availableUpscaleModels: objectInfo?.models.upscaleModels,
+          availableCheckpoints: objectInfo?.models.checkpoints,
+          availableUnets: objectInfo?.models.unets,
+          availableVaes: objectInfo?.models.vaes,
+          availableClips: objectInfo?.models.clips,
+          availableLoras: objectInfo?.models.loras,
+          supportsNeuralUpscaleTileSize: objectInfo?.supportsNeuralUpscaleTileSize,
+          availableNodeTypes: objectInfo?.nodeTypes,
+          webpSaveAdapters: objectInfo?.webpSaveAdapters,
+        }
+      );
+      activePromptBody = {
+        prompt: reinjected.workflow as Record<string, unknown>,
+        workflowSource: resolvedPromptBody.workflowSource,
+        replacements: {
+          positive: reinjected.positiveReplacements,
+          negative: reinjected.negativeReplacements,
+        },
+      };
+    } else if (promptRewritten && promptBody.kind === 'minimal') {
+      activePromptBody = {
+        prompt: buildMinimalWorkflow(activeRequest.prompt, activeRequest.nodeTitle) as Record<
+          string,
+          unknown
+        >,
+        workflowSource: 'minimal',
+        replacements: { positive: 1, negative: 0 },
+      };
+    }
+
     const clientId =
-      request.clientId?.trim() ||
+      activeRequest.clientId?.trim() ||
       `srv${Date.now().toString(16)}${Math.random().toString(16).slice(2, 10)}`;
 
-    if (
-      preferDiffusers &&
-      resolvedPromptBody.prompt &&
-      typeof resolvedPromptBody.prompt === 'object'
-    ) {
+    if (preferDiffusers && activePromptBody.prompt && typeof activePromptBody.prompt === 'object') {
       const { classifyDiffusersWorkflow, queueDiffusersWorkflow } =
         await import('./diffusers-client');
-      const graph = resolvedPromptBody.prompt as Record<string, unknown>;
+      const graph = activePromptBody.prompt as Record<string, unknown>;
       const classified = await classifyDiffusersWorkflow(graph, options?.diffusersUrl);
       if (classified?.supported) {
         const { freeComfyUiMemoryServer } = await import('./comfyui-free-server');
@@ -558,13 +770,13 @@ export async function queuePromptToComfyUi(
         );
         if (queued.ok && queued.promptId) {
           writeQueueArtifact({
-            prompt: request.prompt,
-            negativePrompt: request.negativePrompt,
+            prompt: activeRequest.prompt,
+            negativePrompt: activeRequest.negativePrompt,
             promptId: queued.promptId,
             comfyUrl: queued.engineUrl ?? options?.diffusersUrl ?? '',
             workflow: graph,
           });
-          return {
+          const success: ComfyQueueResult = {
             ok: true,
             promptId: queued.promptId,
             comfyUrl: queued.engineUrl ?? options?.diffusersUrl ?? config.apiUrl,
@@ -572,11 +784,17 @@ export async function queuePromptToComfyUi(
             workflowSource: 'diffusers-workflow',
             engineId: 'diffusers',
             family: classified.family,
-            replacements: resolvedPromptBody.replacements,
+            replacements: activePromptBody.replacements,
           };
+          void dispatchServerQueuePost({
+            request: activeRequest,
+            result: success,
+            workflow: graph,
+          });
+          return success;
         }
         if (!allowComfyFallback) {
-          return {
+          const failure: ComfyQueueResult = {
             ok: false,
             error: queued.error ?? 'Diffusers workflow queue failed.',
             comfyUrl: queued.engineUrl ?? options?.diffusersUrl ?? config.apiUrl,
@@ -584,11 +802,17 @@ export async function queuePromptToComfyUi(
             workflowSource: 'diffusers-workflow',
             engineId: 'diffusers',
             family: classified.family,
-            replacements: resolvedPromptBody.replacements,
+            replacements: activePromptBody.replacements,
           };
+          void dispatchServerQueuePost({
+            request: activeRequest,
+            result: failure,
+            workflow: graph,
+          });
+          return failure;
         }
       } else if (!allowComfyFallback) {
-        return {
+        const failure: ComfyQueueResult = {
           ok: false,
           error:
             classified?.reason || 'Workflow not supported by Diffusers; Comfy fallback disabled.',
@@ -597,8 +821,14 @@ export async function queuePromptToComfyUi(
           workflowSource: 'diffusers-workflow',
           engineId: 'diffusers',
           family: classified?.family,
-          replacements: resolvedPromptBody.replacements,
+          replacements: activePromptBody.replacements,
         };
+        void dispatchServerQueuePost({
+          request: activeRequest,
+          result: failure,
+          workflow: graph,
+        });
+        return failure;
       }
     }
 
@@ -608,9 +838,9 @@ export async function queuePromptToComfyUi(
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(
           buildComfyPromptPostBody({
-            prompt: resolvedPromptBody.prompt as Record<string, unknown>,
+            prompt: activePromptBody.prompt as Record<string, unknown>,
             clientId,
-            front: request.front === true,
+            front: activeRequest.front === true,
           })
         ),
       });
@@ -644,43 +874,61 @@ export async function queuePromptToComfyUi(
 
     if (!workflowResponse.ok) {
       const text = await workflowResponse.text();
-      return {
+      const failure: ComfyQueueResult = {
         ok: false,
         error: formatComfyUiQueueValidationError(
           text || `ComfyUI returned ${workflowResponse.status}`
         ),
         comfyUrl: routedUrl,
         clientId,
-        workflowSource: resolvedPromptBody.workflowSource,
+        workflowSource: activePromptBody.workflowSource,
         engineId: 'comfyui',
-        replacements: resolvedPromptBody.replacements,
+        replacements: activePromptBody.replacements,
         poolRouting,
       };
+      void dispatchServerQueuePost({
+        request: activeRequest,
+        result: failure,
+        workflow:
+          typeof activePromptBody.prompt === 'object'
+            ? (activePromptBody.prompt as Record<string, unknown>)
+            : undefined,
+      });
+      return failure;
     }
 
     const data = (await workflowResponse.json()) as { prompt_id?: string };
 
     writeQueueArtifact({
-      prompt: request.prompt,
-      negativePrompt: request.negativePrompt,
+      prompt: activeRequest.prompt,
+      negativePrompt: activeRequest.negativePrompt,
       promptId: data.prompt_id,
       comfyUrl: routedUrl,
       workflow:
-        typeof resolvedPromptBody.prompt === 'object'
-          ? (resolvedPromptBody.prompt as Record<string, unknown>)
+        typeof activePromptBody.prompt === 'object'
+          ? (activePromptBody.prompt as Record<string, unknown>)
           : undefined,
     });
 
-    return {
+    const success: ComfyQueueResult = {
       ok: true,
       promptId: data.prompt_id,
       comfyUrl: routedUrl,
       clientId,
-      workflowSource: resolvedPromptBody.workflowSource,
+      workflowSource: activePromptBody.workflowSource,
       engineId: 'comfyui',
-      replacements: resolvedPromptBody.replacements,
+      replacements: activePromptBody.replacements,
       poolRouting,
     };
+    void dispatchServerQueuePost({
+      request: activeRequest,
+      result: success,
+      workflow:
+        typeof activePromptBody.prompt === 'object'
+          ? (activePromptBody.prompt as Record<string, unknown>)
+          : undefined,
+    });
+    return success;
   } catch (error) {
     return {
       ok: false,

@@ -98,7 +98,10 @@ export async function buildQueueSingleParams(input: {
 
   if (config.tool === 'compose') {
     const { isFluxKleinModel, isZImageModel } = await import('@/lib/model-denoise-defaults');
-    if (isFluxKleinModel(queueModel)) {
+    const { isCloudEngine } = await import('@/lib/engine/capabilities');
+    const cloudEngine = isCloudEngine(loadSettingsCache().shared.inferenceEngine);
+    // Cloud face-ref uses ordered image refs + prompt instruction — never IP-Adapter patches.
+    if (!cloudEngine && isFluxKleinModel(queueModel)) {
       const { buildComposeKleinQueuePatch } = await import('@/lib/compose-identity-lock');
       const kleinPatch = buildComposeKleinQueuePatch({
         model: queueModel,
@@ -111,7 +114,7 @@ export async function buildQueueSingleParams(input: {
       if (kleinPatch) {
         Object.assign(queueParams, kleinPatch);
       }
-    } else if (options?.identityLock && !isZImageModel(queueModel)) {
+    } else if (!cloudEngine && options?.identityLock && !isZImageModel(queueModel)) {
       const { buildComposeIdentityLockQueuePatch } = await import('@/lib/compose-identity-lock');
       const identityPatch = buildComposeIdentityLockQueuePatch({
         enabled: true,
@@ -124,15 +127,18 @@ export async function buildQueueSingleParams(input: {
       }
     }
   } else if (options?.identityLock) {
-    const { buildComposeIdentityLockQueuePatch } = await import('@/lib/compose-identity-lock');
-    const identityPatch = buildComposeIdentityLockQueuePatch({
-      enabled: true,
-      strength: options.identityLockStrength,
-      identityKind: options.identityKind,
-      inputImageFilename,
-    });
-    if (identityPatch) {
-      Object.assign(queueParams, identityPatch);
+    const { isCloudEngine } = await import('@/lib/engine/capabilities');
+    if (!isCloudEngine(loadSettingsCache().shared.inferenceEngine)) {
+      const { buildComposeIdentityLockQueuePatch } = await import('@/lib/compose-identity-lock');
+      const identityPatch = buildComposeIdentityLockQueuePatch({
+        enabled: true,
+        strength: options.identityLockStrength,
+        identityKind: options.identityKind,
+        inputImageFilename,
+      });
+      if (identityPatch) {
+        Object.assign(queueParams, identityPatch);
+      }
     }
   }
 

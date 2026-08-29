@@ -39,9 +39,9 @@ Do **not** add `allow-top-navigation` unless you fully trust the plugin. Prefer 
 | `type` | Purpose |
 | --- | --- |
 | `host:ready` | Iframe loaded; safe to send plugin messages |
-| `host:context` | Snapshot: plugin id, model, tool, prompt, quality profile, active LoRA ids, selected workflow id |
+| `host:context` | Snapshot: plugin id, model, tool, prompt, quality profile, **engine**, active LoRA ids, selected workflow id |
 | `host:queue-result` | Outcome of a `plugin:queue` request (`ok`, `message`, optional `promptId`) |
-| `host:apply-result` | Outcome of apply-prompt / apply-model / apply-quality |
+| `host:apply-result` | Outcome of apply-* / patch / tag requests |
 
 ## Plugin → host
 
@@ -53,6 +53,10 @@ Do **not** add `allow-top-navigation` unless you fully trust the plugin. Prefer 
 | `plugin:apply-prompt` | `{ prompt, negativePrompt? }` — push text into Studio without queueing |
 | `plugin:apply-model` | `{ model }` — set shared target model |
 | `plugin:apply-quality` | `{ qualityProfile: draft\|final\|max\|followSettings }` |
+| `plugin:apply-engine` | `{ engine }` — switch inference engine (`comfyui`, `fal`, `replicate`, …) |
+| `plugin:apply-lora-stack` | `{ loraIds: string[], model? }` — set session LoRA stack for the active (or named) model |
+| `plugin:patch-workflow-tokens` | `{ tokens: [{ token, value }] }` — merge into Comfy custom workflow tokens |
+| `plugin:write-gallery-tag` | `{ tag, entryIds?, mode?: add\|replace\|remove }` — tag gallery entries (defaults to latest) |
 | `plugin:pick-gallery` | `{ target? }` — open Gallery pick mode for compose/refine/controlnet/… |
 | `plugin:queue` | `{ prompt, negativePrompt?, model?, denoise?, cfg?, qualityProfile? }` — run host queue path |
 
@@ -83,6 +87,40 @@ window.parent.postMessage(
   },
   window.location.origin
 );
+
+// Richer host controls
+window.parent.postMessage(
+  { channel: CHANNEL, type: 'plugin:apply-lora-stack', loraIds: ['skin', 'pose'] },
+  window.location.origin
+);
+window.parent.postMessage(
+  {
+    channel: CHANNEL,
+    type: 'plugin:patch-workflow-tokens',
+    tokens: [{ token: 'MY_TOKEN', value: 'hello' }],
+  },
+  window.location.origin
+);
+window.parent.postMessage(
+  { channel: CHANNEL, type: 'plugin:write-gallery-tag', tag: 'from-plugin' },
+  window.location.origin
+);
+window.parent.postMessage(
+  { channel: CHANNEL, type: 'plugin:apply-engine', engine: 'comfyui' },
+  window.location.origin
+);
 ```
 
-Queue requests still run Studio preflight, plugin queue hooks, and gallery registration on the host side.
+Queue requests still run Studio preflight, **browser** plugin queue hooks, and gallery registration on the host side. When `PROMPT_DATA_DIR` is set, **server** plugins under `{PROMPT_DATA_DIR}/plugins` also run privileged `queue-preflight` / `queue-post` hooks inside the Comfy `/api/comfyui` path (allowlisted prompt / params / workflow JSON rewrite). See [architecture.md](architecture.md#plugins) and `GET`/`POST /api/plugins/server`.
+
+## Server plugin registry (brief)
+
+| Item | Detail |
+| --- | --- |
+| Path | `{PROMPT_DATA_DIR}/plugins/{id}/manifest.json` |
+| Install | `POST /api/plugins/server` with `{ url }` / `{ manifest }` or multipart ZIP/JSON |
+| HMAC | Optional `PROMPT_PLUGIN_HMAC_SECRET` — require `X-Prompt-Plugin-Signature` (hex HMAC-SHA256 of body) |
+| ACL | Feature `plugins`; install/remove requires **admin** when auth is on |
+| Bookmarks | Unchanged — `tool-plugin-registry` stays href-only and separate |
+
+Example hook: `POST /api/plugin-hooks/denoise-rewrite` (shipped with `examples/queue-rewrite-plugin.json`).

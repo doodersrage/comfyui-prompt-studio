@@ -5,6 +5,7 @@ export const REPLICATE_API_HOST = 'https://api.replicate.com';
 export const OPENAI_API_HOST = 'https://api.openai.com';
 export const GEMINI_API_HOST = 'https://generativelanguage.googleapis.com';
 export const GROK_API_HOST = 'https://api.x.ai';
+export const RUNWAY_API_HOST = 'https://api.dev.runwayml.com';
 
 export const DEFAULT_FAL_TXT2IMG_MODEL = 'fal-ai/flux/schnell';
 export const DEFAULT_FAL_IMG2IMG_MODEL = 'fal-ai/flux/dev/image-to-image';
@@ -21,8 +22,13 @@ export const DEFAULT_GEMINI_TXT2IMG_MODEL = 'gemini-3.1-flash-image';
 export const DEFAULT_GEMINI_IMG2IMG_MODEL = 'gemini-3.1-flash-image';
 export const DEFAULT_GROK_TXT2IMG_MODEL = 'grok-imagine-image-2.0';
 export const DEFAULT_GROK_IMG2IMG_MODEL = 'grok-imagine-image-2.0';
+export const DEFAULT_RUNWAY_TXT2IMG_MODEL = 'gen4_image';
+export const DEFAULT_RUNWAY_IMG2IMG_MODEL = 'gen4_image';
+export const DEFAULT_RUNWAY_I2V_MODEL = 'gen4.5';
+export const DEFAULT_RUNWAY_T2V_MODEL = 'gen4.5';
+export const DEFAULT_RUNWAY_EXTEND_MODEL = 'aleph2';
 
-export const CLOUD_ENGINE_IDS = ['fal', 'replicate', 'openai', 'gemini', 'grok'] as const;
+export const CLOUD_ENGINE_IDS = ['fal', 'replicate', 'openai', 'gemini', 'grok', 'runway'] as const;
 export type CloudEngineId = (typeof CLOUD_ENGINE_IDS)[number];
 
 export const FAL_MODEL_PRESETS = [
@@ -32,6 +38,13 @@ export const FAL_MODEL_PRESETS = [
   { id: 'fal-ai/flux/dev/image-to-image', label: 'FLUX Dev image-to-image' },
   { id: 'fal-ai/flux-pro/kontext/multi', label: 'FLUX Kontext multi-ref edit' },
   { id: 'fal-ai/flux-pro/kontext/max/multi', label: 'FLUX Kontext Max multi-ref edit' },
+  { id: 'fal-ai/flux-2/edit', label: 'FLUX.2 edit (multi-ref)' },
+  { id: 'fal-ai/flux-2-pro/edit', label: 'FLUX.2 Pro edit (multi-ref)' },
+  { id: 'fal-ai/flux-2-flex/edit', label: 'FLUX.2 Flex edit (multi-ref)' },
+  { id: 'fal-ai/flux-2-max/edit', label: 'FLUX.2 Max edit (multi-ref)' },
+  { id: 'fal-ai/nano-banana/edit', label: 'Nano Banana edit (multi-ref)' },
+  { id: 'fal-ai/nano-banana-pro/edit', label: 'Nano Banana Pro edit (multi-ref)' },
+  { id: 'fal-ai/nano-banana-2/edit', label: 'Nano Banana 2 edit (multi-ref)' },
 ] as const;
 
 export const FAL_I2V_MODEL_PRESETS = [
@@ -65,6 +78,14 @@ export const REPLICATE_MODEL_PRESETS = [
   { id: 'black-forest-labs/flux-dev', label: 'FLUX Dev (txt2img / img2img)' },
   { id: 'black-forest-labs/flux-1.1-pro', label: 'FLUX 1.1 Pro' },
   { id: 'stability-ai/sdxl', label: 'Stable Diffusion XL' },
+  {
+    id: 'flux-kontext-apps/multi-image-kontext-pro',
+    label: 'Kontext multi-image Pro (2 refs)',
+  },
+  {
+    id: 'flux-kontext-apps/multi-image-kontext-max',
+    label: 'Kontext multi-image Max (2 refs)',
+  },
 ] as const;
 
 export const REPLICATE_I2V_MODEL_PRESETS = [
@@ -100,25 +121,48 @@ export const GROK_MODEL_PRESETS = [
   { id: 'grok-2-image', label: 'Grok 2 Image' },
 ] as const;
 
+export const RUNWAY_MODEL_PRESETS = [
+  { id: 'gen4_image', label: 'Gen-4 Image' },
+  { id: 'gen4_image_turbo', label: 'Gen-4 Image Turbo' },
+] as const;
+
+export const RUNWAY_I2V_MODEL_PRESETS = [
+  { id: 'gen4.5', label: 'Gen-4.5 image-to-video' },
+  { id: 'gen4_turbo', label: 'Gen-4 Turbo image-to-video' },
+] as const;
+
+export const RUNWAY_T2V_MODEL_PRESETS = [{ id: 'gen4.5', label: 'Gen-4.5 text-to-video' }] as const;
+
+export const RUNWAY_EXTEND_MODEL_PRESETS = [
+  { id: 'aleph2', label: 'Aleph 2 video-to-video' },
+] as const;
+
 export type CloudSessionTokenField =
   | 'sessionFalApiKey'
   | 'sessionReplicateApiToken'
   | 'sessionOpenaiApiKey'
   | 'sessionGeminiApiKey'
-  | 'sessionGrokApiKey';
+  | 'sessionGrokApiKey'
+  | 'sessionRunwayApiKey';
 
 export type CloudModelField =
-  'falModel' | 'replicateModel' | 'openaiModel' | 'geminiModel' | 'grokModel';
+  'falModel' | 'replicateModel' | 'openaiModel' | 'geminiModel' | 'grokModel' | 'runwayModel';
 
 export type CloudImg2ImgField =
   | 'falImg2ImgModel'
   | 'replicateImg2ImgModel'
   | 'openaiImg2ImgModel'
   | 'geminiImg2ImgModel'
-  | 'grokImg2ImgModel';
+  | 'grokImg2ImgModel'
+  | 'runwayImg2ImgModel';
 
 export type CloudTokenBodyKey =
-  'falApiKey' | 'replicateApiToken' | 'openaiApiKey' | 'geminiApiKey' | 'grokApiKey';
+  | 'falApiKey'
+  | 'replicateApiToken'
+  | 'openaiApiKey'
+  | 'geminiApiKey'
+  | 'grokApiKey'
+  | 'runwayApiKey';
 
 export type CloudEngineOption = {
   id: CloudEngineId;
@@ -223,6 +267,23 @@ export const CLOUD_ENGINE_OPTIONS: CloudEngineOption[] = [
     defaultTxt2Img: DEFAULT_GROK_TXT2IMG_MODEL,
     defaultImg2Img: DEFAULT_GROK_IMG2IMG_MODEL,
     presets: GROK_MODEL_PRESETS,
+  },
+  {
+    id: 'runway',
+    label: 'Runway (Gen-4 stills + clips)',
+    shortLabel: 'Runway',
+    host: RUNWAY_API_HOST,
+    tokenLabel: 'Runway API key',
+    tokenPlaceholder: 'Server RUNWAY_API_KEY is used when this is empty',
+    envTokenName: 'RUNWAY_API_KEY',
+    envTokenKeys: ['RUNWAY_API_KEY', 'RUNWAYML_API_SECRET'],
+    sessionTokenField: 'sessionRunwayApiKey',
+    modelField: 'runwayModel',
+    img2imgField: 'runwayImg2ImgModel',
+    tokenBodyKey: 'runwayApiKey',
+    defaultTxt2Img: DEFAULT_RUNWAY_TXT2IMG_MODEL,
+    defaultImg2Img: DEFAULT_RUNWAY_IMG2IMG_MODEL,
+    presets: RUNWAY_MODEL_PRESETS,
   },
 ];
 

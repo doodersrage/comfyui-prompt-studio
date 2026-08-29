@@ -108,11 +108,11 @@ Durable keys: `play-campaign-v1`, `comfy-play-metrics-v1`, look packs on Cast + 
 
 | Surface | Role |
 | --- | --- |
-| **`/m` (Mobile Studio)** | Capture → Queue → Rate → **Desk Continue** |
-| **Desk** | Fitting, Day, Moodboard, full Cut film / Save to Cast |
-| **`/m/play`** | Continue Day / Play campaign on desk; Cut is optional parity |
+| **`/m` (Mobile Studio)** | First-class film loop: Capture → Rate → **Moodboard → Fitting → Day → Play** |
+| **`/m/moodboard` · `/m/fitting` · `/m/day` · `/m/play`** | Touch-first Board / Fit / Day / Play — stills + clips, Cut film, Save to Cast |
+| **Desk** | Optional large-screen handoff (Campaign stepper, full Roleplay chrome) |
 
-Phone companion is not the primary film loop — use desk Play for Moodboard → Cut.
+Phone is a first-class film loop. Desk Continue is optional when you prefer a large screen.
 
 ---
 

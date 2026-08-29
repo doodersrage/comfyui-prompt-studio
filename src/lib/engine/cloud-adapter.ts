@@ -59,6 +59,10 @@ export function createCloudEngineAdapter(id: CloudEngineId): EngineAdapter {
           body.clipMode === 't2v' || body.clipMode === 'i2v' || body.clipMode === 'extend'
             ? body.clipMode
             : undefined,
+        videoUrl:
+          typeof body.videoUrl === 'string' && body.videoUrl.trim()
+            ? body.videoUrl.trim()
+            : undefined,
         hasInputImage: body.hasInputImage === true,
         inputImageFilename:
           (typeof body.inputImageFilename === 'string' && body.inputImageFilename.trim()) ||

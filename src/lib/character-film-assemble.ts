@@ -28,6 +28,22 @@ export type AssembleFilmProgress = {
   label: string;
 };
 
+export type AssembleFilmOptions = {
+  onProgress?: (progress: AssembleFilmProgress) => void;
+  /** Prefer server ffmpeg when available (default true). */
+  preferServer?: boolean;
+  resolution?: '720p' | '1080p';
+  crossfadeSec?: number;
+  audioBedUrl?: string;
+};
+
+export type AssembledFilmResult = {
+  blob: Blob;
+  mimeType: string;
+  extension: string;
+  encodePath: 'server' | 'browser';
+};
+
 function even(value: number): number {
   const rounded = Math.max(2, Math.round(value));
   return rounded % 2 === 0 ? rounded : rounded + 1;
@@ -244,15 +260,107 @@ async function probeSize(shots: FilmPlaylistShot[]): Promise<{ width: number; he
   return { width: 1024, height: 1024 };
 }
 
+async function assembleFilmBlobOnServer(
+  shots: FilmPlaylistShot[],
+  options?: AssembleFilmOptions
+): Promise<AssembledFilmResult | null> {
+  if (typeof window === 'undefined' || options?.preferServer === false) {
+    return null;
+  }
+  try {
+    const availableRes = await fetch('/api/film/assemble', { method: 'GET' });
+    if (!availableRes.ok) {
+      return null;
+    }
+    const availableJson = (await availableRes.json()) as { available?: boolean };
+    if (!availableJson.available) {
+      return null;
+    }
+
+    options?.onProgress?.({ ratio: 0.04, label: 'Starting server encode…' });
+    const startRes = await fetch('/api/film/assemble', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        shots,
+        resolution: options?.resolution ?? '720p',
+        crossfadeSec: options?.crossfadeSec ?? 0,
+        audioBedUrl: options?.audioBedUrl,
+      }),
+    });
+    if (!startRes.ok) {
+      return null;
+    }
+    const startJson = (await startRes.json()) as { job?: { id?: string } };
+    const jobId = startJson.job?.id?.trim();
+    if (!jobId) {
+      return null;
+    }
+
+    for (let attempt = 0; attempt < 600; attempt += 1) {
+      await wait(500);
+      const statusRes = await fetch(`/api/film/assemble?jobId=${encodeURIComponent(jobId)}`);
+      if (!statusRes.ok) {
+        return null;
+      }
+      const statusJson = (await statusRes.json()) as {
+        job?: { status?: string; ratio?: number; label?: string; error?: string };
+      };
+      const job = statusJson.job;
+      if (!job) {
+        return null;
+      }
+      options?.onProgress?.({
+        ratio: typeof job.ratio === 'number' ? Math.min(0.98, Math.max(0.05, job.ratio)) : 0.2,
+        label: job.label || 'Encoding on server…',
+      });
+      if (job.status === 'error') {
+        throw new Error(job.error || 'Server film encode failed.');
+      }
+      if (job.status === 'completed') {
+        const downloadRes = await fetch(
+          `/api/film/assemble?jobId=${encodeURIComponent(jobId)}&download=1`
+        );
+        if (!downloadRes.ok) {
+          return null;
+        }
+        const blob = await downloadRes.blob();
+        if (blob.size === 0) {
+          return null;
+        }
+        options?.onProgress?.({ ratio: 1, label: 'Server MP4 ready' });
+        return {
+          blob,
+          mimeType: blob.type || 'video/mp4',
+          extension: 'mp4',
+          encodePath: 'server',
+        };
+      }
+    }
+    return null;
+  } catch (error) {
+    if (error instanceof Error && /Server film encode failed/i.test(error.message)) {
+      throw error;
+    }
+    return null;
+  }
+}
+
 export async function assembleFilmBlob(
   shots: FilmPlaylistShot[],
-  options?: { onProgress?: (progress: AssembleFilmProgress) => void }
-): Promise<{ blob: Blob; mimeType: string; extension: string }> {
-  if (typeof document === 'undefined' || typeof MediaRecorder === 'undefined') {
-    throw new Error('Assemble needs a browser that can record canvas video.');
-  }
+  options?: AssembleFilmOptions
+): Promise<AssembledFilmResult> {
   if (shots.length === 0) {
     throw new Error('Include at least one shot in the cut.');
+  }
+
+  const server = await assembleFilmBlobOnServer(shots, options);
+  if (server) {
+    return server;
+  }
+
+  if (typeof document === 'undefined' || typeof MediaRecorder === 'undefined') {
+    throw new Error('Assemble needs a browser that can record canvas video (or server ffmpeg).');
   }
 
   options?.onProgress?.({ ratio: 0.02, label: 'Checking shots…' });
@@ -390,7 +498,7 @@ export async function assembleFilmBlob(
     throw new Error('The assembled film was empty.');
   }
   const extension = mimeType.includes('mp4') ? 'mp4' : picked.extension;
-  return { blob, mimeType, extension };
+  return { blob, mimeType, extension, encodePath: 'browser' };
 }
 
 function triggerDownload(blob: Blob, filename: string): void {
@@ -418,9 +526,10 @@ export async function stampAssembledFilm(input: {
   parentGalleryEntryId?: string;
   projectId?: string;
   userTags?: string[];
+  serverEncoded?: boolean;
   onProgress?: (progress: AssembleFilmProgress) => void;
 }): Promise<{ persisted: boolean; entryId?: string }> {
-  if (!canStampAssembledFilm(input.blob.size)) {
+  if (!canStampAssembledFilm(input.blob.size, { serverEncoded: input.serverEncoded })) {
     return { persisted: false };
   }
   const id = crypto.randomUUID();
@@ -469,14 +578,25 @@ export async function assembleAndStampFilm(input: {
   characterId: string;
   characterName: string;
   lookId?: string;
+  resolution?: '720p' | '1080p';
+  crossfadeSec?: number;
+  audioBedUrl?: string;
+  preferServer?: boolean;
   onProgress?: (progress: AssembleFilmProgress) => void;
 }): Promise<{
   filename: string;
   blob: Blob;
   persisted: boolean;
   entryId?: string;
+  encodePath: 'server' | 'browser';
 }> {
-  const assembled = await assembleFilmBlob(input.shots, { onProgress: input.onProgress });
+  const assembled = await assembleFilmBlob(input.shots, {
+    onProgress: input.onProgress,
+    preferServer: input.preferServer,
+    resolution: input.resolution,
+    crossfadeSec: input.crossfadeSec,
+    audioBedUrl: input.audioBedUrl,
+  });
   const filename = filmDownloadFilename(input.characterName, assembled.extension);
   const stamped = await stampAssembledFilm({
     blob: assembled.blob,
@@ -485,9 +605,10 @@ export async function assembleAndStampFilm(input: {
     characterName: input.characterName,
     lookId: input.lookId,
     mimeType: assembled.mimeType,
+    serverEncoded: assembled.encodePath === 'server',
     onProgress: input.onProgress,
   });
-  return { filename, blob: assembled.blob, ...stamped };
+  return { filename, blob: assembled.blob, encodePath: assembled.encodePath, ...stamped };
 }
 
 export async function stitchSelectedGalleryVideos(input: {
@@ -499,6 +620,7 @@ export async function stitchSelectedGalleryVideos(input: {
   persisted: boolean;
   entryId?: string;
   clipCount: number;
+  encodePath: 'server' | 'browser';
 }> {
   const shots = galleryStitchShots(input.entries);
   if (shots.length < MIN_GALLERY_STITCH_CLIPS) {
@@ -528,6 +650,7 @@ export async function stitchSelectedGalleryVideos(input: {
     parentGalleryEntryId: first?.id,
     projectId: first?.projectId,
     userTags: ['film', 'stitch'],
+    serverEncoded: assembled.encodePath === 'server',
     onProgress: input.onProgress,
   });
 
@@ -538,5 +661,6 @@ export async function stitchSelectedGalleryVideos(input: {
     persisted: stamped.persisted,
     entryId: stamped.entryId,
     clipCount: shots.length,
+    encodePath: assembled.encodePath,
   };
 }

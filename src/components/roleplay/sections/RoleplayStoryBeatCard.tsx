@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/Button';
-import { canFalExtendFromParentUrl } from '@/lib/video-clip-mode';
+import { continueClipActionLabel } from '@/lib/video-clip-mode';
 import { loadEngineSettings } from '@/lib/engine-settings';
 import {
   canRetryRoleplayClip,
@@ -146,9 +146,10 @@ export function RoleplayStoryBeatCard({
                 disabled={busy}
                 onClick={() => onExtend?.(beat)}
               >
-                {canFalExtendFromParentUrl(beat.clipUrl) && loadEngineSettings().engine === 'fal'
-                  ? 'Extend clip'
-                  : 'Continue from last frame'}
+                {continueClipActionLabel({
+                  parentUrl: beat.clipUrl,
+                  engine: loadEngineSettings().engine,
+                })}
               </Button>
             ) : null}
             {canCopy ? (

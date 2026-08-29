@@ -28,9 +28,9 @@ export function useGalleryLoraExportConfirm({
       setLoraExportOpen(false);
       setRequeueStatus('Building LoRA dataset export…');
       void import('@/lib/gallery-lora-dataset-export')
-        .then(({ downloadLoraDatasetZip, selectLoraDatasetEntries }) => {
+        .then(({ downloadAndPersistLoraDataset, selectLoraDatasetEntries }) => {
           const source = loraExportScope === 'selected' ? selectedEntries : entries;
-          return downloadLoraDatasetZip(
+          return downloadAndPersistLoraDataset(
             selectLoraDatasetEntries(
               source,
               loraExportScope === 'selected'
@@ -40,13 +40,19 @@ export function useGalleryLoraExportConfirm({
             options
           );
         })
-        .then(({ count }) => {
-          setRequeueStatus(
-            count > 0
-              ? `LoRA dataset exported (${count} image/caption pairs, ${options.captionMode}).`
-              : loraExportScope === 'selected'
+        .then(({ count, datasetPath }) => {
+          if (count <= 0) {
+            setRequeueStatus(
+              loraExportScope === 'selected'
                 ? 'No eligible images found for the LoRA dataset export.'
                 : 'No favorited or 4–5★ entries found for the LoRA dataset export.'
+            );
+            return;
+          }
+          setRequeueStatus(
+            datasetPath
+              ? `LoRA dataset exported (${count} pairs, ${options.captionMode}) — on disk for train + ZIP downloaded.`
+              : `LoRA dataset exported (${count} image/caption pairs, ${options.captionMode}).`
           );
         });
     },

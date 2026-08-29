@@ -18,7 +18,7 @@ export type PluginQueueHook = {
 export const PLUGIN_QUEUE_HOOKS_KEY = 'plugin-queue-hooks-v1';
 
 export type PluginQueueHookPayload = {
-  event: 'queue-preflight' | 'prompt-generated' | 'prompt-history-saved';
+  event: 'queue-preflight' | 'queue-post' | 'prompt-generated' | 'prompt-history-saved';
   prompt: string;
   negativePrompt?: string;
   model?: string;
@@ -28,6 +28,13 @@ export type PluginQueueHookPayload = {
   /** Sampler CFG — hooks may rewrite within a safe range. */
   cfg?: string | number;
   completedAt?: number;
+  /** Present on server privileged hooks / queue-post. */
+  promptId?: string;
+  workflow?: Record<string, unknown>;
+  params?: Record<string, string | number | boolean | null>;
+  ok?: boolean;
+  error?: string;
+  comfyUrl?: string;
 };
 
 export type PluginQueueHookResult = {
@@ -41,6 +48,9 @@ export type PluginQueueHookResult = {
   negativePrompt?: string;
   denoise?: string | number;
   cfg?: string | number;
+  /** Privileged server hooks only — allowlisted workflow graph rewrite. */
+  workflow?: Record<string, unknown>;
+  params?: Record<string, string | number | boolean | null>;
 };
 
 const DENOISE_MIN = 0.05;
@@ -108,7 +118,7 @@ export function savePluginQueueHooks(hooks: PluginQueueHook[]): void {
         enabled: hook.enabled !== false,
       }))
       .filter(hook => hook.id && hook.url)
-      .slice(0, 12)
+      .slice(0, 24)
   );
 }
 

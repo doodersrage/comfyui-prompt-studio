@@ -14,10 +14,14 @@ export type PluginManifestNavLink = {
   description: string;
 };
 
+export type PluginQueueHookPrivilege = 'rewrite-prompt' | 'rewrite-workflow' | 'rewrite-params';
+
 export type PluginManifestQueueHooks = {
   url: string;
-  /** Event names this hook handles (e.g. "queue-preflight"). */
+  /** Event names this hook handles (e.g. "queue-preflight", "queue-post"). */
   events: string[];
+  /** Server-side rewrite allowlist (ignored for browser-only manual hooks). */
+  privileges?: PluginQueueHookPrivilege[];
 };
 
 export type PluginManifestTool = {
@@ -45,7 +49,14 @@ export type PluginManifest = {
   presetProvider?: PluginManifestPresetProvider;
 };
 
-const MAX_INSTALLED_PLUGINS = 24;
+/** Client Dexie install cap (server registry has its own MAX_SERVER_PLUGINS). */
+export const MAX_INSTALLED_PLUGINS = 48;
+
+const QUEUE_HOOK_PRIVILEGES = new Set<PluginQueueHookPrivilege>([
+  'rewrite-prompt',
+  'rewrite-workflow',
+  'rewrite-params',
+]);
 
 function asTrimmedString(value: unknown): string | null {
   if (typeof value !== 'string') {
@@ -99,7 +110,23 @@ function normalizeQueueHooks(value: unknown): PluginManifestQueueHooks | undefin
   if (events.length === 0) {
     events = ['queue-preflight'];
   }
-  return { url, events };
+  const privilegesRaw = raw.privileges;
+  const privileges = Array.isArray(privilegesRaw)
+    ? [
+        ...new Set(
+          privilegesRaw
+            .map(entry => (typeof entry === 'string' ? entry.trim() : ''))
+            .filter((entry): entry is PluginQueueHookPrivilege =>
+              QUEUE_HOOK_PRIVILEGES.has(entry as PluginQueueHookPrivilege)
+            )
+        ),
+      ]
+    : undefined;
+  return {
+    url,
+    events,
+    ...(privileges && privileges.length > 0 ? { privileges } : {}),
+  };
 }
 
 function normalizeTool(value: unknown): PluginManifestTool | null {
@@ -348,5 +375,5 @@ export function presetProvidersFromInstalledPlugins(
   return plugins
     .filter(plugin => plugin.enabled !== false && plugin.presetProvider?.catalogUrl)
     .map(plugin => plugin.presetProvider!)
-    .slice(0, 12);
+    .slice(0, 16);
 }

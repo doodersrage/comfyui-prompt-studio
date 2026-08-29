@@ -1,7 +1,7 @@
 {
   "id": "queue-rewrite-denoise",
   "label": "Denoise rewrite",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "enabled": true,
   "nav": [
     {
@@ -12,13 +12,19 @@
   ],
   "queueHooks": {
     "url": "/api/plugin-hooks/denoise-rewrite",
-    "events": ["queue-preflight"]
+    "events": ["queue-preflight", "queue-post"],
+    "privileges": ["rewrite-prompt", "rewrite-params", "rewrite-workflow"]
   },
   "tools": [
     {
       "id": "overview",
       "title": "Denoise rewrite",
       "route": "/plugins/queue-rewrite-denoise"
+    },
+    {
+      "id": "iframe-demo",
+      "title": "Iframe host demo",
+      "iframeUrl": "/plugin-examples/hello-iframe.html"
     }
   ]
 }

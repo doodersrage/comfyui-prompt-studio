@@ -7,6 +7,8 @@ export type PluginIframeHostContext = {
   tool?: string;
   prompt?: string;
   qualityProfile?: string;
+  /** Current inference engine id (comfyui / fal / …). */
+  engine?: string;
   sessionActiveLoraIds?: string[];
   selectedWorkflowFileId?: string;
 };
@@ -57,6 +59,29 @@ export type PluginIframeHostInbound =
     }
   | {
       channel: typeof PLUGIN_IFRAME_HOST_CHANNEL;
+      type: 'plugin:apply-engine';
+      engine: string;
+    }
+  | {
+      channel: typeof PLUGIN_IFRAME_HOST_CHANNEL;
+      type: 'plugin:apply-lora-stack';
+      loraIds: string[];
+      model?: string;
+    }
+  | {
+      channel: typeof PLUGIN_IFRAME_HOST_CHANNEL;
+      type: 'plugin:patch-workflow-tokens';
+      tokens: Array<{ token: string; value: string }>;
+    }
+  | {
+      channel: typeof PLUGIN_IFRAME_HOST_CHANNEL;
+      type: 'plugin:write-gallery-tag';
+      tag: string;
+      entryIds?: string[];
+      mode?: 'add' | 'replace' | 'remove';
+    }
+  | {
+      channel: typeof PLUGIN_IFRAME_HOST_CHANNEL;
       type: 'plugin:pick-gallery';
       target?: 'compose' | 'refine' | 'controlnet' | 'inpaint' | 'outpaint' | 'imagePrompt';
     }
@@ -78,6 +103,10 @@ const INBOUND_TYPES = new Set([
   'plugin:apply-prompt',
   'plugin:apply-model',
   'plugin:apply-quality',
+  'plugin:apply-engine',
+  'plugin:apply-lora-stack',
+  'plugin:patch-workflow-tokens',
+  'plugin:write-gallery-tag',
   'plugin:pick-gallery',
   'plugin:queue',
 ]);

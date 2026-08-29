@@ -22,6 +22,7 @@ import {
 } from '@/lib/character-film';
 import { assembleAndStampFilm, downloadFilmBlob } from '@/lib/character-film-assemble';
 import { saveCharacterFilmCut } from '@/lib/character-os';
+import type { FilmResolutionPreset } from '@/lib/film-server-encode';
 import {
   galleryEntryHeroPreviewUrl,
   galleryEntryPrimaryMediaKind,
@@ -86,6 +87,9 @@ export default function CharacterFilmStudio({
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [assembling, setAssembling] = useState(false);
+  const [resolution, setResolution] = useState<FilmResolutionPreset>('720p');
+  const [crossfadeSec, setCrossfadeSec] = useState(0);
+  const [audioBedUrl, setAudioBedUrl] = useState('');
 
   const persistCut = (next: CharacterFilmCut) => {
     saveCharacterFilmCut(characterId, normalizeFilmCut(next, refs));
@@ -333,6 +337,46 @@ export default function CharacterFilmStudio({
       </div>
 
       <ToolActionRow>
+        <label className="flex items-center gap-2 type-caption text-[var(--text-muted)]">
+          <span>Encode</span>
+          <select
+            className="rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[var(--bg-base)] px-2 py-1 text-[var(--text-primary)]"
+            value={resolution}
+            onChange={event => setResolution(event.target.value === '1080p' ? '1080p' : '720p')}
+            data-testid="character-film-resolution"
+          >
+            <option value="720p">720p MP4</option>
+            <option value="1080p">1080p MP4</option>
+          </select>
+        </label>
+        <label className="flex items-center gap-2 type-caption text-[var(--text-muted)]">
+          <span>Crossfade</span>
+          <input
+            type="number"
+            min={0}
+            max={2}
+            step={0.1}
+            className="w-16 rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[var(--bg-base)] px-2 py-1 text-[var(--text-primary)]"
+            value={crossfadeSec}
+            onChange={event => setCrossfadeSec(Number(event.target.value) || 0)}
+            data-testid="character-film-crossfade"
+          />
+          <span>s</span>
+        </label>
+      </ToolActionRow>
+      <label className="mt-2 flex flex-col gap-1 type-caption text-[var(--text-muted)]">
+        <span>Audio bed URL (optional)</span>
+        <input
+          type="url"
+          placeholder="https://… or /api/gallery/media/…"
+          className="rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[var(--bg-base)] px-2 py-1.5 text-[var(--text-primary)]"
+          value={audioBedUrl}
+          onChange={event => setAudioBedUrl(event.target.value)}
+          data-testid="character-film-audio-bed"
+        />
+      </label>
+
+      <ToolActionRow>
         <Button
           size="sm"
           variant="primary"
@@ -343,20 +387,23 @@ export default function CharacterFilmStudio({
           onClick={() => {
             setAssembling(true);
             setError(null);
-            setStatus('Recording the cut…');
+            setStatus('Encoding the cut…');
             void assembleAndStampFilm({
               shots: playlist,
               characterId,
               characterName,
               lookId,
+              resolution,
+              crossfadeSec,
+              audioBedUrl: audioBedUrl.trim() || undefined,
               onProgress: progress => setStatus(progress.label),
             })
               .then(result => {
                 downloadFilmBlob(result.blob, result.filename);
                 setStatus(
                   result.persisted
-                    ? `Saved ${result.filename} to this character and started the download.`
-                    : `Downloaded ${result.filename}. Studio storage could not keep a copy.`
+                    ? `Saved ${result.filename} to this character (${result.encodePath} encode) and started the download.`
+                    : `Downloaded ${result.filename} (${result.encodePath} encode). Studio storage could not keep a copy.`
                 );
               })
               .catch(err => {

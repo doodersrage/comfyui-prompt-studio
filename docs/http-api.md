@@ -100,6 +100,8 @@ Allowlist miss: HTTP 400 `{ "error": "Host â€¦ is not on COMFYUI_ALLOWED_HOSTSâ€
 | `/api/storage` | GET, PUT | Namespaced server sync (`PROMPT_DATA_DIR` SQLite) |
 | `/api/storage/restore` | GET | Read-only pull of one namespace |
 | `/api/storage/export` | POST | Encrypted server export snapshot |
+| `/api/lora-train` | GET, POST | Admin LoRA train jobs (SQLite-durable). POST actions: `export-dataset`, `start` (accepts `datasetPath`), `progress`, `complete` |
+| `/api/plugins/server` | GET, POST, DELETE | Server plugin registry under `PROMPT_DATA_DIR/plugins` (ZIP/URL install; optional HMAC). Feature `plugins`; admin when auth on |
 
 Operator walkthrough: [operator.md](operator.md). Env names: [configuration.md](configuration.md).
 

@@ -3,7 +3,10 @@
 import InpaintMaskEditor from '@/components/InpaintMaskEditor';
 import RegionalEditPanel from '@/components/RegionalEditPanel';
 import TurboEditStrengthControls from '@/components/TurboEditStrengthControls';
-import { CLOUD_COMPOSE_SINGLE_REF_WARNING } from '@/lib/cloud-compose-refs';
+import {
+  CLOUD_COMPOSE_SINGLE_REF_WARNING,
+  isCloudMultiRefEditModel,
+} from '@/lib/cloud-compose-refs';
 import { isCloudEngine } from '@/lib/engine/capabilities';
 import { isBooguEditModel, isFluxKleinModel, isZImageModel } from '@/lib/model-denoise-defaults';
 import { normalizeTurboEditStrength } from '@/lib/turbo-edit-strength';
@@ -28,6 +31,7 @@ type Props = Pick<
   | 'showMaskEditor'
   | 'setShowMaskEditor'
   | 'cloudComposeSingleRef'
+  | 'cloudComposeModelId'
   | 'onMaskChange'
   | 'identityLock'
   | 'identityLockStrength'
@@ -48,6 +52,7 @@ export function ComposeToolIdentityMaskSection({
   showMaskEditor,
   setShowMaskEditor,
   cloudComposeSingleRef,
+  cloudComposeModelId,
   onMaskChange,
   identityLock,
   identityLockStrength,
@@ -58,6 +63,9 @@ export function ComposeToolIdentityMaskSection({
   booguEditModel,
   zImageModel,
 }: Props) {
+  const cloudEngine = isCloudEngine(shared.inferenceEngine);
+  const cloudMultiRef = isCloudMultiRefEditModel(shared.inferenceEngine, cloudComposeModelId);
+
   return (
     <>
       {isFluxKleinModel(shared.model) ? (
@@ -87,18 +95,74 @@ export function ComposeToolIdentityMaskSection({
       />
       {cloudComposeSingleRef ? (
         <p className="mb-4 text-xs leading-relaxed text-[var(--text-muted)]">
-          {CLOUD_COMPOSE_SINGLE_REF_WARNING} Use Fal Kontext multi as the image-to-image model to
-          attach Image 2–4, or queue on local Comfy.
+          {CLOUD_COMPOSE_SINGLE_REF_WARNING} Use Fal Kontext multi / FLUX.2 edit or Replicate
+          multi-image Kontext as the image-to-image model to attach Image 2–4, or queue on local
+          Comfy.
         </p>
       ) : null}
 
-      {isCloudEngine(shared.inferenceEngine) ? (
-        <p className="mb-4 text-xs leading-relaxed text-[var(--text-muted)]">
-          Identity lock (IP-Adapter / InstantID / PuLID) is local Comfy only. Cloud img2img sends
-          Image 1 to the API.
-        </p>
+      {cloudEngine ? (
+        <div className="ui-recipe-shell space-y-2" data-testid="compose-cloud-face-ref">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="ui-badge" data-tone="warning">
+              Cloud face-ref
+            </span>
+            <span className="ui-badge" data-tone={cloudMultiRef ? 'success' : 'accent'}>
+              {cloudMultiRef ? 'Multi-ref imgs' : 'Prompt-only identity'}
+            </span>
+            <span className="ui-badge" data-tone="accent">
+              No IP-Adapter
+            </span>
+          </div>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                checked={identityLock}
+                onChange={event => updateToolSettings({ identityLock: event.target.checked })}
+                className="ui-checkbox mt-1 accent-[var(--accent)]"
+              />
+              <span className="min-w-0 space-y-1">
+                <span className="block text-sm font-medium text-[var(--accent-text)]">
+                  Lock identity (cloud face-ref)
+                </span>
+                <span className="block text-xs leading-relaxed text-[var(--text-muted)]">
+                  {identityLockHint}
+                </span>
+              </span>
+            </label>
+          </div>
+          {identityLock ? (
+            <label className="block space-y-1.5 pl-7">
+              <span className="type-caption text-[var(--accent-text)]">
+                Face-ref strength — {identityLockStrength.toFixed(2)}
+              </span>
+              <input
+                type="range"
+                min={0.15}
+                max={0.85}
+                step={0.05}
+                value={identityLockStrength}
+                onChange={event =>
+                  updateToolSettings({
+                    identityLockStrength: normalizeComposeIdentityLockStrength(event.target.value),
+                  })
+                }
+                className="w-full accent-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+              />
+            </label>
+          ) : null}
+        </div>
       ) : !zImageModel ? (
         <div className="ui-recipe-shell space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="ui-badge" data-tone="success">
+              Local IP-Adapter
+            </span>
+            <span className="ui-badge" data-tone="accent">
+              InstantID / PuLID
+            </span>
+          </div>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
               <input

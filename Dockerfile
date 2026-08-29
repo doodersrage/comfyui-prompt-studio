@@ -32,7 +32,9 @@ ENV PORT=47832
 # For non-LAN publish use compose --profile exposed or pass -e PROMPT_AUTH_ENABLED=true.
 ENV HOSTNAME=0.0.0.0
 
-RUN addgroup --system --gid 1001 nodejs \
+# Server film Cut (H.264/AAC) — browser MediaRecorder remains the fallback.
+RUN apk add --no-cache ffmpeg \
+  && addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 nextjs
 
 COPY --from=builder /app/public ./public

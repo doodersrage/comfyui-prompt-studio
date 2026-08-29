@@ -176,6 +176,7 @@ export function ComposeToolFormSection(props: ReturnType<typeof useComposeToolOr
         showMaskEditor={rest.showMaskEditor}
         setShowMaskEditor={rest.setShowMaskEditor}
         cloudComposeSingleRef={rest.cloudComposeSingleRef}
+        cloudComposeModelId={rest.cloudComposeModelId}
         onMaskChange={rest.onMaskChange}
         identityLock={identityLock}
         identityLockStrength={rest.identityLockStrength}

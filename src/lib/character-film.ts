@@ -11,10 +11,16 @@ export const DEFAULT_STILL_HOLD_SEC = 2.5;
 export const MIN_STILL_HOLD_SEC = 0.5;
 export const MAX_STILL_HOLD_SEC = 12;
 export const MAX_GALLERY_FILM_BYTES = 80 * 1024 * 1024;
+/** Server ffmpeg MP4 stamps can be larger than browser WebM cuts. */
+export const MAX_SERVER_GALLERY_FILM_BYTES = 220 * 1024 * 1024;
 
 /** Save-to-Cast can stamp an already-cut blob; it must not re-encode the timeline. */
-export function canStampAssembledFilm(size: number): boolean {
-  return Number.isFinite(size) && size > 0 && size <= MAX_GALLERY_FILM_BYTES;
+export function canStampAssembledFilm(
+  size: number,
+  options?: { serverEncoded?: boolean }
+): boolean {
+  const cap = options?.serverEncoded ? MAX_SERVER_GALLERY_FILM_BYTES : MAX_GALLERY_FILM_BYTES;
+  return Number.isFinite(size) && size > 0 && size <= cap;
 }
 
 export type CharacterFilmCutItem = {

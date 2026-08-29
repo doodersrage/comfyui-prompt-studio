@@ -10,6 +10,9 @@ import {
   DEFAULT_FAL_T2V_MODEL,
   DEFAULT_REPLICATE_I2V_MODEL,
   DEFAULT_REPLICATE_T2V_MODEL,
+  DEFAULT_RUNWAY_EXTEND_MODEL,
+  DEFAULT_RUNWAY_I2V_MODEL,
+  DEFAULT_RUNWAY_T2V_MODEL,
   cloudEngineHost,
   cloudEngineOption,
   defaultCloudImg2ImgModel,
@@ -23,9 +26,14 @@ import {
   inferVideoClipMode,
   resolveFalVideoModel,
   resolveReplicateVideoModel,
+  resolveRunwayVideoModel,
   type VideoClipMode,
 } from './video-clip-mode';
-import { DEFAULT_GEMINI_VIDEO_MODEL, DEFAULT_GROK_VIDEO_MODEL } from './cloud-video-models';
+import {
+  DEFAULT_GEMINI_VIDEO_MODEL,
+  DEFAULT_GROK_EXTEND_MODEL,
+  DEFAULT_GROK_VIDEO_MODEL,
+} from './cloud-video-models';
 
 export type EngineSettings = {
   engine: EngineId;
@@ -47,6 +55,11 @@ export type EngineSettings = {
   geminiImg2ImgModel: string;
   grokModel: string;
   grokImg2ImgModel: string;
+  runwayModel: string;
+  runwayImg2ImgModel: string;
+  runwayI2vModel: string;
+  runwayT2vModel: string;
+  runwayExtendModel: string;
 };
 
 function envDefaultEngine(): EngineId {
@@ -116,6 +129,11 @@ function cloudModelsFromEnv(): Pick<
   | 'geminiImg2ImgModel'
   | 'grokModel'
   | 'grokImg2ImgModel'
+  | 'runwayModel'
+  | 'runwayImg2ImgModel'
+  | 'runwayI2vModel'
+  | 'runwayT2vModel'
+  | 'runwayExtendModel'
 > {
   return {
     falModel: envCloudTxt2Img('fal'),
@@ -142,6 +160,20 @@ function cloudModelsFromEnv(): Pick<
     geminiImg2ImgModel: envCloudImg2Img('gemini'),
     grokModel: envCloudTxt2Img('grok'),
     grokImg2ImgModel: envCloudImg2Img('grok'),
+    runwayModel: envCloudTxt2Img('runway'),
+    runwayImg2ImgModel: envCloudImg2Img('runway'),
+    runwayI2vModel: envOr(
+      ['NEXT_PUBLIC_RUNWAY_I2V_MODEL', 'RUNWAY_I2V_MODEL'],
+      DEFAULT_RUNWAY_I2V_MODEL
+    ),
+    runwayT2vModel: envOr(
+      ['NEXT_PUBLIC_RUNWAY_T2V_MODEL', 'RUNWAY_T2V_MODEL'],
+      DEFAULT_RUNWAY_T2V_MODEL
+    ),
+    runwayExtendModel: envOr(
+      ['NEXT_PUBLIC_RUNWAY_EXTEND_MODEL', 'RUNWAY_EXTEND_MODEL'],
+      DEFAULT_RUNWAY_EXTEND_MODEL
+    ),
   };
 }
 
@@ -163,6 +195,11 @@ function cloudModelsFromShared(shared: SharedToolSettings): ReturnType<typeof cl
     geminiImg2ImgModel: shared.geminiImg2ImgModel?.trim() || fromEnv.geminiImg2ImgModel,
     grokModel: shared.grokModel?.trim() || fromEnv.grokModel,
     grokImg2ImgModel: shared.grokImg2ImgModel?.trim() || fromEnv.grokImg2ImgModel,
+    runwayModel: shared.runwayModel?.trim() || fromEnv.runwayModel,
+    runwayImg2ImgModel: shared.runwayImg2ImgModel?.trim() || fromEnv.runwayImg2ImgModel,
+    runwayI2vModel: shared.runwayI2vModel?.trim() || fromEnv.runwayI2vModel,
+    runwayT2vModel: shared.runwayT2vModel?.trim() || fromEnv.runwayT2vModel,
+    runwayExtendModel: shared.runwayExtendModel?.trim() || fromEnv.runwayExtendModel,
   };
 }
 
@@ -221,6 +258,11 @@ export function saveEngineSettings(patch: Partial<EngineSettings>): EngineSettin
     geminiImg2ImgModel: next.geminiImg2ImgModel,
     grokModel: next.grokModel,
     grokImg2ImgModel: next.grokImg2ImgModel,
+    runwayModel: next.runwayModel,
+    runwayImg2ImgModel: next.runwayImg2ImgModel,
+    runwayI2vModel: next.runwayI2vModel,
+    runwayT2vModel: next.runwayT2vModel,
+    runwayExtendModel: next.runwayExtendModel,
   };
   saveSharedSettings(shared);
   return next;
@@ -241,12 +283,16 @@ export function resolveCloudQueueModel(
   extras?: { hasInputImage?: boolean; clipMode?: VideoClipMode }
 ): string {
   if (tool === 'video' && engine === 'grok') {
-    return DEFAULT_GROK_VIDEO_MODEL;
+    const clipMode = inferVideoClipMode({
+      clipMode: extras?.clipMode,
+      hasInitImage: extras?.hasInputImage,
+    });
+    return clipMode === 'extend' ? DEFAULT_GROK_EXTEND_MODEL : DEFAULT_GROK_VIDEO_MODEL;
   }
   if (tool === 'video' && engine === 'gemini') {
     return DEFAULT_GEMINI_VIDEO_MODEL;
   }
-  if ((engine === 'fal' || engine === 'replicate') && tool === 'video') {
+  if ((engine === 'fal' || engine === 'replicate' || engine === 'runway') && tool === 'video') {
     const settings = loadEngineSettings();
     const clipMode = inferVideoClipMode({
       clipMode: extras?.clipMode,
@@ -257,6 +303,14 @@ export function resolveCloudQueueModel(
         clipMode,
         i2vModel: settings.replicateI2vModel,
         t2vModel: settings.replicateT2vModel,
+      });
+    }
+    if (engine === 'runway') {
+      return resolveRunwayVideoModel({
+        clipMode,
+        i2vModel: settings.runwayI2vModel,
+        t2vModel: settings.runwayT2vModel,
+        extendModel: settings.runwayExtendModel,
       });
     }
     return resolveFalVideoModel({
@@ -284,7 +338,12 @@ export function resolveCloudQueueExtras(
   const settings = loadEngineSettings();
   const option = cloudEngineOption(engine);
   const clipMode =
-    (engine === 'fal' || engine === 'replicate') && input?.tool === 'video'
+    input?.tool === 'video' &&
+    (engine === 'fal' ||
+      engine === 'replicate' ||
+      engine === 'grok' ||
+      engine === 'gemini' ||
+      engine === 'runway')
       ? inferVideoClipMode({
           clipMode: input.clipMode,
           hasInitImage: input.hasInputImage,
@@ -318,6 +377,13 @@ export function resolveCloudQueueExtras(
       ? {
           i2vModel: settings.replicateI2vModel || DEFAULT_REPLICATE_I2V_MODEL,
           t2vModel: settings.replicateT2vModel || DEFAULT_REPLICATE_T2V_MODEL,
+        }
+      : {}),
+    ...(engine === 'runway'
+      ? {
+          i2vModel: settings.runwayI2vModel || DEFAULT_RUNWAY_I2V_MODEL,
+          t2vModel: settings.runwayT2vModel || DEFAULT_RUNWAY_T2V_MODEL,
+          extendModel: settings.runwayExtendModel || DEFAULT_RUNWAY_EXTEND_MODEL,
         }
       : {}),
   };

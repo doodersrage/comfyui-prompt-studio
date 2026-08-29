@@ -75,13 +75,16 @@ export async function postQueueSinglePrompt(input: {
   const { setComfyUiStatus, setComfyUiJob, trackComfyUiJob } = tracker;
   const engineSettings = loadEngineSettings();
   const cloudEngine = isCloudEngine(engineAdapter.id);
+  const { cloudNativeExtendEngines } = await import('@/lib/video-clip-mode');
+  const nativeExtend = clipMode === 'extend' && cloudNativeExtendEngines(engineAdapter.id);
+  const usesInitImage = Boolean(inputImageFilename) && clipMode !== 't2v' && !nativeExtend;
 
   const queued = await engineAdapter.postPrompt({
     prompt: preparedPrompt,
     negativePrompt,
     model: cloudEngine
       ? resolveCloudQueueModel(engineAdapter.id, effectiveTool, {
-          hasInputImage: Boolean(inputImageFilename) && clipMode !== 't2v' && clipMode !== 'extend',
+          hasInputImage: usesInitImage,
           clipMode,
         })
       : queueModel,
@@ -90,15 +93,13 @@ export async function postQueueSinglePrompt(input: {
     ...(cloudEngine
       ? {
           ...resolveCloudQueueExtras(engineAdapter.id, {
-            hasInputImage:
-              Boolean(inputImageFilename) && clipMode !== 't2v' && clipMode !== 'extend',
-            inputImageFilename:
-              clipMode === 't2v' || clipMode === 'extend' ? undefined : inputImageFilename,
+            hasInputImage: usesInitImage,
+            inputImageFilename: nativeExtend || clipMode === 't2v' ? undefined : inputImageFilename,
             inputImageFilenames:
-              clipMode === 't2v' || clipMode === 'extend' ? undefined : inputImageFilenames,
+              nativeExtend || clipMode === 't2v' ? undefined : inputImageFilenames,
             tool: effectiveTool,
             clipMode,
-            videoUrl: clipMode === 'extend' ? parentVideoUrl : undefined,
+            videoUrl: nativeExtend ? parentVideoUrl : undefined,
           }),
           qualityProfile: effectiveQualityProfile,
         }
@@ -133,17 +134,19 @@ export async function postQueueSinglePrompt(input: {
           queueModel !== configModel ? `as ${queueModel}` : null,
           queued.workflowSource ? `workflow: ${queued.workflowSource}` : null,
           negativePrompt ? 'with negative' : null,
-          options?.identityLock && queueParams.ipAdapterImageFilename
-            ? `identity lock · ${
-                queueParams.identityKind === 'instantid'
-                  ? 'InstantID'
-                  : queueParams.identityKind === 'pulid'
-                    ? 'PuLID'
-                    : queueParams.identityKind === 'auto'
-                      ? 'InstantID/PuLID auto'
-                      : 'IP-Adapter'
-              } ${Number(queueParams.ipAdapterStrength ?? 0.5).toFixed(2)}`
-            : null,
+          options?.identityLock && cloudEngine
+            ? `identity lock · cloud face-ref ${Number(options.identityLockStrength ?? 0.5).toFixed(2)}`
+            : options?.identityLock && queueParams.ipAdapterImageFilename
+              ? `identity lock · ${
+                  queueParams.identityKind === 'instantid'
+                    ? 'InstantID'
+                    : queueParams.identityKind === 'pulid'
+                      ? 'PuLID'
+                      : queueParams.identityKind === 'auto'
+                        ? 'InstantID/PuLID auto'
+                        : 'IP-Adapter'
+                } ${Number(queueParams.ipAdapterStrength ?? 0.5).toFixed(2)}`
+              : null,
         ],
         {
           model: queueModel,
@@ -196,8 +199,7 @@ export async function postQueueSinglePrompt(input: {
       queueQualityProfile: runtime?.queueQualityProfile ?? effectiveQualityProfile,
       model: cloudEngine
         ? resolveCloudQueueModel(engineAdapter.id, effectiveTool, {
-            hasInputImage:
-              Boolean(inputImageFilename) && clipMode !== 't2v' && clipMode !== 'extend',
+            hasInputImage: usesInitImage,
             clipMode,
           })
         : queueModel,

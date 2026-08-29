@@ -3,6 +3,7 @@ import { comfyEngineAdapter } from './comfy-adapter';
 import { diffusersEngineAdapter } from './diffusers-adapter';
 import { falEngineAdapter } from './fal-adapter';
 import { replicateEngineAdapter } from './replicate-adapter';
+import { runwayEngineAdapter } from './runway-adapter';
 import { geminiEngineAdapter, grokEngineAdapter, openaiEngineAdapter } from './cloud-adapter';
 import type { EngineAdapter, EngineId } from './types';
 
@@ -35,6 +36,11 @@ export {
   DEFAULT_OPENAI_TXT2IMG_MODEL,
   DEFAULT_REPLICATE_IMG2IMG_MODEL,
   DEFAULT_REPLICATE_TXT2IMG_MODEL,
+  DEFAULT_RUNWAY_EXTEND_MODEL,
+  DEFAULT_RUNWAY_I2V_MODEL,
+  DEFAULT_RUNWAY_IMG2IMG_MODEL,
+  DEFAULT_RUNWAY_T2V_MODEL,
+  DEFAULT_RUNWAY_TXT2IMG_MODEL,
   FAL_EXTEND_MODEL_PRESETS,
   FAL_I2V_MODEL_PRESETS,
   FAL_MODEL_PRESETS,
@@ -44,6 +50,11 @@ export {
   OPENAI_MODEL_PRESETS,
   REPLICATE_API_HOST,
   REPLICATE_MODEL_PRESETS,
+  RUNWAY_API_HOST,
+  RUNWAY_EXTEND_MODEL_PRESETS,
+  RUNWAY_I2V_MODEL_PRESETS,
+  RUNWAY_MODEL_PRESETS,
+  RUNWAY_T2V_MODEL_PRESETS,
   cloudEngineHost,
   cloudSettingsHref,
   defaultCloudImg2ImgModel,
@@ -59,6 +70,7 @@ export { comfyEngineAdapter } from './comfy-adapter';
 export { diffusersEngineAdapter } from './diffusers-adapter';
 export { falEngineAdapter } from './fal-adapter';
 export { replicateEngineAdapter } from './replicate-adapter';
+export { runwayEngineAdapter } from './runway-adapter';
 export { geminiEngineAdapter, grokEngineAdapter, openaiEngineAdapter } from './cloud-adapter';
 export {
   buildDiffusersViewPath,
@@ -86,6 +98,9 @@ export function getEngineAdapterById(id: EngineId | undefined): EngineAdapter {
   }
   if (id === 'grok') {
     return grokEngineAdapter;
+  }
+  if (id === 'runway') {
+    return runwayEngineAdapter;
   }
   return comfyEngineAdapter;
 }

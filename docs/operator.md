@@ -48,7 +48,7 @@ Recent releases tightened first-run and day-to-day polish:
 - **Dashboard outputs** — recent stills expose Re-queue, Refine, Roleplay, Edit, and Hints on hover.
 - **Command palette** (`Ctrl+K`) — Continue section lists active project, recent gallery outputs, and **Heal & ready**.
 - **Mobile gallery** — layout, density, and min-rating filters collapse to selects on narrow viewports; Mobile Studio header/tab bar uses solid surfaces instead of glass blur.
-- **Phone companion** — `/m` is **Capture → Queue → Rate → Desk Continue**. Use **Desk** for Fitting, Day, Moodboard, and the full Cut film loop. Header desk bridge deep-links **Campaign** (`/play`), **Day**, and **Fitting**; `/m/play` leads with Continue Day / Play campaign on desk (Cut film is optional parity). Add to Home Screen via the mobile manifest when you want a phone-sized dock.
+- **Phone film loop** — `/m` is a first-class Capture → Moodboard → Fitting → Day → Play path (stills + clips, Cut on phone). Header desk bridge is optional large-screen handoff (Campaign / Board / Day / Fitting). Add to Home Screen via the mobile manifest when you want a phone-sized dock.
 - **Vision uploads** — Scan with vision and Image → Prompt send JSON data URLs (avoids intermittent multipart FormData parse failures).
 - **Simple Essentials** — Studio history moved under More; Fitting / Day / Moodboard preferred near the top of More.
 - **Play happy path** — Play workspace sidebar lists Campaign + Moodboard before Fitting/Day; lean chrome collapses draft-preview and animate extras until you open them.

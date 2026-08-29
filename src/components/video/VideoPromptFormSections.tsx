@@ -3,6 +3,7 @@
 import { ChipButton, FieldLabel, TextArea } from '@/components/ui/Field';
 import {
   canFalExtendFromParentUrl,
+  continueClipActionLabel,
   engineCanQueueClips,
   FAL_VIDEO_DURATION_SECONDS,
   snapFalVideoDurationSec,
@@ -57,7 +58,7 @@ export default function VideoPromptClipModeSection({
         </div>
         <p className="text-xs leading-relaxed text-[var(--text-muted)]">
           {clipMode === 'extend'
-            ? 'Needs a parent clip. Fal calls LTX extend-video when the parent is already a Fal URL (or after a documented CDN upload). Otherwise continue is last-frame I2V. Replicate has no extend API.'
+            ? 'Needs a parent clip. Labels: Extend clip (Fal LTX / Grok extensions), Continue from last frame (Replicate or Fal upload soft-fail), Stitch continue (Gemini last-frame I2V + server concat).'
             : clipMode === 'i2v'
               ? 'Needs a first frame. Scan with vision fills Subject and Motion from that still. Local WAN / Hunyuan / LTX wire I2V nodes; Fal uses the I2V model in Settings.'
               : 'No still required. Local graphs stay T2V; Fal uses the T2V model in Settings.'}
@@ -65,7 +66,7 @@ export default function VideoPromptClipModeSection({
         {!engineCanQueueClips(inferenceEngine) && inferenceEngine !== 'comfyui' ? (
           <p className="text-xs text-[var(--tint-warning-text)]">
             {engineDisplayName(inferenceEngine)} cannot queue clips. Switch Settings → Inference
-            engine to Fal, Replicate, Grok, Gemini, or local WAN (ComfyUI).
+            engine to Fal, Replicate, Grok, Gemini, Runway, or local WAN (ComfyUI).
           </p>
         ) : null}
       </div>
@@ -86,10 +87,20 @@ export default function VideoPromptClipModeSection({
             className="ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
           />
           <p className="type-caption text-[var(--text-muted)]">
-            {canFalExtendFromParentUrl(parentVideoUrl)
+            {inferenceEngine === 'fal' && canFalExtendFromParentUrl(parentVideoUrl)
               ? 'Fal can extend this URL directly.'
               : parentVideoUrl.trim()
-                ? 'Local or non-Fal URL — queue uploads to Fal when the engine is Fal, otherwise last-frame I2V.'
+                ? continueClipActionLabel({
+                    engine: inferenceEngine,
+                    parentUrl: parentVideoUrl,
+                  }) === 'Extend clip'
+                  ? 'Will queue native Extend (Fal upload if needed, or Grok extensions).'
+                  : continueClipActionLabel({
+                        engine: inferenceEngine,
+                        parentUrl: parentVideoUrl,
+                      }) === 'Stitch continue'
+                    ? 'Will queue last-frame I2V then Stitch continue when the take finishes.'
+                    : 'Will Continue from last frame (I2V).'
                 : 'Continue from Gallery to fill this, or paste a clip URL.'}
           </p>
         </div>

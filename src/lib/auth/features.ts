@@ -46,6 +46,9 @@ export const ALL_FEATURE_IDS = APP_FEATURES.map(feature => feature.id) as AppFea
 
 const PAGE_FEATURE_MAP: Array<{ prefix: string; feature: AppFeatureId }> = [
   { prefix: '/m/play', feature: 'roleplay' },
+  { prefix: '/m/moodboard', feature: 'roleplay' },
+  { prefix: '/m/fitting', feature: 'roleplay' },
+  { prefix: '/m/day', feature: 'roleplay' },
   { prefix: '/m/queue', feature: 'queue' },
   { prefix: '/m/gallery', feature: 'gallery' },
   { prefix: '/m', feature: 'gallery' },
@@ -123,6 +126,9 @@ const API_FEATURE_MAP: Array<{ prefix: string; feature: AppFeatureId }> = [
   // Spawns a local trainer process/command from request input — must never be reachable by an
   // unmapped (always-allowed) route. See requireAdmin() in the route itself for the second gate.
   { prefix: '/api/lora-train', feature: 'settings' },
+  { prefix: '/api/film', feature: 'gallery' },
+  { prefix: '/api/runway', feature: 'comfyui-api' },
+  { prefix: '/api/plugins/server', feature: 'plugins' },
 ];
 
 export function featureForPath(pathname: string): AppFeatureId | null {

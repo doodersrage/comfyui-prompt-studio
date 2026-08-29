@@ -20,8 +20,16 @@ describe('plugin-iframe-host', () => {
     assert.equal(
       isPluginIframeHostMessage({
         channel: PLUGIN_IFRAME_HOST_CHANNEL,
-        type: 'plugin:pick-gallery',
-        target: 'controlnet',
+        type: 'plugin:apply-engine',
+        engine: 'fal',
+      }),
+      true
+    );
+    assert.equal(
+      isPluginIframeHostMessage({
+        channel: PLUGIN_IFRAME_HOST_CHANNEL,
+        type: 'plugin:apply-lora-stack',
+        loraIds: [],
       }),
       true
     );

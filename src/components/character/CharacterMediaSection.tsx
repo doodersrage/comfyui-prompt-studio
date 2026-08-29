@@ -66,7 +66,7 @@ export default function CharacterMediaSection({
       title="Media"
       description={
         mediaTab === 'clips'
-          ? 'Playable reel. Continue extends a Fal clip or queues last-frame I2V.'
+          ? 'Playable reel. Continue labels Extend / last-frame / Stitch by engine.'
           : mediaTab === 'films'
             ? 'Assembled Day / Roleplay films stamped on this character.'
             : 'Jobs stamped with this character.'
@@ -108,12 +108,15 @@ export default function CharacterMediaSection({
           ) : null}
           {mediaTab !== 'films' && lastClip ? (
             <Button size="sm" variant="primary" onClick={extendReel}>
-              {continueClipActionLabel({
-                parentUrl: galleryEntryPrimaryViewUrl(lastClip),
-                engine: loadEngineSettings().engine,
-              }) === 'Extend clip'
-                ? 'Extend reel'
-                : 'Continue reel'}
+              {(() => {
+                const label = continueClipActionLabel({
+                  parentUrl: galleryEntryPrimaryViewUrl(lastClip),
+                  engine: loadEngineSettings().engine,
+                });
+                if (label === 'Extend clip') return 'Extend reel';
+                if (label === 'Stitch continue') return 'Stitch continue reel';
+                return 'Continue reel';
+              })()}
             </Button>
           ) : null}
           <Button

@@ -7,6 +7,7 @@ import {
   DEFAULT_REPLICATE_TXT2IMG_MODEL,
   REPLICATE_API_HOST,
 } from './engine/capabilities';
+import { extraCloudComposeFilenames, isReplicateMultiRefEditModel } from './cloud-compose-refs';
 import {
   inferVideoClipMode,
   replicateVideoDurationPayload,
@@ -249,6 +250,7 @@ export async function queueReplicateImage(input: {
   seed?: number | null;
   strength?: number;
   imageFilename?: string;
+  imageFilenames?: string[];
 }): Promise<ReplicateQueueResult> {
   let token: string;
   try {
@@ -267,13 +269,17 @@ export async function queueReplicateImage(input: {
   const clipMode = isVideo
     ? inferVideoClipMode({ clipMode: input.clipMode, hasInitImage: hasImage })
     : undefined;
-  const isI2v = clipMode === 'i2v';
+  // Replicate has no documented extend/V2V for our presets — extend = last-frame I2V.
+  const isI2v = clipMode === 'i2v' || clipMode === 'extend';
   const isT2v = clipMode === 't2v';
   if (isI2v && !hasImage) {
     return {
       ok: false,
       status: 400,
-      error: 'Cloud image-to-video needs a first frame.',
+      error:
+        clipMode === 'extend'
+          ? 'Replicate continue uses last-frame I2V — need a first frame from the parent clip.'
+          : 'Cloud image-to-video needs a first frame.',
       raw: {},
     };
   }
@@ -339,12 +345,32 @@ export async function queueReplicateImage(input: {
   }
   if (hasImage && !isT2v) {
     try {
-      const dataUrl = uploadToDataUrl(input.imageFilename!.trim());
-      if (isI2v && /kling/i.test(modelId)) {
-        replicateInput.start_image = dataUrl;
+      const positional = input.imageFilenames?.length
+        ? input.imageFilenames
+        : [input.imageFilename ?? ''];
+      if (isReplicateMultiRefEditModel(modelId)) {
+        const primary = input.imageFilename!.trim();
+        const extras = extraCloudComposeFilenames(positional, 'replicate', modelId);
+        const ordered = [primary, ...extras].filter(Boolean).slice(0, 2);
+        if (ordered.length < 2) {
+          return {
+            ok: false,
+            status: 400,
+            error:
+              'Replicate multi-image Kontext needs two reference images (input_image_1 + input_image_2).',
+            raw: {},
+          };
+        }
+        replicateInput.input_image_1 = uploadToDataUrl(ordered[0]!);
+        replicateInput.input_image_2 = uploadToDataUrl(ordered[1]!);
       } else {
-        replicateInput.image = dataUrl;
-        replicateInput.input_image = dataUrl;
+        const dataUrl = uploadToDataUrl(input.imageFilename!.trim());
+        if (isI2v && /kling/i.test(modelId)) {
+          replicateInput.start_image = dataUrl;
+        } else {
+          replicateInput.image = dataUrl;
+          replicateInput.input_image = dataUrl;
+        }
       }
     } catch (error) {
       return {
@@ -354,7 +380,12 @@ export async function queueReplicateImage(input: {
         raw: {},
       };
     }
-    if (!isI2v && typeof input.strength === 'number' && Number.isFinite(input.strength)) {
+    if (
+      !isI2v &&
+      !isReplicateMultiRefEditModel(modelId) &&
+      typeof input.strength === 'number' &&
+      Number.isFinite(input.strength)
+    ) {
       const strength = Math.min(1, Math.max(0.05, input.strength));
       replicateInput.prompt_strength = strength;
       replicateInput.strength = strength;

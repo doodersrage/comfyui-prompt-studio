@@ -3,11 +3,17 @@
  */
 
 import { requeueComfyJob } from './comfyui-requeue';
+import { setComfyGalleryUserTags, loadComfyGallery } from './comfyui-gallery';
+import { loadComfyUiSettings, saveComfyUiSettings } from './comfyui-settings';
+import { normalizeEngineId, parseEngineId } from './engine/capabilities';
+import { saveEngineSettings } from './engine-settings';
+import { setSessionLoraIdsForModel } from './model-lora-map';
 import { loadSettingsCache, saveSharedSettings } from './settings-cache';
 import { rememberToolDraft } from './tool-draft-memory';
 import { runPluginQueuePreflight } from './plugin-queue-hooks';
 import { normalizeQueueQualityProfile } from './queue-quality-profile';
 import { resolveSharedEffectiveSessionLoraIds } from './comfyui-settings';
+import { normalizeCustomWorkflowTokens } from './comfyui-config';
 
 export type PluginApplyPromptPayload = {
   prompt: string;
@@ -29,6 +35,25 @@ export type PluginApplyModelPayload = {
 
 export type PluginApplyQualityPayload = {
   qualityProfile: 'draft' | 'final' | 'max' | 'followSettings';
+};
+
+export type PluginApplyEnginePayload = {
+  engine: string;
+};
+
+export type PluginApplyLoraStackPayload = {
+  loraIds: string[];
+  model?: string;
+};
+
+export type PluginPatchWorkflowTokensPayload = {
+  tokens: Array<{ token: string; value: string }>;
+};
+
+export type PluginWriteGalleryTagPayload = {
+  tag: string;
+  entryIds?: string[];
+  mode?: 'add' | 'replace' | 'remove';
 };
 
 export async function applyPromptFromPlugin(
@@ -69,6 +94,116 @@ export async function applyQualityFromPlugin(
   return { ok: true, message: `Quality profile set to ${profile}.` };
 }
 
+export async function applyEngineFromPlugin(
+  payload: PluginApplyEnginePayload
+): Promise<{ ok: boolean; message: string }> {
+  const parsed = parseEngineId(payload.engine?.trim());
+  if (!parsed) {
+    return {
+      ok: false,
+      message: 'Plugin apply-engine requires a known engine id (comfyui, fal, replicate, …).',
+    };
+  }
+  const engine = normalizeEngineId(parsed);
+  saveEngineSettings({ engine });
+  return { ok: true, message: `Inference engine set to ${engine}.` };
+}
+
+export async function applyLoraStackFromPlugin(
+  payload: PluginApplyLoraStackPayload
+): Promise<{ ok: boolean; message: string }> {
+  if (!Array.isArray(payload.loraIds)) {
+    return { ok: false, message: 'Plugin apply-lora-stack requires a loraIds array.' };
+  }
+  const ids = [
+    ...new Set(
+      payload.loraIds.map(id => (typeof id === 'string' ? id.trim() : '')).filter(Boolean)
+    ),
+  ].slice(0, 48);
+  const shared = loadSettingsCache().shared;
+  const model = (payload.model?.trim() || shared.model || '').trim();
+  if (!model) {
+    return { ok: false, message: 'No active model — set a model before applying a LoRA stack.' };
+  }
+  saveSharedSettings(
+    {
+      ...shared,
+      sessionActiveLoraIdsByModel: setSessionLoraIdsForModel(
+        shared.sessionActiveLoraIdsByModel,
+        model,
+        ids
+      ),
+    },
+    { notify: true }
+  );
+  return {
+    ok: true,
+    message: ids.length
+      ? `LoRA stack set (${ids.length}) for ${model}.`
+      : `LoRA stack cleared for ${model}.`,
+  };
+}
+
+export async function patchWorkflowTokensFromPlugin(
+  payload: PluginPatchWorkflowTokensPayload
+): Promise<{ ok: boolean; message: string }> {
+  if (!Array.isArray(payload.tokens) || payload.tokens.length === 0) {
+    return { ok: false, message: 'Plugin patch-workflow-tokens requires a tokens array.' };
+  }
+  const incoming = normalizeCustomWorkflowTokens(
+    payload.tokens
+      .map(entry => ({
+        token: typeof entry?.token === 'string' ? entry.token.trim() : '',
+        value: typeof entry?.value === 'string' ? entry.value : String(entry?.value ?? ''),
+      }))
+      .filter(entry => entry.token)
+      .slice(0, 64)
+  );
+  if (incoming.length === 0) {
+    return { ok: false, message: 'No valid workflow tokens to patch.' };
+  }
+  const settings = loadComfyUiSettings();
+  const byKey = new Map(
+    (settings.customTokens ?? []).map(entry => [entry.token.replace(/^\{\{|\}\}$/g, ''), entry])
+  );
+  for (const entry of incoming) {
+    const key = entry.token.replace(/^\{\{|\}\}$/g, '');
+    byKey.set(key, {
+      token: entry.token.includes('{{') ? entry.token : `{{${key}}}`,
+      value: entry.value,
+    });
+  }
+  saveComfyUiSettings({
+    ...settings,
+    customTokens: [...byKey.values()],
+  });
+  return { ok: true, message: `Patched ${incoming.length} workflow token(s).` };
+}
+
+export async function writeGalleryTagFromPlugin(
+  payload: PluginWriteGalleryTagPayload
+): Promise<{ ok: boolean; message: string }> {
+  const tag = payload.tag?.trim();
+  if (!tag) {
+    return { ok: false, message: 'Plugin write-gallery-tag requires a tag.' };
+  }
+  const mode = payload.mode ?? 'add';
+  let ids = (payload.entryIds ?? []).map(id => id.trim()).filter(Boolean);
+  if (ids.length === 0) {
+    // Default: most recent gallery entry.
+    const latest = loadComfyGallery()[0];
+    if (!latest) {
+      return { ok: false, message: 'Gallery is empty — nothing to tag.' };
+    }
+    ids = [latest.id];
+  }
+  setComfyGalleryUserTags(ids, [tag], mode);
+  return {
+    ok: true,
+    message: `Tag “${tag}” ${mode === 'remove' ? 'removed from' : 'written on'} ${ids.length} entr${ids.length === 1 ? 'y' : 'ies'}.`,
+  };
+}
+
 export function buildPluginHostContextSnapshot(input: {
   pluginId: string;
   pluginLabel?: string;
@@ -83,6 +218,7 @@ export function buildPluginHostContextSnapshot(input: {
     tool: input.tool,
     prompt: input.prompt,
     qualityProfile: shared.queueQualityProfile,
+    engine: shared.inferenceEngine,
     sessionActiveLoraIds: resolveSharedEffectiveSessionLoraIds(shared.model),
     selectedWorkflowFileId: shared.selectedWorkflowFileId,
   };

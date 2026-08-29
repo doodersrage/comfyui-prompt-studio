@@ -20,7 +20,7 @@ export const APP_NAV_GROUPS: AppNavGroup[] = [
       {
         href: '/m',
         label: 'Mobile Studio',
-        description: 'Phone companion — capture, queue, rate, Play stills (desk for film tools)',
+        description: 'Phone film loop — Capture, Board, Fit, Day, Play + Cut',
       },
     ],
   },

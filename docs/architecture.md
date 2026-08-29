@@ -88,6 +88,7 @@ Thin browser seam for **queue / status / view / upload / progress** so backends 
 | Diffusers implementation | `src/lib/engine/diffusers-adapter.ts`                                                               |
 | Fal implementation       | `src/lib/engine/fal-adapter.ts`                                                                     |
 | Replicate implementation | `src/lib/engine/replicate-adapter.ts`                                                               |
+| Runway implementation    | `src/lib/engine/runway-adapter.ts` + `src/lib/runway-client.ts`                                      |
 | ChatGPT / Gemini / Grok  | `src/lib/engine/cloud-adapter.ts` + `src/lib/llm-image-client.ts` + `src/lib/cloud-video-client.ts` |
 | Cloud registry           | `src/lib/engine/capabilities.ts` (`CLOUD_ENGINE_OPTIONS`)                                           |
 | Selection                | `getEngineAdapter()` / `getEngineAdapterById()` in `src/lib/engine/index.ts`                        |
@@ -99,13 +100,13 @@ Methods: `postPrompt`, `fetchJobStatus`, `buildViewPath`, `uploadInputImage`, `s
 Backends today:
 
 - **`comfyui`** (default) — primary generate path via `/api/comfyui/*` (Qwen Lightning bf16 + Dynamic VRAM, Final/Max enrich, ControlNet, FaceDetailer, edit, video, custom graphs).
-- **`diffusers`** (optional) — **local stills only** (txt2img + limited native graph compile) via `/api/diffusers/*` → local FastAPI (`DIFFUSERS_API_URL`, default `http://127.0.0.1:8190`). Opt in from Settings or `PROMPT_ENGINE=diffusers`. Not for Play film / ControlNet / Dynamic VRAM / specialty enrich — video and film stay on ComfyUI or Fal / Replicate / Grok / Gemini. On 24GB, Qwen Lightning quality/speed remains Comfy’s strength; Diffusers is not pursued for Dynamic VRAM / bf16 parity.
+- **`diffusers`** (optional) — **local stills only** (txt2img + limited native graph compile) via `/api/diffusers/*` → local FastAPI (`DIFFUSERS_API_URL`, default `http://127.0.0.1:8190`). Opt in from Settings or `PROMPT_ENGINE=diffusers`. Not for Play film / ControlNet / Dynamic VRAM / specialty enrich — video and film stay on ComfyUI or cloud clip engines. On 24GB, Qwen Lightning quality/speed remains Comfy’s strength; Diffusers Dynamic VRAM / bf16 parity stays a non-goal (parked).
 - **`fal`** (optional) — cloud stills + clips via `/api/fal/*` → [Fal queue](https://fal.ai). Prompt + optional Image 1; Video uses Kling / WAN / LTX / Grok Imagine / Veo presets. Local clips can upload to Fal CDN then call LTX extend-video when the upload succeeds; otherwise continue is last-frame I2V. Key: `FAL_KEY` or Settings.
 - **`replicate`** (optional) — same cloud contract via `/api/replicate/*` → [Replicate predictions](https://replicate.com). Stills + Kling / WAN / LTX clips. No extend API (continue is last-frame I2V). Token: `REPLICATE_API_TOKEN` or Settings.
 - **`openai`** (optional) — ChatGPT Images via `/api/openai/*` → `POST /v1/images/generations` (default `gpt-image-2`). Stills only — Sora is deprecated. Key: `OPENAI_API_KEY` or Settings.
 - **`gemini`** (optional) — Gemini native image via `/api/gemini/*` → `generateContent` (default `gemini-3.1-flash-image`). Video tool uses documented Veo `generate_videos` / `predictLongRunning` (`veo-3.1-generate-preview`). Key: `GEMINI_API_KEY` or Settings.
 - **`grok`** (optional) — xAI Imagine stills via `/api/grok/*` → `POST /v1/images/generations` (default `grok-imagine-image-2.0`). Video tool uses `POST /v1/videos/generations` (`grok-imagine-video-1.5`). Key: `XAI_API_KEY` or Settings.
-- **Runway** — not an engine. Own API, not Fal/Replicate-hosted; stays out of Settings.
+- **`runway`** (optional) — Gen-4 stills + Gen-4.5 / Aleph clips via `/api/runway/*` → [Runway Dev API](https://docs.dev.runwayml.com/). Text/image → `POST /v1/text_to_image`; T2V/I2V → `text_to_video` / `image_to_video`; continue/extend → `POST /v1/video_to_video` (`aleph2`). Key: `RUNWAY_API_KEY` or Settings.
 
 Add another provider by extending `CLOUD_ENGINE_OPTIONS` plus an adapter and `/api/<id>` proxy.
 
@@ -137,23 +138,25 @@ Invites: `POST /api/auth/invite` (admin) creates or re-sends a user and emails a
 
 ## Plugins
 
-Installable manifests live in the client settings cache (Dexie), not on the server filesystem (`src/lib/plugin-manifest.ts`).
+Client Dexie manifests (`src/lib/plugin-manifest.ts`) plus an optional **server registry** under `{PROMPT_DATA_DIR}/plugins` (`src/lib/server-plugin-registry.ts`, `GET`/`POST`/`DELETE /api/plugins/server`).
 
 ```ts
 {
   id, label, version, enabled?,
   nav?: [{ href, label, description }],
-  queueHooks?: { url, events },  // e.g. "queue-preflight"
+  queueHooks?: { url, events, privileges? },  // e.g. "queue-preflight", "queue-post"
   tools?: [{ id, title, iframeUrl?, route? }]
 }
 ```
 
 - Nav merges into the sidebar catalog
-- Queue hooks run via `runPluginQueuePreflight` before Comfy queue
+- Browser queue hooks run via `runPluginQueuePreflight` before Comfy queue
+- **Server** plugins with privileges run inside `queuePromptToComfyUi` (`queue-preflight` / `queue-post`) with allowlisted prompt / params / workflow JSON rewrite
 - Custom tools render at `/plugins/[id]` (`src/app/plugins/[id]/page.tsx`)
-- Iframe host protocol (queue / apply-prompt / toast): [plugin-iframe-host.md](plugin-iframe-host.md); example at `/plugin-examples/hello-iframe.html`
+- Iframe host protocol (queue / apply-prompt / LoRA stack / workflow tokens / gallery tag / engine): [plugin-iframe-host.md](plugin-iframe-host.md); example at `/plugin-examples/hello-iframe.html`
+- Caps: 48 client runtime plugins, 32 server plugins, 24 manual queue hooks; bookmarks stay separate (32)
 
-Bookmarks (non-manifest) are separate: `src/lib/tool-plugin-registry.ts`. Example hook: `src/app/api/plugin-hooks/denoise-rewrite/route.ts`.
+Bookmarks (non-manifest) are separate: `src/lib/tool-plugin-registry.ts`. Example hook: `src/app/api/plugin-hooks/denoise-rewrite/route.ts`. Optional install HMAC: `PROMPT_PLUGIN_HMAC_SECRET`.
 
 ## LLM and vision
 

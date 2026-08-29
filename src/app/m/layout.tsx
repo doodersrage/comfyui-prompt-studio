@@ -5,7 +5,7 @@ import MobileStudioShell from '@/components/mobile/MobileStudioShell';
 export const metadata: Metadata = {
   title: 'Mobile Studio',
   description:
-    'Phone companion: Capture → Queue → Rate → Desk Continue. Fitting, Day, Moodboard, and the full film cut loop live on the desk app; Cut on /m/play is optional parity.',
+    'Phone-first film loop: Capture → Moodboard → Fitting → Day → Play. Stills and clips, Cut film, and Save to Cast on the phone. Desk handoff is optional.',
   manifest: '/manifest-mobile.json',
   appleWebApp: {
     capable: true,

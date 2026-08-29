@@ -6,13 +6,12 @@ import { persistRoleplayLibraryFromCache } from '@/lib/roleplay-library';
 import { type RoleplayApiPayload } from '@/lib/roleplay-play-core';
 import {
   appendRoleplayStoryBeat,
-  applyRoleplayCharacterName,
   beginRoleplayStillRetryPatch,
   canRetryRoleplayStill,
-  mergeRoleplayRejectedScenes,
   patchRoleplayStoryBeat,
   roleplayStillQueueResultPatch,
   roleplayStillTakes,
+  selectRoleplayClipTakePatch,
   selectRoleplayStillTakePatch,
   lastRoleplayPlotBeat,
   roleplayStoryPhase,
@@ -20,6 +19,7 @@ import {
   type RoleplayScene,
   type RoleplayStoryBeat,
 } from '@/lib/roleplay';
+import { lastRoleplayMotionSource } from '@/lib/roleplay-film';
 import {
   applyRoleplayLibrarySession,
   archiveAndStartNewRoleplaySession,
@@ -29,40 +29,16 @@ import type { MobilePlayToolOrchestrationCore } from '@/hooks/mobile-play/useMob
 
 export function useMobilePlayToolOrchestrationPart2(ctx: MobilePlayToolOrchestrationCore) {
   const {
-    mounted,
-    shared,
     toolSettings,
     updateToolSettings,
-    plates,
-    activePlate,
-    scenes,
     setScenes,
-    error,
     setError,
-    bioLoading,
     setBioLoading,
-    playingId,
     setPlayingId,
-    isolating,
-    ownBibleOpen,
     setOwnBibleOpen,
-    personaId,
-    tone,
-    content,
-    playAs,
-    isolateSubject,
     bio,
-    story,
     storyRef,
-    storyProgress,
-    autoQueue,
-    assemblingFilm,
-    filmStatus,
-    filmNeedsCast,
-    filmCharacterId,
-    cutRoleplayFilm,
-    saveFilmToCast,
-    filmError,
+    beatQueue,
     actions,
     requestBody,
     queueStillOptions,
@@ -70,10 +46,7 @@ export function useMobilePlayToolOrchestrationPart2(ctx: MobilePlayToolOrchestra
     beginStoryFromBio,
     hasReferenceImage,
     referenceImageUrl,
-    writeBio,
-    autoIsolateAttemptedRef,
-    setPlates,
-    setActivePlate,
+    activePlate,
   } = ctx;
 
   const applyOwnBible = useCallback(
@@ -99,7 +72,15 @@ export function useMobilePlayToolOrchestrationPart2(ctx: MobilePlayToolOrchestra
         setBioLoading(false);
       }
     },
-    [beginStoryFromBio, hasReferenceImage, updateToolSettings]
+    [
+      beginStoryFromBio,
+      hasReferenceImage,
+      setBioLoading,
+      setError,
+      setOwnBibleOpen,
+      storyRef,
+      updateToolSettings,
+    ]
   );
 
   const playScene = useCallback(
@@ -165,7 +146,17 @@ export function useMobilePlayToolOrchestrationPart2(ctx: MobilePlayToolOrchestra
         setPlayingId(null);
       }
     },
-    [bio, commitStill, hasReferenceImage, requestBody, updateToolSettings]
+    [
+      bio,
+      commitStill,
+      hasReferenceImage,
+      requestBody,
+      setError,
+      setPlayingId,
+      setScenes,
+      storyRef,
+      updateToolSettings,
+    ]
   );
 
   const queueBeat = useCallback(
@@ -221,7 +212,7 @@ export function useMobilePlayToolOrchestrationPart2(ctx: MobilePlayToolOrchestra
         ),
       });
     },
-    [actions, queueStillOptions, updateToolSettings]
+    [actions, queueStillOptions, setError, storyRef, updateToolSettings]
   );
 
   const selectStillTake = useCallback(
@@ -236,7 +227,51 @@ export function useMobilePlayToolOrchestrationPart2(ctx: MobilePlayToolOrchestra
         ),
       });
     },
-    [updateToolSettings]
+    [storyRef, updateToolSettings]
+  );
+
+  const selectClipTake = useCallback(
+    (beat: RoleplayStoryBeat, index: number) => {
+      const latest =
+        storyRef.current.find(entry => entry.id === beat.id && entry.at === beat.at) ?? beat;
+      updateToolSettings({
+        story: patchRoleplayStoryBeat(
+          storyRef.current,
+          latest,
+          selectRoleplayClipTakePatch(latest, index)
+        ),
+      });
+    },
+    [storyRef, updateToolSettings]
+  );
+
+  const animateBeat = useCallback(
+    (beat: RoleplayStoryBeat) => {
+      void beatQueue.queueBeatMotion(beat);
+    },
+    [beatQueue]
+  );
+
+  const retryClip = useCallback(
+    (beat: RoleplayStoryBeat) => {
+      void beatQueue.queueBeatMotion(beat, { retry: true });
+    },
+    [beatQueue]
+  );
+
+  const extendBeat = useCallback(
+    (beat: RoleplayStoryBeat) => {
+      const source =
+        beat.clipStatus === 'completed' && beat.clipUrl?.trim()
+          ? {
+              imageUrl: beat.clipUrl.trim(),
+              parentPromptId: beat.clipPromptId?.trim() || beat.promptId?.trim(),
+              fromClip: true,
+            }
+          : (lastRoleplayMotionSource(storyRef.current) ?? undefined);
+      void beatQueue.queueBeatMotion(beat, source ? { source } : undefined);
+    },
+    [beatQueue, storyRef]
   );
 
   const continueLibrarySession = useCallback(
@@ -246,7 +281,7 @@ export function useMobilePlayToolOrchestrationPart2(ctx: MobilePlayToolOrchestra
       setScenes([]);
       setOwnBibleOpen(false);
     },
-    [toolSettings, updateToolSettings]
+    [setOwnBibleOpen, setScenes, toolSettings, updateToolSettings]
   );
 
   const startLibrarySession = useCallback(() => {
@@ -254,7 +289,7 @@ export function useMobilePlayToolOrchestrationPart2(ctx: MobilePlayToolOrchestra
     updateToolSettings(next);
     setScenes([]);
     setOwnBibleOpen(false);
-  }, [toolSettings, updateToolSettings]);
+  }, [setOwnBibleOpen, setScenes, toolSettings, updateToolSettings]);
 
   const plateUrl =
     (activePlate?.isolated ? activePlate.isolatedUrl : activePlate?.originalUrl) ||
@@ -265,6 +300,10 @@ export function useMobilePlayToolOrchestrationPart2(ctx: MobilePlayToolOrchestra
     playScene,
     queueBeat,
     selectStillTake,
+    selectClipTake,
+    animateBeat,
+    retryClip,
+    extendBeat,
     continueLibrarySession,
     startLibrarySession,
     plateUrl,

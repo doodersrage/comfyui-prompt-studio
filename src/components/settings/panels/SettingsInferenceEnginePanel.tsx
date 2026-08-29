@@ -9,11 +9,17 @@ import {
   DEFAULT_FAL_T2V_MODEL,
   DEFAULT_REPLICATE_I2V_MODEL,
   DEFAULT_REPLICATE_T2V_MODEL,
+  DEFAULT_RUNWAY_EXTEND_MODEL,
+  DEFAULT_RUNWAY_I2V_MODEL,
+  DEFAULT_RUNWAY_T2V_MODEL,
   FAL_EXTEND_MODEL_PRESETS,
   FAL_I2V_MODEL_PRESETS,
   FAL_T2V_MODEL_PRESETS,
   REPLICATE_I2V_MODEL_PRESETS,
   REPLICATE_T2V_MODEL_PRESETS,
+  RUNWAY_EXTEND_MODEL_PRESETS,
+  RUNWAY_I2V_MODEL_PRESETS,
+  RUNWAY_T2V_MODEL_PRESETS,
   normalizeEngineId,
   parseEngineId,
 } from '@/lib/engine/capabilities';
@@ -32,7 +38,7 @@ export default function SettingsInferenceEnginePanel({
     <ToolSection
       id="settings-comfyui-inference-engine"
       title="Inference engine"
-      description="ComfyUI is the default generate path (Qwen Lightning bf16, Final/Max enrich, specialty graphs, Play film). Diffusers is optional local stills only (txt2img/img2img). Fal and Replicate queue stills and clips. Grok and Gemini queue stills plus native video. ChatGPT stays stills. Cloud engines have no workflows, LoRAs, or live latents."
+      description="ComfyUI is the default generate path (Qwen Lightning bf16, Final/Max enrich, specialty graphs, Play film). Diffusers is optional local stills only (txt2img/img2img). Fal, Replicate, and Runway queue stills and clips. Grok and Gemini queue stills plus native video. ChatGPT stays stills. Cloud engines have no workflows, LoRAs, or live latents."
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1">
@@ -348,6 +354,96 @@ export default function SettingsInferenceEnginePanel({
                   </datalist>
                 </div>
               ) : null}
+              {option.id === 'runway' ? (
+                <div className="space-y-1 sm:col-span-2">
+                  <label
+                    htmlFor="runway-i2v-model"
+                    className="text-xs text-[var(--text-secondary)]"
+                  >
+                    Runway image-to-video model
+                  </label>
+                  <input
+                    id="runway-i2v-model"
+                    list="runway-i2v-model-presets"
+                    value={sharedSettings.runwayI2vModel ?? ''}
+                    onChange={event =>
+                      updateSharedSettings({
+                        runwayI2vModel: event.target.value,
+                      })
+                    }
+                    placeholder={DEFAULT_RUNWAY_I2V_MODEL}
+                    disabled={!active}
+                    className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 text-sm text-[var(--text-primary)] shadow-inner transition focus-visible:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                  <datalist id="runway-i2v-model-presets">
+                    {RUNWAY_I2V_MODEL_PRESETS.map(preset => (
+                      <option key={preset.id} value={preset.id}>
+                        {preset.label}
+                      </option>
+                    ))}
+                  </datalist>
+                </div>
+              ) : null}
+              {option.id === 'runway' ? (
+                <div className="space-y-1 sm:col-span-2">
+                  <label
+                    htmlFor="runway-t2v-model"
+                    className="text-xs text-[var(--text-secondary)]"
+                  >
+                    Runway text-to-video model
+                  </label>
+                  <input
+                    id="runway-t2v-model"
+                    list="runway-t2v-model-presets"
+                    value={sharedSettings.runwayT2vModel ?? ''}
+                    onChange={event =>
+                      updateSharedSettings({
+                        runwayT2vModel: event.target.value,
+                      })
+                    }
+                    placeholder={DEFAULT_RUNWAY_T2V_MODEL}
+                    disabled={!active}
+                    className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 text-sm text-[var(--text-primary)] shadow-inner transition focus-visible:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                  <datalist id="runway-t2v-model-presets">
+                    {RUNWAY_T2V_MODEL_PRESETS.map(preset => (
+                      <option key={preset.id} value={preset.id}>
+                        {preset.label}
+                      </option>
+                    ))}
+                  </datalist>
+                </div>
+              ) : null}
+              {option.id === 'runway' ? (
+                <div className="space-y-1 sm:col-span-2">
+                  <label
+                    htmlFor="runway-extend-model"
+                    className="text-xs text-[var(--text-secondary)]"
+                  >
+                    Runway video-to-video / extend model
+                  </label>
+                  <input
+                    id="runway-extend-model"
+                    list="runway-extend-model-presets"
+                    value={sharedSettings.runwayExtendModel ?? ''}
+                    onChange={event =>
+                      updateSharedSettings({
+                        runwayExtendModel: event.target.value,
+                      })
+                    }
+                    placeholder={DEFAULT_RUNWAY_EXTEND_MODEL}
+                    disabled={!active}
+                    className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 text-sm text-[var(--text-primary)] shadow-inner transition focus-visible:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                  <datalist id="runway-extend-model-presets">
+                    {RUNWAY_EXTEND_MODEL_PRESETS.map(preset => (
+                      <option key={preset.id} value={preset.id}>
+                        {preset.label}
+                      </option>
+                    ))}
+                  </datalist>
+                </div>
+              ) : null}
             </Fragment>
           );
         })}
@@ -363,11 +459,11 @@ export default function SettingsInferenceEnginePanel({
           prompt + optional Image 1
         </code>
         . Clips queue on Fal (Kling including O3, WAN, LTX 2.3, Grok Imagine, Veo), Replicate
-        (Kling, WAN, LTX 2.3), Grok native video, Gemini Veo, or local WAN/LTX. Fal can extend a
-        public Fal clip with LTX 2.3 extend-video, or upload a local clip to Fal CDN when the upload
-        succeeds — otherwise continue is last-frame I2V (Roleplay and Video say so if the upload
-        fails). ChatGPT stays stills (Sora is deprecated). Runway stays out of Settings (own API,
-        not Fal/Replicate-hosted). Stills go through{' '}
+        (Kling, WAN, LTX 2.3), Runway (Gen-4.5 / Aleph), Grok native video, Gemini Veo, or local
+        WAN/LTX. Continue paths: Fal LTX extend-video (or CDN upload → extend; soft-fail →
+        last-frame I2V), Grok `/v1/videos/extensions`, Runway `/v1/video_to_video`, Replicate
+        last-frame I2V, Gemini last-frame I2V + server stitch. Roleplay and Video label which path
+        ran. ChatGPT stays stills (Sora is deprecated). Stills go through{' '}
         <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
           /api/fal
         </code>
@@ -383,9 +479,13 @@ export default function SettingsInferenceEnginePanel({
         <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
           /api/gemini
         </code>
-        , and{' '}
+        ,{' '}
         <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
           /api/grok
+        </code>
+        , and{' '}
+        <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
+          /api/runway
         </code>
         ; keys from Settings or{' '}
         <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
@@ -406,6 +506,10 @@ export default function SettingsInferenceEnginePanel({
         {' / '}
         <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
           XAI_API_KEY
+        </code>
+        {' / '}
+        <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
+          RUNWAY_API_KEY
         </code>
         . Server proxy uses{' '}
         <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
