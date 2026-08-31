@@ -140,8 +140,8 @@ export function useGalleryBulkActions({
           .then(result => {
             setRequeueStatus(
               result.persisted
-                ? `Stitched ${result.clipCount} clips into ${result.filename} and saved to gallery.`
-                : `Downloaded ${result.filename}. Studio storage could not keep a copy (file may be over 80 MB).`
+                ? `Stitched ${result.clipCount} clips into ${result.filename} (${result.encodePath} encode) and saved to gallery.`
+                : `Downloaded ${result.filename} (${result.encodePath} encode). Studio storage could not keep a copy.`
             );
           })
           .catch(error => {

@@ -81,10 +81,56 @@ function wait(ms: number): Promise<void> {
   });
 }
 
+function isSameOriginUrl(url: string): boolean {
+  if (typeof window === 'undefined') {
+    return url.startsWith('/');
+  }
+  if (url.startsWith('/')) {
+    return true;
+  }
+  try {
+    return new URL(url, window.location.origin).origin === window.location.origin;
+  } catch {
+    return false;
+  }
+}
+
+async function resolvePlayableUrl(url: string): Promise<{ src: string; revoke?: () => void }> {
+  if (!isSameOriginUrl(url) && !url.startsWith('blob:') && !url.startsWith('data:')) {
+    return { src: url };
+  }
+  if (url.startsWith('blob:') || url.startsWith('data:')) {
+    return { src: url };
+  }
+  // Same-origin: fetch with cookies (crossOrigin=anonymous would omit them and break auth).
+  const response = await fetch(url, {
+    credentials: 'same-origin',
+    headers: { Accept: 'image/*,video/*,*/*' },
+  });
+  if (!response.ok) {
+    throw new Error(
+      response.status === 401 || response.status === 403
+        ? 'Could not load that clip (sign-in required).'
+        : `Could not load that clip (HTTP ${response.status}).`
+    );
+  }
+  const blob = await response.blob();
+  if (blob.size === 0) {
+    throw new Error('Could not load that clip (empty file).');
+  }
+  const objectUrl = URL.createObjectURL(blob);
+  return {
+    src: objectUrl,
+    revoke: () => URL.revokeObjectURL(objectUrl),
+  };
+}
+
 function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image();
-    image.crossOrigin = 'anonymous';
+    if (!isSameOriginUrl(url) && !url.startsWith('blob:') && !url.startsWith('data:')) {
+      image.crossOrigin = 'anonymous';
+    }
     image.onload = () => resolve(image);
     image.onerror = () => reject(new Error('Could not load that still.'));
     image.src = url;
@@ -94,7 +140,9 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 function loadVideo(url: string): Promise<HTMLVideoElement> {
   return new Promise((resolve, reject) => {
     const video = document.createElement('video');
-    video.crossOrigin = 'anonymous';
+    if (!isSameOriginUrl(url) && !url.startsWith('blob:') && !url.startsWith('data:')) {
+      video.crossOrigin = 'anonymous';
+    }
     video.muted = true;
     video.playsInline = true;
     video.preload = 'auto';
@@ -267,6 +315,7 @@ async function assembleFilmBlobOnServer(
   if (typeof window === 'undefined' || options?.preferServer === false) {
     return null;
   }
+  let serverAttempted = false;
   try {
     const availableRes = await fetch('/api/film/assemble', { method: 'GET' });
     if (!availableRes.ok) {
@@ -277,10 +326,12 @@ async function assembleFilmBlobOnServer(
       return null;
     }
 
+    serverAttempted = true;
     options?.onProgress?.({ ratio: 0.04, label: 'Starting server encode…' });
     const startRes = await fetch('/api/film/assemble', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
       body: JSON.stringify({
         shots,
         resolution: options?.resolution ?? '720p',
@@ -289,26 +340,31 @@ async function assembleFilmBlobOnServer(
       }),
     });
     if (!startRes.ok) {
-      return null;
+      const errBody = (await startRes.json().catch(() => null)) as { error?: string } | null;
+      throw new Error(
+        errBody?.error || `Server film encode unavailable (HTTP ${startRes.status}).`
+      );
     }
     const startJson = (await startRes.json()) as { job?: { id?: string } };
     const jobId = startJson.job?.id?.trim();
     if (!jobId) {
-      return null;
+      throw new Error('Server film encode did not return a job id.');
     }
 
     for (let attempt = 0; attempt < 600; attempt += 1) {
       await wait(500);
-      const statusRes = await fetch(`/api/film/assemble?jobId=${encodeURIComponent(jobId)}`);
+      const statusRes = await fetch(`/api/film/assemble?jobId=${encodeURIComponent(jobId)}`, {
+        credentials: 'same-origin',
+      });
       if (!statusRes.ok) {
-        return null;
+        throw new Error(`Server film status failed (HTTP ${statusRes.status}).`);
       }
       const statusJson = (await statusRes.json()) as {
         job?: { status?: string; ratio?: number; label?: string; error?: string };
       };
       const job = statusJson.job;
       if (!job) {
-        return null;
+        throw new Error('Server film job disappeared.');
       }
       options?.onProgress?.({
         ratio: typeof job.ratio === 'number' ? Math.min(0.98, Math.max(0.05, job.ratio)) : 0.2,
@@ -319,14 +375,15 @@ async function assembleFilmBlobOnServer(
       }
       if (job.status === 'completed') {
         const downloadRes = await fetch(
-          `/api/film/assemble?jobId=${encodeURIComponent(jobId)}&download=1`
+          `/api/film/assemble?jobId=${encodeURIComponent(jobId)}&download=1`,
+          { credentials: 'same-origin' }
         );
         if (!downloadRes.ok) {
-          return null;
+          throw new Error(`Server film download failed (HTTP ${downloadRes.status}).`);
         }
         const blob = await downloadRes.blob();
         if (blob.size === 0) {
-          return null;
+          throw new Error('Server film encode produced an empty file.');
         }
         options?.onProgress?.({ ratio: 1, label: 'Server MP4 ready' });
         return {
@@ -337,12 +394,13 @@ async function assembleFilmBlobOnServer(
         };
       }
     }
-    return null;
+    throw new Error('Server film encode timed out.');
   } catch (error) {
-    if (error instanceof Error && /Server film encode failed/i.test(error.message)) {
-      throw error;
+    // Only fall back to browser when ffmpeg was never available / never attempted.
+    if (!serverAttempted) {
+      return null;
     }
-    return null;
+    throw error instanceof Error ? error : new Error('Server film encode failed.');
   }
 }
 
@@ -364,141 +422,159 @@ export async function assembleFilmBlob(
   }
 
   options?.onProgress?.({ ratio: 0.02, label: 'Checking shots…' });
-  for (const shot of shots) {
+  const resolvedShots: Array<{ shot: FilmPlaylistShot; src: string; revoke?: () => void }> = [];
+  try {
+    for (const shot of shots) {
+      try {
+        const resolved = await resolvePlayableUrl(shot.url);
+        if (shot.kind === 'clip' && !isAnimatedImageShotUrl(shot.url)) {
+          const video = await loadVideo(resolved.src);
+          video.removeAttribute('src');
+          video.load();
+        } else {
+          await loadImage(resolved.src);
+        }
+        resolvedShots.push({ shot, ...resolved });
+      } catch (error) {
+        for (const entry of resolvedShots) {
+          entry.revoke?.();
+        }
+        throw new Error(
+          error instanceof Error && /sign-in|HTTP|empty file/i.test(error.message)
+            ? error.message
+            : shot.kind === 'clip'
+              ? 'Could not load that clip (CORS or a missing file). Same-origin / proxied URLs work; remote hosts must allow canvas.'
+              : 'Could not load that still (CORS or a missing file).'
+        );
+      }
+    }
+
+    const { width, height } = await probeSize(
+      resolvedShots.map(entry => ({ ...entry.shot, url: entry.src }))
+    );
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    canvas.setAttribute('aria-hidden', 'true');
+    canvas.style.position = 'fixed';
+    canvas.style.left = '-9999px';
+    canvas.style.top = '0';
+    document.body.appendChild(canvas);
+
+    const context = canvas.getContext('2d', { alpha: false });
+    if (!context) {
+      canvas.remove();
+      throw new Error('Could not open a drawing surface.');
+    }
+    context.fillStyle = '#000';
+    context.fillRect(0, 0, width, height);
+
+    const stream = canvas.captureStream(FRAME_RATE);
+    const picked = pickRecorderMime();
+    const recorder = picked.mimeType
+      ? new MediaRecorder(stream, {
+          mimeType: picked.mimeType,
+          videoBitsPerSecond: VIDEO_BITS_PER_SECOND,
+        })
+      : new MediaRecorder(stream, { videoBitsPerSecond: VIDEO_BITS_PER_SECOND });
+    const chunks: BlobPart[] = [];
+    recorder.ondataavailable = event => {
+      if (event.data.size > 0) {
+        chunks.push(event.data);
+      }
+    };
+
+    const stopped = new Promise<void>((resolve, reject) => {
+      recorder.onstop = () => resolve();
+      recorder.onerror = () => reject(new Error('The browser stopped recording the film.'));
+    });
+
+    recorder.start(250);
+    await wait(80);
+
     try {
-      if (shot.kind === 'clip' && !isAnimatedImageShotUrl(shot.url)) {
-        const video = await loadVideo(shot.url);
+      for (const [index, entry] of resolvedShots.entries()) {
+        const shot = entry.shot;
+        const src = entry.src;
+        options?.onProgress?.({
+          ratio: index / resolvedShots.length,
+          label: `Recording ${index + 1} of ${resolvedShots.length} · ${shot.title}`,
+        });
+        if (shot.kind === 'still') {
+          const image = await loadImage(src);
+          await paintFor(
+            context,
+            () => drawCover(context, image, image.naturalWidth, image.naturalHeight, width, height),
+            shot.holdSec && shot.holdSec > 0 ? shot.holdSec : DEFAULT_STILL_HOLD_SEC
+          );
+          continue;
+        }
+        if (isAnimatedImageShotUrl(shot.url) || isAnimatedImageShotUrl(src)) {
+          await paintAnimatedImage(context, src, width, height, shot.holdSec);
+          continue;
+        }
+        const video = await loadVideo(src);
+        video.currentTime = 0;
+        const played = await video.play().then(
+          () => true,
+          () => false
+        );
+        if (played) {
+          await new Promise<void>((resolve, reject) => {
+            const draw = () => {
+              drawCover(context, video, video.videoWidth, video.videoHeight, width, height);
+              if (video.ended) {
+                resolve();
+                return;
+              }
+              requestAnimationFrame(draw);
+            };
+            video.onended = () => resolve();
+            video.onerror = () => reject(new Error(`Could not play ${shot.title}.`));
+            requestAnimationFrame(draw);
+          });
+        } else {
+          const duration = Number.isFinite(video.duration) ? video.duration : 0;
+          const step = 1 / FRAME_RATE;
+          for (let time = 0; time <= duration; time += step) {
+            await new Promise<void>((resolve, reject) => {
+              video.onseeked = () => {
+                drawCover(context, video, video.videoWidth, video.videoHeight, width, height);
+                resolve();
+              };
+              video.onerror = () => reject(new Error(`Could not play ${shot.title}.`));
+              video.currentTime = Math.min(time, duration);
+            });
+          }
+        }
+        video.pause();
         video.removeAttribute('src');
         video.load();
-      } else {
-        await loadImage(shot.url);
       }
-    } catch {
-      throw new Error(
-        shot.kind === 'clip'
-          ? 'Could not load that clip (CORS or a missing file). Same-origin / proxied URLs work; remote hosts must allow canvas.'
-          : 'Could not load that still (CORS or a missing file).'
-      );
+    } finally {
+      if (recorder.state !== 'inactive') {
+        recorder.stop();
+      }
+      for (const track of stream.getTracks()) {
+        track.stop();
+      }
+      canvas.remove();
     }
-  }
 
-  const { width, height } = await probeSize(shots);
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  canvas.setAttribute('aria-hidden', 'true');
-  canvas.style.position = 'fixed';
-  canvas.style.left = '-9999px';
-  canvas.style.top = '0';
-  document.body.appendChild(canvas);
-
-  const context = canvas.getContext('2d', { alpha: false });
-  if (!context) {
-    canvas.remove();
-    throw new Error('Could not open a drawing surface.');
-  }
-  context.fillStyle = '#000';
-  context.fillRect(0, 0, width, height);
-
-  const stream = canvas.captureStream(FRAME_RATE);
-  const picked = pickRecorderMime();
-  const recorder = picked.mimeType
-    ? new MediaRecorder(stream, {
-        mimeType: picked.mimeType,
-        videoBitsPerSecond: VIDEO_BITS_PER_SECOND,
-      })
-    : new MediaRecorder(stream, { videoBitsPerSecond: VIDEO_BITS_PER_SECOND });
-  const chunks: BlobPart[] = [];
-  recorder.ondataavailable = event => {
-    if (event.data.size > 0) {
-      chunks.push(event.data);
+    await stopped;
+    options?.onProgress?.({ ratio: 1, label: 'Packing film' });
+    const mimeType = recorder.mimeType || picked.mimeType || 'video/webm';
+    const blob = new Blob(chunks, { type: mimeType });
+    if (blob.size === 0) {
+      throw new Error('The assembled film was empty.');
     }
-  };
-
-  const stopped = new Promise<void>((resolve, reject) => {
-    recorder.onstop = () => resolve();
-    recorder.onerror = () => reject(new Error('The browser stopped recording the film.'));
-  });
-
-  recorder.start(250);
-  await wait(80);
-
-  try {
-    for (const [index, shot] of shots.entries()) {
-      options?.onProgress?.({
-        ratio: index / shots.length,
-        label: `Recording ${index + 1} of ${shots.length} · ${shot.title}`,
-      });
-      if (shot.kind === 'still') {
-        const image = await loadImage(shot.url);
-        await paintFor(
-          context,
-          () => drawCover(context, image, image.naturalWidth, image.naturalHeight, width, height),
-          shot.holdSec && shot.holdSec > 0 ? shot.holdSec : DEFAULT_STILL_HOLD_SEC
-        );
-        continue;
-      }
-      if (isAnimatedImageShotUrl(shot.url)) {
-        await paintAnimatedImage(context, shot.url, width, height, shot.holdSec);
-        continue;
-      }
-      const video = await loadVideo(shot.url);
-      video.currentTime = 0;
-      const played = await video.play().then(
-        () => true,
-        () => false
-      );
-      if (played) {
-        await new Promise<void>((resolve, reject) => {
-          const draw = () => {
-            drawCover(context, video, video.videoWidth, video.videoHeight, width, height);
-            if (video.ended) {
-              resolve();
-              return;
-            }
-            requestAnimationFrame(draw);
-          };
-          video.onended = () => resolve();
-          video.onerror = () => reject(new Error(`Could not play ${shot.title}.`));
-          requestAnimationFrame(draw);
-        });
-      } else {
-        const duration = Number.isFinite(video.duration) ? video.duration : 0;
-        const step = 1 / FRAME_RATE;
-        for (let time = 0; time <= duration; time += step) {
-          await new Promise<void>((resolve, reject) => {
-            video.onseeked = () => {
-              drawCover(context, video, video.videoWidth, video.videoHeight, width, height);
-              resolve();
-            };
-            video.onerror = () => reject(new Error(`Could not play ${shot.title}.`));
-            video.currentTime = Math.min(time, duration);
-          });
-        }
-      }
-      video.pause();
-      video.removeAttribute('src');
-      video.load();
-    }
+    const extension = mimeType.includes('mp4') ? 'mp4' : picked.extension;
+    return { blob, mimeType, extension, encodePath: 'browser' };
   } finally {
-    if (recorder.state !== 'inactive') {
-      recorder.stop();
+    for (const entry of resolvedShots) {
+      entry.revoke?.();
     }
-    for (const track of stream.getTracks()) {
-      track.stop();
-    }
-    canvas.remove();
   }
-
-  await stopped;
-  options?.onProgress?.({ ratio: 1, label: 'Packing film' });
-  const mimeType = recorder.mimeType || picked.mimeType || 'video/webm';
-  const blob = new Blob(chunks, { type: mimeType });
-  if (blob.size === 0) {
-    throw new Error('The assembled film was empty.');
-  }
-  const extension = mimeType.includes('mp4') ? 'mp4' : picked.extension;
-  return { blob, mimeType, extension, encodePath: 'browser' };
 }
 
 function triggerDownload(blob: Blob, filename: string): void {

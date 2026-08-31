@@ -101,6 +101,7 @@ export type StartFilmAssembleInput = {
   crossfadeSec?: number;
   audioBedUrl?: string;
   requestOrigin?: string;
+  userId?: string | null;
 };
 
 export async function startFilmAssembleJob(
@@ -144,6 +145,7 @@ async function runJob(id: string, input: StartFilmAssembleInput): Promise<void> 
         resolution: normalizeFilmResolution(input.resolution),
         crossfadeSec: normalizeFilmCrossfadeSec(input.crossfadeSec),
         audioBedUrl: input.audioBedUrl,
+        userId: input.userId,
         onProgress: (ratio, label) => {
           const current = jobs.get(id);
           if (!current) return;

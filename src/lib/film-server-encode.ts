@@ -8,7 +8,6 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
-import { assertSafeHttpUrl } from './url-safety';
 import { resolvePromptDataDir } from './prompt-data-paths';
 import {
   clampStillHoldSec,
@@ -26,6 +25,7 @@ export type FilmServerEncodeOptions = {
   crossfadeSec?: number;
   /** Optional audio bed URL (http/https, private allowed for same-origin). */
   audioBedUrl?: string;
+  userId?: string | null;
   onProgress?: (ratio: number, label: string) => void;
 };
 
@@ -129,43 +129,14 @@ async function runCapture(
   });
 }
 
-async function fetchShotBytes(url: string, requestOrigin?: string): Promise<Buffer> {
-  const trimmed = url.trim();
-  if (!trimmed) {
-    throw new Error('Shot URL is required.');
-  }
-  if (trimmed.startsWith('data:')) {
-    const match = /^data:([^;,]+)?(;base64)?,([\s\S]*)$/.exec(trimmed);
-    if (!match) {
-      throw new Error('Invalid data URL.');
-    }
-    const payload = match[3] ?? '';
-    if (match[2]) {
-      return Buffer.from(payload, 'base64');
-    }
-    return Buffer.from(decodeURIComponent(payload), 'utf8');
-  }
-
-  let absolute = trimmed;
-  if (trimmed.startsWith('/') && requestOrigin) {
-    absolute = new URL(trimmed, requestOrigin).toString();
-  }
-  const parsed = assertSafeHttpUrl(absolute, { allowPrivate: true });
-  const response = await fetch(parsed.toString(), {
-    redirect: 'follow',
-    headers: { Accept: 'image/*,video/*,*/*' },
-  });
-  if (!response.ok) {
-    throw new Error(`Could not fetch shot (${response.status}).`);
-  }
-  const arrayBuffer = await response.arrayBuffer();
-  if (arrayBuffer.byteLength === 0) {
-    throw new Error('Shot download was empty.');
-  }
-  if (arrayBuffer.byteLength > 250 * 1024 * 1024) {
-    throw new Error('Shot is too large to assemble on the server.');
-  }
-  return Buffer.from(arrayBuffer);
+async function fetchShotBytes(
+  url: string,
+  requestOrigin?: string,
+  entryId?: string,
+  userId?: string | null
+): Promise<{ buffer: Buffer; contentType?: string; filenameHint?: string }> {
+  const { fetchFilmShotBytes } = await import('./film-shot-fetch');
+  return fetchFilmShotBytes({ url, requestOrigin, entryId, userId });
 }
 
 function extForShot(kind: FilmShotKind, contentTypeHint?: string, url?: string): string {
@@ -277,10 +248,10 @@ export async function encodeFilmPlaylistServer(
 
     for (const [index, shot] of shots.entries()) {
       options.onProgress?.(0.05 + (0.35 * index) / shots.length, `Fetching ${shot.title}`);
-      const bytes = await fetchShotBytes(shot.url, requestOrigin);
-      const ext = extForShot(shot.kind, undefined, shot.url);
+      const fetched = await fetchShotBytes(shot.url, requestOrigin, shot.entryId, options.userId);
+      const ext = extForShot(shot.kind, fetched.contentType, fetched.filenameHint || shot.url);
       const filePath = path.join(/* turbopackIgnore: true */ workDir, `shot-${index}.${ext}`);
-      await fs.writeFile(/* turbopackIgnore: true */ filePath, bytes);
+      await fs.writeFile(/* turbopackIgnore: true */ filePath, fetched.buffer);
       localFiles.push(filePath);
       kinds.push(shot.kind);
       holdSecs.push(
@@ -296,9 +267,9 @@ export async function encodeFilmPlaylistServer(
     const audioBed = options.audioBedUrl?.trim();
     if (audioBed) {
       options.onProgress?.(0.42, 'Fetching audio bed…');
-      const audioBytes = await fetchShotBytes(audioBed, requestOrigin);
+      const audioFetched = await fetchShotBytes(audioBed, requestOrigin, undefined, options.userId);
       audioPath = path.join(/* turbopackIgnore: true */ workDir, 'audio-bed.audio');
-      await fs.writeFile(/* turbopackIgnore: true */ audioPath, audioBytes);
+      await fs.writeFile(/* turbopackIgnore: true */ audioPath, audioFetched.buffer);
     }
 
     const { filter, videoLabel, audioLabel } = buildFilterComplex({

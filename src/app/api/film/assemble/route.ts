@@ -115,6 +115,7 @@ export async function POST(request: Request) {
       crossfadeSec: typeof body.crossfadeSec === 'number' ? body.crossfadeSec : undefined,
       audioBedUrl: typeof body.audioBedUrl === 'string' ? body.audioBedUrl : undefined,
       requestOrigin: new URL(request.url).origin,
+      userId: isAuthEnabled() ? (resolveRequestUser(request)?.id ?? null) : null,
     });
     return apiJson({ ok: true, job }, { status: 202 });
   } catch (error) {
