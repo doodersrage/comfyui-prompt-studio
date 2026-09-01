@@ -35,7 +35,7 @@ export function formatPromptPair(input: {
   return lines.join('\n');
 }
 
-export function downloadTextFile(filename: string, content: string): void {
+export function downloadPromptPairTextFile(filename: string, content: string): void {
   const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
