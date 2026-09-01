@@ -1,4 +1,5 @@
 import type { ComfyImageModel } from './comfy-models/client';
+import { isFluxKlein9BVariant } from './workflow-scaffold-flux';
 import type { ComfyUiModelLists } from './comfyui-object-info';
 import {
   matchInventoryFilename,
@@ -601,7 +602,7 @@ export function softRepairPackLoadersFromInventory(
 
   // FLUX.2 Klein: DualCLIP type "flux" → CLIPLoader type "flux2" (shape mismatch otherwise).
   if (/flux-2-klein/i.test(String(model))) {
-    const want9b = /9b/i.test(String(model));
+    const want9b = isFluxKlein9BVariant(model);
     const preferred = want9b
       ? (matchInventoryFilenameNearMiss('qwen_3_8b_fp8mixed.safetensors', inventory.clips) ??
         matchInventoryFilenameNearMiss('flux2-klein-9b-uncensored.safetensors', inventory.clips))

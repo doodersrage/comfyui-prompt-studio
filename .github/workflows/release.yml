@@ -60,6 +60,7 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+      - run: npm run size
 
       - name: Cut version on main
         id: cut
@@ -80,7 +81,8 @@ jobs:
             git checkout -- package.json package-lock.json
             exit 0
           fi
-          git add package.json package-lock.json
+          node scripts/update-changelog.mjs "$VERSION"
+          git add package.json package-lock.json CHANGELOG.md
           git commit -m "Release v${VERSION}"
           git tag "v${VERSION}"
           git pull --rebase origin "${GITHUB_REF_NAME}"

@@ -20,7 +20,7 @@ import { getComfyModelDefinition, normalizeComfyModel, type ComfyImageModel } fr
 import { isQwenRapidAioModel } from './model-denoise-defaults';
 import { defaultLoaderPrecisionTier, qwenDualClipFilename } from './model-loader-precision';
 import type { QueueQualityProfile } from './queue-quality-profile';
-import { resolveLoaderFilenamesForModel } from './model-checkpoint-map';
+import { fluxKleinDualClipFilename } from './workflow-scaffold-flux';
 
 export const GALLERY_REFINE_DENOISE: Record<'final' | 'max', number> = {
   final: 0.22,
@@ -215,17 +215,6 @@ function buildCheckpointGalleryRefineWorkflow(options?: {
   };
 
   return workflow;
-}
-
-function fluxKleinDualClipFilename(model: string): string {
-  const loaders = resolveLoaderFilenamesForModel(model);
-  if (loaders.dualClip?.trim()) {
-    return loaders.dualClip.trim();
-  }
-  if (/9b/i.test(model)) {
-    return 'qwen_3_8b_fp8mixed.safetensors';
-  }
-  return 'qwen_3_4b.safetensors';
 }
 
 /** Klein uses UNET + CLIPLoader (flux2) + VAE + ModelSamplingFlux — not CheckpointLoaderSimple. */

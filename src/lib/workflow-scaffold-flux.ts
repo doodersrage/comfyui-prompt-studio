@@ -16,6 +16,22 @@ import {
 const DEFAULT_FLUX_CLIP_L = 'clip_l.safetensors';
 const DEFAULT_FLUX_CLIP_T5 = 't5xxl_fp16.safetensors';
 
+/**
+ * True when `model` is the 9B (as opposed to 4B) FLUX.2 Klein text-encoder
+ * variant. Single source of truth for this check — see the callers listed
+ * on fluxKleinDualClipFilename below.
+ */
+export function isFluxKlein9BVariant(model?: ComfyImageModel | string): boolean {
+  return /9b/i.test(String(model ?? ''));
+}
+
+/**
+ * Default Klein dual-clip text encoder filename for `model`. Also used by
+ * gallery-output-refine.ts (re-exported there), system-workflow-runtime.ts,
+ * and system-workflow-pack-loaders.ts (which each need the 9B/4B split for
+ * their own inventory-matching logic via isFluxKlein9BVariant above) — keep
+ * the 9B/4B decision centralized here rather than re-testing model strings.
+ */
 export function fluxKleinDualClipFilename(model?: ComfyImageModel | string): string {
   if (!model) {
     return 'qwen_3_4b.safetensors';
@@ -24,7 +40,7 @@ export function fluxKleinDualClipFilename(model?: ComfyImageModel | string): str
   if (loaders.dualClip?.trim()) {
     return loaders.dualClip.trim();
   }
-  if (/9b/i.test(String(model))) {
+  if (isFluxKlein9BVariant(model)) {
     return 'qwen_3_8b_fp8mixed.safetensors';
   }
   return 'qwen_3_4b.safetensors';

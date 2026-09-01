@@ -89,6 +89,7 @@ import { workflowHasLoraLoader } from './workflow-lightning-queue';
 import { lightningLoraMatchesModel } from './workflow-lora-patch';
 import { workflowGraphIsVideo } from './workflow-graph-kind';
 import { buildWorkflowScaffoldForModel, fluxKleinDualClipFilename } from './workflow-scaffold';
+import { isFluxKlein9BVariant } from './workflow-scaffold-flux';
 import {
   extractWorkflowStackFingerprint,
   workflowStackMatchesModel,
@@ -816,7 +817,7 @@ export function softBindScaffoldFromInventory(
           matchInventoryFilenamePreferTier(kleinDual, clipPool, unetTier) ??
           pickPoolFilenamePreferTier(
             clipPool,
-            /9b/i.test(String(model))
+            isFluxKlein9BVariant(model)
               ? [/qwen_3_8b/i, /flux2-klein-9b/i]
               : [/qwen_3_4b/i, /flux2-klein-4b/i],
             unetTier
@@ -855,7 +856,7 @@ export function softBindScaffoldFromInventory(
           matchInventoryFilenamePreferTier(kleinDual, clipPool, unetTier) ??
           pickPoolFilenamePreferTier(
             clipPool,
-            /9b/i.test(String(model))
+            isFluxKlein9BVariant(model)
               ? [/qwen_3_8b/i, /flux2-klein-9b/i]
               : [/qwen_3_4b/i, /flux2-klein-4b/i],
             unetTier
