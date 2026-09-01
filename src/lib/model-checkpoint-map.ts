@@ -701,7 +701,7 @@ export function resolveLoaderFilenamesForModel(
   ];
   const result: ModelLoaderFilenames = {};
   if (checkpoint) {
-    result.checkpoint = /flux-2-klein/i.test(String(model))
+    result.checkpoint = isFluxKleinModel(model)
       ? (preferKleinBf16FromInventory(
           checkpoint,
           kleinInventory.length > 0 ? kleinInventory : null
@@ -709,7 +709,7 @@ export function resolveLoaderFilenamesForModel(
       : checkpoint;
   }
   if (unet) {
-    result.unet = /flux-2-klein/i.test(String(model))
+    result.unet = isFluxKleinModel(model)
       ? (preferKleinBf16FromInventory(unet, kleinInventory.length > 0 ? kleinInventory : null) ??
         unet)
       : unet;
