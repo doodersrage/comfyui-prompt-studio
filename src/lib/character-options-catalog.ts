@@ -10,8 +10,6 @@ import {
   normalizeClothingCatalogId,
   sanitizeCatalogScriptsInPrompt,
 } from './clothing-catalog';
-import { parseCharacterHints } from './character-hints';
-import { subjectGenderToClothingGender } from './clothing-tags';
 import {
   enrichAccessoriesHighSignal,
   enrichFootwearHighSignal,
@@ -1211,21 +1209,6 @@ export function normalizeCharacterPresetOptions(
   return normalized;
 }
 
-export function presetOptionsFromCache(
-  cache: Partial<CharacterPresetOptions> & { hints?: string }
-): CharacterPresetOptions {
-  const parsed = parseCharacterHints(cache.hints);
-  return normalizeCharacterPresetOptions(cache, {
-    clothingGender: subjectGenderToClothingGender(parsed.gender),
-  });
-}
-
-export function clearCharacterPresetPatch(): Partial<CharacterPresetOptions> {
-  return Object.fromEntries(
-    CHARACTER_PRESET_FIELD_KEYS.map(key => [key, ''])
-  ) as Partial<CharacterPresetOptions>;
-}
-
 function textFieldIsActive(key: CharacterTextPresetKey, options: CharacterPresetOptions): boolean {
   if (key === 'poseTarget') {
     return Boolean(options.poseAction && options.poseTarget);
@@ -1266,65 +1249,8 @@ export function countCharacterPresetSelections(options: CharacterPresetOptions):
   return count;
 }
 
-export function countCharacterPresetSectionSelections(
-  sectionId: string,
-  options: CharacterPresetOptions
-): number {
-  const section = CHARACTER_PRESET_UI_SECTIONS.find(item => item.id === sectionId);
-  if (!section || (section.showWhen && !section.showWhen(options))) {
-    return 0;
-  }
-
-  let count = 0;
-
-  for (const field of section.fields) {
-    if (!shouldShowPresetField(field, options)) {
-      continue;
-    }
-
-    if (field.kind === 'select') {
-      if (field.key === 'poseAction') {
-        continue;
-      }
-
-      if (options[field.key as keyof CharacterPresetOptions]) {
-        count += 1;
-      }
-      continue;
-    }
-
-    if (field.kind === 'clothing-catalog') {
-      if (options[field.key]) {
-        count += 1;
-      }
-      continue;
-    }
-
-    if (textFieldIsActive(field.key, options)) {
-      count += 1;
-    }
-  }
-
-  if (options.poseAction && options.poseTarget) {
-    const hasPoseAnchor = section.fields.some(
-      field => field.key === 'poseAction' || field.key === 'poseTarget'
-    );
-    if (hasPoseAnchor) {
-      count += 1;
-    }
-  }
-
-  return count;
-}
-
 export function hasCharacterPresetOptions(options: CharacterPresetOptions): boolean {
   return countCharacterPresetSelections(options) > 0;
-}
-
-export function getSelectOptionsForPresetKey(
-  key: keyof CharacterPresetOptions
-): SelectOption<string>[] {
-  return SELECT_OPTION_REGISTRY[key as string] ?? [{ value: '', label: 'Default' }];
 }
 
 export function buildCharacterPresetBlock(options: CharacterPresetOptions): string | null {
@@ -1704,23 +1630,4 @@ export function buildCharacterPresetUserDirective(options: CharacterPresetOption
   }
 
   return parts.join(' ');
-}
-
-export function isDuoHeadcount(options: CharacterPresetOptions): boolean {
-  return options.headcount === 'duo';
-}
-
-export function shouldShowPresetField(
-  field: CharacterPresetUiField,
-  options: CharacterPresetOptions
-): boolean {
-  if (field.kind === 'text' && field.requires === 'poseAction') {
-    return Boolean(options.poseAction);
-  }
-
-  if (field.kind === 'select' && field.key === 'duoDynamic') {
-    return options.headcount === 'duo';
-  }
-
-  return true;
 }
