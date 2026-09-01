@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   ensureLightningModelChainInWorkflow,
   loraStrengthIsActive,
+  neutralizeNonLightningLoras,
 } from "./workflow-lightning-lora-chain";
 import type { WorkflowNodeRecord } from "./workflow-lightning-queue";
 
@@ -155,5 +156,116 @@ describe("loraStrengthIsActive", () => {
     assert.equal(loraStrengthIsActive(0.75), true);
     assert.equal(loraStrengthIsActive(0), false);
     assert.equal(loraStrengthIsActive(-1), false);
+  });
+});
+
+describe("neutralizeNonLightningLoras", () => {
+  it("does nothing when the model doesn't need style-LoRA neutralization", () => {
+    const workflow = baseGraph();
+    workflow["8"] = {
+      class_type: "LoraLoaderModelOnly",
+      inputs: { model: ["1", 0], lora_name: "anime_style.safetensors", strength_model: 1 },
+    };
+    const { workflow: result, neutralizedNodeIds } = neutralizeNonLightningLoras(
+      workflow,
+      "qwen-image-2512",
+      {},
+    );
+    assert.equal(result, workflow);
+    assert.deepEqual(neutralizedNodeIds, []);
+  });
+
+  it("does nothing for a Lightning model whose workflow has no Lightning LoRA yet", () => {
+    const workflow = baseGraph();
+    workflow["8"] = {
+      class_type: "LoraLoaderModelOnly",
+      inputs: { model: ["1", 0], lora_name: "anime_style.safetensors", strength_model: 1 },
+    };
+    const { workflow: result, neutralizedNodeIds } = neutralizeNonLightningLoras(
+      workflow,
+      LIGHTNING_MODEL,
+      {},
+    );
+    assert.equal(result, workflow);
+    assert.deepEqual(neutralizedNodeIds, []);
+  });
+
+  it("neutralizes an active non-Lightning style LoRA while leaving a Lightning LoRA untouched", () => {
+    const workflow = baseGraph();
+    workflow["8"] = {
+      class_type: "LoraLoaderModelOnly",
+      inputs: { model: ["1", 0], lora_name: LIGHTNING_LORA_FILENAME, strength_model: 1 },
+    };
+    workflow["9"] = {
+      class_type: "LoraLoaderModelOnly",
+      inputs: { model: ["8", 0], lora_name: "anime_style_v2.safetensors", strength_model: 0.8 },
+    };
+    (node(workflow, "5").inputs as Record<string, unknown>).model = ["9", 0];
+    const { workflow: result, neutralizedNodeIds } = neutralizeNonLightningLoras(
+      workflow,
+      LIGHTNING_MODEL,
+      LORA_FILENAMES,
+    );
+    assert.deepEqual(neutralizedNodeIds, ["9"]);
+    assert.equal(node(result, "9").inputs!.strength_model, 0);
+    assert.equal(node(result, "8").inputs!.strength_model, 1);
+  });
+
+  it("neutralizes non-Lightning slots in a Power Lora Loader (rgthree) node but skips off and Lightning slots", () => {
+    const workflow = baseGraph();
+    workflow["8"] = {
+      class_type: "LoraLoaderModelOnly",
+      inputs: { model: ["1", 0], lora_name: LIGHTNING_LORA_FILENAME, strength_model: 1 },
+    };
+    workflow["9"] = {
+      class_type: "Power Lora Loader (rgthree)",
+      inputs: {
+        model: ["8", 0],
+        lora_1: { on: true, lora: "anime_style.safetensors", strength: 0.7, strengthTwo: 0.7 },
+        lora_2: { on: false, lora: "unused_style.safetensors", strength: 1 },
+        lora_3: { on: true, lora: LIGHTNING_LORA_FILENAME, strength: 1 },
+        lora_4: { on: true, lora: "", strength: 1 },
+      },
+    };
+    (node(workflow, "5").inputs as Record<string, unknown>).model = ["9", 0];
+    const { workflow: result, neutralizedNodeIds } = neutralizeNonLightningLoras(
+      workflow,
+      LIGHTNING_MODEL,
+      LORA_FILENAMES,
+    );
+    assert.deepEqual(neutralizedNodeIds, ["9:lora_1", "9:lora_4"]);
+    const slots = node(result, "9").inputs as Record<
+      string,
+      { on?: boolean; strength?: number; strengthTwo?: number }
+    >;
+    assert.equal(slots.lora_1.on, false);
+    assert.equal(slots.lora_1.strength, 0);
+    assert.equal(slots.lora_1.strengthTwo, 0);
+    assert.equal(slots.lora_2.on, false);
+    assert.equal(slots.lora_2.strength, 1); // untouched — was already off
+    assert.equal(slots.lora_3.on, true); // Lightning slot left alone
+    assert.equal(slots.lora_4.on, false);
+    assert.equal(slots.lora_4.strength, 0);
+  });
+
+  it("keeps only the sampler-nearest Lightning LoRA at strength when a pack bakes it twice", () => {
+    const workflow = baseGraph();
+    workflow["8"] = {
+      class_type: "LoraLoaderModelOnly",
+      inputs: { model: ["1", 0], lora_name: LIGHTNING_LORA_FILENAME, strength_model: 1 },
+    };
+    workflow["9"] = {
+      class_type: "LoraLoaderModelOnly",
+      inputs: { model: ["8", 0], lora_name: LIGHTNING_LORA_FILENAME, strength_model: 1 },
+    };
+    (node(workflow, "5").inputs as Record<string, unknown>).model = ["9", 0];
+    const { workflow: result, neutralizedNodeIds } = neutralizeNonLightningLoras(
+      workflow,
+      LIGHTNING_MODEL,
+      LORA_FILENAMES,
+    );
+    assert.deepEqual(neutralizedNodeIds, ["8"]);
+    assert.equal(node(result, "9").inputs!.strength_model, 1);
+    assert.equal(node(result, "8").inputs!.strength_model, 0);
   });
 });
