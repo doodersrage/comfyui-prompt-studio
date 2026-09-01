@@ -94,4 +94,30 @@ describe("model loader precision", () => {
   it("defaults to bf16 when workflow and map provide no precision hints", () => {
     assert.equal(resolveLoaderPrecisionTier({}), "bf16");
   });
+
+  it("resolves the Boogu VAE from inventory when injecting queue context", () => {
+    const { loaders, params } = resolveQueueInjectionContext({
+      model: "boogu-image-turbo",
+      availableVaes: ["flux1_vae_bf16.safetensors", "ae.safetensors"],
+    });
+    assert.equal(loaders.vae, "flux1_vae_bf16.safetensors");
+    assert.equal(params.vaeFilename, "flux1_vae_bf16.safetensors");
+  });
+
+  it("falls back to the ae.safetensors Boogu VAE when the preferred file is absent", () => {
+    const { loaders, params } = resolveQueueInjectionContext({
+      model: "boogu-image",
+      availableVaes: ["ae.safetensors"],
+    });
+    assert.equal(loaders.vae, "ae.safetensors");
+    assert.equal(params.vaeFilename, "ae.safetensors");
+  });
+
+  it("does not apply the Boogu VAE override for non-Boogu models", () => {
+    const { loaders } = resolveQueueInjectionContext({
+      model: "qwen-image-2512",
+      availableVaes: ["ae.safetensors"],
+    });
+    assert.notEqual(loaders.vae, "ae.safetensors");
+  });
 });
