@@ -1,3 +1,5 @@
+import type { SelectOption } from './select-option';
+
 export type PetSpeciesOption = '' | 'dog' | 'cat' | 'rabbit' | 'bird' | 'small-pet' | 'reptile';
 
 export type PetPairMode = '' | 'solo' | 'pair';
@@ -102,12 +104,6 @@ export type PetPresetUiSection = {
   description?: string;
   defaultOpen?: boolean;
   fields: PetPresetUiField[];
-};
-
-type SelectOption<T extends string> = {
-  value: T;
-  label: string;
-  script?: string;
 };
 
 const SELECT_REGISTRY = {

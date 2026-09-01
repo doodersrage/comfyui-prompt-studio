@@ -1,3 +1,5 @@
+import type { SelectOption } from './select-option';
+
 export type BackgroundRoomPerspective =
   | ''
   | 'deep-room'
@@ -120,12 +122,6 @@ export type BackgroundPresetUiSection = {
   description?: string;
   defaultOpen?: boolean;
   fields: BackgroundPresetUiField[];
-};
-
-type SelectOption<T extends string> = {
-  value: T;
-  label: string;
-  script?: string;
 };
 
 export const BACKGROUND_ROOM_PERSPECTIVE_OPTIONS: SelectOption<BackgroundRoomPerspective>[] = [

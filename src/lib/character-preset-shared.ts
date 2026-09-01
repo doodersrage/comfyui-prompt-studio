@@ -2,6 +2,7 @@ import {
   CLOTHING_CATALOG_FIELD_KEYS,
   type ClothingCatalogFieldKey,
 } from './clothing-catalog-fields';
+import type { SelectOption } from './select-option';
 
 export type CharacterHeadcount = '' | 'solo' | 'duo';
 
@@ -174,11 +175,7 @@ export type CharacterTextPresetKey =
 
 export type CharacterClothingCatalogPresetKey = ClothingCatalogFieldKey;
 
-export type SelectOption<T extends string> = {
-  value: T;
-  label: string;
-  script?: string;
-};
+export type { SelectOption };
 
 export type CharacterPresetUiField =
   | {
