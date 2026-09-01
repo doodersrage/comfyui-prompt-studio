@@ -10,7 +10,7 @@ import { avoidedTokensRequestBody } from '@/lib/avoided-tokens';
 import { sharedLlmRequestBody } from '@/lib/llm-request-options';
 import { presetOptionsFromCache } from '@/lib/character-options-ui';
 import type { EnrichedToolGenerateResult } from '@/lib/specialized/types';
-import { downloadTextFile } from '@/lib/prompt-pair';
+import { downloadPromptPairTextFile } from '@/lib/prompt-pair';
 import { resolveCollabFieldValue } from '@/lib/collab-presence';
 import type { CharacterToolOrchestrationCore } from '@/hooks/character/useCharacterToolOrchestrationCore';
 
@@ -211,7 +211,7 @@ export function useCharacterToolOrchestrationPart2(ctx: CharacterToolOrchestrati
       return;
     }
 
-    downloadTextFile(
+    downloadPromptPairTextFile(
       `${historyTool}-batch-${Date.now()}.txt`,
       batchResults.map((entry, index) => `# ${index + 1}\n${entry.prompt}`).join('\n\n')
     );

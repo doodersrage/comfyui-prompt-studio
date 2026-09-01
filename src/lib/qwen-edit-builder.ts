@@ -55,7 +55,3 @@ export function qwenEditTemplate(): string {
     'remove: visible logos and text',
   ].join('\n');
 }
-
-export function isQwenEditModel(modelId: string): boolean {
-  return modelId.includes('qwen') && modelId.includes('edit');
-}
