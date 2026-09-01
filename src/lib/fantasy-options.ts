@@ -1,3 +1,5 @@
+import type { SelectOption } from './select-option';
+
 export type FantasyShotFraming = 'portrait' | 'full-body' | 'action' | 'wide';
 
 export const FANTASY_SHOT_FRAMING_LINES: Record<FantasyShotFraming, string> = {
@@ -127,12 +129,6 @@ export type FantasyPresetUiSection = {
   description?: string;
   defaultOpen?: boolean;
   fields: FantasyPresetUiField[];
-};
-
-type SelectOption<T extends string> = {
-  value: T;
-  label: string;
-  script?: string;
 };
 
 const SELECT_REGISTRY = {
