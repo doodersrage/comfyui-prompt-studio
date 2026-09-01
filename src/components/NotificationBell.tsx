@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import BrandBars from '@/components/BrandBars';
 import {
@@ -17,6 +17,8 @@ export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<AppNotification[]>([]);
   const [unread, setUnread] = useState(0);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const refresh = useCallback(() => {
     setItems(loadNotifications());
@@ -31,9 +33,37 @@ export default function NotificationBell() {
     return () => window.removeEventListener(NOTIFICATIONS_UPDATED, refresh);
   }, [refresh]);
 
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      const target = event.target as Node;
+      if (buttonRef.current?.contains(target) || panelRef.current?.contains(target)) {
+        return;
+      }
+      setOpen(false);
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [open]);
+
   return (
     <div className="relative">
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setOpen(value => !value)}
         className="relative rounded-full border border-[var(--border-default)]/80 bg-[var(--bg-base)]/50 px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:border-[var(--accent-border)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
@@ -46,7 +76,10 @@ export default function NotificationBell() {
         ) : null}
       </button>
       {open ? (
-        <div className="ui-tray-card absolute bottom-full right-0 z-50 mb-2 w-72 overflow-hidden">
+        <div
+          ref={panelRef}
+          className="ui-tray-card absolute bottom-full right-0 z-50 mb-2 w-72 overflow-hidden"
+        >
           <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-3 py-2.5">
             <div>
               <p className="text-xs font-medium text-[var(--text-primary)]">Notifications</p>
