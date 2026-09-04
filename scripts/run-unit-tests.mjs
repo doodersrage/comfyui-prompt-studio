@@ -46,7 +46,14 @@ console.log(
 const extraArgs = process.argv.slice(2);
 const result = spawnSync(
   process.execPath,
-  ['--import', 'tsx', '--test', ...extraArgs, ...allTestFiles.map(f => relative(ROOT, f))],
+  [
+    '--import',
+    'tsx',
+    '--experimental-test-module-mocks',
+    '--test',
+    ...extraArgs,
+    ...allTestFiles.map(f => relative(ROOT, f)),
+  ],
   { stdio: 'inherit', cwd: ROOT }
 );
 
