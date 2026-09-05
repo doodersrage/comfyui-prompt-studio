@@ -175,13 +175,9 @@ describe('server-user-maintenance', async () => {
     assert.equal(updatedId, 'u1');
     assert.ok(patch.scheduledCampaign.lastRunAt! > 0);
 
-    // The source calls `notifyBatchCompleted` via a call-time `await import('./email/notifications')`
-    // inside the loop body, not a static top-level import. Verified via real execution: this test
-    // runtime's `mock.module()` does not intercept a specifier reached only through such a dynamic
-    // import (confirmed for both this and `listUsers` below), so the REAL `notifyBatchCompleted` runs
-    // here instead of the mock above. That real function no-ops when email isn't configured (which it
-    // isn't in this test process), so we only assert that the campaign run completes without throwing
-    // rather than asserting on the (unreachable) mock's call count.
+    // notifyBatchCompleted is reached via a call-time dynamic import; mock.module may not
+    // intercept it on every Node version. The real function no-ops without email configured,
+    // so we only assert the campaign path completes without throwing.
   });
 
   it('treats an interval below 5 minutes as a 5-minute floor', async () => {
@@ -205,9 +201,6 @@ describe('server-user-maintenance', async () => {
   });
 
   it('writes an export snapshot for users with exportEnabled and stored history/gallery', async () => {
-    // The source reads export candidates via `const { listUsers } = await import('./auth/store')`.
-    // `mock.module('./auth/store')` intercepts that dynamic import the same way it intercepts the
-    // static `listUsersWithCampaigns`/`updateUserProfile` imports, so `exportUsers` drives the loop.
     exportUsers = [{ id: 'u2', username: 'bob', exportEnabled: true }];
     storedByUser.set('u2:prompt-history', { entries: [1, 2] });
     const result = await runServerUserMaintenance();
@@ -222,7 +215,7 @@ describe('server-user-maintenance', async () => {
     assert.equal(username, 'bob');
     assert.deepEqual(payload.history, { entries: [1, 2] });
     assert.equal(payload.gallery, null);
-    assert.ok(listUsers.mock.callCount() >= 1);
+    assert.equal(listUsers.mock.callCount(), 1);
   });
 
   it('skips export when the user has exportEnabled but no stored history or gallery', async () => {

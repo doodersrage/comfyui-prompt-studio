@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { listUsersWithCampaigns, updateUserProfile } from './auth/store';
+import { listUsers, listUsersWithCampaigns, updateUserProfile } from './auth/store';
 import { runUserCampaignWithBestOfN } from './best-of-n-server';
 import { readUserServerStorage, writeUserExportSnapshot } from './user-server-storage';
 import type { UserScheduledCampaign } from './auth/types';
@@ -56,7 +56,6 @@ export async function runServerUserMaintenance(): Promise<{
     });
   }
 
-  const { listUsers } = await import('./auth/store');
   for (const user of listUsers()) {
     if (!user.exportEnabled) {
       continue;

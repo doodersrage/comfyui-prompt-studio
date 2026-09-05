@@ -9,10 +9,16 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-- Fix gallery stitch CORS fallback by resolving clips in-process on the server.
-- Sync pnpm-lock with size-limit peer deps already in package.json.
-- Deepen shallow product areas: film encode, LoRA train, cloud continue, mobile Play, Compose identity, server plugins, and Runway.
+- Server film encode via `/api/film/assemble` (ffmpeg H.264/AAC) for Day, Roleplay Cut, and gallery stitch, with clearer errors and a credentialed browser fallback.
+- Cast LoRA flywheel: Export → Train writes datasets under `PROMPT_DATA_DIR`, durable jobs in SQLite, register/pin into Comfy, and prove-it validation stills.
+- Runway as a first-class cloud engine (Gen-4 stills, Gen-4.5 T2V/I2V, Aleph continue).
+- Mobile Studio `/m` as a phone-first Capture → Moodboard → Fitting → Day → Play loop with Cut/Save to Cast.
+- Compose cloud identity: expanded multi-ref registry and honest face-ref vs prompt-identity paths.
+- Server plugins under `PROMPT_DATA_DIR/plugins` with privileged Comfy queue-preflight/post hooks and a richer iframe host protocol.
+- Fix gallery stitch CORS by resolving gallery/Comfy/cloud clip bytes in-process on the server.
 - Restyle and expand GitHub Pages docs for Prompt Studio.
+- Broad unit-test coverage sweep across `src/lib` (auth, film, gallery, engines, and more).
+- Maintenance: static-import `listUsers` in server user maintenance so CI mocks stay consistent; consolidate shared helpers and mega-file decompositions.
 
 ## [v1.4.21] - 2026-08-28
 
