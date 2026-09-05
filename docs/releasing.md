@@ -2,6 +2,8 @@
 
 Prompt Studio ships from **GitHub Releases** on `vX.Y.Z` tags. Each release publishes a container image to [GHCR](https://github.com/doodersrage/llm-prompt-studio/pkgs/container/llm-prompt-studio) and desktop installers (`.dmg`, `.exe`, `.deb`, `.AppImage`). See [Desktop app](desktop.md).
 
+Linux day-to-day: recommend the **`.deb`** (links system WebKitGTK). Ship the AppImage as the portable option; it embeds Ubuntu WebKit and is a better match on Ubuntu/Debian than on Arch/Fedora.
+
 The first tagged GitHub Release was [`Initial-Release`](https://github.com/doodersrage/llm-prompt-studio/releases/tag/Initial-Release) (July 2026). Later cuts use semver tags (`v0.2.0`, …) so notes and images stay comparable.
 
 ## Cut a release (preferred)

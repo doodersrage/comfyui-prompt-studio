@@ -4,7 +4,9 @@ A Next.js app that turns topics or keywords into model-specific prompts for imag
 
 **Docs:** [doodersrage.github.io/llm-prompt-studio](https://doodersrage.github.io/llm-prompt-studio/) · [source](docs/README.md)
 
-**Get it:** [GitHub Releases](https://github.com/doodersrage/llm-prompt-studio/releases) (macOS `.dmg`, Windows `.exe`, Linux `.deb`) · `docker pull ghcr.io/doodersrage/llm-prompt-studio:latest` · [how to cut a release](docs/releasing.md)
+**Get it:** [GitHub Releases](https://github.com/doodersrage/llm-prompt-studio/releases) (macOS `.dmg`, Windows `.exe`, Linux `.deb` preferred / `.AppImage` portable) · `docker pull ghcr.io/doodersrage/llm-prompt-studio:latest` · [how to cut a release](docs/releasing.md)
+
+On Linux, prefer the **`.deb`** (system WebKit, snappier UI). The AppImage is portable but embeds Ubuntu’s WebKit, so it can feel sluggish on Arch/Fedora and similar rolling distros — details in [docs/desktop.md](docs/desktop.md).
 
 **Clone:** `git clone https://github.com/doodersrage/llm-prompt-studio.git` (canonical repo; `comfyui-prompt-studio` redirects here)
 

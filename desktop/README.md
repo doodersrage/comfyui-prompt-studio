@@ -27,6 +27,8 @@ npm run desktop:build
 
 Installers land in `desktop/src-tauri/target/release/bundle/`.
 
+On Linux, `desktop:build` also runs `scripts/unbundle-appimage-wayland.sh` after the AppImage is produced (drop bundled `libwayland*`, stop forcing `GDK_BACKEND=x11`). Prefer shipping/using the **`.deb`** for day-to-day installs; the AppImage remains the portable artifact and feels best on Ubuntu-like hosts. See [docs/desktop.md](../docs/desktop.md).
+
 ## Data
 
 The app sets `PROMPT_DATA_DIR` to the OS app-data folder (Application Support / AppData / `~/.local/share/app.promptstudio.desktop`). Startup writes `desktop.log`; the Node child writes `server.log`. Desktop builds enable adult Roleplay ratings at compile time.

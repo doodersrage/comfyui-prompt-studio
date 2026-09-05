@@ -205,15 +205,11 @@ fn navigate_to_studio(app: &AppHandle, port: u16, first_launch: bool) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // WebKitGTK (via wry) aborts on many Linux hosts — especially NVIDIA / Wayland /
-    // AppImage — with "Could not create GBM EGL display". Disable the DMA-BUF
-    // renderer unless the user already set an explicit override.
-    #[cfg(target_os = "linux")]
-    {
-        if std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
-            std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
-        }
-    }
+    // AppImage packaging strips bundled libwayland* so host Mesa/EGL matches
+    // (see desktop/scripts/unbundle-appimage-wayland.sh). Do not default
+    // WEBKIT_DISABLE_DMABUF_RENDERER here — that forces software compositing
+    // and makes the shell feel sluggish. Users can still set it manually if
+    // a host still aborts with "Could not create GBM EGL display".
 
     tauri::Builder::default()
         .setup(|app| {

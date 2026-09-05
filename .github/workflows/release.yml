@@ -316,6 +316,8 @@ jobs:
         run: |
           set -euxo pipefail
           npx tauri build --bundles appimage --verbose
+          # Drop Ubuntu-bundled libwayland* so host Mesa/EGL match (DMA-BUF stays on).
+          bash scripts/unbundle-appimage-wayland.sh
 
       - name: Attach Linux AppImage
         if: runner.os == 'Linux'

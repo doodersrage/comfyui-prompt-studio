@@ -10,9 +10,11 @@ Prompt Studio can ship as a **Tauri** window on macOS, Windows, and Linux. The i
 | --- | --- |
 | macOS | `.dmg` |
 | Windows | `.exe` (NSIS) |
-| Linux | `.deb`, `.AppImage` |
+| Linux | `.deb` (preferred), `.AppImage` |
 
 Linux installers use the name `PromptStudio` (no space). The window title stays **Prompt Studio**.
+
+On Arch/Fedora/other rolling distros, prefer the **`.deb`**: it links your system WebKitGTK (GPU Skia). The AppImage bundles an older Ubuntu WebKit that often falls back to CPU painting and feels sluggish even when it launches cleanly.
 
 ## First launch
 
@@ -25,19 +27,27 @@ Adult Roleplay ratings and the Adult generator plugin are **on** in desktop buil
 
 If the window stays on “Starting the local server…”, the splash shows the error. Check `desktop.log` and `server.log` in the app-data folder (Linux: `~/.local/share/app.promptstudio.desktop`; macOS: `~/Library/Application Support/app.promptstudio.desktop`). The bundled Node binary is named `node-<target-triple>` (for example `node-aarch64-apple-darwin`); the server files live under `Contents/Resources/resources/server`.
 
-### Linux AppImage notes
+### Linux notes
 
-On some GPUs / Wayland sessions, WebKit aborts immediately with a black window and:
+**Prefer `.deb` for day-to-day use** (especially Arch/CachyOS/Fedora). It uses system
+`webkit2gtk-4.1`, which can keep Skia on the GPU (`SkiaGPUWorker`). Do **not** set
+`WEBKIT_DISABLE_DMABUF_RENDERER=1` unless the window is black — that forces software
+compositing and pegs a CPU core.
 
-`Could not create GBM EGL display`
+AppImages are for portable/distro-agnostic installs. Release builds:
 
-Prompt Studio sets `WEBKIT_DISABLE_DMABUF_RENDERER=1` automatically on Linux. If you are on an older build that still crashes, launch with:
+1. Un-bundle `libwayland-{client,cursor,egl,server}` (must match host Mesa).
+2. Stop forcing `GDK_BACKEND=x11` in the linuxdeploy GTK hook.
+
+That avoids `Could not create GBM EGL display` without the DMA-BUF disable hammer.
+The AppImage still ships Ubuntu’s WebKit, so UI chrome can remain heavier than the `.deb`
+on rolling distros.
+
+If an older AppImage black-screens:
 
 ```bash
 WEBKIT_DISABLE_DMABUF_RENDERER=1 ./PromptStudio_*.AppImage
 ```
-
-The `.deb` install uses system WebKit and is often more reliable on rolling distros.
 
 ## Local build
 

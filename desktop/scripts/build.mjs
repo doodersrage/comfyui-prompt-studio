@@ -44,3 +44,14 @@ if (bundles) {
   tauriArgs.push('--bundles', bundles);
 }
 run('npx', tauriArgs, desktopRoot);
+
+const wantsAppImage =
+  process.platform === 'linux' &&
+  (!bundles ||
+    String(bundles)
+      .split(',')
+      .map((part) => part.trim())
+      .includes('appimage'));
+if (wantsAppImage) {
+  run('bash', ['desktop/scripts/unbundle-appimage-wayland.sh'], repoRoot);
+}

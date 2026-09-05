@@ -9,6 +9,9 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+- Linux AppImage: un-bundle libwayland* and stop forcing GDK_BACKEND=x11 so host Mesa/EGL can use DMA-BUF without the slow WEBKIT_DISABLE_DMABUF_RENDERER hammer.
+- Docs: prefer Linux `.deb` (system WebKit/Skia GPU) over AppImage on rolling distros.
+
 ## [v1.5.4] - 2026-09-05
 
 - Fix Linux AppImage black-window crash by defaulting WEBKIT_DISABLE_DMABUF_RENDERER=1 before WebKit init.
