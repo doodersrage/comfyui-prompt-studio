@@ -7,10 +7,16 @@ mock.module('./clothing-tags', {
   namedExports: { buildClothingPickFilters, hintsFantasyWardrobe },
 });
 
-let pickRandomCharacterOutfitImpl = (_filters: unknown) => ({
+type OutfitPick = {
+  summary: string;
+  wardrobeId: string | null;
+  filters: { gender: 'women' | 'men' };
+};
+
+let pickRandomCharacterOutfitImpl = (_filters: unknown): OutfitPick => ({
   summary: 'red silk blouse',
   wardrobeId: 'wardrobe-1',
-  filters: { gender: 'women' as const },
+  filters: { gender: 'women' },
 });
 const pickRandomCharacterOutfit = mock.fn((filters: unknown) =>
   pickRandomCharacterOutfitImpl(filters)
@@ -36,7 +42,7 @@ describe('clothing-mutations', async () => {
     pickRandomCharacterOutfitImpl = () => ({
       summary: 'red silk blouse',
       wardrobeId: 'wardrobe-1',
-      filters: { gender: 'women' as const },
+      filters: { gender: 'women' },
     });
     buildClothingPickFilters.mock.resetCalls();
     hintsFantasyWardrobe.mock.resetCalls();
@@ -77,7 +83,7 @@ describe('clothing-mutations', async () => {
       pickRandomCharacterOutfitImpl = () => ({
         summary: '   ',
         wardrobeId: null,
-        filters: { gender: 'women' as const },
+        filters: { gender: 'women' },
       });
       assert.equal(resolveCatalogWardrobeMutation({ prompt: 'someone standing' }), null);
     });
@@ -115,7 +121,7 @@ describe('clothing-mutations', async () => {
       pickRandomCharacterOutfitImpl = () => ({
         summary: '',
         wardrobeId: null,
-        filters: { gender: 'women' as const },
+        filters: { gender: 'women' },
       });
       const result = buildCatalogAwareWardrobeMutationClause('someone');
       assert.match(result.clause, /Refresh wardrobe with a contrasting/);

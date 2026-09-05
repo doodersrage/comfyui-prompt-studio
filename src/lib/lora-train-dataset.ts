@@ -68,9 +68,9 @@ export function persistLoraDatasetFiles(input: PersistLoraDatasetInput): Persist
 
   const datasetId = sanitizeDatasetId(input.datasetId);
   const bucketName = kohyaDatasetBucketName(input.trigger ?? 'subject');
-  const root = path.join(datasetsRoot(), datasetId);
-  const bucketDir = path.join(root, bucketName);
-  fs.mkdirSync(bucketDir, { recursive: true });
+  const root = path.join(/* turbopackIgnore: true */ datasetsRoot(), datasetId);
+  const bucketDir = path.join(/* turbopackIgnore: true */ root, bucketName);
+  fs.mkdirSync(/* turbopackIgnore: true */ bucketDir, { recursive: true });
 
   let count = 0;
   const manifestEntries: Array<{
@@ -100,8 +100,12 @@ export function persistLoraDatasetFiles(input: PersistLoraDatasetInput): Persist
 
     const stem = filename.replace(/\.[^.]+$/, '');
     const captionFilename = `${stem}.txt`;
-    fs.writeFileSync(path.join(bucketDir, filename), buffer);
-    fs.writeFileSync(path.join(bucketDir, captionFilename), caption, 'utf8');
+    fs.writeFileSync(path.join(/* turbopackIgnore: true */ bucketDir, filename), buffer);
+    fs.writeFileSync(
+      path.join(/* turbopackIgnore: true */ bucketDir, captionFilename),
+      caption,
+      'utf8'
+    );
     manifestEntries.push({ imageFilename: filename, captionFilename, caption });
     count += 1;
   }
@@ -111,7 +115,7 @@ export function persistLoraDatasetFiles(input: PersistLoraDatasetInput): Persist
   }
 
   fs.writeFileSync(
-    path.join(root, 'manifest.json'),
+    path.join(/* turbopackIgnore: true */ root, 'manifest.json'),
     JSON.stringify(
       {
         exportedAt: new Date().toISOString(),

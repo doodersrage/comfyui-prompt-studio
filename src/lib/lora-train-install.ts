@@ -118,11 +118,14 @@ export function installTrainLoraIntoComfy(outputPath: string): InstallTrainLoraR
     filename,
   });
 
-  if (path.resolve(source) === path.resolve(destPath)) {
+  if (
+    path.resolve(/* turbopackIgnore: true */ source) ===
+    path.resolve(/* turbopackIgnore: true */ destPath)
+  ) {
     return { installed: true, filename, destPath, sourcePath: source };
   }
 
-  fs.mkdirSync(path.dirname(destPath), { recursive: true });
-  fs.copyFileSync(source, destPath);
+  fs.mkdirSync(path.dirname(/* turbopackIgnore: true */ destPath), { recursive: true });
+  fs.copyFileSync(/* turbopackIgnore: true */ source, /* turbopackIgnore: true */ destPath);
   return { installed: true, filename, destPath, sourcePath: source };
 }
