@@ -1,6 +1,6 @@
 # Releases
 
-Prompt Studio ships from **GitHub Releases** on `vX.Y.Z` tags. Each release publishes a container image to [GHCR](https://github.com/doodersrage/llm-prompt-studio/pkgs/container/llm-prompt-studio) and desktop installers (`.dmg`, `.exe`, `.deb`). See [Desktop app](desktop.md).
+Prompt Studio ships from **GitHub Releases** on `vX.Y.Z` tags. Each release publishes a container image to [GHCR](https://github.com/doodersrage/llm-prompt-studio/pkgs/container/llm-prompt-studio) and desktop installers (`.dmg`, `.exe`, `.deb`, `.AppImage`). See [Desktop app](desktop.md).
 
 The first tagged GitHub Release was [`Initial-Release`](https://github.com/doodersrage/llm-prompt-studio/releases/tag/Initial-Release) (July 2026). Later cuts use semver tags (`v0.2.0`, …) so notes and images stay comparable.
 

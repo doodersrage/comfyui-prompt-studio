@@ -10,7 +10,7 @@ Prompt Studio can ship as a **Tauri** window on macOS, Windows, and Linux. The i
 | --- | --- |
 | macOS | `.dmg` |
 | Windows | `.exe` (NSIS) |
-| Linux | `.deb` |
+| Linux | `.deb`, `.AppImage` |
 
 Linux installers use the name `PromptStudio` (no space). The window title stays **Prompt Studio**.
 

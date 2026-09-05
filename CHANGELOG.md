@@ -9,6 +9,9 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+- Ship a Linux `.AppImage` desktop artifact alongside `.deb` on GitHub Releases.
+- Fix clothing-mutations test typings and silence LoRA turbopack path-tracing warnings so `pnpm run build` typechecks cleanly.
+
 ## [v1.5.0] - 2026-09-05
 
 - Server film encode via `/api/film/assemble` (ffmpeg H.264/AAC) for Day, Roleplay Cut, and gallery stitch, with clearer errors and a credentialed browser fallback.
