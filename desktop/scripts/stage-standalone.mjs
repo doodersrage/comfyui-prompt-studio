@@ -17,15 +17,77 @@ async function vendorOnnxRuntimeNativeLibs() {
   // Next standalone tracing often copies onnxruntime_binding.node but omits sibling
   // libonnxruntime.so.* files. linuxdeploy then fails AppImage bundling with
   // "Could not find dependency: libonnxruntime.so.1".
-  const srcRoot = path.join(repoRoot, 'node_modules', 'onnxruntime-node', 'bin', 'napi-v6');
-  const destRoot = path.join(dest, 'node_modules', 'onnxruntime-node', 'bin', 'napi-v6');
-  try {
-    await stat(srcRoot);
-  } catch {
-    return;
+  // Only vendor the CPU runtime + napi binding — CUDA/TensorRT provider .so files
+  // pull libcublas and break AppImage packaging on CI runners without CUDA.
+  const platforms = [
+    ['linux', 'x64', ['onnxruntime_binding.node', 'libonnxruntime.so.1', 'libonnxruntime_providers_shared.so']],
+    ['linux', 'arm64', ['onnxruntime_binding.node', 'libonnxruntime.so.1', 'libonnxruntime_providers_shared.so']],
+    ['darwin', 'arm64', ['onnxruntime_binding.node', 'libonnxruntime.1.24.3.dylib']],
+    ['darwin', 'x64', ['onnxruntime_binding.node', 'libonnxruntime.1.24.3.dylib']],
+    ['win32', 'x64', ['onnxruntime_binding.node', 'onnxruntime.dll']],
+  ];
+  let copied = 0;
+  for (const [os, arch, files] of platforms) {
+    const srcDir = path.join(
+      repoRoot,
+      'node_modules',
+      'onnxruntime-node',
+      'bin',
+      'napi-v6',
+      os,
+      arch
+    );
+    const destDir = path.join(
+      dest,
+      'node_modules',
+      'onnxruntime-node',
+      'bin',
+      'napi-v6',
+      os,
+      arch
+    );
+    try {
+      await stat(srcDir);
+    } catch {
+      continue;
+    }
+    await mkdir(destDir, { recursive: true });
+    for (const file of files) {
+      const from = path.join(srcDir, file);
+      try {
+        await stat(from);
+      } catch {
+        continue;
+      }
+      await cp(from, path.join(destDir, file), { force: true });
+      copied += 1;
+    }
   }
-  await cp(srcRoot, destRoot, { recursive: true, force: true });
-  console.log('Vendored onnxruntime-node native libs into staged server');
+  if (copied > 0) {
+    console.log(`Vendored ${copied} onnxruntime-node CPU native file(s) into staged server`);
+  }
+
+  // Drop optional GPU provider plugins if standalone tracing pulled them in.
+  const gpuProviders = [
+    'libonnxruntime_providers_cuda.so',
+    'libonnxruntime_providers_tensorrt.so',
+    'onnxruntime_providers_cuda.dll',
+    'onnxruntime_providers_tensorrt.dll',
+  ];
+  for (const [os, arch] of [
+    ['linux', 'x64'],
+    ['linux', 'arm64'],
+    ['win32', 'x64'],
+  ]) {
+    const dir = path.join(dest, 'node_modules', 'onnxruntime-node', 'bin', 'napi-v6', os, arch);
+    for (const file of gpuProviders) {
+      try {
+        await rm(path.join(dir, file), { force: true });
+      } catch {
+        // ignore
+      }
+    }
+  }
 }
 
 async function main() {
