@@ -9,6 +9,8 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [v1.5.2] - 2026-09-05
+
 - Fix Linux AppImage packaging: vendor onnxruntime native libs into the desktop stage, set NO_STRIP/ARCH for linuxdeploy, and upload .deb even if AppImage fails.
 
 ## [v1.5.1] - 2026-09-05
