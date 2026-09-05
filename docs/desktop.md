@@ -23,7 +23,21 @@ Linux installers use the name `PromptStudio` (no space). The window title stays 
 
 Adult Roleplay ratings and the Adult generator plugin are **on** in desktop builds (`PROMPT_NSFW_GENERATOR_ENABLED` and `NEXT_PUBLIC_PROMPT_NSFW_GENERATOR_ENABLED`). Rebuild with those flags unset to ship a locked build. Web/Docker stays env-gated. See [configuration](configuration.md).
 
-If the window stays on “Starting the local server…”, the splash shows the error. Check `desktop.log` and `server.log` in the app-data folder (macOS: `~/Library/Application Support/app.promptstudio.desktop`). The bundled Node binary is named `node-<target-triple>` (for example `node-aarch64-apple-darwin`); the server files live under `Contents/Resources/resources/server`.
+If the window stays on “Starting the local server…”, the splash shows the error. Check `desktop.log` and `server.log` in the app-data folder (Linux: `~/.local/share/app.promptstudio.desktop`; macOS: `~/Library/Application Support/app.promptstudio.desktop`). The bundled Node binary is named `node-<target-triple>` (for example `node-aarch64-apple-darwin`); the server files live under `Contents/Resources/resources/server`.
+
+### Linux AppImage notes
+
+On some GPUs / Wayland sessions, WebKit aborts immediately with a black window and:
+
+`Could not create GBM EGL display`
+
+Prompt Studio sets `WEBKIT_DISABLE_DMABUF_RENDERER=1` automatically on Linux. If you are on an older build that still crashes, launch with:
+
+```bash
+WEBKIT_DISABLE_DMABUF_RENDERER=1 ./PromptStudio_*.AppImage
+```
+
+The `.deb` install uses system WebKit and is often more reliable on rolling distros.
 
 ## Local build
 
