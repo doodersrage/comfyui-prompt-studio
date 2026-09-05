@@ -9,6 +9,8 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [v1.5.1] - 2026-09-05
+
 - Ship a Linux `.AppImage` desktop artifact alongside `.deb` on GitHub Releases.
 - Fix clothing-mutations test typings and silence LoRA turbopack path-tracing warnings so `pnpm run build` typechecks cleanly.
 
