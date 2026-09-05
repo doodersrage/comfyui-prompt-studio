@@ -285,6 +285,11 @@ jobs:
 
       - name: Tauri build
         working-directory: desktop
+        env:
+          # linuxdeploy's bundled strip dies on modern ELF .relr.dyn sections (Ubuntu 22.04+ CI).
+          # Harmless on macOS/Windows. APPIMAGE_EXTRACT_AND_RUN avoids FUSE mounts for AppImages.
+          NO_STRIP: 'true'
+          APPIMAGE_EXTRACT_AND_RUN: '1'
         run: npx tauri build --bundles ${{ matrix.bundles }}
 
       - name: Attach installers
