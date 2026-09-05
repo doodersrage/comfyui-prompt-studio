@@ -204,21 +204,39 @@ describe('server-user-maintenance', async () => {
     assert.equal(result.campaignsRun, 0);
   });
 
-  it('runs the export loop as a real no-op when there are no stored users (listUsers is unmockable here)', async () => {
-    // The source reads export candidates via `const { listUsers } = await import('./auth/store')`
-    // — a call-time dynamic import of './auth/store', separate from the static import of
-    // `listUsersWithCampaigns`/`updateUserProfile` used above. Verified via real execution: even
-    // though './auth/store' IS mocked (and that mock reliably intercepts the static import), this
-    // test runtime's `mock.module()` does NOT intercept a *dynamic* `import()` of the same
-    // specifier — the real `listUsers` runs instead of the `listUsers` mock declared above, so
-    // `exportUsers` here has no effect. The real `listUsers()` deterministically returns an empty
-    // list in this test process (server storage / auth are not configured), so the export loop is
-    // exercised via its real, empty-list behavior: it runs, finds nothing, and writes nothing.
+  it('writes an export snapshot for users with exportEnabled and stored history/gallery', async () => {
+    // The source reads export candidates via `const { listUsers } = await import('./auth/store')`.
+    // `mock.module('./auth/store')` intercepts that dynamic import the same way it intercepts the
+    // static `listUsersWithCampaigns`/`updateUserProfile` imports, so `exportUsers` drives the loop.
     exportUsers = [{ id: 'u2', username: 'bob', exportEnabled: true }];
     storedByUser.set('u2:prompt-history', { entries: [1, 2] });
     const result = await runServerUserMaintenance();
+    assert.equal(result.exportsWritten, 1);
+    assert.equal(writeUserExportSnapshot.mock.calls.length, 1);
+    const [userId, username, payload] = writeUserExportSnapshot.mock.calls[0].arguments as [
+      string,
+      string,
+      { history: unknown; gallery: unknown },
+    ];
+    assert.equal(userId, 'u2');
+    assert.equal(username, 'bob');
+    assert.deepEqual(payload.history, { entries: [1, 2] });
+    assert.equal(payload.gallery, null);
+    assert.ok(listUsers.mock.callCount() >= 1);
+  });
+
+  it('skips export when the user has exportEnabled but no stored history or gallery', async () => {
+    exportUsers = [{ id: 'u3', username: 'cara', exportEnabled: true }];
+    const result = await runServerUserMaintenance();
     assert.equal(result.exportsWritten, 0);
     assert.equal(writeUserExportSnapshot.mock.calls.length, 0);
-    assert.equal(listUsers.mock.calls.length, 0);
+  });
+
+  it('skips export when exportEnabled is off even if storage exists', async () => {
+    exportUsers = [{ id: 'u4', username: 'dan', exportEnabled: false }];
+    storedByUser.set('u4:prompt-history', { entries: [9] });
+    const result = await runServerUserMaintenance();
+    assert.equal(result.exportsWritten, 0);
+    assert.equal(writeUserExportSnapshot.mock.calls.length, 0);
   });
 });
