@@ -9,6 +9,12 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+- Desktop: Arch-safe `.deb` install script (`desktop/scripts/install-from-deb.sh`); first launch auto-runs Heal & ready (`?heal=1`).
+- Cast LoRA flywheel: keeper strip, train progress bar, faster poll while running, Prove-it Gallery deep-link.
+- Play film: ffmpeg/assemble failures route through the queue failure playbook on Day, Roleplay, and mobile; e2e covers assemble 503.
+- Plugins: install denoise example to server, auto-sync after install, PROMPT_DATA_DIR readiness note.
+- Diffusers: stills-only (no longer labeled experimental); ensure-on-select via `/api/diffusers/ensure`.
+
 ## [v1.5.5] - 2026-09-05
 
 - Linux AppImage: un-bundle libwayland* and stop forcing GDK_BACKEND=x11 so host Mesa/EGL can use DMA-BUF without the slow WEBKIT_DISABLE_DMABUF_RENDERER hammer.

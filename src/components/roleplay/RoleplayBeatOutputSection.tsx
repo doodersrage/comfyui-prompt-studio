@@ -1,8 +1,9 @@
 'use client';
 
-import { Button } from '@/components/ui/Button';
+import { Button, ButtonLink } from '@/components/ui/Button';
 import { ChipButton, FieldError } from '@/components/ui/Field';
 import { ToolSection, accentFocusClass } from '@/components/ui/ToolPageShell';
+import { resolveQueueFailureGuideLabel } from '@/lib/queue-failure-playbook';
 import type { RoleplayBeatOutput } from '@/lib/roleplay-film';
 import type { RoleplayScene, RoleplayStoryPhase } from '@/lib/roleplay';
 
@@ -27,6 +28,7 @@ export type RoleplayBeatOutputSectionProps = {
   playingId: string | null;
   error: string | null;
   filmError: string | null | undefined;
+  filmGuideHref?: string | null;
   onRestartStory: () => void;
   onBeatOutputChange: (beatOutput: RoleplayBeatOutput) => void;
   onAutoQueueChange: (autoQueue: boolean) => void;
@@ -45,6 +47,7 @@ export default function RoleplayBeatOutputSection({
   playingId,
   error,
   filmError,
+  filmGuideHref,
   onRestartStory,
   onBeatOutputChange,
   onAutoQueueChange,
@@ -139,7 +142,21 @@ export default function RoleplayBeatOutputSection({
           ) : null}
         </>
       )}
-      {error || filmError ? <FieldError>{error || filmError}</FieldError> : null}
+      {error || filmError ? (
+        <div className="space-y-2">
+          <FieldError>{error || filmError}</FieldError>
+          {filmError && filmGuideHref ? (
+            <ButtonLink
+              href={filmGuideHref}
+              size="sm"
+              variant="ghost"
+              data-testid="film-failure-playbook-link"
+            >
+              {resolveQueueFailureGuideLabel(filmGuideHref)}
+            </ButtonLink>
+          ) : null}
+        </div>
+      ) : null}
     </ToolSection>
   );
 }

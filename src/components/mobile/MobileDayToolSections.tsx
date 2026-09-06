@@ -3,10 +3,14 @@
 import Link from 'next/link';
 import CharacterOsPicker from '@/components/CharacterOsPicker';
 import FilmWatchPlayer from '@/components/FilmWatchPlayer';
-import { Button, PrimaryButton } from '@/components/ui/Button';
+import { Button, ButtonLink, PrimaryButton } from '@/components/ui/Button';
 import { ChipButton, FieldError, FieldLabel, SelectInput, TextArea } from '@/components/ui/Field';
 import type { useDayPlannerToolOrchestration } from '@/hooks/useDayPlannerToolOrchestration';
 import { ROLEPLAY_SETTING_PRESETS } from '@/lib/roleplay';
+import {
+  resolveFilmFailurePlaybook,
+  resolveQueueFailureGuideLabel,
+} from '@/lib/queue-failure-playbook';
 import {
   countWardrobeOptionsForFilter,
   normalizeWardrobeCategoryFilter,
@@ -23,6 +27,7 @@ export default function MobileDayToolSections(vm: ViewModel) {
     updateToolSettings,
     error,
     setError,
+    filmGuideHref,
     busy,
     activeSlotId,
     setActiveSlotId,
@@ -50,6 +55,9 @@ export default function MobileDayToolSections(vm: ViewModel) {
     completedShotCount,
     fittingWardrobe,
   } = vm;
+
+  const playbookHref =
+    filmGuideHref ?? (error ? resolveFilmFailurePlaybook(error).href : undefined);
 
   return (
     <div className="space-y-4" data-testid="mobile-day">
@@ -325,6 +333,17 @@ export default function MobileDayToolSections(vm: ViewModel) {
       </div>
 
       <FieldError>{error}</FieldError>
+      {error && playbookHref ? (
+        <ButtonLink
+          href={playbookHref}
+          size="sm"
+          variant="ghost"
+          className="mt-2"
+          data-testid="film-failure-playbook-link"
+        >
+          {resolveQueueFailureGuideLabel(playbookHref)}
+        </ButtonLink>
+      ) : null}
     </div>
   );
 }

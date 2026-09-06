@@ -16,6 +16,8 @@ export type RoleplayStorySectionProps = {
   filmNeedsCast: boolean;
   filmCharacterId: string | null | undefined;
   filmStatus: string | null | undefined;
+  filmError?: string | null;
+  filmGuideHref?: string | null;
   downloadAction: ReactNode;
   onCutFilm: () => void;
   onSaveToCast: () => void;
@@ -38,6 +40,8 @@ export default function RoleplayStorySection({
   filmNeedsCast,
   filmCharacterId,
   filmStatus,
+  filmError,
+  filmGuideHref,
   downloadAction,
   onCutFilm,
   onSaveToCast,
@@ -70,6 +74,8 @@ export default function RoleplayStorySection({
         filmNeedsCast={filmNeedsCast}
         filmCharacterId={filmCharacterId}
         filmStatus={filmStatus}
+        filmError={filmError}
+        filmGuideHref={filmGuideHref}
         onCutFilm={onCutFilm}
         onSaveToCast={onSaveToCast}
       >

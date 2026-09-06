@@ -155,6 +155,8 @@ export default function RoleplayToolSections({
         filmNeedsCast={film.filmNeedsCast}
         filmCharacterId={film.filmCharacterId}
         filmStatus={film.filmStatus}
+        filmError={film.filmError}
+        filmGuideHref={film.filmGuideHref}
         downloadAction={
           <Button
             variant="secondary"
@@ -189,6 +191,7 @@ export default function RoleplayToolSections({
         playingId={sceneFlow.playingId}
         error={error}
         filmError={film.filmError}
+        filmGuideHref={film.filmGuideHref}
         onRestartStory={session.restartStory}
         onBeatOutputChange={next => updateToolSettings({ beatOutput: next })}
         onAutoQueueChange={next => updateToolSettings({ autoQueue: next })}

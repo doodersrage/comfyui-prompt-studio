@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  resolveFilmFailurePlaybook,
   resolveQueueFailureGuideLabel,
   resolveQueueFailureHref,
   resolveQueueFailurePlaybook,
 } from './queue-failure-playbook';
+import { settingsTabHref } from './settings-nav';
 
 describe('resolveQueueFailureHref', () => {
   it('routes missing custom nodes to workflow map', () => {
@@ -98,6 +100,29 @@ describe('resolveQueueFailureHref', () => {
       /workflow-map|comfyui/i
     );
   });
+
+  it('routes ffmpeg and film assemble failures to settings overview', () => {
+    assert.equal(
+      resolveQueueFailureHref('ffmpeg is missing on the server — install ffmpeg to encode films.'),
+      settingsTabHref('overview')
+    );
+    assert.equal(
+      resolveQueueFailureHref('Could not assemble the film — server film encode unavailable.'),
+      settingsTabHref('overview')
+    );
+    assert.equal(
+      resolveQueueFailureHref('Server film encode unavailable (HTTP 503).'),
+      settingsTabHref('overview')
+    );
+    assert.equal(
+      resolveQueueFailureHref('empty playlist — no completed shots for film assemble'),
+      settingsTabHref('overview')
+    );
+    assert.equal(
+      resolveQueueFailureHref('MediaRecorder fallback failed after empty playlist'),
+      settingsTabHref('overview')
+    );
+  });
 });
 
 describe('resolveQueueFailureGuideLabel', () => {
@@ -112,6 +137,25 @@ describe('resolveQueueFailureGuideLabel', () => {
       resolveQueueFailureGuideLabel('/settings?tab=comfyui&section=workflow-map'),
       'Workflow map'
     );
+    assert.equal(resolveQueueFailureGuideLabel(settingsTabHref('overview')), 'Open settings');
+  });
+});
+
+describe('resolveFilmFailurePlaybook', () => {
+  it('keeps the message and always supplies an overview href for film failures', () => {
+    const ffmpeg = resolveFilmFailurePlaybook(
+      'ffmpeg is missing on the server — install ffmpeg to encode films.'
+    );
+    assert.match(ffmpeg.message, /ffmpeg/i);
+    assert.equal(ffmpeg.href, settingsTabHref('overview'));
+
+    const generic = resolveFilmFailurePlaybook('Something opaque went wrong');
+    assert.equal(generic.message, 'Something opaque went wrong');
+    assert.equal(generic.href, settingsTabHref('overview'));
+
+    const empty = resolveFilmFailurePlaybook('   ');
+    assert.match(empty.message, /assemble/i);
+    assert.equal(empty.href, settingsTabHref('overview'));
   });
 });
 

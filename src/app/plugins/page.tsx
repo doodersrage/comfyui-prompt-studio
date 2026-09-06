@@ -30,6 +30,7 @@ import {
   savePluginOriginAllowlist,
 } from '@/lib/plugin-origin-allowlist';
 import queueRewriteExample from '../../../examples/queue-rewrite-plugin.json';
+import { settingsTabHref } from '@/lib/settings-nav';
 
 const EMPTY_FORM = {
   id: '',
@@ -65,6 +66,7 @@ export default function PluginsPage() {
   >([]);
   const [serverUrl, setServerUrl] = useState('');
   const [serverStatus, setServerStatus] = useState<string | null>(null);
+  const [serverOpenHref, setServerOpenHref] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   const [pageOrigin] = useState(() =>
     typeof window !== 'undefined' ? window.location.origin : '—'
@@ -85,7 +87,7 @@ export default function PluginsPage() {
       if (!response.ok) {
         setServerEnabled(false);
         setServerPlugins([]);
-        return;
+        return [];
       }
       const data = (await response.json()) as {
         enabled?: boolean;
@@ -96,10 +98,13 @@ export default function PluginsPage() {
       };
       setServerEnabled(data.enabled === true);
       setServerHmacRequired(data.hmacRequired === true);
-      setServerPlugins(Array.isArray(data.plugins) ? data.plugins : []);
+      const list = Array.isArray(data.plugins) ? data.plugins : [];
+      setServerPlugins(list);
+      return list;
     } catch {
       setServerEnabled(false);
       setServerPlugins([]);
+      return [];
     }
   }
 
@@ -358,8 +363,15 @@ export default function PluginsPage() {
       >
         {!serverEnabled ? (
           <p className="type-caption text-[var(--text-muted)]">
-            Set <code className="ui-inline-code">PROMPT_DATA_DIR</code> on the server to enable
-            install / sync. Optional{' '}
+            Server plugins need <code className="ui-inline-code">PROMPT_DATA_DIR</code> on the host.
+            See{' '}
+            <a
+              className="text-[var(--accent-text)] underline-offset-2 hover:underline"
+              href={settingsTabHref('overview')}
+            >
+              Settings overview
+            </a>{' '}
+            for heal / path readiness. Optional{' '}
             <code className="ui-inline-code">PROMPT_PLUGIN_HMAC_SECRET</code> requires{' '}
             <code className="ui-inline-code">X-Prompt-Plugin-Signature</code> on installs.
           </p>
@@ -388,6 +400,7 @@ export default function PluginsPage() {
                   void (async () => {
                     setServerError(null);
                     setServerStatus(null);
+                    setServerOpenHref(null);
                     try {
                       const response = await fetch('/api/plugins/server', {
                         method: 'POST',
@@ -405,7 +418,8 @@ export default function PluginsPage() {
                       }
                       setServerStatus(`Installed ${data.plugin?.label ?? 'plugin'} on server.`);
                       setServerUrl('');
-                      await refreshServerPlugins();
+                      const list = await refreshServerPlugins();
+                      syncServerPluginsToClient(list);
                     } catch (error) {
                       setServerError(error instanceof Error ? error.message : 'Install failed.');
                     }
@@ -428,6 +442,7 @@ export default function PluginsPage() {
                   void (async () => {
                     setServerError(null);
                     setServerStatus(null);
+                    setServerOpenHref(null);
                     try {
                       const form = new FormData();
                       form.set('action', 'install');
@@ -446,7 +461,8 @@ export default function PluginsPage() {
                         return;
                       }
                       setServerStatus(`Installed ${data.plugin?.label ?? file.name} on server.`);
-                      await refreshServerPlugins();
+                      const list = await refreshServerPlugins();
+                      syncServerPluginsToClient(list);
                     } catch (error) {
                       setServerError(error instanceof Error ? error.message : 'Upload failed.');
                     }
@@ -460,6 +476,58 @@ export default function PluginsPage() {
                 onClick={() => serverZipRef.current?.click()}
               >
                 Upload ZIP/JSON
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  void (async () => {
+                    setServerError(null);
+                    setServerStatus(null);
+                    setServerOpenHref(null);
+                    try {
+                      const response = await fetch('/api/plugins/server', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          action: 'install',
+                          manifest: queueRewriteExample,
+                        }),
+                      });
+                      const data = (await response.json()) as {
+                        error?: string;
+                        plugin?: PluginManifest;
+                      };
+                      if (!response.ok) {
+                        setServerError(data.error || `HTTP ${response.status}`);
+                        return;
+                      }
+                      const list = await refreshServerPlugins();
+                      syncServerPluginsToClient(list);
+                      const installed =
+                        data.plugin ?? list.find(entry => entry.id === 'queue-rewrite-denoise');
+                      const enabled = installed?.enabled !== false;
+                      setServerStatus(
+                        enabled
+                          ? `Installed ${installed?.label ?? 'denoise example'}.`
+                          : `Installed ${installed?.label ?? 'denoise example'} (disabled).`
+                      );
+                      if (enabled) {
+                        setServerOpenHref('/plugins/queue-rewrite-denoise');
+                      }
+                    } catch (error) {
+                      setServerError(
+                        error instanceof Error
+                          ? error.message
+                          : 'Could not install denoise example.'
+                      );
+                    }
+                  })();
+                }}
+              >
+                Install denoise example
               </Button>
               <Button
                 type="button"
@@ -491,7 +559,14 @@ export default function PluginsPage() {
               <p className="type-caption mt-2 text-[var(--tint-danger-text)]">{serverError}</p>
             ) : null}
             {serverStatus ? (
-              <p className="type-caption mt-2 text-[var(--text-secondary)]">{serverStatus}</p>
+              <p className="type-caption mt-2 flex flex-wrap items-center gap-2 text-[var(--text-secondary)]">
+                <span>{serverStatus}</span>
+                {serverOpenHref ? (
+                  <ButtonLink href={serverOpenHref} size="sm" variant="ghost">
+                    Open
+                  </ButtonLink>
+                ) : null}
+              </p>
             ) : null}
             {serverPlugins.length === 0 ? (
               <p className="type-caption mt-4 text-[var(--text-muted)]">

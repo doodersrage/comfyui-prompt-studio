@@ -75,6 +75,11 @@ export default function AppUpdateStatus() {
               View release
             </a>
           ) : null}
+          <p className="mt-2 type-caption text-[var(--tint-info-text)]/80">
+            Linux: prefer the <code className="ui-inline-code">.deb</code> and{' '}
+            <code className="ui-inline-code">desktop/scripts/install-from-deb.sh</code> on Arch so
+            system Node is not overwritten.
+          </p>
         </div>
       ) : state && !state.error ? (
         <p className="type-caption text-[var(--text-muted)]">You&rsquo;re on the latest version.</p>

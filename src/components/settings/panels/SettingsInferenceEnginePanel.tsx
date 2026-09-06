@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment } from 'react';
+import { Fragment, useState } from 'react';
 import type { SharedToolSettings } from '@/lib/settings-cache';
 import {
   CLOUD_ENGINE_OPTIONS,
@@ -34,6 +34,8 @@ export default function SettingsInferenceEnginePanel({
   sharedSettings,
   updateSharedSettings,
 }: SettingsInferenceEnginePanelProps) {
+  const [diffusersEnsureStatus, setDiffusersEnsureStatus] = useState<string | null>(null);
+
   return (
     <ToolSection
       id="settings-comfyui-inference-engine"
@@ -48,21 +50,65 @@ export default function SettingsInferenceEnginePanel({
           <select
             id="inference-engine"
             value={parseEngineId(sharedSettings.inferenceEngine) ?? 'comfyui'}
-            onChange={event =>
+            onChange={event => {
+              const next = normalizeEngineId(event.target.value);
               updateSharedSettings({
-                inferenceEngine: normalizeEngineId(event.target.value),
-              })
-            }
+                inferenceEngine: next,
+              });
+              if (next === 'diffusers') {
+                setDiffusersEnsureStatus('Ensuring Diffusers engine…');
+                void fetch('/api/diffusers/ensure', {
+                  method: 'POST',
+                  credentials: 'include',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    engineUrl: sharedSettings.diffusersApiUrl?.trim() || undefined,
+                    autoStart: sharedSettings.diffusersAutoStart !== false,
+                  }),
+                })
+                  .then(async response => {
+                    const data = (await response.json().catch(() => null)) as {
+                      ok?: boolean;
+                      started?: boolean;
+                      alreadyRunning?: boolean;
+                      error?: string;
+                    } | null;
+                    if (!response.ok) {
+                      setDiffusersEnsureStatus(
+                        data?.error || `Diffusers ensure failed (HTTP ${response.status}).`
+                      );
+                      return;
+                    }
+                    if (data?.alreadyRunning) {
+                      setDiffusersEnsureStatus('Diffusers already running.');
+                    } else if (data?.started) {
+                      setDiffusersEnsureStatus('Diffusers started.');
+                    } else {
+                      setDiffusersEnsureStatus('Diffusers ready.');
+                    }
+                  })
+                  .catch(error => {
+                    setDiffusersEnsureStatus(
+                      error instanceof Error ? error.message : 'Diffusers ensure failed.'
+                    );
+                  });
+              } else {
+                setDiffusersEnsureStatus(null);
+              }
+            }}
             className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 text-sm text-[var(--text-primary)] shadow-inner transition focus-visible:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
           >
             <option value="comfyui">ComfyUI (primary generate)</option>
-            <option value="diffusers">Diffusers (stills only · experimental)</option>
+            <option value="diffusers">Diffusers (stills only)</option>
             {CLOUD_ENGINE_OPTIONS.map(option => (
               <option key={option.id} value={option.id}>
                 {option.label}
               </option>
             ))}
           </select>
+          {diffusersEnsureStatus ? (
+            <p className="text-xs text-[var(--text-muted)]">{diffusersEnsureStatus}</p>
+          ) : null}
         </div>
         <div className="space-y-1">
           <label htmlFor="diffusers-url" className="text-xs text-[var(--text-secondary)]">
@@ -450,7 +496,7 @@ export default function SettingsInferenceEnginePanel({
       </div>
       <p className="text-xs text-[var(--text-muted)]">
         Default Generate uses ComfyUI (Dynamic VRAM / bf16 Lightning, Play film). Diffusers remains
-        available for stills-only experiments — run{' '}
+        available for stills only — run{' '}
         <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
           cd services/diffusers-engine && ./run.sh
         </code>{' '}

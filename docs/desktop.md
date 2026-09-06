@@ -16,6 +16,19 @@ Linux installers use the name `PromptStudio` (no space). The window title stays 
 
 On Arch/Fedora/other rolling distros, prefer the **`.deb`**: it links your system WebKitGTK (GPU Skia). The AppImage bundles an older Ubuntu WebKit that often falls back to CPU painting and feels sluggish even when it launches cleanly.
 
+### Install the `.deb` on Arch (without clobbering Node)
+
+Stock Tauri `.deb` packages also drop a Node sidecar at `/usr/bin/node`. Prefer the in-repo installer:
+
+```bash
+sudo ./desktop/scripts/install-from-deb.sh ~/Downloads/PromptStudio_*_amd64.deb
+prompt-studio
+```
+
+That installs under `/usr/lib/PromptStudio/` (binary + Node sidecar) and only symlinks `/usr/bin/prompt-studio`. Updates: Settings → Overview → Check for updates, then re-run the script with the new `.deb`.
+
+First desktop launch opens **Settings → ComfyUI → Connection** and auto-runs **Heal & ready** (`?heal=1`).
+
 ## First launch
 
 1. Open the app. The first launch goes to **Settings → ComfyUI → Connection**.

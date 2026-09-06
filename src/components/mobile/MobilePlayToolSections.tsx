@@ -4,7 +4,7 @@ import Link from 'next/link';
 import RoleplayBibleEditor from '@/components/RoleplayBibleEditor';
 import RoleplayLibraryPanel from '@/components/RoleplayLibraryPanel';
 import RoleplayStoryReel from '@/components/RoleplayStoryReel';
-import { Button, PrimaryButton } from '@/components/ui/Button';
+import { Button, ButtonLink, PrimaryButton } from '@/components/ui/Button';
 import { ChipButton, FieldError, TextInput } from '@/components/ui/Field';
 import type { useMobilePlayToolOrchestration } from '@/hooks/useMobilePlayToolOrchestration';
 import {
@@ -13,6 +13,7 @@ import {
   MAX_ROLEPLAY_CHARACTER_NAME,
 } from '@/lib/roleplay';
 import { roleplayPatchFromPlate } from '@/lib/mobile-studio';
+import { resolveQueueFailureGuideLabel } from '@/lib/queue-failure-playbook';
 import {
   DEFAULT_MOBILE_STUDIO_TOOL_CACHE,
   loadToolSettings,
@@ -49,6 +50,7 @@ export default function MobilePlayToolSections({ description: _description, ...v
     cutRoleplayFilm,
     saveFilmToCast,
     filmError,
+    filmGuideHref,
     hasReferenceImage,
     writeBio,
     applyOwnBible,
@@ -391,7 +393,21 @@ export default function MobilePlayToolSections({ description: _description, ...v
         </details>
       </div>
 
-      <FieldError>{error || filmError}</FieldError>
+      {error || filmError ? (
+        <div className="space-y-2">
+          <FieldError>{error || filmError}</FieldError>
+          {filmError && filmGuideHref ? (
+            <ButtonLink
+              href={filmGuideHref}
+              size="sm"
+              variant="ghost"
+              data-testid="film-failure-playbook-link"
+            >
+              {resolveQueueFailureGuideLabel(filmGuideHref)}
+            </ButtonLink>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

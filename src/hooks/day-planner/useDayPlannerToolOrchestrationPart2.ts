@@ -63,6 +63,7 @@ import { buildRoleplayQueueStillOptions } from '@/lib/roleplay-play-core';
 import { isGalleryClipEntry } from '@/lib/roleplay-film';
 import { resolvePreferredVideoModel } from '@/lib/queue-tool-model';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
+import { resolveFilmFailurePlaybook } from '@/lib/queue-failure-playbook';
 import {
   DEFAULT_DAY_TOOL_CACHE,
   DEFAULT_VIDEO_TOOL_CACHE,
@@ -97,6 +98,7 @@ export function useDayPlannerToolOrchestrationPart2(ctx: DayPlannerToolOrchestra
     setCopied,
     error,
     setError,
+    setFilmGuideHref,
     busy,
     activeSlotId,
     setActiveSlotId,
@@ -247,12 +249,14 @@ export function useDayPlannerToolOrchestrationPart2(ctx: DayPlannerToolOrchestra
   const cutDayFilm = useCallback(async () => {
     const shots = dayWatchPlaylist(stillsRef.current, slots);
     if (shots.length === 0) {
+      setFilmGuideHref(null);
       setError('Queue and wait for at least one completed slot still before cutting a film.');
       return;
     }
     const name = character?.name?.trim() || 'day';
     setAssemblingFilm(true);
     setError(null);
+    setFilmGuideHref(null);
     setFilmNeedsCast(false);
     setFilmStatus('Checking shots…');
     try {
@@ -295,12 +299,16 @@ export function useDayPlannerToolOrchestrationPart2(ctx: DayPlannerToolOrchestra
         completePlayCampaign({ characterId: character.id });
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not assemble the film.');
+      const playbook = resolveFilmFailurePlaybook(
+        err instanceof Error ? err.message : 'Could not assemble the film.'
+      );
+      setError(playbook.message);
+      setFilmGuideHref(playbook.href ?? null);
       setFilmStatus(null);
     } finally {
       setAssemblingFilm(false);
     }
-  }, [character, shared.activeLookId, slots]);
+  }, [character, shared.activeLookId, setFilmGuideHref, slots]);
 
   const saveFilmToCast = useCallback(() => {
     if (!character) {

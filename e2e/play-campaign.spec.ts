@@ -1000,3 +1000,80 @@ test('completed campaign offers Cast watch and cut-another Day CTAs', async ({ p
   );
   await expect(page.getByTestId('play-campaign-start-new')).toBeVisible();
 });
+
+test('day cut film shows playbook when film assemble returns ffmpeg 503', async ({ page }) => {
+  const tinyPng =
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+
+  await page.route('**/api/film/assemble**', async route => {
+    const method = route.request().method();
+    if (method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true, available: true, encoder: 'ffmpeg' }),
+      });
+      return;
+    }
+    if (method === 'POST') {
+      await route.fulfill({
+        status: 503,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          error: 'ffmpeg is missing on the server — install ffmpeg to encode films.',
+        }),
+      });
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.addInitScript(({ png }) => {
+    window.localStorage.setItem(
+      'comfy-prompt-characters-v1',
+      JSON.stringify({
+        version: 1,
+        characters: [
+          {
+            id: 'e2e-film-fail',
+            name: 'Film Fail',
+            version: 1,
+            updatedAt: Date.now(),
+            descriptor: 'cut look',
+          },
+        ],
+        removedIds: [],
+      })
+    );
+    window.localStorage.setItem(
+      'comfy-prompt-tool-settings-v1',
+      JSON.stringify({
+        shared: { activeCharacterId: 'e2e-film-fail' },
+        tools: {
+          day: {
+            notes: '',
+            stills: [
+              {
+                slotId: 'morning',
+                status: 'completed',
+                imageUrl: png,
+              },
+            ],
+          },
+        },
+      })
+    );
+  }, { png: tinyPng });
+
+  await gotoStable(page, '/day?character=e2e-film-fail');
+  await dismissBlockingOverlays(page);
+  const cutBtn = page.getByRole('button', { name: /Cut film/i });
+  await expect(cutBtn).toBeVisible({ timeout: 30_000 });
+  await expect(cutBtn).toBeEnabled({ timeout: 10_000 });
+  await cutBtn.click();
+  await expect(page.getByText(/ffmpeg is missing/i)).toBeVisible({ timeout: 30_000 });
+  const playbook = page.getByTestId('film-failure-playbook-link');
+  await expect(playbook).toBeVisible();
+  await expect(playbook).toHaveAttribute('href', /\/settings/);
+  await expect(playbook).toContainText(/settings|Heal|overview/i);
+});

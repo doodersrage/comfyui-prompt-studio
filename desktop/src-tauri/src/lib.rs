@@ -187,8 +187,9 @@ fn spawn_standalone(app: &AppHandle, port: u16, data_dir: &Path) -> Result<Child
 }
 
 fn navigate_to_studio(app: &AppHandle, port: u16, first_launch: bool) {
+    // heal=1 auto-starts Heal & ready once the connection panel mounts.
     let path = if first_launch {
-        "/settings?tab=comfyui&section=connection"
+        "/settings?tab=comfyui&section=connection&heal=1"
     } else {
         "/"
     };

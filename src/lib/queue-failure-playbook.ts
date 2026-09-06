@@ -14,13 +14,22 @@ export function resolveQueueFailureHref(message: string): string | undefined {
     return undefined;
   }
   if (
+    /ffmpeg/i.test(text) ||
+    /film\/assemble|film assemble|assemble.*film|could not assemble/i.test(text) ||
+    /server film encode|MediaRecorder fallback|shot fetch|empty playlist|no completed shots/i.test(
+      text
+    )
+  ) {
+    return settingsTabHref('overview');
+  }
+  if (
     /diffusers/i.test(text) &&
     /(failed|unsupported|unavailable|refused|ECONNREFUSED|timeout)/i.test(text)
   ) {
     return settingsComfyUiSectionHref('inference-engine');
   }
   if (
-    /fal|replicate|openai|gemini|grok|cloud engine/i.test(text) &&
+    /\bfal\b|replicate|openai|gemini|grok|cloud engine/i.test(text) &&
     /(fail|unauthorized|api key|unknown|refused|timeout)/i.test(text)
   ) {
     return settingsComfyUiSectionHref('inference-engine');
@@ -121,10 +130,22 @@ export function resolveQueueFailureGuideLabel(href: string): string {
   if (/[?&]tab=data\b|\/settings.*data/i.test(path)) {
     return 'Data & storage';
   }
+  if (/[?&]tab=overview\b|\/settings(\?|$)/i.test(path) && /overview/i.test(path)) {
+    return 'Heal & overview';
+  }
   if (/settings/i.test(path)) {
     return 'Open settings';
   }
   return 'Open fix guide';
+}
+
+/** Film cut / assemble failures (Day, Roleplay, mobile) share queue playbook CTAs. */
+export function resolveFilmFailurePlaybook(message: string): QueueFailurePlaybook {
+  const trimmed = message.trim() || 'Could not assemble the film.';
+  return {
+    message: trimmed,
+    href: resolveQueueFailureHref(trimmed) ?? settingsTabHref('overview'),
+  };
 }
 
 /** Prefer structured issue hrefs; fall back to message heuristics. */

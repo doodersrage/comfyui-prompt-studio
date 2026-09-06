@@ -300,7 +300,7 @@ export async function registerCharacterLookLora(input: {
 export async function queueCharacterLookValidation(input: {
   character: CharacterRecord;
   trigger?: string;
-}): Promise<{ prompt: string; queued: boolean }> {
+}): Promise<{ prompt: string; queued: boolean; promptId: string | null }> {
   const trigger = input.trigger?.trim() || loraTriggerFromCharacter(input.character) || 'subject';
   const prompt = buildLoraTrainValidationPrompt(trigger);
   saveSharedSettings({
@@ -357,5 +357,5 @@ export async function queueCharacterLookValidation(input: {
     });
   }
   queued.releaseLiveSocket();
-  return { prompt, queued: ok };
+  return { prompt, queued: ok, promptId: ok ? (result?.promptId ?? null) : null };
 }

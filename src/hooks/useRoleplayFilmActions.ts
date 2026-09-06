@@ -29,6 +29,7 @@ import {
   saveSharedSettings,
   type RoleplayToolCache,
 } from '@/lib/settings-cache';
+import { resolveFilmFailurePlaybook } from '@/lib/queue-failure-playbook';
 import type { RoleplayStoryBeat } from '@/lib/roleplay';
 
 export function useRoleplayFilmActions(input: {
@@ -42,10 +43,12 @@ export function useRoleplayFilmActions(input: {
   const [filmCharacterId, setFilmCharacterId] = useState<string | null>(null);
   const assembledFilmRef = useRef<{ filename: string; data: Uint8Array } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [filmGuideHref, setFilmGuideHref] = useState<string | null>(null);
 
   const cutRoleplayFilm = useCallback(async () => {
     const shots = roleplayWatchPlaylist(input.storyRef.current);
     if (shots.length === 0) {
+      setFilmGuideHref(null);
       setError('Need a completed still or clip before cutting a film.');
       return;
     }
@@ -64,6 +67,7 @@ export function useRoleplayFilmActions(input: {
     }
     setAssemblingFilm(true);
     setError(null);
+    setFilmGuideHref(null);
     setFilmNeedsCast(false);
     setFilmStatus('Checking shots…');
     try {
@@ -109,7 +113,11 @@ export function useRoleplayFilmActions(input: {
         completePlayCampaign({ characterId: character.id });
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not assemble the film.');
+      const playbook = resolveFilmFailurePlaybook(
+        err instanceof Error ? err.message : 'Could not assemble the film.'
+      );
+      setError(playbook.message);
+      setFilmGuideHref(playbook.href ?? null);
       setFilmStatus(null);
     } finally {
       setAssemblingFilm(false);
@@ -171,7 +179,11 @@ export function useRoleplayFilmActions(input: {
     cutRoleplayFilm,
     saveFilmToCast,
     filmError: error,
+    filmGuideHref,
     assembledFilmRef,
-    clearFilmError: () => setError(null),
+    clearFilmError: () => {
+      setError(null);
+      setFilmGuideHref(null);
+    },
   };
 }

@@ -23,6 +23,7 @@ import {
   accentFocusClass,
 } from '@/components/ui/ToolPageShell';
 import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
+import { resolveQueueFailureGuideLabel } from '@/lib/queue-failure-playbook';
 import { ROLEPLAY_SETTING_PRESETS } from '@/lib/roleplay';
 import {
   countWardrobeOptionsForFilter,
@@ -50,6 +51,7 @@ export default function DayPlannerToolSections({ description, ...vm }: Props) {
     setCopied,
     error,
     setError,
+    filmGuideHref,
     busy,
     activeSlotId,
     setActiveSlotId,
@@ -425,7 +427,21 @@ export default function DayPlannerToolSections({ description, ...vm }: Props) {
           Continue in Roleplay
         </Button>
       </ToolActionRow>
-      {error ? <FieldError>{error}</FieldError> : null}
+      {error ? (
+        <div className="space-y-2">
+          <FieldError>{error}</FieldError>
+          {filmGuideHref ? (
+            <ButtonLink
+              href={filmGuideHref}
+              size="sm"
+              variant="ghost"
+              data-testid="film-failure-playbook-link"
+            >
+              {resolveQueueFailureGuideLabel(filmGuideHref)}
+            </ButtonLink>
+          ) : null}
+        </div>
+      ) : null}
 
       <ScenePromptResultPanel
         output={output}

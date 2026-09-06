@@ -86,6 +86,7 @@ export function useDayPlannerToolOrchestrationCore() {
   const [output, setOutput] = useState('');
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [filmGuideHref, setFilmGuideHref] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [activeSlotId, setActiveSlotId] = useState<DaySlotId>('morning');
   const [wardrobeLabels, setWardrobeLabels] = useState<Record<string, string>>({});
@@ -412,6 +413,8 @@ export function useDayPlannerToolOrchestrationCore() {
     setCopied,
     error,
     setError,
+    filmGuideHref,
+    setFilmGuideHref,
     busy,
     activeSlotId,
     setActiveSlotId,

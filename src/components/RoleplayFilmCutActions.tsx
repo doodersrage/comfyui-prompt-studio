@@ -2,6 +2,8 @@
 
 import type { ReactNode } from 'react';
 import { Button, ButtonLink } from '@/components/ui/Button';
+import { FieldError } from '@/components/ui/Field';
+import { resolveQueueFailureGuideLabel } from '@/lib/queue-failure-playbook';
 
 export type RoleplayFilmCutActionsProps = {
   assemblingFilm: boolean;
@@ -10,6 +12,8 @@ export type RoleplayFilmCutActionsProps = {
   filmNeedsCast: boolean;
   filmCharacterId: string | null | undefined;
   filmStatus: string | null | undefined;
+  filmError?: string | null;
+  filmGuideHref?: string | null;
   onCutFilm: () => void;
   onSaveToCast: () => void;
   /** Optional leading controls (e.g. Download story) kept in the same flex row. */
@@ -23,6 +27,8 @@ export default function RoleplayFilmCutActions({
   filmNeedsCast,
   filmCharacterId,
   filmStatus,
+  filmError,
+  filmGuideHref,
   onCutFilm,
   onSaveToCast,
   children,
@@ -87,6 +93,21 @@ export default function RoleplayFilmCutActions({
         ) : null}
       </div>
       {filmStatus ? <p className="type-caption text-[var(--text-muted)]">{filmStatus}</p> : null}
+      {filmError ? (
+        <div className="mt-2 space-y-2">
+          <FieldError>{filmError}</FieldError>
+          {filmGuideHref ? (
+            <ButtonLink
+              href={filmGuideHref}
+              size="sm"
+              variant="ghost"
+              data-testid="film-failure-playbook-link"
+            >
+              {resolveQueueFailureGuideLabel(filmGuideHref)}
+            </ButtonLink>
+          ) : null}
+        </div>
+      ) : null}
     </>
   );
 }

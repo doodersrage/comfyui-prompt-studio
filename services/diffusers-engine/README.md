@@ -22,6 +22,19 @@ Optional **stills-only** FastAPI companion for Prompt Studio (txt2img + limited 
 
 Default listen URL: `http://127.0.0.1:8190`
 
+## Stills graduation
+
+Diffusers is a **stills-only** engine in Settings (label: “Diffusers (stills only)” — not experimental). Smoke-check mock health before wiring Studio:
+
+```bash
+DIFFUSERS_MOCK=1 ./run.sh
+# elsewhere:
+curl -s http://127.0.0.1:8190/v1/health
+# expect { "ok": true, "mock": true, ... }
+```
+
+Then pick Diffusers in Settings → Inference engine (auto-start / `/api/diffusers/ensure` can spawn the sidecar for localhost URLs).
+
 ## Quick start (mock, no GPU / no model download)
 
 Keep the Python venv **outside** this repo (Next.js/Turbopack panics if it walks

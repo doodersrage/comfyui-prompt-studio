@@ -98,6 +98,7 @@ export function useMobilePlayToolOrchestrationCore() {
     cutRoleplayFilm,
     saveFilmToCast,
     filmError,
+    filmGuideHref,
   } = useRoleplayFilmActions({
     toolSettings,
     storyRef,
@@ -472,6 +473,7 @@ export function useMobilePlayToolOrchestrationCore() {
     cutRoleplayFilm,
     saveFilmToCast,
     filmError,
+    filmGuideHref,
     actions,
     beatQueue,
     requestBody,

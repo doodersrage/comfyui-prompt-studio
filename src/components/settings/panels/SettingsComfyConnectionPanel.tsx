@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import SettingsConnectionFirstRun from '@/components/settings/SettingsConnectionFirstRun';
 import QueueExportSettingsPanel from '@/components/settings/QueueExportSettingsPanel';
 import { ToolSection } from '@/components/ui/ToolPageShell';
@@ -11,6 +12,7 @@ import { SettingsComfyConnectionAutoImproveSection } from '@/components/settings
 import { SettingsComfyConnectionQueueAutomationSection } from '@/components/settings/panels/sections/SettingsComfyConnectionQueueAutomationSection';
 import { SettingsComfyConnectionActionsFooter } from '@/components/settings/panels/sections/SettingsComfyConnectionActionsFooter';
 import type { SettingsComfyConnectionPanelProps } from '@/components/settings/panels/settings-comfy-connection-types';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 
 export type { SettingsComfyConnectionPanelProps } from '@/components/settings/panels/settings-comfy-connection-types';
 
@@ -49,6 +51,24 @@ export default function SettingsComfyConnectionPanel(props: SettingsComfyConnect
     removeCustomToken,
     handleComfyUiSectionJump,
   } = props;
+
+  const autoHealStarted = useRef(false);
+  useEffect(() => {
+    if (!handleHealAndReady || autoHealStarted.current || typeof window === 'undefined') {
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('heal') !== '1') {
+      return;
+    }
+    autoHealStarted.current = true;
+    params.delete('heal');
+    const next = `${window.location.pathname}?${params.toString()}`.replace(/\?$/, '');
+    window.history.replaceState(null, '', next);
+    scheduleAfterCommit(() => {
+      void handleHealAndReady();
+    });
+  }, [handleHealAndReady]);
 
   return (
     <ToolSection id="settings-comfyui-connection" title="ComfyUI connection & injection">
